@@ -1,0 +1,3 @@
+Which project uses fractal antisymmetric memory?	ProjectA
+Which project is the global AGI life assistant?	ProjectB
+Which project uses operator-split dynamics?	ProjectC
