@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+
+  /* global cursor position (updated by FaimShell) */
+  --cx: 50%;
+  --cy: 35%;
+
+  /* neon palette */
+  --bg0: #050b14;
+  --bg1: rgba(6, 13, 26, 0.92);
+
+  --cyan: 34 211 238;   /* tailwind cyan-400 */
+  --violet: 168 85 247; /* purple-500 */
+  --white: 255 255 255;
+}
+
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
+
+body {
+  background: var(--bg0);
+  color: rgb(226 232 240);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* global “alive” background (cursor-follow glow + subtle grid) */
+.faim-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+
+  background:
+    radial-gradient(900px 520px at var(--cx) var(--cy),
+      rgba(var(--cyan) / 0.16),
+      transparent 62%),
+    radial-gradient(820px 520px at calc(var(--cx) + 18%) calc(var(--cy) + 10%),
+      rgba(var(--violet) / 0.10),
+      transparent 60%),
+    radial-gradient(900px 620px at 20% 90%,
+      rgba(var(--cyan) / 0.08),
+      transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.02), transparent 22%);
+
+  /* subtle grid */
+  mask-image: linear-gradient(180deg, black 72%, transparent 100%);
+}
+
+.faim-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  background-image:
+    linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mix-blend-mode: screen;
+}
+
+/* standard glass surface */
+.faim-surface {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  backdrop-filter: blur(10px);
+}
+
+/* cards/panels that also react to cursor */
+.faim-panel {
+  background:
+    radial-gradient(420px 240px at var(--cx) var(--cy),
+      rgba(var(--cyan) / 0.10),
+      transparent 60%),
+    rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.10);
+  backdrop-filter: blur(10px);
+}
+
+/* one true divider line */
+.faim-divider {
+  position: relative;
+}
+.faim-divider::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -1px;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    rgba(var(--cyan) / 0.18),
+    rgba(255,255,255,0.06),
+    rgba(var(--violet) / 0.14)
+  );
+  opacity: 1;
+}
+
+/* link color */
+a {
+  color: rgb(34 211 238);
+}
+a:hover {
+  color: rgb(103 232 249);
+}
