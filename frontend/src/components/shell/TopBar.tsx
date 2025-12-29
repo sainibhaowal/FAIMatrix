@@ -64,22 +64,22 @@ function resolveUniverseIdOnce(timeoutMs = 2500): Promise<string | null> {
         if (u.startsWith('U:')) {
           try {
             window.localStorage.setItem(LS_UNIVERSE_KEY, u);
-          } catch {}
+          } catch { }
           safeResolve(u);
         } else {
           safeResolve(null);
         }
-        try { stop(); } catch {}
+        try { stop(); } catch { }
       },
       onError: () => {
         safeResolve(null);
-        try { stop(); } catch {}
+        try { stop(); } catch { }
       },
     });
 
     window.setTimeout(() => {
       safeResolve(null);
-      try { stop(); } catch {}
+      try { stop(); } catch { }
     }, timeoutMs);
   });
 }
@@ -258,7 +258,7 @@ function Dropdown({
     <div
       ref={panelRef}
       className={cx(
-        'absolute right-0 mt-2 w-[320px] rounded-2xl border border-white/10 bg-slate-950/70 backdrop-blur-xl shadow-[0_20px_60px_-28px_rgba(0,0,0,0.9)]',
+        'absolute right-0 mt-2 w-[320px] rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur-xl shadow-[0_20px_60px_-28px_rgba(0,0,0,0.9)]',
         className,
       )}
     >
@@ -530,7 +530,7 @@ export function TopBar({
 
       const idToShow =
         universe ?? (effectiveGraphId.startsWith('U:') ? effectiveGraphId : 'U:(resolving)');
- 
+
       setGraphs([{ id: idToShow, name: 'Universe' }]);
       setGraphsLoaded(true);
 
@@ -659,7 +659,7 @@ export function TopBar({
         headers: { 'Content-Type': 'application/json', ...buildFaimHeaders() },
         body: JSON.stringify({ name: name.trim() }),
       });
-    } catch {}
+    } catch { }
   };
 
   const duplicateWorkspace = async (g: GraphSummary) => {
@@ -679,7 +679,7 @@ export function TopBar({
         headers: { 'Content-Type': 'application/json', ...buildFaimHeaders() },
         body: JSON.stringify({ name }),
       });
-    } catch {}
+    } catch { }
   };
 
   const deleteWorkspace = async (g: GraphSummary) => {
@@ -696,7 +696,7 @@ export function TopBar({
       if (!isRemoteApiBase()) return;
       const base = (API_BASE_URL || '').trim().replace(/\/+$/, '');
       await fetch(`${base}/graphs/${encodeURIComponent(g.id)}`, { method: 'DELETE', headers: buildFaimHeaders() });
-    } catch {}
+    } catch { }
   };
 
   return (
@@ -742,14 +742,8 @@ export function TopBar({
               className="left-0 right-auto w-[360px]"
             >
               <div className="p-3">
-                <div className="mb-2 flex items-center justify-between">
+                <div className="mb-2">
                   <div className="text-[11px] font-semibold text-slate-200">Workspaces</div>
-                  <button
-                    onClick={createWorkspace}
-                    className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-200 hover:bg-white/10"
-                  >
-                    + New
-                  </button>
                 </div>
 
                 <div className="mb-2 text-[10px] text-slate-500">
@@ -787,15 +781,12 @@ export function TopBar({
                                 </button>
                                 <button
                                   className="rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] text-slate-200 hover:bg-white/10"
-                                  onClick={() => duplicateWorkspace(g)}
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(g.id);
+                                    alert(`Copied ID: ${g.id}`);
+                                  }}
                                 >
-                                  Copy
-                                </button>
-                                <button
-                                  className="rounded-lg border border-rose-500/20 bg-rose-500/10 px-2 py-1 text-[10px] text-rose-200 hover:bg-rose-500/15"
-                                  onClick={() => deleteWorkspace(g)}
-                                >
-                                  Delete
+                                  Copy ID
                                 </button>
                               </div>
                             </div>
@@ -976,7 +967,7 @@ export function TopBar({
                       }}
                       className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
                     >
-                    API Keys (FAIM)
+                      API Keys (FAIM)
                     </button>
                     <button
                       onClick={() => {

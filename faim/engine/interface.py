@@ -76,6 +76,13 @@ def record_node_created(graph_id: str, node_id: str, ts: Optional[float] = None)
         else:
             ca = prev.created_at if prev.created_at is not None else t
             g[node_id] = NodeMeta(created_at=ca, last_used_at=t, use_count=max(1, prev.use_count))
+            
+    # Emit event for real-time subscribers (e.g. WebSockets)
+    try:
+        from faim.core.events import emit_node_created
+        emit_node_created(graph_id, node_id, t)
+    except Exception:
+        pass
 
 
 def record_node_used(graph_id: str, node_id: str, ts: Optional[float] = None, inc: int = 1) -> None:

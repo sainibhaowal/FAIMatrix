@@ -5,20 +5,19 @@
 :root {
   color-scheme: dark;
 
-  /* global cursor position (updated by FaimShell) */
-  --cx: 50%;
-  --cy: 35%;
-
   /* neon palette */
   --bg0: #050b14;
   --bg1: rgba(6, 13, 26, 0.92);
 
-  --cyan: 34 211 238;   /* tailwind cyan-400 */
-  --violet: 168 85 247; /* purple-500 */
+  --cyan: 34 211 238;
+  /* tailwind cyan-400 */
+  --violet: 168 85 247;
+  /* purple-500 */
   --white: 255 255 255;
 }
 
-html, body {
+html,
+body {
   height: 100%;
   overflow-x: hidden;
   overflow-x: clip;
@@ -32,7 +31,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* global “alive” background (cursor-follow glow + subtle grid) */
+/* global background - static glow (no cursor tracking) */
 .faim-bg {
   position: fixed;
   inset: 0;
@@ -40,16 +39,16 @@ body {
   z-index: 0;
 
   background:
-    radial-gradient(900px 520px at var(--cx) var(--cy),
-      rgba(var(--cyan) / 0.16),
+    radial-gradient(900px 520px at 50% 35%,
+      rgba(var(--cyan) / 0.12),
       transparent 62%),
-    radial-gradient(820px 520px at calc(var(--cx) + 18%) calc(var(--cy) + 10%),
-      rgba(var(--violet) / 0.10),
+    radial-gradient(820px 520px at 68% 45%,
+      rgba(var(--violet) / 0.08),
       transparent 60%),
     radial-gradient(900px 620px at 20% 90%,
       rgba(var(--cyan) / 0.08),
       transparent 60%),
-    linear-gradient(180deg, rgba(255,255,255,0.02), transparent 22%);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 22%);
 
   /* subtle grid */
   mask-image: linear-gradient(180deg, black 72%, transparent 100%);
@@ -60,8 +59,8 @@ body {
   inset: 0;
   opacity: 0.22;
   background-image:
-    linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   background-size: 48px 48px;
   mix-blend-mode: screen;
 }
@@ -73,14 +72,14 @@ body {
   backdrop-filter: blur(10px);
 }
 
-/* cards/panels that also react to cursor */
+/* cards/panels - static glow (no cursor tracking) */
 .faim-panel {
   background:
-    radial-gradient(420px 240px at var(--cx) var(--cy),
-      rgba(var(--cyan) / 0.10),
+    radial-gradient(420px 240px at 50% 50%,
+      rgba(var(--cyan) / 0.08),
       transparent 60%),
-    rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.10);
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   backdrop-filter: blur(10px);
 }
 
@@ -88,6 +87,7 @@ body {
 .faim-divider {
   position: relative;
 }
+
 .faim-divider::after {
   content: "";
   position: absolute;
@@ -95,12 +95,10 @@ body {
   right: -1px;
   bottom: 0;
   width: 1px;
-  background: linear-gradient(
-    to bottom,
-    rgba(var(--cyan) / 0.18),
-    rgba(255,255,255,0.06),
-    rgba(var(--violet) / 0.14)
-  );
+  background: linear-gradient(to bottom,
+      rgba(var(--cyan) / 0.18),
+      rgba(255, 255, 255, 0.06),
+      rgba(var(--violet) / 0.14));
   opacity: 1;
 }
 
@@ -108,6 +106,7 @@ body {
 a {
   color: rgb(34 211 238);
 }
+
 a:hover {
   color: rgb(103 232 249);
 }

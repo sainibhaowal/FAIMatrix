@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 import { FaimShell } from '../components/shell/FaimShell';
+import { Providers } from '../components/providers/Providers';
 
 export const metadata: Metadata = {
   title: 'FAIM Lab',
@@ -17,7 +18,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="min-h-screen bg-slate-950 text-slate-100 antialiased overflow-x-hidden">
-        <FaimShell>{children}</FaimShell>
+        <Providers>
+          <FaimShell>{children}</FaimShell>
+        </Providers>
       </body>
     </html>
   );

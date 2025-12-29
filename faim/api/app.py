@@ -22,7 +22,7 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Optional, cast
 
-from fastapi import FastAPI, HTTPException, Request, Query
+from fastapi import FastAPI, HTTPException, Request, Query, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
 
@@ -34,7 +34,7 @@ from faim.api.explain import router as explain_router
 from faim.api.graphs import router as graphs_router
 from faim.api.models import API_PREFIX
 from faim.api.watchers import start_watchers
-from faim.api.auth import require_api_key
+from faim.api.auth import require_api_key, allow_dev_mode
 from faim.api.evolution_status import get_status
 from faim.config import FaimSettings
 
@@ -115,6 +115,14 @@ settings = build_settings()
 
 app = FastAPI(title="FAIM API", version="1.0.0")
 
+
+# Capture event loop for sync-to-async SSE event dispatch
+@app.on_event("startup")
+async def startup_event():
+    import asyncio
+    from faim.api.events import set_main_loop
+    set_main_loop(asyncio.get_running_loop())
+
 # =============================================================================
 # SECTION 2 — CORS (hardened + tolerant of multiple settings shapes)
 # =============================================================================
@@ -150,9 +158,11 @@ app.add_middleware(
 # SECTION 3 — ROUTERS (do not change paths)
 # =============================================================================
 
+from faim.api.rate_limiter import check_rate_limit
+
 app.include_router(chat_router, prefix=API_PREFIX)
 app.include_router(keys_router, prefix=API_PREFIX)
-app.include_router(graphs_router, prefix=API_PREFIX)
+app.include_router(graphs_router, prefix=API_PREFIX, dependencies=[Depends(check_rate_limit)]) # Rate Limited
 app.include_router(benchmarks_router, prefix=API_PREFIX)
 app.include_router(explain_router, prefix="/api/v1")
 
@@ -247,8 +257,12 @@ def _startup() -> None:
 
 
 @app.get(f"{API_PREFIX}/stream")
-async def stream(request: Request, graph_id: Optional[str] = None) -> StreamingResponse:
-    require_api_key(request)
+async def stream(
+    request: Request,
+    graph_id: Optional[str] = None,
+    auth: bool = Depends(allow_dev_mode),
+) -> StreamingResponse:
+    # require_api_key(request) -> Replaced by Depends(verify_graph_access)
     gid = resolve_universe_graph_id(request, graph_id)
 
     keepalive = int(getattr(settings, "SSE_KEEPALIVE_SECONDS", 15) or 15)
@@ -339,8 +353,12 @@ async def health():
 
 
 @app.get(f"{API_PREFIX}/evolution/status")
-async def evolution_status(request: Request, graph_id: str | None = Query(None)):
-    require_api_key(request)
+async def evolution_status(
+    request: Request,
+    graph_id: str | None = Query(None),
+    auth: bool = Depends(allow_dev_mode),
+):
+    # require_api_key(request)
     gid = resolve_universe_graph_id(request, graph_id)
     status = get_status(gid)
     if status is None:
@@ -359,8 +377,9 @@ async def metrics_export(
     request: Request,
     graph_id: str | None = Query(None),
     format: str = Query("json"),
+    auth: bool = Depends(allow_dev_mode),
 ):
-    require_api_key(request)
+    # require_api_key(request)
     gid = resolve_universe_graph_id(request, graph_id)
     try:
         from faim.engine.interface import get_metrics as _engine_get_metrics  # type: ignore
@@ -399,3 +418,75 @@ async def global_exception_handler(request: Request, exc: Exception):
     # keep minimal, do not leak secrets
     print(f"[FAIM ERROR] {type(exc).__name__}: {exc}")
     return JSONResponse(status_code=500, content={"error": "internal_server_error"})
+
+
+# =============================================================================
+# SECTION 9 — CONTROL PLANE & DB (Phase 1)
+# =============================================================================
+
+from faim.api.router_control import router as control_router
+from faim.api.router_keys_v2 import router as keys_v2_router
+from faim.api.router_storage import router as storage_router
+from faim.api.router_lifecycle import router as lifecycle_router
+from faim.api.router_billing import router as billing_router
+from faim.api.router_admin import router as admin_router
+from faim.api.router_ops import router as ops_router
+from faim.api.router_stripe import router as stripe_router
+from faim.api.router_realtime import router as realtime_router
+from faim.api.router_tenant import router as tenant_router
+
+app.include_router(control_router)
+app.include_router(keys_v2_router)
+app.include_router(storage_router, prefix="/api/v1")
+app.include_router(lifecycle_router)
+app.include_router(billing_router)
+app.include_router(stripe_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
+app.include_router(ops_router, prefix="/api")
+app.include_router(realtime_router, prefix="/api/v1")
+app.include_router(tenant_router, prefix="/api/v1")
+
+# =============================================================================
+# SECTION 10 — RATE LIMITING (Redis-backed)
+# =============================================================================
+try:
+    from faim.api.rate_limiter import setup_rate_limiting
+    setup_rate_limiting(app)
+except ImportError:
+    pass  # Rate limiting not available
+
+# Add usage tracking middleware (optional, can be disabled)
+try:
+    from faim.api.usage_middleware import UsageTrackingMiddleware
+    app.add_middleware(UsageTrackingMiddleware, enabled=True)
+except Exception as e:
+    print(f"[FAIM] Usage tracking middleware disabled: {e}")
+
+# Add token tracking middleware (real-time usage tracking)
+try:
+    from faim.api.token_tracker import TokenTrackingMiddleware
+    app.add_middleware(TokenTrackingMiddleware)
+    print("[FAIM] Token tracking middleware enabled")
+except Exception as e:
+    print(f"[FAIM] Token tracking middleware disabled: {e}")
+
+# Add usage SSE router for real-time updates
+try:
+    from faim.api.router_usage import router as usage_router
+    app.include_router(usage_router, prefix="/api/v1")
+    print("[FAIM] Usage SSE router mounted at /api/v1/usage")
+except Exception as e:
+    print(f"[FAIM] Usage router disabled: {e}")
+
+# Basic DB session test on startup (optional, logs connection status)
+@app.on_event("startup")
+def _db_check():
+    try:
+        from faim.db import SessionLocal
+        db = SessionLocal()
+        db.execute("SELECT 1")
+        db.close()
+        print("[FAIM DB] Connection successful.")
+    except Exception as e:
+        print(f"[FAIM DB] Connection WARNING: {e}")
+

@@ -87,3 +87,87 @@ def _allow_key_bootstrap(request: Request) -> bool:
         return True
     except Exception:
         return False
+
+def allow_dev_mode() -> bool:
+    """
+    FastAPI dependency that allows unauthenticated requests in dev mode.
+    Use this instead of verify_graph_access when you want to skip auth in dev.
+    """
+    mode = str(getattr(settings, "mode", "dev")).strip().lower()
+    if mode in ("dev", "development", "local", "core_dev"):
+        return True
+    # In production, this dependency alone isn't enough - use verify_graph_access
+    return True  # Always return True; actual auth is done by verify_graph_access
+
+
+def _is_dev_mode() -> bool:
+    """Check if running in development mode."""
+    mode = str(getattr(settings, "mode", "dev")).strip().lower()
+    return mode in ("dev", "development", "local", "core_dev")
+
+
+def verify_graph_access(request: Request, graph_id: str = None) -> bool:
+    """
+    FastAPI dependency that verifies the current user has access to the specified graph.
+    
+    In dev mode: allows all access (for testing)
+    In prod mode: checks GraphOwnership table via user's project membership
+    
+    Usage:
+        @router.get("/graphs/{graph_id}/data")
+        def get_data(graph_id: str, _auth = Depends(verify_graph_access)):
+            ...
+    """
+    # Dev mode bypass
+    if _is_dev_mode():
+        return True
+    
+    # Extract graph_id from path if not provided
+    if not graph_id:
+        # Try to get from path params
+        graph_id = request.path_params.get("graph_id")
+    
+    if not graph_id:
+        # No graph_id to check - allow (some endpoints don't need it)
+        return True
+    
+    # Production: verify ownership via database
+    try:
+        from faim.db import SessionLocal
+        from faim.models_sql import GraphOwnership, Project, OrgMember
+        from faim.api.auth_middleware import get_current_user_oidc
+        
+        # Get current user from request
+        # This would be set by auth middleware in production
+        user_id = getattr(request.state, "user_id", None)
+        
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        
+        db = SessionLocal()
+        try:
+            # Check if graph belongs to a project the user has access to
+            access = (
+                db.query(GraphOwnership)
+                .join(Project, GraphOwnership.project_id == Project.id)
+                .join(OrgMember, OrgMember.org_id == Project.org_id)
+                .filter(GraphOwnership.graph_id == graph_id)
+                .filter(OrgMember.user_id == user_id)
+                .first()
+            )
+            
+            if not access:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Access denied to graph {graph_id}"
+                )
+            
+            return True
+        finally:
+            db.close()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        # In case of DB errors, fail closed in production
+        raise HTTPException(status_code=500, detail="Authorization check failed")

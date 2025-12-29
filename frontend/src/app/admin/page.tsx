@@ -1,706 +1,243 @@
-'use client';
+"use client";
 
-/* =============================================================================
-   FAIM LAB — Admin Console (Golden Edition)
-   -----------------------------------------------------------------------------
-   Requirements:
-   - NO separate /profile page. Everything lives inside /admin.
-   - TopBar user icon routes into /admin?tab=profile etc.
-   - Safe: client-only placeholders; no backend auth assumptions.
-   - Dangerous actions require confirmations.
-============================================================================= */
+import React, { useEffect, useState } from "react";
+import { Users, Database, FileText, Activity, Ban, CheckCircle, Server, ShieldAlert, ToggleLeft, ToggleRight, Scale, AlertTriangle } from "lucide-react";
+import { getSession } from "next-auth/react";
 
-import React, { Suspense, useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  KeyRound,
-  User,
-  CreditCard,
-  Shield,
-  Trash2,
-  LogOut,
-  Database,
-  Settings,
-} from 'lucide-react';
-import { API_BASE_URL, buildFaimHeaders } from '@/lib/api';
+export default function AdminPage() {
+  const [activeTab, setActiveTab] = useState("health");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-type TabId = 'profile' | 'account' | 'apikeys' | 'billing' | 'data' | 'security';
+  // Data State
+  const [health, setHealth] = useState<any>(null);
+  const [flags, setFlags] = useState<any[]>([]);
+  const [audit, setAudit] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
 
-type TabDef = {
-  id: TabId;
-  label: string;
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-  description: string;
-};
-
-const TABS: TabDef[] = [
-  {
-    id: 'profile',
-    label: 'Profile',
-    icon: User,
-    description: 'User identity and basic preferences (name/email).',
-  },
-  {
-    id: 'account',
-    label: 'Account',
-    icon: Settings,
-    description: 'Logout, account lifecycle, and account-level controls.',
-  },
-  {
-    id: 'apikeys',
-    label: 'API Keys',
-    icon: KeyRound,
-    description: 'Manage FAIM API keys (server-side).',
-  },
-  {
-    id: 'billing',
-    label: 'Billing',
-    icon: CreditCard,
-    description: 'Plans, invoices, refunds (future backend integration).',
-  },
-  {
-    id: 'data',
-    label: 'Data Controls',
-    icon: Database,
-    description: 'Clear memory, export data, reset workspace data (guarded).',
-  },
-  {
-    id: 'security',
-    label: 'Security',
-    icon: Shield,
-    description: 'Sessions, device logins, audit events (future).',
-  },
-];
-
-function asTabId(x: string | null | undefined): TabId {
-  const v = (x ?? '').toLowerCase().trim();
-  const ok = new Set<TabId>(['profile', 'account', 'apikeys', 'billing', 'data', 'security']);
-  return ok.has(v as TabId) ? (v as TabId) : 'profile';
-}
-
-function cx(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(' ');
-}
-
-/* =============================================================================
-   Local-only storage keys (safe, no backend assumptions)
-============================================================================= */
-const LS_PROFILE = 'faim.admin.profile.v1';
-const LS_ACTIVE_KEY = 'faim_api_key';
-const LS_ADMIN_KEY = 'faim_admin_key';
-
-type ProfileState = {
-  displayName: string;
-  email: string;
-};
-
-type ApiKeyRecord = {
-  id: string;
-  prefix: string;
-  last4: string;
-  created_at: number;
-  revoked_at?: number | null;
-  label?: string | null;
-  active?: boolean;
-};
-
-function readJson<T>(key: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return parsed ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJson<T>(key: string, value: T) {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // fail-soft
-  }
-}
-
-function readActiveKey(): string {
-  if (typeof window === 'undefined') return '';
-  try {
-    return window.localStorage.getItem(LS_ACTIVE_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function writeActiveKey(value: string) {
-  try {
-    if (value) {
-      window.localStorage.setItem(LS_ACTIVE_KEY, value);
-    } else {
-      window.localStorage.removeItem(LS_ACTIVE_KEY);
+  // Helper
+  const fetchWithAuth = async (path: string) => {
+    try {
+      const session = await getSession();
+      const token = (session as any)?.accessToken;
+      const res = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 403) throw new Error("Access Denied");
+      if (!res.ok) return null;
+      return res.json();
+    } catch (e) {
+      return null;
     }
-  } catch {
-    // ignore
-  }
-}
-
-function readAdminKey(): string {
-  if (typeof window === 'undefined') return '';
-  try {
-    return window.localStorage.getItem(LS_ADMIN_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-function writeAdminKey(value: string) {
-  try {
-    if (value) {
-      window.localStorage.setItem(LS_ADMIN_KEY, value);
-    } else {
-      window.localStorage.removeItem(LS_ADMIN_KEY);
-    }
-  } catch {
-    // ignore
-  }
-}
-
-/* =============================================================================
-   Page
-============================================================================= */
-function AdminPageInner() {
-
-  const router = useRouter();
-  const sp = useSearchParams();
-
-  const activeTab = useMemo(() => asTabId(sp.get('tab')), [sp]);
-
-  const [profile, setProfile] = useState<ProfileState>(() =>
-    readJson<ProfileState>(LS_PROFILE, { displayName: 'User', email: 'user@local' }),
-  );
-
-
-  useEffect(() => {
-    writeJson(LS_PROFILE, profile);
-  }, [profile]);
-
-
-  const goTab = (id: TabId) => {
-    router.push(`/admin?tab=${encodeURIComponent(id)}`);
   };
 
-  const tabDef = TABS.find((t) => t.id === activeTab) ?? TABS[0];
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      if (activeTab === "health") {
+        setHealth(await fetchWithAuth("/api/ops/health"));
+        setStats(await fetchWithAuth("/api/admin/stats"));
+      } else if (activeTab === "flags") {
+        setFlags(await fetchWithAuth("/api/ops/flags") || []);
+      } else if (activeTab === "legal") {
+        setAudit(await fetchWithAuth("/api/ops/audit") || []);
+      } else if (activeTab === "tenants") {
+        setUsers(await fetchWithAuth("/api/admin/users") || []);
+      }
+    } catch (e: any) {
+      setError(e.message || "Error loading data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [activeTab]);
+
+  // Actions
+  const toggleFlag = async (name: string, currentState: boolean) => {
+    const session = await getSession();
+    const token = (session as any)?.accessToken;
+    await fetch(`/api/ops/flags/${name}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ enabled: !currentState })
+    });
+    loadData();
+  };
+
+  const toggleBan = async (userId: string, currentStatus: string) => {
+    const action = currentStatus === 'suspended' ? 'unban' : 'ban';
+    const session = await getSession();
+    const token = (session as any)?.accessToken;
+
+    await fetch(`/api/admin/users/${userId}/${action}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    loadData();
+  };
+
+  if (error) return <div className="p-4 text-red-400 text-xs">{error}</div>;
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <header className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-sm font-semibold text-slate-100">Admin</h1>
-            <p className="mt-1 text-xs text-slate-400">
-              Single control center for Profile, Account, API Keys, Billing, and Data Controls.
-            </p>
-          </div>
-
-          <div className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-[11px] text-cyan-100">
-            Active: {tabDef.label}
-          </div>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-sm font-semibold text-slate-100">Operator Control Panel</h1>
+          <p className="mt-1 text-xs text-slate-400">System health, feature flags, and tenant management.</p>
+        </div>
+        <div className="flex gap-1">
+          {["health", "tenants", "legal", "flags"].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-medium capitalize transition-colors ${activeTab === tab ? 'bg-slate-700 text-slate-100' : 'bg-slate-800/50 text-slate-500 hover:bg-slate-700/50'}`}
+            >
+              {tab}
+            </button>
+          ))}
         </div>
       </header>
 
-      {/* Layout */}
-      <section className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-        {/* Left nav */}
-        <aside className="rounded-2xl border border-slate-800 bg-slate-900/40 p-2">
-          <div className="px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-slate-400">
-            Admin Sections
+      {loading && <div className="text-xs text-slate-500 animate-pulse">Loading...</div>}
+
+      {/* HEALTH TAB */}
+      {activeTab === "health" && !loading && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            {["db", "redis", "keycloak"].map(sys => (
+              <section key={sys} className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 capitalize font-medium text-xs text-slate-200">
+                  <Server size={14} className="text-slate-500" /> {sys}
+                </div>
+                <div className={`flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider ${health?.[sys] === 'healthy' ? 'text-emerald-400' : health?.[sys] === 'offline' ? 'text-amber-400' : 'text-red-400'}`}>
+                  <div className={`w-1.5 h-1.5 rounded-full ${health?.[sys] === 'healthy' ? 'bg-emerald-400' : health?.[sys] === 'offline' ? 'bg-amber-400' : 'bg-red-400'}`} />
+                  {health?.[sys] || "unknown"}
+                </div>
+              </section>
+            ))}
           </div>
 
-          <nav className="space-y-1 p-2">
-            {TABS.map((t) => {
-              const Icon = t.icon;
-              const active = t.id === activeTab;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => goTab(t.id)}
-                  className={cx(
-                    'w-full text-left group flex items-center gap-3 rounded-xl px-3 py-2 transition',
-                    active
-                      ? 'border border-cyan-400/25 bg-cyan-500/10 text-cyan-100'
-                      : 'border border-transparent hover:border-white/10 hover:bg-white/5 text-slate-200',
-                  )}
-                >
-                  <Icon size={16} className={cx(active ? 'text-cyan-200' : 'text-slate-400 group-hover:text-cyan-200')} />
-                  <div className="min-w-0">
-                    <div className="text-[12px] font-medium">{t.label}</div>
-                    <div className="text-[11px] text-slate-500 truncate">{t.description}</div>
-                  </div>
-                </button>
-              );
-            })}
-          </nav>
-        </aside>
-
-        {/* Right content */}
-        <main className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
-          <div className="mb-4">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-300">
-              {tabDef.label}
-            </h2>
-            <p className="mt-1 text-[11px] text-slate-500">{tabDef.description}</p>
+          <div className="grid grid-cols-4 gap-3">
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+              <div className="text-slate-500 text-[10px] uppercase mb-1">Total Users</div>
+              <div className="text-xl font-bold text-slate-100">{stats?.total_users ?? "—"}</div>
+            </section>
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+              <div className="text-slate-500 text-[10px] uppercase mb-1">Total Graphs</div>
+              <div className="text-xl font-bold text-slate-100">{stats?.total_graphs ?? "—"}</div>
+            </section>
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+              <div className="text-slate-500 text-[10px] uppercase mb-1">Total Projects</div>
+              <div className="text-xl font-bold text-slate-100">{stats?.total_projects ?? "—"}</div>
+            </section>
+            <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+              <div className="text-slate-500 text-[10px] uppercase mb-1">Total Docs</div>
+              <div className="text-xl font-bold text-slate-100">{stats?.total_docs ?? "—"}</div>
+            </section>
           </div>
-
-          {activeTab === 'profile' ? (
-            <ProfilePanel profile={profile} setProfile={setProfile} />
-          ) : null}
-
-          {activeTab === 'apikeys' ? <ApiKeysPanel /> : null}
-
-          {activeTab === 'billing' ? <BillingPanel /> : null}
-
-          {activeTab === 'data' ? <DataControlsPanel /> : null}
-
-          {activeTab === 'account' ? <AccountPanel /> : null}
-
-          {activeTab === 'security' ? <SecurityPanel /> : null}
-        </main>
-      </section>
-    </div>
-  );
-}
-export default function AdminPage() {
-  return (
-    <Suspense fallback={<div className="p-4 text-xs text-slate-400">Loading admin…</div>}>
-      <AdminPageInner />
-    </Suspense>
-  );
-}
-
-/* =============================================================================
-   Panels
-============================================================================= */
-
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  type = 'text',
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  type?: string;
-}) {
-  return (
-    <label className="block">
-      <div className="mb-1 text-[11px] text-slate-400">{label}</div>
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className={cx(
-          'w-full rounded-xl border border-slate-800 bg-slate-950/40 px-3 py-2 text-[12px] text-slate-100',
-          'outline-none focus:border-cyan-400/30 focus:ring-2 focus:ring-cyan-500/10',
-        )}
-      />
-    </label>
-  );
-}
-
-function ProfilePanel({
-  profile,
-  setProfile,
-}: {
-  profile: ProfileState;
-  setProfile: (p: ProfileState) => void;
-}) {
-  return (
-    <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-2">
-        <Field
-          label="Display name"
-          value={profile.displayName}
-          onChange={(v) => setProfile({ ...profile, displayName: v })}
-          placeholder="Your name"
-        />
-        <Field
-          label="Email"
-          value={profile.email}
-          onChange={(v) => setProfile({ ...profile, email: v })}
-          placeholder="you@example.com"
-          type="email"
-        />
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-        <div className="text-[12px] font-medium text-slate-100">Notes</div>
-        <ul className="mt-2 list-disc pl-5 text-[11px] text-slate-500 space-y-1">
-          <li>This is stored locally for now (no auth backend wired yet).</li>
-          <li>Once auth exists, these fields should sync to your user record.</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function ApiKeysPanel() {
-  const [keys, setKeys] = useState<ApiKeyRecord[]>([]);
-  const [newKey, setNewKey] = useState<string | null>(null);
-  const [label, setLabel] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeKey, setActiveKey] = useState('');
-  const [adminKey, setAdminKey] = useState('');
-
-  const fetchKeys = async () => {
-    const adminHeader = (adminKey || readAdminKey()).trim();
-    try {
-      const res = await fetch(`${API_BASE_URL}/keys`, {
-        cache: 'no-store',
-        headers: buildFaimHeaders(
-          adminHeader ? { 'X-FAIM-ADMIN-KEY': adminHeader } : undefined,
-        ),
-      });
-      if (!res.ok) throw new Error('Failed to fetch keys');
-      const data = (await res.json()) as { keys?: ApiKeyRecord[] };
-      setKeys(Array.isArray(data.keys) ? data.keys : []);
-      setError(null);
-    } catch (err) {
-      setError('Unable to load keys from FAIM backend.');
-    }
-  };
-
-  useEffect(() => {
-    setActiveKey(readActiveKey());
-    setAdminKey(readAdminKey());
-    void fetchKeys();
-  }, []);
-
-  const createKey = async () => {
-    setLoading(true);
-    const adminHeader = (adminKey || readAdminKey()).trim();
-    try {
-      const res = await fetch(`${API_BASE_URL}/keys`, {
-        method: 'POST',
-        headers: buildFaimHeaders({
-          'Content-Type': 'application/json',
-          ...(adminHeader ? { 'X-FAIM-ADMIN-KEY': adminHeader } : {}),
-        }),
-        body: JSON.stringify({ label: label.trim() || undefined }),
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        throw new Error(text || 'Failed to create key');
-      }
-      const data = (await res.json()) as { key?: string; record?: ApiKeyRecord };
-      setNewKey(data.key ?? null);
-      if (data.key) {
-        setActiveKey(data.key);
-        writeActiveKey(data.key);
-      }
-      await fetchKeys();
-      setLabel('');
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to create key.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const revokeKey = async (id: string, hard = false) => {
-    setLoading(true);
-    const adminHeader = (adminKey || readAdminKey()).trim();
-    try {
-      const res = await fetch(
-        `${API_BASE_URL}/keys/${encodeURIComponent(id)}${hard ? '?hard=1' : ''}`,
-        {
-        method: 'DELETE',
-        headers: buildFaimHeaders(
-          adminHeader ? { 'X-FAIM-ADMIN-KEY': adminHeader } : undefined,
-        ),
-        },
-      );
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || 'Failed to revoke key');
-      }
-      await fetchKeys();
-      setError(null);
-    } catch {
-      setError('Unable to revoke key.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-[11px] text-amber-100/90">
-        FAIM API keys are stored on the server. Generate once and store securely in your SaaS app.
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-        <div className="text-[12px] font-medium text-slate-100">Active key (this browser)</div>
-        <p className="mt-1 text-[11px] text-slate-500">
-          This key is used by the FAIM UI to call protected endpoints.
-        </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto]">
-          <Field
-            label="FAIM API key"
-            value={activeKey}
-            onChange={(v) => setActiveKey(v)}
-            placeholder="faim_live_..."
-          />
-          <button
-            onClick={() => writeActiveKey(activeKey.trim())}
-            className="mt-[22px] inline-flex items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-[12px] text-cyan-100"
-          >
-            Save key
-          </button>
         </div>
-      </div>
+      )}
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-        <div className="text-[12px] font-medium text-slate-100">Admin key (key management)</div>
-        <p className="mt-1 text-[11px] text-slate-500">
-          Required only when FAIM_ADMIN_KEY is set on the backend.
-        </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto]">
-          <Field
-            label="FAIM admin key"
-            value={adminKey}
-            onChange={(v) => setAdminKey(v)}
-            placeholder="faim_admin_..."
-          />
-          <button
-            onClick={() => writeAdminKey(adminKey.trim())}
-            className="mt-[22px] inline-flex items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-[12px] text-cyan-100"
-          >
-            Save admin key
-          </button>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-        <div className="text-[12px] font-medium text-slate-100">Generate FAIM API key</div>
-        <div className="mt-3 grid gap-3 md:grid-cols-[1fr_auto]">
-          <Field
-            label="Key label (optional)"
-            value={label}
-            onChange={setLabel}
-            placeholder="linkweave-prod"
-          />
-          <button
-            onClick={createKey}
-            disabled={loading}
-            className="mt-[22px] inline-flex items-center justify-center rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-[12px] text-cyan-100"
-          >
-            {loading ? 'Working...' : 'Create key'}
-          </button>
-        </div>
-        {newKey && (
-          <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-[12px] text-emerald-100">
-            New key (copy now): <span className="font-semibold">{newKey}</span>
+      {/* FLAGS TAB */}
+      {activeTab === "flags" && !loading && (
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden">
+          <div className="p-4 border-b border-slate-800 bg-slate-900/60">
+            <h2 className="text-xs font-semibold text-slate-100 flex items-center gap-2"><ToggleRight size={14} /> Feature Flags</h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">Live configuration toggles. Affects all users immediately.</p>
           </div>
-        )}
-        {error && (
-          <div className="mt-3 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-100">
-            {error}
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-        <div className="text-[12px] font-medium text-slate-100">Active keys</div>
-        <div className="mt-3 space-y-2">
-          {keys.filter((k) => k.revoked_at == null).length === 0 && (
-            <div className="text-[11px] text-slate-500">No keys created yet.</div>
-          )}
-          {keys.filter((k) => k.revoked_at == null).map((k) => {
-            const revoked = k.revoked_at != null;
-            return (
-              <div
-                key={k.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-[11px]"
-              >
+          <div className="divide-y divide-slate-800">
+            {(Array.isArray(flags) ? flags : []).map(f => (
+              <div key={f.name} className="p-3 flex items-center justify-between hover:bg-slate-800/30">
                 <div>
-                  <div className="text-slate-100">
-                    {k.label || 'FAIM key'} · {k.prefix}••••{k.last4}
-                  </div>
-                  <div className="text-slate-500">
-                    {revoked ? 'revoked' : 'active'} · created{' '}
-                    {new Date(k.created_at * 1000).toLocaleString()}
-                  </div>
+                  <div className="font-medium text-xs text-slate-200">{f.name}</div>
+                  <div className="text-slate-500 text-[10px]">{f.description}</div>
                 </div>
                 <button
-                  onClick={() => revokeKey(k.id, false)}
-                  disabled={loading || revoked}
-                  className="inline-flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-100"
+                  onClick={() => toggleFlag(f.name, f.is_enabled)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all text-[10px] ${f.is_enabled ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-slate-800/50 border-slate-700 text-slate-500'}`}
                 >
-                  <Trash2 size={14} /> Revoke
+                  {f.is_enabled ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                  <span className="uppercase font-bold tracking-wider">{f.is_enabled ? "On" : "Off"}</span>
                 </button>
               </div>
-            );
-          })}
-        </div>
-      </div>
+            ))}
+            {(!flags || flags.length === 0) && (
+              <div className="p-4 text-center text-slate-500 text-xs italic">No feature flags configured.</div>
+            )}
+          </div>
+        </section>
+      )}
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-        <div className="text-[12px] font-medium text-slate-100">Revoked keys</div>
-        <div className="mt-3 space-y-2">
-          {keys.filter((k) => k.revoked_at != null).length === 0 && (
-            <div className="text-[11px] text-slate-500">No revoked keys.</div>
-          )}
-          {keys.filter((k) => k.revoked_at != null).map((k) => (
-            <div
-              key={k.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/40 px-3 py-2 text-[11px]"
-            >
-              <div>
-                <div className="text-slate-100">
-                  {k.label || 'FAIM key'} · {k.prefix}••••{k.last4}
+      {/* LEGAL TAB */}
+      {activeTab === "legal" && !loading && (
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden">
+          <div className="p-4 border-b border-slate-800 bg-slate-900/60">
+            <h2 className="text-xs font-semibold text-slate-100 flex items-center gap-2"><Scale size={14} /> Audit Log</h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">Immutable record of sensitive actions.</p>
+          </div>
+          <div className="divide-y divide-slate-800">
+            {(Array.isArray(audit) ? audit : []).slice(0, 20).map(log => (
+              <div key={log.id} className="p-3 flex items-center justify-between text-xs hover:bg-slate-800/30">
+                <div className="flex items-center gap-3">
+                  <div className="text-slate-500 font-mono text-[10px]">{new Date(log.ts).toLocaleString()}</div>
+                  <div className="font-medium text-slate-200">{log.action}</div>
                 </div>
-                <div className="text-slate-500">
-                  revoked · created {new Date(k.created_at * 1000).toLocaleString()}
+                <div className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${log.outcome === 'success' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>
+                  {log.outcome}
                 </div>
               </div>
-              <button
-                onClick={() => revokeKey(k.id, true)}
-                disabled={loading}
-                className="inline-flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-[11px] text-rose-100"
-              >
-                <Trash2 size={14} /> Delete
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BillingPanel() {
-  return (
-    <div className="space-y-3">
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-        <div className="text-[12px] font-medium text-slate-100">Billing (placeholder)</div>
-        <p className="mt-2 text-[11px] text-slate-500">
-          When backend is ready, this tab will show: plan, invoices, payment history, refunds.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function DataControlsPanel() {
-  const [confirm, setConfirm] = useState('');
-
-  const canDanger = confirm.trim().toUpperCase() === 'DELETE';
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-        <div className="text-[12px] font-medium text-slate-100">Export data</div>
-        <p className="mt-2 text-[11px] text-slate-500">
-          Future: export memories, graphs, and audit logs as a downloadable bundle.
-        </p>
-        <button
-          className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 hover:bg-white/10"
-          onClick={() => alert('Export will be wired to backend later.')}
-        >
-          Export (placeholder)
-        </button>
-      </div>
-
-      <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4">
-        <div className="text-[12px] font-medium text-rose-100">Danger Zone</div>
-        <p className="mt-2 text-[11px] text-rose-100/80">
-          Clearing memory is destructive. In production this must require auth + confirmations.
-        </p>
-
-        <div className="mt-3 grid gap-3 md:grid-cols-2">
-          <label className="block">
-            <div className="mb-1 text-[11px] text-rose-100/70">Type DELETE to unlock</div>
-            <input
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              className="w-full rounded-xl border border-rose-500/20 bg-slate-950/40 px-3 py-2 text-[12px] text-slate-100 outline-none"
-              placeholder="DELETE"
-            />
-          </label>
-
-          <button
-            disabled={!canDanger}
-            onClick={() => alert('Clear data will be wired to backend later.')}
-            className={cx(
-              'h-[40px] rounded-xl px-3 text-[12px] inline-flex items-center justify-center gap-2',
-              canDanger
-                ? 'border border-rose-500/30 bg-rose-500/15 text-rose-100 hover:bg-rose-500/20'
-                : 'border border-white/10 bg-white/5 text-slate-500 cursor-not-allowed',
+            ))}
+            {(!audit || audit.length === 0) && (
+              <div className="p-4 text-center text-slate-500 text-xs italic">No audit logs recorded yet.</div>
             )}
-          >
-            <Trash2 size={16} /> Clear all memory (placeholder)
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+          </div>
+        </section>
+      )}
 
-function AccountPanel() {
-  return (
-    <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-        <div className="text-[12px] font-medium text-slate-100">Session</div>
-        <p className="mt-2 text-[11px] text-slate-500">
-          In production this is tied to auth. For now these are placeholders.
-        </p>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            onClick={() => alert('Logout will be wired to auth later.')}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[12px] text-slate-100 hover:bg-white/10"
-          >
-            <LogOut size={16} /> Log out (placeholder)
-          </button>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4">
-        <div className="text-[12px] font-medium text-rose-100">Delete account</div>
-        <p className="mt-2 text-[11px] text-rose-100/80">
-          This is irreversible. In production: require password/2FA + retention policies.
-        </p>
-        <button
-          onClick={() => alert('Delete account will be wired to backend later.')}
-          className="mt-3 inline-flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/15 px-3 py-2 text-[12px] text-rose-100 hover:bg-rose-500/20"
-        >
-          <Trash2 size={16} /> Delete account (placeholder)
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function SecurityPanel() {
-  return (
-    <div className="space-y-3">
-      <div className="rounded-2xl border border-slate-800 bg-slate-950/30 p-4">
-        <div className="text-[12px] font-medium text-slate-100">Security (placeholder)</div>
-        <ul className="mt-2 list-disc pl-5 text-[11px] text-slate-500 space-y-1">
-          <li>Active sessions/devices</li>
-          <li>2FA (future)</li>
-          <li>Audit events</li>
-          <li>Admin actions log</li>
-        </ul>
-      </div>
+      {/* TENANTS TAB */}
+      {activeTab === "tenants" && !loading && (
+        <section className="rounded-2xl border border-slate-800 bg-slate-900/40 overflow-hidden">
+          <div className="p-4 border-b border-slate-800 bg-slate-900/60">
+            <h2 className="text-xs font-semibold text-slate-100 flex items-center gap-2"><Users size={14} /> All Users</h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">Manage user accounts and access.</p>
+          </div>
+          <div className="divide-y divide-slate-800">
+            {(Array.isArray(users) ? users : []).map(user => (
+              <div key={user.id} className="p-3 flex items-center justify-between hover:bg-slate-800/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-slate-300 text-xs font-bold">
+                    {(user.full_name || user.email || "?")[0].toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="font-medium text-xs text-slate-200">{user.full_name || user.email}</div>
+                    <div className="text-[10px] text-slate-500">{user.email}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${user.status === 'active' ? 'bg-emerald-500/10 text-emerald-300' : 'bg-red-500/10 text-red-300'}`}>
+                    {user.status}
+                  </div>
+                  <button
+                    onClick={() => toggleBan(user.id, user.status)}
+                    className={`p-1.5 rounded-lg transition-colors ${user.status === 'suspended' ? 'text-emerald-400 hover:bg-emerald-400/10' : 'text-red-400 hover:bg-red-400/10'}`}
+                    title={user.status === 'suspended' ? 'Unban User' : 'Ban User'}
+                  >
+                    {user.status === 'suspended' ? <CheckCircle size={14} /> : <Ban size={14} />}
+                  </button>
+                </div>
+              </div>
+            ))}
+            {(!users || users.length === 0) && (
+              <div className="p-4 text-center text-slate-500 text-xs italic">No users found.</div>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

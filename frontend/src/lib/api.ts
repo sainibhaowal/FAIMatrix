@@ -120,7 +120,7 @@ function resolveGraphId(input?: string): string {
   if (!gid) {
     throw new Error(
       "FAIM graph_id is not resolved yet. Expected Universe id from SSE contract. " +
-        "Ensure SSE onContract stores localStorage key 'faim_universe_graph_id'."
+      "Ensure SSE onContract stores localStorage key 'faim_universe_graph_id'."
     );
   }
 
@@ -238,11 +238,21 @@ function _mkUrl(path: string): string {
   return `${API_BASE_URL}${p}`;
 }
 
+import { getSession } from "next-auth/react";
+
 async function apiGet<T>(path: string): Promise<T> {
   const url = _mkUrl(path);
+
+  // Auth injection (Phase 1)
+  const session = await getSession();
+  const extraHeaders: Record<string, string> = {};
+  if (session && (session as any).accessToken) {
+    extraHeaders["Authorization"] = `Bearer ${(session as any).accessToken}`;
+  }
+
   const res = await fetch(url, {
     cache: "no-store",
-    headers: buildFaimHeaders(),
+    headers: buildFaimHeaders(extraHeaders),
   });
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json();
@@ -250,9 +260,17 @@ async function apiGet<T>(path: string): Promise<T> {
 
 async function apiPost<T = void>(path: string, body?: unknown): Promise<T> {
   const url = _mkUrl(path);
+
+  // Auth injection (Phase 1)
+  const session = await getSession();
+  const extraHeaders: Record<string, string> = { "Content-Type": "application/json" };
+  if (session && (session as any).accessToken) {
+    extraHeaders["Authorization"] = `Bearer ${(session as any).accessToken}`;
+  }
+
   const res = await fetch(url, {
     method: "POST",
-    headers: buildFaimHeaders({ "Content-Type": "application/json" }),
+    headers: buildFaimHeaders(extraHeaders),
     body: body === undefined ? undefined : JSON.stringify(body),
   });
 
@@ -288,9 +306,13 @@ export function fetchBenchmarks(graphId?: string): Promise<BenchmarkPoint[]> {
 
 export function fetchSubgraph(graphId?: string, limit = 250): Promise<GraphSubgraph> {
   const gid = resolveGraphId(graphId);
-  return apiGet<GraphSubgraph>(
-    `/graphs/${encodeURIComponent(gid)}/subgraph?limit=${limit}`
-  );
+  // Backend uses /snapshot for full graph data, not /subgraph (which requires node_id)
+  return apiGet<{ nodes: any[]; links: any[] }>(
+    `/graphs/${encodeURIComponent(gid)}/snapshot`
+  ).then((res) => ({
+    nodes: res.nodes || [],
+    links: res.links || [],
+  }));
 }
 
 export function fetchNodeScan(graphId?: string, limit = 250): Promise<NodeScanItem[]> {
