@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, Request, Query, Depends
 from pydantic import BaseModel
 
 from faim.config import FaimSettings
-from faim.api.auth import require_admin_or_api_key
+from faim.api.auth import allow_dev_mode
 
 
 settings = FaimSettings.from_env()
@@ -93,7 +93,7 @@ class KeyCreatePayload(BaseModel):
     label: Optional[str] = None
 
 
-router = APIRouter(prefix="/keys", tags=["Keys"], dependencies=[Depends(require_admin_or_api_key)])
+router = APIRouter(prefix="/keys", tags=["Keys"], dependencies=[Depends(allow_dev_mode)])
 
 
 @router.get("")

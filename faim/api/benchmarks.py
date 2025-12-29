@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from faim.api.models import BenchmarkPoint, GraphMetrics, LatencyPoint
 from faim.config import FaimSettings
-from faim.api.auth import require_api_key
+from faim.api.auth import allow_dev_mode
 from faim.engine import interface as engine
 
 # =============================================================================
@@ -31,7 +31,7 @@ from faim.engine import interface as engine
 #   - Benchmarks are telemetry, never a source of truth for graph state.
 # =============================================================================
 
-router = APIRouter(prefix="/benchmarks", tags=["Benchmarks"], dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/benchmarks", tags=["Benchmarks"], dependencies=[Depends(allow_dev_mode)])
 settings = FaimSettings.from_env()
 
 

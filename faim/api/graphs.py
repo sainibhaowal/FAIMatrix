@@ -66,12 +66,14 @@ from faim.engine.interface import add_fragment, get_node_detail
 # --- Retrieval debug
 from faim.retrieve.context import naive_used_nodes
 
+from faim.api.auth import allow_dev_mode
+
 try:
     from faim.engine.adapter import virtual_compute_metrics as _virtual_compute_metrics
 except Exception:
     _virtual_compute_metrics = None
 
-router = APIRouter(prefix="/graphs", tags=["Graphs"], dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/graphs", tags=["Graphs"], dependencies=[Depends(allow_dev_mode)])
 
 MAX_INGEST_BYTES = 20 * 1024 * 1024
 DEFAULT_CHUNK_CHARS = 4000
@@ -868,7 +870,7 @@ def api_lineage(graph_id: str, node_id: str, depth: int = 10):
 # -----------------------------------------------------------------------------
 # 8) DEGREE DISTRIBUTION — ORIGINAL
 # -----------------------------------------------------------------------------
-@router.get("/{graph_id}/degree_distribution", response_model=list[int])
+@router.get("/{graph_id}/degree_distribution")
 def api_degree_distribution(graph_id: str):
     return virtual_degree_distribution(graph_id)
 

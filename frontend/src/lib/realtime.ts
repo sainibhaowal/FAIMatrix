@@ -12,6 +12,7 @@
 /* ========================================================================== */
 
 import { useEffect, useRef } from "react";
+import { useSession } from "next-auth/react";
 import { API_BASE_URL, buildFaimHeaders } from "@/lib/api";
 
 /* ================================ Types =================================== */
@@ -169,14 +170,15 @@ function parseSsePacket(packet: string): { id?: string; event?: string; data?: s
 /* ========================== SSE (fetch reader) ============================ */
 
 /**
- * startFaimStream
+ * startFaimStream (SSE via fetch)
  * Production rule:
  *  - Pass graphId ONLY if you have a real Universe id (U:...).
  *  - Otherwise omit graphId and wait for "contract.universe.graph_id".
  */
 export function startFaimStream(
   graphId: string | null | undefined,
-  handlers: StreamHandlers
+  handlers: StreamHandlers,
+  token?: string
 ): () => void {
   const controller = new AbortController();
 
@@ -193,6 +195,7 @@ export function startFaimStream(
     headers = buildFaimHeaders({
       Accept: "text/event-stream",
       "Cache-Control": "no-cache",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     });
   } catch (err) {
     queueMicrotask(() => handlers.onError?.(err));
@@ -327,6 +330,9 @@ export function useFaimStream(
   graphId: string | null | undefined,
   handlers: StreamHandlers
 ) {
+  const { data: session } = useSession();
+  const token = (session as any)?.accessToken;
+
   const ref = useRef(handlers);
   ref.current = handlers;
 
@@ -344,9 +350,9 @@ export function useFaimStream(
       onPing: (x) => ref.current.onPing?.(x),
       onRaw: (ev) => ref.current.onRaw?.(ev),
       onError: (e) => ref.current.onError?.(e),
-    });
+    }, token);
 
     return () => stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [graphId]);
+  }, [graphId, token]);
 }

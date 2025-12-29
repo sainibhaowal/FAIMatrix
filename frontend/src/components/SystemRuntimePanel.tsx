@@ -9,6 +9,7 @@
 /* ========================================================================== */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import { API_BASE_URL, fetchHealth, getUniverseGraphId, type HealthStatus } from "@/lib/api";
 import { startFaimStream, type StreamContract } from "@/lib/realtime";
 
@@ -39,6 +40,9 @@ const SystemRuntimePanel: React.FC = () => {
   const [universeGraphId, setUniverseGraphId] = useState<string | null>(null);
   const [lastPingAt, setLastPingAt] = useState<number | null>(null);
   const [streamErr, setStreamErr] = useState<string | null>(null);
+
+  const { data: session } = useSession();
+  const token = (session as any)?.accessToken;
 
   const mountedRef = useRef(true);
 
@@ -94,10 +98,10 @@ const SystemRuntimePanel: React.FC = () => {
         setSseState("down");
         setStreamErr(e instanceof Error ? e.message : String(e));
       },
-    });
+    }, token);
 
     return () => stop();
-  }, []);
+  }, [token]);
 
   // -------------------- SSE staleness detector --------------------
   useEffect(() => {

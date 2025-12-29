@@ -46,13 +46,13 @@ from pydantic import BaseModel, Field
 # IMPORTANT: import state as a module (survives state.py variations)
 from faim.api import state as S
 from faim.api.events import BUS  # Step-1 hardened SSE bus
-from faim.api.auth import require_api_key
+from faim.api.auth import allow_dev_mode
 from faim.config import FaimSettings
 from faim.engine.interface import add_fragment, record_used_nodes
 from faim.model.llm import get_llm
 from faim.retrieve.context import naive_used_nodes
 
-router = APIRouter(dependencies=[Depends(require_api_key)])
+router = APIRouter(dependencies=[Depends(allow_dev_mode)])
 
 # =============================================================================
 # SECTION 0 — SAFE ENV PARSING (commercial hardening; never crash on bad env)

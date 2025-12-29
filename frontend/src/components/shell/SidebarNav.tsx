@@ -20,9 +20,12 @@ import {
   MessageSquare,
   Network,
   Shield,
+  HardDrive,
+  CreditCard,
 } from 'lucide-react';
 
 import Logo from '../brand/Logo';
+import { TenantSelector } from './TenantSelector'; // ✅ Import added
 
 type NavItem = {
   href: string;
@@ -36,6 +39,9 @@ const NAV_ITEMS: NavItem[] = [
   { href: '/graph', label: 'FIG View', icon: Network },
   { href: '/chat', label: 'Chat + Memory', icon: MessageSquare },
   { href: '/benchmarks', label: 'Benchmarks', icon: BarChart3 },
+  { href: '/settings/keys', label: 'API Keys', icon: Shield },
+  { href: '/storage', label: 'Storage', icon: HardDrive },
+  { href: '/billing', label: 'Billing', icon: CreditCard },
   { href: '/admin', label: 'Admin', icon: Shield },
 ];
 
@@ -92,6 +98,9 @@ export function SidebarNav({ showBrand = true }: { showBrand?: boolean }) {
           </div>
         </div>
       ) : null}
+
+      {/* TENANT CONTEXT */}
+      <TenantSelector />
 
       {/* NAV */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-2">

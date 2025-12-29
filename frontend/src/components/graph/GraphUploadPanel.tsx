@@ -48,8 +48,8 @@ async function extractPdfText(file: File): Promise<string> {
   const lib = pdfjs?.default ?? pdfjs;
   if (lib?.GlobalWorkerOptions && !lib.GlobalWorkerOptions.workerSrc) {
     lib.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/legacy/build/pdf.worker.min.mjs',
-      import.meta.url,
+      '/pdf.worker.min.mjs',
+      window.location.href,
     ).toString();
   }
   const data = await file.arrayBuffer();
@@ -296,8 +296,7 @@ const GraphUploadPanel: React.FC<GraphUploadPanelProps> = ({
         const text = await res.text();
         setStatus('error');
         setMessage(
-          `Upload failed (${res.status}). ${
-            text || 'See backend logs for details.'
+          `Upload failed (${res.status}). ${text || 'See backend logs for details.'
           }`,
         );
         return;
@@ -334,24 +333,24 @@ const GraphUploadPanel: React.FC<GraphUploadPanelProps> = ({
     status === 'uploading'
       ? 'Uploading…'
       : status === 'success'
-      ? 'Upload complete'
-      : status === 'error'
-      ? 'Upload error'
-      : 'Idle';
+        ? 'Upload complete'
+        : status === 'error'
+          ? 'Upload error'
+          : 'Idle';
 
   const borderClass =
     status === 'error'
       ? 'border-red-600'
       : status === 'success'
-      ? 'border-emerald-600'
-      : isDragging
-      ? 'border-cyan-400'
-      : 'border-slate-700';
+        ? 'border-emerald-600'
+        : isDragging
+          ? 'border-cyan-400'
+          : 'border-slate-700';
 
   return (
     <section
       onPointerMoveCapture={onStickyGlowMove(0.22)}
-      onPointerLeave={() => {}}
+      onPointerLeave={() => { }}
       style={
         {
           '--mx': '50%',
@@ -404,7 +403,7 @@ const GraphUploadPanel: React.FC<GraphUploadPanelProps> = ({
         {/* Dropzone with its own glow */}
         <div
           onPointerMoveCapture={onStickyGlowMove(0.18)}
-          onPointerLeave={() => {}}
+          onPointerLeave={() => { }}
           style={
             {
               '--mx': '50%',
@@ -462,9 +461,8 @@ const GraphUploadPanel: React.FC<GraphUploadPanelProps> = ({
 
         {message && (
           <p
-            className={`mb-2 text-[0.7rem] ${
-              status === 'error' ? 'text-red-400' : 'text-slate-300'
-            }`}
+            className={`mb-2 text-[0.7rem] ${status === 'error' ? 'text-red-400' : 'text-slate-300'
+              }`}
           >
             {message}
           </p>

@@ -12,19 +12,48 @@ const nextConfig = {
   ],
 
   // Proxy API calls to backend (same-origin from browser)
-  // IMPORTANT: use /api/v1 to match your frontend contract and SSE stream route.
+  // IMPORTANT: Frontend calls /api/v1/* which maps to backend root
   async rewrites() {
     return [
+      // Control plane routes (orgs, projects, api_keys, etc.) - backend has /v1 prefix
+      {
+        source: "/api/v1/orgs",
+        destination: "http://127.0.0.1:8000/v1/orgs",
+      },
+      {
+        source: "/api/v1/projects",
+        destination: "http://127.0.0.1:8000/v1/projects",
+      },
+      {
+        source: "/api/v1/api_keys",
+        destination: "http://127.0.0.1:8000/v1/api_keys",
+      },
+      {
+        source: "/api/v1/api_keys/:path*",
+        destination: "http://127.0.0.1:8000/v1/api_keys/:path*",
+      },
+      {
+        source: "/api/v1/me",
+        destination: "http://127.0.0.1:8000/v1/me",
+      },
+      // Graph and core API routes - backend has /api/v1 prefix
       {
         source: "/api/v1/:path*",
         destination: "http://127.0.0.1:8000/api/v1/:path*",
       },
-
-      // Optional: if you still have any old calls to /api/*
-      // keep this as a backward-compatible proxy.
+      // Billing routes - backend has /api/billing prefix
       {
-        source: "/api/:path*",
-        destination: "http://127.0.0.1:8000/api/:path*",
+        source: "/api/billing/:path*",
+        destination: "http://127.0.0.1:8000/api/billing/:path*",
+      },
+      // Admin/Ops routes - backend has /api prefix
+      {
+        source: "/api/admin/:path*",
+        destination: "http://127.0.0.1:8000/api/admin/:path*",
+      },
+      {
+        source: "/api/ops/:path*",
+        destination: "http://127.0.0.1:8000/api/ops/:path*",
       },
     ];
   },

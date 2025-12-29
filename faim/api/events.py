@@ -720,3 +720,49 @@ async def emit_error(
     if details is not None:
         payload["details"] = details
     return await BUS.publish(graph_id, "error", payload)
+
+
+# =============================================================================
+# SYNC-TO-ASYNC DISPATCHER FOR ENGINE EVENTS
+# =============================================================================
+_main_loop = None
+
+def set_main_loop(loop: asyncio.AbstractEventLoop) -> None:
+    """Called by startup event to capture the main event loop."""
+    global _main_loop
+    _main_loop = loop
+
+
+def emit_fig_delta_sync(graph_id: str, node_id: str, timestamp: float) -> None:
+    """
+    Sync wrapper to emit fig_delta events from the engine layer.
+    Uses run_coroutine_threadsafe to safely dispatch to the async BUS.
+    """
+    global _main_loop
+    if _main_loop is None or not _main_loop.is_running():
+        return
+    
+    delta = {
+        "kind": "node_added",
+        "nodes_added": [{"id": node_id}],
+        "nodes_removed": [],
+        "links_added": [],
+        "links_removed": [],
+    }
+    
+    try:
+        asyncio.run_coroutine_threadsafe(
+            emit_fig_delta(graph_id, delta),
+            _main_loop,
+        )
+    except Exception:
+        pass
+
+
+# Subscribe to core events on module load
+try:
+    from faim.core.events import subscribe_node_created
+    subscribe_node_created(emit_fig_delta_sync)
+except ImportError:
+    pass
+

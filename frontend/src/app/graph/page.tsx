@@ -69,8 +69,6 @@ function GraphPageInner() {
 
   const panelItems: Array<{ id: RightPanelId; label: string; title: string }> =
     [
-      { id: 'add', label: 'Add', title: 'Add text fragment' },
-      { id: 'upload', label: 'Upload', title: 'Upload to FAIM' },
       { id: 'inspector', label: 'Inspect', title: 'Node inspector' },
       { id: 'relations', label: 'Memory', title: 'Memory / Neighbors / Lineage' },
       { id: 'analytics', label: 'Analytics', title: 'Graph analytics' },
