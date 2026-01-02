@@ -1,7 +1,11 @@
-"""Storage backends for FAIM."""
+"""Storage backends for FAIM.
+
+Production backends: PostgresStore, QdrantVectorStore.
+"""
 
 from __future__ import annotations
 
-from .sqlite_store import SqliteStore
+from .postgres_store import PostgresStore
+from .qdrant_store import QdrantVectorStore
 
-__all__ = ["SqliteStore"]
+__all__ = ["PostgresStore", "QdrantVectorStore"]

@@ -55,10 +55,11 @@ class FaimSettings:
             # This file is under faim/api/config.py → go two levels up
             root = Path(__file__).resolve().parents[1]
 
-        # Runtime folders
-        cache_dir = root / "Runtime" / "Cache"
-        benchmarks_dir = root / "Runtime" / "Benchmarks"
-        uploads_dir = root / "Runtime" / "Uploads" / "tmp"
+        # Runtime folders (using /tmp for Docker compatibility)
+        # Persistent data is in Postgres/Redis/Qdrant, these are ephemeral
+        cache_dir = Path("/tmp/faim/cache")
+        benchmarks_dir = Path("/tmp/faim/benchmarks")
+        uploads_dir = Path("/tmp/faim/uploads")
 
         # Auto-create folders
         for p in (cache_dir, benchmarks_dir, uploads_dir):

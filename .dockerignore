@@ -1,0 +1,59 @@
+# ==============================================
+# FAIM Docker Ignore File
+# These files/folders are NOT copied into Docker
+# ==============================================
+
+# Python virtual environment (Docker installs its own)
+.venv
+venv
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.eggs
+
+# Node modules (Docker installs its own)
+node_modules
+.npm
+
+# Git (not needed in container)
+.git
+.gitignore
+.gitattributes
+
+# IDE/Editor
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+
+# Local runtime data (not for Docker)
+Runtime
+*.db
+*.sqlite
+*.sqlite3
+
+# Build artifacts
+.next
+dist
+build
+*.log
+
+# Environment files (secrets - don't copy)
+.env
+.env.local
+.env.*.local
+
+# Docker files (recursive copy prevention)
+Dockerfile*
+docker-compose*
+
+# Documentation (not needed to run)
+docs
+*.md
+!README.md
+
+# Tests (optional - can include if you want tests in container)
+# tests
+# pytest.ini

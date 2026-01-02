@@ -7,19 +7,19 @@ Tasks include:
 - Graph reindexing
 - Memory pruning/cleanup
 - Usage aggregation
+- Database backups
 """
+
 import os
 from celery import Celery
+from celery.schedules import crontab
 
 # Redis URL (same as rate limiting)
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
 # Create Celery app
 celery_app = Celery(
-    "faim_workers",
-    broker=REDIS_URL,
-    backend=REDIS_URL,
-    include=["faim.workers.tasks"]
+    "faim_workers", broker=REDIS_URL, backend=REDIS_URL, include=["faim.workers.tasks"]
 )
 
 # Celery configuration
@@ -30,18 +30,14 @@ celery_app.conf.update(
     result_serializer="json",
     timezone="UTC",
     enable_utc=True,
-    
     # Task execution settings
     task_acks_late=True,
     task_reject_on_worker_lost=True,
-    
     # Worker settings
     worker_prefetch_multiplier=1,
     worker_concurrency=4,
-    
     # Result backend settings
     result_expires=3600,  # 1 hour
-    
     # Beat schedule (periodic tasks)
     beat_schedule={
         "prune-old-memory": {
@@ -52,6 +48,10 @@ celery_app.conf.update(
             "task": "faim.workers.tasks.aggregate_usage",
             "schedule": 300.0,  # Every 5 minutes
         },
+        "daily-backup": {
+            "task": "faim.workers.tasks.run_backup",
+            "schedule": crontab(hour=2, minute=0),  # Daily at 2 AM UTC
+        },
     },
 )
 
@@ -60,4 +60,5 @@ celery_app.conf.task_routes = {
     "faim.workers.tasks.ingest_document": {"queue": "ingestion"},
     "faim.workers.tasks.reindex_graph": {"queue": "indexing"},
     "faim.workers.tasks.prune_old_memory": {"queue": "maintenance"},
+    "faim.workers.tasks.run_backup": {"queue": "maintenance"},
 }

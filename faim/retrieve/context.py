@@ -35,7 +35,37 @@ settings = FaimSettings.from_env()
 FIG_CACHE: Path = settings.cache_dir / "fig_cache.json"
 FIG_CACHE.parent.mkdir(parents=True, exist_ok=True)
 
-_engine = FAIMEngine()
+# Lazy engine initialization
+import threading as _threading
+from typing import Optional
+
+_engine: Optional[FAIMEngine] = None
+_engine_lock = _threading.Lock()
+
+
+def _get_engine() -> FAIMEngine:
+    """Lazy initialization of FAIMEngine with PostgresStore."""
+    global _engine
+    if _engine is not None:
+        return _engine
+
+    with _engine_lock:
+        if _engine is not None:
+            return _engine
+
+        try:
+            from faim.storage.postgres_store import PostgresStore
+
+            store = PostgresStore()
+            _engine = FAIMEngine(store=store)
+        except Exception as e:
+            import logging
+
+            logging.warning(f"Failed to initialize FAIMEngine: {e}")
+            raise RuntimeError(f"Cannot initialize FAIMEngine: {e}") from e
+
+        return _engine
+
 
 _FACT_PREFIX = "FACT:"
 _USER_PREFIX = "[chat:user]"
@@ -164,7 +194,7 @@ def _payload_text(gid: GraphId, n: NodeRecord) -> str:
     if pref is None:
         return ""
     try:
-        b = _engine._payload_store.get_payload(gid, pref)  # type: ignore[attr-defined]
+        b = _get_engine()._payload_store.get_payload(gid, pref)  # type: ignore[attr-defined]
         if not b:
             return ""
         return b.decode("utf-8", errors="replace")
@@ -376,7 +406,7 @@ def _engine_retrieve(
     graph_id: str, query: str, k: int
 ) -> Tuple[List[Dict[str, Any]], str, Dict[str, Any]]:
     try:
-        nodes: List[NodeRecord] = _engine.retrieve(graph_id, query, k=max(k, 16))
+        nodes: List[NodeRecord] = _get_engine().retrieve(graph_id, query, k=max(k, 16))
     except Exception:
         return [], "", {"strategy": "engine", "dropped_payload_dupes": 0, "ctx_chars": 0}
 

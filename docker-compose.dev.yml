@@ -1,0 +1,122 @@
+# FAIM Development Docker Compose
+# Run with: docker compose -f docker-compose.dev.yml up --build
+#
+# This is production-identical setup for local development.
+# Code changes are hot-reloaded via volume mounts.
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    container_name: faim-postgres
+    environment:
+      POSTGRES_USER: faim
+      POSTGRES_PASSWORD: faim_dev_pass
+      POSTGRES_DB: faim_lab
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U faim -d faim_lab"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Redis (Cache, Rate Limiting)
+  redis:
+    image: redis:7-alpine
+    container_name: faim-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Qdrant (Vector Database)
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: faim-qdrant
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    restart: unless-stopped
+    # Healthcheck disabled - Qdrant container has no wget or curl
+    # healthcheck:
+    #   test: ["CMD", "wget", "--spider", "-q", "http://localhost:6333/"]
+    #   interval: 10s
+    #   timeout: 5s
+    #   retries: 5
+
+  # FAIM Backend API (FastAPI with hot-reload)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: faim-api
+    environment:
+      - FAIM_MODE=dev
+      - FAIM_DB_URL=postgresql://faim:faim_dev_pass@postgres:5432/faim_lab
+      - DATABASE_URL=postgresql://faim:faim_dev_pass@postgres:5432/faim_lab
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      # Production backends (no SQLite)
+      - FAIM_STORAGE_BACKEND=postgres
+      - FAIM_VECTOR_BACKEND=qdrant
+      - FAIM_CACHE_BACKEND=redis
+      # Dev secrets (use .env for real secrets)
+      - ADMIN_API_KEY=dev-admin-key
+      - JWT_SECRET=dev-jwt-secret-change-in-production
+    volumes:
+      # Hot-reload: mount local code into container
+      - ./faim:/app/faim:ro
+      - ./alembic:/app/alembic:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    restart: unless-stopped
+
+  # FAIM Frontend (Next.js with hot-reload)
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: faim-web
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_HOST=api:8000
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=dev-nextauth-secret
+    volumes:
+      # Hot-reload: mount local code into container
+      - ./frontend/src:/app/src:ro
+      - ./frontend/public:/app/public:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  qdrant_data:
+
+networks:
+  default:
+    name: faim-dev

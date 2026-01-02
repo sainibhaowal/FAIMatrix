@@ -1,7 +1,7 @@
 # FAIM Lab - Production Docker Compose
 # Run with: docker compose up -d
 
-version: '3.8'
+version: "3.8"
 
 services:
   # PostgreSQL Database
@@ -18,7 +18,7 @@ services:
       - "5432:5432"
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U faim -d faim_lab" ]
+      test: ["CMD-SHELL", "pg_isready -U faim -d faim_lab"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,31 +34,26 @@ services:
       - "6379:6379"
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  # MinIO (S3-compatible object storage)
-  minio:
-    image: minio/minio
-    container_name: faim-minio
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+  # Qdrant (Vector Database)
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: faim-qdrant
     volumes:
-      - minio_data:/data
+      - qdrant_data:/qdrant/storage
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "6333:6333"
+      - "6334:6334"
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      test: ["CMD", "curl", "-f", "http://localhost:6333/"]
       interval: 30s
-      timeout: 20s
+      timeout: 10s
       retries: 3
-
   # Keycloak (Identity & Access Management)
   keycloak:
     image: quay.io/keycloak/keycloak:latest
@@ -84,10 +79,12 @@ services:
       - FAIM_MODE=production
       - FAIM_DB_URL=postgresql://faim:${POSTGRES_PASSWORD:-faim_prod_secret}@postgres:5432/faim_lab
       - REDIS_URL=redis://redis:6379/0
-      - FAIM_S3_ENDPOINT=http://minio:9000
-      - FAIM_S3_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
-      - FAIM_S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
-      - FAIM_S3_BUCKET=faim-uploads
+      - QDRANT_URL=http://qdrant:6333
+      # Backend configuration
+      - FAIM_STORAGE_BACKEND=postgres
+      - FAIM_VECTOR_BACKEND=qdrant
+      - FAIM_CACHE_BACKEND=redis
+
       - KEYCLOAK_ISSUER=http://keycloak:8080/realms/faim
       - KEYCLOAK_CLIENT_ID=faim-lab
       - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
@@ -103,7 +100,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/v1/health" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -139,14 +136,9 @@ services:
       - FAIM_MODE=production
       - FAIM_DB_URL=postgresql://faim:${POSTGRES_PASSWORD:-faim_prod_secret}@postgres:5432/faim_lab
       - REDIS_URL=redis://redis:6379/0
-      - FAIM_S3_ENDPOINT=http://minio:9000
-      - FAIM_S3_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
-      - FAIM_S3_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
-      - FAIM_S3_BUCKET=faim-uploads
     depends_on:
       - postgres
       - redis
-      - minio
     restart: unless-stopped
 
   # Celery Beat (Scheduled tasks)
@@ -180,8 +172,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  minio_data:
-
+  qdrant_data:
 
 networks:
   default:

@@ -7,6 +7,7 @@ Supports uploading files with:
 - Direct FAIM memory ingestion
 - Real-time status updates
 """
+
 import os
 import uuid
 import logging
@@ -33,24 +34,58 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # Supported file extensions
 SUPPORTED_EXTENSIONS = {
     # Text
-    ".txt", ".md", ".markdown",
+    ".txt",
+    ".md",
+    ".markdown",
     # Data
-    ".json", ".csv",
+    ".json",
+    ".csv",
     # PDF
     ".pdf",
     # Office Documents (NEW)
-    ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt",
+    ".docx",
+    ".doc",
+    ".xlsx",
+    ".xls",
+    ".pptx",
+    ".ppt",
     # Code
-    ".py", ".js", ".ts", ".jsx", ".tsx", ".go", ".rs", ".java",
-    ".c", ".cpp", ".h", ".cs", ".rb", ".php", ".swift", ".kt",
-    ".scala", ".sh", ".bash", ".sql", ".yaml", ".yml", ".toml",
-    ".xml", ".html", ".css", ".scss", ".vue", ".svelte",
+    ".py",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".go",
+    ".rs",
+    ".java",
+    ".c",
+    ".cpp",
+    ".h",
+    ".cs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".kt",
+    ".scala",
+    ".sh",
+    ".bash",
+    ".sql",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".xml",
+    ".html",
+    ".css",
+    ".scss",
+    ".vue",
+    ".svelte",
 }
 
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
 
 # --- Schemas ---
+
 
 class DocumentOut(BaseModel):
     id: str
@@ -91,81 +126,59 @@ def list_documents(project_id: str) -> List[dict]:
 
 # --- Endpoints ---
 
+
 @router.post("/storage/upload", response_model=UploadResponse)
 async def upload_file(
     file: UploadFile = File(...),
     project_id: str = Form(...),
     graph_id: Optional[str] = Form(None),
+    use_celery: bool = Form(False),
 ):
     """
     Upload a file and ingest it into FAIM memory.
-    
+
     Supports: TXT, MD, JSON, PDF, and code files.
     Files are parsed, chunked, and stored as FAIM memories.
+
+    Args:
+        use_celery: If True, dispatch ingestion to Celery worker for async processing.
+                   Requires Redis and Celery worker to be running.
     """
     # Validate file extension
     ext = Path(file.filename or "").suffix.lower()
     if ext not in SUPPORTED_EXTENSIONS:
         return UploadResponse(
             success=False,
-            message=f"Unsupported file type: {ext}. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
+            message=f"Unsupported file type: {ext}. Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}",
         )
-    
+
     # Generate document ID
     doc_id = str(uuid.uuid4())
-    
-    # S3 key for this document
-    s3_key = f"{project_id}/{doc_id}{ext}"
-    
+
     try:
         # Read file content
         content = await file.read()
         file_size = len(content)
-        
+
         if file_size > MAX_FILE_SIZE:
             return UploadResponse(
                 success=False,
-                message=f"File too large. Max size: {MAX_FILE_SIZE // 1024 // 1024}MB"
+                message=f"File too large. Max size: {MAX_FILE_SIZE // 1024 // 1024}MB",
             )
-        
-        # Try S3 upload first, fall back to local storage
-        use_s3 = os.getenv("S3_ENDPOINT_URL", "").strip() != ""
-        file_path = None
-        
-        if use_s3:
-            try:
-                from faim.storage.s3_client import upload_bytes
-                from io import BytesIO
-                
-                upload_bytes(
-                    content,
-                    s3_key,
-                    content_type=file.content_type or "application/octet-stream",
-                    metadata={
-                        "filename": file.filename,
-                        "project_id": project_id,
-                        "graph_id": graph_id or "",
-                    }
-                )
-                logger.info(f"Uploaded to S3: {s3_key} ({file_size} bytes)")
-            except Exception as s3_err:
-                logger.warning(f"S3 upload failed, falling back to local: {s3_err}")
-                use_s3 = False
-        
-        if not use_s3:
-            # Fall back to local storage
-            project_dir = os.path.join(UPLOAD_DIR, project_id)
-            os.makedirs(project_dir, exist_ok=True)
-            file_path = os.path.join(project_dir, f"{doc_id}{ext}")
-            
-            with open(file_path, "wb") as f:
-                f.write(content)
-            logger.info(f"Saved file locally: {file_path} ({file_size} bytes)")
-        
+
+        # Save file to local temp storage (Pure Ingestion: file will be deleted after processing)
+        project_dir = os.path.join(UPLOAD_DIR, project_id)
+        os.makedirs(project_dir, exist_ok=True)
+        file_path = os.path.join(project_dir, f"{doc_id}{ext}")
+
+        with open(file_path, "wb") as f:
+            f.write(content)
+        logger.info(f"Saved file locally: {file_path} ({file_size} bytes)")
+
     except Exception as e:
         logger.error(f"Failed to save file: {e}")
         return UploadResponse(success=False, message=f"File save failed: {str(e)}")
-    
+
     # Create document record
     doc = {
         "id": doc_id,
@@ -180,44 +193,89 @@ async def upload_file(
         "error_message": None,
     }
     save_document(doc)
-    
-    # Extract and ingest content
+
+    # ==========================================================================
+    # CELERY ASYNC PATH - Dispatch to background worker if requested
+    # ==========================================================================
+    if use_celery:
+        try:
+            from faim.workers.tasks import ingest_document as celery_ingest_document
+
+            # Resolve graph_id for the task
+            faim_graph_id = graph_id or os.getenv("FAIM_DEFAULT_GRAPH_ID", "U:default")
+
+            # Dispatch to Celery (non-blocking)
+            celery_ingest_document.delay(
+                document_id=doc_id,
+                graph_id=faim_graph_id,
+                storage_key=file_path,
+            )
+
+            # Update status to queued
+            doc["status"] = "queued"
+            save_document(doc)
+
+            logger.info(f"📤 Dispatched document {doc_id} to Celery worker")
+
+            return UploadResponse(
+                success=True,
+                document=DocumentOut(
+                    id=doc["id"],
+                    filename=doc["filename"],
+                    status="queued",
+                    created_at=doc["created_at"],
+                    file_size_bytes=doc["file_size_bytes"],
+                    chunks_ingested=0,
+                ),
+                message="Document queued for async ingestion. Check status via /storage/status/{doc_id}",
+            )
+        except ImportError as e:
+            logger.warning(f"Celery not available, falling back to sync: {e}")
+            # Fall through to synchronous ingestion
+        except Exception as e:
+            logger.error(f"Failed to dispatch to Celery: {e}")
+            # Fall through to synchronous ingestion
+
+    # ==========================================================================
+    # SYNCHRONOUS PATH - Extract and ingest content inline
+    # ==========================================================================
     try:
         from faim.api.document_parsers import extract_text
-        
+
         result = extract_text(file_path, file.filename)
         chunks = result.get("chunks", [])
-        
+
         if not chunks and result.get("content"):
             # Fallback: single chunk
             chunks = [{"content": result["content"], "metadata": {}}]
-        
+
         logger.info(f"Extracted {len(chunks)} chunks from {file.filename}")
-        
+
         # Ingest chunks into FAIM using the correct add_fragment function
         ingested = 0
         node_ids = []
         faim_graph_id = graph_id
-        
+
         # Resolve graph_id if not provided - use default universe graph
         if not faim_graph_id:
             faim_graph_id = os.getenv("FAIM_DEFAULT_GRAPH_ID", "U:default")
-        
+
         if faim_graph_id:
             from starlette.concurrency import run_in_threadpool
-            
+
             def process_ingestion():
                 """Run synchronous FAIM ingestion."""
                 try:
                     from faim.engine.interface import add_fragment
+
                     local_ingested = 0
                     local_ids = []
-                    
+
                     for i, chunk in enumerate(chunks):
                         chunk_content = chunk.get("content", "")
                         if not chunk_content.strip():
                             continue
-                        
+
                         # Build rich text with metadata context
                         metadata = chunk.get("metadata", {})
                         text_with_context = f"[Source: {file.filename}]"
@@ -230,17 +288,17 @@ async def upload_file(
                         if metadata.get("sheet"):
                             text_with_context += f" [Sheet: {metadata['sheet']}]"
                         text_with_context += f"\n\n{chunk_content}"
-                        
+
                         try:
                             # This is the blocking call (compute intensive + DB IO)
                             nid = add_fragment(faim_graph_id, text_with_context)
                             if nid:
                                 local_ids.append(nid)
                                 local_ingested += 1
-                                logger.info(f"Ingested chunk {i+1}/{len(chunks)}: {nid[:16]}...")
+                                logger.info(f"Ingested chunk {i + 1}/{len(chunks)}: {nid[:16]}...")
                         except Exception as e:
                             logger.warning(f"Failed to ingest chunk {i}: {e}")
-                    
+
                     return local_ingested
                 except Exception as e:
                     logger.error(f"Ingestion worker failed: {e}")
@@ -252,12 +310,12 @@ async def upload_file(
                 logger.info(f"✅ Ingested {ingested}/{len(chunks)} chunks into {faim_graph_id}")
             except Exception as e:
                 logger.error(f"Async ingestion failed: {e}")
-        
+
         # Update document status
         doc["status"] = "ingested"
         doc["chunks_ingested"] = ingested
         save_document(doc)
-        
+
         return UploadResponse(
             success=True,
             document=DocumentOut(
@@ -268,15 +326,15 @@ async def upload_file(
                 file_size_bytes=doc["file_size_bytes"],
                 chunks_ingested=ingested,
             ),
-            message=f"Successfully ingested {ingested} chunks from {file.filename}"
+            message=f"Successfully ingested {ingested} chunks from {file.filename}",
         )
-        
+
     except Exception as e:
         logger.error(f"Ingestion failed: {e}")
         doc["status"] = "error"
         doc["error_message"] = str(e)
         save_document(doc)
-        
+
         return UploadResponse(
             success=False,
             document=DocumentOut(
@@ -287,7 +345,7 @@ async def upload_file(
                 file_size_bytes=doc["file_size_bytes"],
                 error_message=str(e),
             ),
-            message=f"Ingestion failed: {str(e)}"
+            message=f"Ingestion failed: {str(e)}",
         )
 
 
@@ -299,7 +357,7 @@ async def list_files(
     List uploaded documents for a project.
     """
     docs = list_documents(project_id)
-    
+
     return [
         DocumentOut(
             id=d["id"],
@@ -322,7 +380,7 @@ async def delete_file(doc_id: str):
     doc = get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     # Delete file from disk
     file_path = doc.get("file_path")
     if file_path and os.path.exists(file_path):
@@ -330,10 +388,10 @@ async def delete_file(doc_id: str):
             os.remove(file_path)
         except Exception as e:
             logger.warning(f"Failed to delete file: {e}")
-    
+
     # Remove from store
     del _documents[doc_id]
-    
+
     return {"success": True, "message": "Document deleted"}
 
 
@@ -345,7 +403,7 @@ async def get_document_status(doc_id: str):
     doc = get_document(doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     return DocumentOut(
         id=doc["id"],
         filename=doc["filename"],

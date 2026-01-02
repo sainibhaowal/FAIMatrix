@@ -1,4 +1,15 @@
 {
+  "name": "faim",
+  "description": "FAIM - Fractal AI Memory",
+  "scripts": {
+    "faim:dev": "docker compose -f docker-compose.dev.yml up --build",
+    "faim:up": "docker compose -f docker-compose.dev.yml up -d",
+    "faim:down": "docker compose -f docker-compose.dev.yml down",
+    "faim:logs": "docker compose -f docker-compose.dev.yml logs -f",
+    "faim:migrate": "docker compose -f docker-compose.dev.yml exec api alembic upgrade head",
+    "faim:reset": "docker compose -f docker-compose.dev.yml down -v",
+    "faim:web": "cd frontend && npm run dev"
+  },
   "dependencies": {
     "clsx": "^2.1.1",
     "lucide-react": "^0.561.0",

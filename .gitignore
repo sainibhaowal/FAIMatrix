@@ -11,25 +11,20 @@ node_modules/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
-Runtime/Cache
-Runtime/Config
-Runtime/Logs
-Runtime/Snapshots
-Runtime/Benchmarks
+
+# Runtime directory (dev/testing only - Production uses Postgres/Redis/Qdrant)
+Runtime/
+
 Versions
-Runtime/Journal
+
 # VS Code / IDE
 Repo
 .vscode/
 .idea/
 legacy
-Runtime/Storage
-Runtime/Uploads
-Runtime/FIGCache
+
 # Node / Next.js
 frontend/.next/
 frontend/node_modules/
 npm-debug.log*
 backend/faim/llm_models/
-Runtime/Engine
-Runtime/DB

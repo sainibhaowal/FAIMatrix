@@ -48,9 +48,9 @@ from faim.storage.cipher import build_cipher_from_env
 from faim.storage.encrypted_payload_store import EncryptedPayloadStore
 from faim.storage.journal import EventJournal, JournalEvent
 from faim.storage.payload_store import PayloadStore
-from faim.storage.sqlite_store import SqliteStore
+from faim.storage.postgres_store import PostgresStore
 from faim.storage.store import FAIMStore
-from faim.core.types import NodeId 
+from faim.core.types import NodeId
 
 from .antisym import merge_records
 
@@ -152,13 +152,25 @@ class FAIMEngine:
         antisym_theta: float = 0.25,
     ) -> None:
         # Core P2 components -------------------------------------------------
-        default_store = SqliteStore.default()
+        # NOTE: store must be explicitly provided. In production, use PostgresStore.
+        # No SQLite fallback - run via Docker with Postgres.
+        if store is None:
+            raise ValueError(
+                "FAIMEngine requires an explicit store parameter. "
+                "Use PostgresStore from production_state.get_faim_context() "
+                "or provide a store implementation."
+            )
+        default_store = store
 
         # Main graph store.
-        self._store = store or default_store
+        self._store = store
 
         # Base payload store (pre-encryption): either explicit or same as main store.
-        base_payload_store: PayloadStore = payload_store or default_store
+        base_payload_store: PayloadStore = payload_store or (
+            default_store if isinstance(default_store, PayloadStore) else None
+        )
+        if base_payload_store is None:
+            raise ValueError("FAIMEngine requires a payload_store parameter.")
 
         # Optional compression + encryption layer (P2).
         enc_flag = os.getenv("FAIM_ENABLE_PAYLOAD_ENCRYPTION", "").strip().lower()
@@ -174,7 +186,9 @@ class FAIMEngine:
             self._payload_store = base_payload_store
 
         self._embedder: EmbedderProtocol = embedder or DummyEmbedder()
-        self._journal: EventJournal = journal or default_store
+        self._journal: EventJournal = journal or (
+            default_store if isinstance(default_store, EventJournal) else None
+        )
         self._usage: UsageTracker = usage or UsageTracker()
 
         embed_dim_any: Any = getattr(self._embedder, "dim", EMBED_DIM)
@@ -207,9 +221,11 @@ class FAIMEngine:
         self._hot_cache: HotNodeCache[NodeRecord] = HotNodeCache(speed_budget=self._speed_budget)
 
         # P4.3 - snapshot manager -------------------------------------------
-        journal_path = Path("Runtime/Journal/faim_journal.jsonl")
+        # NOTE: Using /tmp paths for Docker. Snapshots are ephemeral since
+        # persistent storage is now handled by Postgres/Qdrant.
+        journal_path = Path("/tmp/faim/journal/faim_journal.jsonl")
         journal_path.parent.mkdir(parents=True, exist_ok=True)
-        snapshot_root = Path("Runtime/Snapshots")
+        snapshot_root = Path("/tmp/faim/snapshots")
         snapshot_root.mkdir(parents=True, exist_ok=True)
 
         self._snapshot_manager = SnapshotManager(
@@ -307,9 +323,7 @@ class FAIMEngine:
                         "payload_ref": str(payload_ref),
                         "reason": "duplicate_payload_ref",
                     }
-                    self._journal.append(
-                        JournalEvent(ts=now, graph_id=g_id, op="touch", data=data)
-                    )
+                    self._journal.append(JournalEvent(ts=now, graph_id=g_id, op="touch", data=data))
                     self._append_jsonl_journal(now, g_id, "touch", data)
 
                     # keep hot structures in sync
