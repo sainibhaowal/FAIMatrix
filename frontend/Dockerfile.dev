@@ -4,7 +4,13 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Copy everything including node_modules
+# Copy package files first (for better caching)
+COPY package*.json ./
+
+# Install dependencies (with legacy-peer-deps for eslint compatibility)
+RUN npm install --legacy-peer-deps
+
+# Copy everything else
 COPY . .
 
 # Expose port
@@ -12,3 +18,4 @@ EXPOSE 3000
 
 # Run Next.js on 0.0.0.0 so it's accessible from outside container
 CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0"]
+

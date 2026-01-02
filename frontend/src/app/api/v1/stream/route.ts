@@ -5,10 +5,14 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 function backendBase(): string {
-  // Server-only env var (recommended)
+  // Server-only env vars: API_HOST (Docker), FAIM_BACKEND_URL, or NEXT_PUBLIC_FAIM_API_BASE
+  const apiHost = process.env.API_HOST;
+  if (apiHost) return `http://${apiHost}`.replace(/\/+$/, "");
+  
   const b = process.env.FAIM_BACKEND_URL || process.env.NEXT_PUBLIC_FAIM_API_BASE;
-  if (!b) return "http://127.0.0.1:8000";
-  return b.replace(/\/+$/, "");
+  if (b) return b.replace(/\/+$/, "");
+  
+  return "http://127.0.0.1:8000";
 }
 
 export async function GET(req: NextRequest) {

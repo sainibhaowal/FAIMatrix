@@ -35,14 +35,14 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/monitor', label: 'Monitor', icon: Activity }, // ✅ FIXED
-  { href: '/graph', label: 'FIG View', icon: Network },
-  { href: '/chat', label: 'Chat + Memory', icon: MessageSquare },
-  { href: '/benchmarks', label: 'Benchmarks', icon: BarChart3 },
-  { href: '/settings/keys', label: 'API Keys', icon: Shield },
-  { href: '/storage', label: 'Storage', icon: HardDrive },
-  { href: '/billing', label: 'Billing', icon: CreditCard },
-  { href: '/admin', label: 'Admin', icon: Shield },
+  { href: '/dashboard/monitor', label: 'Monitor', icon: Activity },
+  { href: '/dashboard/graph', label: 'FIG View', icon: Network },
+  { href: '/dashboard/chat', label: 'Chat + Memory', icon: MessageSquare },
+  { href: '/dashboard/benchmarks', label: 'Benchmarks', icon: BarChart3 },
+  { href: '/dashboard/settings/keys', label: 'API Keys', icon: Shield },
+  { href: '/dashboard/storage', label: 'Storage', icon: HardDrive },
+  { href: '/dashboard/billing', label: 'Billing', icon: CreditCard },
+  { href: '/dashboard/admin', label: 'Admin', icon: Shield },
 ];
 
 function clamp(n: number, lo: number, hi: number): number {

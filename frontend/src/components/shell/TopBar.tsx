@@ -285,8 +285,8 @@ function CommandPalette({
   const localActions: SearchResult[] = useMemo(
     () => [
       { type: 'page', title: 'Dashboard', href: '/dashboard', subtitle: 'Health + metrics + timeline' },
-      { type: 'page', title: 'FIG View', href: '/fig', subtitle: '3D graph inspector' },
-      { type: 'page', title: 'Chat', href: '/chat', subtitle: 'Memory-grounded chat (if enabled)' },
+      { type: 'page', title: 'FIG View', href: '/dashboard/graph', subtitle: '3D graph inspector' },
+      { type: 'page', title: 'Chat', href: '/dashboard/chat', subtitle: 'Memory-grounded chat (if enabled)' },
       { type: 'setting', title: 'Open Settings', actionId: 'open_settings', subtitle: 'Quick toggles and preferences' },
       { type: 'setting', title: 'Open Admin', actionId: 'open_admin', subtitle: 'Account & governance (future)' },
     ],
@@ -342,8 +342,8 @@ function CommandPalette({
       return;
     }
     if (r.type === 'setting') {
-      if (r.actionId === 'open_settings') router.push('/admin');
-      if (r.actionId === 'open_admin') router.push('/admin');
+      if (r.actionId === 'open_settings') router.push('/dashboard/admin');
+      if (r.actionId === 'open_admin') router.push('/dashboard/admin');
       onClose();
       return;
     }
@@ -424,7 +424,7 @@ export function TopBar({
 
   const goAdmin = (tab?: string) => {
     const t = (tab ?? '').trim();
-    router.push(!t ? '/admin' : `/admin?tab=${encodeURIComponent(t)}`);
+    router.push(!t ? '/dashboard/admin' : `/dashboard/admin?tab=${encodeURIComponent(t)}`);
   };
 
   const [health, setHealth] = useState<Health>('unknown');

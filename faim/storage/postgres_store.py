@@ -48,13 +48,29 @@ class PostgresStore(FAIMStore, PayloadStore, EventJournal):
     All operations require project_id for tenant isolation.
     """
 
-    def __init__(self, db: Session, project_id: UUID) -> None:
+    # Default project ID for development/backwards compatibility
+    DEFAULT_PROJECT_ID = UUID("00000000-0000-0000-0000-000000000001")
+
+    def __init__(
+        self,
+        db: Optional[Session] = None,
+        project_id: Optional[UUID] = None,
+    ) -> None:
         """Initialize with a database session and project context.
 
         Args:
-            db: SQLAlchemy session
-            project_id: The project UUID for tenant isolation
+            db: SQLAlchemy session. If None, creates one from the default engine.
+            project_id: The project UUID for tenant isolation. If None, uses default.
         """
+        if db is None:
+            # Auto-create session from the default engine
+            from faim.db import SessionLocal
+
+            db = SessionLocal()
+
+        if project_id is None:
+            project_id = self.DEFAULT_PROJECT_ID
+
         self._db = db
         self._project_id = project_id
 
@@ -273,3 +289,84 @@ class PostgresStore(FAIMStore, PayloadStore, EventJournal):
             row.use_count = (row.use_count or 0) + 1
             row.last_used_at = datetime.datetime.utcnow()
             self._db.commit()
+
+    # ------------------------------------------------------------------ FAIMStore abstract interface
+
+    def get_node(self, graph_id: GraphId, node_id: NodeId) -> Optional[NodeRecord]:
+        """FAIMStore interface: Fetch a node by id, or None if missing."""
+        return self.get(graph_id, node_id)
+
+    def upsert_node(self, node: NodeRecord) -> None:
+        """FAIMStore interface: Insert or update a node in the store.
+
+        Note: We need graph_id but NodeRecord doesn't carry it.
+        For now we extract from the first parent or use a default.
+        """
+        # NodeRecord doesn't have graph_id, need to look it up or use context
+        # Check if there's an existing node to get the graph_id
+        existing = (
+            self._db.query(NodeStorage)
+            .filter(
+                NodeStorage.node_id == str(node.node_id),
+                NodeStorage.project_id == self._project_id,
+            )
+            .first()
+        )
+        graph_id = existing.graph_id if existing else "MAIN"
+        self.put(GraphId(graph_id), node)
+
+    def delete_node(self, graph_id: GraphId, node_id: NodeId) -> None:
+        """FAIMStore interface: Delete a node from the store (hard delete)."""
+        self.delete(graph_id, node_id)
+
+    def iter_nodes(self, graph_id: GraphId) -> Iterator[NodeRecord]:
+        """FAIMStore interface: Iterate over all nodes in a graph."""
+        return self.iter_graph(graph_id)
+
+    def count_nodes(self, graph_id: GraphId) -> int:
+        """FAIMStore interface: Return number of nodes for a given graph."""
+        return self.count(graph_id)
+
+    def find_node_id_by_payload_ref(
+        self, graph_id: GraphId, payload_ref: PayloadRef
+    ) -> Optional[NodeId]:
+        """FAIMStore interface: Return an existing node id for this payload_ref (exact dedupe), or None."""
+        row = (
+            self._db.query(NodeStorage)
+            .filter(
+                NodeStorage.payload_ref == str(payload_ref),
+                NodeStorage.graph_id == str(graph_id),
+                NodeStorage.project_id == self._project_id,
+            )
+            .first()
+        )
+        if row is None:
+            return None
+        return NodeId(row.node_id)
+
+    # ------------------------------------------------------------------ PayloadStore abstract interface
+
+    def put_payload(
+        self,
+        graph_id: GraphId,
+        payload_bytes: bytes,
+        *,
+        mime_type: str = "text/plain",
+    ) -> PayloadRef:
+        """PayloadStore interface: Store payload bytes and return a stable PayloadRef."""
+        # Decode bytes to string for storage (assuming text payloads)
+        payload_str = payload_bytes.decode("utf-8", errors="replace")
+        return self.store_payload(graph_id, payload_str)
+
+    def delete_payload(self, graph_id: GraphId, payload_ref: PayloadRef) -> None:
+        """PayloadStore interface: Delete payload bytes."""
+        result = (
+            self._db.query(PayloadStorageModel)
+            .filter(
+                PayloadStorageModel.payload_ref == str(payload_ref),
+                PayloadStorageModel.graph_id == str(graph_id),
+                PayloadStorageModel.project_id == self._project_id,
+            )
+            .delete()
+        )
+        self._db.commit()
