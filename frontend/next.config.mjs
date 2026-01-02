@@ -12,10 +12,11 @@ const nextConfig = {
   ],
 
   // Proxy API calls to backend
-  // In Docker: use 'api' hostname (container name)
-  // Outside Docker: use 127.0.0.1:8000
+  // In Docker: use 'api' hostname (container name) via API_HOST env var
+  // Outside Docker: defaults to 127.0.0.1:8000
   async rewrites() {
-    const apiHost = process.env.NEXT_PUBLIC_API_HOST || "127.0.0.1:8000";
+    // Use API_HOST (runtime) not NEXT_PUBLIC_API_HOST (build-time)
+    const apiHost = process.env.API_HOST || "127.0.0.1:8000";
     const apiUrl = `http://${apiHost}`;
     
     return [

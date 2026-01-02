@@ -2,14 +2,14 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { DEFAULT_GRAPH_ID, getUniverseGraphId } from '../../lib/api';
+import { DEFAULT_GRAPH_ID, getUniverseGraphId } from '../../../lib/api';
 
-import { Graph3DView } from '../../components/Graph3DView';
-import { NodeInspector } from '../../components/NodeInspector';
-import GraphUploadPanel from '../../components/graph/GraphUploadPanel';
-import NodeRelationsPanel from '../../components/NodeRelationsPanel';
-import GraphAnalyticsPanel from '../../components/graph/GraphAnalyticsPanel';
-import AddMemoryPanel from '../../components/graph/AddMemoryPanel';
+import { Graph3DView } from '../../../components/Graph3DView';
+import { NodeInspector } from '../../../components/NodeInspector';
+import GraphUploadPanel from '../../../components/graph/GraphUploadPanel';
+import NodeRelationsPanel from '../../../components/NodeRelationsPanel';
+import GraphAnalyticsPanel from '../../../components/graph/GraphAnalyticsPanel';
+import AddMemoryPanel from '../../../components/graph/AddMemoryPanel';
 
 const defaultGraphId =
   process.env.NEXT_PUBLIC_FAIM_DEFAULT_GRAPH_ID ?? DEFAULT_GRAPH_ID;
