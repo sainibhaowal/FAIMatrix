@@ -34,7 +34,40 @@ from faim.core.engine import FAIMEngine
 from faim.core.types import GraphId, NodeId
 from faim.model.llm import get_llm
 
-_engine = FAIMEngine()
+# Lazy engine initialization - don't create at import time
+_engine: Optional[FAIMEngine] = None
+_engine_lock = threading.Lock()
+
+
+def _get_engine() -> FAIMEngine:
+    """Lazy initialization of FAIMEngine with PostgresStore."""
+    global _engine
+    if _engine is not None:
+        return _engine
+
+    with _engine_lock:
+        if _engine is not None:
+            return _engine
+
+        # Import here to avoid circular import and get production store
+        from faim.api.production_state import get_faim_context
+
+        # Get a default context (uses first available project or creates temp)
+        try:
+            # Try to get PostgresStore directly
+            from faim.storage.postgres_store import PostgresStore
+
+            store = PostgresStore()
+            _engine = FAIMEngine(store=store)
+        except Exception as e:
+            # If that fails, create engine with store from context
+            import logging
+
+            logging.warning(f"Failed to initialize PostgresStore: {e}")
+            raise RuntimeError(f"Cannot initialize FAIMEngine: {e}")
+
+        return _engine
+
 
 # =============================================================================
 # META (IN-MEMORY, BEST-EFFORT)
@@ -76,10 +109,11 @@ def record_node_created(graph_id: str, node_id: str, ts: Optional[float] = None)
         else:
             ca = prev.created_at if prev.created_at is not None else t
             g[node_id] = NodeMeta(created_at=ca, last_used_at=t, use_count=max(1, prev.use_count))
-            
+
     # Emit event for real-time subscribers (e.g. WebSockets)
     try:
         from faim.core.events import emit_node_created
+
         emit_node_created(graph_id, node_id, t)
     except Exception:
         pass
@@ -191,7 +225,7 @@ def _warm_indices_if_needed(graph_id: str) -> None:
         if not (need_ann or need_radius):
             return
 
-        nodes = list(_engine._store.iter_nodes(gid))
+        nodes = list(_get_engine()._store.iter_nodes(gid))
         if not nodes:
             return
 
@@ -224,7 +258,7 @@ def decode_payload_text(graph_id: str, node: Any) -> str:
         return ""
     try:
         gid = GraphId(graph_id)
-        b = _engine._payload_store.get_payload(gid, pref)  # type: ignore[attr-defined]
+        b = _get_engine()._payload_store.get_payload(gid, pref)  # type: ignore[attr-defined]
         if not b:
             return ""
         if isinstance(b, (bytes, bytearray)):
@@ -273,7 +307,7 @@ def get_node_detail(graph_id: str, node_id: str) -> Optional[Dict[str, Any]]:
     gid = GraphId(graph_id)
     nid = NodeId(node_id)
 
-    node = _engine._store.get_node(gid, nid)  # type: ignore[attr-defined]
+    node = _get_engine()._store.get_node(gid, nid)  # type: ignore[attr-defined]
     if node is None:
         return None
 
@@ -383,7 +417,7 @@ def get_recent_used_nodes(graph_id: str, limit: int = 20) -> List[str]:
 def get_subgraph(graph_id: str, limit: int = 250) -> Dict[str, Any]:
     gid = GraphId(graph_id)
 
-    nodes_iter = _engine._store.iter_nodes(gid)
+    nodes_iter = _get_engine()._store.iter_nodes(gid)
     nodes = []
     for i, n in enumerate(nodes_iter):
         if i >= limit:
@@ -397,7 +431,7 @@ def get_subgraph(graph_id: str, limit: int = 250) -> Dict[str, Any]:
         payload = None
         if n.payload_ref is not None:
             try:
-                b = _engine._payload_store.get_payload(gid, n.payload_ref)
+                b = _get_engine()._payload_store.get_payload(gid, n.payload_ref)
                 payload = b.decode("utf-8", errors="replace") if b else None
             except Exception:
                 payload = None
@@ -442,7 +476,7 @@ def get_metrics(graph_id: str) -> Dict[str, Any]:
         except Exception:
             return 0
 
-    for n in _engine._store.iter_nodes(gid):
+    for n in _get_engine()._store.iter_nodes(gid):
         node_count += 1
         edge_count += len(n.parents)
         vector_bytes += _vec_nbytes(getattr(n, "vec", None))
@@ -454,7 +488,7 @@ def get_metrics(graph_id: str) -> Dict[str, Any]:
     if payload_refs:
         for pref, count in payload_refs.items():
             try:
-                b = _engine._payload_store.get_payload(gid, pref)  # type: ignore[arg-type]
+                b = _get_engine()._payload_store.get_payload(gid, pref)  # type: ignore[arg-type]
             except Exception:
                 b = None
             if b:
@@ -479,7 +513,7 @@ def get_metrics(graph_id: str) -> Dict[str, Any]:
     try:
         from faim.core.metrics import compression_ratio as _core_compression_ratio
 
-        core_cr = float(_core_compression_ratio(_engine._store, gid))
+        core_cr = float(_core_compression_ratio(_get_engine()._store, gid))
         if core_cr > 0 and (compression_ratio <= 0.0 or raw_bytes == 0):
             compression_ratio = core_cr
     except Exception:
@@ -496,7 +530,7 @@ def get_metrics(graph_id: str) -> Dict[str, Any]:
         try:
             from faim.core.metrics import redundancy_index as _core_redundancy_index
 
-            core_r = float(_core_redundancy_index(_engine._store, gid))
+            core_r = float(_core_redundancy_index(_get_engine()._store, gid))
             if core_r > 0.0:
                 redundancy = core_r
         except Exception:
@@ -522,7 +556,7 @@ def get_metrics(graph_id: str) -> Dict[str, Any]:
 def add_fragment(graph_id: str, text: str) -> str:
     gid = GraphId(graph_id)
     _warm_indices_if_needed(graph_id)
-    nid = _engine.add_memory(gid, (text or "").strip())
+    nid = _get_engine().add_memory(gid, (text or "").strip())
     sid = str(nid)
     record_node_created(graph_id, sid)
     return sid
@@ -621,13 +655,13 @@ def retrieve_context(
     if not hits:
         recent: List[Tuple[str, str]] = []
         max_scan = int(os.getenv("FAIM_CHAT_FALLBACK_SCAN", "600"))
-        for i, n in enumerate(_engine._store.iter_nodes(gid)):
+        for i, n in enumerate(_get_engine()._store.iter_nodes(gid)):
             if i >= max_scan:
                 break
             if n.payload_ref is None:
                 continue
             try:
-                b = _engine._payload_store.get_payload(gid, n.payload_ref)
+                b = _get_engine()._payload_store.get_payload(gid, n.payload_ref)
                 payload = b.decode("utf-8", errors="replace") if b else ""
             except Exception:
                 payload = ""

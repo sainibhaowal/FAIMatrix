@@ -1,44 +1,71 @@
+"""FAIM Database Backup Module.
+
+Backups are saved locally to /tmp/faim/backups/ (Docker volume).
+S3/MinIO upload removed - use Docker volumes or external backup solutions.
+"""
+
 import os
 import subprocess
 import datetime
-import boto3
+from pathlib import Path
 
-# Ops Configuration
-DB_URL = os.getenv("FAIM_DB_URL") 
-# e.g. postgresql://user:pass@localhost:5432/faim
-# pg_dump requires PGPASSWORD env var or .pgpass
+# Database URL from environment
+DB_URL = os.getenv("FAIM_DB_URL") or os.getenv("DATABASE_URL")
 
-MINIO_BUCKET = os.getenv("MINIO_BUCKET", "faim-backups")
-# Standard MinIO/S3 env vars handled by boto3 or explicit init
+# Local backup directory
+BACKUP_DIR = Path("/tmp/faim/backups")
+
 
 def perform_backup():
+    """Perform a database backup and save locally.
+
+    Returns:
+        dict with 'status', 'backup_file', and 'message' keys
+    """
+    BACKUP_DIR.mkdir(parents=True, exist_ok=True)
+
     ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    backup_file = f"backup_faim_{ts}.sql"
-    
-    # 1. Dump Database
+    backup_file = BACKUP_DIR / f"backup_faim_{ts}.sql"
+    result = {"status": "error", "backup_file": None, "message": ""}
+
+    if not DB_URL:
+        result["message"] = "FAIM_DB_URL or DATABASE_URL not configured"
+        return result
+
+    # Dump Database
     print(f"Dumping database to {backup_file}...")
-    # Parsing DB_URL to set PGPASSWORD is safer, but for script MVP assume env is set
-    # or rely on pg_dump parsing URL if supported (newer versions do)
-    
     cmd = f"pg_dump {DB_URL} -f {backup_file}"
+
     try:
         subprocess.check_call(cmd, shell=True)
-    except subprocess.CalledProcessError:
-        print("Backup failed (pg_dump error)")
-        return
+        print(f"Backup saved to {backup_file}")
+        result["status"] = "success"
+        result["backup_file"] = str(backup_file)
+        result["message"] = "Backup completed successfully"
+    except subprocess.CalledProcessError as e:
+        result["message"] = f"pg_dump failed: {e}"
+        print(f"Backup failed: {e}")
 
-    # 2. Upload to S3/MinIO
-    print("Uploading to Object Storage...")
-    s3 = boto3.client("s3") # Uses env vars
-    try:
-        s3.upload_file(backup_file, MINIO_BUCKET, f"db/{backup_file}")
-        print("Backup uploaded successfully.")
-    except Exception as e:
-        print(f"Upload failed: {e}")
-    finally:
-        # Cleanup
-        if os.path.exists(backup_file):
-            os.remove(backup_file)
+    return result
+
+
+def list_backups():
+    """List available backup files."""
+    if not BACKUP_DIR.exists():
+        return []
+    return sorted(BACKUP_DIR.glob("backup_faim_*.sql"), reverse=True)
+
+
+def cleanup_old_backups(keep: int = 7):
+    """Delete old backups, keeping the most recent 'keep' files."""
+    backups = list_backups()
+    for old in backups[keep:]:
+        try:
+            old.unlink()
+            print(f"Deleted old backup: {old}")
+        except Exception as e:
+            print(f"Failed to delete {old}: {e}")
+
 
 if __name__ == "__main__":
     perform_backup()

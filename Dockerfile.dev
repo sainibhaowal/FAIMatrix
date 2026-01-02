@@ -1,0 +1,36 @@
+# FAIM API Development Dockerfile
+# Designed for hot-reload during development
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --timeout=300 --retries=5 -r requirements.txt
+
+# Install development dependencies
+RUN pip install --no-cache-dir \
+    uvicorn[standard] \
+    watchfiles \
+    qdrant-client \
+    redis
+
+# Copy application code
+COPY faim ./faim
+COPY alembic ./alembic
+COPY alembic.ini .
+COPY pyproject.toml .
+
+# Expose port
+EXPOSE 8000
+
+# Run with hot-reload enabled
+CMD ["uvicorn", "faim.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

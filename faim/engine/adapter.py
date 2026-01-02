@@ -58,9 +58,36 @@ preview_from_payload = iface.preview_from_payload
 record_node_used = iface.record_node_used
 
 # =============================================================================
-# ENGINE (do not change core engine)
+# ENGINE (lazy initialization to avoid import-time failures)
 # =============================================================================
-_engine = FAIMEngine()
+import threading as _threading
+
+_engine: Optional[FAIMEngine] = None
+_engine_lock = _threading.Lock()
+
+
+def _get_engine() -> FAIMEngine:
+    """Lazy initialization of FAIMEngine with PostgresStore."""
+    global _engine
+    if _engine is not None:
+        return _engine
+
+    with _engine_lock:
+        if _engine is not None:
+            return _engine
+
+        try:
+            from faim.storage.postgres_store import PostgresStore
+
+            store = PostgresStore()
+            _engine = FAIMEngine(store=store)
+        except Exception as e:
+            import logging
+
+            logging.warning(f"Failed to initialize FAIMEngine: {e}")
+            raise RuntimeError(f"Cannot initialize FAIMEngine: {e}") from e
+
+        return _engine
 
 
 # =============================================================================
@@ -407,7 +434,7 @@ def _payload_text(gid: GraphId, n: Any) -> str:
     if pref is None:
         return ""
     try:
-        b = _engine._payload_store.get_payload(gid, pref)  # type: ignore[attr-defined]
+        b = _get_engine()._payload_store.get_payload(gid, pref)  # type: ignore[attr-defined]
         if not b:
             return ""
         if isinstance(b, (bytes, bytearray)):
@@ -797,7 +824,7 @@ def virtual_scan_nodes(
     """
     try:
         gid = GraphId(graph_id)
-        nodes = list(_engine._store.iter_nodes(gid))  # type: ignore[attr-defined]
+        nodes = list(_get_engine()._store.iter_nodes(gid))  # type: ignore[attr-defined]
         if galaxy:
             g = str(galaxy).strip().lower()
             # derived galaxy filter based on payload kind prefix
@@ -838,7 +865,7 @@ def virtual_subgraph_bfs(graph_id: str, center_id: str, depth: int = 2) -> Dict[
     try:
         gid = GraphId(graph_id)
         start = NodeId(center_id)
-        root = _engine._store.get_node(gid, start)  # type: ignore[attr-defined]
+        root = _get_engine()._store.get_node(gid, start)  # type: ignore[attr-defined]
         if root is None:
             return {"nodes": [], "links": []}
 
@@ -871,7 +898,7 @@ def virtual_subgraph_bfs(graph_id: str, center_id: str, depth: int = 2) -> Dict[
                 frac = _safe_float_opt(getattr(p, "fraction", None))
                 if pid:
                     links_out.append(format_link_for_ui(pid, nid, rel="parent", weight=frac))
-                    pn = _engine._store.get_node(gid, NodeId(pid))  # type: ignore[attr-defined]
+                    pn = _get_engine()._store.get_node(gid, NodeId(pid))  # type: ignore[attr-defined]
                     if pn is not None:
                         q.append((pn, d + 1))
 
@@ -881,7 +908,7 @@ def virtual_subgraph_bfs(graph_id: str, center_id: str, depth: int = 2) -> Dict[
                 cid = _safe_str(cid_any)
                 if cid:
                     links_out.append(format_link_for_ui(nid, cid, rel="child", weight=1.0))
-                    cn = _engine._store.get_node(gid, NodeId(cid))  # type: ignore[attr-defined]
+                    cn = _get_engine()._store.get_node(gid, NodeId(cid))  # type: ignore[attr-defined]
                     if cn is not None:
                         q.append((cn, d + 1))
 
@@ -895,7 +922,7 @@ def virtual_subgraph_bfs(graph_id: str, center_id: str, depth: int = 2) -> Dict[
                             continue
                         w = _safe_float_opt(nb.get("distance"))
                         links_out.append(format_link_for_ui(nid, sid, rel="similar", weight=w))
-                        sn = _engine._store.get_node(gid, NodeId(sid))  # type: ignore[attr-defined]
+                        sn = _get_engine()._store.get_node(gid, NodeId(sid))  # type: ignore[attr-defined]
                         if sn is not None:
                             q.append((sn, d + 1))
                 except Exception:
@@ -918,7 +945,7 @@ def virtual_parent_lineage(graph_id: str, node_id: str, depth: int = 10) -> List
     """
     try:
         gid = GraphId(graph_id)
-        cur = _engine._store.get_node(gid, NodeId(node_id))  # type: ignore[attr-defined]
+        cur = _get_engine()._store.get_node(gid, NodeId(node_id))  # type: ignore[attr-defined]
         if cur is None:
             return []
 
@@ -947,7 +974,7 @@ def virtual_parent_lineage(graph_id: str, node_id: str, depth: int = 10) -> List
             next_id = pairs[0][1] if pairs else ""
             if not next_id:
                 break
-            cur = _engine._store.get_node(gid, NodeId(next_id))  # type: ignore[attr-defined]
+            cur = _get_engine()._store.get_node(gid, NodeId(next_id))  # type: ignore[attr-defined]
             step += 1
 
         return out
@@ -980,7 +1007,7 @@ def virtual_neighborhood(graph_id: str, node_id: str, k: int = 10):
     nid = NodeId(node_id)
 
     try:
-        node = _engine._store.get_node(gid, nid)  # type: ignore[attr-defined]
+        node = _get_engine()._store.get_node(gid, nid)  # type: ignore[attr-defined]
     except Exception:
         return []
 
@@ -1080,7 +1107,7 @@ def virtual_neighborhood(graph_id: str, node_id: str, k: int = 10):
         first_hop_ids = [d["id"] for d in out if isinstance(d.get("id"), str)]  # type: ignore[union-attr]
         for hop_id in first_hop_ids:
             try:
-                hop_node = _engine._store.get_node(gid, NodeId(str(hop_id)))  # type: ignore[attr-defined]
+                hop_node = _get_engine()._store.get_node(gid, NodeId(str(hop_id)))  # type: ignore[attr-defined]
             except Exception:
                 hop_node = None
             if hop_node is None:
@@ -1161,7 +1188,7 @@ def virtual_vector_stats(graph_id: str, node_id: str):
         gid = GraphId(graph_id)
         nid = NodeId(node_id)
 
-        node = _engine._store.get_node(gid, nid)  # type: ignore[attr-defined]
+        node = _get_engine()._store.get_node(gid, nid)  # type: ignore[attr-defined]
         if not node:
             return None
 
@@ -1185,7 +1212,7 @@ def virtual_degree_distribution(graph_id: str) -> Dict[str, Any]:
     try:
         gid = GraphId(graph_id)
         degs: List[int] = []
-        for n in _engine._store.iter_nodes(gid):  # type: ignore[attr-defined]
+        for n in _get_engine()._store.iter_nodes(gid):  # type: ignore[attr-defined]
             parents = getattr(n, "parents", []) or []
             children = getattr(n, "children", []) or []
             degs.append(int(len(parents) + len(children)))
@@ -1212,7 +1239,7 @@ def virtual_compute_metrics(graph_id: str) -> Dict[str, Any]:
         gid = GraphId(graph_id)
         ncount = 0
         ecount = 0
-        for n in _engine._store.iter_nodes(gid):  # type: ignore[attr-defined]
+        for n in _get_engine()._store.iter_nodes(gid):  # type: ignore[attr-defined]
             ncount += 1
             ecount += len(getattr(n, "parents", []) or [])
             ecount += len(getattr(n, "children", []) or [])
@@ -1235,7 +1262,7 @@ def virtual_list_galaxies(graph_id: str) -> List[Dict[str, Any]]:
     try:
         gid = GraphId(graph_id)
         counts: Counter[str] = Counter()
-        for n in _engine._store.iter_nodes(gid):  # type: ignore[attr-defined]
+        for n in _get_engine()._store.iter_nodes(gid):  # type: ignore[attr-defined]
             payload = decode_payload_text(graph_id, n)
             k = infer_kind(payload).lower().strip() or "memory"
             counts[k] += 1
