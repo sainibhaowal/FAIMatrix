@@ -148,7 +148,11 @@ function buildStreamUrl(graphId?: string | null): string {
   return `${safeBase}/stream`;
 }
 
-function parseSsePacket(packet: string): { id?: string; event?: string; data?: string } {
+function parseSsePacket(packet: string): {
+  id?: string;
+  event?: string;
+  data?: string;
+} {
   let id: string | undefined;
   let event: string | undefined;
   const dataLines: string[] = [];
@@ -161,7 +165,8 @@ function parseSsePacket(packet: string): { id?: string; event?: string; data?: s
     if (line.startsWith(":")) continue; // comment
     if (line.startsWith("id:")) id = line.slice(3).trim();
     else if (line.startsWith("event:")) event = line.slice(6).trim();
-    else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart());
+    else if (line.startsWith("data:"))
+      dataLines.push(line.slice(5).trimStart());
   }
 
   return { id, event, data: dataLines.join("\n") };
@@ -178,7 +183,7 @@ function parseSsePacket(packet: string): { id?: string; event?: string; data?: s
 export function startFaimStream(
   graphId: string | null | undefined,
   handlers: StreamHandlers,
-  token?: string
+  token?: string,
 ): () => void {
   const controller = new AbortController();
 
@@ -223,9 +228,14 @@ export function startFaimStream(
       let buf = "";
 
       // Keep latest known universe id from the contract for fallback pings
-      let universeGraphId: string | null = (graphId && graphId.trim()) ? graphId.trim() : null;
+      let universeGraphId: string | null =
+        graphId && graphId.trim() ? graphId.trim() : null;
 
-      const handleEvent = (ev: { id?: string; event?: string; data?: string }) => {
+      const handleEvent = (ev: {
+        id?: string;
+        event?: string;
+        data?: string;
+      }) => {
         handlers.onRaw?.(ev);
 
         switch (ev.event) {
@@ -328,7 +338,7 @@ export function startFaimStream(
 
 export function useFaimStream(
   graphId: string | null | undefined,
-  handlers: StreamHandlers
+  handlers: StreamHandlers,
 ) {
   const { data: session } = useSession();
   const token = (session as any)?.accessToken;
@@ -337,20 +347,24 @@ export function useFaimStream(
   ref.current = handlers;
 
   useEffect(() => {
-    const stop = startFaimStream(graphId, {
-      // Always use latest handlers via ref (prevents stale closures)
-      onContract: (c) => ref.current.onContract?.(c),
-      onFigDelta: (d) => ref.current.onFigDelta?.(d),
-      onChatStore: (x) => ref.current.onChatStore?.(x),
-      onChatToken: (x) => ref.current.onChatToken?.(x),
-      onToast: (t) => ref.current.onToast?.(t),
-      onMetrics: (m) => ref.current.onMetrics?.(m),
-      onBenchPoint: (p) => ref.current.onBenchPoint?.(p),
-      onUsedNodes: (n) => ref.current.onUsedNodes?.(n),
-      onPing: (x) => ref.current.onPing?.(x),
-      onRaw: (ev) => ref.current.onRaw?.(ev),
-      onError: (e) => ref.current.onError?.(e),
-    }, token);
+    const stop = startFaimStream(
+      graphId,
+      {
+        // Always use latest handlers via ref (prevents stale closures)
+        onContract: (c) => ref.current.onContract?.(c),
+        onFigDelta: (d) => ref.current.onFigDelta?.(d),
+        onChatStore: (x) => ref.current.onChatStore?.(x),
+        onChatToken: (x) => ref.current.onChatToken?.(x),
+        onToast: (t) => ref.current.onToast?.(t),
+        onMetrics: (m) => ref.current.onMetrics?.(m),
+        onBenchPoint: (p) => ref.current.onBenchPoint?.(p),
+        onUsedNodes: (n) => ref.current.onUsedNodes?.(n),
+        onPing: (x) => ref.current.onPing?.(x),
+        onRaw: (ev) => ref.current.onRaw?.(ev),
+        onError: (e) => ref.current.onError?.(e),
+      },
+      token,
+    );
 
     return () => stop();
     // eslint-disable-next-line react-hooks/exhaustive-deps

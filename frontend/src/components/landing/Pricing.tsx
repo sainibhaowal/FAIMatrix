@@ -1,57 +1,57 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { motion } from "framer-motion";
+import Link from "next/link";
 
 const plans = [
   {
-    name: 'Free',
-    price: '$0',
-    period: 'forever',
-    description: 'Perfect for trying FAIM',
+    name: "Free",
+    price: "$0",
+    period: "forever",
+    description: "Perfect for trying FAIM",
     features: [
-      '1,000 nodes',
-      'Basic knowledge graph',
-      'AI chat (100 queries/month)',
-      'Community support',
+      "1,000 nodes",
+      "Basic knowledge graph",
+      "AI chat (100 queries/month)",
+      "Community support",
     ],
-    cta: 'Start Free',
+    cta: "Start Free",
     popular: false,
-    gradient: 'from-slate-600 to-slate-700',
+    gradient: "from-slate-600 to-slate-700",
   },
   {
-    name: 'Pro',
-    price: '$29',
-    period: '/month',
-    description: 'For power users and teams',
+    name: "Pro",
+    price: "$29",
+    period: "/month",
+    description: "For power users and teams",
     features: [
-      'Unlimited nodes',
-      'Advanced graph visualization',
-      'Unlimited AI queries',
-      'Document ingestion (PDF, DOC)',
-      'Priority support',
-      'API access',
+      "Unlimited nodes",
+      "Advanced graph visualization",
+      "Unlimited AI queries",
+      "Document ingestion (PDF, DOC)",
+      "Priority support",
+      "API access",
     ],
-    cta: 'Start Pro Trial',
+    cta: "Start Pro Trial",
     popular: true,
-    gradient: 'from-cyan-500 to-blue-500',
+    gradient: "from-cyan-500 to-blue-500",
   },
   {
-    name: 'Enterprise',
-    price: 'Custom',
-    period: '',
-    description: 'For organizations at scale',
+    name: "Enterprise",
+    price: "Custom",
+    period: "",
+    description: "For organizations at scale",
     features: [
-      'Everything in Pro',
-      'SSO & SAML',
-      'Custom integrations',
-      'Dedicated support',
-      'On-premise option',
-      'SLA guarantee',
+      "Everything in Pro",
+      "SSO & SAML",
+      "Custom integrations",
+      "Dedicated support",
+      "On-premise option",
+      "SLA guarantee",
     ],
-    cta: 'Contact Sales',
+    cta: "Contact Sales",
     popular: false,
-    gradient: 'from-purple-500 to-pink-500',
+    gradient: "from-purple-500 to-pink-500",
   },
 ];
 
@@ -86,8 +86,8 @@ export default function Pricing() {
               transition={{ delay: index * 0.1 }}
               className={`relative rounded-2xl border ${
                 plan.popular
-                  ? 'border-cyan-500/50 bg-gradient-to-b from-cyan-950/50 to-slate-900'
-                  : 'border-slate-800 bg-slate-900/50'
+                  ? "border-cyan-500/50 bg-gradient-to-b from-cyan-950/50 to-slate-900"
+                  : "border-slate-800 bg-slate-900/50"
               } p-8`}
             >
               {/* Popular Badge */}
@@ -101,20 +101,39 @@ export default function Pricing() {
 
               {/* Plan Header */}
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
+                <h3 className="text-lg font-semibold text-white">
+                  {plan.name}
+                </h3>
                 <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-4xl font-bold text-white">{plan.price}</span>
+                  <span className="text-4xl font-bold text-white">
+                    {plan.price}
+                  </span>
                   <span className="text-slate-400 text-sm">{plan.period}</span>
                 </div>
-                <p className="mt-2 text-slate-400 text-sm">{plan.description}</p>
+                <p className="mt-2 text-slate-400 text-sm">
+                  {plan.description}
+                </p>
               </div>
 
               {/* Features */}
               <ul className="space-y-3 mb-8">
                 {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-start gap-3 text-sm text-slate-300">
-                    <svg className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <li
+                    key={feature}
+                    className="flex items-start gap-3 text-sm text-slate-300"
+                  >
+                    <svg
+                      className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
                     </svg>
                     {feature}
                   </li>
@@ -126,8 +145,8 @@ export default function Pricing() {
                 href="/dashboard"
                 className={`block w-full py-3 text-center rounded-xl font-medium transition-all duration-300 ${
                   plan.popular
-                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-105'
-                    : 'bg-slate-800 text-slate-200 hover:bg-slate-700'
+                    ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-105"
+                    : "bg-slate-800 text-slate-200 hover:bg-slate-700"
                 }`}
               >
                 {plan.cta}

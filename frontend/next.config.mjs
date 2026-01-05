@@ -9,6 +9,7 @@ const nextConfig = {
     "http://127.0.0.1:3000",
     "http://localhost:3000",
     "http://[::1]:3000",
+    "http://0.0.0.0:3000",
   ],
 
   // Proxy API calls to backend
@@ -18,7 +19,7 @@ const nextConfig = {
     // Use API_HOST (runtime) not NEXT_PUBLIC_API_HOST (build-time)
     const apiHost = process.env.API_HOST || "127.0.0.1:8000";
     const apiUrl = `http://${apiHost}`;
-    
+
     return [
       // Control plane routes (orgs, projects, api_keys, etc.) - backend has /v1 prefix
       {

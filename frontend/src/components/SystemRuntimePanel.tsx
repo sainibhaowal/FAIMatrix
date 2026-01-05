@@ -10,7 +10,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { API_BASE_URL, fetchHealth, getUniverseGraphId, type HealthStatus } from "@/lib/api";
+import {
+  API_BASE_URL,
+  fetchHealth,
+  getUniverseGraphId,
+  type HealthStatus,
+} from "@/lib/api";
 import { startFaimStream, type StreamContract } from "@/lib/realtime";
 import { useUserIds } from "@/contexts/UserContext";
 
@@ -81,33 +86,38 @@ const SystemRuntimePanel: React.FC = () => {
     setStreamErr(null);
 
     // Prefer Context ID (auth) over localStorage (maybe stale)
-    const seedId = (contextGraphId && contextGraphId.startsWith('U:')) 
-       ? contextGraphId 
-       : (getUniverseGraphId() || null);
+    const seedId =
+      contextGraphId && contextGraphId.startsWith("U:")
+        ? contextGraphId
+        : getUniverseGraphId() || null;
 
     if (seedId) setUniverseGraphId(seedId);
 
-    const stop = startFaimStream(seedId, {
-      onContract: (c: StreamContract) => {
-        const gid = c?.universe?.graph_id?.trim();
-        if (gid) setUniverseGraphId(gid);
-        setSseState("live"); // contract arrived => stream works
-      },
-      onPing: (x: any) => {
-        // ping proves liveness; contract remains authoritative for graph_id
-        const now = Date.now();
-        setLastPingAt(now);
-        setSseState("live");
+    const stop = startFaimStream(
+      seedId,
+      {
+        onContract: (c: StreamContract) => {
+          const gid = c?.universe?.graph_id?.trim();
+          if (gid) setUniverseGraphId(gid);
+          setSseState("live"); // contract arrived => stream works
+        },
+        onPing: (x: any) => {
+          // ping proves liveness; contract remains authoritative for graph_id
+          const now = Date.now();
+          setLastPingAt(now);
+          setSseState("live");
 
-        // If backend includes graph_id in ping, we can accept it as consistent hint
-        const gid = (x?.graph_id || x?.graphId || "").toString().trim();
-        if (gid && gid.startsWith("U:")) setUniverseGraphId(gid);
+          // If backend includes graph_id in ping, we can accept it as consistent hint
+          const gid = (x?.graph_id || x?.graphId || "").toString().trim();
+          if (gid && gid.startsWith("U:")) setUniverseGraphId(gid);
+        },
+        onError: (e) => {
+          setSseState("down");
+          setStreamErr(e instanceof Error ? e.message : String(e));
+        },
       },
-      onError: (e) => {
-        setSseState("down");
-        setStreamErr(e instanceof Error ? e.message : String(e));
-      },
-    }, token);
+      token,
+    );
 
     return () => stop();
   }, [token, contextGraphId]);
@@ -118,7 +128,8 @@ const SystemRuntimePanel: React.FC = () => {
       if (!lastPingAt) return;
       const ageMs = Date.now() - lastPingAt;
       // If no ping for > 35s, treat as connecting (maybe reconnecting)
-      if (ageMs > 35000) setSseState((prev) => (prev === "down" ? prev : "connecting"));
+      if (ageMs > 35000)
+        setSseState((prev) => (prev === "down" ? prev : "connecting"));
     }, 5000);
 
     return () => window.clearInterval(id);
@@ -134,10 +145,11 @@ const SystemRuntimePanel: React.FC = () => {
       warnings.push(`Backend health: ${health.status}`);
 
     if (!universeGraphId)
-      warnings.push("Universe graph_id not received yet (waiting for SSE contract).");
+      warnings.push(
+        "Universe graph_id not received yet (waiting for SSE contract).",
+      );
 
-    if (sseState === "connecting")
-      warnings.push("SSE stream: connecting…");
+    if (sseState === "connecting") warnings.push("SSE stream: connecting…");
     if (sseState === "down")
       warnings.push(`SSE stream: down${streamErr ? ` (${streamErr})` : ""}`);
 
@@ -160,15 +172,20 @@ const SystemRuntimePanel: React.FC = () => {
     <section className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-slate-100">System / Runtime</h2>
+          <h2 className="text-sm font-semibold text-slate-100">
+            System / Runtime
+          </h2>
           <p className="text-xs text-slate-400">
-            Live view of real Universe graph id, API base, paths and backend health.
+            Live view of real Universe graph id, API base, paths and backend
+            health.
           </p>
         </div>
         <div
           className={[
             "rounded-full px-3 py-1 text-xs font-medium",
-            healthy ? "bg-emerald-500/15 text-emerald-200" : "bg-amber-500/15 text-amber-200",
+            healthy
+              ? "bg-emerald-500/15 text-emerald-200"
+              : "bg-amber-500/15 text-amber-200",
           ].join(" ")}
           title={healthy ? "Backend health OK" : "Backend not OK"}
         >
@@ -178,8 +195,12 @@ const SystemRuntimePanel: React.FC = () => {
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-          <p className="mb-1 text-xs text-slate-400">Current graph (Universe)</p>
-          <p className="text-sm font-semibold text-slate-100">{info.current_graph}</p>
+          <p className="mb-1 text-xs text-slate-400">
+            Current graph (Universe)
+          </p>
+          <p className="text-sm font-semibold text-slate-100">
+            {info.current_graph}
+          </p>
 
           <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
             <div>
@@ -188,7 +209,9 @@ const SystemRuntimePanel: React.FC = () => {
             </div>
             <div>
               <p className="text-slate-400">Backend version</p>
-              <p className="font-medium text-slate-100">{info.backend_version}</p>
+              <p className="font-medium text-slate-100">
+                {info.backend_version}
+              </p>
             </div>
           </div>
 
@@ -200,11 +223,15 @@ const SystemRuntimePanel: React.FC = () => {
                 sseState === "live"
                   ? "text-emerald-200"
                   : sseState === "down"
-                  ? "text-red-200"
-                  : "text-slate-200",
+                    ? "text-red-200"
+                    : "text-slate-200",
               ].join(" ")}
             >
-              {sseState === "live" ? "LIVE" : sseState === "down" ? "DOWN" : "CONNECTING"}
+              {sseState === "live"
+                ? "LIVE"
+                : sseState === "down"
+                  ? "DOWN"
+                  : "CONNECTING"}
             </p>
           </div>
         </div>
@@ -214,15 +241,21 @@ const SystemRuntimePanel: React.FC = () => {
           <div className="space-y-2 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Cache</span>
-              <span className="font-medium text-slate-100">{info.runtime_paths.cache}</span>
+              <span className="font-medium text-slate-100">
+                {info.runtime_paths.cache}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Benchmarks</span>
-              <span className="font-medium text-slate-100">{info.runtime_paths.benchmarks}</span>
+              <span className="font-medium text-slate-100">
+                {info.runtime_paths.benchmarks}
+              </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Logs</span>
-              <span className="font-medium text-slate-100">{info.runtime_paths.logs}</span>
+              <span className="font-medium text-slate-100">
+                {info.runtime_paths.logs}
+              </span>
             </div>
           </div>
         </div>

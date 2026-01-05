@@ -1,15 +1,11 @@
 {
   "compilerOptions": {
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
-    
+
     "incremental": true,
     "module": "esnext",
     "esModuleInterop": true,
@@ -21,22 +17,15 @@
     "paths": {
       "@/*": ["*"],
       "@/lib/*": ["lib/*"],
-      
+
       "@/components/*": ["components/*"]
     },
     "plugins": [
       {
         "name": "next"
-      },
+      }
     ]
   },
-  "include": [
-    "next-env.d.ts",
-    ".next/types/**/*.ts",
-    "**/*.ts",
-    "**/*.tsx"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["next-env.d.ts", ".next/types/**/*.ts", "**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
 }

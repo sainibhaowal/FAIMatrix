@@ -1,14 +1,14 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
+import { motion } from "framer-motion";
 
 const logos = [
-  { name: 'TechCorp', icon: '◆' },
-  { name: 'StartupAI', icon: '◇' },
-  { name: 'DataFlow', icon: '○' },
-  { name: 'CloudSync', icon: '□' },
-  { name: 'NeuralNet', icon: '△' },
-  { name: 'Quantix', icon: '◎' },
+  { name: "TechCorp", icon: "◆" },
+  { name: "StartupAI", icon: "◇" },
+  { name: "DataFlow", icon: "○" },
+  { name: "CloudSync", icon: "□" },
+  { name: "NeuralNet", icon: "△" },
+  { name: "Quantix", icon: "◎" },
 ];
 
 export default function TrustedBy() {
@@ -23,7 +23,7 @@ export default function TrustedBy() {
         >
           Trusted by innovative teams worldwide
         </motion.p>
-        
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -40,7 +40,9 @@ export default function TrustedBy() {
               className="flex items-center gap-2 text-slate-600 hover:text-slate-400 transition-colors"
             >
               <span className="text-2xl">{logo.icon}</span>
-              <span className="text-sm font-medium tracking-wide">{logo.name}</span>
+              <span className="text-sm font-medium tracking-wide">
+                {logo.name}
+              </span>
             </motion.div>
           ))}
         </motion.div>

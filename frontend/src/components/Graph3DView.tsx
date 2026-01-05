@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState } from 'react';
-import type { CSSProperties, MouseEvent } from 'react';
+import dynamic from "next/dynamic";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties, MouseEvent } from "react";
 
-import { useFaimStream, type FigDelta } from '@/lib/realtime';
+import { useFaimStream, type FigDelta } from "@/lib/realtime";
 import {
   DEFAULT_GRAPH_ID,
   fetchNodeScan,
   fetchNodeSubgraph,
   fetchSubgraph,
   getUniverseGraphId,
-} from '@/lib/api';
+} from "@/lib/api";
 
 /**
  * NOTE:
@@ -19,7 +19,9 @@ import {
  * - Do NOT pass ref to ForceGraph3D.
  * - Size it via width/height props from ResizeObserver.
  */
-const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), { ssr: false });
+const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
+  ssr: false,
+});
 
 type Graph3DViewProps = {
   onNodeSelect(nodeId: string | null): void;
@@ -50,9 +52,9 @@ function useStickyGlowVars(intensity = 0.28) {
     const r = el.getBoundingClientRect();
     const x = clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1) * 100;
     const y = clamp((e.clientY - r.top) / Math.max(1, r.height), 0, 1) * 100;
-    el.style.setProperty('--mx', `${x.toFixed(2)}%`);
-    el.style.setProperty('--my', `${y.toFixed(2)}%`);
-    el.style.setProperty('--gvis', String(intensity));
+    el.style.setProperty("--mx", `${x.toFixed(2)}%`);
+    el.style.setProperty("--my", `${y.toFixed(2)}%`);
+    el.style.setProperty("--gvis", String(intensity));
   };
 
   const onMouseLeave = () => {
@@ -63,20 +65,20 @@ function useStickyGlowVars(intensity = 0.28) {
 }
 
 function buildNodeTooltip(node: any): string {
-  const id = node.id ?? '(no id)';
-  const label = node.label ?? node.name ?? '';
+  const id = node.id ?? "(no id)";
+  const label = node.label ?? node.name ?? "";
   const rawPayload: unknown =
     node.preview ??
     node.snippet ??
     node.payload ??
     node.text ??
     node.body ??
-    '';
+    "";
 
-  let preview = '';
-  if (rawPayload && typeof rawPayload === 'string') {
-    preview = rawPayload.split('\n').slice(0, 3).join(' ').trim();
-    if (preview.length > 220) preview = preview.slice(0, 220) + '…';
+  let preview = "";
+  if (rawPayload && typeof rawPayload === "string") {
+    preview = rawPayload.split("\n").slice(0, 3).join(" ").trim();
+    if (preview.length > 220) preview = preview.slice(0, 220) + "…";
   }
 
   const header = label ? `${label}\n${id}` : id;
@@ -103,12 +105,15 @@ export function Graph3DView({
   const glow = useStickyGlowVars(0.26);
 
   // Size state (drives ForceGraph props) — avoids ref + avoids fg.width() crash
-  const [size, setSize] = useState<{ w: number; h: number }>({ w: 300, h: 300 });
+  const [size, setSize] = useState<{ w: number; h: number }>({
+    w: 300,
+    h: 300,
+  });
 
   // Universe-first graphId (avoid localStorage during initial render)
   const [graphId, setGraphId] = useState<string>(() => {
-    const p = (propGraphId ?? '').trim();
-    return p.startsWith('U:') ? p : DEFAULT_GRAPH_ID;
+    const p = (propGraphId ?? "").trim();
+    return p.startsWith("U:") ? p : DEFAULT_GRAPH_ID;
   });
 
   const normalizeGraphData = (g: GraphData) => {
@@ -120,13 +125,13 @@ export function Graph3DView({
 
     for (let i = 0; i < nodes.length; i += 1) {
       const n = nodes[i];
-      if (n && typeof n === 'object') {
-        const rawId = (n as any).id ?? (n as any).node_id ?? '';
+      if (n && typeof n === "object") {
+        const rawId = (n as any).id ?? (n as any).node_id ?? "";
         const id = String(rawId);
         if (!id) continue;
         if ((n as any).id !== id) (n as any).id = id;
         nodeById.set(id, n);
-      } else if (typeof n === 'string' || typeof n === 'number') {
+      } else if (typeof n === "string" || typeof n === "number") {
         const id = String(n);
         if (!id) continue;
         const nn = { id };
@@ -140,27 +145,31 @@ export function Graph3DView({
       const tgtObj = (l as any).target;
 
       const srcId =
-        srcObj && typeof srcObj === 'object'
-          ? String((srcObj as any).id ?? (srcObj as any).node_id ?? '')
-          : String(srcObj ?? '');
+        srcObj && typeof srcObj === "object"
+          ? String((srcObj as any).id ?? (srcObj as any).node_id ?? "")
+          : String(srcObj ?? "");
       const tgtId =
-        tgtObj && typeof tgtObj === 'object'
-          ? String((tgtObj as any).id ?? (tgtObj as any).node_id ?? '')
-          : String(tgtObj ?? '');
+        tgtObj && typeof tgtObj === "object"
+          ? String((tgtObj as any).id ?? (tgtObj as any).node_id ?? "")
+          : String(tgtObj ?? "");
 
       if (srcId && !nodeById.has(srcId)) {
-        const nn = srcObj && typeof srcObj === 'object' ? srcObj : { id: srcId };
+        const nn =
+          srcObj && typeof srcObj === "object" ? srcObj : { id: srcId };
         nodes.push(nn);
         nodeById.set(srcId, nn);
       }
       if (tgtId && !nodeById.has(tgtId)) {
-        const nn = tgtObj && typeof tgtObj === 'object' ? tgtObj : { id: tgtId };
+        const nn =
+          tgtObj && typeof tgtObj === "object" ? tgtObj : { id: tgtId };
         nodes.push(nn);
         nodeById.set(tgtId, nn);
       }
 
-      if (!(srcObj && typeof srcObj === 'object') && srcId) (l as any).source = srcId;
-      if (!(tgtObj && typeof tgtObj === 'object') && tgtId) (l as any).target = tgtId;
+      if (!(srcObj && typeof srcObj === "object") && srcId)
+        (l as any).source = srcId;
+      if (!(tgtObj && typeof tgtObj === "object") && tgtId)
+        (l as any).target = tgtId;
     }
   };
 
@@ -171,13 +180,13 @@ export function Graph3DView({
     const linkKey = new Set<string>();
 
     for (const n of g.nodes) {
-      const id = String(n?.id ?? '');
+      const id = String(n?.id ?? "");
       if (id) degree.set(id, 0);
     }
 
     for (const l of g.links || []) {
-      const s = String((l as any).source?.id ?? (l as any).source ?? '');
-      const t = String((l as any).target?.id ?? (l as any).target ?? '');
+      const s = String((l as any).source?.id ?? (l as any).source ?? "");
+      const t = String((l as any).target?.id ?? (l as any).target ?? "");
       if (!s || !t) continue;
       linkKey.add(`${s}->${t}`);
       linkKey.add(`${t}->${s}`);
@@ -185,7 +194,7 @@ export function Graph3DView({
       if (degree.has(t)) degree.set(t, (degree.get(t) ?? 0) + 1);
     }
 
-    const ids = g.nodes.map((n) => String(n?.id ?? '')).filter(Boolean);
+    const ids = g.nodes.map((n) => String(n?.id ?? "")).filter(Boolean);
     if (ids.length <= 1) return;
 
     for (let i = 0; i < ids.length; i += 1) {
@@ -196,7 +205,7 @@ export function Graph3DView({
       if (!target || target === id) continue;
       if (linkKey.has(`${id}->${target}`)) continue;
 
-      g.links.push({ source: id, target, rel: 'tether', weight: 0.05 });
+      g.links.push({ source: id, target, rel: "tether", weight: 0.05 });
       linkKey.add(`${id}->${target}`);
       linkKey.add(`${target}->${id}`);
       degree.set(id, (degree.get(id) ?? 0) + 1);
@@ -206,18 +215,18 @@ export function Graph3DView({
 
   // Sync from prop changes
   useEffect(() => {
-    const p = (propGraphId ?? '').trim();
-    if (!p.startsWith('U:')) return;
+    const p = (propGraphId ?? "").trim();
+    if (!p.startsWith("U:")) return;
     setGraphId((prev) => (p !== prev ? p : prev));
   }, [propGraphId]);
 
   // Keep in sync if another component writes the Universe key
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     const syncUniverse = () => {
       const u = getUniverseGraphId();
-      if (u && u.startsWith('U:')) {
+      if (u && u.startsWith("U:")) {
         setGraphId((prev) => (u !== prev ? u : prev));
       }
     };
@@ -227,17 +236,17 @@ export function Graph3DView({
     const onStorage = (e: StorageEvent) => {
       if (!e.key) return;
       if (
-        e.key === 'faim.universe_graph_id' ||
-        e.key === 'faim_universe_graph_id' ||
-        e.key === 'faim_graph_id' ||
-        e.key === 'faim_entry_graph_id'
+        e.key === "faim.universe_graph_id" ||
+        e.key === "faim_universe_graph_id" ||
+        e.key === "faim_graph_id" ||
+        e.key === "faim_entry_graph_id"
       ) {
         syncUniverse();
       }
     };
 
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   // Cleanup RAF
@@ -297,7 +306,9 @@ export function Graph3DView({
       const g = dataRef.current;
       const dd = d.delta;
 
-      const nodeById = new Map<string, any>(g.nodes.map((n) => [String(n.id), n]));
+      const nodeById = new Map<string, any>(
+        g.nodes.map((n) => [String(n.id), n]),
+      );
       const linkByKey = new Map<string, any>();
 
       for (const l of g.links) {
@@ -361,7 +372,9 @@ export function Graph3DView({
 
       if (dd.links_removed?.length) {
         const del = new Set(
-          dd.links_removed.map((x) => `${String(x.source)}->${String(x.target)}`),
+          dd.links_removed.map(
+            (x) => `${String(x.source)}->${String(x.target)}`,
+          ),
         );
 
         g.links = g.links.filter((l) => {
@@ -388,8 +401,8 @@ export function Graph3DView({
     let alive = true;
 
     const load = async () => {
-      const u = graphId?.startsWith('U:') ? graphId : getUniverseGraphId();
-      if (!u || !u.startsWith('U:')) return;
+      const u = graphId?.startsWith("U:") ? graphId : getUniverseGraphId();
+      if (!u || !u.startsWith("U:")) return;
 
       try {
         const res = await fetchSubgraph(u);
@@ -412,7 +425,10 @@ export function Graph3DView({
         const list = await fetchNodeScan(u, 250);
         if (!alive) return;
         const nodes = Array.isArray(list) ? list : [];
-        const baseNodes = nodes.map((n) => ({ id: n.id, degree: n.degree ?? undefined }));
+        const baseNodes = nodes.map((n) => ({
+          id: n.id,
+          degree: n.degree ?? undefined,
+        }));
 
         if (baseNodes.length > 0) {
           dataRef.current = { nodes: baseNodes, links: [] };
@@ -432,7 +448,9 @@ export function Graph3DView({
             const subLinks = Array.isArray(res.links) ? res.links : [];
 
             if (subLinks.length > 0 || subNodes.length > 1) {
-              const nodeMap = new Map<string, any>(baseNodes.map((n) => [String(n.id), n]));
+              const nodeMap = new Map<string, any>(
+                baseNodes.map((n) => [String(n.id), n]),
+              );
               for (const n of subNodes) {
                 const id = String((n as any).id);
                 if (!nodeMap.has(id)) nodeMap.set(id, n);
@@ -471,28 +489,31 @@ export function Graph3DView({
       onMouseLeave={glow.onMouseLeave}
       style={
         {
-          '--mx': '55%',
-          '--my': '28%',
-          '--gvis': '0',
+          "--mx": "55%",
+          "--my": "28%",
+          "--gvis": "0",
         } as CSSProperties
       }
       className={[
-        'group relative h-full w-full overflow-hidden rounded-2xl',
-        'bg-slate-950/45',
-        'shadow-[0_18px_70px_-36px_rgba(0,0,0,0.85)]',
-        'before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200',
-        'before:[background:radial-gradient(720px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.12),transparent_64%)]',
-        'before:opacity-[var(--gvis)]',
-        'after:pointer-events-none after:absolute after:inset-0 after:opacity-0 after:transition-opacity after:duration-200',
-        'after:[background:radial-gradient(520px_circle_at_var(--mx)_var(--my),rgba(168,85,247,0.10),transparent_66%)]',
-        'after:opacity-[var(--gvis)]',
-      ].join(' ')}
+        "group relative h-full w-full overflow-hidden rounded-2xl",
+        "bg-slate-950/45",
+        "shadow-[0_18px_70px_-36px_rgba(0,0,0,0.85)]",
+        "before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200",
+        "before:[background:radial-gradient(720px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.12),transparent_64%)]",
+        "before:opacity-[var(--gvis)]",
+        "after:pointer-events-none after:absolute after:inset-0 after:opacity-0 after:transition-opacity after:duration-200",
+        "after:[background:radial-gradient(520px_circle_at_var(--mx)_var(--my),rgba(168,85,247,0.10),transparent_66%)]",
+        "after:opacity-[var(--gvis)]",
+      ].join(" ")}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl [mask-image:linear-gradient(to_bottom,black,transparent_18%,black)]">
         <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/6 via-transparent to-purple-400/6" />
       </div>
 
-      <div ref={containerRef} className="relative z-[1] h-full w-full overflow-hidden rounded-2xl">
+      <div
+        ref={containerRef}
+        className="relative z-[1] h-full w-full overflow-hidden rounded-2xl"
+      >
         {/* @ts-ignore */}
         <ForceGraph3D
           width={size.w}
@@ -503,7 +524,7 @@ export function Graph3DView({
           enableNodeDrag={enableNodeDrag ?? true}
           linkOpacity={0.35}
           linkWidth={(l: any) =>
-            (l.rel === 'tether' ? 0.2 : (l.weight ?? 1) * 0.5)
+            l.rel === "tether" ? 0.2 : (l.weight ?? 1) * 0.5
           }
           onNodeClick={(node: any) => onNodeSelect(node?.id ?? null)}
         />

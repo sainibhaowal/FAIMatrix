@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-import FaimLogo from '@/components/landing/FaimLogo';
+import { motion } from "framer-motion";
+import Link from "next/link";
+import FaimLogo from "@/components/landing/FaimLogo";
 
 export default function PrivacyPage() {
   return (
@@ -14,7 +14,10 @@ export default function PrivacyPage() {
             <Link href="/">
               <FaimLogo size={36} />
             </Link>
-            <Link href="/" className="text-sm text-slate-400 hover:text-white transition-colors">
+            <Link
+              href="/"
+              className="text-sm text-slate-400 hover:text-white transition-colors"
+            >
               ← Back to Home
             </Link>
           </div>
@@ -27,20 +30,31 @@ export default function PrivacyPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <h1 className="text-4xl font-bold text-white mb-4">Privacy Policy</h1>
+            <h1 className="text-4xl font-bold text-white mb-4">
+              Privacy Policy
+            </h1>
             <p className="text-slate-400 mb-8">Last updated: January 2026</p>
 
             <div className="prose prose-invert max-w-none space-y-8">
               <section>
-                <h2 className="text-2xl font-semibold text-white mb-4">1. Introduction</h2>
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  1. Introduction
+                </h2>
                 <p className="text-slate-400 leading-relaxed">
-                  FAIM Lab ("we", "our", or "us"), operated by Ravinder Singh, is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our service.
+                  FAIM Lab ("we", "our", or "us"), operated by Ravinder Singh,
+                  is committed to protecting your privacy. This Privacy Policy
+                  explains how we collect, use, disclose, and safeguard your
+                  information when you use our service.
                 </p>
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-white mb-4">2. Information We Collect</h2>
-                <p className="text-slate-400 leading-relaxed mb-4">We may collect the following types of information:</p>
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  2. Information We Collect
+                </h2>
+                <p className="text-slate-400 leading-relaxed mb-4">
+                  We may collect the following types of information:
+                </p>
                 <ul className="list-disc list-inside text-slate-400 space-y-2">
                   <li>Account information (email, name)</li>
                   <li>Usage data and analytics</li>
@@ -50,8 +64,12 @@ export default function PrivacyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-white mb-4">3. How We Use Your Information</h2>
-                <p className="text-slate-400 leading-relaxed mb-4">We use collected information to:</p>
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  3. How We Use Your Information
+                </h2>
+                <p className="text-slate-400 leading-relaxed mb-4">
+                  We use collected information to:
+                </p>
                 <ul className="list-disc list-inside text-slate-400 space-y-2">
                   <li>Provide and maintain our service</li>
                   <li>Improve and personalize your experience</li>
@@ -61,15 +79,24 @@ export default function PrivacyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-white mb-4">4. Data Security</h2>
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  4. Data Security
+                </h2>
                 <p className="text-slate-400 leading-relaxed">
-                  We implement industry-standard security measures to protect your data. Your uploaded content is encrypted at rest and in transit. However, no method of transmission over the Internet is 100% secure.
+                  We implement industry-standard security measures to protect
+                  your data. Your uploaded content is encrypted at rest and in
+                  transit. However, no method of transmission over the Internet
+                  is 100% secure.
                 </p>
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-white mb-4">5. Your Rights (GDPR)</h2>
-                <p className="text-slate-400 leading-relaxed mb-4">If you are in the EU, you have the right to:</p>
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  5. Your Rights (GDPR)
+                </h2>
+                <p className="text-slate-400 leading-relaxed mb-4">
+                  If you are in the EU, you have the right to:
+                </p>
                 <ul className="list-disc list-inside text-slate-400 space-y-2">
                   <li>Access your personal data</li>
                   <li>Rectify inaccurate data</li>
@@ -80,10 +107,19 @@ export default function PrivacyPage() {
               </section>
 
               <section>
-                <h2 className="text-2xl font-semibold text-white mb-4">6. Contact Us</h2>
+                <h2 className="text-2xl font-semibold text-white mb-4">
+                  6. Contact Us
+                </h2>
                 <p className="text-slate-400 leading-relaxed">
-                  If you have questions about this Privacy Policy, please contact us at{' '}
-                  <a href="mailto:privacy@faimlab.com" className="text-cyan-400 hover:underline">privacy@faimlab.com</a>.
+                  If you have questions about this Privacy Policy, please
+                  contact us at{" "}
+                  <a
+                    href="mailto:privacy@faimlab.com"
+                    className="text-cyan-400 hover:underline"
+                  >
+                    privacy@faimlab.com
+                  </a>
+                  .
                 </p>
               </section>
             </div>

@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import * as React from 'react';
-import { useEffect, useRef, useState } from 'react';
-import { API_BASE_URL, buildFaimHeaders } from '@/lib/api';
+import * as React from "react";
+import { useEffect, useRef, useState } from "react";
+import { API_BASE_URL, buildFaimHeaders } from "@/lib/api";
 
-type TabKey = 'memory' | 'neighbors' | 'lineage' | 'vector';
+type TabKey = "memory" | "neighbors" | "lineage" | "vector";
 
 type Neighbor = {
   id: string;
@@ -57,9 +57,9 @@ function useStickyGlowVars(intensity = 0.22) {
     const r = el.getBoundingClientRect();
     const x = clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1) * 100;
     const y = clamp((e.clientY - r.top) / Math.max(1, r.height), 0, 1) * 100;
-    el.style.setProperty('--mx', `${x.toFixed(2)}%`);
-    el.style.setProperty('--my', `${y.toFixed(2)}%`);
-    el.style.setProperty('--gvis', String(intensity));
+    el.style.setProperty("--mx", `${x.toFixed(2)}%`);
+    el.style.setProperty("--my", `${y.toFixed(2)}%`);
+    el.style.setProperty("--gvis", String(intensity));
   };
 
   const onPointerLeave = () => {
@@ -69,8 +69,11 @@ function useStickyGlowVars(intensity = 0.22) {
   return { ref, onPointerMoveCapture, onPointerLeave };
 }
 
-export function NodeRelationsPanel({ nodeId, graphId }: NodeRelationsPanelProps) {
-  const [activeTab, setActiveTab] = useState<TabKey>('neighbors');
+export function NodeRelationsPanel({
+  nodeId,
+  graphId,
+}: NodeRelationsPanelProps) {
+  const [activeTab, setActiveTab] = useState<TabKey>("neighbors");
 
   const [neighbors, setNeighbors] = useState<Neighbor[]>([]);
   const [lineage, setLineage] = useState<LineageItem[]>([]);
@@ -81,7 +84,7 @@ export function NodeRelationsPanel({ nodeId, graphId }: NodeRelationsPanelProps)
   const [error, setError] = useState<string | null>(null);
 
   // IMPORTANT: production rule — do NOT fall back to MAIN/demo.
-  const effectiveGraphId = (graphId ?? '').trim();
+  const effectiveGraphId = (graphId ?? "").trim();
 
   useEffect(() => {
     // If universe id not ready yet, do nothing.
@@ -113,14 +116,14 @@ export function NodeRelationsPanel({ nodeId, graphId }: NodeRelationsPanelProps)
       setError(null);
 
       try {
-        if (activeTab === 'memory') {
+        if (activeTab === "memory") {
           const [countRes, detailRes] = await Promise.all([
             fetch(
               `${API_BASE_URL}/graphs/${encodeURIComponent(
                 effectiveGraphId,
               )}/node_count`,
               {
-                cache: 'no-store',
+                cache: "no-store",
                 headers: buildFaimHeaders(),
               },
             ),
@@ -129,7 +132,7 @@ export function NodeRelationsPanel({ nodeId, graphId }: NodeRelationsPanelProps)
                 effectiveGraphId,
               )}/node/${encodeURIComponent(currentNodeId)}`,
               {
-                cache: 'no-store',
+                cache: "no-store",
                 headers: buildFaimHeaders(),
               },
             ),
@@ -142,19 +145,21 @@ export function NodeRelationsPanel({ nodeId, graphId }: NodeRelationsPanelProps)
 
           if (countRes.ok) {
             const data = (await countRes.json()) as any;
-            if (typeof data?.node_count === 'number') totalNodes = data.node_count;
+            if (typeof data?.node_count === "number")
+              totalNodes = data.node_count;
           }
 
           if (detailRes.ok) {
             const data = (await detailRes.json()) as any;
-            const payload = typeof data?.payload === 'string' ? data.payload : '';
-            preview = typeof data?.preview === 'string' ? data.preview : null;
+            const payload =
+              typeof data?.payload === "string" ? data.payload : "";
+            preview = typeof data?.preview === "string" ? data.preview : null;
             if (payload) {
               payloadChars = payload.length;
-              payloadLines = payload.split('\n').length;
+              payloadLines = payload.split("\n").length;
             } else if (preview) {
               payloadChars = preview.length;
-              payloadLines = preview.split('\n').length;
+              payloadLines = preview.split("\n").length;
             }
           }
 
@@ -166,35 +171,35 @@ export function NodeRelationsPanel({ nodeId, graphId }: NodeRelationsPanelProps)
               preview,
             });
           }
-        } else if (activeTab === 'neighbors') {
+        } else if (activeTab === "neighbors") {
           const res = await fetch(
             `${API_BASE_URL}/graphs/${encodeURIComponent(
               effectiveGraphId,
             )}/node/${encodeURIComponent(currentNodeId)}/neighbors?k=10`,
             {
-              cache: 'no-store',
+              cache: "no-store",
               headers: buildFaimHeaders(),
             },
           );
 
           if (!res.ok) throw new Error(`neighbors HTTP ${res.status}`);
           const data = (await res.json()) as any;
-          const arr = Array.isArray(data) ? data : data.neighbors ?? [];
+          const arr = Array.isArray(data) ? data : (data.neighbors ?? []);
 
           if (!cancelled) {
             setNeighbors(
               arr
                 .map((n: any) => {
-                  if (typeof n === 'string' || typeof n === 'number') {
+                  if (typeof n === "string" || typeof n === "number") {
                     return { id: String(n) };
                   }
                   return {
-                    id: String(n.id ?? n.node_id ?? ''),
+                    id: String(n.id ?? n.node_id ?? ""),
                     label: n.label,
                     distance:
-                      typeof n.distance === 'number'
+                      typeof n.distance === "number"
                         ? n.distance
-                        : typeof n.score === 'number'
+                        : typeof n.score === "number"
                           ? n.score
                           : undefined,
                   };
@@ -202,43 +207,43 @@ export function NodeRelationsPanel({ nodeId, graphId }: NodeRelationsPanelProps)
                 .filter((x: Neighbor) => x.id),
             );
           }
-        } else if (activeTab === 'lineage') {
+        } else if (activeTab === "lineage") {
           const res = await fetch(
             `${API_BASE_URL}/graphs/${encodeURIComponent(
               effectiveGraphId,
             )}/node/${encodeURIComponent(currentNodeId)}/lineage?depth=10`,
             {
-              cache: 'no-store',
+              cache: "no-store",
               headers: buildFaimHeaders(),
             },
           );
 
           if (!res.ok) throw new Error(`lineage HTTP ${res.status}`);
           const data = (await res.json()) as any;
-          const arr = Array.isArray(data) ? data : data.lineage ?? [];
+          const arr = Array.isArray(data) ? data : (data.lineage ?? []);
 
           if (!cancelled) {
             setLineage(
               arr
                 .map((n: any) => {
-                  if (typeof n === 'string' || typeof n === 'number') {
+                  if (typeof n === "string" || typeof n === "number") {
                     return { id: String(n) };
                   }
                   return {
-                    id: String(n.id ?? n.node_id ?? ''),
+                    id: String(n.id ?? n.node_id ?? ""),
                     label: n.label,
                   };
                 })
                 .filter((x: LineageItem) => x.id),
             );
           }
-        } else if (activeTab === 'vector') {
+        } else if (activeTab === "vector") {
           const res = await fetch(
             `${API_BASE_URL}/graphs/${encodeURIComponent(
               effectiveGraphId,
             )}/node/${encodeURIComponent(currentNodeId)}/vector_stats`,
             {
-              cache: 'no-store',
+              cache: "no-store",
               headers: buildFaimHeaders(),
             },
           );
@@ -249,8 +254,8 @@ export function NodeRelationsPanel({ nodeId, graphId }: NodeRelationsPanelProps)
         }
       } catch (err: any) {
         if (!cancelled) {
-          console.warn('NodeRelationsPanel load failed', err);
-          setError('Unable to load data for this node.');
+          console.warn("NodeRelationsPanel load failed", err);
+          setError("Unable to load data for this node.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -272,23 +277,23 @@ export function NodeRelationsPanel({ nodeId, graphId }: NodeRelationsPanelProps)
       onPointerLeave={glow.onPointerLeave}
       style={
         {
-          '--mx': '55%',
-          '--my': '22%',
-          '--gvis': '0',
+          "--mx": "55%",
+          "--my": "22%",
+          "--gvis": "0",
         } as React.CSSProperties
       }
       className={[
-        'group relative h-full overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4 text-xs',
-        'ring-1 ring-inset ring-cyan-500/10',
-        'shadow-[0_0_0_1px_rgba(15,23,42,0.55),0_18px_70px_-40px_rgba(0,0,0,0.85)]',
-        'transition duration-200 hover:border-cyan-500/35',
+        "group relative h-full overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4 text-xs",
+        "ring-1 ring-inset ring-cyan-500/10",
+        "shadow-[0_0_0_1px_rgba(15,23,42,0.55),0_18px_70px_-40px_rgba(0,0,0,0.85)]",
+        "transition duration-200 hover:border-cyan-500/35",
         "before:content-[''] before:pointer-events-none before:absolute before:inset-0",
         "after:content-[''] after:pointer-events-none after:absolute after:inset-0",
-        'before:[background:radial-gradient(620px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.11),transparent_66%)]',
-        'before:opacity-[var(--gvis)]',
-        'after:[background:radial-gradient(460px_circle_at_var(--mx)_var(--my),rgba(168,85,247,0.09),transparent_70%)]',
-        'after:opacity-[var(--gvis)]',
-      ].join(' ')}
+        "before:[background:radial-gradient(620px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.11),transparent_66%)]",
+        "before:opacity-[var(--gvis)]",
+        "after:[background:radial-gradient(460px_circle_at_var(--mx)_var(--my),rgba(168,85,247,0.09),transparent_70%)]",
+        "after:opacity-[var(--gvis)]",
+      ].join(" ")}
     >
       <div className="pointer-events-none absolute inset-0 rounded-2xl border border-cyan-400/10" />
       <div className="relative z-[1]">
@@ -318,11 +323,11 @@ export function NodeRelationsPanel({ nodeId, graphId }: NodeRelationsPanelProps)
           <p className="text-[11px] text-slate-400">Loading…</p>
         ) : error ? (
           <p className="text-[11px] text-rose-400">{error}</p>
-        ) : activeTab === 'memory' ? (
+        ) : activeTab === "memory" ? (
           <MemoryStatsView stats={memoryStats} />
-        ) : activeTab === 'neighbors' ? (
+        ) : activeTab === "neighbors" ? (
           <NeighborsList neighbors={neighbors} />
-        ) : activeTab === 'lineage' ? (
+        ) : activeTab === "lineage" ? (
           <LineageList lineage={lineage} />
         ) : (
           <VectorStatsView stats={vectorStats} />
@@ -339,50 +344,50 @@ function TabSwitch({
   active: TabKey;
   onChange: (t: TabKey) => void;
 }) {
-  const base = 'px-2 py-0.5 rounded-full text-[10px] transition-colors';
+  const base = "px-2 py-0.5 rounded-full text-[10px] transition-colors";
   return (
     <div className="inline-flex items-center rounded-full border border-slate-700 bg-slate-900/80 p-0.5 text-[10px]">
       <button
         type="button"
         className={
-          active === 'memory'
+          active === "memory"
             ? `${base} bg-cyan-500 text-slate-950`
             : `${base} text-slate-300 hover:bg-slate-800`
         }
-        onClick={() => onChange('memory')}
+        onClick={() => onChange("memory")}
       >
         Memory
       </button>
       <button
         type="button"
         className={
-          active === 'neighbors'
+          active === "neighbors"
             ? `${base} bg-cyan-500 text-slate-950`
             : `${base} text-slate-300 hover:bg-slate-800`
         }
-        onClick={() => onChange('neighbors')}
+        onClick={() => onChange("neighbors")}
       >
         Neighbors
       </button>
       <button
         type="button"
         className={
-          active === 'lineage'
+          active === "lineage"
             ? `${base} bg-cyan-500 text-slate-950`
             : `${base} text-slate-300 hover:bg-slate-800`
         }
-        onClick={() => onChange('lineage')}
+        onClick={() => onChange("lineage")}
       >
         Lineage
       </button>
       <button
         type="button"
         className={
-          active === 'vector'
+          active === "vector"
             ? `${base} bg-cyan-500 text-slate-950`
             : `${base} text-slate-300 hover:bg-slate-800`
         }
-        onClick={() => onChange('vector')}
+        onClick={() => onChange("vector")}
       >
         Vector
       </button>
@@ -400,18 +405,18 @@ function GlowRow({ children }: { children: React.ReactNode }) {
       onPointerLeave={glow.onPointerLeave}
       style={
         {
-          '--mx': '50%',
-          '--my': '40%',
-          '--gvis': '0',
+          "--mx": "50%",
+          "--my": "40%",
+          "--gvis": "0",
         } as React.CSSProperties
       }
       className={[
-        'relative overflow-hidden rounded-md border border-slate-800/80 bg-slate-900/70',
-        'transition hover:border-cyan-500/30',
+        "relative overflow-hidden rounded-md border border-slate-800/80 bg-slate-900/70",
+        "transition hover:border-cyan-500/30",
         "before:content-[''] before:pointer-events-none before:absolute before:inset-0",
-        'before:[background:radial-gradient(420px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.10),transparent_66%)]',
-        'before:opacity-[var(--gvis)]',
-      ].join(' ')}
+        "before:[background:radial-gradient(420px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.10),transparent_66%)]",
+        "before:opacity-[var(--gvis)]",
+      ].join(" ")}
     >
       <div className="relative z-[1]">{children}</div>
     </div>
@@ -432,7 +437,7 @@ function NeighborsList({ neighbors }: { neighbors: Neighbor[] }) {
               <div className="truncate text-[11px] text-slate-100">
                 {n.label || n.id}
               </div>
-              {typeof n.distance === 'number' && (
+              {typeof n.distance === "number" && (
                 <span className="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
                   d = {n.distance.toFixed(3)}
                 </span>
@@ -448,9 +453,7 @@ function NeighborsList({ neighbors }: { neighbors: Neighbor[] }) {
 function MemoryStatsView({ stats }: { stats: MemoryStats | null }) {
   if (!stats) {
     return (
-      <p className="text-[11px] text-slate-500">
-        No memory data available.
-      </p>
+      <p className="text-[11px] text-slate-500">No memory data available.</p>
     );
   }
 
@@ -459,19 +462,19 @@ function MemoryStatsView({ stats }: { stats: MemoryStats | null }) {
       <div className="flex items-center justify-between rounded-md border border-slate-800 bg-slate-900/70 px-2 py-1">
         <span className="text-slate-400">Total memories</span>
         <span className="font-semibold text-slate-100">
-          {stats.totalNodes ?? '—'}
+          {stats.totalNodes ?? "—"}
         </span>
       </div>
       <div className="flex items-center justify-between rounded-md border border-slate-800 bg-slate-900/70 px-2 py-1">
         <span className="text-slate-400">Payload size</span>
         <span className="font-semibold text-slate-100">
-          {stats.payloadChars ?? '—'} chars
+          {stats.payloadChars ?? "—"} chars
         </span>
       </div>
       <div className="flex items-center justify-between rounded-md border border-slate-800 bg-slate-900/70 px-2 py-1">
         <span className="text-slate-400">Payload lines</span>
         <span className="font-semibold text-slate-100">
-          {stats.payloadLines ?? '—'}
+          {stats.payloadLines ?? "—"}
         </span>
       </div>
       {stats.preview && (
@@ -524,15 +527,17 @@ function VectorStatsView({ stats }: { stats: VectorStats | null }) {
   }
 
   const entries: { key: keyof VectorStats; label: string }[] = [
-    { key: 'norm', label: 'Norm' },
-    { key: 'mean', label: 'Mean' },
-    { key: 'std', label: 'Std' },
-    { key: 'min', label: 'Min' },
-    { key: 'max', label: 'Max' },
+    { key: "norm", label: "Norm" },
+    { key: "mean", label: "Mean" },
+    { key: "std", label: "Std" },
+    { key: "min", label: "Min" },
+    { key: "max", label: "Max" },
   ];
 
   const numericValues = entries
-    .map((e) => (typeof stats[e.key] === 'number' ? (stats[e.key] as number) : null))
+    .map((e) =>
+      typeof stats[e.key] === "number" ? (stats[e.key] as number) : null,
+    )
     .filter((v): v is number => v !== null);
 
   const globalMin = numericValues.length > 0 ? Math.min(...numericValues) : 0;
@@ -543,7 +548,7 @@ function VectorStatsView({ stats }: { stats: VectorStats | null }) {
     <div className="space-y-2">
       {entries.map(({ key, label }) => {
         const v = stats[key];
-        if (typeof v !== 'number') return null;
+        if (typeof v !== "number") return null;
 
         const norm = (v - globalMin) / span;
         const widthPct = Math.max(4, Math.min(100, norm * 100));

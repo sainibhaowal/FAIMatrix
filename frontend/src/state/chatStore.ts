@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { create } from 'zustand';
-import type { StateCreator } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { create } from "zustand";
+import type { StateCreator } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 /* ============================================================================
    Types
 ============================================================================ */
 
-type Turn = { role: 'system' | 'user' | 'assistant'; content: string };
+type Turn = { role: "system" | "user" | "assistant"; content: string };
 
-export type SessionStatus = 'active' | 'archived' | 'trashed';
+export type SessionStatus = "active" | "archived" | "trashed";
 
 export type Session = {
   id: string;
@@ -29,18 +29,24 @@ export type Session = {
 function makeSession(now: number, initialSystemText?: string): Session {
   return {
     id: `s_${now}`,
-    title: 'New Session',
+    title: "New Session",
     createdAt: now,
     updatedAt: now,
     turns: [
-      { role: 'system', content: initialSystemText ?? 'FAIM Neural Core initialized. Memory context active.' },
       {
-        role: 'assistant',
-        content: 'Hello. I’m ready. Ask anything — FAIM will show you which memories influenced the answer.',
+        role: "system",
+        content:
+          initialSystemText ??
+          "FAIM Neural Core initialized. Memory context active.",
+      },
+      {
+        role: "assistant",
+        content:
+          "Hello. I’m ready. Ask anything — FAIM will show you which memories influenced the answer.",
       },
     ],
     usedNodes: [],
-    status: 'active',
+    status: "active",
   };
 }
 
@@ -49,8 +55,8 @@ function setStatus(s: Session, status: SessionStatus): Session {
 }
 
 function pickFallbackActive(sessions: Session[]): string {
-  const a = sessions.find((x) => x.status === 'active');
-  return a?.id ?? '';
+  const a = sessions.find((x) => x.status === "active");
+  return a?.id ?? "";
 }
 
 /* ============================================================================
@@ -89,7 +95,7 @@ export type ChatState = {
 
 const creator: StateCreator<ChatState, [], [], ChatState> = (set, get) => ({
   bootstrapped: false,
-  activeSessionId: '',
+  activeSessionId: "",
   sessions: [],
 
   ensureInitialized: () => {
@@ -121,7 +127,7 @@ const creator: StateCreator<ChatState, [], [], ChatState> = (set, get) => ({
     const { sessions } = get();
     const s = sessions.find((x) => x.id === id);
     // don't allow selecting trashed as active chat
-    if (!s || s.status !== 'active') {
+    if (!s || s.status !== "active") {
       set({ activeSessionId: pickFallbackActive(sessions) });
       return;
     }
@@ -130,7 +136,10 @@ const creator: StateCreator<ChatState, [], [], ChatState> = (set, get) => ({
 
   newSession: () => {
     const now = Date.now();
-    const s = makeSession(now, 'New session created. Memory context will attach to this run.');
+    const s = makeSession(
+      now,
+      "New session created. Memory context will attach to this run.",
+    );
     const prev = get().sessions;
     set({ sessions: [s, ...prev], activeSessionId: s.id, bootstrapped: true });
   },
@@ -139,7 +148,7 @@ const creator: StateCreator<ChatState, [], [], ChatState> = (set, get) => ({
     const { sessions, activeSessionId } = get();
     if (!activeSessionId) return;
     const cur = sessions.find((x) => x.id === activeSessionId);
-    if (!cur || cur.status !== 'active') return;
+    if (!cur || cur.status !== "active") return;
 
     set({
       sessions: sessions.map((s) => (s.id === activeSessionId ? mut(s) : s)),
@@ -152,14 +161,18 @@ const creator: StateCreator<ChatState, [], [], ChatState> = (set, get) => ({
     const { sessions } = get();
     set({
       sessions: sessions.map((s) =>
-        s.id === id ? { ...s, title: t.slice(0, 60), updatedAt: Date.now() } : s
+        s.id === id
+          ? { ...s, title: t.slice(0, 60), updatedAt: Date.now() }
+          : s,
       ),
     });
   },
 
   archiveSession: (id) => {
     const { sessions, activeSessionId } = get();
-    const next = sessions.map((s) => (s.id === id ? setStatus(s, 'archived') : s));
+    const next = sessions.map((s) =>
+      s.id === id ? setStatus(s, "archived") : s,
+    );
 
     let nextActive = activeSessionId;
     if (id === activeSessionId) nextActive = pickFallbackActive(next);
@@ -169,7 +182,9 @@ const creator: StateCreator<ChatState, [], [], ChatState> = (set, get) => ({
 
   trashSession: (id) => {
     const { sessions, activeSessionId } = get();
-    const next = sessions.map((s) => (s.id === id ? setStatus(s, 'trashed') : s));
+    const next = sessions.map((s) =>
+      s.id === id ? setStatus(s, "trashed") : s,
+    );
 
     let nextActive = activeSessionId;
     if (id === activeSessionId) nextActive = pickFallbackActive(next);
@@ -179,7 +194,9 @@ const creator: StateCreator<ChatState, [], [], ChatState> = (set, get) => ({
 
   restoreSession: (id) => {
     const { sessions } = get();
-    const next = sessions.map((s) => (s.id === id ? setStatus(s, 'active') : s));
+    const next = sessions.map((s) =>
+      s.id === id ? setStatus(s, "active") : s,
+    );
     // if nothing active, restore becomes active candidate
     const nextActive = pickFallbackActive(next) || id;
     set({ sessions: next, activeSessionId: nextActive });
@@ -197,23 +214,24 @@ const creator: StateCreator<ChatState, [], [], ChatState> = (set, get) => ({
 
   emptyTrash: () => {
     const { sessions, activeSessionId } = get();
-    const next = sessions.filter((s) => s.status !== 'trashed');
+    const next = sessions.filter((s) => s.status !== "trashed");
 
     let nextActive = activeSessionId;
-    if (nextActive && !next.find((x) => x.id === nextActive)) nextActive = pickFallbackActive(next);
+    if (nextActive && !next.find((x) => x.id === nextActive))
+      nextActive = pickFallbackActive(next);
 
     set({ sessions: next, activeSessionId: nextActive });
   },
 
   clearAll: () => {
     // user intent: wipe everything and keep it empty (no auto reinit)
-    set({ sessions: [], activeSessionId: '', bootstrapped: true });
+    set({ sessions: [], activeSessionId: "", bootstrapped: true });
   },
 });
 
 export const useChatStore = create<ChatState>()(
   persist(creator, {
-    name: 'faim_lab_chat_v1',
+    name: "faim_lab_chat_v1",
     storage: createJSONStorage(() => localStorage),
     version: 2,
     partialize: (s) => ({
@@ -221,5 +239,5 @@ export const useChatStore = create<ChatState>()(
       activeSessionId: s.activeSessionId,
       sessions: s.sessions,
     }),
-  })
+  }),
 );

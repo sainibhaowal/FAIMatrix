@@ -1,8 +1,9 @@
 // src/app/dashboard/layout.tsx
-'use client';
+"use client";
 
-import { FaimShell } from '@/components/shell/FaimShell';
-import AuthGuard from '@/components/AuthGuard';
+import { FaimShell } from "@/components/shell/FaimShell";
+import AuthGuard from "@/components/AuthGuard";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function DashboardLayout({
   children,
@@ -11,7 +12,9 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <FaimShell>{children}</FaimShell>
+      <FaimShell>
+        <ErrorBoundary>{children}</ErrorBoundary>
+      </FaimShell>
     </AuthGuard>
   );
 }

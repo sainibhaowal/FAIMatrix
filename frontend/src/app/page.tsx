@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /* =============================================================================
 FAIM LAB — LANDING PAGE (Production Edition)
@@ -19,8 +19,8 @@ import {
   FAQ,
   CTA,
   Footer,
-} from '@/components/landing';
-import CookieConsent from '@/components/CookieConsent';
+} from "@/components/landing";
+import CookieConsent from "@/components/CookieConsent";
 
 export default function LandingPage() {
   return (
@@ -40,4 +40,3 @@ export default function LandingPage() {
     </main>
   );
 }
-

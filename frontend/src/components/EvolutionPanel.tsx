@@ -1,7 +1,14 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Activity, Zap, GitMerge, Trash2, TrendingUp, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Activity,
+  Zap,
+  GitMerge,
+  Trash2,
+  TrendingUp,
+  RefreshCw,
+} from "lucide-react";
 
 interface EvolutionStats {
   regions: number;
@@ -27,7 +34,10 @@ interface Props {
   onEvolutionComplete?: () => void;
 }
 
-export default function EvolutionPanel({ graphId, onEvolutionComplete }: Props) {
+export default function EvolutionPanel({
+  graphId,
+  onEvolutionComplete,
+}: Props) {
   const [isConnected, setIsConnected] = useState(false);
   const [isEvolving, setIsEvolving] = useState(false);
   const [lastEvent, setLastEvent] = useState<EvolutionEvent | null>(null);
@@ -40,12 +50,12 @@ export default function EvolutionPanel({ graphId, onEvolutionComplete }: Props) 
     setError(null);
     try {
       const res = await fetch(`/api/v1/evolution/${graphId}/evolve`, {
-        method: 'POST',
+        method: "POST",
       });
       const data = await res.json();
       if (data.success && data.stats) {
         const event: EvolutionEvent = {
-          event_type: 'evolution_completed',
+          event_type: "evolution_completed",
           graph_id: graphId,
           timestamp: new Date().toISOString(),
           stats: data.stats,
@@ -60,7 +70,7 @@ export default function EvolutionPanel({ graphId, onEvolutionComplete }: Props) 
         setError(data.error);
       }
     } catch (e: any) {
-      setError(e.message || 'Evolution failed');
+      setError(e.message || "Evolution failed");
     } finally {
       setIsEvolving(false);
     }
@@ -68,22 +78,22 @@ export default function EvolutionPanel({ graphId, onEvolutionComplete }: Props) 
 
   // Connect to SSE stream
   const connectStream = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    
+    if (typeof window === "undefined") return;
+
     const evtSource = new EventSource(
-      `/api/v1/evolution/${graphId}/stream?interval=60`
+      `/api/v1/evolution/${graphId}/stream?interval=60`,
     );
 
-    evtSource.addEventListener('connected', (e) => {
+    evtSource.addEventListener("connected", (e) => {
       setIsConnected(true);
       setError(null);
     });
 
-    evtSource.addEventListener('evolution_started', (e) => {
+    evtSource.addEventListener("evolution_started", (e) => {
       setIsEvolving(true);
     });
 
-    evtSource.addEventListener('evolution_completed', (e) => {
+    evtSource.addEventListener("evolution_completed", (e) => {
       try {
         const data = JSON.parse(e.data) as EvolutionEvent;
         setLastEvent(data);
@@ -92,10 +102,10 @@ export default function EvolutionPanel({ graphId, onEvolutionComplete }: Props) 
       } catch {}
     });
 
-    evtSource.addEventListener('evolution_error', (e) => {
+    evtSource.addEventListener("evolution_error", (e) => {
       try {
         const data = JSON.parse(e.data);
-        setError(data.message || 'Evolution error');
+        setError(data.message || "Evolution error");
         setIsEvolving(false);
       } catch {}
     });
@@ -121,16 +131,16 @@ export default function EvolutionPanel({ graphId, onEvolutionComplete }: Props) 
         <div className="flex items-center gap-2">
           <span
             className={`w-2 h-2 rounded-full ${
-              isConnected ? 'bg-emerald-400' : 'bg-slate-600'
+              isConnected ? "bg-emerald-400" : "bg-slate-600"
             }`}
-            title={isConnected ? 'Connected' : 'Disconnected'}
+            title={isConnected ? "Connected" : "Disconnected"}
           />
           <button
             onClick={isConnected ? undefined : connectStream}
             className="text-[10px] text-slate-400 hover:text-cyan-300"
             title="Connect to live stream"
           >
-            {isConnected ? 'Live' : 'Connect'}
+            {isConnected ? "Live" : "Connect"}
           </button>
         </div>
       </div>
@@ -141,8 +151,8 @@ export default function EvolutionPanel({ graphId, onEvolutionComplete }: Props) 
         disabled={isEvolving}
         className={`w-full flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-xs font-medium transition-all ${
           isEvolving
-            ? 'border-amber-500/30 bg-amber-500/10 text-amber-300 cursor-wait'
-            : 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20'
+            ? "border-amber-500/30 bg-amber-500/10 text-amber-300 cursor-wait"
+            : "border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20"
         }`}
       >
         {isEvolving ? (
@@ -201,8 +211,8 @@ export default function EvolutionPanel({ graphId, onEvolutionComplete }: Props) 
                   className={
                     lastEvent.stats.redundancy_after <
                     lastEvent.stats.redundancy_before
-                      ? 'text-emerald-400'
-                      : 'text-slate-300'
+                      ? "text-emerald-400"
+                      : "text-slate-300"
                   }
                 >
                   {(lastEvent.stats.redundancy_after * 100).toFixed(1)}%
@@ -220,8 +230,8 @@ export default function EvolutionPanel({ graphId, onEvolutionComplete }: Props) 
                   className={
                     lastEvent.stats.objective_after <
                     lastEvent.stats.objective_before
-                      ? 'text-emerald-400'
-                      : 'text-slate-300'
+                      ? "text-emerald-400"
+                      : "text-slate-300"
                   }
                 >
                   {lastEvent.stats.objective_after.toFixed(3)}
@@ -276,18 +286,16 @@ function StatCard({
   icon: React.ReactNode;
   label: string;
   value: number;
-  color: 'cyan' | 'amber' | 'emerald';
+  color: "cyan" | "amber" | "emerald";
 }) {
   const colors = {
-    cyan: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-300',
-    amber: 'border-amber-500/30 bg-amber-500/10 text-amber-300',
-    emerald: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300',
+    cyan: "border-cyan-500/30 bg-cyan-500/10 text-cyan-300",
+    amber: "border-amber-500/30 bg-amber-500/10 text-amber-300",
+    emerald: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
   };
 
   return (
-    <div
-      className={`rounded-lg border p-2 text-center ${colors[color]}`}
-    >
+    <div className={`rounded-lg border p-2 text-center ${colors[color]}`}>
       <div className="flex items-center justify-center gap-1 text-[10px] opacity-70">
         {icon}
         {label}

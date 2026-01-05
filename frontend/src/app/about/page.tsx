@@ -1,54 +1,90 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-import FaimLogo from '@/components/landing/FaimLogo';
+import { motion } from "framer-motion";
+import Link from "next/link";
+import FaimLogo from "@/components/landing/FaimLogo";
 
 const timeline = [
   {
-    year: '2024',
-    title: 'The Vision',
-    description: 'The idea of FAIM was born - a system that remembers, connects, and evolves like the human mind.',
+    year: "2024",
+    title: "The Vision",
+    description:
+      "The idea of FAIM was born - a system that remembers, connects, and evolves like the human mind.",
   },
   {
-    year: '2025',
-    title: 'Development Begins',
-    description: 'Building the fractal memory engine from the ground up. Every line of code crafted with purpose.',
+    year: "2025",
+    title: "Development Begins",
+    description:
+      "Building the fractal memory engine from the ground up. Every line of code crafted with purpose.",
   },
   {
-    year: '2026',
-    title: 'FAIM Lab Launch',
-    description: 'FAIM Lab goes live - transforming how people store and retrieve knowledge.',
+    year: "2026",
+    title: "FAIM Lab Launch",
+    description:
+      "FAIM Lab goes live - transforming how people store and retrieve knowledge.",
   },
 ];
 
 const values = [
   {
     icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+        />
       </svg>
     ),
-    title: 'Innovation First',
-    description: 'Pushing the boundaries of what AI-powered knowledge management can achieve.',
+    title: "Innovation First",
+    description:
+      "Pushing the boundaries of what AI-powered knowledge management can achieve.",
   },
   {
     icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+        />
       </svg>
     ),
-    title: 'Privacy by Design',
-    description: 'Your data is yours. We build with security and privacy as core principles.',
+    title: "Privacy by Design",
+    description:
+      "Your data is yours. We build with security and privacy as core principles.",
   },
   {
     icon: (
-      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <svg
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M13 10V3L4 14h7v7l9-11h-7z"
+        />
       </svg>
     ),
-    title: 'Performance',
-    description: 'Sub-millisecond retrieval at any scale. Speed without compromise.',
+    title: "Performance",
+    description:
+      "Sub-millisecond retrieval at any scale. Speed without compromise.",
   },
 ];
 
@@ -62,7 +98,10 @@ export default function AboutPage() {
             <Link href="/">
               <FaimLogo size={36} />
             </Link>
-            <Link href="/" className="text-sm text-slate-400 hover:text-white transition-colors">
+            <Link
+              href="/"
+              className="text-sm text-slate-400 hover:text-white transition-colors"
+            >
               ← Back to Home
             </Link>
           </div>
@@ -87,8 +126,9 @@ export default function AboutPage() {
               </span>
             </h1>
             <p className="mt-6 text-xl text-slate-400 max-w-2xl mx-auto">
-              FAIM Lab is on a mission to transform how humans interact with their knowledge. 
-              We're building an AI that remembers, connects, and evolves alongside you.
+              FAIM Lab is on a mission to transform how humans interact with
+              their knowledge. We're building an AI that remembers, connects,
+              and evolves alongside you.
             </p>
           </motion.div>
         </div>
@@ -110,20 +150,26 @@ export default function AboutPage() {
                   RS
                 </div>
               </div>
-              
+
               {/* Bio */}
               <div className="text-center md:text-left">
-                <h2 className="text-2xl font-bold text-white mb-2">Ravinder Singh</h2>
-                <p className="text-cyan-400 font-medium mb-4">Founder, CEO & Developer</p>
+                <h2 className="text-2xl font-bold text-white mb-2">
+                  Ravinder Singh
+                </h2>
+                <p className="text-cyan-400 font-medium mb-4">
+                  Founder, CEO & Developer
+                </p>
                 <p className="text-slate-400 leading-relaxed mb-6">
-                  I started FAIM Lab because I believed there had to be a better way to manage knowledge. 
-                  Traditional tools force rigid structures on fluid thoughts. FAIM is different — it adapts 
-                  to how you think, not the other way around.
+                  I started FAIM Lab because I believed there had to be a better
+                  way to manage knowledge. Traditional tools force rigid
+                  structures on fluid thoughts. FAIM is different — it adapts to
+                  how you think, not the other way around.
                 </p>
                 <p className="text-slate-400 leading-relaxed">
-                  As the sole developer and founder, I've built every component of FAIM from the ground up. 
-                  The fractal memory engine, the knowledge graph, the AI chat — all crafted with one goal: 
-                  to make your knowledge truly intelligent.
+                  As the sole developer and founder, I've built every component
+                  of FAIM from the ground up. The fractal memory engine, the
+                  knowledge graph, the AI chat — all crafted with one goal: to
+                  make your knowledge truly intelligent.
                 </p>
               </div>
             </div>
@@ -142,8 +188,9 @@ export default function AboutPage() {
           >
             <h2 className="text-3xl font-bold text-white mb-4">The Vision</h2>
             <p className="text-slate-400 max-w-2xl mx-auto">
-              Imagine a world where your knowledge never gets lost. Where every idea, document, 
-              and thought is connected in a living, breathing network that grows smarter over time.
+              Imagine a world where your knowledge never gets lost. Where every
+              idea, document, and thought is connected in a living, breathing
+              network that grows smarter over time.
             </p>
           </motion.div>
 
@@ -183,7 +230,7 @@ export default function AboutPage() {
           <div className="relative">
             {/* Timeline Line */}
             <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-cyan-500 via-purple-500 to-transparent" />
-            
+
             {timeline.map((item, index) => (
               <motion.div
                 key={item.year}
@@ -192,16 +239,22 @@ export default function AboutPage() {
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.1 }}
                 className={`relative flex items-center gap-8 mb-12 ${
-                  index % 2 === 0 ? 'md:flex-row' : 'md:flex-row-reverse'
+                  index % 2 === 0 ? "md:flex-row" : "md:flex-row-reverse"
                 }`}
               >
                 {/* Dot */}
                 <div className="absolute left-4 md:left-1/2 w-3 h-3 rounded-full bg-cyan-500 -translate-x-1/2 shadow-lg shadow-cyan-500/50" />
-                
+
                 {/* Content */}
-                <div className={`ml-12 md:ml-0 md:w-1/2 ${index % 2 === 0 ? 'md:pr-12 md:text-right' : 'md:pl-12'}`}>
-                  <span className="text-cyan-400 font-bold text-lg">{item.year}</span>
-                  <h3 className="text-white font-semibold text-xl mt-1">{item.title}</h3>
+                <div
+                  className={`ml-12 md:ml-0 md:w-1/2 ${index % 2 === 0 ? "md:pr-12 md:text-right" : "md:pl-12"}`}
+                >
+                  <span className="text-cyan-400 font-bold text-lg">
+                    {item.year}
+                  </span>
+                  <h3 className="text-white font-semibold text-xl mt-1">
+                    {item.title}
+                  </h3>
                   <p className="text-slate-400 mt-2">{item.description}</p>
                 </div>
               </motion.div>
@@ -213,9 +266,12 @@ export default function AboutPage() {
       {/* CTA */}
       <section className="py-20 px-4">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Join the Journey</h2>
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Join the Journey
+          </h2>
           <p className="text-slate-400 mb-8">
-            FAIM Lab is just getting started. Be part of the future of knowledge management.
+            FAIM Lab is just getting started. Be part of the future of knowledge
+            management.
           </p>
           <div className="flex items-center justify-center gap-4">
             <Link

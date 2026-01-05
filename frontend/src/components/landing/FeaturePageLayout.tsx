@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-import FaimLogo from '@/components/landing/FaimLogo';
+import { motion } from "framer-motion";
+import Link from "next/link";
+import FaimLogo from "@/components/landing/FaimLogo";
 
 interface FeaturePageLayoutProps {
   title: string;
@@ -31,7 +31,10 @@ export default function FeaturePageLayout({
               <FaimLogo size={36} />
             </Link>
             <div className="flex items-center gap-4">
-              <Link href="/" className="text-sm text-slate-400 hover:text-white transition-colors">
+              <Link
+                href="/"
+                className="text-sm text-slate-400 hover:text-white transition-colors"
+              >
                 ← Back to Home
               </Link>
               <Link
@@ -55,7 +58,7 @@ export default function FeaturePageLayout({
           >
             {icon}
           </motion.div>
-          
+
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -64,7 +67,7 @@ export default function FeaturePageLayout({
           >
             {title}
           </motion.h1>
-          
+
           <motion.p
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -93,7 +96,9 @@ export default function FeaturePageLayout({
       {/* Benefits */}
       <section className="py-16 px-4 bg-slate-900/50">
         <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-white mb-8 text-center">Key Benefits</h2>
+          <h2 className="text-2xl font-bold text-white mb-8 text-center">
+            Key Benefits
+          </h2>
           <div className="grid md:grid-cols-2 gap-4">
             {benefits.map((benefit, index) => (
               <motion.div
@@ -103,8 +108,18 @@ export default function FeaturePageLayout({
                 transition={{ delay: 0.4 + index * 0.1 }}
                 className="flex items-start gap-3 p-4 rounded-xl bg-slate-800/50 border border-slate-700/50"
               >
-                <svg className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                <svg
+                  className="w-5 h-5 text-cyan-400 shrink-0 mt-0.5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
                 </svg>
                 <span className="text-slate-300">{benefit}</span>
               </motion.div>
@@ -116,8 +131,12 @@ export default function FeaturePageLayout({
       {/* CTA */}
       <section className="py-20 px-4">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl font-bold text-white mb-4">Ready to Get Started?</h2>
-          <p className="text-slate-400 mb-8">Experience the power of FAIM Lab today.</p>
+          <h2 className="text-3xl font-bold text-white mb-4">
+            Ready to Get Started?
+          </h2>
+          <p className="text-slate-400 mb-8">
+            Experience the power of FAIM Lab today.
+          </p>
           <Link
             href="/dashboard"
             className="inline-flex px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl text-white font-semibold hover:scale-105 transition-transform"

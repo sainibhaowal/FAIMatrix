@@ -1,9 +1,9 @@
 // src/components/ContextSidebar.tsx
-'use client';
+"use client";
 
-import * as React from 'react';
-import clsx from 'clsx';
-import type { UsedNodeSummary } from '@/lib/realtime';
+import * as React from "react";
+import clsx from "clsx";
+import type { UsedNodeSummary } from "@/lib/realtime";
 
 type UsedNodeSummaryUI = UsedNodeSummary &
   Partial<{
@@ -22,7 +22,7 @@ interface ContextSidebarProps {
   // backward-compat for chat page
   usedNodes?: UsedNodeSummaryUI[];
   graphId?: string;
-  
+
   className?: string;
   onNodeClick?: (id: string) => void;
 }
@@ -47,13 +47,13 @@ function useGlowSticky() {
     const x = clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1) * 100;
     const y = clamp((e.clientY - r.top) / Math.max(1, r.height), 0, 1) * 100;
 
-    el.style.setProperty('--gx', `${x.toFixed(2)}%`);
-    el.style.setProperty('--gy', `${y.toFixed(2)}%`);
-    el.style.setProperty('--mx', `${x.toFixed(2)}%`);
-    el.style.setProperty('--my', `${y.toFixed(2)}%`);
+    el.style.setProperty("--gx", `${x.toFixed(2)}%`);
+    el.style.setProperty("--gy", `${y.toFixed(2)}%`);
+    el.style.setProperty("--mx", `${x.toFixed(2)}%`);
+    el.style.setProperty("--my", `${y.toFixed(2)}%`);
 
     // ✅ once on, keep it on
-    el.style.setProperty('--gvis', `0.35`);
+    el.style.setProperty("--gvis", `0.35`);
   };
 
   // ✅ no-op: do NOT disable glow on leave
@@ -81,21 +81,21 @@ function GlowItem({
       onClick={onClick}
       style={
         {
-          '--gx': '45%',
-          '--gy': '20%',
-          '--mx': '45%',
-          '--my': '20%',
-          '--gvis': '0', // starts off, becomes 1 after first hover/move, then stays
+          "--gx": "45%",
+          "--gy": "20%",
+          "--mx": "45%",
+          "--my": "20%",
+          "--gvis": "0", // starts off, becomes 1 after first hover/move, then stays
         } as React.CSSProperties
       }
       className={clsx(
-        'relative cursor-pointer overflow-hidden rounded-xl border border-slate-800/70 bg-slate-950/45 p-3',
-        'transition hover:-translate-y-[1px] hover:border-cyan-500/50',
-        'before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200',
-        'before:[background:radial-gradient(520px_circle_at_var(--gx)_var(--gy),rgba(34,211,238,0.18),transparent_60%)]',
+        "relative cursor-pointer overflow-hidden rounded-xl border border-slate-800/70 bg-slate-950/45 p-3",
+        "transition hover:-translate-y-[1px] hover:border-cyan-500/50",
+        "before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200",
+        "before:[background:radial-gradient(520px_circle_at_var(--gx)_var(--gy),rgba(34,211,238,0.18),transparent_60%)]",
         // ✅ sticky opacity (NOT hover-gated)
-        'before:opacity-[var(--gvis)]',
-        className
+        "before:opacity-[var(--gvis)]",
+        className,
       )}
     >
       <div className="relative z-[1]">{children}</div>
@@ -121,23 +121,23 @@ export function ContextSidebar({
       onMouseLeave={g.onMouseLeave}
       style={
         {
-          '--mx': '50%',
-          '--my': '30%',
-          '--gvis': '0', // becomes 1 on first move and stays
+          "--mx": "50%",
+          "--my": "30%",
+          "--gvis": "0", // becomes 1 on first move and stays
         } as React.CSSProperties
       }
       className={clsx(
-        'h-full overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/50 p-4',
-        'group relative transition hover:border-cyan-500/40',
-        'before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200',
-        'before:[background:radial-gradient(720px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.14),transparent_58%)]',
+        "h-full overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/50 p-4",
+        "group relative transition hover:border-cyan-500/40",
+        "before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200",
+        "before:[background:radial-gradient(720px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.14),transparent_58%)]",
         // ✅ sticky opacity (NOT hover-gated)
-        'before:opacity-[var(--gvis)]',
-        'after:pointer-events-none after:absolute after:inset-0 after:opacity-0 after:transition-opacity after:duration-200',
-        'after:[background:radial-gradient(520px_circle_at_var(--mx)_var(--my),rgba(168,85,247,0.12),transparent_62%)]',
+        "before:opacity-[var(--gvis)]",
+        "after:pointer-events-none after:absolute after:inset-0 after:opacity-0 after:transition-opacity after:duration-200",
+        "after:[background:radial-gradient(520px_circle_at_var(--mx)_var(--my),rgba(168,85,247,0.12),transparent_62%)]",
         // ✅ sticky opacity (NOT hover-gated)
-        'after:opacity-[var(--gvis)]',
-        className
+        "after:opacity-[var(--gvis)]",
+        className,
       )}
     >
       <div className="relative z-[1]">
@@ -150,7 +150,8 @@ export function ContextSidebar({
 
         {list.length === 0 ? (
           <div className="text-xs text-slate-500">
-            Ask a question first. As FAIM feeds the LLM, you&apos;ll see exactly which nodes influenced the answer.
+            Ask a question first. As FAIM feeds the LLM, you&apos;ll see exactly
+            which nodes influenced the answer.
           </div>
         ) : (
           <ol className="space-y-3 overflow-y-auto pr-1 text-xs">
@@ -170,7 +171,7 @@ export function ContextSidebar({
                       ) : null}
                     </div>
 
-                    {typeof n.score === 'number' ? (
+                    {typeof n.score === "number" ? (
                       <div className="shrink-0 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-[2px] text-[10px] text-cyan-200">
                         {n.score.toFixed(3)}
                       </div>
