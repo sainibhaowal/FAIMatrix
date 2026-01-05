@@ -64,7 +64,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: faim-api
     environment:
-      - FAIM_MODE=dev
+      - FAIM_MODE=production
       - FAIM_DB_URL=postgresql://faim:faim_dev_pass@postgres:5432/faim_lab
       - DATABASE_URL=postgresql://faim:faim_dev_pass@postgres:5432/faim_lab
       - REDIS_URL=redis://redis:6379/0
