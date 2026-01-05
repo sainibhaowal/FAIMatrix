@@ -7,11 +7,12 @@ Handles:
 - Webhook events (payment success/failure)
 - Plan upgrades/downgrades
 """
-import os
 import logging
+import os
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Request, HTTPException, Depends
+
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
@@ -71,7 +72,7 @@ async def create_checkout_session(payload: CreateCheckoutRequest):
     Create a Stripe Checkout session for plan upgrade.
     Requires Stripe to be configured.
     """
-    from faim.api.plan_limits import PLAN_LIMITS, get_plan_limits
+    from faim.api.plan_limits import PLAN_LIMITS
     
     # Validate plan
     if payload.plan not in PLAN_LIMITS:
@@ -232,7 +233,7 @@ async def stripe_webhook(request: Request):
 async def _get_or_create_customer(project_id: str) -> str:
     """Get existing Stripe customer or create new one."""
     from faim.db import SessionLocal
-    from faim.models_sql import Project, Org, User
+    from faim.models_sql import Org, Project, User
     
     stripe = get_stripe()
     
@@ -290,9 +291,9 @@ async def _handle_checkout_completed(session: dict):
         logger.warning("Checkout completed but missing metadata")
         return
     
+    from faim.api.plan_limits import get_plan_limits
     from faim.db import SessionLocal
     from faim.models_sql import Project
-    from faim.api.plan_limits import PLAN_LIMITS, get_plan_limits
     
     db = SessionLocal()
     try:

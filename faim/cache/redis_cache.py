@@ -8,10 +8,10 @@ Key format: faim:{project_id}:{graph_id}:{key_type}:{key}
 
 from __future__ import annotations
 
-import os
 import json
 import logging
-from typing import Optional, List, Any, Dict
+import os
+from typing import Any, Dict, Optional
 from uuid import UUID
 
 logger = logging.getLogger(__name__)

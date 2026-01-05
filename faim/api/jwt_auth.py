@@ -6,17 +6,16 @@ Verifies OIDC tokens issued by Keycloak.
 - Caches keys with TTL
 - Provides FastAPI dependencies for auth
 """
+import logging
 import os
 import time
-import logging
-from typing import Optional, Dict, Any
-from functools import lru_cache
+from typing import Any, Dict, Optional
 
 import httpx
-from jose import jwt, JWTError, jwk
+from fastapi import Depends, HTTPException, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
 from jose.exceptions import JWKError
-from fastapi import HTTPException, Request, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 logger = logging.getLogger(__name__)
 

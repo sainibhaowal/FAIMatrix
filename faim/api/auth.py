@@ -2,9 +2,13 @@ from __future__ import annotations
 
 import os
 import secrets
-from fastapi import HTTPException, Request
 
+from fastapi import Depends, HTTPException, Request
+
+from faim.api.auth_middleware import get_current_user_oidc
 from faim.config import FaimSettings
+from faim.models_sql import User
+
 settings = FaimSettings.from_env()
 
 
@@ -46,7 +50,7 @@ def require_api_key(request: Request) -> None:
     key = _extract_key(request)
     if not key:
         raise HTTPException(status_code=401, detail="Missing FAIM API key")
-    from faim.api.keys import verify_key, _user_id
+    from faim.api.keys import _user_id, verify_key
 
     uid = _user_id(request)
     if not verify_key(uid, key):
@@ -88,6 +92,7 @@ def _allow_key_bootstrap(request: Request) -> bool:
     except Exception:
         return False
 
+
 def allow_dev_mode() -> bool:
     """
     FastAPI dependency that allows unauthenticated requests in dev mode.
@@ -106,44 +111,41 @@ def _is_dev_mode() -> bool:
     return mode in ("dev", "development", "local", "core_dev")
 
 
-def verify_graph_access(request: Request, graph_id: str = None) -> bool:
+def verify_graph_access(
+    request: Request, graph_id: str = None, user: User = Depends(get_current_user_oidc)
+) -> bool:
     """
     FastAPI dependency that verifies the current user has access to the specified graph.
-    
+
     In dev mode: allows all access (for testing)
     In prod mode: checks GraphOwnership table via user's project membership
-    
+
     Usage:
         @router.get("/graphs/{graph_id}/data")
         def get_data(graph_id: str, _auth = Depends(verify_graph_access)):
             ...
     """
-    # Dev mode bypass
+    # Dev mode bypass - enabled during development for testing
     if _is_dev_mode():
         return True
-    
+
     # Extract graph_id from path if not provided
     if not graph_id:
         # Try to get from path params
         graph_id = request.path_params.get("graph_id")
-    
+
     if not graph_id:
         # No graph_id to check - allow (some endpoints don't need it)
         return True
-    
+
     # Production: verify ownership via database
     try:
         from faim.db import SessionLocal
-        from faim.models_sql import GraphOwnership, Project, OrgMember
-        from faim.api.auth_middleware import get_current_user_oidc
-        
-        # Get current user from request
-        # This would be set by auth middleware in production
-        user_id = getattr(request.state, "user_id", None)
-        
-        if not user_id:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        
+        from faim.models_sql import GraphOwnership, OrgMember, Project
+
+        # User is already authenticated via dependency
+        user_id = user.id
+
         db = SessionLocal()
         try:
             # Check if graph belongs to a project the user has access to
@@ -155,19 +157,16 @@ def verify_graph_access(request: Request, graph_id: str = None) -> bool:
                 .filter(OrgMember.user_id == user_id)
                 .first()
             )
-            
+
             if not access:
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"Access denied to graph {graph_id}"
-                )
-            
+                raise HTTPException(status_code=403, detail=f"Access denied to graph {graph_id}")
+
             return True
         finally:
             db.close()
-            
+
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         # In case of DB errors, fail closed in production
         raise HTTPException(status_code=500, detail="Authorization check failed")

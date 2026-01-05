@@ -76,6 +76,10 @@ services:
       # Dev secrets (use .env for real secrets)
       - ADMIN_API_KEY=dev-admin-key
       - JWT_SECRET=dev-jwt-secret-change-in-production
+      # Email (Resend)
+      - RESEND_API_KEY=re_csw52NBn_KubrVaDdz28S9Z27zwTtbN4p
+      - FROM_EMAIL=noreply@faimatrix.com
+      - APP_URL=http://localhost:3000
     volumes:
       # Hot-reload: mount local code into container
       - ./faim:/app/faim:ro

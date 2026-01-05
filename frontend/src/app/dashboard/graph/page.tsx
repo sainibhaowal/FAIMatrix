@@ -1,8 +1,9 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { DEFAULT_GRAPH_ID, getUniverseGraphId } from '../../../lib/api';
+import { useUserIds } from '../../../contexts/UserContext';
 
 import { Graph3DView } from '../../../components/Graph3DView';
 import { NodeInspector } from '../../../components/NodeInspector';
@@ -10,20 +11,31 @@ import GraphUploadPanel from '../../../components/graph/GraphUploadPanel';
 import NodeRelationsPanel from '../../../components/NodeRelationsPanel';
 import GraphAnalyticsPanel from '../../../components/graph/GraphAnalyticsPanel';
 import AddMemoryPanel from '../../../components/graph/AddMemoryPanel';
+import EvolutionPanel from '../../../components/EvolutionPanel';
+import GraphFiltersPanel, { type FilterOptions } from '../../../components/GraphFiltersPanel';
 
 const defaultGraphId =
   process.env.NEXT_PUBLIC_FAIM_DEFAULT_GRAPH_ID ?? DEFAULT_GRAPH_ID;
+
+// Type for filtered graph data
+interface FilteredGraphData {
+  nodes: any[];
+  links: any[];
+}
 
 // ✅ THIS inner component is allowed to use useSearchParams()
 function GraphPageInner() {
   const searchParams = useSearchParams();
   const initialNodeId = searchParams.get('node');
+  
   type RightPanelId =
     | 'add'
     | 'upload'
     | 'inspector'
     | 'relations'
     | 'analytics'
+    | 'evolution'
+    | 'filters'
     | 'none';
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
@@ -31,47 +43,99 @@ function GraphPageInner() {
   );
   const [rightPanel, setRightPanel] = useState<RightPanelId>('none');
   const [nodeDragEnabled, setNodeDragEnabled] = useState(true);
+  
+  // NEW: Filtered data state for the graph
+  const [filteredData, setFilteredData] = useState<FilteredGraphData | null>(null);
+  const [isFiltered, setIsFiltered] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     setSelectedNodeId(initialNodeId);
   }, [initialNodeId]);
 
+  const { graphId: contextGraphId } = useUserIds();
   const [graphId, setGraphId] = useState<string>(defaultGraphId);
 
+  // Sync graphId from UserContext (authoritative source)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const syncUniverse = () => {
+    if (contextGraphId && contextGraphId.startsWith('U:')) {
+      setGraphId(contextGraphId);
+    } else {
+      // Fallback: try storage
       const u = getUniverseGraphId();
       if (u.startsWith('U:')) setGraphId(u);
-    };
+    }
+  }, [contextGraphId]);
 
-    syncUniverse();
-
-    const onStorage = (e: StorageEvent) => {
-      if (!e.key) return;
-      if (
-        e.key === 'faim.universe_graph_id' ||
-        e.key === 'faim_universe_graph_id' ||
-        e.key === 'faim_graph_id' ||
-        e.key === 'faim_entry_graph_id'
-      )
-        syncUniverse();
-    };
-
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
+  // Handle storage events (for multi-tab sync)
+  useEffect(() => {
+     if (typeof window === 'undefined') return;
+     const onStorage = (e: StorageEvent) => {
+       if (!e.key) return;
+       if (e.key.includes('graph_id')) {
+         const u = getUniverseGraphId();
+         if (u.startsWith('U:')) setGraphId(u);
+       }
+     };
+     window.addEventListener('storage', onStorage);
+     return () => window.removeEventListener('storage', onStorage);
   }, []);
 
-  const handleIngestComplete = () => {
-    // later: refresh FIG view
-  };
+  // Handle ingest complete - refresh the graph
+  const handleIngestComplete = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  // Handle filter application - fetch filtered data and update graph
+  const handleApplyFilters = useCallback(
+    async (filters: FilterOptions) => {
+      if (!filters.topic && !filters.dateFrom && !filters.dateTo && filters.minUsage === 0) {
+        // No filters - clear filtered data
+        setFilteredData(null);
+        setIsFiltered(false);
+        return;
+      }
+
+      try {
+        const params = new URLSearchParams();
+        if (filters.topic) params.set('topic', filters.topic);
+        if (filters.dateFrom) params.set('date_from', filters.dateFrom);
+        if (filters.dateTo) params.set('date_to', filters.dateTo);
+        if (filters.minUsage > 0) params.set('min_usage', filters.minUsage.toString());
+        if (filters.kind) params.set('kind', filters.kind);
+
+        const res = await fetch(`/api/v1/graphs/${graphId}/filtered?${params.toString()}`);
+        const data = await res.json();
+
+        if (data.nodes && data.links) {
+          setFilteredData({
+            nodes: data.nodes,
+            links: data.links,
+          });
+          setIsFiltered(true);
+        }
+      } catch (e) {
+        console.error('Failed to apply filters:', e);
+      }
+    },
+    [graphId],
+  );
+
+  // Handle evolution complete - refresh the graph
+  const handleEvolutionComplete = useCallback(() => {
+    // Clear any filters and refresh
+    setFilteredData(null);
+    setIsFiltered(false);
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   const panelItems: Array<{ id: RightPanelId; label: string; title: string }> =
     [
       { id: 'inspector', label: 'Inspect', title: 'Node inspector' },
       { id: 'relations', label: 'Memory', title: 'Memory / Neighbors / Lineage' },
       { id: 'analytics', label: 'Analytics', title: 'Graph analytics' },
+      { id: 'evolution', label: 'Evolve', title: 'Self-Evolution Engine' },
+      { id: 'filters', label: 'Filter', title: 'Filter by Topic/Date' },
     ];
 
   return (
@@ -106,25 +170,46 @@ function GraphPageInner() {
 
       <header className="header-container relative z-[2] flex items-center justify-between">
         <div>
-          <h1 className="text-sm font-semibold text-slate-100">FIG View</h1>
+          <h1 className="text-sm font-semibold text-slate-100">
+            FIG View
+            {isFiltered && (
+              <span className="ml-2 text-[10px] text-violet-400 font-normal">
+                (Filtered)
+              </span>
+            )}
+          </h1>
           <p className="text-xs text-slate-400">
             3D fractal inheritance graph on the left, upload + inspector + memory
             relations on the right.
           </p>
         </div>
+        {isFiltered && (
+          <button
+            onClick={() => {
+              setFilteredData(null);
+              setIsFiltered(false);
+            }}
+            className="text-[10px] text-slate-400 hover:text-cyan-300 px-2 py-1 border border-slate-700 rounded"
+          >
+            Clear Filters
+          </button>
+        )}
       </header>
 
       <div className="relative z-[2] flex-1 overflow-hidden">
         <section className="relative flex min-h-[500px] max-h-[calc(100vh-140px)] h-[calc(100vh-190px)] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 ring-1 ring-inset ring-cyan-500/10">
           <Graph3DView
+            key={refreshKey}
             onNodeSelect={setSelectedNodeId}
             graphId={graphId}
             enableNodeDrag={nodeDragEnabled}
+            externalData={filteredData}
           />
 
           <div className="absolute right-4 top-4 z-20 flex flex-col gap-2">
             {panelItems.map((item) => {
               const active = rightPanel === item.id;
+              const isFilterActive = item.id === 'filters' && isFiltered;
               return (
                 <button
                   key={item.id}
@@ -137,11 +222,16 @@ function GraphPageInner() {
                     'rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-widest',
                     active
                       ? 'border-cyan-400/40 bg-cyan-500/15 text-cyan-200'
+                      : isFilterActive
+                      ? 'border-violet-400/40 bg-violet-500/15 text-violet-200'
                       : 'border-slate-800/70 bg-slate-950/60 text-slate-300 hover:border-cyan-400/20 hover:bg-cyan-500/5',
                     'transition-all duration-150',
                   ].join(' ')}
                 >
                   {item.label}
+                  {isFilterActive && !active && (
+                    <span className="ml-1 text-violet-400">●</span>
+                  )}
                 </button>
               );
             })}
@@ -186,6 +276,18 @@ function GraphPageInner() {
                     <NodeRelationsPanel nodeId={selectedNodeId} graphId={graphId} />
                   )}
                   {rightPanel === 'analytics' && <GraphAnalyticsPanel graphId={graphId} />}
+                  {rightPanel === 'evolution' && (
+                    <EvolutionPanel 
+                      graphId={graphId} 
+                      onEvolutionComplete={handleEvolutionComplete}
+                    />
+                  )}
+                  {rightPanel === 'filters' && (
+                    <GraphFiltersPanel 
+                      graphId={graphId} 
+                      onApplyFilters={handleApplyFilters}
+                    />
+                  )}
                 </div>
               </div>
             </div>

@@ -8,12 +8,10 @@ Collection naming: faim_{project_id}
 
 from __future__ import annotations
 
-import os
 import logging
-from typing import List, Tuple, Optional
+import os
+from typing import List, Optional, Tuple
 from uuid import UUID
-
-import numpy as np
 
 from faim.core.types import GraphId, NodeId, Vector
 
@@ -130,7 +128,7 @@ class QdrantVectorStore:
             return
 
         try:
-            from qdrant_client.models import Filter, FieldCondition, MatchValue
+            from qdrant_client.models import FieldCondition, Filter, MatchValue
 
             client.delete(
                 collection_name=self._collection,
@@ -162,7 +160,7 @@ class QdrantVectorStore:
             return []
 
         try:
-            from qdrant_client.models import Filter, FieldCondition, MatchValue
+            from qdrant_client.models import FieldCondition, Filter, MatchValue
 
             results = client.search(
                 collection_name=self._collection,
@@ -195,7 +193,7 @@ class QdrantVectorStore:
             return []
 
         try:
-            from qdrant_client.models import Filter, FieldCondition, MatchValue
+            from qdrant_client.models import FieldCondition, Filter, MatchValue
 
             # Qdrant uses similarity score, so we search with score_threshold
             results = client.search(
@@ -226,7 +224,7 @@ class QdrantVectorStore:
 
         try:
             if graph_id:
-                from qdrant_client.models import Filter, FieldCondition, MatchValue
+                from qdrant_client.models import FieldCondition, Filter, MatchValue
 
                 result = client.count(
                     collection_name=self._collection,
@@ -254,7 +252,7 @@ class QdrantVectorStore:
             return
 
         try:
-            from qdrant_client.models import Filter, FieldCondition, MatchValue
+            from qdrant_client.models import FieldCondition, Filter, MatchValue
 
             client.delete(
                 collection_name=self._collection,

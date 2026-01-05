@@ -2,7 +2,7 @@
 FAIM Core Event Bus
 Decouples the Engine from the API layer for real-time updates.
 """
-from typing import Callable, List, Dict, Any
+from typing import Callable, List
 
 # Simple in-memory event subscribers
 _subscribers: List[Callable[[str, str, float], None]] = []

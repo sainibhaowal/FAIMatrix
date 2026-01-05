@@ -22,20 +22,20 @@ import os
 from pathlib import Path
 from typing import Any, Callable, Optional, cast
 
-from fastapi import FastAPI, HTTPException, Request, Query, Depends
+from fastapi import Depends, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse, PlainTextResponse
+from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
 
+from faim.api.auth import allow_dev_mode
 from faim.api.benchmarks import router as benchmarks_router
 from faim.api.chat import router as chat_router
-from faim.api.keys import router as keys_router
 from faim.api.events import BUS, contract_chunk, gap_chunk, parse_last_event_id
+from faim.api.evolution_status import get_status
 from faim.api.explain import router as explain_router
 from faim.api.graphs import router as graphs_router
+from faim.api.keys import router as keys_router
 from faim.api.models import API_PREFIX
 from faim.api.watchers import start_watchers
-from faim.api.auth import require_api_key, allow_dev_mode
-from faim.api.evolution_status import get_status
 from faim.config import FaimSettings
 
 # =============================================================================
@@ -120,8 +120,11 @@ app = FastAPI(title="FAIM API", version="1.0.0")
 @app.on_event("startup")
 async def startup_event():
     import asyncio
+
     from faim.api.events import set_main_loop
+
     set_main_loop(asyncio.get_running_loop())
+
 
 # =============================================================================
 # SECTION 2 — CORS (hardened + tolerant of multiple settings shapes)
@@ -162,7 +165,9 @@ from faim.api.rate_limiter import check_rate_limit
 
 app.include_router(chat_router, prefix=API_PREFIX)
 app.include_router(keys_router, prefix=API_PREFIX)
-app.include_router(graphs_router, prefix=API_PREFIX, dependencies=[Depends(check_rate_limit)]) # Rate Limited
+app.include_router(
+    graphs_router, prefix=API_PREFIX, dependencies=[Depends(check_rate_limit)]
+)  # Rate Limited
 app.include_router(benchmarks_router, prefix=API_PREFIX)
 app.include_router(explain_router, prefix="/api/v1")
 
@@ -389,8 +394,9 @@ async def metrics_export(
         m = {}
 
     if format.lower() in ("prom", "prometheus", "text"):
+
         def _line(name: str, value: float) -> str:
-            return f"{name}{{graph_id=\"{gid}\"}} {value}"
+            return f'{name}{{graph_id="{gid}"}} {value}'
 
         lines = [
             _line("faim_node_count", float(m.get("node_count", 0))),
@@ -424,16 +430,18 @@ async def global_exception_handler(request: Request, exc: Exception):
 # SECTION 9 — CONTROL PLANE & DB (Phase 1)
 # =============================================================================
 
+from faim.api.router_admin import router as admin_router
+from faim.api.router_auth import router as auth_router
+from faim.api.router_billing import router as billing_router
 from faim.api.router_control import router as control_router
 from faim.api.router_keys_v2 import router as keys_v2_router
-from faim.api.router_storage import router as storage_router
 from faim.api.router_lifecycle import router as lifecycle_router
-from faim.api.router_billing import router as billing_router
-from faim.api.router_admin import router as admin_router
 from faim.api.router_ops import router as ops_router
-from faim.api.router_stripe import router as stripe_router
 from faim.api.router_realtime import router as realtime_router
+from faim.api.router_storage import router as storage_router
+from faim.api.router_stripe import router as stripe_router
 from faim.api.router_tenant import router as tenant_router
+from faim.api.router_user import router as user_router
 
 app.include_router(control_router)
 app.include_router(keys_v2_router)
@@ -445,12 +453,15 @@ app.include_router(admin_router, prefix="/api")
 app.include_router(ops_router, prefix="/api")
 app.include_router(realtime_router, prefix="/api/v1")
 app.include_router(tenant_router, prefix="/api/v1")
+app.include_router(user_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")
 
 # =============================================================================
 # SECTION 10 — RATE LIMITING (Redis-backed)
 # =============================================================================
 try:
     from faim.api.rate_limiter import setup_rate_limiting
+
     setup_rate_limiting(app)
 except ImportError:
     pass  # Rate limiting not available
@@ -458,6 +469,7 @@ except ImportError:
 # Add usage tracking middleware (optional, can be disabled)
 try:
     from faim.api.usage_middleware import UsageTrackingMiddleware
+
     app.add_middleware(UsageTrackingMiddleware, enabled=True)
 except Exception as e:
     print(f"[FAIM] Usage tracking middleware disabled: {e}")
@@ -465,6 +477,7 @@ except Exception as e:
 # Add token tracking middleware (real-time usage tracking)
 try:
     from faim.api.token_tracker import TokenTrackingMiddleware
+
     app.add_middleware(TokenTrackingMiddleware)
     print("[FAIM] Token tracking middleware enabled")
 except Exception as e:
@@ -473,16 +486,19 @@ except Exception as e:
 # Add usage SSE router for real-time updates
 try:
     from faim.api.router_usage import router as usage_router
+
     app.include_router(usage_router, prefix="/api/v1")
     print("[FAIM] Usage SSE router mounted at /api/v1/usage")
 except Exception as e:
     print(f"[FAIM] Usage router disabled: {e}")
+
 
 # Basic DB session test on startup (optional, logs connection status)
 @app.on_event("startup")
 def _db_check():
     try:
         from faim.db import SessionLocal
+
         db = SessionLocal()
         db.execute("SELECT 1")
         db.close()
@@ -490,3 +506,81 @@ def _db_check():
     except Exception as e:
         print(f"[FAIM DB] Connection WARNING: {e}")
 
+
+# =============================================================================
+# SECTION 11 — AGI FEATURES (P3+ Extensions)
+# =============================================================================
+# These are NEW modules that extend functionality without modifying core code.
+# Each is wrapped in try/except for safety - if import fails, core app continues.
+
+# Real-time evolution stream (SSE)
+try:
+    from faim.api.router_evolution_stream import router as evolution_stream_router
+
+    app.include_router(evolution_stream_router, prefix="/api/v1")
+    print("[FAIM] Evolution stream router mounted at /api/v1/evolution")
+except Exception as e:
+    print(f"[FAIM] Evolution stream router skipped: {e}")
+
+# Graph filtering (topic/date/relationship)
+try:
+    from faim.api.graph_filters import router as graph_filters_router
+
+    app.include_router(graph_filters_router, prefix="/api/v1")
+    print("[FAIM] Graph filters router mounted at /api/v1/graphs")
+except Exception as e:
+    print(f"[FAIM] Graph filters router skipped: {e}")
+
+# Batch Upload with Progress (AGI Feature #1)
+try:
+    from faim.api.batch_upload import router as batch_upload_router
+
+    app.include_router(batch_upload_router, prefix="/api/v1")
+    print("[FAIM] Batch upload router mounted at /api/v1/batch")
+except Exception as e:
+    print(f"[FAIM] Batch upload router skipped: {e}")
+
+# Cross-document Inference (AGI Feature #2)
+try:
+    from faim.core.inference import router as inference_router
+
+    app.include_router(inference_router, prefix="/api/v1")
+    print("[FAIM] Inference router mounted at /api/v1/graphs")
+except Exception as e:
+    print(f"[FAIM] Inference router skipped: {e}")
+
+# Semantic Clustering (AGI Feature #3)
+try:
+    from faim.core.clustering import router as clustering_router
+
+    app.include_router(clustering_router, prefix="/api/v1")
+    print("[FAIM] Clustering router mounted at /api/v1/graphs")
+except Exception as e:
+    print(f"[FAIM] Clustering router skipped: {e}")
+
+# Hidden Insights Discovery (AGI Feature #4)
+try:
+    from faim.core.insights import router as insights_router
+
+    app.include_router(insights_router, prefix="/api/v1")
+    print("[FAIM] Insights router mounted at /api/v1/graphs")
+except Exception as e:
+    print(f"[FAIM] Insights router skipped: {e}")
+
+# Image Understanding (AGI Feature #5)
+try:
+    from faim.api.image_processor import router as image_router
+
+    app.include_router(image_router, prefix="/api/v1")
+    print("[FAIM] Image processor router mounted at /api/v1/images")
+except Exception as e:
+    print(f"[FAIM] Image processor router skipped: {e}")
+
+# Self-Inventing Concepts (AGI Feature #6)
+try:
+    from faim.core.invention import router as invention_router
+
+    app.include_router(invention_router, prefix="/api/v1")
+    print("[FAIM] Invention router mounted at /api/v1/graphs")
+except Exception as e:
+    print(f"[FAIM] Invention router skipped: {e}")

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { UploadCloud, FileText, CheckCircle, Clock, AlertCircle, HardDrive, Trash2, Download } from "lucide-react";
 import { getSession } from "next-auth/react";
+import { useUserIds } from "@/contexts/UserContext";
 
 type Doc = {
     id: string;
@@ -17,10 +18,19 @@ export default function StoragePage() {
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const { projectId: contextProjectId, graphId: contextGraphId } = useUserIds();
     const [projectId, setProjectId] = useState<string | null>(null);
 
     useEffect(() => {
+        if (contextProjectId) {
+            setProjectId(contextProjectId);
+        }
+    }, [contextProjectId]);
+
+    useEffect(() => {
         async function init() {
+            if (!projectId) return;
+
             try {
                 const session = await getSession();
                 const token = (session as any)?.accessToken;
@@ -31,35 +41,9 @@ export default function StoragePage() {
                     headers["Authorization"] = `Bearer ${token}`;
                 }
 
-                // Try to get orgs/projects for real auth mode
-                let pid: string | null = null;
-
-                try {
-                    const resOrgs = await fetch("/api/v1/orgs", { headers });
-                    const orgs = await resOrgs.json();
-
-                    if (Array.isArray(orgs) && orgs.length > 0) {
-                        const resProjs = await fetch(`/api/v1/projects?org_id=${orgs[0].id}`, { headers });
-                        const projects = await resProjs.json();
-
-                        if (Array.isArray(projects) && projects.length > 0) {
-                            pid = projects[0].id;
-                        }
-                    }
-                } catch (e) {
-                    console.log("Auth not configured, using dev mode");
-                }
-
-                // Dev mode: use a default project ID
-                if (!pid) {
-                    pid = "dev-project-001";
-                }
-
-                setProjectId(pid);
-
                 // Load existing documents
                 try {
-                    const resDocs = await fetch(`/api/v1/storage/files?project_id=${pid}`, { headers });
+                    const resDocs = await fetch(`/api/v1/storage/files?project_id=${projectId}`, { headers });
                     if (resDocs.ok) {
                         const docData = await resDocs.json();
                         setDocs(Array.isArray(docData) ? docData : []);
@@ -73,8 +57,11 @@ export default function StoragePage() {
                 setLoading(false);
             }
         }
-        init();
-    }, []);
+        
+        if (projectId) {
+            init();
+        }
+    }, [projectId]);
 
     const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || !e.target.files.length || !projectId) return;

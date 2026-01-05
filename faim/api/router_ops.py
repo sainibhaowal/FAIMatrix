@@ -1,16 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-from typing import List, Optional
-from pydantic import BaseModel
-import os
 from datetime import datetime
+from typing import List, Optional
 
-from faim.db import get_db
-from faim.api.auth_middleware import get_current_user_oidc
-from faim.models_sql import User, Project, Org, OrgMember, AuditLog, FeatureFlag
+from fastapi import APIRouter, Body, Depends, HTTPException
+from pydantic import BaseModel
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
 from faim.api.rate_limiter import get_redis
 from faim.api.router_admin import verify_admin
+from faim.db import get_db
+from faim.models_sql import AuditLog, FeatureFlag, Project, User
 
 router = APIRouter(prefix="/ops", tags=["Operations"])
 

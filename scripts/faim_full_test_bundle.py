@@ -9,14 +9,12 @@ an auditable JSON report.
 
 from __future__ import annotations
 
-import sys
-
 import argparse
 import json
 import math
-import os
+import sys
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Tuple
 
@@ -32,11 +30,11 @@ from faim.core.antisym import (
     opposition_vector,
     practical_wedge_merge,
 )
+from faim.core.engine import FAIMEngine
+from faim.core.evolution import evolve_graph_once
 from faim.core.math import GOLDEN_SCALE, inheritance_construction, simulate_inheritance_chain
 from faim.core.metrics import compression_ratio, estimate_fractal_dimension
 from faim.core.types import GraphId, NodeRecord, ParentRef
-from faim.core.engine import FAIMEngine
-from faim.core.evolution import evolve_graph_once
 from faim.storage.sqlite_store import SqliteStore
 
 

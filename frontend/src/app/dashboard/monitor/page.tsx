@@ -11,6 +11,7 @@
 
 import React from 'react';
 import SystemRuntimePanel from '@/components/SystemRuntimePanel';
+import AGIFeaturesPanel from '@/components/AGIFeaturesPanel';
 
 export default function MonitorPage() {
   return (
@@ -32,6 +33,13 @@ export default function MonitorPage() {
       ========================== */}
       <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
         <SystemRuntimePanel />
+      </section>
+
+      {/* =========================
+          AGI Features Panel
+      ========================== */}
+      <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+        <AGIFeaturesPanel />
       </section>
 
       {/* =========================

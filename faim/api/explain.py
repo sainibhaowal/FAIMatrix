@@ -19,15 +19,18 @@ import json
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
+from faim.api.auth_middleware import _is_dev_mode, get_current_user_oidc, verify_db_api_key
 from faim.config import FaimSettings
-from faim.api.auth import require_api_key
+from faim.db import get_db
+from faim.models_sql import APIKey, GraphOwnership, OrgMember, Project, User
 
-router = APIRouter(prefix="/explain", tags=["explain"], dependencies=[Depends(require_api_key)])
+router = APIRouter(prefix="/explain", tags=["explain"], dependencies=[])
 
 _TRACE_ID_RE = re.compile(r"^[A-Za-z0-9_\-]{8,128}$")
 
@@ -68,7 +71,17 @@ class ExplainResponse(BaseModel):
 
 
 @router.get("/{trace_id}", response_model=ExplainResponse)
-def api_explain(trace_id: str) -> ExplainResponse:
+def api_explain(
+    trace_id: str,
+    user: Optional[User] = Depends(get_current_user_oidc),
+    api_key: Optional[APIKey] = Depends(verify_db_api_key),
+    db: Session = Depends(get_db),
+) -> ExplainResponse:
+    # 1. Auth Check
+    if not user and not api_key:
+        # Check dev mode
+        if not _is_dev_mode():
+            raise HTTPException(status_code=401, detail="Authentication required")
     s = _settings()
     p = _trace_path(s, trace_id)
     if not p.exists():
@@ -83,8 +96,39 @@ def api_explain(trace_id: str) -> ExplainResponse:
     raw.setdefault("trace_id", trace_id)
     raw.setdefault("last_access_ts", time.time())
 
-    # If legacy traces missed use_count, derive one safely
     if "use_count" not in raw:
         raw["use_count"] = int(raw.get("ops", {}).get("evolution", {}).get("use_count", 0) or 0)
+
+    # 2. Verify Access (Graph Ownership)
+    graph_id = raw.get("graph_id")
+    if graph_id and (user or api_key):
+        has_access = False
+        if user:
+            # Check User -> Org -> Project -> Graph
+            count = (
+                db.query(GraphOwnership)
+                .join(Project, GraphOwnership.project_id == Project.id)
+                .join(OrgMember, Project.org_id == OrgMember.org_id)
+                .filter(GraphOwnership.graph_id == graph_id)
+                .filter(OrgMember.user_id == user.id)
+                .count()
+            )
+            if count > 0:
+                has_access = True
+
+        if not has_access and api_key:
+            # Check Key -> Project -> Graph
+            count = (
+                db.query(GraphOwnership)
+                .filter(GraphOwnership.graph_id == graph_id)
+                .filter(GraphOwnership.project_id == api_key.project_id)
+                .count()
+            )
+            if count > 0:
+                has_access = True
+
+        if not has_access:
+            # Strict: if you are authenticated but don't own it -> 403.
+            raise HTTPException(status_code=403, detail="Access denied to this trace")
 
     return ExplainResponse(**raw)

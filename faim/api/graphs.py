@@ -27,28 +27,28 @@ import re
 import zipfile
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Body, Depends
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 # --- Shared API state (IMPORTANT):
 # We import the module (not individual names) so this file survives slight state.py variants.
 # expected to expose: NODE_STORE / iter_nodes_from_store / count_nodes_from_store / GRAPH_REGISTRY
 from faim.api import state as S
+from faim.api.auth import verify_graph_access
+from faim.api.events import emit_fig_delta
 
 # --- Models (stable API contract)
 from faim.api.models import (
     GraphMetrics,
     GraphSubgraph,
+    IngestFileResult,
+    IngestResponse,
     LineageModel,
     NeighborInfo,
     NodeDetail,
     NodeScanItem,
     VectorStats,
-    IngestResponse,
-    IngestFileResult,
 )
-from faim.api.events import emit_fig_delta
-from faim.api.auth import require_api_key
 
 # --- Engine views/adapters (existing surface — keep)
 from faim.engine.adapter import (
@@ -66,14 +66,12 @@ from faim.engine.interface import add_fragment, get_node_detail
 # --- Retrieval debug
 from faim.retrieve.context import naive_used_nodes
 
-from faim.api.auth import allow_dev_mode
-
 try:
     from faim.engine.adapter import virtual_compute_metrics as _virtual_compute_metrics
 except Exception:
     _virtual_compute_metrics = None
 
-router = APIRouter(prefix="/graphs", tags=["Graphs"], dependencies=[Depends(allow_dev_mode)])
+router = APIRouter(prefix="/graphs", tags=["Graphs"], dependencies=[Depends(verify_graph_access)])
 
 MAX_INGEST_BYTES = 20 * 1024 * 1024
 DEFAULT_CHUNK_CHARS = 4000
@@ -785,13 +783,15 @@ def api_metrics(graph_id: str):
     # - latency.retrieve_p50_ms / latency.retrieve_p95_ms
     # - latency.p50 / latency.p95
     retrieve_p50_ms = _num(
-        m.get("retrieve_p50_ms",
-              lat.get("retrieve_p50_ms", lat.get("p50", lat.get("p50_ms", 0.0)))),
+        m.get(
+            "retrieve_p50_ms", lat.get("retrieve_p50_ms", lat.get("p50", lat.get("p50_ms", 0.0)))
+        ),
         0.0,
     )
     retrieve_p95_ms = _num(
-        m.get("retrieve_p95_ms",
-              lat.get("retrieve_p95_ms", lat.get("p95", lat.get("p95_ms", 0.0)))),
+        m.get(
+            "retrieve_p95_ms", lat.get("retrieve_p95_ms", lat.get("p95", lat.get("p95_ms", 0.0)))
+        ),
         0.0,
     )
 
@@ -806,6 +806,8 @@ def api_metrics(graph_id: str):
         raw_bytes=raw_bytes,
         faim_bytes=faim_bytes,
     )
+
+
 # -----------------------------------------------------------------------------
 # 5) VECTOR STATS — ORIGINAL
 # -----------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSession, signOut } from 'next-auth/react';
 import { API_BASE_URL, DEFAULT_GRAPH_ID, fetchHealth, buildFaimHeaders } from '../../lib/api';
 import { startFaimStream } from '../../lib/realtime';
 
@@ -86,6 +87,78 @@ function resolveUniverseIdOnce(timeoutMs = 2500): Promise<string | null> {
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
+}
+
+// User dropdown content with real session data
+function UserDropdownContent({ goAdmin, onClose }: { goAdmin: (tab?: string) => void; onClose: () => void }) {
+  const { data: session } = useSession();
+  
+  const userName = session?.user?.name || 'User';
+  const userEmail = session?.user?.email || '';
+  const userInitial = userName.charAt(0).toUpperCase();
+  
+  return (
+    <div className="p-3">
+      <div className="mb-2 flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-[12px] font-semibold text-cyan-200">
+          {userInitial}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-[12px] font-semibold text-slate-100">{userName}</div>
+          <div className="truncate text-[10px] text-slate-500">{userEmail}</div>
+        </div>
+      </div>
+
+      <div className="space-y-1 rounded-xl border border-white/10 p-2">
+        <button
+          onClick={() => { onClose(); goAdmin('profile'); }}
+          className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
+        >
+          Profile
+        </button>
+        <button
+          onClick={() => { onClose(); goAdmin('account'); }}
+          className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
+        >
+          Account (delete / clear data)
+        </button>
+        <button
+          onClick={() => { onClose(); goAdmin('apikeys'); }}
+          className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
+        >
+          API Keys (FAIM)
+        </button>
+        <button
+          onClick={() => { onClose(); goAdmin('billing'); }}
+          className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
+        >
+          Billing / receipts (future)
+        </button>
+        <button
+          onClick={() => { onClose(); goAdmin(); }}
+          className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
+        >
+          Admin console (block / freeze / terminate)
+        </button>
+      </div>
+
+      <div className="mt-2 rounded-xl border border-rose-500/20 bg-rose-500/10 p-2">
+        <button
+          onClick={() => {
+            onClose();
+            signOut({ callbackUrl: '/' });
+          }}
+          className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-rose-200 hover:bg-rose-500/10"
+        >
+          Log out
+        </button>
+      </div>
+
+      <div className="mt-2 text-[10px] text-slate-500">
+        Admin actions must be audited + consented in production.
+      </div>
+    </div>
+  );
 }
 
 function useOutsideClick(
@@ -930,81 +1003,7 @@ export function TopBar({
               </button>
 
               <Dropdown open={openUser} anchorRef={userRef} onClose={() => setOpenUser(false)}>
-                <div className="p-3">
-                  <div className="mb-2 flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-[12px] text-slate-200">
-                      U
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-[12px] font-semibold text-slate-100">Local User</div>
-                      <div className="truncate text-[10px] text-slate-500">(auth not wired yet)</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 rounded-xl border border-white/10 p-2">
-                    <button
-                      onClick={() => {
-                        setOpenUser(false);
-                        goAdmin('profile');
-                      }}
-                      className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
-                    >
-                      Profile
-                    </button>
-                    <button
-                      onClick={() => {
-                        setOpenUser(false);
-                        goAdmin('account');
-                      }}
-                      className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
-                    >
-                      Account (delete / clear data)
-                    </button>
-                    <button
-                      onClick={() => {
-                        setOpenUser(false);
-                        goAdmin('apikeys');
-                      }}
-                      className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
-                    >
-                      API Keys (FAIM)
-                    </button>
-                    <button
-                      onClick={() => {
-                        setOpenUser(false);
-                        goAdmin('billing');
-                      }}
-                      className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
-                    >
-                      Billing / receipts (future)
-                    </button>
-                    <button
-                      onClick={() => {
-                        setOpenUser(false);
-                        goAdmin();
-                      }}
-                      className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-slate-200 hover:bg-white/5"
-                    >
-                      Admin console (block / freeze / terminate)
-                    </button>
-                  </div>
-
-                  <div className="mt-2 rounded-xl border border-rose-500/20 bg-rose-500/10 p-2">
-                    <button
-                      onClick={() => {
-                        setOpenUser(false);
-                        alert('Logout requires auth wiring (future).');
-                      }}
-                      className="w-full rounded-lg px-3 py-2 text-left text-[11px] text-rose-200 hover:bg-rose-500/10"
-                    >
-                      Log out
-                    </button>
-                  </div>
-
-                  <div className="mt-2 text-[10px] text-slate-500">
-                    Admin actions must be audited + consented in production (privacy + refunds + records).
-                  </div>
-                </div>
+                <UserDropdownContent goAdmin={goAdmin} onClose={() => setOpenUser(false)} />
               </Dropdown>
             </div>
 

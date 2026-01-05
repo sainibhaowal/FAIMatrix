@@ -7,13 +7,12 @@ Provides Server-Sent Events for real-time usage updates:
 """
 import asyncio
 import json
-from datetime import datetime
-from typing import Optional
-from fastapi import APIRouter, Request, Query, HTTPException
+
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
+from faim.api.plan_limits import PLAN_LIMITS, get_plan_limits
 from faim.api.token_tracker import usage_sse_manager
-from faim.api.plan_limits import get_plan_limits, PLAN_LIMITS
 
 router = APIRouter(prefix="/usage", tags=["Usage"])
 
@@ -95,7 +94,7 @@ async def usage_stream(request: Request, project_id: str = Query(...)):
                     yield f"data: {message}\n\n"
                 except asyncio.TimeoutError:
                     # Send heartbeat
-                    yield f": heartbeat\n\n"
+                    yield ": heartbeat\n\n"
                 except asyncio.CancelledError:
                     break
                 

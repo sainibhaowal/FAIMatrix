@@ -7,10 +7,17 @@ declare module "next-auth" {
      */
     interface Session {
         accessToken?: string
+        projectId?: string
+        graphId?: string
         user: {
-            /** The user's postal address. */
+            id?: string
             address?: string
         } & DefaultSession["user"]
+    }
+    
+    interface User {
+        projectId?: string
+        graphId?: string
     }
 }
 
@@ -18,5 +25,8 @@ declare module "next-auth/jwt" {
     /** Returned by the `jwt` callback and `getToken`, when using JWT sessions */
     interface JWT {
         accessToken?: string
+        userId?: string
+        projectId?: string
+        graphId?: string
     }
 }

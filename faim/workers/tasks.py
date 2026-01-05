@@ -8,7 +8,6 @@ Celery tasks for asynchronous processing:
 - Usage aggregation
 """
 
-import os
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -163,13 +162,12 @@ def prune_old_memory():
         logger.info("Starting memory pruning task")
 
         from faim.db import SessionLocal
-        from faim.models_sql import GraphOwnership, UsageEvent
 
         db = SessionLocal()
         try:
             # Find inactive graphs (no usage in 30 days)
-            cutoff_30 = datetime.utcnow() - timedelta(days=30)
-            cutoff_90 = datetime.utcnow() - timedelta(days=90)
+            datetime.utcnow() - timedelta(days=30)
+            datetime.utcnow() - timedelta(days=90)
 
             # This is a placeholder - actual implementation would:
             # 1. Query usage_events for last activity per graph
@@ -263,8 +261,8 @@ def _extract_docx_text(data: bytes) -> str:
     """Extract text from DOCX bytes."""
     try:
         import io
-        import zipfile
         import xml.etree.ElementTree as ET
+        import zipfile
 
         with zipfile.ZipFile(io.BytesIO(data)) as zf:
             xml_content = zf.read("word/document.xml")

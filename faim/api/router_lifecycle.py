@@ -1,17 +1,22 @@
 import os
 import shutil
 import tempfile
-import zipfile
 from datetime import datetime, timedelta
-from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from faim.db import get_db
 from faim.api.auth_middleware import get_current_user_oidc
-from faim.models_sql import User, Project, Org, OrgMember, GraphOwnership, Document, APIKey, AuditLog
+from faim.db import get_db
+from faim.models_sql import (
+    AuditLog,
+    GraphOwnership,
+    Org,
+    OrgMember,
+    Project,
+    User,
+)
 
 router = APIRouter(prefix="/lifecycle", tags=["Lifecycle & Compliance"])
 

@@ -4,9 +4,9 @@ Backups are saved locally to /tmp/faim/backups/ (Docker volume).
 S3/MinIO upload removed - use Docker volumes or external backup solutions.
 """
 
+import datetime
 import os
 import subprocess
-import datetime
 from pathlib import Path
 
 # Database URL from environment

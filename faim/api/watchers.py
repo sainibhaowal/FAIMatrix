@@ -8,11 +8,11 @@ import time
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from faim.api import state as S
 from faim.api.events import BUS, emit_fig_delta, emit_metrics
 from faim.api.evolution_status import update_status
-from faim.api import state as S
-from faim.core.evolution import evolve_graph_once
 from faim.config import FaimSettings
+from faim.core.evolution import evolve_graph_once
 
 # ======================================================================
 # PATHS (stable, correct for systemd + dev)

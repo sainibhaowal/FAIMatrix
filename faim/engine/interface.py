@@ -26,9 +26,9 @@ import os
 import re
 import threading
 import time
+from collections import Counter
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
-from collections import Counter
 
 from faim.core.engine import FAIMEngine
 from faim.core.types import GraphId, NodeId
@@ -50,7 +50,6 @@ def _get_engine() -> FAIMEngine:
             return _engine
 
         # Import here to avoid circular import and get production store
-        from faim.api.production_state import get_faim_context
 
         # Get a default context (uses first available project or creates temp)
         try:

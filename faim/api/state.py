@@ -64,9 +64,10 @@ def _get_default_store():
             "For multi-tenant isolation, use production_state.get_faim_context()."
         )
         # Import here to avoid circular imports
+        from uuid import UUID
+
         from faim.db import SessionLocal
         from faim.storage.postgres_store import PostgresStore
-        from uuid import UUID
 
         # Use a default project ID for legacy compatibility
         # In production, always use get_faim_context() with proper project_id
