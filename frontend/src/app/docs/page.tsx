@@ -1,32 +1,68 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import Link from 'next/link';
-import FaimLogo from '@/components/landing/FaimLogo';
+import { motion } from "framer-motion";
+import Link from "next/link";
+import FaimLogo from "@/components/landing/FaimLogo";
 
 const sections = [
   {
-    title: 'Getting Started',
+    title: "Getting Started",
     items: [
-      { title: 'Introduction to FAIM Lab', href: '#intro', description: 'Learn what FAIM Lab is and how it works' },
-      { title: 'Quick Start Guide', href: '#quickstart', description: 'Get up and running in 5 minutes' },
-      { title: 'Core Concepts', href: '#concepts', description: 'Understanding the fractal memory engine' },
+      {
+        title: "Introduction to FAIM Lab",
+        href: "#intro",
+        description: "Learn what FAIM Lab is and how it works",
+      },
+      {
+        title: "Quick Start Guide",
+        href: "#quickstart",
+        description: "Get up and running in 5 minutes",
+      },
+      {
+        title: "Core Concepts",
+        href: "#concepts",
+        description: "Understanding the fractal memory engine",
+      },
     ],
   },
   {
-    title: 'Features',
+    title: "Features",
     items: [
-      { title: 'Knowledge Graph', href: '/features/knowledge-graph', description: 'Visualize your knowledge connections' },
-      { title: 'AI Chat', href: '/features/ai-chat', description: 'Query your knowledge with natural language' },
-      { title: 'Document Intelligence', href: '/features/document-intelligence', description: 'Upload and process documents' },
+      {
+        title: "Knowledge Graph",
+        href: "/features/knowledge-graph",
+        description: "Visualize your knowledge connections",
+      },
+      {
+        title: "AI Chat",
+        href: "/features/ai-chat",
+        description: "Query your knowledge with natural language",
+      },
+      {
+        title: "Document Intelligence",
+        href: "/features/document-intelligence",
+        description: "Upload and process documents",
+      },
     ],
   },
   {
-    title: 'API Reference',
+    title: "API Reference",
     items: [
-      { title: 'REST API', href: '#api', description: 'Full API documentation' },
-      { title: 'Webhooks', href: '#webhooks', description: 'Real-time event notifications' },
-      { title: 'SDKs', href: '#sdks', description: 'Client libraries for popular languages' },
+      {
+        title: "REST API",
+        href: "#api",
+        description: "Full API documentation",
+      },
+      {
+        title: "Webhooks",
+        href: "#webhooks",
+        description: "Real-time event notifications",
+      },
+      {
+        title: "SDKs",
+        href: "#sdks",
+        description: "Client libraries for popular languages",
+      },
     ],
   },
 ];
@@ -41,7 +77,10 @@ export default function DocsPage() {
             <Link href="/">
               <FaimLogo size={36} />
             </Link>
-            <Link href="/" className="text-sm text-slate-400 hover:text-white transition-colors">
+            <Link
+              href="/"
+              className="text-sm text-slate-400 hover:text-white transition-colors"
+            >
               ← Back to Home
             </Link>
           </div>
@@ -80,8 +119,18 @@ export default function DocsPage() {
                 placeholder="Search documentation..."
                 className="w-full px-5 py-4 pl-12 bg-slate-800/50 border border-slate-700 rounded-2xl text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
               />
-              <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              <svg
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
               </svg>
             </div>
           </motion.div>
@@ -95,7 +144,9 @@ export default function DocsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 + sectionIndex * 0.1 }}
               >
-                <h2 className="text-lg font-semibold text-white mb-4">{section.title}</h2>
+                <h2 className="text-lg font-semibold text-white mb-4">
+                  {section.title}
+                </h2>
                 <div className="space-y-3">
                   {section.items.map((item) => (
                     <Link
@@ -106,7 +157,9 @@ export default function DocsPage() {
                       <h3 className="text-white font-medium mb-1 group-hover:text-cyan-400 transition-colors">
                         {item.title}
                       </h3>
-                      <p className="text-slate-500 text-sm">{item.description}</p>
+                      <p className="text-slate-500 text-sm">
+                        {item.description}
+                      </p>
                     </Link>
                   ))}
                 </div>
@@ -121,24 +174,36 @@ export default function DocsPage() {
             transition={{ delay: 0.4 }}
             className="mt-16 bg-gradient-to-br from-cyan-500/10 to-purple-500/10 border border-slate-700/50 rounded-2xl p-8"
           >
-            <h2 id="quickstart" className="text-2xl font-bold text-white mb-6">Quick Start</h2>
+            <h2 id="quickstart" className="text-2xl font-bold text-white mb-6">
+              Quick Start
+            </h2>
             <div className="prose prose-invert max-w-none">
-              <p className="text-slate-400 mb-4">Get started with FAIM Lab in just a few steps:</p>
+              <p className="text-slate-400 mb-4">
+                Get started with FAIM Lab in just a few steps:
+              </p>
               <ol className="space-y-3 text-slate-300">
                 <li className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">1</span>
+                  <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">
+                    1
+                  </span>
                   <span>Sign up for a free account at FAIM Lab</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">2</span>
+                  <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">
+                    2
+                  </span>
                   <span>Upload your first document or paste text directly</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">3</span>
+                  <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">
+                    3
+                  </span>
                   <span>Start chatting with your knowledge using AI</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">4</span>
+                  <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">
+                    4
+                  </span>
                   <span>Explore your knowledge graph to find connections</span>
                 </li>
               </ol>

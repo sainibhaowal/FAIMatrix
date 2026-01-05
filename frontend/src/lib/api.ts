@@ -12,8 +12,9 @@
 
 /* =============================== Config =================================== */
 
-export const API_BASE_URL =
-  (process.env.NEXT_PUBLIC_FAIM_API_BASE_URL || "/api/v1").replace(/\/+$/, "");
+export const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_FAIM_API_BASE_URL || "/api/v1"
+).replace(/\/+$/, "");
 
 /**
  * DO NOT use MAIN in production. Keep export for compatibility with existing imports,
@@ -21,7 +22,9 @@ export const API_BASE_URL =
  *
  * If you truly need an entry slug concept, keep it UX-only and map it server-side.
  */
-export const DEFAULT_GRAPH_ID = (process.env.NEXT_PUBLIC_FAIM_DEFAULT_GRAPH_ID || "").trim();
+export const DEFAULT_GRAPH_ID = (
+  process.env.NEXT_PUBLIC_FAIM_DEFAULT_GRAPH_ID || ""
+).trim();
 
 /* =========================== Identity (User) ============================== */
 
@@ -69,7 +72,9 @@ export function getFaimApiKey(): string {
   }
 }
 
-export function buildFaimHeaders(extra?: Record<string, string>): Record<string, string> {
+export function buildFaimHeaders(
+  extra?: Record<string, string>,
+): Record<string, string> {
   const uid = getFaimUserId();
   const apiKey = getFaimApiKey();
   return {
@@ -120,14 +125,14 @@ function resolveGraphId(input?: string): string {
   if (!gid) {
     throw new Error(
       "FAIM graph_id is not resolved yet. Expected Universe id from SSE contract. " +
-      "Ensure SSE onContract stores localStorage key 'faim_universe_graph_id'."
+        "Ensure SSE onContract stores localStorage key 'faim_universe_graph_id'.",
     );
   }
 
   // Strong guard: Universe IDs are always U:...
   if (!gid.startsWith("U:")) {
     throw new Error(
-      `Invalid graph_id '${gid}'. Production requires Universe id like 'U:xxxx'.`
+      `Invalid graph_id '${gid}'. Production requires Universe id like 'U:xxxx'.`,
     );
   }
 
@@ -263,7 +268,9 @@ async function apiPost<T = void>(path: string, body?: unknown): Promise<T> {
 
   // Auth injection (Phase 1)
   const session = await getSession();
-  const extraHeaders: Record<string, string> = { "Content-Type": "application/json" };
+  const extraHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
   if (session && (session as any).accessToken) {
     extraHeaders["Authorization"] = `Bearer ${(session as any).accessToken}`;
   }
@@ -275,7 +282,7 @@ async function apiPost<T = void>(path: string, body?: unknown): Promise<T> {
   });
 
   if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
-  return (res.status === 204 ? (undefined as T) : res.json());
+  return res.status === 204 ? (undefined as T) : res.json();
 }
 
 /* ============================== Public API ================================ */
@@ -304,45 +311,54 @@ export function fetchBenchmarks(graphId?: string): Promise<BenchmarkPoint[]> {
   });
 }
 
-export function fetchSubgraph(graphId?: string, limit = 250): Promise<GraphSubgraph> {
+export function fetchSubgraph(
+  graphId?: string,
+  limit = 250,
+): Promise<GraphSubgraph> {
   const gid = resolveGraphId(graphId);
   // Backend uses /snapshot for full graph data, not /subgraph (which requires node_id)
   return apiGet<{ nodes: any[]; links: any[] }>(
-    `/graphs/${encodeURIComponent(gid)}/snapshot`
+    `/graphs/${encodeURIComponent(gid)}/snapshot`,
   ).then((res) => ({
     nodes: res.nodes || [],
     links: res.links || [],
   }));
 }
 
-export function fetchNodeScan(graphId?: string, limit = 250): Promise<NodeScanItem[]> {
+export function fetchNodeScan(
+  graphId?: string,
+  limit = 250,
+): Promise<NodeScanItem[]> {
   const gid = resolveGraphId(graphId);
   return apiGet<NodeScanItem[]>(
-    `/graphs/${encodeURIComponent(gid)}/nodes?limit=${limit}`
+    `/graphs/${encodeURIComponent(gid)}/nodes?limit=${limit}`,
   );
 }
 
 export function fetchNodeSubgraph(
   graphId: string | undefined,
   nodeId: string,
-  depth = 2
+  depth = 2,
 ): Promise<GraphSubgraph> {
   const gid = resolveGraphId(graphId);
   return apiGet<GraphSubgraph>(
-    `/graphs/${encodeURIComponent(gid)}/subgraph/${encodeURIComponent(nodeId)}?depth=${depth}`
+    `/graphs/${encodeURIComponent(gid)}/subgraph/${encodeURIComponent(nodeId)}?depth=${depth}`,
   );
 }
 
-export function fetchNodeDetail(graphId: string, nodeId: string): Promise<FaimNodeDetail> {
+export function fetchNodeDetail(
+  graphId: string,
+  nodeId: string,
+): Promise<FaimNodeDetail> {
   const gid = resolveGraphId(graphId);
   return apiGet<FaimNodeDetail>(
-    `/graphs/${encodeURIComponent(gid)}/node/${encodeURIComponent(nodeId)}`
+    `/graphs/${encodeURIComponent(gid)}/node/${encodeURIComponent(nodeId)}`,
   );
 }
 
 export function postChat(
   message: string,
-  graphId?: string
+  graphId?: string,
 ): Promise<{ reply: string; used_nodes: UsedNodeSummary[] }> {
   const gid = resolveGraphId(graphId);
   return apiPost("/chat", { graph_id: gid, message });

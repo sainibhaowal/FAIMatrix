@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Logo from '@/components/brand/Logo';
+import React from "react";
+import Logo from "@/components/brand/Logo";
 
 export default function Page() {
   return (

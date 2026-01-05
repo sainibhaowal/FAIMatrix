@@ -1,25 +1,28 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const testimonials = [
   {
-    quote: "FAIM Lab transformed how we manage research. Finding connections between papers that would have taken days now happens instantly.",
+    quote:
+      "FAIM Lab transformed how we manage research. Finding connections between papers that would have taken days now happens instantly.",
     author: "Dr. Sarah Chen",
     role: "Head of Research, BioTech Innovations",
     avatar: "SC",
     accent: "cyan",
   },
   {
-    quote: "The knowledge graph visualization alone is worth it. We can finally see how our entire knowledge base connects.",
+    quote:
+      "The knowledge graph visualization alone is worth it. We can finally see how our entire knowledge base connects.",
     author: "Marcus Williams",
     role: "CTO, DataFlow Analytics",
     avatar: "MW",
     accent: "purple",
   },
   {
-    quote: "We reduced time spent searching for information by 80%. FAIM remembers everything so we don't have to.",
+    quote:
+      "We reduced time spent searching for information by 80%. FAIM remembers everything so we don't have to.",
     author: "Emily Rodriguez",
     role: "VP Engineering, CloudSync",
     avatar: "ER",
@@ -38,9 +41,9 @@ export default function Testimonials() {
   }, []);
 
   const accentColors: Record<string, string> = {
-    cyan: 'from-cyan-500 to-blue-500',
-    purple: 'from-purple-500 to-pink-500',
-    emerald: 'from-emerald-500 to-teal-500',
+    cyan: "from-cyan-500 to-blue-500",
+    purple: "from-purple-500 to-pink-500",
+    emerald: "from-emerald-500 to-teal-500",
   };
 
   return (
@@ -73,8 +76,14 @@ export default function Testimonials() {
             >
               <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-8 md:p-12">
                 {/* Quote Mark */}
-                <div className={`inline-flex w-12 h-12 rounded-xl bg-gradient-to-br ${accentColors[testimonials[current].accent] || accentColors.cyan} items-center justify-center mb-6`}>
-                  <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <div
+                  className={`inline-flex w-12 h-12 rounded-xl bg-gradient-to-br ${accentColors[testimonials[current].accent] || accentColors.cyan} items-center justify-center mb-6`}
+                >
+                  <svg
+                    className="w-6 h-6 text-white"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
                     <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
                   </svg>
                 </div>
@@ -84,12 +93,18 @@ export default function Testimonials() {
                 </blockquote>
 
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${accentColors[testimonials[current].accent] || accentColors.cyan} flex items-center justify-center text-white font-semibold`}>
+                  <div
+                    className={`w-12 h-12 rounded-full bg-gradient-to-br ${accentColors[testimonials[current].accent] || accentColors.cyan} flex items-center justify-center text-white font-semibold`}
+                  >
                     {testimonials[current].avatar}
                   </div>
                   <div>
-                    <p className="text-white font-semibold">{testimonials[current].author}</p>
-                    <p className="text-slate-400 text-sm">{testimonials[current].role}</p>
+                    <p className="text-white font-semibold">
+                      {testimonials[current].author}
+                    </p>
+                    <p className="text-slate-400 text-sm">
+                      {testimonials[current].role}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -105,8 +120,8 @@ export default function Testimonials() {
               onClick={() => setCurrent(index)}
               className={`w-2 h-2 rounded-full transition-all duration-300 ${
                 index === current
-                  ? 'w-6 bg-cyan-500'
-                  : 'bg-slate-600 hover:bg-slate-500'
+                  ? "w-6 bg-cyan-500"
+                  : "bg-slate-600 hover:bg-slate-500"
               }`}
               aria-label={`Go to testimonial ${index + 1}`}
             />
