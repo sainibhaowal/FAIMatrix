@@ -25,6 +25,10 @@ type Graph3DViewProps = {
   onNodeSelect(nodeId: string | null): void;
   graphId?: string | null;
   enableNodeDrag?: boolean;
+  /** External data to display (e.g., from filters). Overrides internal fetch. */
+  externalData?: { nodes: any[]; links: any[] } | null;
+  /** Callback when graph data is refreshed */
+  onDataRefresh?: () => void;
 };
 
 function clamp(n: number, lo: number, hi: number) {
@@ -85,6 +89,8 @@ export function Graph3DView({
   onNodeSelect,
   graphId: propGraphId,
   enableNodeDrag,
+  externalData,
+  onDataRefresh,
 }: Graph3DViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -240,6 +246,20 @@ export function Graph3DView({
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
+
+  // Apply external data (from filters) when provided
+  useEffect(() => {
+    if (externalData && externalData.nodes && externalData.nodes.length > 0) {
+      dataRef.current = {
+        nodes: [...externalData.nodes],
+        links: [...(externalData.links || [])],
+      };
+      normalizeGraphData(dataRef.current);
+      ensureTetherLinks(dataRef.current);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => bump((x) => x + 1));
+    }
+  }, [externalData]);
 
   // Auto-size to container via ResizeObserver -> width/height props
   useEffect(() => {

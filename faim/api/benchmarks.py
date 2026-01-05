@@ -7,12 +7,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from faim.api.auth import allow_dev_mode
 from faim.api.models import BenchmarkPoint, GraphMetrics, LatencyPoint
 from faim.config import FaimSettings
-from faim.api.auth import allow_dev_mode
 from faim.engine import interface as engine
 
 # =============================================================================

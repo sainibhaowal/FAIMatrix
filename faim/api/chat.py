@@ -40,19 +40,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, NoReturn, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 # IMPORTANT: import state as a module (survives state.py variations)
 from faim.api import state as S
+from faim.api.auth_middleware import get_current_user_oidc
 from faim.api.events import BUS  # Step-1 hardened SSE bus
-from faim.api.auth import allow_dev_mode
 from faim.config import FaimSettings
+from faim.db import get_db
 from faim.engine.interface import add_fragment, record_used_nodes
 from faim.model.llm import get_llm
+from faim.models_sql import GraphOwnership, OrgMember, Project, User
 from faim.retrieve.context import naive_used_nodes
 
-router = APIRouter(dependencies=[Depends(allow_dev_mode)])
+router = APIRouter(dependencies=[])
 
 # =============================================================================
 # SECTION 0 — SAFE ENV PARSING (commercial hardening; never crash on bad env)
@@ -548,7 +551,6 @@ def _write_explain_trace(
                 "lineage_links": [
                     f"/api/v1/graphs/{graph_id}/node/{nid}/lineage" for nid in used_ids[:50]
                 ],
-                
                 "neighbors_links": [
                     f"/api/v1/graphs/{graph_id}/node/{nid}/neighbors?k=10" for nid in used_ids[:50]
                 ],
@@ -661,8 +663,30 @@ def _apply_chat_store_hook(
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: Request, payload: ChatRequest) -> ChatResponse:
-    graph_id = resolve_graph_id(request)
+async def chat(
+    request: Request,
+    payload: ChatRequest,
+    user: User = Depends(get_current_user_oidc),
+    db: Session = Depends(get_db),
+) -> ChatResponse:
+    # Strict Graph Resolution: User -> Org -> Project -> Graph
+    # 1. Find Org Membership (Owner)
+    membership = db.query(OrgMember).filter(OrgMember.user_id == user.id).first()
+    if not membership:
+        raise HTTPException(status_code=400, detail="User has no organization")
+
+    # 2. Find Project
+    project = db.query(Project).filter(Project.org_id == membership.org_id).first()
+    if not project:
+        raise HTTPException(status_code=400, detail="User has no project")
+
+    # 3. Find Graph
+    graph = db.query(GraphOwnership).filter(GraphOwnership.project_id == project.id).first()
+    if not graph:
+        # Check dev fallback or valid state
+        raise HTTPException(status_code=400, detail="User has no graph")
+
+    graph_id = graph.graph_id
 
     trace_id = uuid.uuid4().hex
     turn_id = payload.client_turn_id or uuid.uuid4().hex

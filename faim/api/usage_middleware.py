@@ -4,11 +4,11 @@ FAIM Usage Tracking Middleware
 Logs every API request to the usage_events table for billing and metrics.
 Uses async background insert to avoid blocking requests.
 """
+import asyncio
+import logging
 import os
 import time
-import logging
-import asyncio
-from typing import Optional, Callable
+from typing import Callable, Optional
 from uuid import UUID
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -185,7 +185,9 @@ def get_usage_stats(project_id: str, days: int = 30) -> dict:
     """
     try:
         from datetime import datetime, timedelta
+
         from sqlalchemy import func
+
         from faim.db import SessionLocal
         from faim.models_sql import UsageEvent
         

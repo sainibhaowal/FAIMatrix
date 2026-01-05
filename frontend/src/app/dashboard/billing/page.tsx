@@ -109,6 +109,9 @@ export default function BillingPage() {
                     headers["Authorization"] = `Bearer ${token}`;
                 }
 
+                // IMPORTANT: Call /me first to trigger auto-provisioning of org/project/graph
+                await fetch("/api/v1/me", { headers });
+
                 // Fetch user project to get plan
                 const resOrgs = await fetch("/api/v1/orgs", { headers });
                 const orgs = await resOrgs.json();

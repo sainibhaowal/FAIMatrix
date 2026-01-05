@@ -11,9 +11,8 @@ Billing is based on token storage, not number of graphs.
 """
 import os
 from typing import Dict, Optional, Tuple
-from datetime import datetime, timedelta
-from fastapi import HTTPException
 
+from fastapi import HTTPException
 
 # =============================================================================
 # PLAN DEFINITIONS - Simple Token-Based Billing
@@ -67,7 +66,7 @@ def check_token_limit(user_id: str, additional_tokens: int = 0) -> Tuple[bool, s
     """
     try:
         from faim.db import SessionLocal
-        from faim.models_sql import User, Project, OrgMember
+        from faim.models_sql import OrgMember, Project, User
         
         db = SessionLocal()
         try:
@@ -110,9 +109,10 @@ def check_storage_limit(user_id: str, new_bytes: int = 0) -> Tuple[bool, str]:
     Returns (allowed, message)
     """
     try:
-        from faim.db import SessionLocal
-        from faim.models_sql import User, Project, OrgMember, Document
         from sqlalchemy import func
+
+        from faim.db import SessionLocal
+        from faim.models_sql import Document, OrgMember, Project
         
         db = SessionLocal()
         try:
@@ -159,7 +159,7 @@ def upgrade_user_plan(user_id: str, new_plan: str) -> Tuple[bool, str]:
     """
     try:
         from faim.db import SessionLocal
-        from faim.models_sql import User, Project, OrgMember
+        from faim.models_sql import OrgMember, Project
         
         if new_plan not in PLAN_LIMITS:
             return False, f"Invalid plan: {new_plan}"
@@ -205,9 +205,10 @@ def get_user_usage(user_id: str) -> Dict:
     Returns dict with tokens_used, tokens_max, storage_used_mb, storage_max_mb
     """
     try:
-        from faim.db import SessionLocal
-        from faim.models_sql import Project, OrgMember, Document
         from sqlalchemy import func
+
+        from faim.db import SessionLocal
+        from faim.models_sql import Document, OrgMember, Project
         
         db = SessionLocal()
         try:

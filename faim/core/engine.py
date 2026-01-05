@@ -48,9 +48,7 @@ from faim.storage.cipher import build_cipher_from_env
 from faim.storage.encrypted_payload_store import EncryptedPayloadStore
 from faim.storage.journal import EventJournal, JournalEvent
 from faim.storage.payload_store import PayloadStore
-from faim.storage.postgres_store import PostgresStore
 from faim.storage.store import FAIMStore
-from faim.core.types import NodeId
 
 from .antisym import merge_records
 
@@ -186,9 +184,7 @@ class FAIMEngine:
             self._payload_store = base_payload_store
 
         self._embedder: EmbedderProtocol = embedder or DummyEmbedder()
-        self._journal: EventJournal = journal or (
-            default_store if isinstance(default_store, EventJournal) else None
-        )
+        self._journal: EventJournal = journal or (default_store if isinstance(default_store, EventJournal) else None)
         self._usage: UsageTracker = usage or UsageTracker()
 
         embed_dim_any: Any = getattr(self._embedder, "dim", EMBED_DIM)
@@ -363,9 +359,7 @@ class FAIMEngine:
         if merge_target_id is not None:
             keep = self._store.get_node(g_id, merge_target_id)
             if keep is not None:
-                virtual_id_str = (
-                    f"{graph_id}:virtual:{hashlib.sha256(payload_bytes).hexdigest()[:8]}"
-                )
+                virtual_id_str = f"{graph_id}:virtual:{hashlib.sha256(payload_bytes).hexdigest()[:8]}"
                 virtual_id = cast(NodeId, virtual_id_str)
 
                 drop = NodeRecord(
@@ -373,8 +367,7 @@ class FAIMEngine:
                     graph_id=g_id,
                     vec=candidate_vec,
                     parents=[
-                        ParentRef(parent_id=p.id, fraction=f)
-                        for p, f in zip(parents, inh.fractions, strict=False)
+                        ParentRef(parent_id=p.id, fraction=f) for p, f in zip(parents, inh.fractions, strict=False)
                     ],
                     children=[],
                     payload_ref=payload_ref,
@@ -424,10 +417,7 @@ class FAIMEngine:
             id=node_id,
             graph_id=g_id,
             vec=candidate_vec,
-            parents=[
-                ParentRef(parent_id=p.id, fraction=f)
-                for p, f in zip(parents, inh.fractions, strict=False)
-            ],
+            parents=[ParentRef(parent_id=p.id, fraction=f) for p, f in zip(parents, inh.fractions, strict=False)],
             children=[],
             payload_ref=payload_ref,
             created_at=now,

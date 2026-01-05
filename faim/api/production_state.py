@@ -15,13 +15,18 @@
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+
+if TYPE_CHECKING:
+    from faim.cache.redis_cache import RedisCache
+    from faim.storage.postgres_store import PostgresStore as FAIMStore
+    from faim.storage.qdrant_store import QdrantVectorStore
 
 logger = logging.getLogger(__name__)
 

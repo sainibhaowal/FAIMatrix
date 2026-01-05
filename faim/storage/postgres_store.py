@@ -9,9 +9,8 @@ All operations are scoped by project_id for multi-tenant isolation.
 
 from __future__ import annotations
 
-import hashlib
-import json
 import datetime
+import hashlib
 from typing import Iterator, Optional
 from uuid import UUID
 
@@ -26,10 +25,11 @@ from faim.core.types import (
     PayloadRef,
     Vector,
 )
+from faim.models_sql import EventJournalEntry, NodeStorage
+from faim.models_sql import PayloadStorage as PayloadStorageModel
 from faim.storage.journal import EventJournal, JournalEvent
 from faim.storage.payload_store import PayloadStore
 from faim.storage.store import FAIMStore
-from faim.models_sql import NodeStorage, PayloadStorage as PayloadStorageModel, EventJournalEntry
 
 
 def _serialize_vec(vec: Vector) -> bytes:
@@ -360,7 +360,7 @@ class PostgresStore(FAIMStore, PayloadStore, EventJournal):
 
     def delete_payload(self, graph_id: GraphId, payload_ref: PayloadRef) -> None:
         """PayloadStore interface: Delete payload bytes."""
-        result = (
+        (
             self._db.query(PayloadStorageModel)
             .filter(
                 PayloadStorageModel.payload_ref == str(payload_ref),

@@ -1,13 +1,14 @@
 import os
-import stripe
-from fastapi import APIRouter, Depends, HTTPException, Request, Header
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
 from typing import Optional
 
-from faim.db import get_db
+import stripe
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
 from faim.api.auth_middleware import get_current_user_oidc
-from faim.models_sql import User, Project, Org, OrgMember
+from faim.db import get_db
+from faim.models_sql import Org, OrgMember, Project, User
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
@@ -111,9 +112,9 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
         event = stripe.Webhook.construct_event(
             payload, stripe_signature, STRIPE_WEBHOOK_SECRET
         )
-    except ValueError as e:
+    except ValueError:
         raise HTTPException(status_code=400, detail="Invalid payload")
-    except stripe.error.SignatureVerificationError as e:
+    except stripe.error.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid signature")
 
     # Handle Events

@@ -8,14 +8,14 @@ Tracks token usage on every memory operation:
 - Enforces plan limits
 - Broadcasts usage updates via SSE
 """
-import os
-import json
 import asyncio
+import json
 import logging
-from datetime import datetime
-from typing import Optional, Dict, Any, Set
 from collections import defaultdict
-from fastapi import Request, Response, HTTPException
+from datetime import datetime
+from typing import Any, Dict, Optional, Set
+
+from fastapi import HTTPException, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
@@ -160,9 +160,9 @@ def update_token_usage(project_id: str, tokens: int) -> Dict[str, Any]:
     Returns updated usage stats.
     """
     try:
+        from faim.api.plan_limits import get_plan_limits
         from faim.db import SessionLocal
         from faim.models_sql import Project
-        from faim.api.plan_limits import get_plan_limits
         
         db = SessionLocal()
         try:
@@ -208,9 +208,9 @@ def check_token_limit(project_id: str, tokens_to_add: int = 0) -> tuple[bool, st
     Returns (allowed, message)
     """
     try:
+        from faim.api.plan_limits import get_plan_limits
         from faim.db import SessionLocal
         from faim.models_sql import Project
-        from faim.api.plan_limits import get_plan_limits
         
         db = SessionLocal()
         try:
