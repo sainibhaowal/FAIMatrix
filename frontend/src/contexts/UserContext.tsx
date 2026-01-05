@@ -90,33 +90,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         .catch(err => console.warn('[UserContext] User sync skipped:', err));
 
     } else {
-      // Not authenticated - try to get default from API for dev mode
-      fetchDevModeUser();
+      // Not authenticated - landing page or logged out
+      setUserInfo({
+        ...defaultContext,
+        isLoading: false,
+        isAuthenticated: false,
+      });
     }
   }, [session, status]);
-
-  const fetchDevModeUser = async () => {
-    try {
-      const res = await fetch('/api/v1/me');
-      if (res.ok) {
-        const data = await res.json();
-        setUserInfo({
-          userId: data.user_id,
-          email: data.email,
-          name: data.name,
-          projectId: data.project_id,
-          graphId: data.graph_id,
-          isLoading: false,
-          isAuthenticated: false, // Dev mode, not truly authenticated
-        });
-      } else {
-        setUserInfo(prev => ({ ...prev, isLoading: false }));
-      }
-    } catch (error) {
-      console.warn('Could not fetch user info:', error);
-      setUserInfo(prev => ({ ...prev, isLoading: false }));
-    }
-  };
 
   return (
     <UserContext.Provider value={userInfo}>
