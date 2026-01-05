@@ -95,25 +95,18 @@ def _allow_key_bootstrap(request: Request) -> bool:
 
 def allow_dev_mode() -> bool:
     """
-    FastAPI dependency that allows unauthenticated requests in dev mode.
-    Use this instead of verify_graph_access when you want to skip auth in dev.
+    FastAPI dependency - kept for backwards compatibility.
+    Always returns True but doesn't skip authentication.
     """
-    mode = str(getattr(settings, "mode", "dev")).strip().lower()
-    if mode in ("dev", "development", "local", "core_dev"):
-        return True
-    # In production, this dependency alone isn't enough - use verify_graph_access
-    return True  # Always return True; actual auth is done by verify_graph_access
+    return True
 
 
 def _is_dev_mode() -> bool:
-    """Check if running in development mode."""
-    mode = str(getattr(settings, "mode", "dev")).strip().lower()
-    return mode in ("dev", "development", "local", "core_dev")
+    """Always return False - we only run in production mode."""
+    return False
 
 
-def verify_graph_access(
-    request: Request, graph_id: str = None, user: User = Depends(get_current_user_oidc)
-) -> bool:
+def verify_graph_access(request: Request, graph_id: str = None, user: User = Depends(get_current_user_oidc)) -> bool:
     """
     FastAPI dependency that verifies the current user has access to the specified graph.
 
