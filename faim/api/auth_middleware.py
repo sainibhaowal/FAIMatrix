@@ -45,9 +45,7 @@ async def verify_db_api_key(
     prefix = key[:12]
 
     # 3. Lookup candidates
-    candidates = (
-        db.query(APIKey).filter(APIKey.key_prefix == prefix, APIKey.status == "active").all()
-    )
+    candidates = db.query(APIKey).filter(APIKey.key_prefix == prefix, APIKey.status == "active").all()
 
     # 4. Verify Hash (Argon2)
     for candidate in candidates:
@@ -59,8 +57,8 @@ async def verify_db_api_key(
 
 
 def _is_dev_mode() -> bool:
-    mode = os.getenv("FAIM_MODE", "dev").lower()
-    return mode in ("dev", "development", "local", "core_dev")
+    """Always return False - production mode only."""
+    return False
 
 
 async def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> dict:
@@ -68,14 +66,6 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
     Verifies the JWT token from Keycloak.
     """
     if not credentials:
-        if _is_dev_mode():
-            # Mock payload for dev mode
-            return {
-                "sub": "dev_user_sub",
-                "email": "dev@faim.ai",
-                "name": "Dev User",
-                "preferred_username": "dev_user",
-            }
         raise HTTPException(status_code=401, detail="Authentication required")
 
     token = credentials.credentials
@@ -96,9 +86,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Security(secu
         raise HTTPException(status_code=401, detail=f"Could not validate credentials: {str(e)}")
 
 
-async def get_current_user_oidc(
-    token_payload: dict = Depends(verify_token), db: Session = Depends(get_db)
-) -> User:
+async def get_current_user_oidc(token_payload: dict = Depends(verify_token), db: Session = Depends(get_db)) -> User:
     """
     Gets or creates the User based on Keycloak 'sub'.
     """
@@ -144,8 +132,6 @@ async def get_current_user_oidc(
     return user
 
 
-
-
 async def verify_graph_access(
     request: Request,
     db: Session = Depends(get_db),
@@ -181,17 +167,13 @@ async def verify_graph_access(
             .count()
         )
         if count == 0:
-            raise HTTPException(
-                status_code=403, detail="API Key does not have access to this graph"
-            )
+            raise HTTPException(status_code=403, detail="API Key does not have access to this graph")
         return True
 
     # --- CASE B: User Token ---
     # We manually call verify_token logic here because we made it optional/alternative to key
     if not credentials:
-        raise HTTPException(
-            status_code=401, detail="Authentication required (Bearer or X-FAIM-KEY)"
-        )
+        raise HTTPException(status_code=401, detail="Authentication required (Bearer or X-FAIM-KEY)")
 
     # Manually resolve user
     # Note: We duplicate get_current_user_oidc logic bits here or refactor.
