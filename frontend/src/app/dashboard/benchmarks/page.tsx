@@ -11,6 +11,7 @@ import {
   type BenchmarkPoint,
 } from '@/lib/api';
 import { useFaimStream, type BenchPoint, type MetricsEvent } from '@/lib/realtime';
+import { useUserIds } from "@/contexts/UserContext";
 
 type Run = {
   id: string;
@@ -215,6 +216,9 @@ function NeonDropdown<T extends string>({
 export default function BenchmarksPage() {
   const defaultGraphId = DEFAULT_GRAPH_ID.startsWith('U:') ? DEFAULT_GRAPH_ID : '';
   const [graphId, setGraphId] = useState<string>(defaultGraphId);
+  
+  // SYNC WITH AUTH: Authoritative graph ID
+  const { graphId: contextGraphId } = useUserIds();
 
   const [runs, setRuns] = useState<Run[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -232,28 +236,27 @@ export default function BenchmarksPage() {
   void sortFlash;
   void limitFlash;
 
+  // Sync with UserContext
+  useEffect(() => {
+    if (contextGraphId && contextGraphId.startsWith('U:')) {
+      setGraphId(contextGraphId);
+    } else {
+       // Fallback
+       const u = getUniverseGraphId();
+       if (u && u.startsWith('U:')) setGraphId(u);
+    }
+  }, [contextGraphId]);
+
+  // Handle cross-tab updates (optional fallback)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
-    const syncUniverse = () => {
-      const u = getUniverseGraphId();
-      if (u && u.startsWith('U:')) setGraphId(u);
-    };
-
-    syncUniverse();
-
     const onStorage = (e: StorageEvent) => {
       if (!e.key) return;
-      if (
-        e.key === 'faim.universe_graph_id' ||
-        e.key === 'faim_universe_graph_id' ||
-        e.key === 'faim_graph_id' ||
-        e.key === 'faim_entry_graph_id'
-      ) {
-        syncUniverse();
+      if (e.key.includes('graph_id')) {
+         const u = getUniverseGraphId();
+         if (u && u.startsWith('U:')) setGraphId(u);
       }
     };
-
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, []);

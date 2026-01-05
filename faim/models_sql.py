@@ -1,20 +1,20 @@
-import uuid
 import datetime
+import uuid
+
 from sqlalchemy import (
-    Column,
-    String,
     Boolean,
+    Column,
     DateTime,
     ForeignKey,
-    Text,
-    Enum,
-    Integer,
     Index,
+    Integer,
     LargeBinary,
-    Float,
+    String,
+    Text,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
+
 from faim.db import Base
 
 
@@ -30,11 +30,19 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    keycloak_sub = Column(String, unique=True, index=True, nullable=False)
-    email = Column(String, unique=True, index=True, nullable=True)
+    keycloak_sub = Column(
+        String, unique=True, index=True, nullable=True
+    )  # Optional for credentials auth
+    email = Column(String, unique=True, index=True, nullable=False)  # Required for credentials auth
+    password_hash = Column(String, nullable=True)  # Argon2 hash for credentials auth
     full_name = Column(String, nullable=True)
     created_at = Column(DateTime, default=_utcnow)
-    status = Column(String, default="active")  # active, suspended
+    status = Column(String, default="active")  # active, suspended, pending_verification
+
+    # Email verification fields
+    email_verification_token = Column(String, nullable=True)
+    email_verification_expires = Column(DateTime, nullable=True)
+    email_verified = Column(Boolean, default=False)
 
     # Relationships
     memberships = relationship("OrgMember", back_populates="user")

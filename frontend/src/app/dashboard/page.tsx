@@ -321,6 +321,10 @@ function coerceBenchPoint(input: unknown): BenchmarkPoint | null {
 /*  Page                                                                       */
 /* ========================================================================== */
 
+import { useUserIds } from "@/contexts/UserContext";
+
+// ...
+
 export default function DashboardPage() {
   // "MAIN" (or env override) is ONLY an entry alias. Real universe is resolved by backend via SSE contract.
   const entryGraphId = DEFAULT_GRAPH_ID;
@@ -338,16 +342,26 @@ export default function DashboardPage() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => {
-    const u =
-      safeGetLocalStorage("faim.universe_graph_id") ||
-      safeGetLocalStorage(LS_UNIVERSE_GRAPH_ID);
-    if (u && u.startsWith("U:")) {
-      setStreamGraphId(u);
-      setMetricsGraphId(u);
-    }
-  }, []);
+  // AUTH SYNC: Get authoritative IDs from UserContext (handles stale localStorage)
+  const { graphId: contextGraphId } = useUserIds();
 
+  // Effect: Sync local state with Context whenever it updates
+  useEffect(() => {
+    if (contextGraphId && contextGraphId.startsWith("U:")) {
+       // Context is authoritative (fetched from DB)
+       setStreamGraphId(contextGraphId);
+       setMetricsGraphId(contextGraphId);
+    } else {
+       // Fallback: try storage if context not ready
+       const u =
+        safeGetLocalStorage("faim.universe_graph_id") ||
+        safeGetLocalStorage(LS_UNIVERSE_GRAPH_ID);
+       if (u && u.startsWith("U:")) {
+         setStreamGraphId(u);
+         setMetricsGraphId(u);
+       }
+    }
+  }, [contextGraphId]);
 
   useEffect(() => {
     setMounted(true);

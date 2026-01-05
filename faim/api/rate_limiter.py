@@ -7,15 +7,13 @@ Supports different limits for:
 - API keys (by key_id)
 - IP-based limiting for auth endpoints
 """
-import os
 import logging
-from typing import Optional, Callable
+import os
 
-from fastapi import Request, HTTPException
+from fastapi import HTTPException, Request
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
+from slowapi.util import get_remote_address
 
 logger = logging.getLogger(__name__)
 

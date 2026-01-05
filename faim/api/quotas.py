@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from faim.models_sql import Project, GraphOwnership, Document
+
+from faim.models_sql import Document, GraphOwnership, Project
 
 # Default Limits
 LIMITS = {

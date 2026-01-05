@@ -12,6 +12,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { API_BASE_URL, fetchHealth, getUniverseGraphId, type HealthStatus } from "@/lib/api";
 import { startFaimStream, type StreamContract } from "@/lib/realtime";
+import { useUserIds } from "@/contexts/UserContext";
 
 type RuntimeInfo = {
   current_graph: string; // REAL Universe graph id (U:xxxx) once known
@@ -43,6 +44,7 @@ const SystemRuntimePanel: React.FC = () => {
 
   const { data: session } = useSession();
   const token = (session as any)?.accessToken;
+  const { graphId: contextGraphId } = useUserIds();
 
   const mountedRef = useRef(true);
 
@@ -78,7 +80,14 @@ const SystemRuntimePanel: React.FC = () => {
     setSseState("connecting");
     setStreamErr(null);
 
-    const stop = startFaimStream(getUniverseGraphId() || null, {
+    // Prefer Context ID (auth) over localStorage (maybe stale)
+    const seedId = (contextGraphId && contextGraphId.startsWith('U:')) 
+       ? contextGraphId 
+       : (getUniverseGraphId() || null);
+
+    if (seedId) setUniverseGraphId(seedId);
+
+    const stop = startFaimStream(seedId, {
       onContract: (c: StreamContract) => {
         const gid = c?.universe?.graph_id?.trim();
         if (gid) setUniverseGraphId(gid);
@@ -101,7 +110,7 @@ const SystemRuntimePanel: React.FC = () => {
     }, token);
 
     return () => stop();
-  }, [token]);
+  }, [token, contextGraphId]);
 
   // -------------------- SSE staleness detector --------------------
   useEffect(() => {
@@ -191,8 +200,8 @@ const SystemRuntimePanel: React.FC = () => {
                 sseState === "live"
                   ? "text-emerald-200"
                   : sseState === "down"
-                    ? "text-red-200"
-                    : "text-slate-200",
+                  ? "text-red-200"
+                  : "text-slate-200",
               ].join(" ")}
             >
               {sseState === "live" ? "LIVE" : sseState === "down" ? "DOWN" : "CONNECTING"}

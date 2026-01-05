@@ -1,17 +1,15 @@
-import secrets
-import uuid
-from typing import List, Optional
-from datetime import datetime
 import os
+import secrets
+from datetime import datetime
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Body
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException
 from passlib.context import CryptContext
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from faim.db import get_db
-from faim.api.auth_middleware import get_current_user_oidc
-from faim.models_sql import User, Project, APIKey, Org, OrgMember
+from faim.models_sql import APIKey
 
 router = APIRouter(tags=["Developer Keys"])
 

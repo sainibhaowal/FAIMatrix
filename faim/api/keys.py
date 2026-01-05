@@ -7,14 +7,13 @@ import threading
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, HTTPException, Request, Query, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
-from faim.config import FaimSettings
 from faim.api.auth import allow_dev_mode
-
+from faim.config import FaimSettings
 
 settings = FaimSettings.from_env()
 _lock = threading.Lock()

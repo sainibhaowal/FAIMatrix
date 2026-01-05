@@ -1,7 +1,9 @@
 import time
+
 from sqlalchemy.orm import Session
-from faim.models_sql import Document
+
 from faim.db import SessionLocal
+from faim.models_sql import Document
 
 # This would ideally be a Celery task or separate process.
 # For MVP, we call it via BackgroundTasks.

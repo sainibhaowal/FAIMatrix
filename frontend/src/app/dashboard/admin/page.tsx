@@ -216,6 +216,10 @@ export default function AdminPage() {
                   <div>
                     <div className="font-medium text-xs text-slate-200">{user.full_name || user.email}</div>
                     <div className="text-[10px] text-slate-500">{user.email}</div>
+                    <div className="text-[10px] text-cyan-400/70">
+                      {user.graph_id || "No graph"} 
+                      {user.email_verified ? " • ✓ Verified" : " • ⚠ Unverified"}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">

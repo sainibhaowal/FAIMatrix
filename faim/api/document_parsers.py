@@ -7,11 +7,10 @@ Supports: TXT, MD, JSON, PDF (with tables), DOCX, XLSX, PPTX, Code files
 All extractors produce chunks with proper metadata for FAIM's
 Fractal Antisymmetric Inheritance Memory system.
 """
-import os
 import json
 import logging
-from typing import Optional, List, Dict, Any
 from pathlib import Path
+from typing import Any, Dict, List
 
 logger = logging.getLogger(__name__)
 
@@ -218,7 +217,7 @@ def extract_csv_file(file_path: str, filename: str) -> Dict[str, Any]:
     # Create chunks per row (with header context)
     chunks = []
     for i, row in enumerate(rows[:200]):  # Limit to 200 rows
-        row_dict = {h: v for h, v in zip(headers, row) if v}
+        row_dict = {h: v for h, v in zip(headers, row, strict=False) if v}
         chunks.append({
             "content": json.dumps(row_dict),
             "metadata": {"row_index": i, "inheritance": "csv_row"},
@@ -339,8 +338,8 @@ def extract_page_with_ocr(pdf_path: str, page_num: int) -> str:
     Requires: pytesseract, pdf2image, Pillow
     """
     try:
-        from pdf2image import convert_from_path
         import pytesseract
+        from pdf2image import convert_from_path
     except ImportError:
         logger.warning("OCR dependencies (pdf2image, pytesseract) not installed")
         return ""
@@ -510,7 +509,7 @@ def extract_xls_legacy(file_path: str, filename: str) -> Dict[str, Any]:
                 if row_idx == 0:
                     headers = row
                 else:
-                    row_dict = {h: v for h, v in zip(headers, row) if v}
+                    row_dict = {h: v for h, v in zip(headers, row, strict=False) if v}
                     if any(row_dict.values()):
                         rows_data.append(row_dict)
             
@@ -798,7 +797,7 @@ def extract_xlsx_file(file_path: str, filename: str) -> Dict[str, Any]:
                 if row_idx == 0:
                     headers = [str(c) if c else f"Col{i}" for i, c in enumerate(row)]
                 else:
-                    row_dict = {h: str(v) if v else "" for h, v in zip(headers, row)}
+                    row_dict = {h: str(v) if v else "" for h, v in zip(headers, row, strict=False)}
                     if any(row_dict.values()):  # Skip empty rows
                         rows_data.append(row_dict)
             

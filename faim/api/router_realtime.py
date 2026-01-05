@@ -30,11 +30,12 @@ TO USE WEBSOCKET FROM FRONTEND:
 =============================================================================
 """
 
-from typing import List, Dict
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
-from faim.core.events import subscribe_node_created
 import asyncio
-import json
+from typing import Dict, List
+
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+
+from faim.core.events import subscribe_node_created
 
 router = APIRouter(prefix="/realtime", tags=["Realtime"])
 
