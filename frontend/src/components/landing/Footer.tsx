@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import FaimLogo from './FaimLogo';
+import Link from "next/link";
+import FaimLogo from "./FaimLogo";
 
 const footerLinks = {
   product: [
-    { label: 'Features', href: '#features' },
-    { label: 'Pricing', href: '#pricing' },
-    { label: 'Documentation', href: '/docs' },
+    { label: "Features", href: "#features" },
+    { label: "Pricing", href: "#pricing" },
+    { label: "Documentation", href: "/docs" },
   ],
   company: [
-    { label: 'About', href: '/about' },
-    { label: 'Contact', href: '/contact' },
+    { label: "About", href: "/about" },
+    { label: "Contact", href: "/contact" },
   ],
   legal: [
-    { label: 'Privacy Policy', href: '/privacy' },
-    { label: 'Terms of Service', href: '/terms' },
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
   ],
 };
 
@@ -39,7 +39,10 @@ export default function Footer() {
             <ul className="space-y-3">
               {footerLinks.product.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-slate-400 hover:text-white text-sm transition-colors">
+                  <Link
+                    href={link.href}
+                    className="text-slate-400 hover:text-white text-sm transition-colors"
+                  >
                     {link.label}
                   </Link>
                 </li>
@@ -53,7 +56,10 @@ export default function Footer() {
             <ul className="space-y-3">
               {footerLinks.company.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-slate-400 hover:text-white text-sm transition-colors">
+                  <Link
+                    href={link.href}
+                    className="text-slate-400 hover:text-white text-sm transition-colors"
+                  >
                     {link.label}
                   </Link>
                 </li>
@@ -67,7 +73,10 @@ export default function Footer() {
             <ul className="space-y-3">
               {footerLinks.legal.map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-slate-400 hover:text-white text-sm transition-colors">
+                  <Link
+                    href={link.href}
+                    className="text-slate-400 hover:text-white text-sm transition-colors"
+                  >
                     {link.label}
                   </Link>
                 </li>

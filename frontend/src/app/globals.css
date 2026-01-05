@@ -2,111 +2,221 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
+/* =========================================
+   OmniSync Theme — Neo-Glass Dark (Cyan/Violet)
+   Works with shadcn/ui (HSL variables).
+   ========================================= */
 
-  /* neon palette */
-  --bg0: #050b14;
-  --bg1: rgba(6, 13, 26, 0.92);
+@layer base {
+  :root {
+    /* shadcn required */
+    --background: 223.6 44% 4.9%;        /* #070A12 */
+    --foreground: 0 0% 98%;
 
-  --cyan: 34 211 238;
-  /* tailwind cyan-400 */
-  --violet: 168 85 247;
-  /* purple-500 */
-  --white: 255 255 255;
+    --card: 223.6 44% 6.5%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 223.6 44% 6.5%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 189 94% 55%;              /* cyan */
+    --primary-foreground: 223.6 44% 6%;
+
+    --secondary: 223.6 20% 12%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 223.6 20% 10%;
+    --muted-foreground: 0 0% 70%;
+
+    --accent: 263 83% 76%;               /* violet */
+    --accent-foreground: 223.6 44% 6%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 100% / 0.10;          /* hairline */
+    --input: 0 0% 100% / 0.10;
+    --ring: 189 94% 55%;
+
+    --radius: 1.25rem;                   /* 2xl-ish */
+
+    /* OmniSync custom tokens(FAIM specific mappings) */
+    --faim-primary: #22d3ee;
+    --faim-secondary: #a78bfa;
+    --faim-accent: #f472b6;
+    --faim-success: #34d399;
+    --faim-warning: #fbbf24;
+    --faim-error: #f87171;
+    --faim-info: #60a5fa;
+
+    /* OmniSync custom tokens */
+    --os-bg: #070a12;
+    --os-surface-1: rgba(255, 255, 255, 0.035);
+    --os-surface-2: rgba(255, 255, 255, 0.045);
+    --os-surface-3: rgba(255, 255, 255, 0.060);
+    --os-stroke: rgba(255, 255, 255, 0.10);
+
+    --os-text-1: rgba(255, 255, 255, 0.92);
+    --os-text-2: rgba(255, 255, 255, 0.70);
+    --os-text-3: rgba(255, 255, 255, 0.45);
+
+    /* Compatibility Mappings */
+    --text-primary: var(--os-text-1);
+    --text-secondary: var(--os-text-2);
+    --text-tertiary: var(--os-text-3);
+    --text-muted: var(--os-text-3);
+    
+    --border-default: var(--os-stroke);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+
+    --os-glow-cyan: rgba(34, 211, 238, 0.16);
+    --os-glow-violet: rgba(167, 139, 250, 0.16);
+    --os-glow-sky: rgba(96, 165, 250, 0.12);
+
+    --os-shadow-deep: 0 30px 120px rgba(0, 0, 0, 0.45);
+    --os-shadow-line: 0 0 0 1px rgba(255, 255, 255, 0.10);
+    
+    /* Animation Tokens */
+    --ease-faim: cubic-bezier(0.16, 1, 0.3, 1);
+    
+    /* Z-Index Tokens */
+    --z-dropdown: 50;
+    --z-sticky: 100;
+    --z-fixed: 100;
+    --z-modal-backdrop: 100;
+    --z-modal: 100;
+    --z-popover: 100;
+    --z-tooltip: 100;
+  }
+
+  .dark {
+    /* same as :root, you can keep it identical for a dark-only app */
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background: var(--os-bg);
+    color: hsl(var(--foreground));
+  }
+
+  /* OmniSync Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--os-surface-3);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
 }
 
-html,
-body {
-  height: 100%;
-  overflow-x: hidden;
-  overflow-x: clip;
+/* =========================================
+   OmniSync utilities — copy/paste classes
+   ========================================= */
+@layer utilities {
+  .os-surface {
+    background: var(--os-surface-1);
+    box-shadow: var(--os-shadow-deep);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 1.5rem;
+  }
+
+  .os-card {
+    background: var(--os-surface-2);
+    box-shadow: var(--os-shadow-line);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 1.5rem;
+  }
+
+  .os-pill {
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+  }
+
+  .os-glass {
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  /* Restored FAIM Grid */
+  .faim-grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background-size: 40px 40px;
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+  }
 }
 
+/* =============================================================================
+   ANIMATION KEYFRAMES
+   Used by FAIM UI components
+============================================================================= */
 
-body {
-  background: var(--bg0);
-  color: rgb(226 232 240);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
-/* global background - static glow (no cursor tracking) */
-.faim-bg {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-
-  background:
-    radial-gradient(900px 520px at 50% 35%,
-      rgba(var(--cyan) / 0.12),
-      transparent 62%),
-    radial-gradient(820px 520px at 68% 45%,
-      rgba(var(--violet) / 0.08),
-      transparent 60%),
-    radial-gradient(900px 620px at 20% 90%,
-      rgba(var(--cyan) / 0.08),
-      transparent 60%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 22%);
-
-  /* subtle grid */
-  mask-image: linear-gradient(180deg, black 72%, transparent 100%);
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
-.faim-grid {
-  position: absolute;
-  inset: 0;
-  opacity: 0.22;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mix-blend-mode: screen;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
-/* standard glass surface */
-.faim-surface {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  backdrop-filter: blur(10px);
+@keyframes progress-stripe {
+  from {
+    background-position: 1rem 0;
+  }
+  to {
+    background-position: 0 0;
+  }
 }
 
-/* cards/panels - static glow (no cursor tracking) */
-.faim-panel {
-  background:
-    radial-gradient(420px 240px at 50% 50%,
-      rgba(var(--cyan) / 0.08),
-      transparent 60%),
-    rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  backdrop-filter: blur(10px);
-}
-
-/* one true divider line */
-.faim-divider {
-  position: relative;
-}
-
-.faim-divider::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: -1px;
-  bottom: 0;
-  width: 1px;
-  background: linear-gradient(to bottom,
-      rgba(var(--cyan) / 0.18),
-      rgba(255, 255, 255, 0.06),
-      rgba(var(--violet) / 0.14));
-  opacity: 1;
-}
-
-/* link color */
-a {
-  color: rgb(34 211 238);
-}
-
-a:hover {
-  color: rgb(103 232 249);
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 8px var(--primary);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 16px var(--primary);
+  }
 }

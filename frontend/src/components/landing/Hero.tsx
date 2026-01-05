@@ -1,28 +1,28 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { motion } from "framer-motion";
+import Link from "next/link";
 
 export default function Hero() {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950" />
-      
+
       {/* Animated Orbs */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-1000" />
-      
+
       {/* Grid Pattern Overlay */}
-      <div 
+      <div
         className="absolute inset-0 opacity-20"
         style={{
           backgroundImage: `linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
                            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px'
+          backgroundSize: "60px 60px",
         }}
       />
-      
+
       {/* Content */}
       <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
         {/* Badge */}
@@ -36,7 +36,7 @@ export default function Hero() {
             Fractal AI Memory Engine
           </span>
         </motion.div>
-        
+
         {/* Main Headline */}
         <motion.h1
           initial={{ opacity: 0, y: 30 }}
@@ -50,7 +50,7 @@ export default function Hero() {
             Becomes Intelligence
           </span>
         </motion.h1>
-        
+
         {/* Subtitle */}
         <motion.p
           initial={{ opacity: 0, y: 30 }}
@@ -61,7 +61,7 @@ export default function Hero() {
           FAIM Lab transforms your documents, notes, and ideas into an infinite,
           self-organizing memory that grows smarter with every interaction.
         </motion.p>
-        
+
         {/* CTA Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -76,7 +76,7 @@ export default function Hero() {
             <span className="relative z-10">Get Started Free</span>
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-400 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </Link>
-          
+
           <Link
             href="#features"
             className="px-8 py-4 border border-slate-700 rounded-xl text-slate-300 font-medium text-lg hover:border-slate-600 hover:bg-slate-800/50 transition-all duration-300"
@@ -84,7 +84,7 @@ export default function Hero() {
             Learn More
           </Link>
         </motion.div>
-        
+
         {/* Stats */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -108,7 +108,7 @@ export default function Hero() {
           </div>
         </motion.div>
       </div>
-      
+
       {/* Scroll Indicator */}
       <motion.div
         initial={{ opacity: 0 }}

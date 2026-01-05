@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import React, { useCallback, useState } from 'react';
-import { Activity, Pause, Play, Sparkles } from 'lucide-react';
+import React, { useCallback, useState } from "react";
+import { Activity, Pause, Play, Sparkles } from "lucide-react";
 
-import Logo from './Logo';
+import Logo from "./Logo";
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
@@ -15,8 +15,8 @@ function useGlow() {
     const r = el.getBoundingClientRect();
     const x = clamp((e.clientX - r.left) / Math.max(r.width, 1), 0, 1);
     const y = clamp((e.clientY - r.top) / Math.max(r.height, 1), 0, 1);
-    el.style.setProperty('--mx', `${x * 100}%`);
-    el.style.setProperty('--my', `${y * 100}%`);
+    el.style.setProperty("--mx", `${x * 100}%`);
+    el.style.setProperty("--my", `${y * 100}%`);
   }, []);
 }
 
@@ -25,16 +25,16 @@ function GlassButton(props: {
   icon: React.ReactNode;
   active?: boolean;
   onClick?: () => void;
-  tone?: 'cyan' | 'violet' | 'amber';
+  tone?: "cyan" | "violet" | "amber";
 }) {
   const onMove = useGlow();
-  const tone = props.tone ?? 'cyan';
+  const tone = props.tone ?? "cyan";
   const glow =
-    tone === 'violet'
-      ? 'rgba(168,85,247,0.20)'
-      : tone === 'amber'
-        ? 'rgba(245,158,11,0.18)'
-        : 'rgba(34,211,238,0.18)';
+    tone === "violet"
+      ? "rgba(168,85,247,0.20)"
+      : tone === "amber"
+        ? "rgba(245,158,11,0.18)"
+        : "rgba(34,211,238,0.18)";
 
   return (
     <button
@@ -42,11 +42,11 @@ function GlassButton(props: {
       onClick={props.onClick}
       onMouseMove={onMove}
       className={[
-        'group relative inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all duration-300',
-        'border border-white/10 bg-white/5 text-white/80 hover:text-white hover:bg-white/10',
-        'active:scale-[0.98]',
-        props.active ? 'ring-1 ring-white/10' : '',
-      ].join(' ')}
+        "group relative inline-flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-all duration-300",
+        "border border-white/10 bg-white/5 text-white/80 hover:text-white hover:bg-white/10",
+        "active:scale-[0.98]",
+        props.active ? "ring-1 ring-white/10" : "",
+      ].join(" ")}
       style={{
         backgroundImage: `radial-gradient(180px 90px at var(--mx, 50%) var(--my, 50%), ${glow}, transparent 60%)`,
       }}
@@ -64,8 +64,8 @@ export default function BrandPage() {
   const [monitorOn, setMonitorOn] = useState(true);
   const [paused, setPaused] = useState(false);
 
-  const toggleMonitor = () => setMonitorOn(v => !v);
-  const togglePause = () => setPaused(v => !v);
+  const toggleMonitor = () => setMonitorOn((v) => !v);
+  const togglePause = () => setPaused((v) => !v);
 
   const handlePulse = useCallback(() => {
     setPaused(true);
@@ -85,7 +85,9 @@ export default function BrandPage() {
             <div className="flex items-center gap-3">
               <Logo size="medium" />
               <div>
-                <div className="text-xl font-semibold leading-tight">{monitorOn ? 'FAIM Monitor' : 'FAIM Brand'}</div>
+                <div className="text-xl font-semibold leading-tight">
+                  {monitorOn ? "FAIM Monitor" : "FAIM Brand"}
+                </div>
                 <div className="text-sm text-white/60">
                   UI-only layer: hover glow · glass nav · safe wiring
                 </div>
@@ -101,7 +103,7 @@ export default function BrandPage() {
                 tone="cyan"
               />
               <GlassButton
-                label={paused ? 'Resume' : 'Pause'}
+                label={paused ? "Resume" : "Pause"}
                 icon={paused ? <Play size={16} /> : <Pause size={16} />}
                 active={paused}
                 onClick={togglePause}
@@ -118,11 +120,11 @@ export default function BrandPage() {
 
           <div className="flex flex-wrap gap-2">
             {[
-              'Fractal Inheritance',
-              'Antisymmetric Opposition',
-              'Pruning / Cold Data',
-              'Evolution Gradients',
-              'Metrics: CR · D · Drift',
+              "Fractal Inheritance",
+              "Antisymmetric Opposition",
+              "Pruning / Cold Data",
+              "Evolution Gradients",
+              "Metrics: CR · D · Drift",
             ].map((t) => (
               <span
                 key={t}
@@ -138,18 +140,20 @@ export default function BrandPage() {
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <div className="text-sm font-semibold text-white/90">Visual Core</div>
-                <div className="text-xs text-white/50">hover the logo · smooth parallax</div>
+                <div className="text-sm font-semibold text-white/90">
+                  Visual Core
+                </div>
+                <div className="text-xs text-white/50">
+                  hover the logo · smooth parallax
+                </div>
               </div>
               <span className="rounded-full border border-white/10 bg-black/30 px-2 py-1 text-[11px] text-white/60">
-                {monitorOn ? (paused ? 'paused' : 'live') : 'brand'}
+                {monitorOn ? (paused ? "paused" : "live") : "brand"}
               </span>
             </div>
 
             <div className="flex items-center justify-center rounded-2xl border border-white/10 bg-black/30 p-4">
               <Logo size="large" px={420} />
-
-
             </div>
           </div>
 
@@ -171,7 +175,8 @@ export default function BrandPage() {
                 </div>
               </div>
               <div className="mt-3 text-xs text-white/45">
-                *UI placeholder: wire real signals later via your existing API slice.
+                *UI placeholder: wire real signals later via your existing API
+                slice.
               </div>
             </div>
 
@@ -180,14 +185,18 @@ export default function BrandPage() {
               <ul className="mt-3 list-disc pl-5 text-sm text-white/70 space-y-2">
                 <li>This page only changes styling + local UI toggles.</li>
                 <li>No other module imports were changed.</li>
-                <li>Use <span className="text-white/90">/monitor</span> as a dedicated route.</li>
+                <li>
+                  Use <span className="text-white/90">/monitor</span> as a
+                  dedicated route.
+                </li>
               </ul>
             </div>
           </div>
         </div>
 
         <div className="mt-8 text-xs text-white/40">
-          Tip: Sidebar “Monitor” points to “/”. If you want it to point to “/monitor”, tell me and I’ll change only that href.
+          Tip: Sidebar “Monitor” points to “/”. If you want it to point to
+          “/monitor”, tell me and I’ll change only that href.
         </div>
       </div>
     </div>

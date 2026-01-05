@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import Link from 'next/link';
-import FaimLogo from './FaimLogo';
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
+import FaimLogo from "./FaimLogo";
 
 const navLinks = [
-  { href: '#features', label: 'Features' },
-  { href: '#how-it-works', label: 'How It Works' },
-  { href: '#pricing', label: 'Pricing' },
-  { href: '/docs', label: 'Docs' },
-  { href: '/about', label: 'About' },
+  { href: "#features", label: "Features" },
+  { href: "#how-it-works", label: "How It Works" },
+  { href: "#pricing", label: "Pricing" },
+  { href: "/docs", label: "Docs" },
+  { href: "/about", label: "About" },
 ];
 
 export default function Navbar() {
@@ -21,8 +21,8 @@ export default function Navbar() {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 50);
     };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
@@ -83,9 +83,19 @@ export default function Navbar() {
                 stroke="currentColor"
               >
                 {isMobileOpen ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
                 )}
               </svg>
             </button>

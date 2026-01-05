@@ -1,26 +1,39 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { motion } from "framer-motion";
+import Link from "next/link";
 
 const features = [
   {
-    id: 'memory-engine',
+    id: "memory-engine",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg
+        viewBox="0 0 24 24"
+        className="w-8 h-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
         <circle cx="12" cy="12" r="3" />
         <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
       </svg>
     ),
-    title: 'Fractal Memory Engine',
-    description: 'Self-organizing knowledge structures that grow smarter with every piece of information you add.',
-    gradient: 'from-cyan-500 to-blue-500',
-    link: '/features/memory-engine',
+    title: "Fractal Memory Engine",
+    description:
+      "Self-organizing knowledge structures that grow smarter with every piece of information you add.",
+    gradient: "from-cyan-500 to-blue-500",
+    link: "/features/memory-engine",
   },
   {
-    id: 'knowledge-graph',
+    id: "knowledge-graph",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg
+        viewBox="0 0 24 24"
+        className="w-8 h-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
         <circle cx="12" cy="12" r="2" />
         <circle cx="6" cy="6" r="2" />
         <circle cx="18" cy="6" r="2" />
@@ -29,36 +42,51 @@ const features = [
         <path d="M12 10V8M8 8l2-2M14 8l2-2M12 14v2M8 16l2 2M14 16l2 2" />
       </svg>
     ),
-    title: 'Knowledge Graph',
-    description: 'Visualize connections between your ideas in stunning 3D. See how knowledge connects and evolves.',
-    gradient: 'from-purple-500 to-pink-500',
-    link: '/features/knowledge-graph',
+    title: "Knowledge Graph",
+    description:
+      "Visualize connections between your ideas in stunning 3D. See how knowledge connects and evolves.",
+    gradient: "from-purple-500 to-pink-500",
+    link: "/features/knowledge-graph",
   },
   {
-    id: 'ai-chat',
+    id: "ai-chat",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg
+        viewBox="0 0 24 24"
+        className="w-8 h-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z" />
         <path d="M8 10h.01M12 10h.01M16 10h.01" />
       </svg>
     ),
-    title: 'AI-Powered Chat',
-    description: 'Query your entire knowledge base with natural language. Get instant, contextual answers.',
-    gradient: 'from-emerald-500 to-teal-500',
-    link: '/features/ai-chat',
+    title: "AI-Powered Chat",
+    description:
+      "Query your entire knowledge base with natural language. Get instant, contextual answers.",
+    gradient: "from-emerald-500 to-teal-500",
+    link: "/features/ai-chat",
   },
   {
-    id: 'document-intelligence',
+    id: "document-intelligence",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg
+        viewBox="0 0 24 24"
+        className="w-8 h-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" />
         <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
       </svg>
     ),
-    title: 'Document Intelligence',
-    description: 'Upload PDFs, docs, and text. FAIM automatically extracts and connects knowledge.',
-    gradient: 'from-orange-500 to-amber-500',
-    link: '/features/document-intelligence',
+    title: "Document Intelligence",
+    description:
+      "Upload PDFs, docs, and text. FAIM automatically extracts and connects knowledge.",
+    gradient: "from-orange-500 to-amber-500",
+    link: "/features/document-intelligence",
   },
 ];
 
@@ -116,15 +144,19 @@ export default function Features() {
               className="group relative p-8 rounded-2xl border border-slate-800 bg-slate-900/50 hover:bg-slate-900/80 transition-all duration-500 hover:border-slate-700"
             >
               {/* Gradient Glow on Hover - pointer-events-none so it doesn't block clicks */}
-              <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-500 pointer-events-none`} />
-              
+              <div
+                className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${feature.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-500 pointer-events-none`}
+              />
+
               {/* Content - relative z-10 to be above the gradient */}
               <div className="relative z-10">
                 {/* Icon */}
-                <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${feature.gradient} text-white mb-6`}>
+                <div
+                  className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${feature.gradient} text-white mb-6`}
+                >
                   {feature.icon}
                 </div>
-                
+
                 {/* Content */}
                 <h3 className="text-xl font-semibold text-white mb-3">
                   {feature.title}
@@ -132,15 +164,25 @@ export default function Features() {
                 <p className="text-slate-400 leading-relaxed mb-6">
                   {feature.description}
                 </p>
-                
+
                 {/* Learn More Link */}
-                <Link 
+                <Link
                   href={feature.link}
                   className="inline-flex items-center text-cyan-400 text-sm font-medium hover:text-cyan-300 transition-colors group/link"
                 >
                   Learn more
-                  <svg className="w-4 h-4 ml-2 group-hover/link:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  <svg
+                    className="w-4 h-4 ml-2 group-hover/link:translate-x-1 transition-transform"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
                   </svg>
                 </Link>
               </div>

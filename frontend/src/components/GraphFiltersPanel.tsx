@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Filter, Search, Calendar, Tag, Sparkles, X } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from "react";
+import { Filter, Search, Calendar, Tag, Sparkles, X } from "lucide-react";
 
 interface FilterStats {
   total_nodes: number;
@@ -34,12 +34,12 @@ export default function GraphFiltersPanel({ graphId, onApplyFilters }: Props) {
   const [isLoading, setIsLoading] = useState(false);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [filterStats, setFilterStats] = useState<FilterStats | null>(null);
-  
+
   // Filter state
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
-  const [topicSearch, setTopicSearch] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [topicSearch, setTopicSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [minUsage, setMinUsage] = useState(0);
 
   // Load topics on mount
@@ -52,7 +52,7 @@ export default function GraphFiltersPanel({ graphId, onApplyFilters }: Props) {
           setTopics(data.topics);
         }
       } catch (e) {
-        console.error('Failed to load topics:', e);
+        console.error("Failed to load topics:", e);
       }
     };
     loadTopics();
@@ -64,17 +64,17 @@ export default function GraphFiltersPanel({ graphId, onApplyFilters }: Props) {
     try {
       const params = new URLSearchParams();
       if (selectedTopic || topicSearch) {
-        params.set('topic', selectedTopic || topicSearch);
+        params.set("topic", selectedTopic || topicSearch);
       }
-      if (dateFrom) params.set('date_from', dateFrom);
-      if (dateTo) params.set('date_to', dateTo);
-      if (minUsage > 0) params.set('min_usage', minUsage.toString());
+      if (dateFrom) params.set("date_from", dateFrom);
+      if (dateTo) params.set("date_to", dateTo);
+      if (minUsage > 0) params.set("min_usage", minUsage.toString());
 
       const res = await fetch(
-        `/api/v1/graphs/${graphId}/filtered?${params.toString()}`
+        `/api/v1/graphs/${graphId}/filtered?${params.toString()}`,
       );
       const data = await res.json();
-      
+
       if (data.filter_stats) {
         setFilterStats(data.filter_stats);
       }
@@ -90,18 +90,26 @@ export default function GraphFiltersPanel({ graphId, onApplyFilters }: Props) {
         });
       }
     } catch (e) {
-      console.error('Filter failed:', e);
+      console.error("Filter failed:", e);
     } finally {
       setIsLoading(false);
     }
-  }, [graphId, selectedTopic, topicSearch, dateFrom, dateTo, minUsage, onApplyFilters]);
+  }, [
+    graphId,
+    selectedTopic,
+    topicSearch,
+    dateFrom,
+    dateTo,
+    minUsage,
+    onApplyFilters,
+  ]);
 
   // Clear all filters
   const clearFilters = () => {
     setSelectedTopic(null);
-    setTopicSearch('');
-    setDateFrom('');
-    setDateTo('');
+    setTopicSearch("");
+    setDateFrom("");
+    setDateTo("");
     setMinUsage(0);
     setFilterStats(null);
   };
@@ -154,7 +162,7 @@ export default function GraphFiltersPanel({ graphId, onApplyFilters }: Props) {
           <div className="flex flex-wrap gap-1 max-h-24 overflow-auto">
             {topics
               .filter((t) =>
-                t.topic.toLowerCase().includes(topicSearch.toLowerCase())
+                t.topic.toLowerCase().includes(topicSearch.toLowerCase()),
               )
               .slice(0, 15)
               .map((t) => (
@@ -162,12 +170,12 @@ export default function GraphFiltersPanel({ graphId, onApplyFilters }: Props) {
                   key={t.topic}
                   onClick={() => {
                     setSelectedTopic(t.topic);
-                    setTopicSearch('');
+                    setTopicSearch("");
                   }}
                   className={`px-2 py-1 rounded-full text-[10px] border transition-all ${
                     selectedTopic === t.topic
-                      ? 'border-violet-400/50 bg-violet-500/20 text-violet-200'
-                      : 'border-slate-700 bg-slate-800/50 text-slate-400 hover:border-violet-400/30'
+                      ? "border-violet-400/50 bg-violet-500/20 text-violet-200"
+                      : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-violet-400/30"
                   }`}
                 >
                   {t.topic}
@@ -229,12 +237,12 @@ export default function GraphFiltersPanel({ graphId, onApplyFilters }: Props) {
         disabled={isLoading}
         className={`w-full flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-xs font-medium transition-all ${
           isLoading
-            ? 'border-slate-700 bg-slate-800 text-slate-400 cursor-wait'
-            : 'border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20'
+            ? "border-slate-700 bg-slate-800 text-slate-400 cursor-wait"
+            : "border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20"
         }`}
       >
         <Filter size={14} />
-        {isLoading ? 'Filtering...' : 'Apply Filters'}
+        {isLoading ? "Filtering..." : "Apply Filters"}
       </button>
 
       {/* Filter Stats */}

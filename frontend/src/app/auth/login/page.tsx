@@ -1,36 +1,44 @@
-'use client';
+"use client";
 
 /**
  * FAIM Lab - Login Page
- * 
+ *
  * Uses NextAuth signIn for credentials auth.
  */
 
-import { useState, Suspense } from 'react';
-import { signIn } from 'next-auth/react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { Loader2, Mail, Lock, ArrowRight, Eye, EyeOff, Check } from 'lucide-react';
+import { useState, Suspense } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import {
+  Loader2,
+  Mail,
+  Lock,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Check,
+} from "lucide-react";
 
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const registered = searchParams.get('registered');
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
-  
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const registered = searchParams.get("registered");
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setLoading(true);
 
     try {
-      const result = await signIn('credentials', {
+      const result = await signIn("credentials", {
         email,
         password,
         redirect: false,
@@ -38,12 +46,12 @@ function LoginContent() {
       });
 
       if (result?.error) {
-        setError('Invalid email or password');
+        setError("Invalid email or password");
       } else if (result?.ok) {
         router.push(callbackUrl);
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -68,7 +76,9 @@ function LoginContent() {
 
         {/* Form Card */}
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl p-8 shadow-2xl">
-          <h1 className="text-2xl font-bold text-white text-center mb-2">Welcome Back</h1>
+          <h1 className="text-2xl font-bold text-white text-center mb-2">
+            Welcome Back
+          </h1>
           <p className="text-slate-400 text-center text-sm mb-6">
             Sign in to continue to FAIM Lab
           </p>
@@ -108,7 +118,7 @@ function LoginContent() {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
@@ -120,7 +130,11 @@ function LoginContent() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
                 </button>
               </div>
             </div>
@@ -151,8 +165,11 @@ function LoginContent() {
 
           {/* Signup link */}
           <p className="text-center text-slate-400 text-sm mt-6">
-            Don't have an account?{' '}
-            <Link href="/auth/signup" className="text-cyan-400 hover:text-cyan-300 font-medium">
+            Don't have an account?{" "}
+            <Link
+              href="/auth/signup"
+              className="text-cyan-400 hover:text-cyan-300 font-medium"
+            >
               Create one
             </Link>
           </p>
@@ -169,11 +186,13 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950">
+          <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+        </div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );

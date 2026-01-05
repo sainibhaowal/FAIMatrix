@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { motion } from "framer-motion";
+import Link from "next/link";
 
 export default function CTA() {
   return (
@@ -11,7 +11,7 @@ export default function CTA() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-cyan-500/10 rounded-full blur-3xl" />
         <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-purple-500/10 rounded-full blur-3xl" />
       </div>
-      
+
       <motion.div
         initial={{ opacity: 0, y: 40 }}
         whileInView={{ opacity: 1, y: 0 }}
@@ -26,21 +26,24 @@ export default function CTA() {
             Your Knowledge?
           </span>
         </h2>
-        
+
         <p className="mt-6 text-lg text-slate-400 max-w-xl mx-auto">
-          Join the future of memory. Start building your infinite knowledge base today.
+          Join the future of memory. Start building your infinite knowledge base
+          today.
         </p>
-        
+
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
             href="/dashboard"
             className="group relative px-10 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl text-white font-semibold text-lg shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-300 hover:scale-105"
           >
             Get Started Free
-            <span className="ml-2 inline-block group-hover:translate-x-1 transition-transform">→</span>
+            <span className="ml-2 inline-block group-hover:translate-x-1 transition-transform">
+              →
+            </span>
           </Link>
         </div>
-        
+
         <p className="mt-6 text-sm text-slate-500">
           No credit card required • Free forever tier
         </p>

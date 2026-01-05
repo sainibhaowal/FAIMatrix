@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import Link from 'next/link';
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 
 type ConsentPreferences = {
   essential: boolean; // Always true
@@ -10,8 +10,8 @@ type ConsentPreferences = {
   marketing: boolean;
 };
 
-const CONSENT_KEY = 'faim_cookie_consent';
-const CONSENT_PREFS_KEY = 'faim_cookie_preferences';
+const CONSENT_KEY = "faim_cookie_consent";
+const CONSENT_PREFS_KEY = "faim_cookie_preferences";
 
 export default function CookieConsent() {
   const [isVisible, setIsVisible] = useState(false);
@@ -36,15 +36,15 @@ export default function CookieConsent() {
     // Save consent timestamp and preferences
     const consentData = {
       timestamp: new Date().toISOString(),
-      version: '1.0',
+      version: "1.0",
       preferences: prefs,
     };
     localStorage.setItem(CONSENT_KEY, JSON.stringify(consentData));
     localStorage.setItem(CONSENT_PREFS_KEY, JSON.stringify(prefs));
-    
+
     // Apply preferences (in production, this would enable/disable scripts)
     applyConsentPreferences(prefs);
-    
+
     setIsVisible(false);
   };
 
@@ -53,20 +53,20 @@ export default function CookieConsent() {
     // - Enable/disable Google Analytics
     // - Enable/disable marketing pixels
     // - Set appropriate cookies
-    
+
     if (prefs.analytics) {
-      console.log('[FAIM Cookie] Analytics: ENABLED');
+      console.log("[FAIM Cookie] Analytics: ENABLED");
       // Enable analytics scripts here
     } else {
-      console.log('[FAIM Cookie] Analytics: DISABLED');
+      console.log("[FAIM Cookie] Analytics: DISABLED");
       // Disable analytics scripts here
     }
-    
+
     if (prefs.marketing) {
-      console.log('[FAIM Cookie] Marketing: ENABLED');
+      console.log("[FAIM Cookie] Marketing: ENABLED");
       // Enable marketing scripts here
     } else {
-      console.log('[FAIM Cookie] Marketing: DISABLED');
+      console.log("[FAIM Cookie] Marketing: DISABLED");
       // Disable marketing scripts here
     }
   };
@@ -102,7 +102,7 @@ export default function CookieConsent() {
           initial={{ y: 100, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 100, opacity: 0 }}
-          transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+          transition={{ type: "spring", damping: 25, stiffness: 300 }}
           className="fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:max-w-lg z-50"
         >
           <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl shadow-slate-950/50 overflow-hidden">
@@ -110,17 +110,35 @@ export default function CookieConsent() {
             <div className="p-6">
               <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  <svg
+                    className="w-5 h-5 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                    />
                   </svg>
                 </div>
-                
+
                 <div className="flex-1">
-                  <h3 className="text-white font-semibold mb-2">Cookie Preferences</h3>
+                  <h3 className="text-white font-semibold mb-2">
+                    Cookie Preferences
+                  </h3>
                   <p className="text-slate-400 text-sm leading-relaxed">
-                    We use cookies to enhance your experience and analyze site traffic. 
-                    See our{' '}
-                    <Link href="/privacy" className="text-cyan-400 hover:underline">Privacy Policy</Link>.
+                    We use cookies to enhance your experience and analyze site
+                    traffic. See our{" "}
+                    <Link
+                      href="/privacy"
+                      className="text-cyan-400 hover:underline"
+                    >
+                      Privacy Policy
+                    </Link>
+                    .
                   </p>
                 </div>
               </div>
@@ -130,7 +148,7 @@ export default function CookieConsent() {
                 {showDetails && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
+                    animate={{ height: "auto", opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.2 }}
                     className="mt-6 space-y-4"
@@ -138,8 +156,12 @@ export default function CookieConsent() {
                     {/* Essential */}
                     <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
                       <div>
-                        <p className="text-white font-medium text-sm">Essential</p>
-                        <p className="text-slate-500 text-xs">Required for the site to function</p>
+                        <p className="text-white font-medium text-sm">
+                          Essential
+                        </p>
+                        <p className="text-slate-500 text-xs">
+                          Required for the site to function
+                        </p>
                       </div>
                       <div className="w-12 h-6 bg-cyan-500 rounded-full flex items-center justify-end px-1">
                         <div className="w-4 h-4 bg-white rounded-full" />
@@ -149,13 +171,24 @@ export default function CookieConsent() {
                     {/* Analytics */}
                     <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
                       <div>
-                        <p className="text-white font-medium text-sm">Analytics</p>
-                        <p className="text-slate-500 text-xs">Help us improve our service</p>
+                        <p className="text-white font-medium text-sm">
+                          Analytics
+                        </p>
+                        <p className="text-slate-500 text-xs">
+                          Help us improve our service
+                        </p>
                       </div>
                       <button
-                        onClick={() => setPreferences({ ...preferences, analytics: !preferences.analytics })}
+                        onClick={() =>
+                          setPreferences({
+                            ...preferences,
+                            analytics: !preferences.analytics,
+                          })
+                        }
                         className={`w-12 h-6 rounded-full flex items-center px-1 transition-colors ${
-                          preferences.analytics ? 'bg-cyan-500 justify-end' : 'bg-slate-600 justify-start'
+                          preferences.analytics
+                            ? "bg-cyan-500 justify-end"
+                            : "bg-slate-600 justify-start"
                         }`}
                       >
                         <div className="w-4 h-4 bg-white rounded-full" />
@@ -165,13 +198,24 @@ export default function CookieConsent() {
                     {/* Marketing */}
                     <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-xl">
                       <div>
-                        <p className="text-white font-medium text-sm">Marketing</p>
-                        <p className="text-slate-500 text-xs">Personalized ads and content</p>
+                        <p className="text-white font-medium text-sm">
+                          Marketing
+                        </p>
+                        <p className="text-slate-500 text-xs">
+                          Personalized ads and content
+                        </p>
                       </div>
                       <button
-                        onClick={() => setPreferences({ ...preferences, marketing: !preferences.marketing })}
+                        onClick={() =>
+                          setPreferences({
+                            ...preferences,
+                            marketing: !preferences.marketing,
+                          })
+                        }
                         className={`w-12 h-6 rounded-full flex items-center px-1 transition-colors ${
-                          preferences.marketing ? 'bg-cyan-500 justify-end' : 'bg-slate-600 justify-start'
+                          preferences.marketing
+                            ? "bg-cyan-500 justify-end"
+                            : "bg-slate-600 justify-start"
                         }`}
                       >
                         <div className="w-4 h-4 bg-white rounded-full" />

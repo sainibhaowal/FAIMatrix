@@ -1,15 +1,15 @@
-'use client';
+"use client";
 
 /**
  * AuthGuard - Protects routes requiring authentication
- * 
+ *
  * NEW FILE - Redirects unauthenticated users to sign-in.
  */
 
-import { useSession } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -21,13 +21,13 @@ export default function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     // Only redirect if we're sure the user is unauthenticated
-    if (status === 'unauthenticated') {
-      router.push('/api/auth/signin?callbackUrl=/dashboard');
+    if (status === "unauthenticated") {
+      router.push("/api/auth/signin?callbackUrl=/dashboard");
     }
   }, [status, router]);
 
   // Show loading state while checking auth
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-950">
         <div className="flex flex-col items-center gap-4">
@@ -39,7 +39,7 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   }
 
   // If unauthenticated, show nothing (redirect will happen)
-  if (status === 'unauthenticated') {
+  if (status === "unauthenticated") {
     return null;
   }
 
