@@ -1,7 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { useEffect, useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState, useRef, useMemo } from 'react';
 
 // Simulated nodes for the demo
 const demoNodes = [
@@ -19,10 +19,25 @@ const demoEdges = [
   [1, 2], [1, 3], [2, 4], [3, 4], [1, 5], [5, 7], [5, 8], [6, 2], [7, 3], [8, 7],
 ];
 
+// Fixed positions for particles to avoid hydration mismatch
+const PARTICLE_POSITIONS = [
+  { left: 25, top: 30 },
+  { left: 45, top: 50 },
+  { left: 65, top: 35 },
+  { left: 35, top: 65 },
+  { left: 55, top: 45 },
+];
+
 export default function DemoPreview() {
   const [activeNode, setActiveNode] = useState<number | null>(null);
   const [pulsingEdge, setPulsingEdge] = useState(0);
+  const [mounted, setMounted] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Only enable animations after mount to avoid hydration issues
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -105,7 +120,7 @@ export default function DemoPreview() {
                     y2={`${toNode.y}%`}
                     stroke={isPulsing ? '#22d3ee' : '#334155'}
                     strokeWidth={isPulsing ? 2 : 1}
-                    initial={{ pathLength: 0 }}
+                    initial={{ pathLength: 0, opacity: 0.5 }}
                     animate={{ 
                       pathLength: 1,
                       opacity: isPulsing ? 1 : 0.5
@@ -120,8 +135,8 @@ export default function DemoPreview() {
             {demoNodes.map((node) => (
               <motion.div
                 key={node.id}
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: node.id * 0.1, type: 'spring' }}
                 onMouseEnter={() => setActiveNode(node.id)}
                 onMouseLeave={() => setActiveNode(null)}
@@ -158,24 +173,25 @@ export default function DemoPreview() {
               </motion.div>
             ))}
 
-            {/* Floating particles */}
-            {[...Array(5)].map((_, i) => (
+            {/* Floating particles - only render on client to avoid hydration mismatch */}
+            {mounted && PARTICLE_POSITIONS.map((pos, i) => (
               <motion.div
                 key={i}
                 className="absolute w-1 h-1 bg-cyan-400/30 rounded-full"
+                initial={{ opacity: 0.3 }}
                 animate={{
-                  x: [0, Math.random() * 100 - 50],
-                  y: [0, Math.random() * 100 - 50],
+                  x: [0, 30 - i * 10],
+                  y: [0, 20 - i * 8],
                   opacity: [0.3, 0.8, 0.3],
                 }}
                 transition={{
-                  duration: 3 + Math.random() * 2,
+                  duration: 3 + i * 0.5,
                   repeat: Infinity,
                   repeatType: 'reverse',
                 }}
                 style={{
-                  left: `${20 + Math.random() * 60}%`,
-                  top: `${20 + Math.random() * 60}%`,
+                  left: `${pos.left}%`,
+                  top: `${pos.top}%`,
                 }}
               />
             ))}
@@ -186,5 +202,3 @@ export default function DemoPreview() {
   );
 }
 
-// Need to import AnimatePresence
-import { AnimatePresence } from 'framer-motion';
