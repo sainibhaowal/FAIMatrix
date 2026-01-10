@@ -15,6 +15,7 @@ Usage:
 """
 
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
@@ -23,6 +24,8 @@ from uuid import uuid4
 import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
+from faim.core.events import emit_invention_event
 
 logger = logging.getLogger(__name__)
 
@@ -280,7 +283,7 @@ def run_invention(
     Returns list of invented concepts.
     """
     try:
-        from faim.api.production_state import get_faim_context
+        from faim.config.backends import get_faim_context
 
         ctx = get_faim_context(graph_id)
         store = ctx.get("store")
@@ -288,6 +291,8 @@ def run_invention(
 
         if not store:
             return []
+
+        emit_invention_event(str(graph_id), "INVENTION_STARTED", {"max": max_inventions, "min_sources": min_sources})
 
         # Get all nodes
         nodes_raw = list(store.iter_nodes(graph_id))
@@ -316,9 +321,7 @@ def run_invention(
                     pass
 
         # Find synthesis candidates
-        groups = find_synthesis_candidates(
-            nodes, payloads, n_groups=max_inventions * 2, group_size=max_sources
-        )
+        groups = find_synthesis_candidates(nodes, payloads, n_groups=max_inventions * 2, group_size=max_sources)
 
         inventions = []
 
@@ -366,11 +369,23 @@ def run_invention(
             _inventions[graph_id] = []
         _inventions[graph_id].extend(inventions)
 
+        for inv in inventions:
+            emit_invention_event(
+                str(graph_id),
+                "CONCEPT_INVENTED",
+                {"title": inv.title, "confidence": inv.confidence, "node_id": inv.node_id},
+            )
+
         return inventions
 
     except Exception as e:
         logger.error(f"Invention failed: {e}")
         return []
+
+    finally:
+        emit_invention_event(
+            str(graph_id), "INVENTION_COMPLETED", {"count": len(inventions) if "inventions" in locals() else 0}
+        )
 
 
 # =============================================================================
@@ -479,3 +494,94 @@ async def get_invention_detail(graph_id: str, concept_id: str):
             }
 
     raise HTTPException(status_code=404, detail="Invention not found")
+
+
+# =============================================================================
+# InventionScheduler - Built-in Autonomous Loop
+# =============================================================================
+
+
+class InventionScheduler:
+    """
+    Background scheduler for periodic self-invention.
+
+    Similar to EvolutionScheduler, this runs autonomously without external watchers.
+    When started, it will periodically run invention cycles for the specified graph.
+
+    Usage:
+        scheduler = InventionScheduler()
+        scheduler.start_in_background(graph_id, interval_seconds=300)
+        ...
+        scheduler.stop()
+    """
+
+    def __init__(
+        self,
+        *,
+        max_inventions: int = 3,
+        min_sources: int = 2,
+        max_sources: int = 4,
+        create_nodes: bool = True,
+    ) -> None:
+        import threading
+
+        self._max_inventions = max_inventions
+        self._min_sources = min_sources
+        self._max_sources = max_sources
+        self._create_nodes = create_nodes
+        self._stop = threading.Event()
+        self._thread: Optional[threading.Thread] = None
+
+    def run_once(self, graph_id: str) -> List[InventedConcept]:
+        """Run a single invention pass synchronously."""
+        return run_invention(
+            graph_id=graph_id,
+            max_inventions=self._max_inventions,
+            min_sources=self._min_sources,
+            max_sources=self._max_sources,
+            create_nodes=self._create_nodes,
+        )
+
+    def run_forever(self, graph_id: str, interval_seconds: float = 300.0) -> None:
+        """
+        Run invention in a blocking loop until stop() is called.
+
+        Default interval is 5 minutes (300 seconds) since invention
+        is more resource-intensive than evolution.
+        """
+
+        # Perform an immediate pass, then sleep between subsequent passes.
+        self.run_once(graph_id)
+        while not self._stop.wait(interval_seconds):
+            try:
+                inventions = self.run_once(graph_id)
+                logger.info(f"[InventionScheduler] Created {len(inventions)} inventions for {graph_id}")
+            except Exception as e:
+                logger.error(f"[InventionScheduler] Error: {e}")
+
+    def start_in_background(
+        self,
+        graph_id: str,
+        interval_seconds: float = 300.0,
+    ) -> "threading.Thread":
+        """
+        Spawn a daemon thread running run_forever.
+        """
+        import threading
+
+        self._thread = threading.Thread(
+            target=self.run_forever,
+            args=(graph_id, interval_seconds),
+            daemon=True,
+        )
+        self._thread.start()
+        return self._thread
+
+    def stop(self) -> None:
+        """Signal the scheduler to stop."""
+        self._stop.set()
+
+    def join(self, timeout: Optional[float] = None) -> None:
+        """Wait for the background thread to finish."""
+        if self._thread is not None:
+            self._thread.join(timeout=timeout)

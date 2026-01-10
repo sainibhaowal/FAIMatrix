@@ -1,15 +1,19 @@
 // src/components/SystemRuntimePanel.tsx
 "use client";
 
-/* ========================================================================== */
-/*  SystemRuntimePanel (Production-safe)                                      */
-/*  - Shows REAL per-user Universe graph_id from SSE contract (authoritative) */
-/*  - Treats MAIN/DEFAULT_GRAPH_ID as UX entry only (never displayed as truth)*/
-/*  - Does not call non-existent endpoints                                    */
-/* ========================================================================== */
+/* =============================================================================
+   SystemRuntimePanel (Redesigned - Compact & Unique)
+   - Shows REAL Universe graph_id from SSE contract
+   - Shows SSE connection status (unique to this panel)
+   - Shows API base and backend version
+   - Shows warnings (unique operational alerts)
+   - NO health badge (already in TopBar)
+   - NO placeholder paths (removed)
+============================================================================= */
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import { Radio, Server, AlertTriangle, Database, Wifi } from "lucide-react";
 import {
   API_BASE_URL,
   fetchHealth,
@@ -19,21 +23,8 @@ import {
 import { startFaimStream, type StreamContract } from "@/lib/realtime";
 import { useUserIds } from "@/contexts/UserContext";
 
-type RuntimeInfo = {
-  current_graph: string; // REAL Universe graph id (U:xxxx) once known
-  api_base: string;
-  backend_version: string;
-  runtime_paths: {
-    cache: string;
-    benchmarks: string;
-    logs: string;
-  };
-  warnings: string[];
-};
-
 type SseState = "connecting" | "live" | "down";
 
-/** Defensive normalize (no trailing slashes) */
 function normBase(s: string): string {
   return (s || "").replace(/\/+$/, "");
 }
@@ -53,7 +44,7 @@ const SystemRuntimePanel: React.FC = () => {
 
   const mountedRef = useRef(true);
 
-  // -------------------- Health polling (safe, low frequency) --------------------
+  // Health polling
   useEffect(() => {
     mountedRef.current = true;
 
@@ -70,7 +61,7 @@ const SystemRuntimePanel: React.FC = () => {
     };
 
     void run();
-    const id = window.setInterval(() => void run(), 15000); // 15s
+    const id = window.setInterval(() => void run(), 15000);
 
     return () => {
       mountedRef.current = false;
@@ -78,14 +69,11 @@ const SystemRuntimePanel: React.FC = () => {
     };
   }, []);
 
-  // -------------------- SSE stream (authoritative contract) --------------------
+  // SSE stream
   useEffect(() => {
-    // We MUST connect even if we don't know Universe id yet.
-    // ENTRY_GRAPH_ID is just an entry/alias; backend maps to per-user Universe.
     setSseState("connecting");
     setStreamErr(null);
 
-    // Prefer Context ID (auth) over localStorage (maybe stale)
     const seedId =
       contextGraphId && contextGraphId.startsWith("U:")
         ? contextGraphId
@@ -99,15 +87,13 @@ const SystemRuntimePanel: React.FC = () => {
         onContract: (c: StreamContract) => {
           const gid = c?.universe?.graph_id?.trim();
           if (gid) setUniverseGraphId(gid);
-          setSseState("live"); // contract arrived => stream works
+          setSseState("live");
         },
         onPing: (x: any) => {
-          // ping proves liveness; contract remains authoritative for graph_id
           const now = Date.now();
           setLastPingAt(now);
           setSseState("live");
 
-          // If backend includes graph_id in ping, we can accept it as consistent hint
           const gid = (x?.graph_id || x?.graphId || "").toString().trim();
           if (gid && gid.startsWith("U:")) setUniverseGraphId(gid);
         },
@@ -122,12 +108,11 @@ const SystemRuntimePanel: React.FC = () => {
     return () => stop();
   }, [token, contextGraphId]);
 
-  // -------------------- SSE staleness detector --------------------
+  // SSE staleness detector
   useEffect(() => {
     const id = window.setInterval(() => {
       if (!lastPingAt) return;
       const ageMs = Date.now() - lastPingAt;
-      // If no ping for > 35s, treat as connecting (maybe reconnecting)
       if (ageMs > 35000)
         setSseState((prev) => (prev === "down" ? prev : "connecting"));
     }, 5000);
@@ -135,152 +120,107 @@ const SystemRuntimePanel: React.FC = () => {
     return () => window.clearInterval(id);
   }, [lastPingAt]);
 
-  // -------------------- Derived Runtime Info --------------------
-  const info: RuntimeInfo = useMemo(() => {
-    const apiBase = normBase(API_BASE_URL || "/api/v1");
-
-    const warnings: string[] = [];
-    if (healthErr) warnings.push(`Health fetch failed: ${healthErr}`);
-    if (health && health.status !== "ok")
-      warnings.push(`Backend health: ${health.status}`);
-
-    if (!universeGraphId)
-      warnings.push(
-        "Universe graph_id not received yet (waiting for SSE contract).",
-      );
-
-    if (sseState === "connecting") warnings.push("SSE stream: connecting…");
-    if (sseState === "down")
-      warnings.push(`SSE stream: down${streamErr ? ` (${streamErr})` : ""}`);
-
-    return {
-      current_graph: universeGraphId || "—",
-      api_base: apiBase,
-      backend_version: health?.version || "unknown",
-      runtime_paths: {
-        cache: "Runtime/Cache",
-        benchmarks: "Runtime/Benchmarks",
-        logs: "Runtime/Logs",
-      },
-      warnings,
-    };
+  // Compute warnings
+  const warnings = useMemo(() => {
+    const w: string[] = [];
+    if (healthErr) w.push(`Health fetch failed: ${healthErr}`);
+    if (health && health.status !== "ok") w.push(`Backend health: ${health.status}`);
+    if (!universeGraphId) w.push("Universe graph_id not received yet (waiting for SSE)");
+    if (sseState === "connecting") w.push("SSE stream: connecting…");
+    if (sseState === "down") w.push(`SSE stream: down${streamErr ? ` (${streamErr})` : ""}`);
+    return w;
   }, [health, healthErr, sseState, streamErr, universeGraphId]);
 
-  const healthy = (health?.status || "down") === "ok";
+  const apiBase = normBase(API_BASE_URL || "/api/v1");
+  const backendVersion = health?.version || "—";
 
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-950/60 p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-100">
-            System / Runtime
-          </h2>
-          <p className="text-xs text-slate-400">
-            Live view of real Universe graph id, API base, paths and backend
-            health.
-          </p>
-        </div>
-        <div
-          className={[
-            "rounded-full px-3 py-1 text-xs font-medium",
-            healthy
-              ? "bg-emerald-500/15 text-emerald-200"
-              : "bg-amber-500/15 text-amber-200",
-          ].join(" ")}
-          title={healthy ? "Backend health OK" : "Backend not OK"}
-        >
-          {healthy ? "Healthy" : "Degraded"}
-        </div>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-2">
+        <Server size={14} className="text-cyan-400" />
+        <h3 className="text-xs font-semibold text-slate-100">Runtime Status</h3>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-          <p className="mb-1 text-xs text-slate-400">
-            Current graph (Universe)
-          </p>
-          <p className="text-sm font-semibold text-slate-100">
-            {info.current_graph}
-          </p>
-
-          <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <p className="text-slate-400">API base</p>
-              <p className="font-medium text-slate-100">{info.api_base}</p>
-            </div>
-            <div>
-              <p className="text-slate-400">Backend version</p>
-              <p className="font-medium text-slate-100">
-                {info.backend_version}
-              </p>
-            </div>
+      {/* Status Grid */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Universe Graph */}
+        <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+          <div className="flex items-center gap-2 text-[10px] text-slate-500 mb-1">
+            <Database size={12} />
+            Universe Graph
           </div>
+          <p className="text-sm font-mono text-cyan-300 truncate" title={universeGraphId || "—"}>
+            {universeGraphId || "—"}
+          </p>
+        </div>
 
-          <div className="mt-3 text-xs">
-            <p className="text-slate-400">SSE</p>
-            <p
-              className={[
-                "font-medium",
+        {/* SSE Status */}
+        <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+          <div className="flex items-center gap-2 text-[10px] text-slate-500 mb-1">
+            <Wifi size={12} />
+            Real-time Stream
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-2 w-2 rounded-full ${
                 sseState === "live"
-                  ? "text-emerald-200"
+                  ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]"
                   : sseState === "down"
-                    ? "text-red-200"
-                    : "text-slate-200",
-              ].join(" ")}
+                  ? "bg-rose-400"
+                  : "bg-amber-400 animate-pulse"
+              }`}
+            />
+            <span
+              className={`text-sm font-semibold ${
+                sseState === "live"
+                  ? "text-emerald-300"
+                  : sseState === "down"
+                  ? "text-rose-300"
+                  : "text-amber-300"
+              }`}
             >
-              {sseState === "live"
-                ? "LIVE"
-                : sseState === "down"
-                  ? "DOWN"
-                  : "CONNECTING"}
-            </p>
+              {sseState === "live" ? "LIVE" : sseState === "down" ? "DOWN" : "CONNECTING"}
+            </span>
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-          <p className="mb-2 text-xs text-slate-400">Runtime paths (logical)</p>
-          <div className="space-y-2 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">Cache</span>
-              <span className="font-medium text-slate-100">
-                {info.runtime_paths.cache}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">Benchmarks</span>
-              <span className="font-medium text-slate-100">
-                {info.runtime_paths.benchmarks}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-slate-400">Logs</span>
-              <span className="font-medium text-slate-100">
-                {info.runtime_paths.logs}
-              </span>
-            </div>
+        {/* API Base */}
+        <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+          <div className="flex items-center gap-2 text-[10px] text-slate-500 mb-1">
+            <Radio size={12} />
+            API Endpoint
           </div>
+          <p className="text-sm font-mono text-slate-200">{apiBase}</p>
+        </div>
+
+        {/* Backend Version */}
+        <div className="rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+          <div className="flex items-center gap-2 text-[10px] text-slate-500 mb-1">
+            <Server size={12} />
+            Backend Version
+          </div>
+          <p className="text-sm font-mono text-slate-200">{backendVersion}</p>
         </div>
       </div>
 
-      <div className="mt-5">
-        <p className="mb-1 text-slate-400">Warnings</p>
-        {info.warnings.length > 0 ? (
+      {/* Warnings */}
+      {warnings.length > 0 && (
+        <div className="rounded-lg border border-amber-800/50 bg-amber-950/20 p-3">
+          <div className="flex items-center gap-2 text-[10px] font-semibold text-amber-400 mb-2">
+            <AlertTriangle size={12} />
+            Warnings
+          </div>
           <ul className="space-y-1">
-            {info.warnings.map((w, idx) => (
-              <li
-                key={idx}
-                className="rounded border border-amber-900/50 bg-amber-950/40 px-2 py-1 text-[11px] text-amber-100"
-              >
-                {w}
+            {warnings.map((w, idx) => (
+              <li key={idx} className="text-[11px] text-amber-200">
+                • {w}
               </li>
             ))}
           </ul>
-        ) : (
-          <p className="rounded border border-slate-800 bg-slate-950/80 px-2 py-1 text-[11px] text-slate-400">
-            No runtime warnings reported.
-          </p>
-        )}
-      </div>
-    </section>
+        </div>
+      )}
+    </div>
   );
 };
 

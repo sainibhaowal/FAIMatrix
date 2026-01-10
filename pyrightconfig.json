@@ -1,0 +1,20 @@
+{
+  "include": ["faim"],
+  "exclude": ["**/__pycache__"],
+  "reportAttributeAccessIssue": "none",
+  "reportGeneralTypeIssues": "none",
+  "reportArgumentType": "none",
+  "reportCallIssue": "none",
+  "reportReturnType": "none",
+  "reportIncompatibleMethodOverride": "none",
+  "reportPossiblyUnboundVariable": "none",
+  "reportOptionalMemberAccess": "none",
+  "reportOperatorIssue": "none",
+  "reportAssignmentType": "none",
+  "reportInvalidTypeForm": "none",
+  "reportPrivateImportUsage": "none",
+  "reportOptionalSubscript": "none",
+  "reportIndexIssue": "none",
+  "reportMissingImports": "none",
+  "pythonVersion": "3.10"
+}

@@ -1,73 +1,68 @@
-# FAIM Lab - Production Docker Compose
+# FAIM Lab - Production Docker Compose (SECURED)
 # Run with: docker compose up -d
+#
+# SECURITY: All secrets MUST be in .env file. This file contains NO secrets.
 
 version: "3.8"
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL Database - INTERNAL ONLY
   postgres:
     image: postgres:15
     container_name: faim-postgres
     environment:
       POSTGRES_USER: faim
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-faim_prod_secret}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
       POSTGRES_DB: faim_lab
+      # SECURITY: Disable external connections
+      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # SECURITY: NO port exposure - internal network only
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U faim -d faim_lab"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - faim-internal
 
-  # Redis (Rate limiting, Celery broker, sessions)
+  # Redis - WITH PASSWORD, INTERNAL ONLY
   redis:
     image: redis:7-alpine
     container_name: faim-redis
-    command: redis-server --appendonly yes
+    command: >
+      redis-server
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required}
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
+    # SECURITY: NO port exposure
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - faim-internal
 
-  # Qdrant (Vector Database)
+  # Qdrant - WITH API KEY, INTERNAL ONLY
   qdrant:
     image: qdrant/qdrant:latest
     container_name: faim-qdrant
+    environment:
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:?QDRANT_API_KEY required}
+      - QDRANT__SERVICE__ENABLE_TLS=false
     volumes:
       - qdrant_data:/qdrant/storage
-    ports:
-      - "6333:6333"
-      - "6334:6334"
+    # SECURITY: NO port exposure
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:6333/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-  # Keycloak (Identity & Access Management)
-  keycloak:
-    image: quay.io/keycloak/keycloak:latest
-    container_name: faim-keycloak
-    command: start-dev # Use 'start' for production with proper DB
-    environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    restart: unless-stopped
+    networks:
+      - faim-internal
 
   # FAIM Backend API (FastAPI)
   faim-api:
@@ -77,22 +72,29 @@ services:
     container_name: faim-api
     environment:
       - FAIM_MODE=production
-      - FAIM_DB_URL=postgresql://faim:${POSTGRES_PASSWORD:-faim_prod_secret}@postgres:5432/faim_lab
-      - REDIS_URL=redis://redis:6379/0
+      - FAIM_DB_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_lab
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - QDRANT_URL=http://qdrant:6333
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
       # Backend configuration
       - FAIM_STORAGE_BACKEND=postgres
       - FAIM_VECTOR_BACKEND=qdrant
       - FAIM_CACHE_BACKEND=redis
-
-      - KEYCLOAK_ISSUER=http://keycloak:8080/realms/faim
-      - KEYCLOAK_CLIENT_ID=faim-lab
-      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET}
-      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      # SECURITY: All secrets from environment
+      - ADMIN_API_KEY=${ADMIN_API_KEY:?ADMIN_API_KEY required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET required - min 32 chars}
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
-    ports:
-      - "8000:8000"
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      # SECURITY: CORS whitelist
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?ALLOWED_ORIGINS required}
+      # SECURITY: Rate limiting
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_USER=100/minute
+      - RATE_LIMIT_API_KEY=1000/minute
+    # SECURITY: NO direct port exposure - nginx handles traffic
+    expose:
+      - "8000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -104,6 +106,9 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    networks:
+      - faim-internal
+      - faim-external
 
   # FAIM Frontend (Next.js)
   faim-web:
@@ -112,18 +117,18 @@ services:
       dockerfile: Dockerfile
     container_name: faim-web
     environment:
-      - NEXT_PUBLIC_API_URL=http://faim-api:8000
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - KEYCLOAK_ID=faim-lab
-      - KEYCLOAK_SECRET=${KEYCLOAK_CLIENT_SECRET}
-      - KEYCLOAK_ISSUER=http://keycloak:8080/realms/faim
-    ports:
-      - "3000:3000"
+      - NEXT_PUBLIC_API_URL=${PUBLIC_URL:?PUBLIC_URL required}/api
+      - NEXTAUTH_URL=${PUBLIC_URL}
+      - NEXTAUTH_SECRET=${JWT_SECRET}
+    # SECURITY: NO direct port exposure - nginx handles traffic
+    expose:
+      - "3000"
     depends_on:
       - faim-api
-      - keycloak
     restart: unless-stopped
+    networks:
+      - faim-internal
+      - faim-external
 
   # Celery Worker (Background tasks)
   celery-worker:
@@ -134,12 +139,15 @@ services:
     command: celery -A faim.workers.celery_app worker --loglevel=info
     environment:
       - FAIM_MODE=production
-      - FAIM_DB_URL=postgresql://faim:${POSTGRES_PASSWORD:-faim_prod_secret}@postgres:5432/faim_lab
-      - REDIS_URL=redis://redis:6379/0
+      - FAIM_DB_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_lab
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
     depends_on:
       - postgres
       - redis
     restart: unless-stopped
+    networks:
+      - faim-internal
 
   # Celery Beat (Scheduled tasks)
   celery-beat:
@@ -149,12 +157,14 @@ services:
     container_name: faim-beat
     command: celery -A faim.workers.celery_app beat --loglevel=info
     environment:
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
     depends_on:
       - redis
     restart: unless-stopped
+    networks:
+      - faim-internal
 
-  # Nginx (Reverse proxy)
+  # Nginx (Reverse proxy with HTTPS)
   nginx:
     image: nginx:alpine
     container_name: faim-nginx
@@ -162,12 +172,15 @@ services:
       - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./deploy/ssl:/etc/nginx/ssl:ro
     ports:
+      # SECURITY: Only 80 (redirect) and 443 (HTTPS) exposed
       - "80:80"
       - "443:443"
     depends_on:
       - faim-web
       - faim-api
     restart: unless-stopped
+    networks:
+      - faim-external
 
 volumes:
   postgres_data:
@@ -175,5 +188,8 @@ volumes:
   qdrant_data:
 
 networks:
-  default:
+  faim-internal:
+    # SECURITY: Internal network - no external access possible
+    internal: true
+  faim-external:
     name: faim-network
