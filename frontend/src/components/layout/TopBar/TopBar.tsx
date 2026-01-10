@@ -12,15 +12,15 @@ import {
   fetchGraphsSoft,
   getUniverseIdFromStorage,
   resolveUniverseIdOnce
-} from "../../lib/api";
-import { CommandPalette } from "./CommandPalette";
-import { Breadcrumbs } from "./Breadcrumbs";
-import { WorkspaceSelector } from "./topbar/WorkspaceSelector";
-import { IconChevron } from "./topbar/IconChevron";
-import { Dropdown } from "./topbar/Dropdown";
-import { UserDropdownContent } from "./UserDropdownContent";
+} from "@/lib/api";
+import { CommandPalette } from "../CommandPalette";
+import { Breadcrumbs } from "../Breadcrumbs";
+import { WorkspaceSelector } from "./WorkspaceSelector";
+import { IconChevron } from "./IconChevron";
+import { Dropdown } from "./Dropdown";
+import { UserDropdownContent } from "./ProfileMenu/UserDropdownContent";
 
-import { NotificationCenter } from "./NotificationCenter";
+import { NotificationCenter } from "./NotificationBell/NotificationCenter";
 
 // ----------------------------------------------------------------------------
 // Local Helpers

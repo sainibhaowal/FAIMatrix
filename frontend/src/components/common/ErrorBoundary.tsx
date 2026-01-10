@@ -1,8 +1,8 @@
 "use client";
 
 import React, { Component, ErrorInfo, ReactNode } from "react";
-import { ErrorState } from "./ui/EmptyState";
-import { Button } from "./ui/Button";
+import { ErrorState } from "@/components/ui/EmptyState";
+import { Button } from "@/components/ui/Button";
 
 interface Props {
   children?: ReactNode;

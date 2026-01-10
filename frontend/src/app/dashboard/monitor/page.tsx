@@ -12,14 +12,16 @@
 ============================================================================= */
 
 import React from "react";
-import { MemoryEnginePanel } from "@/components/monitor/MemoryEnginePanel";
-import AGIFeaturesPanel from "@/components/AGIFeaturesPanel";
-import { IncidentsPanel } from "@/components/monitor/IncidentsPanel";
-import { JobsPanel } from "@/components/monitor/JobsPanel";
-import { AuditPanel } from "@/components/monitor/AuditPanel";
-import { ResourceUsagePanel } from "@/components/monitor/ResourceUsagePanel";
-import { HealthHistoryChart } from "@/components/monitor/HealthHistoryChart";
-import { HealthCards } from "@/components/monitor/HealthCards";
+import {
+  MemoryEnginePanel,
+  IncidentsPanel,
+  JobsPanel,
+  AuditPanel,
+  ResourceUsagePanel,
+  HealthHistoryChart,
+  HealthCards,
+} from "@/components/features/monitor";
+import { AGIFeaturesPanel } from "@/components/features/dashboard";
 
 export default function MonitorPage() {
   return (

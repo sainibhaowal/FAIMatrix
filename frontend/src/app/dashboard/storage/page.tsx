@@ -36,7 +36,7 @@ import {
   Input,
   Select,
 } from "@/components/ui";
-import { Dropdown } from "@/components/shell/topbar/Dropdown";
+import { Dropdown } from "@/components/layout/TopBar/Dropdown";
 import { useOutsideClick } from "@/components/ui";
 
 type Doc = {

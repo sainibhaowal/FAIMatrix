@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Dropdown } from "./topbar/Dropdown";
-import { useOutsideClick } from "../ui/useOutsideClick";
+import { Dropdown } from "../Dropdown";
+import { useOutsideClick } from "@/components/ui/useOutsideClick";
 
 function IconBell(props: { className?: string }) {
   return (
