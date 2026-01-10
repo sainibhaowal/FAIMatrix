@@ -13,7 +13,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useUserIds } from "@/contexts/UserContext";
 import { GlowCard } from "@/components/ui/GlowCard";
-import EvolutionPanel from "@/components/EvolutionPanel";
+import { EvolutionPanel } from "@/components/features/evolution";
 import {
   Dna,
   GitMerge,

@@ -26,7 +26,7 @@ import {
   User,
 } from "lucide-react";
 
-import Logo from "../brand/Logo";
+import Logo from "@/components/brand/Logo";
 import { TenantSelector } from "./TenantSelector";
 
 type NavItem = {

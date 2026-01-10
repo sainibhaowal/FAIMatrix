@@ -7,7 +7,7 @@ import {
   DEFAULT_GRAPH_ID, 
   isRemoteApiBase, 
   buildFaimHeaders, 
-} from "../../../lib/api";
+} from "@/lib/api";
 import { IconChevron } from "./IconChevron";
 import { Dropdown } from "./Dropdown";
 
