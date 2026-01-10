@@ -7,18 +7,22 @@ import { useSearchParams } from "next/navigation";
 import { DEFAULT_GRAPH_ID, getUniverseGraphId } from "../../../lib/api";
 import { useUserIds } from "../../../contexts/UserContext";
 
-import { Graph3DView, type Graph3DRef } from "../../../components/Graph3DView";
-import { NodeInspector } from "../../../components/NodeInspector";
-import GraphUploadPanel from "../../../components/graph/GraphUploadPanel";
-import NodeRelationsPanel from "../../../components/NodeRelationsPanel";
-import GraphAnalyticsPanel from "../../../components/graph/GraphAnalyticsPanel";
-import AddMemoryPanel from "../../../components/graph/AddMemoryPanel";
-import EvolutionPanel from "../../../components/EvolutionPanel";
-import GraphFiltersPanel, { 
-  type FilterOptions 
-} from "../../../components/GraphFiltersPanel";
-import GraphContextPanel from "../../../components/graph/GraphContextPanel";
-import { ZoomControls, GraphLegend, GraphOverview } from "../../../components/graph/GraphOverlays";
+import {
+  Graph3DView,
+  type Graph3DRef,
+  NodeInspector,
+  GraphUploadPanel,
+  NodeRelationsPanel,
+  GraphAnalyticsPanel,
+  AddMemoryPanel,
+  GraphFiltersPanel,
+  type FilterOptions,
+  GraphContextPanel,
+  ZoomControls,
+  GraphLegend,
+  GraphOverview,
+} from "@/components/features/graph";
+import { EvolutionPanel } from "@/components/features/evolution";
 
 const defaultGraphId =
   process.env.NEXT_PUBLIC_FAIM_DEFAULT_GRAPH_ID ?? DEFAULT_GRAPH_ID;

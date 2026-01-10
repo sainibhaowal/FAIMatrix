@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
-import { IconChevron } from "./topbar/IconChevron";
+import { IconChevron } from "@/components/layout/TopBar/IconChevron";
 
 const NAME_MAP: Record<string, string> = {
   dashboard: "Dashboard",

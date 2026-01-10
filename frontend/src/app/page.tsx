@@ -20,7 +20,7 @@ import {
   CTA,
   Footer,
 } from "@/components/landing";
-import CookieConsent from "@/components/CookieConsent";
+import { CookieConsent } from "@/components/common";
 
 export default function LandingPage() {
   return (

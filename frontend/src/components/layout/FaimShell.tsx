@@ -22,9 +22,9 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { SidebarNav } from "./SidebarNav";
-import { TopBar } from "./TopBar";
-import { FaimHeader } from "../FaimHeader";
+import { SidebarNav } from "./Sidebar/SidebarNav";
+import { TopBar } from "./TopBar/TopBar";
+import { FaimHeader } from "./FaimHeader";
 import Logo from "../brand/Logo";
 import { DEFAULT_GRAPH_ID } from "../../lib/api";
 

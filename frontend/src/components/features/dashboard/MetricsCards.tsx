@@ -1,6 +1,6 @@
 "use client";
 
-import type { GraphMetrics } from "../lib/api";
+import type { GraphMetrics } from "@/lib/api";
 import React from "react";
 
 function clamp(n: number, lo: number, hi: number): number {
