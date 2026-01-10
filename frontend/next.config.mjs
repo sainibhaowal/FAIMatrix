@@ -1,8 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Production build output for Docker
+  output: 'standalone',
+  
   // Keep your current turbo + eslint behavior
   experimental: { turbo: { rules: {} } },
   eslint: { ignoreDuringBuilds: true },
+
+  // Transpile heavy 3D libs to fix "ChunkLoadError" / ESM issues
+  transpilePackages: ["react-force-graph-3d", "react-force-graph-2d", "force-graph", "three"],
 
   // Allow these origins in dev (Next uses this for some dev features)
   allowedDevOrigins: [

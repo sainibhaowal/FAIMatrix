@@ -55,18 +55,14 @@ export default function CookieConsent() {
     // - Set appropriate cookies
 
     if (prefs.analytics) {
-      console.log("[FAIM Cookie] Analytics: ENABLED");
       // Enable analytics scripts here
     } else {
-      console.log("[FAIM Cookie] Analytics: DISABLED");
       // Disable analytics scripts here
     }
 
     if (prefs.marketing) {
-      console.log("[FAIM Cookie] Marketing: ENABLED");
       // Enable marketing scripts here
     } else {
-      console.log("[FAIM Cookie] Marketing: DISABLED");
       // Disable marketing scripts here
     }
   };

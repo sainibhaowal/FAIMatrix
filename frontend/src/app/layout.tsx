@@ -98,7 +98,15 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-slate-950 text-slate-100 antialiased overflow-x-hidden">
-        <Providers>{children}</Providers>
+        {/* Skip Link for Keyboard Navigation */}
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
+        <Providers>
+          <div id="main-content" tabIndex={-1}>
+            {children}
+          </div>
+        </Providers>
       </body>
     </html>
   );

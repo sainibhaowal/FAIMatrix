@@ -48,5 +48,12 @@ export type { TooltipProps, Tab, TabsProps } from "./Tooltip";
 export { Select, MultiSelect } from "./Select";
 export type { SelectProps, SelectOption, MultiSelectProps } from "./Select";
 
+// New exports
+export * from "./GlowPanel";
+export * from "./IconButton";
+
 // Theme
 export { OmniGlowBG, GlassPanel, GlassCard } from "./Theme";
+
+// Hooks
+export { useOutsideClick } from "./useOutsideClick";

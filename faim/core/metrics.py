@@ -7,7 +7,7 @@ from typing import List, Optional, Protocol, Sequence, cast
 
 import numpy as np
 
-from faim.storage.store import FAIMStore
+from faim.data.storage.store import FAIMStore
 
 from .evolution import (
     EvolutionConfig,

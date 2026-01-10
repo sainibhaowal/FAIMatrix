@@ -1,7 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import type { CSSProperties, MouseEvent } from "react";
 
 import { useFaimStream, type FigDelta } from "@/lib/realtime";
@@ -23,15 +30,26 @@ const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
   ssr: false,
 });
 
+export interface Graph3DRef {
+  zoomIn: () => void;
+  zoomOut: () => void;
+  zoomToFit: () => void;
+}
+
 type Graph3DViewProps = {
-  onNodeSelect(nodeId: string | null): void;
+  // Updated to support multi-select via modifier keys
+  onNodeClick?: (node: any, multi: boolean) => void;
+  // Deprecated simplified handler
+  onNodeSelect?: (nodeId: string | null) => void;
   graphId?: string | null;
   enableNodeDrag?: boolean;
-  /** External data to display (e.g., from filters). Overrides internal fetch. */
   externalData?: { nodes: any[]; links: any[] } | null;
-  /** Callback when graph data is refreshed */
   onDataRefresh?: () => void;
 };
+
+// ----------------------------------------------------------------------------
+// Helpers
+// ----------------------------------------------------------------------------
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
@@ -87,14 +105,20 @@ function buildNodeTooltip(node: any): string {
 
 type GraphData = { nodes: any[]; links: any[] };
 
-export function Graph3DView({
+// ----------------------------------------------------------------------------
+// Component
+// ----------------------------------------------------------------------------
+
+export const Graph3DView = forwardRef<Graph3DRef, Graph3DViewProps>(({
+  onNodeClick,
   onNodeSelect,
   graphId: propGraphId,
   enableNodeDrag,
   externalData,
   onDataRefresh,
-}: Graph3DViewProps) {
+}, ref) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const fgRef = useRef<any>(null); // Ref to the ForceGraph instance
 
   const dataRef = useRef<GraphData>({ nodes: [], links: [] });
 
@@ -115,6 +139,32 @@ export function Graph3DView({
     const p = (propGraphId ?? "").trim();
     return p.startsWith("U:") ? p : DEFAULT_GRAPH_ID;
   });
+
+  // Expose zoom methods
+  useImperativeHandle(ref, () => ({
+    zoomIn: () => {
+      if (!fgRef.current) return;
+      const currentPos = fgRef.current.cameraPosition();
+      fgRef.current.cameraPosition(
+        { x: currentPos.x * 0.8, y: currentPos.y * 0.8, z: currentPos.z * 0.8 },
+        currentPos.lookAt,
+        400
+      );
+    },
+    zoomOut: () => {
+      if (!fgRef.current) return;
+      const currentPos = fgRef.current.cameraPosition();
+      fgRef.current.cameraPosition(
+        { x: currentPos.x * 1.2, y: currentPos.y * 1.2, z: currentPos.z * 1.2 },
+        currentPos.lookAt,
+        400
+      );
+    },
+    zoomToFit: () => {
+      if (!fgRef.current) return;
+      fgRef.current.zoomToFit(400, 10);
+    }
+  }));
 
   const normalizeGraphData = (g: GraphData) => {
     if (!g?.nodes || !g?.links) return;
@@ -482,6 +532,18 @@ export function Graph3DView({
     };
   }, [graphId]);
 
+  // Modified click handler
+  const handleNodeClick = useCallback((node: any, event: any) => {
+    // Check for shift key
+    const isMulti = event.getModifierState("Shift") || event.getModifierState("Control") || event.getModifierState("Meta");
+    
+    if (onNodeClick) {
+      onNodeClick(node, isMulti);
+    } else if (onNodeSelect) {
+      onNodeSelect(node?.id ?? null);
+    }
+  }, [onNodeClick, onNodeSelect]);
+
   return (
     <div
       ref={glow.ref}
@@ -516,19 +578,45 @@ export function Graph3DView({
       >
         {/* @ts-ignore */}
         <ForceGraph3D
+          ref={fgRef}
           width={size.w}
           height={size.h}
           graphData={graphData}
           nodeLabel={buildNodeTooltip}
-          nodeAutoColorBy="group"
+          // FAIM-aware node coloring: emergent=gold, merged=blue, decayed=amber, else cyan
+          nodeColor={(node: any) => {
+            const flags = node.evolution_flags ?? node.flags ?? [];
+            const novelty = node.novelty ?? 0;
+            const isEmergent = flags.includes('emergent') || flags.includes('synthesized') || novelty > 0.7;
+            const isMerged = flags.includes('merged') || node.merged;
+            const isDecayed = flags.includes('decayed') || flags.includes('pruned');
+            
+            if (isEmergent) return "#fbbf24"; // Gold - Self-inventing
+            if (isMerged) return "#60a5fa";   // Blue - Antisymmetric merge
+            if (isDecayed) return "#f59e0b";  // Amber - Pruned/decay
+            return "#22d3ee";                  // Cyan - Default (healthy)
+          }}
           enableNodeDrag={enableNodeDrag ?? true}
           linkOpacity={0.35}
+          // Edge width based on weight - thicker = stronger connection
           linkWidth={(l: any) =>
-            l.rel === "tether" ? 0.2 : (l.weight ?? 1) * 0.5
+            l.rel === "tether" ? 0.2 : Math.max(0.3, (l.weight ?? 1) * 0.8)
           }
-          onNodeClick={(node: any) => onNodeSelect(node?.id ?? null)}
+          // Edge color: opposition links in amber, tethers faint, else cyan gradient
+          linkColor={(l: any) => {
+            if (l.rel === "tether") return "rgba(148, 163, 184, 0.15)";
+            const weight = l.weight ?? 0.5;
+            if (l.opposition || weight < 0.3) return "rgba(245, 158, 11, 0.6)"; // Opposition/weak link
+            return `rgba(34, 211, 238, ${0.3 + weight * 0.4})`; // Cyan varying by weight
+          }}
+          onNodeClick={handleNodeClick}
+          // Reduce d3 alpha decay for smoother stabilization
+          d3AlphaDecay={0.02}
+          d3VelocityDecay={0.3}
         />
       </div>
     </div>
   );
-}
+});
+
+Graph3DView.displayName = "Graph3DView";

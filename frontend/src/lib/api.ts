@@ -16,6 +16,10 @@ export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_FAIM_API_BASE_URL || "/api/v1"
 ).replace(/\/+$/, "");
 
+export function isRemoteApiBase(): boolean {
+  return API_BASE_URL.startsWith("http");
+}
+
 /**
  * DO NOT use MAIN in production. Keep export for compatibility with existing imports,
  * but resolveGraphId() will refuse empty/invalid IDs.
@@ -114,6 +118,18 @@ export function getUniverseGraphId(): string {
   return "";
 }
 
+export function getUniverseIdFromStorage(): string | null {
+  const id = getUniverseGraphId();
+  return id || null;
+}
+
+/**
+ * Tries to return Universe ID. If missing, it returns null (does not throw).
+ */
+export async function resolveUniverseIdOnce(): Promise<string | null> {
+   return getUniverseIdFromStorage();
+}
+
 function resolveGraphId(input?: string): string {
   const raw = (input ?? "").trim();
   const fromStorage = getUniverseGraphId();
@@ -140,6 +156,11 @@ function resolveGraphId(input?: string): string {
 }
 
 /* ================================ Types =================================== */
+
+export type GraphSummary = {
+  id: string;
+  name: string;
+};
 
 /**
  * Your backend /health appears to be: {status:"ok", version?:string}
@@ -371,4 +392,14 @@ export function triggerEvolve(graphId?: string): Promise<void> {
 
 export function triggerRetention(): Promise<void> {
   return apiPost<void>("/admin/retention/run");
+}
+
+export async function fetchGraphsSoft(): Promise<GraphSummary[]> {
+  try {
+    const data = await apiGet<GraphSummary[]>("/graphs");
+    if (Array.isArray(data)) return data;
+    return [];
+  } catch {
+    return [];
+  }
 }

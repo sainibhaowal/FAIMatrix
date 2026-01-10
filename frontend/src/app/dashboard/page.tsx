@@ -47,7 +47,11 @@ import {
   RefreshCw,
   Sparkles,
   Command,
+  Brain,
+  GitMerge,
+  Dna,
 } from "lucide-react";
+import Logo from "@/components/brand/Logo";
 
 /* =============================================================================
    Types
@@ -133,7 +137,7 @@ export default function DashboardPage() {
 
       // Load recent activity
       try {
-        const actRes = await fetch(`${API_BASE_URL}/activity/recent`, {
+        const actRes = await fetch(`${API_BASE_URL}/usage/activity/recent`, {
           headers: buildFaimHeaders(),
         });
         if (actRes.ok) {
@@ -171,7 +175,7 @@ export default function DashboardPage() {
 
       // Load daily activity for chart
       try {
-        const chartRes = await fetch(`${API_BASE_URL}/activity/daily`, {
+        const chartRes = await fetch(`${API_BASE_URL}/usage/activity/daily`, {
           headers: buildFaimHeaders(),
         });
         if (chartRes.ok) {
@@ -265,6 +269,56 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* Neural Core Widget - Animated Logo Hero */}
+      <section className="relative overflow-hidden rounded-3xl border border-cyan-500/10 bg-slate-950/40 backdrop-blur-2xl">
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-violet-500/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.02] pointer-events-none" />
+        
+        <div className="relative flex items-center gap-6 p-6">
+          {/* Animated Logo */}
+          <div className="flex-shrink-0">
+            <Logo px={180} className="rounded-2xl" />
+          </div>
+          
+          {/* System Info */}
+          <div className="flex-1 min-w-0">
+            <div className="text-[11px] uppercase tracking-[0.15em] text-cyan-300 font-medium">FAIMATRIX SYNAPSE</div>
+            <h2 className="text-xl font-bold text-slate-50 mt-1">Neural Core {isHealthy ? "Online" : "Offline"}</h2>
+            <p className="text-sm text-slate-400 mt-1 line-clamp-2">
+              Neural Knowledge Synthesis • Your personal intelligence engine
+            </p>
+            
+            {/* Status Indicators */}
+            <div className="flex items-center gap-4 mt-3">
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className={`w-2 h-2 rounded-full ${isHealthy ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
+                <span className="text-slate-300">{isHealthy ? "Systems Operational" : "Connection Lost"}</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                <Brain size={12} />
+                <span>{usage?.nodes_count?.toLocaleString() ?? "—"} nodes</span>
+              </div>
+              {/* Evolution Pulse - FAIM Self-Evolution Indicator */}
+              <Link 
+                href="/dashboard/evolution"
+                className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                <Dna size={12} className="animate-pulse" />
+                <span>Evolution Active</span>
+              </Link>
+            </div>
+          </div>
+          
+          {/* Quick Action */}
+          <Link
+            href="/dashboard/chat"
+            className="flex-shrink-0 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-900 text-sm font-semibold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-105 transition-all"
+          >
+            Start Chat
+          </Link>
+        </div>
+      </section>
+
       {/* Metric Cards */}
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
@@ -297,14 +351,42 @@ export default function DashboardPage() {
         />
       </section>
 
-      {/* Token Usage Bar */}
-      {usage?.token_limit && (
-        <TokenUsageBar
-          used={usage.token_usage ?? 0}
-          limit={usage.token_limit}
-          percent={tokenPercent}
-        />
+      {/* Upgrade CTA Banner - Shows when usage > 80% */}
+      {tokenPercent >= 80 && (
+        <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-orange-500/10 p-4">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,rgba(251,191,36,0.1),transparent_50%)]" />
+          <div className="relative flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20">
+                <Zap size={20} className="text-amber-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-amber-200">
+                  {tokenPercent >= 100 ? "Token Limit Reached!" : "Approaching Token Limit"}
+                </h3>
+                <p className="text-xs text-amber-300/70">
+                  {tokenPercent >= 100 
+                    ? "Upgrade to continue using FAIM without interruption." 
+                    : `You've used ${tokenPercent}% of your token quota. Consider upgrading for more capacity.`}
+                </p>
+              </div>
+            </div>
+            <a
+              href="/dashboard/billing"
+              className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-900 shadow-lg shadow-amber-500/25 hover:bg-amber-400 transition-colors"
+            >
+              Upgrade Now
+            </a>
+          </div>
+        </div>
       )}
+
+      {/* Token Usage Bar - Always visible */}
+      <TokenUsageBar
+        used={usage?.token_usage ?? 0}
+        limit={usage?.token_limit ?? 1000000}
+        percent={tokenPercent}
+      />
 
       {/* Activity Chart and Recent Activity */}
       <div className="grid gap-6 lg:grid-cols-5">

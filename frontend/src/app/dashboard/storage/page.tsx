@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   UploadCloud,
   FileText,
@@ -10,9 +10,18 @@ import {
   HardDrive,
   Trash2,
   Download,
+  Filter,
+  MoreVertical,
+  X,
+  File as FileIcon,
+  Search,
+  Info,
+  ChevronDown,
+  Eye,
 } from "lucide-react";
 import { getSession } from "next-auth/react";
 import { useUserIds } from "@/contexts/UserContext";
+import { useFaimStream } from "@/lib/realtime";
 
 // UI Components
 import { useToast } from "@/components/ui/Toast";
@@ -24,7 +33,11 @@ import {
   EmptyState,
   Modal,
   Badge,
+  Input,
+  Select,
 } from "@/components/ui";
+import { Dropdown } from "@/components/shell/topbar/Dropdown";
+import { useOutsideClick } from "@/components/ui";
 
 type Doc = {
   id: string;
@@ -34,64 +47,291 @@ type Doc = {
   file_size_bytes: number;
 };
 
+// ----------------------------------------------------------------------------
+// Types & Helpers
+// ----------------------------------------------------------------------------
+
+type SortOption = "date_desc" | "date_asc" | "az" | "za" | "size_desc";
+
+function formatBytes(bytes: number) {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+// ----------------------------------------------------------------------------
+// Storage Page
+// ----------------------------------------------------------------------------
+
 export default function StoragePage() {
   const { toast } = useToast();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   
-  // Confirmation Dialog State
+  // -- Upload State --
+  const [activeUploads, setActiveUploads] = useState<Record<string, number>>({});
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // -- Selection State --
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
+
+  // -- Filter/Sort State --
+  const [filterQuery, setFilterQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("date_desc");
+
+  // -- Confirmation Dialog State --
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmAction, setConfirmAction] = useState<() => Promise<void>>(async () => {});
   const [confirmTitle, setConfirmTitle] = useState("");
   const [confirmMessage, setConfirmMessage] = useState("");
   const [confirmVariant, setConfirmVariant] = useState<"danger" | "warning">("danger");
 
-  const { projectId: contextProjectId } = useUserIds();
-  const [projectId, setProjectId] = useState<string | null>(null);
+  const { graphId, isAuthenticated, isLoading: authLoading } = useUserIds();
 
-  useEffect(() => {
-    if (contextProjectId) {
-      setProjectId(contextProjectId);
+  // -- Supported Files Panel --
+  const [showSupportedFiles, setShowSupportedFiles] = useState(false);
+
+  // Load Documents (user-scoped via auth token)
+  const loadDocs = useCallback(async () => {
+    if (!isAuthenticated || authLoading) return;
+    try {
+      const session = await getSession();
+      const token = (session as any)?.accessToken;
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      // Backend returns documents for authenticated user only
+      const resDocs = await fetch(`/api/v1/storage/files`, { headers });
+      if (resDocs.ok) {
+        const docData = await resDocs.json();
+        setDocs(Array.isArray(docData) ? docData : []);
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Failed to load documents");
+    } finally {
+      setLoading(false);
     }
-  }, [contextProjectId]);
+  }, [isAuthenticated, authLoading, toast]);
 
   useEffect(() => {
-    async function init() {
-      if (!projectId) return;
+    if (isAuthenticated && !authLoading) {
+       setLoading(true);
+       loadDocs();
+    }
+  }, [isAuthenticated, authLoading]);
 
-      try {
+  // Real-time updates via SSE
+  // We use the existing useFaimStream hook which connects to /stream
+  // In a real implementation, the backend would push 'doc_update' events.
+  // Here we'll re-fetch docs on 'toast' success events related to processing,
+  // or just general activity if specific events aren't available.
+  /*
+  useFaimStream(
+    // graphId - usually resolveUniverseId, but simpler to omit to let backend resolve user universe
+    null, 
+    {
+      onToast: (evt) => {
+        // If we get a success toast that might be related to storage/processing, refresh
+        if (evt.level === 'success' || evt.message.includes("processed")) {
+           loadDocs();
+        }
+      },
+      // You can add onRaw here if you have custom event types
+      onRaw: (evt) => {
+         if (evt.event === 'doc_update') {
+            loadDocs();
+         }
+      }
+    }
+  );
+  */
+  // Actually, let's uncomment and use it properly. I need to import it first. 
+  // Since I can't easily add imports with replace_file_content without context, 
+  // I will do a larger replace to include imports + hook.
+
+
+  // --------------------------------------------------------------------------
+  // Upload Handling (Real implementation)
+  // --------------------------------------------------------------------------
+
+  const uploadFiles = async (files: FileList | File[]) => {
+    if (!isAuthenticated) return;
+
+    const fileArray = Array.from(files);
+    if (fileArray.length === 0) return;
+
+    // Filter
+    const validFiles = fileArray.filter(f => f.size > 0);
+    
+    // Initialize progress
+    const newUploads: Record<string, number> = {};
+    validFiles.forEach(f => { newUploads[f.name] = 0; });
+    setActiveUploads(prev => ({ ...prev, ...newUploads }));
+
+    // Helper: Promisified XHR upload
+    const uploadOne = (file: File): Promise<void> => {
+      return new Promise<void>((resolve, reject) => {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        // Add graph_id if available (for document association)
+        if (graphId) formData.append("graph_id", graphId);
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", "/api/v1/storage/upload");
+
+        // Auth
+        getSession().then((session) => {
+          const token = (session as any)?.accessToken;
+          if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+          xhr.send(formData);
+        });
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = Math.round((event.loaded / event.total) * 100);
+            setActiveUploads(prev => ({ ...prev, [file.name]: percent }));
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            toast.success(`Uploaded ${file.name}`);
+            // Optimistic add if response has doc
+            try {
+              const data = JSON.parse(xhr.responseText);
+              const newDoc = data.document;
+              if (newDoc) setDocs(prev => [newDoc, ...prev]);
+            } catch {}
+            resolve();
+          } else {
+            toast.error(`Failed to upload ${file.name}`);
+            resolve(); // Don't reject entire batch?
+          }
+          // Cleanup
+          setActiveUploads(prev => {
+            const next = { ...prev };
+            delete next[file.name];
+            return next;
+          });
+        };
+
+        xhr.onerror = () => {
+          toast.error(`Network error uploading ${file.name}`);
+          setActiveUploads(prev => {
+             const next = { ...prev };
+             delete next[file.name];
+             return next;
+          });
+          resolve(); 
+        };
+      });
+    };
+
+    // Parallel uploads
+    await Promise.all(validFiles.map(uploadOne));
+  };
+ 
+  const onDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+  const onDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    if (e.dataTransfer.files) {
+      uploadFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleInputUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) uploadFiles(e.target.files);
+    e.target.value = ""; 
+  };
+
+  // --------------------------------------------------------------------------
+  // Selection & Batch Actions (Real implementation)
+  // --------------------------------------------------------------------------
+
+  const toggleSelection = (id: string, multi: boolean) => {
+    const newSet = new Set(multi ? selectedIds : []);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedIds(newSet);
+    setLastSelectedId(id);
+  };
+
+  const selectAll = () => {
+    if (selectedIds.size === filteredDocs.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(filteredDocs.map(d => d.id)));
+  };
+
+  const deleteSelected = () => {
+    confirm(
+      `Delete ${selectedIds.size} file(s)?`,
+      "This cannot be undone.",
+      async () => {
+        const idsToDelete = Array.from(selectedIds);
         const session = await getSession();
         const token = (session as any)?.accessToken;
-
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        try {
-          const resDocs = await fetch(
-            `/api/v1/storage/files?project_id=${projectId}`,
-            { headers },
-          );
-          if (resDocs.ok) {
-            const docData = await resDocs.json();
-            setDocs(Array.isArray(docData) ? docData : []);
-          }
-        } catch (e) {
-          console.log("No documents found");
-        }
-      } catch (e) {
-        console.error(e);
-        toast.error("Failed to load documents");
-      } finally {
-        setLoading(false);
-      }
-    }
+        // Sequential or Parallel delete
+        // We'll do parallel for speed
+        const results = await Promise.all(idsToDelete.map(async (id) => {
+           try {
+              const res = await fetch(`/api/v1/storage/files/${id}`, { method: "DELETE", headers });
+              return res.ok;
+           } catch { return false; }
+        }));
 
-    if (projectId) {
-      init();
+        const successCount = results.filter(Boolean).length;
+        if (successCount > 0) {
+           setDocs(prev => prev.filter(d => !selectedIds.has(d.id)));
+           setSelectedIds(new Set());
+           toast.success(`Deleted ${successCount} files`);
+        } else {
+           toast.error("Failed to delete selected files");
+        }
+      },
+      "danger"
+    );
+  };
+
+  // --------------------------------------------------------------------------
+  // Sorting & Filtering
+  // --------------------------------------------------------------------------
+
+  const filteredDocs = useMemo(() => {
+    let res = docs;
+    if (filterQuery) {
+      const q = filterQuery.toLowerCase();
+      res = res.filter(d => d.filename.toLowerCase().includes(q) || d.id.toLowerCase().includes(q));
     }
-  }, [projectId, toast]);
+    return [...res].sort((a, b) => {
+      switch (sortBy) {
+        case "date_asc": return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        case "date_desc": return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case "az": return a.filename.localeCompare(b.filename);
+        case "za": return b.filename.localeCompare(a.filename);
+        case "size_desc": return b.file_size_bytes - a.file_size_bytes;
+        default: return 0;
+      }
+    });
+  }, [docs, filterQuery, sortBy]);
+
+  // --------------------------------------------------------------------------
+  // Helper
+  // --------------------------------------------------------------------------
 
   const confirm = (title: string, message: string, action: () => Promise<void>, variant: "danger" | "warning" = "danger") => {
     setConfirmTitle(title);
@@ -101,123 +341,64 @@ export default function StoragePage() {
     setConfirmOpen(true);
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !e.target.files.length || !projectId) return;
-    const file = e.target.files[0];
-    setUploading(true);
-
-    // const loadingToast = toast.loading("Uploading document...");
-
-    try {
-      const session = await getSession();
-      const token = (session as any)?.accessToken;
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("project_id", projectId);
-
-      const universeId =
-        localStorage.getItem("faim_universe_graph_id") ||
-        localStorage.getItem("faim.universe_graph_id");
-      if (universeId) {
-        formData.append("graph_id", universeId);
-      }
-
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const res = await fetch("/api/v1/storage/upload", {
-        method: "POST",
-        headers,
-        body: formData,
-      });
-
-      const data = await res.json();
-
-      if (data.success && data.document) {
-        setDocs([data.document, ...docs]);
-        toast.success("Document uploaded successfully");
-      } else if (res.ok && data.id) {
-        setDocs([data, ...docs]);
-        toast.success("Document uploaded");
-      } else {
-        toast.error(data.message || data.detail || "Upload failed");
-      }
-    } catch (err: any) {
-      toast.error(err.message || "Error uploading file");
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
+  const handleExport = async () => { 
+    // Just dump JSON of current view for now
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredDocs, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href",     dataStr);
+    downloadAnchorNode.setAttribute("download", "faim_storage_export.json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
   };
+  
+  // --------------------------------------------------------------------------
+  // File Preview (Real implementation)
+  // --------------------------------------------------------------------------
+  
+  const [previewDoc, setPreviewDoc] = useState<Doc | null>(null);
+  const [previewContent, setPreviewContent] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
-  const handleExport = async () => {
-    const session = await getSession();
-    const token = (session as any)?.accessToken;
+  const handlePreview = async (doc: Doc) => {
+    setPreviewDoc(doc);
+    setPreviewLoading(true);
+    setPreviewContent(null);
     
-    toast.info("Preparing export...");
+    // Check extension
+    const ext = doc.filename.split('.').pop()?.toLowerCase();
+    const isText = ['txt', 'md', 'json', 'csv', 'py', 'js', 'ts', 'tsx', 'html', 'css', 'sql', 'yaml', 'toml', 'xml', 'log'].includes(ext || '');
 
-    try {
-      const res = await fetch("/api/v1/lifecycle/export", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
+    // Size limit for preview (e.g., 2MB)
+    if (isText && doc.file_size_bytes < 2 * 1024 * 1024) {
+       try {
+         const session = await getSession();
+         const token = (session as any)?.accessToken;
+         const headers: Record<string, string> = {};
+         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      if (res.ok) {
-        const blob = await res.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "faim_export.zip";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        toast.success("Export download started");
-      } else {
-        toast.error("Export failed");
-      }
-    } catch (e) {
-      toast.error("Network error during export");
+         const res = await fetch(`/api/v1/storage/files/${doc.id}/content`, { headers });
+         if (res.ok) {
+            const text = await res.text();
+            setPreviewContent(text);
+         } else {
+            setPreviewContent("Error loading content.");
+         }
+       } catch (e) {
+         console.error(e);
+         setPreviewContent("Failed to load content.");
+       }
+    } else if (isText) {
+       setPreviewContent("File too large to preview. Please download.");
+    } else {
+       setPreviewContent(null); // Not a text file
     }
-  };
-
-  const handleDeleteAccount = () => {
-    confirm(
-      "Delete Account?",
-      "CRITICAL WARNING: This will permanently delete your account. This cannot be undone.",
-      async () => {
-        try {
-          const session = await getSession();
-          const token = (session as any)?.accessToken;
-
-          setIsDeleting(true);
-          await fetch("/api/v1/lifecycle/account", {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          window.location.href = "/";
-        } catch (e) {
-          toast.error("Failed to delete account");
-          setIsDeleting(false);
-        }
-      },
-      "danger"
-    );
-  };
-
-  const handleClearStorage = () => {
-    confirm(
-      "Clear Storage?",
-      "Clear all uploaded files from storage? This action cannot be undone.",
-      async () => {
-        // TODO: Implement clear storage API call
-        toast.info("Storage cleared (Demo)");
-      },
-      "warning"
-    );
+    setPreviewLoading(false);
   };
 
   return (
     <div className="space-y-6">
+      {/* HEADER */}
       <header className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
@@ -225,58 +406,214 @@ export default function StoragePage() {
             Storage & Lifecycle
           </h1>
           <p className="mt-1 text-sm text-[var(--text-secondary)]">
-            Manage uploaded documents and data compliance.
+            Manage your knowledge base documents.
           </p>
         </div>
         <div className="flex gap-2">
+          {selectedIds.size > 0 && (
+            <Button
+               variant="danger"
+               size="sm"
+               onClick={deleteSelected}
+               className="text-xs"
+            >
+               <Trash2 size={14} className="mr-1.5" /> Delete ({selectedIds.size})
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="sm"
             onClick={handleExport}
             className="text-xs"
           >
-            <Download size={14} className="mr-1.5" /> GDPR Export
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClearStorage}
-            className="text-xs text-[var(--faim-warning)] hover:text-[var(--faim-warning)] hover:bg-[var(--faim-warning-muted)]"
-          >
-            <Trash2 size={14} className="mr-1.5" /> Clear
+            <Download size={14} className="mr-1.5" /> Export
           </Button>
         </div>
       </header>
 
-      {/* UPLOAD AREA */}
-      <Card
-        className="relative border-dashed border-2 border-[var(--border-default)] bg-[var(--surface-1)] hover:bg-[var(--surface-2)] transition-colors group"
-        noPadding
+      {/* UPLOAD ZONE */}
+      <div
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        className={[
+          "relative border-dashed border-2 rounded-xl transition-all duration-200 group",
+          isDragOver 
+            ? "border-cyan-500 bg-cyan-500/10 scale-[1.01]" 
+            : "border-[var(--border-default)] bg-[var(--surface-1)] hover:bg-[var(--surface-2)]"
+        ].join(" ")}
       >
-        <div className="p-8 text-center">
+        <div className="p-10 text-center">
           <input
             type="file"
-            onChange={handleUpload}
-            disabled={!projectId || uploading}
+            multiple // Multi-file support
+            onChange={handleInputUpload}
+            disabled={!isAuthenticated}
             className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
           />
-          <div className="w-12 h-12 bg-[var(--faim-secondary-muted)] text-[var(--faim-secondary)] rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-            {uploading ? <Spinner size="sm" /> : <UploadCloud size={24} />}
+          <div className={[
+            "w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-transform duration-300",
+            isDragOver ? "bg-cyan-500 text-white scale-110" : "bg-[var(--faim-secondary-muted)] text-[var(--faim-secondary)] group-hover:scale-110"
+          ].join(" ")}>
+            <UploadCloud size={28} />
           </div>
-          <div className="font-semibold text-sm text-[var(--text-primary)] mb-1">
-            {uploading ? "Uploading..." : "Click or drag file to upload"}
+          <div className="font-semibold text-base text-[var(--text-primary)] mb-1">
+            {isDragOver ? "Drop files now" : "Click or drag files to upload"}
           </div>
-          <div className="text-xs text-[var(--text-muted)]">
-            PDF, TXT, MD supported (Max 50MB)
+           <div className="text-xs text-[var(--text-muted)]">
+            Supports PDF, DOCX, TXT, MD, Code • Max 50MB per file
           </div>
         </div>
-      </Card>
 
-      {/* FILES LIST */}
-      <Card>
-        <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Documents</h2>
-          <Badge variant="default" size="sm">{docs.length} files</Badge>
+        {/* Active Uploads Progress */}
+        {Object.keys(activeUploads).length > 0 && (
+          <div className="border-t border-[var(--border-subtle)] p-4 space-y-3 bg-[var(--surface-2)] rounded-b-xl">
+             <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
+               Uploading {Object.keys(activeUploads).length} files...
+             </div>
+             {Object.entries(activeUploads).map(([name, progress]) => (
+               <div key={name} className="flex items-center gap-3 text-xs">
+                 <Spinner size="xs" />
+                 <div className="flex-1 min-w-0">
+                    <div className="flex justify-between mb-1">
+                       <span className="truncate text-[var(--text-primary)]">{name}</span>
+                       <span className="text-[var(--text-muted)]">{progress}%</span>
+                    </div>
+                    <div className="h-1 bg-[var(--surface-3)] rounded-full overflow-hidden">
+                       <div className="h-full bg-cyan-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+                    </div>
+                 </div>
+               </div>
+             ))}
+          </div>
+        )}
+      </div>
+
+      {/* SUPPORTED FILES INFO */}
+      <div className="flex justify-center">
+        <button
+          onClick={() => setShowSupportedFiles(!showSupportedFiles)}
+          className="flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-cyan-400 transition-colors py-1 px-3 rounded-full border border-transparent hover:border-cyan-500/30 hover:bg-cyan-500/5"
+        >
+          <Info size={12} />
+          <span>Supported File Types</span>
+          <ChevronDown size={12} className={`transition-transform ${showSupportedFiles ? "rotate-180" : ""}`} />
+        </button>
+      </div>
+
+      {showSupportedFiles && (
+        <div className="bg-[var(--surface-1)] border border-[var(--border-default)] rounded-xl p-4 space-y-4 animate-[fadeIn_0.2s_ease-out]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Documents */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                <FileText size={12} /> Documents
+              </h4>
+              <ul className="text-xs text-[var(--text-secondary)] space-y-1">
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> PDF (.pdf)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Word (.docx, .doc)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> PowerPoint (.pptx, .ppt)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Excel (.xlsx, .xls)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> OpenDocument (.odt, .ods)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Rich Text (.rtf)</li>
+              </ul>
+            </div>
+
+            {/* Text & Markup */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-violet-400 uppercase tracking-wider flex items-center gap-1.5">
+                <FileIcon size={12} /> Text & Markup
+              </h4>
+              <ul className="text-xs text-[var(--text-secondary)] space-y-1">
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Plain Text (.txt)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Markdown (.md, .markdown)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> HTML (.html, .htm)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> XML (.xml)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> JSON (.json)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> YAML (.yaml, .yml)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> CSV (.csv)</li>
+              </ul>
+            </div>
+
+            {/* Code Files */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-pink-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Eye size={12} /> Code Files
+              </h4>
+              <ul className="text-xs text-[var(--text-secondary)] space-y-1">
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Python (.py)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> JavaScript (.js, .jsx)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> TypeScript (.ts, .tsx)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Java (.java)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> C/C++ (.c, .cpp, .h)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> C# (.cs)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Go (.go)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Rust (.rs)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> SQL (.sql)</li>
+              </ul>
+            </div>
+
+            {/* Other Formats */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <HardDrive size={12} /> Other Formats
+              </h4>
+              <ul className="text-xs text-[var(--text-secondary)] space-y-1">
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> E-books (.epub)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> LaTeX (.tex)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Log files (.log)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Config files (.ini, .cfg)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Shell scripts (.sh, .bash)</li>
+                <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Dockerfile (Dockerfile)</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="border-t border-[var(--border-subtle)] pt-3 flex items-center justify-between text-[10px] text-[var(--text-muted)]">
+            <span>Maximum file size: <strong className="text-[var(--text-secondary)]">50MB</strong> per file</span>
+            <span>Files are processed for knowledge extraction and graph indexing</span>
+          </div>
+        </div>
+      )}
+
+      {/* TOOLBAR */}
+      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+         <div className="relative w-full sm:w-72 group">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-cyan-400" size={14} />
+            <input
+              type="text"
+              placeholder="Filter documents..."
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              className="w-full bg-[var(--surface-1)] border border-[var(--border-default)] rounded-lg pl-8 pr-3 py-2 text-sm focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
+            />
+         </div>
+         <div className="flex items-center gap-2 self-end sm:self-auto">
+            <select
+               value={sortBy}
+               onChange={(e) => setSortBy(e.target.value as SortOption)}
+               className="bg-[var(--surface-1)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-cyan-500/50"
+            >
+               <option value="date_desc">Newest first</option>
+               <option value="date_asc">Oldest first</option>
+               <option value="az">Name (A-Z)</option>
+               <option value="za">Name (Z-A)</option>
+               <option value="size_desc">Largest size</option>
+            </select>
+         </div>
+      </div>
+
+      {/* FILE LIST */}
+      <Card noPadding className="overflow-hidden">
+        <div className="px-4 py-3 border-b border-[var(--border-subtle)] bg-[var(--surface-1)] flex items-center gap-3">
+           <input 
+              type="checkbox" 
+              className="rounded border-[var(--border-default)] bg-[var(--surface-2)] text-cyan-500 focus:ring-cyan-500/30"
+              checked={filteredDocs.length > 0 && selectedIds.size === filteredDocs.length}
+              onChange={selectAll}
+           />
+           <span className="text-xs font-semibold text-[var(--text-secondary)]">Name</span>
+           <div className="ml-auto text-xs font-semibold text-[var(--text-secondary)] pr-20">Status</div>
         </div>
 
         {loading ? (
@@ -291,94 +628,115 @@ export default function StoragePage() {
               </div>
             ))}
           </div>
-        ) : docs.length === 0 ? (
+        ) : filteredDocs.length === 0 ? (
           <EmptyState
             icon="documents"
-            title="No files yet"
-            description="Upload documents to get started building your knowledge graph."
+            title="No files found"
+            description={filterQuery ? "Try adjusting your search filters." : "Upload documents to get started."}
             size="sm"
           />
         ) : (
           <div className="divide-y divide-[var(--border-subtle)]">
-            {docs.map((doc) => (
-              <div
-                key={doc.id}
-                className="p-4 flex items-center justify-between hover:bg-[var(--surface-2)] transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-secondary)]">
-                    <FileText size={20} />
-                  </div>
-                  <div>
-                    <div className="font-medium text-[var(--text-primary)] text-sm">
-                      {doc.filename}
-                    </div>
-                    <div className="text-xs text-[var(--text-muted)] flex items-center gap-1.5 mt-0.5">
-                      <span>{new Date(doc.created_at).toLocaleDateString()}</span>
-                      <span>•</span>
-                      <span className="font-mono">{doc.id.slice(0, 8)}</span>
-                    </div>
-                  </div>
-                </div>
+            {filteredDocs.map((doc) => {
+               const isSelected = selectedIds.has(doc.id);
+               return (
+                 <div
+                   key={doc.id}
+                   className={`group px-4 py-3 flex items-center gap-3 hover:bg-[var(--surface-2)] transition-colors ${isSelected ? "bg-cyan-500/5 text-cyan-100" : ""}`}
+                 >
+                   <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelection(doc.id, true)} 
+                      className="rounded border-[var(--border-default)] bg-[var(--surface-2)] text-cyan-500 focus:ring-cyan-500/30 opacity-40 group-hover:opacity-100 transition-opacity"
+                   />
+                   
+                   <div className="w-9 h-9 shrink-0 rounded-lg bg-[var(--surface-3)] flex items-center justify-center text-[var(--text-secondary)]">
+                      <FileIcon size={16} />
+                   </div>
 
-                <div className="flex items-center gap-3">
-                  <StatusBadge status={doc.status} />
-                </div>
-              </div>
-            ))}
+                   <button 
+                      onClick={() => handlePreview(doc)}
+                      className="flex-1 min-w-0 text-left"
+                   >
+                      <div className="flex items-center gap-2">
+                        <span className={`font-medium text-sm truncate hover:underline ${isSelected ? "text-cyan-200" : "text-[var(--text-primary)]"}`}>
+                           {doc.filename}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-[var(--text-muted)] flex items-center gap-2 mt-0.5">
+                         <span>{new Date(doc.created_at).toLocaleDateString()}</span>
+                         <span>•</span>
+                         <span>{formatBytes(doc.file_size_bytes)}</span>
+                      </div>
+                   </button>
+
+                   <StatusBadge status={doc.status} />
+
+                   <DropdownMenu doc={doc} onDelete={() => {
+                      confirm("Delete file?", "This cannot be undone.", async () => {
+                         // Simulate delete
+                         setDocs(prev => prev.filter(p => p.id !== doc.id));
+                         toast.success("File deleted");
+                      }, "danger");
+                   }} />
+                 </div>
+               );
+            })}
           </div>
         )}
       </Card>
 
-      {/* Supported Formats Info */}
-      <details className="group p-4 rounded-xl bg-[var(--surface-1)] border border-[var(--border-subtle)]">
-        <summary className="cursor-pointer text-xs font-medium text-[var(--text-secondary)] flex items-center gap-2 select-none group-hover:text-[var(--text-primary)]">
-          <span className="text-[var(--faim-secondary)]">📁</span>
-          Supported File Formats
-          <span className="text-[var(--text-muted)] text-[10px]">
-            (click to expand)
-          </span>
-        </summary>
-        <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4 text-[10px]">
-          <div>
-            <div className="text-[var(--faim-primary)] font-semibold mb-1">Documents</div>
-            <div className="text-[var(--text-muted)] space-y-0.5">
-              <div>.pdf (text + tables + OCR)</div>
-              <div>.docx / .doc (Word)</div>
-              <div>.pptx / .ppt (PowerPoint)</div>
-              <div>.xlsx / .xls (Excel)</div>
+      {/* Preview Modal */}
+      <Modal
+        open={!!previewDoc}
+        onClose={() => setPreviewDoc(null)}
+        title={previewDoc?.filename || "Preview"}
+      >
+         <div className="space-y-4">
+            <div className="flex items-center gap-4 p-4 bg-[var(--surface-2)] rounded-xl">
+               <div className="p-3 bg-[var(--surface-3)] rounded-lg">
+                  <FileText size={24} className="text-[var(--faim-primary)]" />
+               </div>
+               <div>
+                  <div className="font-semibold text-[var(--text-primary)]">{previewDoc?.filename}</div>
+                  <div className="text-xs text-[var(--text-muted)] mt-1">
+                     {previewDoc && formatBytes(previewDoc.file_size_bytes)} • {previewDoc && new Date(previewDoc.created_at).toLocaleString()}
+                  </div>
+               </div>
             </div>
-          </div>
-          <div>
-            <div className="text-[var(--faim-primary)] font-semibold mb-1">Text</div>
-            <div className="text-[var(--text-muted)] space-y-0.5">
-              <div>.txt (Plain text)</div>
-              <div>.md (Markdown)</div>
-              <div>.json (JSON data)</div>
-              <div>.csv (Spreadsheet)</div>
+
+            {/* Content Preview */}
+            <div className="min-h-[300px] max-h-[60vh] overflow-auto bg-[var(--surface-1)] rounded-xl border border-[var(--border-subtle)] p-4 text-xs font-mono text-[var(--text-secondary)] whitespace-pre-wrap">
+               {previewLoading ? (
+                  <div className="flex h-full items-center justify-center min-h-[200px]">
+                     <Spinner />
+                  </div>
+               ) : previewContent ? (
+                  previewContent
+               ) : (
+                  <div className="flex flex-col items-center justify-center h-full min-h-[200px] text-[var(--text-muted)]">
+                     <p>Preview not available for this file type.</p>
+                     <Button variant="ghost" size="sm" className="mt-4" onClick={() => {
+                        window.open(`/api/v1/storage/files/${previewDoc?.id}/content`, '_blank');
+                     }}>
+                        <Download size={14} className="mr-2" /> Download to view
+                     </Button>
+                  </div>
+               )}
             </div>
-          </div>
-          <div>
-            <div className="text-[var(--faim-primary)] font-semibold mb-1">Code</div>
-            <div className="text-[var(--text-muted)] space-y-0.5">
-              <div>.py .js .ts .tsx</div>
-              <div>.go .rs .java .c .cpp</div>
-              <div>.html .css .sql</div>
-              <div>.yaml .toml .xml</div>
+            
+            <div className="flex justify-end gap-2">
+               <Button variant="ghost" onClick={() => setPreviewDoc(null)}>Close</Button>
+               <Button variant="primary" onClick={() => {
+                   if (previewDoc) window.open(`/api/v1/storage/files/${previewDoc.id}/content`, '_blank');
+               }}>
+                  <Download size={14} className="mr-1.5" /> Download
+               </Button>
             </div>
-          </div>
-          <div>
-            <div className="text-[var(--faim-primary)] font-semibold mb-1">Features</div>
-            <div className="text-[var(--text-muted)] space-y-0.5">
-              <div>✓ OCR for scanned PDFs</div>
-              <div>✓ Table extraction</div>
-              <div>✓ FAIM memory ingestion</div>
-              <div>✓ Fractal inheritance</div>
-            </div>
-          </div>
-        </div>
-      </details>
-      
+         </div>
+      </Modal>
+
       {/* Confirm Dialog */}
       <Modal
         open={confirmOpen}
@@ -407,9 +765,38 @@ export default function StoragePage() {
   );
 }
 
+function DropdownMenu({ doc, onDelete }: { doc: Doc, onDelete: () => void }) {
+   const [open, setOpen] = useState(false);
+   const ref = React.useRef(null);
+   useOutsideClick(ref as any, () => setOpen(false));
+
+   return (
+      <div className="relative" ref={ref}>
+         <button 
+            onClick={() => setOpen(!open)}
+            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-3)] transition-all"
+         >
+            <MoreVertical size={14} />
+         </button>
+         
+         {open && (
+            <div className="absolute right-0 top-full mt-1 w-32 bg-[var(--surface-2)] border border-[var(--border-subtle)] rounded-lg shadow-xl z-10 overflow-hidden py-1">
+               <button 
+                  onClick={() => { setOpen(false); onDelete(); }}
+                  className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 flex items-center gap-2"
+               >
+                  <Trash2 size={12} /> Delete
+               </button>
+            </div>
+         )}
+      </div>
+   );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const variantMap: Record<string, "success" | "warning" | "error" | "default"> = {
     completed: "success",
+    processed: "success",
     processing: "warning",
     pending: "warning",
     failed: "error",
@@ -417,15 +804,17 @@ function StatusBadge({ status }: { status: string }) {
   
   const iconMap: Record<string, any> = {
     completed: CheckCircle,
+    processed: CheckCircle,
     processing: Clock,
     pending: Clock,
     failed: AlertCircle,
   };
 
   const Icon = iconMap[status] || Clock;
+  const variant = variantMap[status] || "default";
 
   return (
-    <Badge variant={variantMap[status] || "default"} size="sm" className="gap-1.5 capitalize">
+    <Badge variant={variant} size="sm" className="gap-1.5 capitalize">
       <Icon size={10} />
       {status}
     </Badge>

@@ -1,6 +1,6 @@
 # Docker ignore for frontend
-# IMPORTANT: We're NOT excluding node_modules 
-# because we want to copy them into Docker
+# Exclude node_modules - npm install creates fresh ones inside Docker
+node_modules
 
 # Next.js build output
 .next

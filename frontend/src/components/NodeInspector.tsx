@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { DEFAULT_GRAPH_ID, fetchNodeDetail } from "@/lib/api";
 
@@ -11,29 +11,27 @@ type ChildItem = { id: string; weight?: number };
 
 interface NodeInspectorProps {
   nodeId: string | null;
+  // NEW: support multiple selection
+  nodeIds?: string[];
   graphId?: string;
 }
+
+// ----------------------------------------------------------------------------
+// Helpers
+// ----------------------------------------------------------------------------
 
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
-function onStickyGlowMove(e: React.PointerEvent<HTMLElement>) {
-  const el = e.currentTarget as HTMLElement;
-  const r = el.getBoundingClientRect();
-  const x = clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1) * 100;
-  const y = clamp((e.clientY - r.top) / Math.max(1, r.height), 0, 1) * 100;
-  el.style.setProperty("--mx", `${x.toFixed(2)}%`);
-  el.style.setProperty("--my", `${y.toFixed(2)}%`);
-  el.style.setProperty("--gvis", "0.20"); // soft, not too strong
-}
+
 /**
- * Sticky glow (controlled):
- * - updates --mx/--my on pointer move capture
- * - keeps last position (no reset on leave)
- * - uses soft intensity so it doesn't flood
+ * Sticky glow vars for panel-level hover:
+ * - Updates --mx/--my on mouse move
+ * - Keeps last position (no reset on leave)
+ * - Uses a controlled intensity (not too strong)
  */
-function useStickyGlowVars(intensity = 0.22) {
-  const ref = React.useRef<HTMLElement | null>(null);
+function useStickyGlowVars(intensity = 0.28) {
+  const ref = useRef<HTMLElement | null>(null);
 
   const onPointerMoveCapture = (e: React.PointerEvent<HTMLElement>) => {
     const el = ref.current;
@@ -53,16 +51,43 @@ function useStickyGlowVars(intensity = 0.22) {
   return { ref, onPointerMoveCapture, onPointerLeave };
 }
 
-export function NodeInspector({ nodeId, graphId }: NodeInspectorProps) {
+function buildNodeTooltip(node: any): string {
+  const id = node.id ?? "(no id)";
+  const label = node.label ?? node.name ?? "";
+  const rawPayload: unknown =
+    node.preview ??
+    node.snippet ??
+    node.payload ??
+    node.text ??
+    node.body ??
+    "";
+
+  let preview = "";
+  if (rawPayload && typeof rawPayload === "string") {
+    preview = rawPayload.split("\n").slice(0, 3).join(" ").trim();
+    if (preview.length > 220) preview = preview.slice(0, 220) + "…";
+  }
+
+  const header = label ? `${label}\n${id}` : id;
+  return preview ? `${header}\n\n${preview}` : header;
+}
+
+export function NodeInspector({ nodeId, nodeIds, graphId }: NodeInspectorProps) {
   const [detail, setDetail] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<InspectorMode>("B"); // default = Option B
 
   const effectiveGraphId = graphId ?? DEFAULT_GRAPH_ID;
+  const glow = useStickyGlowVars(0.2);
+
+  // Derive effective selection
+  const selection = nodeIds && nodeIds.length > 0 ? nodeIds : (nodeId ? [nodeId] : []);
+  const isMulti = selection.length > 1;
+  const primaryId = selection.length > 0 ? selection[selection.length - 1] : null;
 
   useEffect(() => {
-    if (!nodeId) {
+    if (!primaryId || isMulti) {
       setDetail(null);
       setError(null);
       return;
@@ -71,7 +96,7 @@ export function NodeInspector({ nodeId, graphId }: NodeInspectorProps) {
     setLoading(true);
     setError(null);
 
-    fetchNodeDetail(effectiveGraphId, nodeId)
+    fetchNodeDetail(effectiveGraphId, primaryId)
       .then((d) => {
         setDetail(d);
         setError(null);
@@ -82,11 +107,9 @@ export function NodeInspector({ nodeId, graphId }: NodeInspectorProps) {
         setError("Unable to load node detail.");
       })
       .finally(() => setLoading(false));
-  }, [nodeId, effectiveGraphId]);
+  }, [primaryId, isMulti, effectiveGraphId]);
 
-  const glow = useStickyGlowVars(0.2);
-
-  if (!nodeId) {
+  if (selection.length === 0) {
     return (
       <aside
         ref={glow.ref as React.RefObject<HTMLElement>}
@@ -100,13 +123,9 @@ export function NodeInspector({ nodeId, graphId }: NodeInspectorProps) {
           } as React.CSSProperties
         }
         className={clsx(
-          // base
-          "h-full rounded-2xl border border-slate-800/70 bg-slate-650/55 p-4 text-xs text-slate-400",
-          // neon cyan lines
+          "h-full rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4 text-xs text-slate-400",
           "ring-1 ring-inset ring-cyan-500/0",
-          // depth
           "shadow-[0_0_0_1px_rgba(15,23,42,0.55),0_18px_70px_-40px_rgba(0,0,0,0.85)]",
-          // glow layers (need content)
           "relative overflow-hidden before:content-[''] before:pointer-events-none before:absolute before:inset-0",
           "after:content-[''] after:pointer-events-none after:absolute after:inset-0",
           "before:[background:radial-gradient(620px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.11),transparent_66%)]",
@@ -115,7 +134,6 @@ export function NodeInspector({ nodeId, graphId }: NodeInspectorProps) {
           "after:opacity-[var(--gvis)]",
         )}
       >
-        {/* subtle neon edge line */}
         <div className="pointer-events-none absolute inset-0 rounded-2xl border border-cyan-400/10" />
         <div className="relative z-[1]">
           <header className="mb-2 flex items-center justify-between gap-2">
@@ -129,8 +147,45 @@ export function NodeInspector({ nodeId, graphId }: NodeInspectorProps) {
             </div>
           </header>
           <p className="mt-4 text-[11px] text-slate-500">
-            No node selected yet.
+             No node selected yet. Shift+Click to select multiple.
           </p>
+        </div>
+      </aside>
+    );
+  }
+
+  // Multi-select View
+  if (isMulti) {
+    return (
+      <aside
+        className={clsx(
+          "h-full rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4 text-xs",
+          "ring-1 ring-inset ring-cyan-500/10",
+           "relative overflow-hidden"
+        )}
+      >
+        <div className="pointer-events-none absolute inset-0 rounded-2xl border border-cyan-400/10" />
+        <div className="relative z-[1] h-full flex flex-col">
+          <header className="mb-3">
+             <h2 className="text-xs font-semibold text-slate-100">
+                Selection ({selection.length})
+              </h2>
+              <p className="text-[11px] text-slate-400">
+                Multiple nodes selected.
+              </p>
+          </header>
+          
+          <div className="flex-1 overflow-y-auto space-y-1 pr-1">
+             {selection.map(id => (
+               <div key={id} className="flex items-center justify-between rounded border border-slate-800 bg-slate-900/40 px-2 py-1.5 text-[11px] text-slate-200">
+                  <span className="truncate">{id}</span>
+               </div>
+             ))}
+          </div>
+          
+          <div className="mt-3 pt-3 border-t border-slate-800">
+             <p className="text-[10px] text-slate-500 text-center">Batch actions coming soon</p>
+          </div>
         </div>
       </aside>
     );
@@ -149,13 +204,9 @@ export function NodeInspector({ nodeId, graphId }: NodeInspectorProps) {
         } as React.CSSProperties
       }
       className={clsx(
-        // base
         "h-full rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4 text-xs",
-        // neon cyan lines
         "ring-1 ring-inset ring-cyan-500/10",
-        // depth
         "shadow-[0_0_0_1px_rgba(15,23,42,0.55),0_18px_70px_-40px_rgba(0,0,0,0.85)]",
-        // glow layers (need content)
         "relative overflow-hidden before:content-[''] before:pointer-events-none before:absolute before:inset-0",
         "after:content-[''] after:pointer-events-none after:absolute after:inset-0",
         "before:[background:radial-gradient(620px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.11),transparent_66%)]",
@@ -164,7 +215,6 @@ export function NodeInspector({ nodeId, graphId }: NodeInspectorProps) {
         "after:opacity-[var(--gvis)]",
       )}
     >
-      {/* subtle neon edge line */}
       <div className="pointer-events-none absolute inset-0 rounded-2xl border border-cyan-400/10" />
 
       <div className="relative z-[1]">
@@ -365,25 +415,33 @@ function NodeDetailBody({
 
           {parents && parents.length > 0 && (
             <div className="mt-2">
-              <div className="mb-1 text-[10px] uppercase tracking-wide text-slate-500">
-                Parents
+              <div className="mb-1 text-[10px] uppercase tracking-wide text-purple-400 flex items-center gap-1">
+                <span>🧬</span>
+                <span>Fractal Inheritance</span>
               </div>
               <ul className="space-y-1">
-                {parents.map((p: ParentItem) => (
-                  <li
-                    key={p.id}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <span className="truncate text-[11px] text-slate-100">
-                      {p.id}
-                    </span>
-                    {typeof p.fraction === "number" && (
-                      <span className="shrink-0 rounded-full bg-slate-800 px-2 py-0.5 text-[10px] text-slate-300">
-                        {p.fraction.toFixed(3)}
+                {parents.map((p: ParentItem) => {
+                  // Color fraction badge based on weight
+                  const frac = p.fraction ?? 0;
+                  const fracColor = frac > 0.7 ? "bg-purple-500/30 text-purple-200" 
+                    : frac > 0.3 ? "bg-cyan-500/20 text-cyan-300" 
+                    : "bg-slate-700 text-slate-400";
+                  return (
+                    <li
+                      key={p.id}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <span className="truncate text-[11px] text-slate-100">
+                        {p.id.slice(0, 20)}...
                       </span>
-                    )}
-                  </li>
-                ))}
+                      {typeof p.fraction === "number" && (
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${fracColor}`}>
+                          {(p.fraction * 100).toFixed(0)}%
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}
@@ -402,16 +460,61 @@ function NodeDetailBody({
               <div className="mt-1 text-[11px] text-slate-100">{degree}</div>
             </div>
             {redundancyScore !== null && (
-              <div className="rounded-md border border-slate-800 bg-slate-900/70 p-2">
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">
-                  Redundancy score
+              <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-2">
+                <div className="text-[10px] uppercase tracking-wide text-amber-400 flex items-center gap-1">
+                  <span>⚡</span>
+                  <span>Opposition Score</span>
                 </div>
-                <div className="mt-1 text-[11px] text-slate-100">
-                  {Number(redundancyScore).toFixed(3)}
+                <div className="mt-1 text-[11px] text-amber-200">
+                  {(Number(redundancyScore) * 100).toFixed(1)}%
+                </div>
+              </div>
+            )}
+            {/* Novelty Indicator - FAIM Self-Inventing Memory */}
+            {anyDetail.novelty !== undefined && anyDetail.novelty !== null && (
+              <div className="rounded-md border border-emerald-500/20 bg-emerald-500/5 p-2">
+                <div className="text-[10px] uppercase tracking-wide text-emerald-400 flex items-center gap-1">
+                  <span>✨</span>
+                  <span>Δ Novelty</span>
+                </div>
+                <div className="mt-1 text-[11px] text-emerald-200">
+                  {(Number(anyDetail.novelty) * 100).toFixed(0)}%
+                </div>
+              </div>
+            )}
+            {/* Inherited indicator */}
+            {anyDetail.inherited !== undefined && anyDetail.inherited !== null && (
+              <div className="rounded-md border border-purple-500/20 bg-purple-500/5 p-2">
+                <div className="text-[10px] uppercase tracking-wide text-purple-400 flex items-center gap-1">
+                  <span>🧬</span>
+                  <span>Inherited</span>
+                </div>
+                <div className="mt-1 text-[11px] text-purple-200">
+                  {(Number(anyDetail.inherited) * 100).toFixed(0)}%
                 </div>
               </div>
             )}
           </div>
+
+          {/* Evolution Flags - FAIM Self-Evolution Status */}
+          {evolutionFlags && evolutionFlags.length > 0 && (
+            <div className="rounded-md border border-cyan-500/20 bg-cyan-500/5 p-2">
+              <div className="mb-1 text-[10px] uppercase tracking-wide text-cyan-400 flex items-center gap-1">
+                <span>🔄</span>
+                <span>Evolution Flags</span>
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {evolutionFlags.map((flag: string, idx: number) => (
+                  <span 
+                    key={idx}
+                    className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[9px] text-cyan-200"
+                  >
+                    {flag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {children && children.length > 0 && (
             <div>

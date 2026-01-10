@@ -21,6 +21,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { SidebarNav } from "./SidebarNav";
 import { TopBar } from "./TopBar";
 import { FaimHeader } from "../FaimHeader";
@@ -71,6 +72,14 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
     }
   });
 
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!graphId) return;
@@ -89,6 +98,19 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
       // ignore
     }
   }, [sidebarCollapsed]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Cmd+B or Cmd+\ to toggle sidebar
+      if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === "b" || e.key === "\\")) {
+        e.preventDefault();
+        setSidebarCollapsed((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // --------------------------------------------------------------------------
   // Section: Global cursor-follow effect
@@ -158,38 +180,46 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
       <aside
         className={[
           "relative z-20 hidden h-screen flex-col md:flex border-r border-white/10 sticky top-0 overflow-hidden",
-          "transition-[width] duration-200",
-          sidebarCollapsed ? "w-0" : "w-[270px]",
+          "transition-[width] duration-300 ease-out",
+          sidebarCollapsed ? "w-[70px]" : "w-[270px]",
         ].join(" ")}
       >
         <div
           className={[
-            "flex h-full flex-col transition-opacity duration-200 bg-[var(--os-surface-1)] backdrop-blur-sm",
-            sidebarCollapsed ? "opacity-0 pointer-events-none" : "opacity-100",
+            "flex h-full flex-col bg-[var(--os-surface-1)] backdrop-blur-sm",
+            sidebarCollapsed ? "items-center" : "",
           ].join(" ")}
         >
-          {/* Branding block: Logo + Header */}
-          <div className="px-4 pt-4">
-            <div className="rounded-2xl p-2 border border-white/5 bg-white/5">
-              <div className="-mt-4 flex items-center justify-center">
-                <Logo px={220} className="rounded-2xl" />
-              </div>
-              <div className="mt-5">
-                <FaimHeader />
-              </div>
+          {/* Branding block: Minimal Text */}
+          {!sidebarCollapsed && (
+            <div className="px-4 pt-5 pb-2">
+              <div className="text-[11px] uppercase tracking-[0.15em] text-cyan-300 font-medium">FAIMATRIX SYNAPSE</div>
+              <div className="text-sm font-semibold text-slate-100 mt-0.5">Neural Knowledge Synthesis</div>
             </div>
-          </div>
+          )}
+          
+          {/* Collapsed logo */}
+          {sidebarCollapsed && (
+            <div className="pt-4 pb-2">
+              <Logo px={40} className="rounded-lg" />
+            </div>
+          )}
 
-          {/* Navigation (brand removed to avoid duplication) */}
-          <div className="mt-4 overflow-y-auto px-4 flex-1">
-            <SidebarNav showBrand={false} />
+          {/* Navigation */}
+          <div className={[
+            "mt-4 overflow-y-auto flex-1",
+            sidebarCollapsed ? "px-2" : "px-4",
+          ].join(" ")}>
+            <SidebarNav showBrand={false} collapsed={sidebarCollapsed} />
           </div>
 
           {/* Footer note */}
-          <div className="mt-auto px-4 pb-6 pt-6 text-[10px] text-white/40">
-            <div>Fractal antisymmetric memory engine.</div>
-            <div>Built by you; this UI is just the lab window.</div>
-          </div>
+          {!sidebarCollapsed && (
+            <div className="mt-auto px-4 pb-6 pt-6 text-[10px] text-white/40">
+              <div>Fractal antisymmetric memory engine.</div>
+              <div>Built by you; this UI is just the lab window.</div>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -203,6 +233,7 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
           setGraphId={setGraphId}
           sidebarCollapsed={sidebarCollapsed}
           onToggleSidebar={() => setSidebarCollapsed((v) => !v)}
+          onMobileMenuOpen={() => setMobileMenuOpen(true)}
         />
 
         {/* Page body */}
@@ -212,6 +243,52 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
            </div>
         </main>
       </div>
+
+      {/* -------------------------------------------------------------------- */}
+      {/* Mobile Drawer                                                        */}
+      {/* -------------------------------------------------------------------- */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          
+          {/* Drawer Panel */}
+          <div className="relative w-[280px] h-full bg-[var(--os-surface-1)] border-r border-white/10 shadow-2xl animate-[slideIn_0.3s_cubic-bezier(0.16,1,0.3,1)]">
+            <div className="flex h-full flex-col">
+              {/* Header */}
+              <div className="px-4 pt-4 pb-2 border-b border-white/5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Logo size="small" className="rounded-lg" />
+                    <span className="font-semibold text-slate-100">FAIM Lab</span>
+                  </div>
+                  <button 
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="p-2 text-slate-400 hover:text-white"
+                  >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* Nav */}
+              <div className="flex-1 overflow-y-auto px-4 py-4">
+                <SidebarNav showBrand={false} />
+              </div>
+
+              {/* Footer */}
+              <div className="px-4 py-4 border-t border-white/5 text-[10px] text-zinc-500">
+                FAIM Lab Mobile
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -2,13 +2,15 @@
 
 import React, { useEffect, useState } from "react";
 import {
-  CreditCard,
   Check,
   ArrowRight,
   Star,
   Zap,
   Crown,
   Sparkles,
+  Loader2,
+  RefreshCw,
+  HardDrive,
 } from "lucide-react";
 import { getSession } from "next-auth/react";
 
@@ -16,9 +18,8 @@ interface UsageData {
   plan: string;
   tokens_used: number;
   tokens_max: number;
-  storage_used_mb: number;
-  storage_max_mb: number;
-  price_monthly: number;
+  storage_used_bytes: number;
+  storage_max_bytes: number;
 }
 
 const PLANS = [
@@ -80,7 +81,6 @@ const PLANS = [
   },
 ];
 
-// Tailwind classes must be statically analyzable - can't use template strings
 const COLOR_CLASSES = {
   cyan: {
     bg: "bg-cyan-500/20",
@@ -111,136 +111,61 @@ const COLOR_CLASSES = {
   },
 };
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
 export default function BillingPage() {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [upgrading, setUpgrading] = useState<string | null>(null);
-  const [projectId, setProjectId] = useState<string | null>(null);
   const [usage, setUsage] = useState<UsageData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isLive, setIsLive] = useState(false); // SSE connection status
 
-  // Initial load and SSE connection
+  const fetchUsage = async (showRefresh = false) => {
+    if (showRefresh) setRefreshing(true);
+    try {
+      const session = await getSession();
+      const token = (session as any)?.accessToken;
+
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      // Get real billing status with usage data
+      const resBilling = await fetch("/api/billing/status", { headers });
+      if (!resBilling.ok) throw new Error("Failed to load billing data");
+      
+      const billingData = await resBilling.json();
+
+      setUsage({
+        plan: billingData.plan || "free",
+        tokens_used: billingData.tokens_used || 0,
+        tokens_max: billingData.tokens_max || 1_000_000,
+        storage_used_bytes: billingData.storage_used_bytes || 0,
+        storage_max_bytes: billingData.storage_max_bytes || 104_857_600,
+      });
+      setError(null);
+    } catch (e: any) {
+      console.error(e);
+      setError(e.message || "Failed to load billing info");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    let eventSource: EventSource | null = null;
-
-    async function init() {
-      try {
-        const session = await getSession();
-        const token = (session as any)?.accessToken;
-
-        // In dev mode, API works without token
-        const headers: Record<string, string> = {};
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
-
-        // IMPORTANT: Call /me first to trigger auto-provisioning of org/project/graph
-        await fetch("/api/v1/me", { headers });
-
-        // Fetch user project to get plan
-        const resOrgs = await fetch("/api/v1/orgs", { headers });
-        const orgs = await resOrgs.json();
-
-        if (!Array.isArray(orgs) || orgs.length === 0) {
-          setError("No organization found");
-          return;
-        }
-
-        const resProjs = await fetch(`/api/v1/projects?org_id=${orgs[0].id}`, {
-          headers,
-        });
-        const projs = await resProjs.json();
-
-        if (!Array.isArray(projs) || projs.length === 0) {
-          setError("No project found");
-          return;
-        }
-
-        const project = projs[0];
-        setProjectId(project.id);
-
-        // Get token limit from PLANS array based on current plan
-        const currentPlanDef =
-          PLANS.find((p) => p.id === project.plan) || PLANS[0];
-        const planLimits = project.plan_limits || {};
-
-        setUsage({
-          plan: project.plan || "free",
-          tokens_used: planLimits.tokens_used || 0,
-          tokens_max: planLimits.tokens_max || currentPlanDef.tokensNum,
-          storage_used_mb: 0,
-          storage_max_mb: planLimits.storage_mb_max || currentPlanDef.storageMb,
-          price_monthly: currentPlanDef.price,
-        });
-
-        // Connect to SSE for real-time usage updates
-        connectSSE(project.id);
-      } catch (e: any) {
-        console.error(e);
-        setError(e.message || "Failed to load billing info");
-      }
-    }
-
-    function connectSSE(projId: string) {
-      try {
-        eventSource = new EventSource(
-          `/api/v1/usage/stream?project_id=${projId}`,
-        );
-
-        eventSource.onopen = () => {
-          console.log("[SSE] Connected to usage stream");
-          setIsLive(true);
-        };
-
-        eventSource.onmessage = (event) => {
-          try {
-            const message = JSON.parse(event.data);
-            console.log("[SSE] Received:", message);
-
-            if (message.type === "initial" || message.type === "usage_update") {
-              const data = message.data;
-              if (data && typeof data.tokens_used === "number") {
-                setUsage((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        tokens_used: data.tokens_used,
-                        tokens_max: data.tokens_max || prev.tokens_max,
-                      }
-                    : prev,
-                );
-              }
-            }
-          } catch (e) {
-            console.warn("[SSE] Parse error:", e);
-          }
-        };
-
-        eventSource.onerror = (e) => {
-          console.warn("[SSE] Connection error:", e);
-          setIsLive(false);
-          // Reconnect after 5 seconds
-          setTimeout(() => {
-            if (projId) connectSSE(projId);
-          }, 5000);
-        };
-      } catch (e) {
-        console.warn("[SSE] Failed to connect:", e);
-      }
-    }
-
-    init();
-
-    // Cleanup on unmount
-    return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
-    };
+    fetchUsage();
   }, []);
 
   const handleUpgrade = async (planId: string) => {
-    if (!projectId || planId === "free") return;
+    if (planId === "free" || planId === usage?.plan) return;
 
     setUpgrading(planId);
     try {
@@ -254,65 +179,25 @@ export default function BillingPage() {
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-      const res = await fetch("/api/billing/checkout", {
+      const res = await fetch("/api/billing/upgrade", {
         method: "POST",
         headers,
-        body: JSON.stringify({
-          project_id: projectId,
-          plan: planId,
-          success_url: window.location.origin + "/billing?success=true",
-          cancel_url: window.location.origin + "/billing?canceled=true",
-        }),
+        body: JSON.stringify({ plan: planId }),
       });
 
       const data = await res.json();
 
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
-      } else if (data.detail) {
-        alert(data.detail);
+      if (res.ok) {
+        // Refresh usage data
+        await fetchUsage();
+        alert(`Successfully upgraded to ${planId}!`);
       } else {
-        alert("Checkout failed: " + JSON.stringify(data));
+        alert(data.detail || "Upgrade failed");
       }
     } catch (err: any) {
-      alert(err.message || "Error starting checkout");
+      alert(err.message || "Error upgrading plan");
     } finally {
       setUpgrading(null);
-    }
-  };
-
-  const handleManage = async () => {
-    if (!projectId) return;
-    setLoading(true);
-    try {
-      const session = await getSession();
-      const token = (session as any)?.accessToken;
-
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
-      }
-
-      const res = await fetch(
-        `/api/billing/portal/${projectId}?return_url=${encodeURIComponent(window.location.href)}`,
-        {
-          method: "POST",
-          headers,
-        },
-      );
-
-      const data = await res.json();
-      if (data.portal_url) {
-        window.location.href = data.portal_url;
-      } else {
-        alert("Portal failed: " + (data.detail || "Unknown error"));
-      }
-    } catch (err) {
-      alert("Error opening billing portal");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -320,6 +205,18 @@ export default function BillingPage() {
   const tokensUsedPercent = usage
     ? Math.min(100, (usage.tokens_used / usage.tokens_max) * 100)
     : 0;
+  const storageUsedPercent = usage
+    ? Math.min(100, (usage.storage_used_bytes / usage.storage_max_bytes) * 100)
+    : 0;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="animate-spin text-cyan-400" size={24} />
+        <span className="ml-2 text-slate-400">Loading billing info...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -337,7 +234,7 @@ export default function BillingPage() {
       {/* Current Usage Card */}
       {usage && (
         <div className="bg-slate-900/60 border border-slate-700/50 rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <span className="text-xs text-slate-500 uppercase tracking-wider">
                 Current Plan
@@ -346,54 +243,73 @@ export default function BillingPage() {
                 {currentPlan}
               </div>
             </div>
-            {currentPlan !== "free" && (
-              <button
-                onClick={handleManage}
-                disabled={loading}
-                className="px-3 py-1.5 text-xs rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-all"
-              >
-                {loading ? "Loading..." : "Manage Subscription"}
-              </button>
-            )}
+            <button
+              onClick={() => fetchUsage(true)}
+              disabled={refreshing}
+              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-all"
+              title="Refresh usage"
+            >
+              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+            </button>
           </div>
 
           {/* Token Usage Bar */}
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-slate-400">
-              <span className="flex items-center gap-1.5">
-                Token Usage
-                {isLive && (
-                  <span className="flex items-center gap-1 text-green-400">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                    </span>
-                    <span className="text-[10px]">LIVE</span>
-                  </span>
-                )}
-              </span>
-              <span>
-                {(usage.tokens_used / 1_000_000).toFixed(2)}M /{" "}
-                {(usage.tokens_max / 1_000_000).toFixed(0)}M
-              </span>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-slate-400">
+                <span className="flex items-center gap-2">
+                  <Zap size={12} className="text-cyan-400" />
+                  Token Usage
+                </span>
+                <span className="font-mono">
+                  {(usage.tokens_used / 1_000_000).toFixed(2)}M /{" "}
+                  {(usage.tokens_max / 1_000_000).toFixed(0)}M
+                </span>
+              </div>
+              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${
+                    tokensUsedPercent > 90
+                      ? "bg-red-500"
+                      : tokensUsedPercent > 70
+                        ? "bg-yellow-500"
+                        : "bg-gradient-to-r from-cyan-500 to-purple-500"
+                  }`}
+                  style={{ width: `${tokensUsedPercent}%` }}
+                />
+              </div>
+              {tokensUsedPercent > 80 && (
+                <p className="text-xs text-yellow-400">
+                  ⚠️ Running low on tokens. Consider upgrading!
+                </p>
+              )}
             </div>
-            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all duration-500 ${
-                  tokensUsedPercent > 90
-                    ? "bg-red-500"
-                    : tokensUsedPercent > 70
-                      ? "bg-yellow-500"
-                      : "bg-gradient-to-r from-cyan-500 to-purple-500"
-                }`}
-                style={{ width: `${tokensUsedPercent}%` }}
-              />
+
+            {/* Storage Usage Bar */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-slate-400">
+                <span className="flex items-center gap-2">
+                  <HardDrive size={12} className="text-purple-400" />
+                  Storage Usage
+                </span>
+                <span className="font-mono">
+                  {formatBytes(usage.storage_used_bytes)} /{" "}
+                  {formatBytes(usage.storage_max_bytes)}
+                </span>
+              </div>
+              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${
+                    storageUsedPercent > 90
+                      ? "bg-red-500"
+                      : storageUsedPercent > 70
+                        ? "bg-yellow-500"
+                        : "bg-gradient-to-r from-purple-500 to-pink-500"
+                  }`}
+                  style={{ width: `${storageUsedPercent}%` }}
+                />
+              </div>
             </div>
-            {tokensUsedPercent > 80 && (
-              <p className="text-xs text-yellow-400 mt-1">
-                ⚠️ You're running low on tokens. Consider upgrading!
-              </p>
-            )}
           </div>
         </div>
       )}
@@ -494,7 +410,7 @@ export default function BillingPage() {
               ) : isUpgrade ? (
                 <button
                   onClick={() => handleUpgrade(plan.id)}
-                  disabled={upgrading !== null || !projectId}
+                  disabled={upgrading !== null}
                   className={`w-full py-2.5 px-4 rounded-lg font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
                     plan.popular
                       ? "bg-white text-black hover:bg-white/90"
@@ -502,7 +418,10 @@ export default function BillingPage() {
                   }`}
                 >
                   {upgrading === plan.id ? (
-                    "Processing..."
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Upgrading...
+                    </>
                   ) : (
                     <>
                       Upgrade to {plan.name}
@@ -511,9 +430,13 @@ export default function BillingPage() {
                   )}
                 </button>
               ) : (
-                <div className="py-2 px-4 rounded-lg bg-slate-700/30 text-slate-500 text-xs text-center">
-                  Downgrade via Portal
-                </div>
+                <button
+                  onClick={() => handleUpgrade(plan.id)}
+                  disabled={upgrading !== null}
+                  className="w-full py-2 px-4 rounded-lg bg-slate-700/30 hover:bg-slate-700/50 text-slate-400 hover:text-slate-300 text-xs text-center transition-all"
+                >
+                  {upgrading === plan.id ? "Downgrading..." : "Downgrade"}
+                </button>
               )}
             </div>
           );
@@ -525,13 +448,7 @@ export default function BillingPage() {
         <p className="text-xs text-slate-500">
           All plans include your permanent Universe ID and API access.
           <br />
-          Need more? Contact us at{" "}
-          <a
-            href="mailto:support@faim.dev"
-            className="text-cyan-400 hover:underline"
-          >
-            support@faim.dev
-          </a>
+          Usage is tracked in real-time across all memory operations.
         </p>
       </div>
     </div>

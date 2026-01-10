@@ -65,10 +65,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         })
         .then((data) => {
           if (data.graph_id && data.graph_id !== graphId) {
-            console.log(
-              "[UserContext] Auto-healing stale Graph ID:",
-              data.graph_id,
-            );
+            // Auto-heal stale Graph ID silently
             // Update localStorage
             try {
               window.localStorage.setItem(
@@ -135,5 +132,5 @@ export function useUserIds() {
     }
   }, [isLoading, isAuthenticated, projectId, graphId]);
 
-  return { projectId, graphId, isLoading };
+  return { projectId, graphId, isLoading, isAuthenticated };
 }

@@ -39,45 +39,22 @@ export default function ApiKeysPage() {
         const session = await getSession();
         const token = (session as any)?.accessToken;
 
-        // In dev mode, API works without token. Only add header if token exists.
         const headers: Record<string, string> = {};
         if (token) {
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        // IMPORTANT: Call /me first to trigger auto-provisioning of org/project/graph
-        await fetch("/api/v1/me", { headers });
-
-        // Fetch orgs
-        const resOrgs = await fetch("/api/v1/orgs", { headers });
-        const orgs = await resOrgs.json();
-        if (!Array.isArray(orgs) || orgs.length === 0) {
-          setError("No organization found. Please create one first.");
-          return;
-        }
-
-        const orgId = orgs[0].id;
-
-        // Fetch projects
-        const resProjs = await fetch(`/api/v1/projects?org_id=${orgId}`, {
+        // Load existing keys (User scoped - no project_id needed)
+        const resKeys = await fetch("/api/v1/api_keys", {
           headers,
         });
-        const projects = await resProjs.json();
-        if (!Array.isArray(projects) || projects.length === 0) {
-          setError("No project found. Please create one first.");
-          return;
-        }
-
-        const pid = projects[0].id;
-        setProjectId(pid);
-
-        // Load existing keys
-        const resKeys = await fetch(`/api/v1/api_keys?project_id=${pid}`, {
-          headers,
-        });
+        
         if (resKeys.ok) {
           const keysData = await resKeys.json();
           setKeys(Array.isArray(keysData) ? keysData : []);
+        } else {
+           // Handle 401/403 or other errors
+           if (resKeys.status === 401) setError("Unauthorized. Please login again.");
         }
       } catch (err: any) {
         console.error(err);
@@ -90,7 +67,7 @@ export default function ApiKeysPage() {
   }, []);
 
   const handleCreate = async () => {
-    if (!createName || !projectId) return;
+    if (!createName) return;
     setIsCreating(true);
     try {
       const session = await getSession();
@@ -107,7 +84,6 @@ export default function ApiKeysPage() {
         method: "POST",
         headers,
         body: JSON.stringify({
-          project_id: projectId,
           name: createName,
           scopes: ["graph:read", "graph:write"],
         }),

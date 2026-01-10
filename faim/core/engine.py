@@ -34,28 +34,29 @@ from typing import Any, Dict, List, Optional, Sequence, cast
 
 import numpy as np
 
-from faim.core.embedding import Embedder as EmbedderProtocol
-from faim.index.ann import ANNIndex
-from faim.index.radius import RadiusIndex
-from faim.index.usage import UsageTracker
-from faim.speed.hot_cache import HotNodeCache
-from faim.speed.ingest_worker import IngestWorker
-from faim.speed.nvme_snapshot import SnapshotManager
-from faim.speed.spec import PersistMode, get_speed_budget
-from faim.speed.vector_bank import VectorBank
-from faim.speed.write_queue import WriteQueue, WriteTask
-from faim.storage.cipher import build_cipher_from_env
-from faim.storage.encrypted_payload_store import EncryptedPayloadStore
-from faim.storage.journal import EventJournal, JournalEvent
-from faim.storage.payload_store import PayloadStore
-from faim.storage.store import FAIMStore
+from faim.core.embedder import Embedder as EmbedderProtocol
+from faim.core.memory import UsageTracker, VectorMemory
+from faim.data.storage.cipher import build_cipher_from_env
+from faim.data.storage.encrypted_payload_store import EncryptedPayloadStore
+from faim.data.storage.journal import EventJournal, JournalEvent
+from faim.data.storage.payload_store import PayloadStore
+from faim.data.storage.store import FAIMStore
+from faim.pipeline.speed.hot_cache import HotNodeCache
+from faim.pipeline.speed.ingest_worker import IngestWorker
+from faim.pipeline.speed.nvme_snapshot import SnapshotManager
+from faim.pipeline.speed.spec import PersistMode, get_speed_budget
+from faim.pipeline.speed.vector_bank import VectorBank
+from faim.pipeline.speed.write_queue import WriteQueue, WriteTask
 
+from .analytics import AnalyticsScheduler
 from .antisym import merge_records
+from .events import emit_cluster_updated, emit_inference_found, emit_insight_discovered
 
 # P3 evolution imports
 from .evolution import (
     EvolutionAdapter,
     EvolutionConfig,
+    EvolutionScheduler,
     QueryStats,
     Region,
     RegionEvolutionConfig,
@@ -65,6 +66,7 @@ from .evolution import (
     evolve_graph_once,
     evolve_region,
 )
+from .invention import InventionScheduler
 from .math import InheritanceResult, inheritance_construction
 from .types import GraphId, NodeId, NodeRecord, ParentRef, Vector
 
@@ -142,8 +144,6 @@ class FAIMEngine:
         embedder: Optional[EmbedderProtocol] = None,
         store: Optional[FAIMStore] = None,
         payload_store: Optional[PayloadStore] = None,
-        ann_index: Optional[ANNIndex] = None,
-        radius_index: Optional[RadiusIndex] = None,
         journal: Optional[EventJournal] = None,
         usage: Optional[UsageTracker] = None,
         parent_top_k: int = 8,
@@ -195,8 +195,7 @@ class FAIMEngine:
         except Exception:
             embed_dim = EMBED_DIM
 
-        self._ann: ANNIndex = ann_index or ANNIndex(dim=embed_dim)
-        self._radius: RadiusIndex = radius_index or RadiusIndex(dim=embed_dim)
+        self._memory = VectorMemory(dim=embed_dim)
 
         self._parent_top_k = int(parent_top_k)
         self._antisym_theta = float(antisym_theta)
@@ -219,9 +218,9 @@ class FAIMEngine:
         # P4.3 - snapshot manager -------------------------------------------
         # NOTE: Using /tmp paths for Docker. Snapshots are ephemeral since
         # persistent storage is now handled by Postgres/Qdrant.
-        journal_path = Path("/tmp/faim/journal/faim_journal.jsonl")
+        journal_path = Path("/tmp/faim/journal/faim_journal.jsonl")  # nosec B108
         journal_path.parent.mkdir(parents=True, exist_ok=True)
-        snapshot_root = Path("/tmp/faim/snapshots")
+        snapshot_root = Path("/tmp/faim/snapshots")  # nosec B108
         snapshot_root.mkdir(parents=True, exist_ok=True)
 
         self._snapshot_manager = SnapshotManager(
@@ -265,6 +264,24 @@ class FAIMEngine:
                 meta,
                 apply_entry=self._apply_journal_entry,
             )
+
+        # P3.5 - Autonomous Self-Ness Schedulers -----------------------------
+        # These start dreaming when Engine is born. No external watchers needed.
+        self._evolution_scheduler: Optional[EvolutionScheduler] = EvolutionScheduler(store=self._store)
+        self._evolution_scheduler.start()
+
+        self._invention_scheduler: Optional[InventionScheduler] = None
+
+        # P5 - Analytics Scheduler (Clustering, Inference, Insights) ----------
+        self._analytics_scheduler = AnalyticsScheduler(
+            store=self._store,
+            emit_cluster_updated=emit_cluster_updated,
+            emit_inference_found=emit_inference_found,
+            emit_insight_discovered=emit_insight_discovered,
+            interval_seconds=30.0,
+            min_nodes_for_trigger=10,
+        )
+        self._analytics_scheduler.start()
 
     # ------------------------------------------------------------------ #
     # Public API
@@ -333,8 +350,8 @@ class FAIMEngine:
 
         # Parent search (ANN) -----------------------------------------------
         parents: List[NodeRecord] = []
-        if self._ann.size(g_id) > 0 and self._parent_top_k > 0:
-            hits = self._ann.top_k(g_id, e, self._parent_top_k)
+        if self._memory.size(g_id) > 0 and self._parent_top_k > 0:
+            hits = self._memory.search(g_id, e, self._parent_top_k)
             for parent_id, _score in hits:
                 parent = self._store.get_node(g_id, parent_id)
                 if parent is not None:
@@ -346,8 +363,8 @@ class FAIMEngine:
 
         # Antisymmetry: radius search before inserting ----------------------
         merge_target_id: Optional[NodeId] = None
-        if self._radius.size(g_id) > 0:
-            neighbors = self._radius.query_radius(
+        if self._memory.size(g_id) > 0:
+            neighbors = self._memory.query_radius(
                 g_id,
                 candidate_vec,
                 radius=self._antisym_theta,
@@ -381,8 +398,7 @@ class FAIMEngine:
 
                 # Core store and indices (P2) ------------------------------
                 self._store.upsert_node(merged)
-                self._ann.update(g_id, merged.id, merged.vec)
-                self._radius.update(g_id, merged.id, merged.vec)
+                self._memory.update(g_id, merged.id, merged.vec)
 
                 merge_data = {
                     "into": str(merged.id),
@@ -429,8 +445,7 @@ class FAIMEngine:
 
         # Core store and indices (P2) ---------------------------------------
         self._store.upsert_node(node)
-        self._ann.add(g_id, node_id, node.vec)
-        self._radius.add(g_id, node_id, node.vec)
+        self._memory.add(g_id, node_id, node.vec)
 
         add_data = {
             "node_id": str(node_id),
@@ -452,8 +467,10 @@ class FAIMEngine:
         self._vector_bank.add_vector(graph_id, node_id, node.vec)
         self._hot_cache.put(node_id, node)
 
-        # Note: write_queue is not yet used for persistence; P2 semantics
-        # (synchronous SqliteStore and EventJournal writes) are preserved.
+        # P5 - Notify analytics scheduler of new node ------------------------
+        self._analytics_scheduler.notify_node_added(graph_id)
+        if self._evolution_scheduler:
+            self._evolution_scheduler.notify_activity(graph_id)
 
         return node_id
 
@@ -491,10 +508,10 @@ class FAIMEngine:
             return nodes
 
         # P2 baseline: ANN search -------------------------------------------
-        if self._ann.size(g_id) == 0:
+        if self._memory.size(g_id) == 0:
             return []
 
-        ann_hits = self._ann.top_k(g_id, q_vec, k)
+        ann_hits = self._memory.search(g_id, q_vec, k)
         for node_id, _score in ann_hits:
             node = self._store.get_node(g_id, node_id)
             if node is not None:
@@ -503,6 +520,20 @@ class FAIMEngine:
                 nodes.append(node)
 
         return nodes
+
+    def embed(self, text: str) -> Vector:
+        """Public API: Embed text into a vector.
+
+        This is the ONLY gateway to embeddings. External code must call this
+        method instead of accessing embedder directly.
+
+        Args:
+            text: The text to embed.
+
+        Returns:
+            A normalized vector representation of the text.
+        """
+        return self._embedder.encode(text)
 
     def evolve(self, graph_id: str) -> None:
         """Run Phase P3 evolution for a graph.
@@ -713,6 +744,12 @@ class FAIMEngine:
         )
         self._ingest_worker.stop(graceful=True)
         self._ingest_worker.join()
+
+        # Stop autonomous schedulers
+        if self._evolution_scheduler is not None:
+            self._evolution_scheduler.stop()
+        if self._invention_scheduler is not None:
+            self._invention_scheduler.stop()
 
     # ------------------------------------------------------------------ #
     # JSONL journal mirroring (for SnapshotManager replay)

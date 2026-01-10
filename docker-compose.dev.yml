@@ -1,8 +1,7 @@
 # FAIM Development Docker Compose
 # Run with: docker compose -f docker-compose.dev.yml up --build
 #
-# This is production-identical setup for local development.
-# Code changes are hot-reloaded via volume mounts.
+# SECURITY: All secrets must be in .env file, never hardcoded here.
 
 services:
   # PostgreSQL Database
@@ -11,51 +10,56 @@ services:
     container_name: faim-postgres
     environment:
       POSTGRES_USER: faim
-      POSTGRES_PASSWORD: faim_dev_pass
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
       POSTGRES_DB: faim_lab
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # SECURITY: No port exposure - only accessible within Docker network
+    # ports:
+    #   - "5432:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U faim -d faim_lab"]
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - faim-internal
 
-  # Redis (Cache, Rate Limiting)
+  # Redis (Cache, Rate Limiting) - WITH PASSWORD
   redis:
     image: redis:7-alpine
     container_name: faim-redis
-    command: redis-server --appendonly yes
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
+    # SECURITY: No port exposure - only accessible within Docker network
+    # ports:
+    #   - "6379:6379"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - faim-internal
 
-  # Qdrant (Vector Database)
+  # Qdrant (Vector Database) - WITH API KEY
   qdrant:
     image: qdrant/qdrant:latest
     container_name: faim-qdrant
+    environment:
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:?QDRANT_API_KEY required}
     volumes:
       - qdrant_data:/qdrant/storage
-    ports:
-      - "6333:6333"
-      - "6334:6334"
+    # SECURITY: No port exposure - only accessible within Docker network
+    # ports:
+    #   - "6333:6333"
+    #   - "6334:6334"
     restart: unless-stopped
-    # Healthcheck disabled - Qdrant container has no wget or curl
-    # healthcheck:
-    #   test: ["CMD", "wget", "--spider", "-q", "http://localhost:6333/"]
-    #   interval: 10s
-    #   timeout: 5s
-    #   retries: 5
+    networks:
+      - faim-internal
 
   # FAIM Backend API (FastAPI with hot-reload)
   api:
@@ -65,21 +69,26 @@ services:
     container_name: faim-api
     environment:
       - FAIM_MODE=production
-      - FAIM_DB_URL=postgresql://faim:faim_dev_pass@postgres:5432/faim_lab
-      - DATABASE_URL=postgresql://faim:faim_dev_pass@postgres:5432/faim_lab
-      - REDIS_URL=redis://redis:6379/0
+      - FAIM_DB_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_lab
+      - DATABASE_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_lab
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - QDRANT_URL=http://qdrant:6333
+      - QDRANT_API_KEY=${QDRANT_API_KEY}
       # Production backends (no SQLite)
       - FAIM_STORAGE_BACKEND=postgres
       - FAIM_VECTOR_BACKEND=qdrant
       - FAIM_CACHE_BACKEND=redis
-      # Dev secrets (use .env for real secrets)
-      - ADMIN_API_KEY=dev-admin-key
-      - JWT_SECRET=dev-jwt-secret-change-in-production
-      # Email (Resend)
-      - RESEND_API_KEY=re_csw52NBn_KubrVaDdz28S9Z27zwTtbN4p
-      - FROM_EMAIL=noreply@faimatrix.com
-      - APP_URL=http://localhost:3000
+      # SECURITY: All secrets from .env
+      - ADMIN_API_KEY=${ADMIN_API_KEY:?ADMIN_API_KEY required}
+      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET required}
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - FROM_EMAIL=${FROM_EMAIL:-noreply@faimatrix.com}
+      # LLM Provider (Groq)
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - GROQ_MODEL=${GROQ_MODEL:-llama-3.3-70b-versatile}
+      - APP_URL=${APP_URL:-http://localhost:3000}
+      # SECURITY: CORS restriction
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
     volumes:
       # Hot-reload: mount local code into container
       - ./faim:/app/faim:ro
@@ -94,6 +103,9 @@ services:
       qdrant:
         condition: service_started
     restart: unless-stopped
+    networks:
+      - faim-internal
+      - faim-external
 
   # FAIM Frontend (Next.js with hot-reload)
   web:
@@ -105,8 +117,8 @@ services:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXT_PUBLIC_API_HOST=api:8000
       - API_HOST=api:8000
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=dev-nextauth-secret
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3000}
+      - NEXTAUTH_SECRET=${JWT_SECRET:?JWT_SECRET required}
     volumes:
       # Hot-reload: mount local code into container
       - ./frontend/src:/app/src:ro
@@ -116,6 +128,20 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+    networks:
+      - faim-internal
+      - faim-external
+
+  # Cloudflare Tunnel (Exposes app to internet securely)
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: faim-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    networks:
+      - faim-external
 
 volumes:
   postgres_data:
@@ -123,5 +149,9 @@ volumes:
   qdrant_data:
 
 networks:
-  default:
+  faim-internal:
+    # Internal network - no external access
+    internal: true
+  faim-external:
+    # External network - for exposed services only
     name: faim-dev

@@ -10,10 +10,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     build-essential \
     libpq-dev \
+    antiword \
+    catdoc \
+    poppler-utils \
+    tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY requirements.txt .
+# Install CPU-only PyTorch to save space (prevents pulling 5GB+ CUDA version)
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir --timeout=300 --retries=5 -r requirements.txt
 
 # Install development dependencies

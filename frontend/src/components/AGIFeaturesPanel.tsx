@@ -254,7 +254,7 @@ export default function AGIFeaturesPanel() {
       {/* Header */}
       <div className="flex items-center gap-2">
         <Sparkles className="h-4 w-4 text-violet-400" />
-        <h2 className="text-sm font-semibold text-slate-100">AGI Features</h2>
+        <h2 className="text-sm font-semibold text-slate-100">Intelligence Features</h2>
       </div>
 
       {/* Feature Grid */}
