@@ -1,30 +1,81 @@
+# ==============================================
+# FAIM Git Ignore (SECURITY HARDENED)
+# ==============================================
+
 # Python
 .venv/
+venv/
 __pycache__/
 *.py[cod]
-*.log
-.env
-.env.*
-*.pyc
-node_modules/
-
+*.pyo
+*.egg-info/
+.eggs/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+.coverage
+htmlcov/
 
-# Runtime directory (dev/testing only - Production uses Postgres/Redis/Qdrant)
+# SECURITY: ALL environment files
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+*.env
+
+# SECURITY: SSL/TLS certificates
+deploy/ssl/
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# SECURITY: Secrets and credentials
+secrets/
+credentials/
+*.secret
+service-account.json
+
+# SECURITY: Database dumps and backups
+*.sql
+*.dump
+*.bak
+*.backup
+backup/
+backups/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Runtime
 Runtime/
-
-Versions
+*.log
+*.pid
 
 # VS Code / IDE
-Repo
 .vscode/
 .idea/
-legacy
+*.swp
+*.swo
+.DS_Store
 
-# Node / Next.js
+# Next.js
 frontend/.next/
 frontend/node_modules/
-npm-debug.log*
+frontend/out/
+
+# Build
+dist/
+build/
+
+# Legacy
+legacy/
+Versions/
+Repo/
+
+# Local LLM models
 backend/faim/llm_models/

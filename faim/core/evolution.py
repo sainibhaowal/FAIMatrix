@@ -73,9 +73,10 @@ from typing import Any, Dict, List, Mapping, Optional, Protocol, Set, Tuple
 import numpy as np
 
 from faim.core.antisym import merge_records
+from faim.core.events import emit_evolution_event
 from faim.core.math import l2_norm
 from faim.core.types import GraphId, NodeId, NodeRecord, ParentRef, Vector
-from faim.storage.store import FAIMStore
+from faim.data.storage.store import FAIMStore
 
 logger = logging.getLogger(__name__)
 
@@ -761,9 +762,7 @@ def _promote_hubs(
         total = sum(p.fraction for p in new_parents)
         if total <= 0.0:
             continue
-        norm_parents = [
-            ParentRef(parent_id=p.parent_id, fraction=p.fraction / total) for p in new_parents
-        ]
+        norm_parents = [ParentRef(parent_id=p.parent_id, fraction=p.fraction / total) for p in new_parents]
 
         node = NodeRecord(
             id=node.id,
@@ -811,6 +810,8 @@ def evolve_graph_once(
     and J should be non-increasing on average.
     """
     cfg = config or EvolutionConfig()
+
+    emit_evolution_event(str(graph_id), "EVOLUTION_STARTED", {})
 
     regions = discover_regions(store, graph_id, config=cfg)
     if not regions:
@@ -861,7 +862,7 @@ def evolve_graph_once(
     objective_before = float(np.mean(objectives_before)) if objectives_before else 0.0
     objective_after = float(np.mean(objectives_after)) if objectives_after else 0.0
 
-    return EvolutionStats(
+    stats = EvolutionStats(
         graph_id=graph_id,
         regions=len(regions),
         merges=total_merges,
@@ -873,6 +874,14 @@ def evolve_graph_once(
         objective_after=objective_after,
     )
 
+    emit_evolution_event(
+        str(graph_id),
+        "EVOLUTION_COMPLETED",
+        {"merges": stats.merges, "prunes": stats.prunes, "promotions": stats.promotions, "regions": stats.regions},
+    )
+
+    return stats
+
 
 # ---------------------------------------------------------------------------
 # Scheduler / background worker
@@ -881,22 +890,10 @@ def evolve_graph_once(
 
 class EvolutionScheduler:
     """
-    Minimal background scheduler for periodic evolution.
+    Background scheduler for periodic evolution across all active graphs.
 
-    The scheduler is intentionally lightweight and does not auto-start.
-    Higher-level runtimes (FastAPI, systemd services) are responsible
-    for controlling its lifecycle.
-
-    Usage
-    -----
-    - For tests / scripts: call `run_once(graph_id)` directly.
-    - For background operation:
-
-          scheduler = EvolutionScheduler(store)
-          t = scheduler.start_in_background(graph_id, interval_seconds=60.0)
-          ...
-          scheduler.stop()
-          t.join()
+    Automatically runs `evolve_graph_once` periodically for any graph
+    that has reported activity via `notify_activity(graph_id)`.
     """
 
     def __init__(
@@ -904,55 +901,76 @@ class EvolutionScheduler:
         store: FAIMStore,
         *,
         config: Optional[EvolutionConfig] = None,
+        interval_seconds: float = 60.0,
     ) -> None:
         self._store = store
         self._config = config or EvolutionConfig()
-        self._stop = threading.Event()
+        self._interval = interval_seconds
+
+        self._running = False
+        self._thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+
+        # Track active graphs that need evolution
+        self._active_graphs: Set[str] = set()
+        self._lock = threading.Lock()
 
     @property
     def config(self) -> EvolutionConfig:
-        """Return the active evolution configuration."""
         return self._config
 
     def run_once(self, graph_id: GraphId) -> EvolutionStats:
         """Run a single evolution pass synchronously."""
         return evolve_graph_once(self._store, graph_id, config=self._config)
 
-    def run_forever(self, graph_id: GraphId, interval_seconds: float = 60.0) -> None:
-        """
-        Run evolution in a blocking loop until `stop()` is called.
+    def notify_activity(self, graph_id: str) -> None:
+        """Mark a graph as active so it will be evolved."""
+        with self._lock:
+            self._active_graphs.add(graph_id)
 
-        Intended for dedicated worker processes or dev setups where a
-        single background loop is sufficient.
-        """
-        # Perform an immediate pass, then sleep between subsequent passes.
-        self.run_once(graph_id)
-        while not self._stop.wait(interval_seconds):
-            self.run_once(graph_id)
+    def start(self) -> None:
+        """Start the background evolution thread."""
+        if self._running:
+            return
 
-    def start_in_background(
-        self,
-        graph_id: GraphId,
-        interval_seconds: float = 60.0,
-    ) -> threading.Thread:
-        """
-        Spawn a daemon thread running `run_forever`.
-
-        This helper is mainly intended for demos and local experiments.
-        Production deployments should prefer a dedicated worker process
-        or service unit.
-        """
-        thread = threading.Thread(
-            target=self.run_forever,
-            args=(graph_id, interval_seconds),
-            daemon=True,
-        )
-        thread.start()
-        return thread
+        self._running = True
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._run_loop, daemon=True, name="FAIM-Evolution")
+        self._thread.start()
+        logger.info("EvolutionScheduler started")
 
     def stop(self) -> None:
-        """Signal the background loop (if any) to stop."""
-        self._stop.set()
+        """Stop the background evolution thread."""
+        self._running = False
+        self._stop_event.set()
+        if self._thread:
+            self._thread.join(timeout=1.0)
+        logger.info("EvolutionScheduler stopped")
+
+    def _run_loop(self) -> None:
+        """Main background loop."""
+        while self._running:
+            if self._stop_event.wait(self._interval):
+                break
+
+            try:
+                self._evolve_all()
+            except Exception as e:
+                logger.error(f"Error in evolution loop: {e}")
+
+    def _evolve_all(self) -> None:
+        """Run evolution for all active graphs."""
+        with self._lock:
+            # Copy set to avoid holding lock during evolution
+            graphs = list(self._active_graphs)
+
+        for graph_id in graphs:
+            if not self._running:
+                break
+            try:
+                self.run_once(graph_id)  # type: ignore
+            except Exception as e:
+                logger.warning(f"Failed to evolve graph {graph_id}: {e}")
 
 
 # ============================================================================
@@ -1593,8 +1611,7 @@ def evolve_region(
 
     if cfg.enable_logging:
         logger.debug(
-            "Evolution result for %s:%s – "
-            "D: %.4f -> %.4f, H: %.4f -> %.4f, J: %.4f -> %.4f (ΔJ=%.4g, accepted=%s)",
+            "Evolution result for %s:%s – D: %.4f -> %.4f, H: %.4f -> %.4f, J: %.4f -> %.4f (ΔJ=%.4g, accepted=%s)",
             graph_id,
             region_id,
             D_before,

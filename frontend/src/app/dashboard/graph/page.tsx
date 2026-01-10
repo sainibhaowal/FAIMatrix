@@ -1,20 +1,24 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Spinner } from "@/components/ui/Spinner";
+
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { DEFAULT_GRAPH_ID, getUniverseGraphId } from "../../../lib/api";
 import { useUserIds } from "../../../contexts/UserContext";
 
-import { Graph3DView } from "../../../components/Graph3DView";
+import { Graph3DView, type Graph3DRef } from "../../../components/Graph3DView";
 import { NodeInspector } from "../../../components/NodeInspector";
 import GraphUploadPanel from "../../../components/graph/GraphUploadPanel";
 import NodeRelationsPanel from "../../../components/NodeRelationsPanel";
 import GraphAnalyticsPanel from "../../../components/graph/GraphAnalyticsPanel";
 import AddMemoryPanel from "../../../components/graph/AddMemoryPanel";
 import EvolutionPanel from "../../../components/EvolutionPanel";
-import GraphFiltersPanel, {
-  type FilterOptions,
+import GraphFiltersPanel, { 
+  type FilterOptions 
 } from "../../../components/GraphFiltersPanel";
+import GraphContextPanel from "../../../components/graph/GraphContextPanel";
+import { ZoomControls, GraphLegend, GraphOverview } from "../../../components/graph/GraphOverlays";
 
 const defaultGraphId =
   process.env.NEXT_PUBLIC_FAIM_DEFAULT_GRAPH_ID ?? DEFAULT_GRAPH_ID;
@@ -38,11 +42,14 @@ function GraphPageInner() {
     | "analytics"
     | "evolution"
     | "filters"
+    | "context"
     | "none";
 
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
-    initialNodeId,
+  // State for multi-select
+  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
+    initialNodeId ? new Set([initialNodeId]) : new Set()
   );
+
   const [rightPanel, setRightPanel] = useState<RightPanelId>("none");
   const [nodeDragEnabled, setNodeDragEnabled] = useState(true);
 
@@ -53,9 +60,21 @@ function GraphPageInner() {
   const [isFiltered, setIsFiltered] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Ref for graph controls
+  const graphRef = useRef<Graph3DRef>(null);
+
   useEffect(() => {
-    setSelectedNodeId(initialNodeId);
+    if (initialNodeId) {
+      setSelectedNodeIds(new Set([initialNodeId]));
+    }
   }, [initialNodeId]);
+
+  // When selection changes to non-empty, open inspector unless another panel is open
+  useEffect(() => {
+    if (selectedNodeIds.size > 0 && rightPanel === "none") {
+      setRightPanel("inspector");
+    }
+  }, [selectedNodeIds]);
 
   const { graphId: contextGraphId } = useUserIds();
   const [graphId, setGraphId] = useState<string>(defaultGraphId);
@@ -90,7 +109,32 @@ function GraphPageInner() {
     setRefreshKey((k) => k + 1);
   }, []);
 
-  // Handle filter application - fetch filtered data and update graph
+  // Handle node selection (click)
+  const handleNodeClick = useCallback((node: any, multi: boolean) => {
+    const id = node?.id;
+    if (!id) {
+      // Clicked background? maybe clear selection
+      // Note: ForceGraph backend click usually is mostly for nodes
+      // But if node is null, let's clear
+      if (!multi) setSelectedNodeIds(new Set());
+      return;
+    }
+
+    setSelectedNodeIds(prev => {
+      const next = new Set(multi ? prev : []);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+    
+    // Auto-open inspector
+    setRightPanel("inspector");
+  }, []);
+
+  // Handle filter application
   const handleApplyFilters = useCallback(
     async (filters: FilterOptions) => {
       if (
@@ -152,7 +196,13 @@ function GraphPageInner() {
       { id: "analytics", label: "Analytics", title: "Graph analytics" },
       { id: "evolution", label: "Evolve", title: "Self-Evolution Engine" },
       { id: "filters", label: "Filter", title: "Filter by Topic/Date" },
+      { id: "context", label: "Context", title: "Semantic Context Search" },
     ];
+
+  // Derive single ID for backward compatibility with panels that only support one
+  const primaryNodeId = selectedNodeIds.size > 0 
+    ? Array.from(selectedNodeIds)[selectedNodeIds.size - 1] 
+    : null;
 
   return (
     <div className="relative flex h-full flex-col space-y-4 overflow-hidden rounded-2xl">
@@ -193,6 +243,11 @@ function GraphPageInner() {
                 (Filtered)
               </span>
             )}
+            {selectedNodeIds.size > 0 && (
+               <span className="ml-2 text-[10px] text-cyan-400 font-normal">
+                ({selectedNodeIds.size} selected)
+              </span>
+            )}
           </h1>
           <p className="text-xs text-slate-400">
             3D fractal inheritance graph on the left, upload + inspector +
@@ -215,12 +270,30 @@ function GraphPageInner() {
       <div className="relative z-[2] flex-1 overflow-hidden">
         <section className="relative flex min-h-[500px] max-h-[calc(100vh-140px)] h-[calc(100vh-190px)] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 ring-1 ring-inset ring-cyan-500/10">
           <Graph3DView
+            ref={graphRef}
             key={refreshKey}
-            onNodeSelect={setSelectedNodeId}
+            onNodeClick={handleNodeClick}
             graphId={graphId}
             enableNodeDrag={nodeDragEnabled}
             externalData={filteredData}
           />
+
+          {/* Overlays */}
+          <div className="absolute left-4 bottom-4 z-20">
+             <GraphLegend items={[
+               { color: "#22d3ee", label: "Concept" },
+               { color: "#a855f7", label: "Cluster" },
+               { color: "#10b981", label: "Entity" },
+             ]} />
+          </div>
+
+          <div className="absolute right-4 bottom-4 z-20 flex flex-col gap-2 items-end">
+            <ZoomControls 
+              onZoomIn={() => graphRef.current?.zoomIn()}
+              onZoomOut={() => graphRef.current?.zoomOut()}
+              onFit={() => graphRef.current?.zoomToFit()}
+            />
+          </div>
 
           <div className="absolute right-4 top-4 z-20 flex flex-col gap-2">
             {panelItems.map((item) => {
@@ -290,11 +363,14 @@ function GraphPageInner() {
                     />
                   )}
                   {rightPanel === "inspector" && (
-                    <NodeInspector nodeId={selectedNodeId} />
+                    <NodeInspector 
+                      nodeId={primaryNodeId} 
+                      nodeIds={Array.from(selectedNodeIds)}
+                    />
                   )}
                   {rightPanel === "relations" && (
                     <NodeRelationsPanel
-                      nodeId={selectedNodeId}
+                      nodeId={primaryNodeId}
                       graphId={graphId}
                     />
                   )}
@@ -313,6 +389,15 @@ function GraphPageInner() {
                       onApplyFilters={handleApplyFilters}
                     />
                   )}
+                  {rightPanel === "context" && (
+                    <GraphContextPanel
+                      graphId={graphId}
+                      onNodeSelect={(nodeId) => {
+                        setSelectedNodeIds(new Set([nodeId]));
+                        setRightPanel("inspector");
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             </div>
@@ -328,7 +413,12 @@ export default function GraphPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-4 text-xs text-slate-400">Loading graph…</div>
+        <div className="flex h-full w-full items-center justify-center p-12">
+          <div className="flex flex-col items-center gap-4">
+            <Spinner size="lg" color="var(--primary)" />
+            <div className="text-sm font-medium text-slate-400">Loading graph...</div>
+          </div>
+        </div>
       }
     >
       <GraphPageInner />

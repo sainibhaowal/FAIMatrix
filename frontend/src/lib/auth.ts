@@ -12,6 +12,7 @@
 
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import jwt from "jsonwebtoken";
 
 // Backend API URL
 // For server-side (Docker): use API_HOST (internal container name)
@@ -19,6 +20,9 @@ import CredentialsProvider from "next-auth/providers/credentials";
 const API_URL = process.env.API_HOST
   ? `http://${process.env.API_HOST}`
   : process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+// JWT secret for signing access tokens (must match backend JWT_SECRET)
+const JWT_SECRET = process.env.NEXTAUTH_SECRET || "dev-jwt-secret-key";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -99,6 +103,22 @@ export const authOptions: NextAuthOptions = {
         token.projectId = (user as any).projectId;
         token.graphId = (user as any).graphId;
       }
+      
+      // Generate accessToken for backend API calls (HS256 signed)
+      // This is what the backend will verify
+      token.accessToken = jwt.sign(
+        {
+          sub: token.userId || token.sub,
+          id: token.userId || token.sub,
+          email: token.email,
+          name: token.name,
+          projectId: token.projectId,
+          graphId: token.graphId,
+        },
+        JWT_SECRET,
+        { algorithm: "HS256", expiresIn: "30d" }
+      );
+
       return token;
     },
 
@@ -114,6 +134,8 @@ export const authOptions: NextAuthOptions = {
         // Add custom properties
         (session as any).projectId = token.projectId;
         (session as any).graphId = token.graphId;
+        // CRITICAL: Expose accessToken for backend API calls
+        (session as any).accessToken = token.accessToken;
       }
       return session;
     },

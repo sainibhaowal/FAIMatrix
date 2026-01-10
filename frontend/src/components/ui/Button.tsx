@@ -134,6 +134,8 @@ function Spinner({ size = 16 }: { size?: number }) {
       height={size}
       viewBox="0 0 24 24"
       fill="none"
+      role="status"
+      aria-label="Loading"
     >
       <circle
         className="opacity-25"

@@ -1,9 +1,9 @@
 # ==============================================
-# FAIM Docker Ignore File
+# FAIM Docker Ignore File (SECURITY HARDENED)
 # These files/folders are NOT copied into Docker
 # ==============================================
 
-# Python virtual environment (Docker installs its own)
+# Python virtual environment
 .venv
 venv
 __pycache__
@@ -11,12 +11,15 @@ __pycache__
 *.pyo
 *.egg-info
 .eggs
+.mypy_cache
+.ruff_cache
+.pytest_cache
 
-# Node modules (Docker installs its own)
+# Node modules
 node_modules
 .npm
 
-# Git (not needed in container)
+# Git
 .git
 .gitignore
 .gitattributes
@@ -28,7 +31,7 @@ node_modules
 *.swo
 .DS_Store
 
-# Local runtime data (not for Docker)
+# Local runtime data
 Runtime
 *.db
 *.sqlite
@@ -40,20 +43,43 @@ dist
 build
 *.log
 
-# Environment files (secrets - don't copy)
+# SECURITY: Environment files - NEVER copy to container
 .env
+.env.*
 .env.local
-.env.*.local
+.env.development
+.env.production
+*.env
 
-# Docker files (recursive copy prevention)
+# SECURITY: SSL certificates (mount as volume instead)
+deploy/ssl
+*.pem
+*.key
+*.crt
+*.p12
+
+# Docker files
 Dockerfile*
 docker-compose*
 
-# Documentation (not needed to run)
+# Documentation
 docs
 *.md
 !README.md
 
-# Tests (optional - can include if you want tests in container)
-# tests
-# pytest.ini
+# Tests
+tests
+pytest.ini
+.coverage
+htmlcov
+
+# SECURITY: Backup files
+*.bak
+*.backup
+*.sql
+*.dump
+
+# SECURITY: Credentials and secrets
+secrets/
+credentials/
+*.secret

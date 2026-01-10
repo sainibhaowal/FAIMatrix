@@ -22,3 +22,12 @@ PyMuPDF
 python-docx
 openpyxl
 alembic
+defusedxml
+torch
+loguru
+openai
+pytesseract
+Pillow
+python-pptx
+pypdf
+sentence-transformers
