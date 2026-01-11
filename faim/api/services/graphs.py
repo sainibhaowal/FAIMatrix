@@ -64,7 +64,7 @@ from faim.api.services.models import (
 # --- Shared API state (IMPORTANT):
 # We import the module (not individual names) so this file survives slight state.py variants.
 # expected to expose: NODE_STORE / iter_nodes_from_store / count_nodes_from_store / GRAPH_REGISTRY
-from faim.api.utils import state as S
+from faim.api.adapters import interface as S
 
 try:
     from faim.api.adapters.adapter import virtual_compute_metrics as _virtual_compute_metrics

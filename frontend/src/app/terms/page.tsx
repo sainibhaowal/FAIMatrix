@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import FaimLogo from "@/components/landing/FaimLogo";
+import { FaimLogo } from "@/components";
 
 export default function TermsPage() {
   return (
@@ -106,7 +106,7 @@ export default function TermsPage() {
                   6. Limitation of Liability
                 </h2>
                 <p className="text-slate-400 leading-relaxed">
-                  FAIM Lab is provided "as is" without warranties of any kind.
+                  FAIM Lab is provided &quot;as is&quot; without warranties of any kind.
                   We are not liable for any indirect, incidental, or
                   consequential damages arising from your use of the service.
                 </p>

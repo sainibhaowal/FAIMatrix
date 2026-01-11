@@ -4,8 +4,8 @@ import { Spinner } from "@/components/ui/Spinner";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { DEFAULT_GRAPH_ID, getUniverseGraphId } from "../../../lib/api";
-import { useUserIds } from "../../../contexts/UserContext";
+import { DEFAULT_GRAPH_ID, getUniverseGraphId } from "@/lib/api-client";
+import { useUserIds } from "@/contexts/UserContext";
 
 import {
   Graph3DView,
@@ -21,8 +21,8 @@ import {
   ZoomControls,
   GraphLegend,
   GraphOverview,
-} from "@/components/features/graph";
-import { EvolutionPanel } from "@/components/features/evolution";
+} from "@/components";
+import { EvolutionPanel } from "@/components";
 
 const defaultGraphId =
   process.env.NEXT_PUBLIC_FAIM_DEFAULT_GRAPH_ID ?? DEFAULT_GRAPH_ID;
@@ -78,6 +78,7 @@ function GraphPageInner() {
     if (selectedNodeIds.size > 0 && rightPanel === "none") {
       setRightPanel("inspector");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedNodeIds]);
 
   const { graphId: contextGraphId } = useUserIds();
@@ -90,7 +91,7 @@ function GraphPageInner() {
     } else {
       // Fallback: try storage
       const u = getUniverseGraphId();
-      if (u.startsWith("U:")) setGraphId(u);
+      if (u && u.startsWith("U:")) setGraphId(u);
     }
   }, [contextGraphId]);
 
@@ -101,7 +102,7 @@ function GraphPageInner() {
       if (!e.key) return;
       if (e.key.includes("graph_id")) {
         const u = getUniverseGraphId();
-        if (u.startsWith("U:")) setGraphId(u);
+        if (u && u.startsWith("U:")) setGraphId(u);
       }
     };
     window.addEventListener("storage", onStorage);

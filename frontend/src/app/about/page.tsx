@@ -2,14 +2,14 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import FaimLogo from "@/components/landing/FaimLogo";
+import { FaimLogo } from "@/components";
 
 const timeline = [
   {
     year: "2024",
     title: "The Vision",
     description:
-      "The idea of FAIM was born - a system that remembers, connects, and evolves like the human mind.",
+      "The idea of FAIMATRIX was born - a system that remembers, connects, and evolves like the human mind.",
   },
   {
     year: "2025",
@@ -19,9 +19,9 @@ const timeline = [
   },
   {
     year: "2026",
-    title: "FAIM Lab Launch",
+    title: "FAIMATRIX Launch",
     description:
-      "FAIM Lab goes live - transforming how people store and retrieve knowledge.",
+      "FAIMATRIX goes live - transforming how people store and retrieve knowledge.",
   },
 ];
 
@@ -116,7 +116,7 @@ export default function AboutPage() {
             animate={{ opacity: 1, y: 0 }}
           >
             <span className="text-cyan-400 text-sm font-medium tracking-wide uppercase">
-              About FAIM Lab
+              About FAIMATRIX
             </span>
             <h1 className="mt-4 text-4xl md:text-6xl font-bold text-white leading-tight">
               Building the Future of
@@ -126,8 +126,8 @@ export default function AboutPage() {
               </span>
             </h1>
             <p className="mt-6 text-xl text-slate-400 max-w-2xl mx-auto">
-              FAIM Lab is on a mission to transform how humans interact with
-              their knowledge. We're building an AI that remembers, connects,
+              FAIMATRIX is on a mission to transform how humans interact with
+              their knowledge. We&apos;re building an AI that remembers, connects,
               and evolves alongside you.
             </p>
           </motion.div>
@@ -160,15 +160,15 @@ export default function AboutPage() {
                   Founder, CEO & Developer
                 </p>
                 <p className="text-slate-400 leading-relaxed mb-6">
-                  I started FAIM Lab because I believed there had to be a better
+                  I started FAIMATRIX because I believed there had to be a better
                   way to manage knowledge. Traditional tools force rigid
                   structures on fluid thoughts. FAIM is different — it adapts to
                   how you think, not the other way around.
                 </p>
                 <p className="text-slate-400 leading-relaxed">
-                  As the sole developer and founder, I've built every component
-                  of FAIM from the ground up. The fractal memory engine, the
-                  knowledge graph, the AI chat — all crafted with one goal: to
+                  As the sole developer and founder, I&apos;ve built every component
+                  of FAIMATRIX from the ground up. The fractal memory engine, the
+                  knowledge graph — all crafted with one goal: to
                   make your knowledge truly intelligent.
                 </p>
               </div>
@@ -270,7 +270,7 @@ export default function AboutPage() {
             Join the Journey
           </h2>
           <p className="text-slate-400 mb-8">
-            FAIM Lab is just getting started. Be part of the future of knowledge
+            FAIMATRIX is just getting started. Be part of the future of knowledge
             management.
           </p>
           <div className="flex items-center justify-center gap-4">

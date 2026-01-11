@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import FaimLogo from "@/components/landing/FaimLogo";
+import { FaimLogo } from "@/components";
 
 export default function PrivacyPage() {
   return (
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
                   1. Introduction
                 </h2>
                 <p className="text-slate-400 leading-relaxed">
-                  FAIM Lab ("we", "our", or "us"), operated by Ravinder Singh,
+                  FAIM Lab (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;), operated by Ravinder Singh,
                   is committed to protecting your privacy. This Privacy Policy
                   explains how we collect, use, disclose, and safeguard your
                   information when you use our service.

@@ -2,8 +2,8 @@
 "use client";
 
 import { FaimShell } from "@/components/layout/FaimShell";
-import { AuthGuard } from "@/components/common";
-import { ErrorBoundary } from "@/components/common";
+import { AuthGuard } from "@/components";
+import { ErrorBoundary } from "@/components";
 
 export default function DashboardLayout({
   children,

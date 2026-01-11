@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { API_BASE_URL } from "../../lib/api";
+import { API_BASE_URL } from "@/lib/api-client";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -115,12 +115,7 @@ export function CommandPalette({
         href: "/dashboard/graph",
         subtitle: "3D graph inspector",
       },
-      {
-        type: "page",
-        title: "Chat",
-        href: "/dashboard/chat",
-        subtitle: "Memory-grounded chat (if enabled)",
-      },
+
       {
         type: "setting",
         title: "Open Settings",
@@ -199,8 +194,8 @@ export function CommandPalette({
       return;
     }
     if (r.type === "setting") {
-      if (r.actionId === "open_settings") router.push("/dashboard/admin");
-      if (r.actionId === "open_admin") router.push("/dashboard/admin");
+      if (r.actionId === "open_settings") router.push("/dashboard/profile");
+      if (r.actionId === "open_admin") router.push("/dashboard/profile");
       onClose();
       return;
     }

@@ -8,11 +8,11 @@ const plans = [
     name: "Free",
     price: "$0",
     period: "forever",
-    description: "Perfect for trying FAIM",
+    description: "Perfect for trying FAIMATRIX",
     features: [
       "1,000 nodes",
       "Basic knowledge graph",
-      "AI chat (100 queries/month)",
+
       "Community support",
     ],
     cta: "Start Free",
@@ -27,7 +27,7 @@ const plans = [
     features: [
       "Unlimited nodes",
       "Advanced graph visualization",
-      "Unlimited AI queries",
+
       "Document ingestion (PDF, DOC)",
       "Priority support",
       "API access",

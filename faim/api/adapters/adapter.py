@@ -45,7 +45,7 @@ from typing import (
     cast,
 )
 
-from faim.core import interface as iface
+from . import interface as iface
 from faim.core.engine import FAIMEngine
 from faim.core.types import GraphId, NodeId
 

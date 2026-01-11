@@ -2,35 +2,35 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-import { Providers } from "../components/providers/Providers";
+import { Providers } from "@/components";
 
 export const metadata: Metadata = {
   title: {
-    default: "FAIM Lab - Fractal AI Memory",
-    template: "%s | FAIM Lab",
+    default: "FAIMATRIX - Fractal AI Memory",
+    template: "%s | FAIMATRIX",
   },
   description:
-    "Transform your knowledge into intelligence with FAIM Lab. AI-powered knowledge management, fractal memory engine, and intelligent document processing. Built by Ravinder Singh.",
+    "Transform your knowledge into intelligence with FAIMATRIX. AI-powered knowledge management, fractal memory engine, and intelligent document processing. Built by Ravinder Singh.",
   keywords: [
     "AI",
     "knowledge management",
     "fractal memory",
     "knowledge graph",
     "document intelligence",
-    "AI chat",
-    "FAIM Lab",
+
+    "FAIMATRIX",
   ],
   authors: [{ name: "Ravinder Singh", url: "https://faimlab.com" }],
   creator: "Ravinder Singh",
-  publisher: "FAIM Lab",
+  publisher: "FAIMATRIX",
 
   // Open Graph (Facebook, LinkedIn)
   openGraph: {
     type: "website",
     locale: "en_US",
     url: "https://faimlab.com",
-    siteName: "FAIM Lab",
-    title: "FAIM Lab - Where Your Knowledge Becomes Intelligence",
+    siteName: "FAIMATRIX",
+    title: "FAIMATRIX - Where Your Knowledge Becomes Intelligence",
     description:
       "AI-powered knowledge management with fractal memory engine. Transform documents, notes, and ideas into an intelligent, self-evolving knowledge graph.",
     images: [
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "FAIM Lab - Fractal AI Memory",
+        alt: "FAIMATRIX - Fractal AI Memory",
       },
     ],
   },
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   // Twitter Card
   twitter: {
     card: "summary_large_image",
-    title: "FAIM Lab - Fractal AI Memory",
+    title: "FAIMATRIX - Fractal AI Memory",
     description:
       "Transform your knowledge into intelligence with AI-powered knowledge management.",
     images: ["/og-image.png"],
@@ -67,7 +67,7 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  name: "FAIM Lab",
+  name: "FAIMATRIX",
   description: "AI-powered knowledge management with fractal memory engine",
   url: "https://faimlab.com",
   applicationCategory: "ProductivityApplication",

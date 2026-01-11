@@ -88,7 +88,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-slate-500 text-sm">
-            © 2026 FAIM Lab. All rights reserved.
+            © 2026 FAIMATRIX. All rights reserved.
           </p>
           <div className="flex items-center gap-2 text-slate-500 text-sm">
             <span>Built with</span>
