@@ -1,6 +1,6 @@
 "use client";
 
-import FeaturePageLayout from "@/components/landing/FeaturePageLayout";
+import { FeaturePageLayout } from "@/components";
 
 const icon = (
   <svg
@@ -54,7 +54,7 @@ export default function MemoryEnginePage() {
         Continuous Evolution
       </h3>
       <p className="text-slate-400 mb-6">
-        The memory structure isn't static. As you interact with your knowledge,
+        The memory structure isn&apos;t static. As you interact with your knowledge,
         the engine learns which connections are most valuable and strengthens
         them, while gradually forgetting unused paths.
       </p>

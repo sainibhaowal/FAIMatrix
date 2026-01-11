@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import FaimLogo from "@/components/landing/FaimLogo";
+import { FaimLogo } from "@/components";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -51,7 +51,7 @@ export default function ContactPage() {
               Get in Touch
             </h1>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-              Have questions about FAIM Lab? We'd love to hear from you.
+              Have questions about FAIM Lab? We&apos;d love to hear from you.
             </p>
           </motion.div>
 
@@ -83,7 +83,7 @@ export default function ContactPage() {
                     Message Sent!
                   </h3>
                   <p className="text-slate-400">
-                    We'll get back to you as soon as possible.
+                    We&apos;ll get back to you as soon as possible.
                   </p>
                 </div>
               ) : (

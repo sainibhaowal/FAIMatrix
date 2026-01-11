@@ -15,7 +15,7 @@ from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBea
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from faim.api.auth.jwt_auth import get_current_user, verify_jwt
+from faim.api.auth.jwt_auth import get_current_user, verify_access_token
 from faim.config.database import get_db
 from faim.config.models import APIKey, GraphOwnership, User
 
@@ -97,7 +97,7 @@ async def verify_graph_access(
 
     try:
         token = credentials.credentials
-        payload = verify_jwt(token)
+        payload = verify_access_token(token)
         sub = payload.get("sub") or payload.get("id")
         email = payload.get("email")
 

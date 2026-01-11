@@ -13,7 +13,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { API_BASE_URL, buildFaimHeaders } from "@/lib/api";
+import { API_BASE_URL, buildFaimHeaders } from "@/lib/api-client";
 
 /* ================================ Types =================================== */
 
@@ -39,15 +39,6 @@ export type FigDelta = {
   };
 };
 
-export type ChatStoreEvent = {
-  graph_id: string;
-  trace_id: string;
-  turn_id: string;
-  created_node_ids: string[];
-  created_fact_ids: string[];
-  summary: string;
-  ts: number;
-};
 
 export type ToastEvent = {
   graph_id: string;
@@ -82,30 +73,11 @@ export type BenchPoint = {
 
 export type UsedNodeSummary = { id: string; score?: number };
 
-export type ChatUsedEvent = {
-  graph_id: string;
-  trace_id: string;
-  turn_id: string;
-  used_nodes: UsedNodeSummary[];
-  ts: number;
-};
 
-export type ChatTokenEvent = {
-  graph_id: string;
-  trace_id: string;
-  turn_id: string;
-  role: string;
-  token: string;
-  index: number;
-  done?: boolean;
-  ts: number;
-};
 
 export type StreamHandlers = {
   onContract?: (c: StreamContract) => void;
   onFigDelta?: (d: FigDelta) => void;
-  onChatStore?: (x: ChatStoreEvent) => void;
-  onChatToken?: (x: ChatTokenEvent) => void;
   onToast?: (t: ToastEvent) => void;
   onMetrics?: (m: MetricsEvent) => void;
   onBenchPoint?: (p: BenchPoint) => void;
@@ -252,16 +224,6 @@ export function startFaimStream(
             if (x) handlers.onFigDelta?.(x);
             break;
           }
-          case "chat_store": {
-            const x = parseJsonSafe<ChatStoreEvent>(ev.data);
-            if (x) handlers.onChatStore?.(x);
-            break;
-          }
-          case "chat_token": {
-            const x = parseJsonSafe<ChatTokenEvent>(ev.data);
-            if (x) handlers.onChatToken?.(x);
-            break;
-          }
           case "toast": {
             const x = parseJsonSafe<ToastEvent>(ev.data);
             if (x) handlers.onToast?.(x);
@@ -280,11 +242,6 @@ export function startFaimStream(
           case "used_nodes": {
             const x = parseJsonSafe<UsedNodeSummary[]>(ev.data);
             if (x) handlers.onUsedNodes?.(x);
-            break;
-          }
-          case "chat_used": {
-            const x = parseJsonSafe<ChatUsedEvent>(ev.data);
-            if (x?.used_nodes) handlers.onUsedNodes?.(x.used_nodes);
             break;
           }
           case "ping": {
@@ -353,8 +310,6 @@ export function useFaimStream(
         // Always use latest handlers via ref (prevents stale closures)
         onContract: (c) => ref.current.onContract?.(c),
         onFigDelta: (d) => ref.current.onFigDelta?.(d),
-        onChatStore: (x) => ref.current.onChatStore?.(x),
-        onChatToken: (x) => ref.current.onChatToken?.(x),
         onToast: (t) => ref.current.onToast?.(t),
         onMetrics: (m) => ref.current.onMetrics?.(m),
         onBenchPoint: (p) => ref.current.onBenchPoint?.(p),

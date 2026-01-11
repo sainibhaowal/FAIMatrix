@@ -120,6 +120,7 @@ services:
       - NEXT_PUBLIC_API_URL=${PUBLIC_URL:?PUBLIC_URL required}/api
       - NEXTAUTH_URL=${PUBLIC_URL}
       - NEXTAUTH_SECRET=${JWT_SECRET}
+      - API_HOST=faim-api:8000
     # SECURITY: NO direct port exposure - nginx handles traffic
     expose:
       - "3000"
@@ -130,39 +131,6 @@ services:
       - faim-internal
       - faim-external
 
-  # Celery Worker (Background tasks)
-  celery-worker:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
-    container_name: faim-worker
-    command: celery -A faim.workers.celery_app worker --loglevel=info
-    environment:
-      - FAIM_MODE=production
-      - FAIM_DB_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_lab
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-      - QDRANT_API_KEY=${QDRANT_API_KEY}
-    depends_on:
-      - postgres
-      - redis
-    restart: unless-stopped
-    networks:
-      - faim-internal
-
-  # Celery Beat (Scheduled tasks)
-  celery-beat:
-    build:
-      context: .
-      dockerfile: Dockerfile.api
-    container_name: faim-beat
-    command: celery -A faim.workers.celery_app beat --loglevel=info
-    environment:
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
-    depends_on:
-      - redis
-    restart: unless-stopped
-    networks:
-      - faim-internal
 
   # Nginx (Reverse proxy with HTTPS)
   nginx:

@@ -1,6 +1,6 @@
 "use client";
 
-import FeaturePageLayout from "@/components/landing/FeaturePageLayout";
+import { FeaturePageLayout } from "@/components";
 
 const icon = (
   <svg
@@ -54,7 +54,7 @@ export default function DocumentIntelligencePage() {
         Smart Extraction
       </h3>
       <p className="text-slate-400 mb-6">
-        We don't just extract text. FAIM understands document structure -
+        We don&apos;t just extract text. FAIM understands document structure -
         headings, sections, tables, and lists are preserved and used to create
         meaningful connections.
       </p>

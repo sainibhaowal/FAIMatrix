@@ -1,6 +1,6 @@
 "use client";
 
-import FeaturePageLayout from "@/components/landing/FeaturePageLayout";
+import { FeaturePageLayout } from "@/components";
 
 const icon = (
   <svg
@@ -59,7 +59,7 @@ export default function KnowledgeGraphPage() {
         Real-Time Updates
       </h3>
       <p className="text-slate-400 mb-6">
-        As you add new documents or chat with FAIM, watch the graph evolve in
+        As you add new documents, watch the graph evolve in
         real-time. New nodes appear, connections form, and clusters reorganize
         themselves.
       </p>

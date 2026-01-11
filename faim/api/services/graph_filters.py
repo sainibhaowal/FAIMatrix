@@ -520,7 +520,7 @@ async def get_filtered_snapshot(
 
             store = get_store()
         except ImportError:
-            from faim.api.utils import state as S
+            from faim.api.adapters import interface as S
 
             store = getattr(S, "STORE", None)
 
