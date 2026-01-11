@@ -390,7 +390,7 @@ from faim.api.routers.journal import router as journal_router
 from faim.api.routers.ops import router as ops_router
 from faim.api.routers.storage import router as storage_router
 from faim.api.routers.stripe import router as stripe_router
-from faim.api.routers.tenant import router as tenant_router
+
 
 app.include_router(control_router)
 app.include_router(journal_router, prefix="/api/v1")
@@ -400,7 +400,7 @@ app.include_router(billing_router, prefix="/api")
 app.include_router(stripe_router, prefix="/api")
 # app.include_router(admin_router, prefix="/api")  # DISABLED for strict isolation
 app.include_router(ops_router, prefix="/api")
-app.include_router(tenant_router, prefix="/api/v1")
+
 app.include_router(user_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
 

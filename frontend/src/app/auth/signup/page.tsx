@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FAIM Lab - Signup Page
+ * FAIMATRIX - Signup Page
  *
  * Collects email, password, and name.
  * Calls backend to create account.
@@ -79,7 +79,7 @@ export default function SignupPage() {
             <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-lg">F</span>
             </div>
-            <span className="text-xl font-bold text-white">FAIM Lab</span>
+            <span className="text-xl font-bold text-white">FAIMATRIX</span>
           </Link>
         </div>
 
@@ -89,7 +89,7 @@ export default function SignupPage() {
             Create Account
           </h1>
           <p className="text-slate-400 text-center text-sm mb-6">
-            Start your journey with FAIM Lab
+            Start your journey with FAIMATRIX
           </p>
 
           {success ? (

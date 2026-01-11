@@ -54,7 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard/benchmarks", label: "Benchmarks", icon: BarChart3 },
       { href: "/dashboard/evolution", label: "Evolution", icon: Dna },
-      { href: "/dashboard/settings/keys", label: "API Keys", icon: Shield },
+      { href: "/dashboard/api-keys", label: "API Keys", icon: Shield },
       { href: "/dashboard/storage", label: "Storage", icon: HardDrive },
     ],
   },
@@ -62,7 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Account",
     items: [
       { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
-      { href: "/dashboard/admin", label: "Profile", icon: User },
+      { href: "/dashboard/profile", label: "Profile", icon: User },
     ],
   },
 ];

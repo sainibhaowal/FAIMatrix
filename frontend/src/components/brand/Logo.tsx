@@ -20,7 +20,7 @@ export type LogoProps = {
 export default function Logo({
   size = "small",
   className,
-  title = "FAIM",
+  title = "FAIMATRIX",
   px,
 }: LogoProps) {
   const s =

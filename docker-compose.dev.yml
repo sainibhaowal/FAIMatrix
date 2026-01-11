@@ -81,6 +81,7 @@ services:
       # SECURITY: All secrets from .env
       - ADMIN_API_KEY=${ADMIN_API_KEY:?ADMIN_API_KEY required}
       - JWT_SECRET=${JWT_SECRET:?JWT_SECRET required}
+      - FAIM_JWT_SECRET=${JWT_SECRET}
       - RESEND_API_KEY=${RESEND_API_KEY}
       - FROM_EMAIL=${FROM_EMAIL:-noreply@faimatrix.com}
       # LLM Provider (Groq)

@@ -1,32 +1,9 @@
-// /home/sephi-asi/FAIM/frontend/src/app/dashboard/page.tsx
 "use client";
 
-/* =============================================================================
-   FAIM LAB — Dashboard Page (Production Grade)
-   
-   Features:
-   - Personalized greeting with time of day
-   - Animated metric cards with trend indicators
-   - Live activity chart (7 days)
-   - Recent activity feed with real-time updates
-   - Token usage progress bar with upgrade CTA
-   - Quick action keyboard shortcuts
-============================================================================= */
-
 import { useEffect, useState, useMemo, useCallback } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useUserIds } from "@/contexts/UserContext";
 import { useToast } from "@/components/ui/Toast";
-import {
-  Card,
-  Progress,
-  Spinner,
-  Badge,
-  EmptyState,
-  Skeleton,
-  SkeletonText,
-} from "@/components/ui";
+import { Skeleton, Card, SkeletonText } from "@/components/ui";
 import {
   API_BASE_URL,
   fetchHealth,
@@ -34,24 +11,13 @@ import {
   buildFaimHeaders,
 } from "@/lib/api";
 import {
-  MessageSquare,
-  FileText,
-  Network,
-  Zap,
-  Upload,
-  TrendingUp,
-  TrendingDown,
-  ArrowRight,
-  Clock,
-  Activity,
-  RefreshCw,
-  Sparkles,
-  Command,
-  Brain,
-  GitMerge,
-  Dna,
-} from "lucide-react";
-import Logo from "@/components/brand/Logo";
+  DashboardHeader,
+  NeuralCoreHero,
+  DashboardMetrics,
+  UsageSummary,
+  DashboardActivity,
+  QuickActions,
+} from "@/components";
 
 /* =============================================================================
    Types
@@ -69,7 +35,7 @@ type UsageStats = {
 
 type ActivityItem = {
   id: string;
-  type: "chat" | "upload" | "evolution" | "graph";
+  type: "upload" | "evolution" | "graph";
   title: string;
   timestamp: string;
   metadata?: Record<string, unknown>;
@@ -86,7 +52,6 @@ type DailyActivity = {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { graphId } = useUserIds();
   const { toast } = useToast();
 
   const [health, setHealth] = useState<HealthStatus | null>(null);
@@ -146,12 +111,7 @@ export default function DashboardPage() {
       } catch {
         // Mock activity data
         setActivity([
-          {
-            id: "1",
-            type: "chat",
-            title: 'Chat: "What is FAIM?"',
-            timestamp: new Date(Date.now() - 120000).toISOString(),
-          },
+
           {
             id: "2",
             type: "upload",
@@ -185,7 +145,7 @@ export default function DashboardPage() {
         // Mock chart data
         const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
         setDailyActivity(
-          days.map((day, i) => ({
+          days.map((day) => ({
             date: day,
             count: Math.floor(Math.random() * 50) + 5,
           }))
@@ -215,13 +175,10 @@ export default function DashboardPage() {
         return;
       }
 
-      if (e.key === "c" && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        router.push("/dashboard/chat");
-      } else if (e.key === "u" && !e.metaKey && !e.ctrlKey) {
+
         e.preventDefault();
         router.push("/dashboard/storage");
-      } else if (e.key === "g" && !e.metaKey && !e.ctrlKey) {
+      if (e.key === "g" && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         router.push("/dashboard/graph");
       } else if (e.key === "r" && !e.metaKey && !e.ctrlKey) {
@@ -245,530 +202,39 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 pb-8">
-      {/* Header with greeting and health status */}
-      <header className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-            <span>{greeting.emoji}</span>
-            <span>{greeting.text}!</span>
-          </h1>
-          <p className="text-[var(--text-secondary)] text-sm mt-1">
-            Your FAIM engine is ready. Here&apos;s what&apos;s happening.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => loadData(true)}
-            disabled={refreshing}
-            className="p-2 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--glass-hover)] transition-colors disabled:opacity-50"
-            title="Refresh (R)"
-          >
-            <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
-          </button>
-          <HealthBadge healthy={isHealthy} version={health?.version} />
-        </div>
-      </header>
+      <DashboardHeader
+        greeting={greeting}
+        isHealthy={isHealthy}
+        version={health?.version}
+        refreshing={refreshing}
+        onRefresh={() => loadData(true)}
+      />
 
-      {/* Neural Core Widget - Animated Logo Hero */}
-      <section className="relative overflow-hidden rounded-3xl border border-cyan-500/10 bg-slate-950/40 backdrop-blur-2xl">
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/5 via-transparent to-violet-500/5 pointer-events-none" />
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.02] pointer-events-none" />
-        
-        <div className="relative flex items-center gap-6 p-6">
-          {/* Animated Logo */}
-          <div className="flex-shrink-0">
-            <Logo px={180} className="rounded-2xl" />
-          </div>
-          
-          {/* System Info */}
-          <div className="flex-1 min-w-0">
-            <div className="text-[11px] uppercase tracking-[0.15em] text-cyan-300 font-medium">FAIMATRIX SYNAPSE</div>
-            <h2 className="text-xl font-bold text-slate-50 mt-1">Neural Core {isHealthy ? "Online" : "Offline"}</h2>
-            <p className="text-sm text-slate-400 mt-1 line-clamp-2">
-              Neural Knowledge Synthesis • Your personal intelligence engine
-            </p>
-            
-            {/* Status Indicators */}
-            <div className="flex items-center gap-4 mt-3">
-              <div className="flex items-center gap-1.5 text-xs">
-                <span className={`w-2 h-2 rounded-full ${isHealthy ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
-                <span className="text-slate-300">{isHealthy ? "Systems Operational" : "Connection Lost"}</span>
-              </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-400">
-                <Brain size={12} />
-                <span>{usage?.nodes_count?.toLocaleString() ?? "—"} nodes</span>
-              </div>
-              {/* Evolution Pulse - FAIM Self-Evolution Indicator */}
-              <Link 
-                href="/dashboard/evolution"
-                className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 transition-colors"
-              >
-                <Dna size={12} className="animate-pulse" />
-                <span>Evolution Active</span>
-              </Link>
-            </div>
-          </div>
-          
-          {/* Quick Action */}
-          <Link
-            href="/dashboard/chat"
-            className="flex-shrink-0 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 text-slate-900 text-sm font-semibold shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-105 transition-all"
-          >
-            Start Chat
-          </Link>
-        </div>
-      </section>
+      <NeuralCoreHero
+        isHealthy={isHealthy}
+        nodesCount={usage?.nodes_count}
+      />
 
-      {/* Metric Cards */}
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          icon={<MessageSquare size={20} />}
-          label="Messages"
-          value={usage?.api_calls_today ?? 0}
-          trend={12}
-          color="cyan"
-        />
-        <MetricCard
-          icon={<FileText size={20} />}
-          label="Documents"
-          value={usage?.documents_count ?? 0}
-          trend={3}
-          color="violet"
-        />
-        <MetricCard
-          icon={<Network size={20} />}
-          label="Nodes"
-          value={usage?.nodes_count ?? 0}
-          trend={-2}
-          color="pink"
-        />
-        <MetricCard
-          icon={<Zap size={20} />}
-          label="Latency"
-          value="12ms"
-          suffix=""
-          color="amber"
-        />
-      </section>
+      <DashboardMetrics
+        messagesCount={usage?.api_calls_today ?? 0}
+        documentsCount={usage?.documents_count ?? 0}
+        nodesCount={usage?.nodes_count ?? 0}
+        latency="12ms"
+      />
 
-      {/* Upgrade CTA Banner - Shows when usage > 80% */}
-      {tokenPercent >= 80 && (
-        <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-orange-500/10 p-4">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_left,rgba(251,191,36,0.1),transparent_50%)]" />
-          <div className="relative flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/20">
-                <Zap size={20} className="text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-amber-200">
-                  {tokenPercent >= 100 ? "Token Limit Reached!" : "Approaching Token Limit"}
-                </h3>
-                <p className="text-xs text-amber-300/70">
-                  {tokenPercent >= 100 
-                    ? "Upgrade to continue using FAIM without interruption." 
-                    : `You've used ${tokenPercent}% of your token quota. Consider upgrading for more capacity.`}
-                </p>
-              </div>
-            </div>
-            <a
-              href="/dashboard/billing"
-              className="shrink-0 rounded-lg bg-amber-500 px-4 py-2 text-xs font-semibold text-slate-900 shadow-lg shadow-amber-500/25 hover:bg-amber-400 transition-colors"
-            >
-              Upgrade Now
-            </a>
-          </div>
-        </div>
-      )}
-
-      {/* Token Usage Bar - Always visible */}
-      <TokenUsageBar
+      <UsageSummary
         used={usage?.token_usage ?? 0}
         limit={usage?.token_limit ?? 1000000}
         percent={tokenPercent}
       />
 
-      {/* Activity Chart and Recent Activity */}
-      <div className="grid gap-6 lg:grid-cols-5">
-        {/* Activity Chart */}
-        <Card className="lg:col-span-3" glow>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Activity size={16} className="text-[var(--faim-primary)]" />
-              Activity (7 days)
-            </h2>
-            <Badge variant="primary" size="xs">Live</Badge>
-          </div>
-          <ActivityChart data={dailyActivity} />
-        </Card>
+      <DashboardActivity
+        dailyActivity={dailyActivity}
+        recentActivity={activity}
+      />
 
-        {/* Recent Activity */}
-        <Card className="lg:col-span-2" glow>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Clock size={16} className="text-[var(--faim-primary)]" />
-              Recent Activity
-            </h2>
-          </div>
-          <RecentActivityList items={activity} />
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <section>
-        <h2 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 flex items-center gap-2">
-          <Sparkles size={14} />
-          Quick Actions
-          <span className="text-[var(--text-muted)] font-normal ml-2 text-xs">
-            Press key to navigate
-          </span>
-        </h2>
-        <div className="grid gap-3 md:grid-cols-3">
-          <QuickActionCard
-            href="/dashboard/chat"
-            title="New Chat"
-            description="Start a conversation with FAIM"
-            icon={<MessageSquare size={24} />}
-            shortcut="C"
-            color="cyan"
-          />
-          <QuickActionCard
-            href="/dashboard/storage"
-            title="Upload Document"
-            description="Add files to your knowledge base"
-            icon={<Upload size={24} />}
-            shortcut="U"
-            color="violet"
-          />
-          <QuickActionCard
-            href="/dashboard/graph"
-            title="View Graph"
-            description="Explore your knowledge connections"
-            icon={<Network size={24} />}
-            shortcut="G"
-            color="pink"
-          />
-        </div>
-      </section>
-
-      {/* Keyboard shortcuts hint */}
-      <footer className="flex items-center justify-center gap-6 py-4 text-xs text-[var(--text-muted)]">
-        <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border-default)] font-mono">C</kbd>
-          Chat
-        </span>
-        <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border-default)] font-mono">U</kbd>
-          Upload
-        </span>
-        <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border-default)] font-mono">G</kbd>
-          Graph
-        </span>
-        <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border-default)] font-mono">R</kbd>
-          Refresh
-        </span>
-        <span className="flex items-center gap-1.5">
-          <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border-default)] font-mono">⌘K</kbd>
-          Command
-        </span>
-      </footer>
+      <QuickActions />
     </div>
-  );
-}
-
-/* =============================================================================
-   Components
-============================================================================= */
-
-function HealthBadge({ healthy, version }: { healthy: boolean; version?: string }) {
-  return (
-    <div
-      className={[
-        "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium",
-        "border transition-all",
-        healthy
-          ? "bg-[var(--faim-success-muted)] text-[var(--faim-success)] border-[var(--faim-success)]/30 shadow-[var(--glow-success)]"
-          : "bg-[var(--faim-error-muted)] text-[var(--faim-error)] border-[var(--faim-error)]/30 shadow-[var(--glow-error)]",
-      ].join(" ")}
-    >
-      <span
-        className={[
-          "w-2 h-2 rounded-full",
-          healthy ? "bg-[var(--faim-success)] animate-pulse" : "bg-[var(--faim-error)]",
-        ].join(" ")}
-      />
-      {healthy ? "Healthy" : "Offline"}
-      {version && <span className="text-[var(--text-tertiary)]">v{version}</span>}
-    </div>
-  );
-}
-
-function MetricCard({
-  icon,
-  label,
-  value,
-  trend,
-  suffix = "",
-  color = "cyan",
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-  trend?: number;
-  suffix?: string;
-  color?: "cyan" | "violet" | "pink" | "amber";
-}) {
-  const colorMap = {
-    cyan: {
-      bg: "bg-[var(--faim-primary-muted)]",
-      text: "text-[var(--faim-primary)]",
-      glow: "shadow-[var(--glow-cyan)]",
-    },
-    violet: {
-      bg: "bg-[var(--faim-secondary-muted)]",
-      text: "text-[var(--faim-secondary)]",
-      glow: "shadow-[var(--glow-violet)]",
-    },
-    pink: {
-      bg: "bg-[var(--faim-accent)]/15",
-      text: "text-[var(--faim-accent)]",
-      glow: "shadow-[0_0_20px_rgba(244,114,182,0.15)]",
-    },
-    amber: {
-      bg: "bg-[var(--faim-warning-muted)]",
-      text: "text-[var(--faim-warning)]",
-      glow: "shadow-[0_0_20px_rgba(251,191,36,0.15)]",
-    },
-  };
-
-  const colors = colorMap[color];
-
-  return (
-    <Card interactive className="group">
-      <div className="flex items-start justify-between">
-        <div
-          className={[
-            "p-2.5 rounded-xl",
-            colors.bg,
-            colors.text,
-            colors.glow,
-            "transition-transform group-hover:scale-110",
-          ].join(" ")}
-        >
-          {icon}
-        </div>
-        {typeof trend === "number" && (
-          <div
-            className={[
-              "flex items-center gap-0.5 text-xs font-medium",
-              trend >= 0 ? "text-[var(--faim-success)]" : "text-[var(--faim-error)]",
-            ].join(" ")}
-          >
-            {trend >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {Math.abs(trend)}%
-          </div>
-        )}
-      </div>
-      <div className="mt-3">
-        <div className="text-2xl font-bold text-[var(--text-primary)]">
-          {typeof value === "number" ? value.toLocaleString() : value}
-          {suffix && <span className="text-sm font-normal text-[var(--text-secondary)]">{suffix}</span>}
-        </div>
-        <div className="text-xs text-[var(--text-secondary)] mt-0.5">{label}</div>
-      </div>
-    </Card>
-  );
-}
-
-function TokenUsageBar({
-  used,
-  limit,
-  percent,
-}: {
-  used: number;
-  limit: number;
-  percent: number;
-}) {
-  const isWarning = percent >= 80;
-
-  return (
-    <Card className="!p-4" glow={!isWarning}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm text-[var(--text-secondary)]">Token Usage</span>
-        <span className="text-sm font-medium text-[var(--text-primary)]">
-          {(used / 1000).toFixed(0)}K / {(limit / 1000).toFixed(0)}K
-        </span>
-      </div>
-      <Progress
-        value={percent}
-        variant={isWarning ? "warning" : "primary"}
-        size="md"
-        animated={isWarning}
-      />
-      {isWarning && (
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--border-subtle)]">
-          <span className="text-xs text-[var(--faim-warning)]">
-            You&apos;ve used {percent}% of your tokens
-          </span>
-          <Link
-            href="/dashboard/billing"
-            className="text-xs font-medium text-[var(--faim-primary)] hover:underline flex items-center gap-1"
-          >
-            Upgrade Plan <ArrowRight size={12} />
-          </Link>
-        </div>
-      )}
-    </Card>
-  );
-}
-
-function ActivityChart({ data }: { data: DailyActivity[] }) {
-  if (!data.length) {
-    return (
-      <EmptyState
-        icon="inbox"
-        title="No activity yet"
-        description="Start chatting to see your activity"
-        size="sm"
-      />
-    );
-  }
-
-  const max = Math.max(...data.map((d) => d.count), 1);
-
-  return (
-    <div className="flex items-end justify-between gap-2 h-32">
-      {data.map((day, i) => {
-        const height = (day.count / max) * 100;
-        return (
-          <div key={i} className="flex-1 flex flex-col items-center gap-2">
-            <div className="w-full flex flex-col items-center justify-end h-24">
-              <div
-                className={[
-                  "w-full max-w-8 rounded-t-md",
-                  "bg-gradient-to-t from-[var(--faim-primary)] to-[var(--faim-secondary)]",
-                  "transition-all duration-500 hover:opacity-80",
-                  "shadow-[0_0_12px_rgba(34,211,238,0.3)]",
-                ].join(" ")}
-                style={{ height: `${Math.max(height, 4)}%` }}
-                title={`${day.count} activities`}
-              />
-            </div>
-            <span className="text-[10px] text-[var(--text-muted)]">{day.date}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function RecentActivityList({ items }: { items: ActivityItem[] }) {
-  if (!items.length) {
-    return (
-      <EmptyState
-        icon="inbox"
-        title="No recent activity"
-        description="Your activity will appear here"
-        size="sm"
-      />
-    );
-  }
-
-  const iconMap = {
-    chat: <MessageSquare size={14} className="text-[var(--faim-primary)]" />,
-    upload: <Upload size={14} className="text-[var(--faim-secondary)]" />,
-    evolution: <Sparkles size={14} className="text-[var(--faim-accent)]" />,
-    graph: <Network size={14} className="text-[var(--faim-success)]" />,
-  };
-
-  return (
-    <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
-      {items.map((item) => (
-        <div key={item.id} className="flex items-start gap-3 group">
-          <div className="flex-shrink-0 mt-0.5">{iconMap[item.type]}</div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm text-[var(--text-primary)] truncate group-hover:text-[var(--faim-primary)] transition-colors">
-              {item.title}
-            </p>
-            <p className="text-xs text-[var(--text-muted)]">
-              {formatRelativeTime(item.timestamp)}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function QuickActionCard({
-  href,
-  title,
-  description,
-  icon,
-  shortcut,
-  color = "cyan",
-}: {
-  href: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  shortcut: string;
-  color?: "cyan" | "violet" | "pink";
-}) {
-  const colorMap = {
-    cyan: {
-      icon: "text-[var(--faim-primary)]",
-      hover: "group-hover:border-[var(--faim-primary)]/50",
-      glow: "group-hover:shadow-[var(--glow-cyan)]",
-    },
-    violet: {
-      icon: "text-[var(--faim-secondary)]",
-      hover: "group-hover:border-[var(--faim-secondary)]/50",
-      glow: "group-hover:shadow-[var(--glow-violet)]",
-    },
-    pink: {
-      icon: "text-[var(--faim-accent)]",
-      hover: "group-hover:border-[var(--faim-accent)]/50",
-      glow: "group-hover:shadow-[0_0_20px_rgba(244,114,182,0.15)]",
-    },
-  };
-
-  const colors = colorMap[color];
-
-  return (
-    <Link
-      href={href}
-      className={[
-        "group relative block rounded-2xl",
-        "border border-[var(--border-default)]",
-        "bg-[var(--surface-1)]",
-        "p-5 transition-all duration-300",
-        colors.hover,
-        colors.glow,
-        "hover:-translate-y-1",
-      ].join(" ")}
-    >
-      <div className="flex items-start justify-between">
-        <div className={["opacity-80 group-hover:opacity-100 transition-opacity", colors.icon].join(" ")}>
-          {icon}
-        </div>
-        <kbd className="px-1.5 py-0.5 rounded bg-[var(--surface-2)] border border-[var(--border-default)] text-[10px] font-mono text-[var(--text-muted)] group-hover:text-[var(--text-primary)] group-hover:border-[var(--border-primary)] transition-colors">
-          {shortcut}
-        </kbd>
-      </div>
-      <div className="mt-4">
-        <div className="text-sm font-semibold text-[var(--text-primary)] group-hover:text-[var(--faim-primary)] transition-colors">
-          {title}
-        </div>
-        <div className="text-xs text-[var(--text-tertiary)] mt-1">{description}</div>
-      </div>
-      <ArrowRight
-        size={16}
-        className="absolute bottom-5 right-5 text-[var(--text-muted)] opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all"
-      />
-    </Link>
   );
 }
 
@@ -802,25 +268,4 @@ function DashboardSkeleton() {
       </div>
     </div>
   );
-}
-
-/* =============================================================================
-   Helpers
-============================================================================= */
-
-function formatRelativeTime(timestamp: string): string {
-  const now = Date.now();
-  const then = new Date(timestamp).getTime();
-  const diff = now - then;
-
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes} min ago`;
-  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-  if (days === 1) return "Yesterday";
-  if (days < 7) return `${days} days ago`;
-  return new Date(timestamp).toLocaleDateString();
 }

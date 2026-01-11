@@ -58,7 +58,7 @@ export default function Hero() {
           transition={{ duration: 0.7, delay: 0.4 }}
           className="mt-6 text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed"
         >
-          FAIM Lab transforms your documents, notes, and ideas into an infinite,
+          FAIMATRIX transforms your documents, notes, and ideas into an infinite,
           self-organizing memory that grows smarter with every interaction.
         </motion.p>
 

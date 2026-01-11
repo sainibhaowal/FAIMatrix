@@ -2,18 +2,10 @@
 
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
-  UploadCloud,
   FileText,
-  CheckCircle,
-  Clock,
-  AlertCircle,
   HardDrive,
   Trash2,
   Download,
-  Filter,
-  MoreVertical,
-  X,
-  File as FileIcon,
   Search,
   Info,
   ChevronDown,
@@ -21,23 +13,15 @@ import {
 } from "lucide-react";
 import { getSession } from "next-auth/react";
 import { useUserIds } from "@/contexts/UserContext";
-import { useFaimStream } from "@/lib/realtime";
 
 // UI Components
 import { useToast } from "@/components/ui/Toast";
 import {
-  Card,
   Button,
-  Spinner,
-  Skeleton,
-  EmptyState,
   Modal,
-  Badge,
-  Input,
-  Select,
+  Spinner,
 } from "@/components/ui";
-import { Dropdown } from "@/components/layout/TopBar/Dropdown";
-import { useOutsideClick } from "@/components/ui";
+import { FileUploader, StorageList } from "@/components";
 
 type Doc = {
   id: string;
@@ -46,10 +30,6 @@ type Doc = {
   created_at: string;
   file_size_bytes: number;
 };
-
-// ----------------------------------------------------------------------------
-// Types & Helpers
-// ----------------------------------------------------------------------------
 
 type SortOption = "date_desc" | "date_asc" | "az" | "za" | "size_desc";
 
@@ -60,10 +40,6 @@ function formatBytes(bytes: number) {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
 }
-
-// ----------------------------------------------------------------------------
-// Storage Page
-// ----------------------------------------------------------------------------
 
 export default function StoragePage() {
   const { toast } = useToast();
@@ -76,7 +52,6 @@ export default function StoragePage() {
 
   // -- Selection State --
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
 
   // -- Filter/Sort State --
   const [filterQuery, setFilterQuery] = useState("");
@@ -103,7 +78,6 @@ export default function StoragePage() {
       const headers: Record<string, string> = {};
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      // Backend returns documents for authenticated user only
       const resDocs = await fetch(`/api/v1/storage/files`, { headers });
       if (resDocs.ok) {
         const docData = await resDocs.json();
@@ -122,41 +96,7 @@ export default function StoragePage() {
        setLoading(true);
        loadDocs();
     }
-  }, [isAuthenticated, authLoading]);
-
-  // Real-time updates via SSE
-  // We use the existing useFaimStream hook which connects to /stream
-  // In a real implementation, the backend would push 'doc_update' events.
-  // Here we'll re-fetch docs on 'toast' success events related to processing,
-  // or just general activity if specific events aren't available.
-  /*
-  useFaimStream(
-    // graphId - usually resolveUniverseId, but simpler to omit to let backend resolve user universe
-    null, 
-    {
-      onToast: (evt) => {
-        // If we get a success toast that might be related to storage/processing, refresh
-        if (evt.level === 'success' || evt.message.includes("processed")) {
-           loadDocs();
-        }
-      },
-      // You can add onRaw here if you have custom event types
-      onRaw: (evt) => {
-         if (evt.event === 'doc_update') {
-            loadDocs();
-         }
-      }
-    }
-  );
-  */
-  // Actually, let's uncomment and use it properly. I need to import it first. 
-  // Since I can't easily add imports with replace_file_content without context, 
-  // I will do a larger replace to include imports + hook.
-
-
-  // --------------------------------------------------------------------------
-  // Upload Handling (Real implementation)
-  // --------------------------------------------------------------------------
+  }, [isAuthenticated, authLoading, loadDocs]);
 
   const uploadFiles = async (files: FileList | File[]) => {
     if (!isAuthenticated) return;
@@ -164,27 +104,21 @@ export default function StoragePage() {
     const fileArray = Array.from(files);
     if (fileArray.length === 0) return;
 
-    // Filter
     const validFiles = fileArray.filter(f => f.size > 0);
     
-    // Initialize progress
     const newUploads: Record<string, number> = {};
     validFiles.forEach(f => { newUploads[f.name] = 0; });
     setActiveUploads(prev => ({ ...prev, ...newUploads }));
 
-    // Helper: Promisified XHR upload
     const uploadOne = (file: File): Promise<void> => {
       return new Promise<void>((resolve, reject) => {
         const formData = new FormData();
         formData.append("file", file);
-
-        // Add graph_id if available (for document association)
         if (graphId) formData.append("graph_id", graphId);
 
         const xhr = new XMLHttpRequest();
         xhr.open("POST", "/api/v1/storage/upload");
 
-        // Auth
         getSession().then((session) => {
           const token = (session as any)?.accessToken;
           if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
@@ -201,7 +135,6 @@ export default function StoragePage() {
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) {
             toast.success(`Uploaded ${file.name}`);
-            // Optimistic add if response has doc
             try {
               const data = JSON.parse(xhr.responseText);
               const newDoc = data.document;
@@ -210,9 +143,8 @@ export default function StoragePage() {
             resolve();
           } else {
             toast.error(`Failed to upload ${file.name}`);
-            resolve(); // Don't reject entire batch?
+            resolve();
           }
-          // Cleanup
           setActiveUploads(prev => {
             const next = { ...prev };
             delete next[file.name];
@@ -232,41 +164,14 @@ export default function StoragePage() {
       });
     };
 
-    // Parallel uploads
     await Promise.all(validFiles.map(uploadOne));
   };
- 
-  const onDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
-  const onDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  };
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    if (e.dataTransfer.files) {
-      uploadFiles(e.dataTransfer.files);
-    }
-  };
-
-  const handleInputUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) uploadFiles(e.target.files);
-    e.target.value = ""; 
-  };
-
-  // --------------------------------------------------------------------------
-  // Selection & Batch Actions (Real implementation)
-  // --------------------------------------------------------------------------
 
   const toggleSelection = (id: string, multi: boolean) => {
     const newSet = new Set(multi ? selectedIds : []);
     if (newSet.has(id)) newSet.delete(id);
     else newSet.add(id);
     setSelectedIds(newSet);
-    setLastSelectedId(id);
   };
 
   const selectAll = () => {
@@ -285,8 +190,6 @@ export default function StoragePage() {
         const headers: Record<string, string> = {};
         if (token) headers["Authorization"] = `Bearer ${token}`;
 
-        // Sequential or Parallel delete
-        // We'll do parallel for speed
         const results = await Promise.all(idsToDelete.map(async (id) => {
            try {
               const res = await fetch(`/api/v1/storage/files/${id}`, { method: "DELETE", headers });
@@ -307,10 +210,6 @@ export default function StoragePage() {
     );
   };
 
-  // --------------------------------------------------------------------------
-  // Sorting & Filtering
-  // --------------------------------------------------------------------------
-
   const filteredDocs = useMemo(() => {
     let res = docs;
     if (filterQuery) {
@@ -329,10 +228,6 @@ export default function StoragePage() {
     });
   }, [docs, filterQuery, sortBy]);
 
-  // --------------------------------------------------------------------------
-  // Helper
-  // --------------------------------------------------------------------------
-
   const confirm = (title: string, message: string, action: () => Promise<void>, variant: "danger" | "warning" = "danger") => {
     setConfirmTitle(title);
     setConfirmMessage(message);
@@ -342,7 +237,6 @@ export default function StoragePage() {
   };
 
   const handleExport = async () => { 
-    // Just dump JSON of current view for now
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(filteredDocs, null, 2));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href",     dataStr);
@@ -351,10 +245,6 @@ export default function StoragePage() {
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
   };
-  
-  // --------------------------------------------------------------------------
-  // File Preview (Real implementation)
-  // --------------------------------------------------------------------------
   
   const [previewDoc, setPreviewDoc] = useState<Doc | null>(null);
   const [previewContent, setPreviewContent] = useState<string | null>(null);
@@ -365,11 +255,9 @@ export default function StoragePage() {
     setPreviewLoading(true);
     setPreviewContent(null);
     
-    // Check extension
     const ext = doc.filename.split('.').pop()?.toLowerCase();
     const isText = ['txt', 'md', 'json', 'csv', 'py', 'js', 'ts', 'tsx', 'html', 'css', 'sql', 'yaml', 'toml', 'xml', 'log'].includes(ext || '');
 
-    // Size limit for preview (e.g., 2MB)
     if (isText && doc.file_size_bytes < 2 * 1024 * 1024) {
        try {
          const session = await getSession();
@@ -391,7 +279,7 @@ export default function StoragePage() {
     } else if (isText) {
        setPreviewContent("File too large to preview. Please download.");
     } else {
-       setPreviewContent(null); // Not a text file
+       setPreviewContent(null);
     }
     setPreviewLoading(false);
   };
@@ -432,62 +320,13 @@ export default function StoragePage() {
       </header>
 
       {/* UPLOAD ZONE */}
-      <div
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
-        className={[
-          "relative border-dashed border-2 rounded-xl transition-all duration-200 group",
-          isDragOver 
-            ? "border-cyan-500 bg-cyan-500/10 scale-[1.01]" 
-            : "border-[var(--border-default)] bg-[var(--surface-1)] hover:bg-[var(--surface-2)]"
-        ].join(" ")}
-      >
-        <div className="p-10 text-center">
-          <input
-            type="file"
-            multiple // Multi-file support
-            onChange={handleInputUpload}
-            disabled={!isAuthenticated}
-            className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed z-10"
-          />
-          <div className={[
-            "w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 transition-transform duration-300",
-            isDragOver ? "bg-cyan-500 text-white scale-110" : "bg-[var(--faim-secondary-muted)] text-[var(--faim-secondary)] group-hover:scale-110"
-          ].join(" ")}>
-            <UploadCloud size={28} />
-          </div>
-          <div className="font-semibold text-base text-[var(--text-primary)] mb-1">
-            {isDragOver ? "Drop files now" : "Click or drag files to upload"}
-          </div>
-           <div className="text-xs text-[var(--text-muted)]">
-            Supports PDF, DOCX, TXT, MD, Code • Max 50MB per file
-          </div>
-        </div>
-
-        {/* Active Uploads Progress */}
-        {Object.keys(activeUploads).length > 0 && (
-          <div className="border-t border-[var(--border-subtle)] p-4 space-y-3 bg-[var(--surface-2)] rounded-b-xl">
-             <div className="text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">
-               Uploading {Object.keys(activeUploads).length} files...
-             </div>
-             {Object.entries(activeUploads).map(([name, progress]) => (
-               <div key={name} className="flex items-center gap-3 text-xs">
-                 <Spinner size="xs" />
-                 <div className="flex-1 min-w-0">
-                    <div className="flex justify-between mb-1">
-                       <span className="truncate text-[var(--text-primary)]">{name}</span>
-                       <span className="text-[var(--text-muted)]">{progress}%</span>
-                    </div>
-                    <div className="h-1 bg-[var(--surface-3)] rounded-full overflow-hidden">
-                       <div className="h-full bg-cyan-500 transition-all duration-300" style={{ width: `${progress}%` }} />
-                    </div>
-                 </div>
-               </div>
-             ))}
-          </div>
-        )}
-      </div>
+      <FileUploader 
+        onUpload={uploadFiles}
+        activeUploads={activeUploads}
+        isDragOver={isDragOver}
+        setIsDragOver={setIsDragOver}
+        isAuthenticated={isAuthenticated}
+      />
 
       {/* SUPPORTED FILES INFO */}
       <div className="flex justify-center">
@@ -522,7 +361,7 @@ export default function StoragePage() {
             {/* Text & Markup */}
             <div className="space-y-2">
               <h4 className="text-xs font-semibold text-violet-400 uppercase tracking-wider flex items-center gap-1.5">
-                <FileIcon size={12} /> Text & Markup
+                <FileText size={12} /> Text & Markup
               </h4>
               <ul className="text-xs text-[var(--text-secondary)] space-y-1">
                 <li className="flex items-center gap-2"><span className="text-emerald-400">✓</span> Plain Text (.txt)</li>
@@ -604,88 +443,21 @@ export default function StoragePage() {
       </div>
 
       {/* FILE LIST */}
-      <Card noPadding className="overflow-hidden">
-        <div className="px-4 py-3 border-b border-[var(--border-subtle)] bg-[var(--surface-1)] flex items-center gap-3">
-           <input 
-              type="checkbox" 
-              className="rounded border-[var(--border-default)] bg-[var(--surface-2)] text-cyan-500 focus:ring-cyan-500/30"
-              checked={filteredDocs.length > 0 && selectedIds.size === filteredDocs.length}
-              onChange={selectAll}
-           />
-           <span className="text-xs font-semibold text-[var(--text-secondary)]">Name</span>
-           <div className="ml-auto text-xs font-semibold text-[var(--text-secondary)] pr-20">Status</div>
-        </div>
-
-        {loading ? (
-          <div className="p-5 space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <Skeleton height={40} width={40} className="rounded-lg" />
-                <div className="space-y-2 flex-1">
-                  <Skeleton height={14} width="40%" />
-                  <Skeleton height={10} width="20%" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : filteredDocs.length === 0 ? (
-          <EmptyState
-            icon="documents"
-            title="No files found"
-            description={filterQuery ? "Try adjusting your search filters." : "Upload documents to get started."}
-            size="sm"
-          />
-        ) : (
-          <div className="divide-y divide-[var(--border-subtle)]">
-            {filteredDocs.map((doc) => {
-               const isSelected = selectedIds.has(doc.id);
-               return (
-                 <div
-                   key={doc.id}
-                   className={`group px-4 py-3 flex items-center gap-3 hover:bg-[var(--surface-2)] transition-colors ${isSelected ? "bg-cyan-500/5 text-cyan-100" : ""}`}
-                 >
-                   <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelection(doc.id, true)} 
-                      className="rounded border-[var(--border-default)] bg-[var(--surface-2)] text-cyan-500 focus:ring-cyan-500/30 opacity-40 group-hover:opacity-100 transition-opacity"
-                   />
-                   
-                   <div className="w-9 h-9 shrink-0 rounded-lg bg-[var(--surface-3)] flex items-center justify-center text-[var(--text-secondary)]">
-                      <FileIcon size={16} />
-                   </div>
-
-                   <button 
-                      onClick={() => handlePreview(doc)}
-                      className="flex-1 min-w-0 text-left"
-                   >
-                      <div className="flex items-center gap-2">
-                        <span className={`font-medium text-sm truncate hover:underline ${isSelected ? "text-cyan-200" : "text-[var(--text-primary)]"}`}>
-                           {doc.filename}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-[var(--text-muted)] flex items-center gap-2 mt-0.5">
-                         <span>{new Date(doc.created_at).toLocaleDateString()}</span>
-                         <span>•</span>
-                         <span>{formatBytes(doc.file_size_bytes)}</span>
-                      </div>
-                   </button>
-
-                   <StatusBadge status={doc.status} />
-
-                   <DropdownMenu doc={doc} onDelete={() => {
-                      confirm("Delete file?", "This cannot be undone.", async () => {
-                         // Simulate delete
-                         setDocs(prev => prev.filter(p => p.id !== doc.id));
-                         toast.success("File deleted");
-                      }, "danger");
-                   }} />
-                 </div>
-               );
-            })}
-          </div>
-        )}
-      </Card>
+      <StorageList 
+        docs={filteredDocs}
+        loading={loading}
+        selectedIds={selectedIds}
+        onToggleSelection={toggleSelection}
+        onSelectAll={selectAll}
+        onPreview={handlePreview}
+        onDelete={(doc) => {
+           confirm("Delete file?", "This cannot be undone.", async () => {
+              setDocs(prev => prev.filter(p => p.id !== doc.id));
+              toast.success("File deleted");
+           }, "danger");
+        }}
+        formatBytes={formatBytes}
+      />
 
       {/* Preview Modal */}
       <Modal
@@ -762,61 +534,5 @@ export default function StoragePage() {
         </div>
       </Modal>
     </div>
-  );
-}
-
-function DropdownMenu({ doc, onDelete }: { doc: Doc, onDelete: () => void }) {
-   const [open, setOpen] = useState(false);
-   const ref = React.useRef(null);
-   useOutsideClick(ref as any, () => setOpen(false));
-
-   return (
-      <div className="relative" ref={ref}>
-         <button 
-            onClick={() => setOpen(!open)}
-            className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-3)] transition-all"
-         >
-            <MoreVertical size={14} />
-         </button>
-         
-         {open && (
-            <div className="absolute right-0 top-full mt-1 w-32 bg-[var(--surface-2)] border border-[var(--border-subtle)] rounded-lg shadow-xl z-10 overflow-hidden py-1">
-               <button 
-                  onClick={() => { setOpen(false); onDelete(); }}
-                  className="w-full text-left px-3 py-2 text-xs text-rose-400 hover:bg-rose-500/10 flex items-center gap-2"
-               >
-                  <Trash2 size={12} /> Delete
-               </button>
-            </div>
-         )}
-      </div>
-   );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const variantMap: Record<string, "success" | "warning" | "error" | "default"> = {
-    completed: "success",
-    processed: "success",
-    processing: "warning",
-    pending: "warning",
-    failed: "error",
-  };
-  
-  const iconMap: Record<string, any> = {
-    completed: CheckCircle,
-    processed: CheckCircle,
-    processing: Clock,
-    pending: Clock,
-    failed: AlertCircle,
-  };
-
-  const Icon = iconMap[status] || Clock;
-  const variant = variantMap[status] || "default";
-
-  return (
-    <Badge variant={variant} size="sm" className="gap-1.5 capitalize">
-      <Icon size={10} />
-      {status}
-    </Badge>
   );
 }

@@ -79,3 +79,4 @@ Repo/
 
 # Local LLM models
 backend/faim/llm_models/
+requirements.txt

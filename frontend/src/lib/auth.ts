@@ -64,7 +64,7 @@ export const authOptions: NextAuthOptions = {
               id: data.user_id,
               email: data.email,
               name: data.name || data.email,
-              projectId: data.project_id,
+
               graphId: data.graph_id,
             };
           }
@@ -100,7 +100,7 @@ export const authOptions: NextAuthOptions = {
         token.userId = user.id;
         token.email = user.email;
         token.name = user.name;
-        token.projectId = (user as any).projectId;
+
         token.graphId = (user as any).graphId;
       }
       
@@ -112,7 +112,7 @@ export const authOptions: NextAuthOptions = {
           id: token.userId || token.sub,
           email: token.email,
           name: token.name,
-          projectId: token.projectId,
+
           graphId: token.graphId,
         },
         JWT_SECRET,
@@ -132,7 +132,7 @@ export const authOptions: NextAuthOptions = {
           name: token.name as string,
         };
         // Add custom properties
-        (session as any).projectId = token.projectId;
+
         (session as any).graphId = token.graphId;
         // CRITICAL: Expose accessToken for backend API calls
         (session as any).accessToken = token.accessToken;

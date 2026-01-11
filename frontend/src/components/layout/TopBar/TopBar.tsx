@@ -136,7 +136,7 @@ export function TopBar({
   const goAdmin = (tab?: string) => {
     const t = (tab ?? "").trim();
     router.push(
-      !t ? "/dashboard/admin" : `/dashboard/admin?tab=${encodeURIComponent(t)}`,
+      !t ? "/dashboard/profile" : `/dashboard/profile?tab=${encodeURIComponent(t)}`,
     );
   };
 
@@ -610,6 +610,7 @@ export function TopBar({
                  className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-xs font-medium text-white/80 hover:border-white/20 transition-colors overflow-hidden"
                >
                   {avatarId || session?.user?.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img 
                       src={avatarId ? getAvatarUrl(avatarId) : session!.user!.image!} 
                       alt={session?.user?.name || "User"} 

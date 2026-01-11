@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import FaimLogo from "@/components/landing/FaimLogo";
+import { FaimLogo } from "@/components";
 
 interface FeaturePageLayoutProps {
   title: string;

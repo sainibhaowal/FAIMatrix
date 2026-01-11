@@ -48,26 +48,7 @@ const features = [
     gradient: "from-purple-500 to-pink-500",
     link: "/features/knowledge-graph",
   },
-  {
-    id: "ai-chat",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-8 h-8"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10z" />
-        <path d="M8 10h.01M12 10h.01M16 10h.01" />
-      </svg>
-    ),
-    title: "AI-Powered Chat",
-    description:
-      "Query your entire knowledge base with natural language. Get instant, contextual answers.",
-    gradient: "from-emerald-500 to-teal-500",
-    link: "/features/ai-chat",
-  },
+
   {
     id: "document-intelligence",
     icon: (

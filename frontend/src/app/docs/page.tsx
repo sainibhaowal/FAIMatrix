@@ -2,16 +2,16 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import FaimLogo from "@/components/landing/FaimLogo";
+import { FaimLogo } from "@/components";
 
 const sections = [
   {
     title: "Getting Started",
     items: [
       {
-        title: "Introduction to FAIM Lab",
+        title: "Introduction to FAIMATRIX",
         href: "#intro",
-        description: "Learn what FAIM Lab is and how it works",
+        description: "Learn what FAIMATRIX is and how it works",
       },
       {
         title: "Quick Start Guide",
@@ -33,11 +33,7 @@ const sections = [
         href: "/features/knowledge-graph",
         description: "Visualize your knowledge connections",
       },
-      {
-        title: "AI Chat",
-        href: "/features/ai-chat",
-        description: "Query your knowledge with natural language",
-      },
+
       {
         title: "Document Intelligence",
         href: "/features/document-intelligence",
@@ -99,10 +95,10 @@ export default function DocsPage() {
               Documentation
             </span>
             <h1 className="mt-4 text-4xl md:text-5xl font-bold text-white mb-4">
-              Learn FAIM Lab
+              Learn FAIMATRIX
             </h1>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-              Everything you need to know about building with FAIM Lab.
+              Everything you need to know about building with FAIMATRIX.
             </p>
           </motion.div>
 
@@ -179,14 +175,14 @@ export default function DocsPage() {
             </h2>
             <div className="prose prose-invert max-w-none">
               <p className="text-slate-400 mb-4">
-                Get started with FAIM Lab in just a few steps:
+                Get started with FAIMATRIX in just a few steps:
               </p>
               <ol className="space-y-3 text-slate-300">
                 <li className="flex items-start gap-3">
                   <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">
                     1
                   </span>
-                  <span>Sign up for a free account at FAIM Lab</span>
+                  <span>Sign up for a free account at FAIMATRIX</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">
@@ -194,15 +190,10 @@ export default function DocsPage() {
                   </span>
                   <span>Upload your first document or paste text directly</span>
                 </li>
+
                 <li className="flex items-start gap-3">
                   <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">
                     3
-                  </span>
-                  <span>Start chatting with your knowledge using AI</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-sm shrink-0">
-                    4
                   </span>
                   <span>Explore your knowledge graph to find connections</span>
                 </li>

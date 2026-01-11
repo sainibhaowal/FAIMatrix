@@ -34,7 +34,7 @@ from faim.config.models import (
     UsageEvent,
     User,
 )
-from faim.workers.email import generate_verification_token, send_verification_email
+from faim.api.auth.email import generate_verification_token, send_verification_email
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Control Plane"])

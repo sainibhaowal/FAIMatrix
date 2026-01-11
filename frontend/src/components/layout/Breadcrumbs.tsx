@@ -9,7 +9,7 @@ const NAME_MAP: Record<string, string> = {
   dashboard: "Dashboard",
   monitor: "Monitor",
   graph: "FIG View",
-  chat: "Chat",
+
   benchmarks: "Benchmarks",
   settings: "Settings",
   storage: "Storage",
@@ -20,7 +20,7 @@ const NAME_MAP: Record<string, string> = {
 
 export function Breadcrumbs() {
   const pathname = usePathname();
-  // e.g. /dashboard/chat -> ["dashboard", "chat"]
+  // e.g. /dashboard/graph -> ["dashboard", "graph"]
   const parts = pathname.split("/").filter(Boolean);
 
   if (parts.length === 0) return null;

@@ -22,11 +22,11 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { SidebarNav } from "./Sidebar/SidebarNav";
+import { SidebarNav } from "@/components/layout/Sidebar/SidebarNav";
 import { TopBar } from "./TopBar/TopBar";
-import { FaimHeader } from "./FaimHeader";
-import Logo from "../brand/Logo";
-import { DEFAULT_GRAPH_ID } from "../../lib/api";
+import { FaimHeader } from "@/components/layout/FaimHeader";
+import Logo from "@/components/brand/Logo";
+import { DEFAULT_GRAPH_ID } from "@/lib/api-client";
 
 // ----------------------------------------------------------------------------
 // Helpers

@@ -792,3 +792,34 @@ async def generate_reply_stream(graph_id: str, user_text: str, context_text: str
 
     for tok in _tokenize(text.strip()):
         yield tok
+
+
+# =============================================================================
+# LEGACY STATE SHIM (for graphs.py / graph_filters.py)
+# =============================================================================
+def _gid(graph_id: str) -> str:
+    return graph_id
+
+def iter_nodes_from_store(graph_id: str):
+    return _get_engine()._store.iter_nodes(_gid(graph_id))
+
+def count_nodes_from_store(graph_id: str):
+    return _get_engine()._store.count_nodes(_gid(graph_id))
+
+def ensure_registry_loaded():
+    pass
+
+# Note: NODE_STORE is accessed via getattr(S, 'NODE_STORE', None).
+# We can provide a proxy or just the store itself if initialized.
+NODE_STORE = None
+
+def _initialize_legacy_vars():
+    global NODE_STORE
+    try:
+        NODE_STORE = _get_engine()._store
+    except Exception:
+        pass
+
+_initialize_legacy_vars()
+
+GRAPH_REGISTRY: dict = {}

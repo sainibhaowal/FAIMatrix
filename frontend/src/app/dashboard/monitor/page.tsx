@@ -20,8 +20,8 @@ import {
   ResourceUsagePanel,
   HealthHistoryChart,
   HealthCards,
-} from "@/components/features/monitor";
-import { AGIFeaturesPanel } from "@/components/features/dashboard";
+} from "@/components";
+import { AGIFeaturesPanel } from "@/components";
 
 export default function MonitorPage() {
   return (

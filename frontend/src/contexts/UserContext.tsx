@@ -3,7 +3,7 @@
 /**
  * FAIM User Context - Provides authenticated user's IDs to components
  *
- * NEW FILE - Safe wrapper that provides projectId and graphId from session.
+ * NEW FILE - Safe wrapper that provides graphId from session.
  * Components use this instead of hardcoded values for multi-tenant isolation.
  */
 
@@ -14,7 +14,6 @@ interface UserContextType {
   userId: string | null;
   email: string | null;
   name: string | null;
-  projectId: string | null;
   graphId: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -24,7 +23,6 @@ const defaultContext: UserContextType = {
   userId: null,
   email: null,
   name: null,
-  projectId: null,
   graphId: null,
   isLoading: true,
   isAuthenticated: false,
@@ -44,14 +42,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     if (status === "authenticated" && session) {
       let graphId = (session as any).graphId || null;
-      let projectId = (session as any).projectId || null;
+
 
       // Initial state from session
       setUserInfo({
         userId: session.user?.id || null,
         email: session.user?.email || null,
         name: session.user?.name || null,
-        projectId: projectId,
+
         graphId: graphId,
         isLoading: false,
         isAuthenticated: true,
@@ -85,7 +83,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             setUserInfo((prev) => ({
               ...prev,
               graphId: data.graph_id,
-              projectId: data.project_id || prev.projectId,
             }));
           } else if (graphId) {
             // Ensure storage is set even if matching (for first load)
@@ -121,16 +118,16 @@ export function useUser() {
 
 // Hook for components that need the IDs with warnings
 export function useUserIds() {
-  const { projectId, graphId, isLoading, isAuthenticated } = useUser();
+  const { graphId, isLoading, isAuthenticated } = useUser();
 
   // Warn in dev if using without auth
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && (projectId || graphId)) {
+    if (!isLoading && !isAuthenticated && graphId) {
       console.warn(
         "[FAIM] Using dev mode IDs. In production, users should be authenticated.",
       );
     }
-  }, [isLoading, isAuthenticated, projectId, graphId]);
+  }, [isLoading, isAuthenticated, graphId]);
 
-  return { projectId, graphId, isLoading, isAuthenticated };
+  return { graphId, isLoading, isAuthenticated };
 }

@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from faim.api.auth.auth import allow_dev_mode
 from faim.api.services.models import BenchmarkPoint, GraphMetrics, LatencyPoint
 from faim.config import FaimSettings
-from faim.core import interface as engine
+from faim.api.adapters import interface as engine
 
 # =============================================================================
 # BENCHMARKS API (REAL PRODUCT METRICS, FILE-SAFE)

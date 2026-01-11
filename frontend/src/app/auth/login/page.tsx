@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FAIM Lab - Login Page
+ * FAIMATRIX - Login Page
  *
  * Uses NextAuth signIn for credentials auth.
  */
@@ -70,7 +70,7 @@ function LoginContent() {
             <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-xl flex items-center justify-center">
               <span className="text-white font-bold text-lg">F</span>
             </div>
-            <span className="text-xl font-bold text-white">FAIM Lab</span>
+            <span className="text-xl font-bold text-white">FAIMATRIX</span>
           </Link>
         </div>
 
@@ -80,7 +80,7 @@ function LoginContent() {
             Welcome Back
           </h1>
           <p className="text-slate-400 text-center text-sm mb-6">
-            Sign in to continue to FAIM Lab
+            Sign in to continue to FAIMATRIX
           </p>
 
           {/* Registration success message */}
@@ -165,7 +165,7 @@ function LoginContent() {
 
           {/* Signup link */}
           <p className="text-center text-slate-400 text-sm mt-6">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <Link
               href="/auth/signup"
               className="text-cyan-400 hover:text-cyan-300 font-medium"

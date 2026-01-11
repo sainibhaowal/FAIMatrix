@@ -1,9 +1,9 @@
 "use client";
 
 /* =============================================================================
-FAIM LAB — LANDING PAGE (Production Edition)
+FAIMATRIX — LANDING PAGE (Production Edition)
 ------------------------------------------------------------------------------
-A stunning, production-grade landing page showcasing FAIM Lab features.
+A stunning, production-grade landing page showcasing FAIMATRIX features.
 Includes navigation, hero, features, demo preview, testimonials, pricing, FAQ.
 ============================================================================= */
 
@@ -19,8 +19,8 @@ import {
   FAQ,
   CTA,
   Footer,
-} from "@/components/landing";
-import { CookieConsent } from "@/components/common";
+} from "@/components";
+import { CookieConsent } from "@/components";
 
 export default function LandingPage() {
   return (

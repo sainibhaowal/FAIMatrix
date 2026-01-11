@@ -115,7 +115,7 @@ export default function BenchmarksPage() {
         if (!graphId) return;
         const pts = await fetchBenchmarks(graphId || undefined);
         if (!alive) return;
-        setRuns(pts.map((p, i) => toRun(p, i)));
+        setRuns(pts.map((p: BenchmarkPoint, i: number) => toRun(p, i)));
         
         // Fetch aggregate stats (prune/merge counts)
         try {
