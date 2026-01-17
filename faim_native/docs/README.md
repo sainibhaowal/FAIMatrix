@@ -178,6 +178,7 @@ GOLDEN_S = 1 / PHI  ≈ 0.618  # Scaling factor
 - [TLS Guide](./DEPLOYMENT_TLS.md) - TLS configuration
 - [Threat Model](./THREAT_MODEL.md) - Security threats & invariants
 - [Data Classification](./DATA_CLASSIFICATION.md) - Sensitivity levels
+- [Security Guide](./SECURITY_GUIDE.md) - Frontend integration security
 - [Test Report](./test_report.md) - All 445 tests documented
 - [API Reference](./api_reference.md) - Type definitions
 - [Files Delivered](./files_delivered.md) - Complete file inventory
