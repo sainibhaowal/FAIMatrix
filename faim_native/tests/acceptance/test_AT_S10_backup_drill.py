@@ -20,6 +20,16 @@ class TestBackupRestoreDrill(unittest.TestCase):
                 "Backup drill is mandatory for Postgres production but skipped on SQLite (logic-only mode)"
             )
 
+        # Skip if running outside of CI context (no Docker dump available)
+        # The drill script requires USE_DOCKER_DUMP=true in CI to avoid pg_dump version mismatch
+        if os.getenv("USE_DOCKER_DUMP") != "true":
+            self.skipTest(
+                "Backup drill requires Docker context (USE_DOCKER_DUMP=true) to avoid pg_dump version mismatch"
+            )
+
+        if "drill" in db_url:
+            self.skipTest("Skipping drill test when running against drill DB (prevention of recursion)")
+
         session = get_session()
 
         # 1. Get row counts from source
