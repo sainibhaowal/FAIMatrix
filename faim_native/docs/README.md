@@ -15,7 +15,13 @@ cd /home/sephi-asi/FAIM/faim/Faim_Native
 ┌─────────────────────────────────────────────────────────────┐
 │                     FAIM-Native Stack                        │
 ├─────────────────────────────────────────────────────────────┤
-│  Stage-10: Operational Hardening (NEW)                       │
+│  Stage-10.1: Production Deployment Pack (NEW)                │
+│  ├── Docker Compose (no secrets in YAML)                     │
+│  ├── Entrypoint gating (refuses stale schema)                │
+│  ├── Optional accel services (profiles)                      │
+│  └── CI release gate script                                  │
+├─────────────────────────────────────────────────────────────┤
+│  Stage-10: Operational Hardening                              │
 │  ├── Robust migrations (checksum-protected)                  │
 │  ├── Durable background jobs (transactional queue)          │
 │  ├── Backup/restore drill script                             │
@@ -102,7 +108,8 @@ cd /home/sephi-asi/FAIM/faim/Faim_Native
 | 8         | Query Engine          | 40      |
 | 9         | Production Ready      | 38      |
 | 10        | Operational Hardening | 6       |
-| **Total** |                       | **416** |
+| 10.1      | Production Deployment | 1       |
+| **Total** |                       | **417** |
 
 ## Core Doctrine
 
@@ -156,9 +163,12 @@ GOLDEN_S = 1 / PHI  ≈ 0.618  # Scaling factor
 - [Stage-7.1 Report](./stage_7_1_report.md) - Hardening & Triggers
 - [Stage-8 Report](./stage_8_report.md) - Query Engine (rerank_faim)
 - [Stage-9 Report](./stage_9_report.md) - Production Readiness (Fully Wired)
-- [Test Report](./test_report.md) - All 410 tests documented
+- [Stage-10 Report](./stage_10_report.md) - Operational Hardening
+- [Stage-10.1 Report](./stage_10_1_report.md) - Production Deployment Pack
+- [Deployment Guide](./DEPLOYMENT.md) - Docker Compose deployment
+- [Test Report](./test_report.md) - All 417 tests documented
 - [API Reference](./api_reference.md) - Type definitions
-- [Files Delivered](./files_delivered.md) - Complete file inventory (S1-S9)
+- [Files Delivered](./files_delivered.md) - Complete file inventory
 
 ## Demo Scripts
 
