@@ -15,7 +15,14 @@ cd /home/sephi-asi/FAIM/faim/Faim_Native
 ┌─────────────────────────────────────────────────────────────┐
 │                     FAIM-Native Stack                        │
 ├─────────────────────────────────────────────────────────────┤
-│  Stage-10.1: Production Deployment Pack (NEW)                │
+│  Stage-11: Security Hardening (NEW)                          │
+│  ├── API Key Hashing (Argon2id)                              │
+│  ├── Log Redaction (RedactingFilter)                         │
+│  ├── CVE Scanning (pip-audit, bandit)                        │
+│  ├── Encryption at Rest (AES-256-GCM)                        │
+│  └── Session Tokens, TLS, Container Hardening                │
+├─────────────────────────────────────────────────────────────┤
+│  Stage-10.1: Production Deployment Pack                      │
 │  ├── Docker Compose (no secrets in YAML)                     │
 │  ├── Entrypoint gating (refuses stale schema)                │
 │  ├── Optional accel services (profiles)                      │
@@ -109,7 +116,8 @@ cd /home/sephi-asi/FAIM/faim/Faim_Native
 | 9         | Production Ready      | 38      |
 | 10        | Operational Hardening | 6       |
 | 10.1      | Production Deployment | 1       |
-| **Total** |                       | **417** |
+| 11        | Security Hardening    | 28      |
+| **Total** |                       | **445** |
 
 ## Core Doctrine
 
@@ -165,8 +173,12 @@ GOLDEN_S = 1 / PHI  ≈ 0.618  # Scaling factor
 - [Stage-9 Report](./stage_9_report.md) - Production Readiness (Fully Wired)
 - [Stage-10 Report](./stage_10_report.md) - Operational Hardening
 - [Stage-10.1 Report](./stage_10_1_report.md) - Production Deployment Pack
+- [Stage-11 Report](./stage_11_report.md) - Security Hardening
 - [Deployment Guide](./DEPLOYMENT.md) - Docker Compose deployment
-- [Test Report](./test_report.md) - All 417 tests documented
+- [TLS Guide](./DEPLOYMENT_TLS.md) - TLS configuration
+- [Threat Model](./THREAT_MODEL.md) - Security threats & invariants
+- [Data Classification](./DATA_CLASSIFICATION.md) - Sensitivity levels
+- [Test Report](./test_report.md) - All 445 tests documented
 - [API Reference](./api_reference.md) - Type definitions
 - [Files Delivered](./files_delivered.md) - Complete file inventory
 
