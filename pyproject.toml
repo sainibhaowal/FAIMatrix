@@ -1,35 +1,30 @@
-[tool.mypy]
-python_version = "3.11"
-packages = ["faim"]
-ignore_missing_imports = true
-strict = false
-# Relax SQLAlchemy-related type checking and common patterns
-disable_error_code = [
-    "attr-defined",
-    "arg-type",
-    "return-value",
-    "assignment",
-    "call-arg",
-    "index",
-    "union-attr",
-    "var-annotated",
-    "misc",
-    "valid-type",     # SQLAlchemy Base class issues
-    "operator",       # Pydantic model operators
-    "dict-item",      # Dict type mismatches
-    "override",       # Signature override issues
-    "call-overload",  # Overload variant issues
-    "typeddict-item", # TypedDict issues
-]
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+skip_gitignore = true
 
 [tool.ruff]
-line-length = 120
+line-length = 88
 target-version = "py311"
-src = ["faim"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B"]
-ignore = ["E501", "E402", "E741", "B008", "B904"]  # Common patterns that are acceptable
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# Root mypy config - points to faim_native
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+namespace_packages = true
+explicit_package_bases = true
+disable_error_code = ["misc", "valid-type", "assignment", "arg-type", "union-attr", "var-annotated", "name-defined", "attr-defined", "call-arg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

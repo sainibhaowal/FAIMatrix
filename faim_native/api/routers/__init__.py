@@ -1,0 +1,21 @@
+"""FAIM-Native API: Routers Package."""
+
+from .admin import router as admin_router
+from .events import router as events_router
+from .evolve import router as evolve_router
+from .health import router as health_router
+from .ingest import router as ingest_router
+from .metrics import router as metrics_router
+from .node import router as node_router
+from .query import router as query_router
+
+__all__ = [
+    "health_router",
+    "events_router",
+    "ingest_router",
+    "query_router",
+    "node_router",
+    "evolve_router",
+    "metrics_router",
+    "admin_router",
+]

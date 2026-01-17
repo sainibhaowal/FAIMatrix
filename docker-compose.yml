@@ -1,154 +1,89 @@
-# FAIM Lab - Production Docker Compose (SECURED)
-# Run with: docker compose up -d
-#
-# SECURITY: All secrets MUST be in .env file. This file contains NO secrets.
-
 version: "3.8"
 
 services:
-  # PostgreSQL Database - INTERNAL ONLY
+  # 1. Database (Postgres 15)
   postgres:
     image: postgres:15
     container_name: faim-postgres
     environment:
       POSTGRES_USER: faim
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
-      POSTGRES_DB: faim_lab
-      # SECURITY: Disable external connections
-      POSTGRES_HOST_AUTH_METHOD: scram-sha-256
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: faim_native
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # SECURITY: NO port exposure - internal network only
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U faim -d faim_lab"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD-SHELL", "pg_isready -U faim -d faim_native"]
+      interval: 5s
       retries: 5
     networks:
-      - faim-internal
+      - faim-net
 
-  # Redis - WITH PASSWORD, INTERNAL ONLY
+  # 2. Cache (Redis 7) - For locks & queues
   redis:
     image: redis:7-alpine
     container_name: faim-redis
-    command: >
-      redis-server
-      --appendonly yes
-      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD required}
-      --maxmemory 256mb
-      --maxmemory-policy allkeys-lru
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secret}
     volumes:
       - redis_data:/data
-    # SECURITY: NO port exposure
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      interval: 5s
       retries: 5
     networks:
-      - faim-internal
+      - faim-net
 
-  # Qdrant - WITH API KEY, INTERNAL ONLY
+  # 3. Vector Store (Qdrant)
   qdrant:
     image: qdrant/qdrant:latest
     container_name: faim-qdrant
     environment:
-      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:?QDRANT_API_KEY required}
-      - QDRANT__SERVICE__ENABLE_TLS=false
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:-qdrant_secret}
     volumes:
       - qdrant_data:/qdrant/storage
-    # SECURITY: NO port exposure
-    restart: unless-stopped
     networks:
-      - faim-internal
+      - faim-net
 
-  # FAIM Backend API (FastAPI)
-  faim-api:
+  # 4. FAIM Native API
+  api:
     build:
       context: .
-      dockerfile: Dockerfile.api
+      dockerfile: Dockerfile
     container_name: faim-api
     environment:
-      - FAIM_MODE=production
-      - FAIM_DB_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_lab
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - DATABASE_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_native
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
       - QDRANT_URL=http://qdrant:6333
-      - QDRANT_API_KEY=${QDRANT_API_KEY}
-      # Backend configuration
-      - FAIM_STORAGE_BACKEND=postgres
-      - FAIM_VECTOR_BACKEND=qdrant
-      - FAIM_CACHE_BACKEND=redis
-      # SECURITY: All secrets from environment
-      - ADMIN_API_KEY=${ADMIN_API_KEY:?ADMIN_API_KEY required}
-      - JWT_SECRET=${JWT_SECRET:?JWT_SECRET required - min 32 chars}
-      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
-      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
-      - RESEND_API_KEY=${RESEND_API_KEY}
-      # SECURITY: CORS whitelist
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:?ALLOWED_ORIGINS required}
-      # SECURITY: Rate limiting
-      - RATE_LIMIT_ENABLED=true
-      - RATE_LIMIT_USER=100/minute
-      - RATE_LIMIT_API_KEY=1000/minute
-    # SECURITY: NO direct port exposure - nginx handles traffic
-    expose:
-      - "8000"
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-qdrant_secret}
+      - FAIM_AUTO_MIGRATE=true
+      - FAIM_LOG_LEVEL=INFO
+      - TENANT_KEYS_JSON={"default":["test-key"]}
+      - ADMIN_KEYS_JSON={"admin":"admin-key"}
+    ports:
+      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
     networks:
-      - faim-internal
-      - faim-external
+      - faim-net
 
-  # FAIM Frontend (Next.js)
-  faim-web:
+  # 5. Background Worker (For Durable Jobs)
+  worker:
     build:
-      context: ./frontend
+      context: .
       dockerfile: Dockerfile
-    container_name: faim-web
+    container_name: faim-worker
+    command: ["python", "-m", "orchestration.jobs.worker"]
     environment:
-      - NEXT_PUBLIC_API_URL=${PUBLIC_URL:?PUBLIC_URL required}/api
-      - NEXTAUTH_URL=${PUBLIC_URL}
-      - NEXTAUTH_SECRET=${JWT_SECRET}
-      - API_HOST=faim-api:8000
-    # SECURITY: NO direct port exposure - nginx handles traffic
-    expose:
-      - "3000"
+      - DATABASE_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_native
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
+      - FAIM_LOG_LEVEL=INFO
     depends_on:
-      - faim-api
-    restart: unless-stopped
+      api:
+        condition: service_started
     networks:
-      - faim-internal
-      - faim-external
-
-
-  # Nginx (Reverse proxy with HTTPS)
-  nginx:
-    image: nginx:alpine
-    container_name: faim-nginx
-    volumes:
-      - ./deploy/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./deploy/ssl:/etc/nginx/ssl:ro
-    ports:
-      # SECURITY: Only 80 (redirect) and 443 (HTTPS) exposed
-      - "80:80"
-      - "443:443"
-    depends_on:
-      - faim-web
-      - faim-api
-    restart: unless-stopped
-    networks:
-      - faim-external
+      - faim-net
 
 volumes:
   postgres_data:
@@ -156,8 +91,5 @@ volumes:
   qdrant_data:
 
 networks:
-  faim-internal:
-    # SECURITY: Internal network - no external access possible
-    internal: true
-  faim-external:
-    name: faim-network
+  faim-net:
+    driver: bridge

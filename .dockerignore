@@ -31,16 +31,9 @@ node_modules
 *.swo
 .DS_Store
 
-# Local runtime data
-Runtime
-*.db
-*.sqlite
-*.sqlite3
-
 # Build artifacts
-.next
-dist
-build
+dist/
+build/
 *.log
 
 # SECURITY: Environment files - NEVER copy to container

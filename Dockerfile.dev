@@ -1,4 +1,4 @@
-# FAIM API Development Dockerfile
+# FAIM-Native Development Dockerfile
 # Designed for hot-reload during development
 
 FROM python:3.11-slim
@@ -10,33 +10,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     build-essential \
     libpq-dev \
-    antiword \
-    catdoc \
-    poppler-utils \
-    tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies
 COPY requirements.txt .
-# Install CPU-only PyTorch to save space (prevents pulling 5GB+ CUDA version)
-RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-RUN pip install --no-cache-dir --timeout=300 --retries=5 -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install development dependencies
 RUN pip install --no-cache-dir \
     uvicorn[standard] \
     watchfiles \
-    qdrant-client \
-    redis
+    gunicorn
 
 # Copy application code
-COPY faim ./faim
-COPY alembic ./alembic
-COPY alembic.ini .
-COPY pyproject.toml .
+COPY faim_native/ /app/
+
+# Environment
+ENV PYTHONPATH=/app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Expose port
 EXPOSE 8000
 
 # Run with hot-reload enabled
-CMD ["uvicorn", "faim.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "api.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
