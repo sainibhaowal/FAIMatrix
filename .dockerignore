@@ -69,7 +69,6 @@ htmlcov
 # SECURITY: Backup files
 *.bak
 *.backup
-*.sql
 *.dump
 
 # SECURITY: Credentials and secrets

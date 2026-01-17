@@ -221,6 +221,12 @@ def run_up():
                 stmt = stmt.strip()
                 if not stmt:
                     continue
+                
+                # Verify statement has actual content (not just comments)
+                lines = [line for line in stmt.split("\n") if not line.strip().startswith("--")]
+                if not "".join(lines).strip():
+                    continue
+
                 session.execute(text(stmt))
 
             session.execute(
