@@ -40,6 +40,7 @@ service-account.json
 
 # SECURITY: Database dumps and backups
 *.sql
+!faim_native/**/*.sql
 *.dump
 *.bak
 *.backup
