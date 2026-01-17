@@ -116,6 +116,19 @@ services:
       interval: 10s
       timeout: 3s
       retries: 30
+    # Stage-11: Container Hardening
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     networks: [faim-net]
     restart: unless-stopped
 
