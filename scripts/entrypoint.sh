@@ -16,11 +16,11 @@ set -euo pipefail
 AUTO="${FAIM_AUTO_MIGRATE:-false}"
 
 if [[ "${AUTO}" == "true" ]]; then
-  echo "🗄️ FAIM_AUTO_MIGRATE=true — Running migrations..."
+  echo "[entrypoint] FAIM_AUTO_MIGRATE=true -> applying migrations"
   python -m store.pg.migrate up
 else
-  echo "🔒 FAIM_AUTO_MIGRATE=false — Verifying schema is current..."
-  python -m store.pg.migrate status --require-latest
+  echo "[entrypoint] FAIM_AUTO_MIGRATE=false -> requiring latest schema"
+  python -m store.pg.migrate up --require-latest
 fi
 
 echo "✅ Schema verified. Starting application..."

@@ -66,7 +66,7 @@ export DATABASE_URL="postgresql://faim:${POSTGRES_PASSWORD}@localhost:5433/faim_
 echo ""
 echo "🗄️ Running migrations..."
 cd "$FAIM_NATIVE_DIR"
-python -m store.pg.migrate up
+python3 -m store.pg.migrate up
 
 # ---------------------------------------------------------------------------
 # 3. Run Verification Tests
@@ -81,11 +81,15 @@ fi
 
 # ---------------------------------------------------------------------------
 # 4. Run Backup Drill (Postgres Only)
-# ---------------------------------------------------------------------------
+# We override pg_dump to use the one inside the container to avoid version mismatch
 echo ""
 echo "💾 Running backup drill..."
 if [ -f "$FAIM_NATIVE_DIR/scripts/drill_backup_restore.sh" ]; then
+    export USE_DOCKER_DUMP="true"
+    export DOCKER_CONTAINER="$POSTGRES_CONTAINER"
+    export PGPASSWORD="ci_test_password"
     bash "$FAIM_NATIVE_DIR/scripts/drill_backup_restore.sh"
+    unset USE_DOCKER_DUMP DOCKER_CONTAINER PGPASSWORD
 else
     echo "⚠️ Backup drill script not found, skipping..."
 fi

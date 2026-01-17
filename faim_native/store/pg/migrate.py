@@ -129,8 +129,12 @@ def run_status(require_latest: bool = False):
         sys.exit(1)
 
 
-def run_up():
-    """Apply pending migrations."""
+def run_up(require_latest: bool = False):
+    """Apply pending migrations.
+    
+    Args:
+        require_latest: If True, do not apply migrations; only exit with code 1 if any are pending.
+    """
     session = get_session()
     ensure_migrations_table(session)
 
@@ -165,6 +169,12 @@ def run_up():
         print("Schema is up to date.")
         session.close()
         return
+
+    # If require_latest is set, we fail here instead of applying
+    if require_latest:
+        print(f"\nERROR: {len(to_apply)} pending migration(s). Refusing to start because --require-latest is set.")
+        session.close()
+        sys.exit(1)
 
     # 2. Locking Phase: Use Postgres advisory lock to prevent races
     lock_acquired = False
@@ -263,14 +273,19 @@ def main():
         action="store_true",
         help="Exit with code 1 if any migrations are pending (for entrypoint gating)",
     )
-    subparsers.add_parser("up", help="Apply pending migrations")
+    up_parser = subparsers.add_parser("up", help="Apply pending migrations")
+    up_parser.add_argument(
+        "--require-latest",
+        action="store_true",
+        help="Exit with code 1 if any migrations are pending (for entrypoint gating)",
+    )
 
     args = parser.parse_args()
 
     if args.command == "status":
         run_status(require_latest=args.require_latest)
     elif args.command == "up":
-        run_up()
+        run_up(require_latest=args.require_latest)
     else:
         parser.print_help()
 
