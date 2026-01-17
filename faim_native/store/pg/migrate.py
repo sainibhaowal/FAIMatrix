@@ -80,8 +80,12 @@ def get_latest_local_version() -> int:
     return max(versions) if versions else 0
 
 
-def run_status():
-    """Show the status of migrations."""
+def run_status(require_latest: bool = False):
+    """Show the status of migrations.
+
+    Args:
+        require_latest: If True, exit with code 1 if any migrations are pending.
+    """
     session = get_session()
     ensure_migrations_table(session)
 
@@ -89,6 +93,8 @@ def run_status():
     applied_map = {v: c for v, c in applied}
 
     files = sorted(MIGRATIONS_DIR.glob("*.sql"))
+
+    pending_count = 0
 
     print(f"{'Version':<10} {'Filename':<35} {'Status':<10} {'Checksum Match':<15}")
     print("-" * 75)
@@ -111,10 +117,16 @@ def run_status():
                 checksum_match = "OK"
             else:
                 checksum_match = "MISMATCH!"
+        else:
+            pending_count += 1
 
         print(f"{version:<10} {f.name:<35} {status:<10} {checksum_match:<15}")
 
     session.close()
+
+    if require_latest and pending_count > 0:
+        print(f"\nERROR: {pending_count} pending migration(s). Run 'python -m store.pg.migrate up' first.")
+        sys.exit(1)
 
 
 def run_up():
@@ -239,13 +251,18 @@ def main():
     parser = argparse.ArgumentParser(description="FAIM-Native Migration Engine")
     subparsers = parser.add_subparsers(dest="command", help="Commands")
 
-    subparsers.add_parser("status", help="Show migration status")
+    status_parser = subparsers.add_parser("status", help="Show migration status")
+    status_parser.add_argument(
+        "--require-latest",
+        action="store_true",
+        help="Exit with code 1 if any migrations are pending (for entrypoint gating)",
+    )
     subparsers.add_parser("up", help="Apply pending migrations")
 
     args = parser.parse_args()
 
     if args.command == "status":
-        run_status()
+        run_status(require_latest=args.require_latest)
     elif args.command == "up":
         run_up()
     else:

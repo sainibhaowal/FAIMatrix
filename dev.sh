@@ -66,7 +66,7 @@ case "${1:-up}" in
 
   migrate)
     echo "🗄️ Running database migrations..."
-    docker compose -f $COMPOSE_FILE exec api alembic upgrade head
+    docker compose -f $COMPOSE_FILE exec api python -m store.pg.migrate up
     echo "✅ Migrations complete."
     ;;
 
