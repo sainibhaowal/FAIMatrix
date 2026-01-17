@@ -1,89 +1,143 @@
 version: "3.8"
 
+# =============================================================================
+# FAIM-Native Production Docker Compose
+# =============================================================================
+# SECURITY: All secrets must be in .env file (never hardcoded here)
+#
+# Usage:
+#   First time:  docker compose run --rm migrate
+#   Start:       docker compose up -d
+#   With accel:  docker compose --profile accel up -d
+# =============================================================================
+
 services:
-  # 1. Database (Postgres 15)
+  # ---------------------------------------------------------------------------
+  # PostgreSQL (Required - Source of Truth)
+  # ---------------------------------------------------------------------------
   postgres:
     image: postgres:15
     container_name: faim-postgres
     environment:
       POSTGRES_USER: faim
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
       POSTGRES_DB: faim_native
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U faim -d faim_native"]
       interval: 5s
-      retries: 5
-    networks:
-      - faim-net
+      timeout: 3s
+      retries: 20
+    networks: [faim-net]
+    restart: unless-stopped
 
-  # 2. Cache (Redis 7) - For locks & queues
+  # ---------------------------------------------------------------------------
+  # Redis (Optional - Acceleration Only)
+  # ---------------------------------------------------------------------------
   redis:
+    profiles: ["accel"]
     image: redis:7-alpine
     container_name: faim-redis
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secret}
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD required}"]
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 5s
-      retries: 5
-    networks:
-      - faim-net
+      timeout: 3s
+      retries: 20
+    networks: [faim-net]
+    restart: unless-stopped
 
-  # 3. Vector Store (Qdrant)
+  # ---------------------------------------------------------------------------
+  # Qdrant (Optional - Acceleration Only)
+  # ---------------------------------------------------------------------------
   qdrant:
+    profiles: ["accel"]
     image: qdrant/qdrant:latest
     container_name: faim-qdrant
     environment:
-      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:-qdrant_secret}
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY required}
     volumes:
       - qdrant_data:/qdrant/storage
-    networks:
-      - faim-net
+    networks: [faim-net]
+    restart: unless-stopped
 
-  # 4. FAIM Native API
+  # ---------------------------------------------------------------------------
+  # One-Shot Migration Job (Operator runs explicitly)
+  # ---------------------------------------------------------------------------
+  migrate:
+    image: faim-native:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: faim-migrate
+    command: ["python", "-m", "store.pg.migrate", "up"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_native
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [faim-net]
+    restart: "no"
+
+  # ---------------------------------------------------------------------------
+  # FAIM-Native API
+  # ---------------------------------------------------------------------------
   api:
+    image: faim-native:latest
     build:
       context: .
       dockerfile: Dockerfile
     container_name: faim-api
+    env_file: .env
     environment:
-      - DATABASE_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_native
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
-      - QDRANT_URL=http://qdrant:6333
-      - QDRANT_API_KEY=${QDRANT_API_KEY:-qdrant_secret}
-      - FAIM_AUTO_MIGRATE=true
-      - FAIM_LOG_LEVEL=INFO
-      - TENANT_KEYS_JSON={"default":["test-key"]}
-      - ADMIN_KEYS_JSON={"admin":"admin-key"}
+      DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_native
+
+      # IMPORTANT: Production default is FALSE (safer)
+      FAIM_AUTO_MIGRATE: ${FAIM_AUTO_MIGRATE:-false}
+
+      # Acceleration (enabled only with --profile accel)
+      FAIM_ENABLE_CACHE: ${FAIM_ENABLE_CACHE:-false}
+      FAIM_ENABLE_INDEX: ${FAIM_ENABLE_INDEX:-false}
+      REDIS_URL: ${REDIS_URL:-}
+      QDRANT_URL: ${QDRANT_URL:-}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+
     ports:
       - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - faim-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/ready | grep -q 'status'"]
+      interval: 10s
+      timeout: 3s
+      retries: 30
+    networks: [faim-net]
+    restart: unless-stopped
 
-  # 5. Background Worker (For Durable Jobs)
+  # ---------------------------------------------------------------------------
+  # Background Worker (Durable Jobs)
+  # ---------------------------------------------------------------------------
   worker:
+    image: faim-native:latest
     build:
       context: .
       dockerfile: Dockerfile
     container_name: faim-worker
     command: ["python", "-m", "orchestration.jobs.worker"]
+    env_file: .env
     environment:
-      - DATABASE_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_native
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
-      - FAIM_LOG_LEVEL=INFO
+      DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_native
+      FAIM_AUTO_MIGRATE: "false"
     depends_on:
       api:
         condition: service_started
-    networks:
-      - faim-net
+    networks: [faim-net]
+    restart: unless-stopped
 
 volumes:
   postgres_data:
