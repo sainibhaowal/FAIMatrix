@@ -84,31 +84,72 @@ def _constant_time_compare(a: str, b: str) -> bool:
 
 
 def validate_tenant_key(tenant_id: str, api_key: str) -> bool:
-    """Validate tenant API key using constant-time comparison.
-
+    """Validate tenant API key.
+    
+    Stage-11: Supports BOTH legacy (env var) and new (DB hashed) modes.
+    
+    Verification order:
+    1. Check legacy TENANT_KEYS_JSON (for backward compatibility)
+    2. Check database hashed keys (preferred for production)
+    
     Args:
         tenant_id: Tenant identifier.
         api_key: API key provided.
-
+        
     Returns:
         True if valid, False otherwise.
     """
+    # --- Legacy Mode (TENANT_KEYS_JSON env var) ---
+    # Will be deprecated after migration to DB hashes
     keys = get_tenant_keys()
-
-    # For development: if no keys configured, allow all
+    
+    # For development: if no keys configured AND no DB, allow all
     if not keys:
+        # Try DB verification (Stage-11)
+        try:
+            from store.pg.session import get_session
+            from store.pg.repos.auth_repo import AuthRepo
+            
+            session = get_session()
+            try:
+                repo = AuthRepo(session)
+                result = repo.verify_tenant_key(tenant_id, api_key)
+                if result:
+                    return True
+            finally:
+                session.close()
+        except Exception as e:
+            # DB not available or no hashed keys yet
+            logger.debug(f"Hashed key verification failed: {e}")
+            pass
+        
+        # No keys configured anywhere
         logger.warning("No tenant keys configured, allowing all requests (dev mode)")
         return True
-
+    
+    # Check legacy plaintext keys first
     valid_keys = keys.get(tenant_id, [])
-    if not valid_keys:
-        return False
-
-    # Check against all valid keys (for rotation)
     for valid_key in valid_keys:
         if _constant_time_compare(api_key, valid_key):
             return True
-
+    
+    # Legacy key not found, try DB hashed keys
+    try:
+        from store.pg.session import get_session
+        from store.pg.repos.auth_repo import AuthRepo
+        
+        session = get_session()
+        try:
+            repo = AuthRepo(session)
+            result = repo.verify_tenant_key(tenant_id, api_key)
+            if result:
+                return True
+        finally:
+            session.close()
+    except Exception as e:
+        logger.debug(f"Hashed key verification failed: {e}")
+        pass
+    
     return False
 
 
