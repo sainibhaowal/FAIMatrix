@@ -95,6 +95,17 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+# 5. Run Security Audit (Stage-11)
+# ---------------------------------------------------------------------------
+echo ""
+echo "🔒 Running security audit..."
+if [ -f "$SCRIPT_DIR/security_audit.sh" ]; then
+    bash "$SCRIPT_DIR/security_audit.sh" || echo "⚠️ Security audit completed with warnings"
+else
+    echo "⚠️ Security audit script not found, skipping..."
+fi
+
+# ---------------------------------------------------------------------------
 # Cleanup
 # ---------------------------------------------------------------------------
 echo ""
