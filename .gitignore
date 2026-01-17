@@ -63,20 +63,10 @@ Runtime/
 *.swo
 .DS_Store
 
-# Next.js
-frontend/.next/
-frontend/node_modules/
-frontend/out/
-
-# Build
-dist/
-build/
-
-# Legacy
+# Legacy cleanup
+frontend/
 legacy/
-Versions/
-Repo/
+
 
 # Local LLM models
 backend/faim/llm_models/
-requirements.txt

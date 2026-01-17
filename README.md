@@ -1,16 +1,29 @@
-# FAIM – Fractal Antisymmetric Inheritance Memory
+# FAIM-Native – Fractal Antisymmetric Inheritance Memory
 
-M0 – Repo & Tooling
+**FAIM-Native** is a high-performance memory graph engine built on pure Python, PostgreSQL, Redis, and Qdrant.
 
-- `backend/` – Python FastAPI service (FAIM backend).
-- `frontend/` – Next.js UI (FAIM dashboard placeholder).
-- Python 3.11 virtualenv with FastAPI, pytest, mypy, ruff.
-- Skeleton FastAPI app with `/health` endpoint.
-- Skeleton Next.js app (Next 14+, TypeScript).
+## Architecture
 
-Acceptance for M0:
+- **`faim_native/`** – Core engine source code.
+  - `api/` – FastAPI application.
+  - `core/` – Graph engine logic.
+  - `store/` – PostgreSQL & Redis storage layers.
+- **Docker** – Production-ready containerization.
 
-- Repo opens in VS Code.
-- `pytest`, `mypy`, and `ruff` run clean on the backend.
-- FastAPI dev server starts without errors.
-- Next.js dev server starts without errors.
+## Quick Start
+
+```bash
+# Start Development Environment
+./dev.sh
+
+# Run Tests
+cd faim_native
+pytest
+```
+
+## Tech Stack
+
+- **Python 3.11** (FastAPI, SQLAlchemy, Pydantic)
+- **PostgreSQL 15** (Relational Data)
+- **Redis 7** (Cache, Locks, Queues)
+- **Qdrant** (Vector Search)

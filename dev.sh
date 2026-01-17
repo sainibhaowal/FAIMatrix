@@ -24,7 +24,6 @@ case "${1:-up}" in
     echo ""
     echo "✅ FAIM is running!"
     echo "   API:      http://localhost:8000"
-    echo "   Web:      http://localhost:3000"
     echo "   Postgres: localhost:5432"
     echo "   Redis:    localhost:6379"
     echo "   Qdrant:   http://localhost:6333"

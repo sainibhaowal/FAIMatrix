@@ -1,5 +1,5 @@
 {
-  "include": ["faim"],
+  "include": ["faim_native"],
   "exclude": ["**/__pycache__"],
   "reportAttributeAccessIssue": "none",
   "reportGeneralTypeIssues": "none",
