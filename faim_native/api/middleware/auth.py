@@ -199,10 +199,22 @@ EXEMPT_PATHS = {
     "/redoc",
 }
 
+# Auth paths that should be exempt from tenant auth
+AUTH_PATH_PREFIXES = [
+    "/api/v1/auth",
+    "/v1/auth",
+]
+
 
 def is_exempt_path(path: str) -> bool:
     """Check if path is exempt from auth."""
-    return path in EXEMPT_PATHS or path.startswith("/docs")
+    if path in EXEMPT_PATHS or path.startswith("/docs"):
+        return True
+    # Exempt auth endpoints
+    for prefix in AUTH_PATH_PREFIXES:
+        if path.startswith(prefix):
+            return True
+    return False
 
 
 # =============================================================================

@@ -101,8 +101,12 @@ def create_app() -> FastAPI:
 
     # Tenant Auth
     from api.middleware.auth import TenantAuthMiddleware
-
     app.add_middleware(TenantAuthMiddleware)
+
+    # Security Headers
+    from api.middleware.security import SecurityHeadersMiddleware
+    app.add_middleware(SecurityHeadersMiddleware)
+    logger.info("SecurityHeadersMiddleware registered")
 
     # ==========================================================================
     # Routers
@@ -110,6 +114,7 @@ def create_app() -> FastAPI:
 
     from api.routers import (
         admin_router,
+        auth_router,
         events_router,
         evolve_router,
         health_router,
@@ -121,6 +126,9 @@ def create_app() -> FastAPI:
 
     # Health routes (no prefix)
     app.include_router(health_router)
+
+    # Auth routes (public - exempt from tenant auth)
+    app.include_router(auth_router)
 
     # API v1 routes
     app.include_router(events_router)
