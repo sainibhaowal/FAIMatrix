@@ -64,10 +64,5 @@ Runtime/
 *.swo
 .DS_Store
 
-# Legacy cleanup
-frontend/
-legacy/
-
-
 # Local LLM models
 backend/faim/llm_models/

@@ -1,0 +1,29 @@
+# Docker ignore for frontend
+# Exclude node_modules - npm install creates fresh ones inside Docker
+node_modules
+
+# Next.js build output
+.next
+out
+dist
+build
+
+# Build logs
+*.log
+build.log
+build_log.txt
+build.txt
+build_v4.txt
+
+# Git
+.git
+.gitignore
+
+# Environment (secrets)
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea
+.vscode
