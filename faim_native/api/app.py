@@ -18,10 +18,28 @@ if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
 # Configure logging
+class SecureLogFilter(logging.Filter):
+    """Filter to redact sensitive information from logs."""
+    SENSITIVE_PATTERNS = [
+        "X-Api-Key", "Authorization", "accessToken", "NEXTAUTH_SECRET",
+        "REDIS_PASSWORD", "POSTGRES_PASSWORD", "QDRANT_API_KEY",
+        "X-Tenant-Id", "tenant_id"
+    ]
+    
+    def filter(self, record):
+        msg = str(record.msg)
+        for pattern in self.SENSITIVE_PATTERNS:
+            if pattern in msg:
+                # Simple redaction
+                record.msg = f"[REDACTED SENSITIVE {pattern}]"
+        return True
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
+for handler in logging.root.handlers:
+    handler.addFilter(SecureLogFilter())
 
 logger = logging.getLogger(__name__)
 

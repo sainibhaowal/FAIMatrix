@@ -57,7 +57,5 @@ frontend/env.example
 # Runtime & Data
 Runtime/
 /docs/
-*.log
-faim_native/full_test_log.txt
 node_modules/
 **/node_modules/

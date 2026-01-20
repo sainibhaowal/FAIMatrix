@@ -103,29 +103,10 @@ def validate_tenant_key(tenant_id: str, api_key: str) -> bool:
     # Will be deprecated after migration to DB hashes
     keys = get_tenant_keys()
     
-    # For development: if no keys configured AND no DB, allow all
+    # No keys configured - production safety: REJECT ALL
     if not keys:
-        # Try DB verification (Stage-11)
-        try:
-            from store.pg.session import get_session
-            from store.pg.repos.auth_repo import AuthRepo
-            
-            session = get_session()
-            try:
-                repo = AuthRepo(session)
-                result = repo.verify_tenant_key(tenant_id, api_key)
-                if result:
-                    return True
-            finally:
-                session.close()
-        except Exception as e:
-            # DB not available or no hashed keys yet
-            logger.debug(f"Hashed key verification failed: {e}")
-            pass
-        
-        # No keys configured anywhere
-        logger.warning("No tenant keys configured, allowing all requests (dev mode)")
-        return True
+        logger.error("CRITICAL: No tenant keys configured. Access denied for all tenants.")
+        return False
     
     # Check legacy plaintext keys first
     valid_keys = keys.get(tenant_id, [])
