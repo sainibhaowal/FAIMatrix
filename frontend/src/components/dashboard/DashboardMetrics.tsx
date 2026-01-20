@@ -5,46 +5,44 @@ import { MessageSquare, FileText, Network, Zap, TrendingUp, TrendingDown } from 
 import { Card } from "@/components/ui";
 
 interface DashboardMetricsProps {
-  messagesCount: number;
-  documentsCount: number;
+  dimensionD: number;
+  entropyH: number;
   nodesCount: number;
-  latency: string;
+  edgeCount: number;
 }
 
 export function DashboardMetrics({
-  messagesCount,
-  documentsCount,
+  dimensionD,
+  entropyH,
   nodesCount,
-  latency,
+  edgeCount,
 }: DashboardMetricsProps) {
   return (
     <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <MetricCard
-        icon={<MessageSquare size={20} />}
-        label="Messages"
-        value={messagesCount}
-        trend={12}
+        icon={<Activity size={20} />}
+        label="Dimension (D)"
+        value={dimensionD.toFixed(3)}
+        trend={2.4}
         color="cyan"
       />
       <MetricCard
-        icon={<FileText size={20} />}
-        label="Documents"
-        value={documentsCount}
-        trend={3}
+        icon={<Network size={20} />}
+        label="Entropy (H)"
+        value={entropyH.toFixed(3)}
+        trend={-0.5}
         color="violet"
       />
       <MetricCard
-        icon={<Network size={20} />}
-        label="Nodes"
+        icon={<TrendingUp size={20} />}
+        label="Total Nodes"
         value={nodesCount}
-        trend={-2}
         color="pink"
       />
       <MetricCard
         icon={<Zap size={20} />}
-        label="Latency"
-        value={latency}
-        suffix=""
+        label="Total Edges"
+        value={edgeCount}
         color="amber"
       />
     </section>

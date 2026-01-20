@@ -231,7 +231,7 @@ def run_evolve(
                         graph_hash = ""
                         if gv_repo is not None:
                             try:
-                                gv = gv_repo.get_current(graph_id)
+                                gv = gv_repo.get(None, graph_id)
                                 graph_hash = getattr(gv, "graph_hash", "")
                             except Exception:
                                 pass

@@ -1,68 +1,52 @@
-# ==============================================
-# FAIM Git Ignore (SECURITY HARDENED)
-# ==============================================
-
 # Python
-.venv/
-venv/
 __pycache__/
 *.py[cod]
-*.pyo
-*.egg-info/
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
 .eggs/
-.mypy_cache/
-.ruff_cache/
-.pytest_cache/
-.coverage
-htmlcov/
-
-# SECURITY: ALL environment files
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 .env
-.env.*
-.env.local
-.env.development
-.env.production
-*.env
+.venv
+venv/
+ENV/
 
-# SECURITY: SSL/TLS certificates
-deploy/ssl/
-*.pem
-*.key
-*.crt
-*.p12
-*.pfx
-
-# SECURITY: Secrets and credentials
-secrets/
-credentials/
-*.secret
-service-account.json
-
-# SECURITY: Database dumps and backups
-*.sql
-!faim_native/**/*.sql
-*.dump
-*.bak
-*.backup
-backup/
-backups/
-
-# Node
+# Node / Next.js
 node_modules/
-npm-debug.log*
-yarn-error.log*
+/frontend/.next/
+/frontend/out/
+/frontend/build/
+/native-ui/dist/
+/native-ui/node_modules/
+.npm
+.eslintcache
 
-# Runtime
-Runtime/
+# Logs
 *.log
-*.pid
+faim_native/full_test_log.txt
+docs/simulation_run*.txt
 
-# VS Code / IDE
+# OS / IDE
+.DS_Store
 .vscode/
 .idea/
-*.swp
-*.swo
-.DS_Store
 
-# Local LLM models
-backend/faim/llm_models/
+# FAIM Specific
+*.canvas
+/faim_native/docs/pdf/
+/faim_native/docs/*.pdf
+/faim_native/docs/*.docx

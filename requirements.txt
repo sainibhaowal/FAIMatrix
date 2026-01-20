@@ -8,3 +8,5 @@ qdrant-client
 python-multipart
 httpx
 orjson
+pyjwt
+email-validator

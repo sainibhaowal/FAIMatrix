@@ -24,14 +24,19 @@ import {
    Types
 ============================================================================= */
 
-type UsageStats = {
-  api_calls_today: number;
-  api_calls_month: number;
-  storage_bytes: number;
-  documents_count: number;
-  nodes_count?: number;
-  token_usage?: number;
-  token_limit?: number;
+type ScorecardMetrics = {
+  graph_id: string;
+  graph_version: number;
+  graph_hash: string;
+  dimension_D?: number;
+  entropy_H?: number;
+  pressure_lambda?: number;
+  node_count: number;
+  edge_count: number;
+  redundancy?: number;
+  novelty?: number;
+  energy?: number;
+  computed_at?: string;
 };
 
 type ActivityItem = {
@@ -57,7 +62,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
 
   const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [usage, setUsage] = useState<UsageStats | null>(null);
+  const [metrics, setMetrics] = useState<ScorecardMetrics | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [dailyActivity, setDailyActivity] = useState<DailyActivity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -84,17 +89,18 @@ export default function DashboardPage() {
       setHealth(h);
 
       const headers = buildFaimHeaders();
+      const graphId = session?.user?.graph_id || "U:DEFAULT";
 
-      // Load usage stats from backend
+      // Load metrics scorecard from faim_native v1 API
       try {
-        const res = await fetch(`${API_BASE_URL}/usage/summary${userId ? `?user_id=${userId}` : ""}`, {
+        const res = await fetch(`${API_BASE_URL}/metrics/scorecard?graph_id=${graphId}`, {
           headers,
         });
         if (res.ok) {
-          setUsage(await res.json());
+          setMetrics(await res.json());
         }
       } catch (err) {
-        console.warn("[dashboard] Failed to load usage stats:", err);
+        console.warn("[dashboard] Failed to load metrics:", err);
       }
 
       // Load recent activity from backend
@@ -108,18 +114,6 @@ export default function DashboardPage() {
       } catch (err) {
         console.warn("[dashboard] Failed to load activity:", err);
       }
-
-      // Load daily activity for chart
-      try {
-        const chartRes = await fetch(`${API_BASE_URL}/usage/activity/daily${userId ? `?user_id=${userId}` : ""}`, {
-          headers,
-        });
-        if (chartRes.ok) {
-          setDailyActivity(await chartRes.json());
-        }
-      } catch (err) {
-        console.warn("[dashboard] Failed to load daily activity:", err);
-      }
     } catch (e) {
       console.warn("[dashboard] Failed to load data:", e);
       toast.error("Failed to load dashboard data");
@@ -127,7 +121,7 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [toast, userId]);
+  }, [toast, userId, session?.user?.graph_id]);
 
   useEffect(() => {
     loadData();
@@ -177,24 +171,19 @@ export default function DashboardPage() {
         version={health?.version}
         refreshing={refreshing}
         onRefresh={() => loadData(true)}
+        tenantId={session?.user?.tenant_id || "default"}
       />
 
       <NeuralCoreHero
         isHealthy={isHealthy}
-        nodesCount={usage?.nodes_count}
+        nodesCount={metrics?.node_count}
       />
 
       <DashboardMetrics
-        messagesCount={usage?.api_calls_today ?? 0}
-        documentsCount={usage?.documents_count ?? 0}
-        nodesCount={usage?.nodes_count ?? 0}
-        latency="12ms"
-      />
-
-      <UsageSummary
-        used={usage?.token_usage ?? 0}
-        limit={usage?.token_limit ?? 1000000}
-        percent={tokenPercent}
+        dimensionD={metrics?.dimension_D ?? 0}
+        entropyH={metrics?.entropy_H ?? 0}
+        nodesCount={metrics?.node_count ?? 0}
+        edgeCount={metrics?.edge_count ?? 0}
       />
 
       <DashboardActivity
