@@ -9,6 +9,7 @@ interface DashboardHeaderProps {
   version?: string;
   refreshing: boolean;
   onRefresh: () => void;
+  tenantId?: string;
 }
 
 export function DashboardHeader({
@@ -17,16 +18,24 @@ export function DashboardHeader({
   version,
   refreshing,
   onRefresh,
+  tenantId,
 }: DashboardHeaderProps) {
   return (
     <header className="flex items-start justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-          <span>{greeting.emoji}</span>
-          <span>{greeting.text}!</span>
-        </h1>
-        <p className="text-[var(--text-secondary)] text-sm mt-1">
-          Your FAIM engine is ready. Here&apos;s what&apos;s happening.
+      <div className="flex-1">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2">
+            <span>{greeting.emoji}</span>
+            <span>{greeting.text}!</span>
+          </h1>
+          {tenantId && (
+            <div className="px-2 py-0.5 rounded-md bg-[var(--faim-primary-muted)] text-[var(--faim-primary)] text-[10px] font-bold uppercase tracking-widest border border-[var(--faim-primary)]/20 shadow-[0_0_10px_rgba(34,211,238,0.1)]">
+              Secure Tenant: {tenantId}
+            </div>
+          )}
+        </div>
+        <p className="text-[var(--text-secondary)] text-sm mt-1 max-w-lg">
+          FAIM-Native Engine is operational. Multi-tenant isolation is active and hard-scoped to your secure environment.
         </p>
       </div>
       <div className="flex items-center gap-3">

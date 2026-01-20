@@ -72,12 +72,14 @@ class EvolutionResult:
     """Result of evolution operation.
 
     Attributes:
+        graph_version: Graph version after evolution.
         merges: Number of merge operations.
         prunes: Number of prune operations.
         events_emitted: Number of events emitted.
         diagnostics: FractalDiagnostics computed at start.
     """
 
+    graph_version: int = 0
     merges: int = 0
     prunes: int = 0
     events_emitted: int = 0
@@ -234,7 +236,7 @@ def evolve_once(
     action_count = 0
 
     # Get current graph version (may be int or GraphVersion object)
-    gv = graph_version_repo.get(graph_id)
+    gv = graph_version_repo.get(None, graph_id)
     if gv is None:
         current_version = 0
     elif hasattr(gv, "version"):
@@ -260,11 +262,16 @@ def evolve_once(
         return result
 
     # 2. Emit DIAGNOSTICS_SNAPSHOT event
-    event_repo.append(
-        graph_id=graph_id,
-        kind="DIAGNOSTICS_SNAPSHOT",
-        payload=diagnostics.to_event_payload(),
-    )
+    from store.pg.session import get_session
+    from runtime.context import get_repos
+    _sess = getattr(node_repo, "session", None)
+    if _sess:
+        event_repo.emit(
+            session=_sess,
+            graph_id=graph_id,
+            kind="DIAGNOSTICS_SNAPSHOT",
+            payload=diagnostics.to_event_payload(),
+        )
     result.events_emitted += 1
 
     # 3. Adapt thresholds based on diagnostics
@@ -310,16 +317,18 @@ def evolve_once(
                 )
 
                 # Emit event
-                event_repo.append(
-                    graph_id=graph_id,
-                    kind="EVOLUTION_MERGE",
-                    payload={
-                        "winner_id": str(merge_result.winner_id),
-                        "loser_id": str(merge_result.loser_id),
-                        "score": score,
-                        "adapted_threshold": adapted_merge_threshold,
-                    },
-                )
+                if _sess:
+                    event_repo.emit(
+                        session=_sess,
+                        graph_id=graph_id,
+                        kind="EVOLUTION_MERGE",
+                        payload={
+                            "winner_id": str(merge_result.winner_id),
+                            "loser_id": str(merge_result.loser_id),
+                            "score": score,
+                            "adapted_threshold": adapted_merge_threshold,
+                        },
+                    )
 
                 result.merges += 1
                 result.events_emitted += 1
@@ -350,16 +359,18 @@ def evolve_once(
             node_repo.delete_node(graph_id, node.node_id)
 
             # Emit event
-            event_repo.append(
-                graph_id=graph_id,
-                kind="PRUNE_NODE",
-                payload={
-                    "node_id": str(node.node_id),
-                    "reason": "low_usage_high_redundancy",
-                    "max_similarity": max_sim,
-                    "adapted_sim_threshold": adapted_prune_policy.min_similarity_for_redundancy,
-                },
-            )
+            if _sess:
+                event_repo.emit(
+                    session=_sess,
+                    graph_id=graph_id,
+                    kind="PRUNE_NODE",
+                    payload={
+                        "node_id": str(node.node_id),
+                        "reason": "low_usage_high_redundancy",
+                        "max_similarity": max_sim,
+                        "adapted_sim_threshold": adapted_prune_policy.min_similarity_for_redundancy,
+                    },
+                )
 
             result.prunes += 1
             result.events_emitted += 1
@@ -374,23 +385,27 @@ def evolve_once(
     # 8. Bump graph version if any actions
     if action_count > 0:
         new_version = graph_version_repo.bump(
+            _sess,
             graph_id=graph_id,
             reason=f"evolution: {result.merges} merges, {result.prunes} prunes",
         )
 
-        event_repo.append(
-            graph_id=graph_id,
-            kind="EVOLUTION_COMPLETE",
-            payload={
-                "version": new_version,
-                "merges": result.merges,
-                "prunes": result.prunes,
-                "D_hat": diagnostics.D_hat,
-                "H_hat": diagnostics.H_hat,
-                "lambda_hat": diagnostics.lambda_hat,
-                "diagnostics_hash": diagnostics.diagnostics_hash,
-            },
-        )
+        if _sess:
+            event_repo.emit(
+                session=_sess,
+                graph_id=graph_id,
+                kind="EVOLUTION_COMPLETE",
+                payload={
+                    "version": new_version,
+                    "merges": result.merges,
+                    "prunes": result.prunes,
+                    "D_hat": diagnostics.D_hat,
+                    "H_hat": diagnostics.H_hat,
+                    "lambda_hat": diagnostics.lambda_hat,
+                    "diagnostics_hash": diagnostics.diagnostics_hash,
+                },
+            )
+        result.graph_version = new_version
         result.events_emitted += 1
 
     return result

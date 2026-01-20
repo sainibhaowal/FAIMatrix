@@ -22,6 +22,8 @@ services:
       POSTGRES_USER: faim
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
       POSTGRES_DB: faim_native
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -39,7 +41,16 @@ services:
     profiles: ["accel"]
     image: redis:7-alpine
     container_name: faim-redis
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD required}"]
+    ports:
+      - "6379:6379"
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${REDIS_PASSWORD:?REDIS_PASSWORD required}",
+      ]
     volumes:
       - redis_data:/data
     healthcheck:
@@ -57,6 +68,9 @@ services:
     profiles: ["accel"]
     image: qdrant/qdrant:latest
     container_name: faim-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
     environment:
       QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:?QDRANT_API_KEY required}
     volumes:
@@ -112,7 +126,11 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/ready | grep -q 'status'"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8000/ready | grep -q 'status'",
+        ]
       interval: 10s
       timeout: 3s
       retries: 30
@@ -124,10 +142,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
+          cpus: "2"
           memory: 1G
         reservations:
-          cpus: '0.5'
+          cpus: "0.5"
           memory: 256M
     networks: [faim-net]
     restart: unless-stopped

@@ -1,0 +1,13 @@
+{
+  "name": "faim-root",
+  "version": "1.0.0",
+  "description": "FAIM-Native Root Management",
+  "scripts": {
+    "faim:up": "docker compose up -d --build",
+    "faim:down": "docker compose down",
+    "faim:logs": "docker compose logs -f",
+    "faim:ps": "docker compose ps",
+    "faim:accel:up": "docker compose --profile accel up -d",
+    "faim:cleanup": "docker system prune -f"
+  }
+}
