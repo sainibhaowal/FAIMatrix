@@ -40,11 +40,21 @@ def raw_store(tmp_blob_dir: Path) -> RawStore:
 
 @pytest.fixture
 def session_factory() -> Generator[SessionFactory, None, None]:
-    """Create a SessionFactory with in-memory SQLite database."""
-    # Use in-memory SQLite for fast tests - explicitly pass URL
-    factory = SessionFactory(url="sqlite:///:memory:")
+    """Create a SessionFactory. Defaults to Postgres if URL is in environment, else SQLite."""
+    import os
+    from store.pg.models_faim import drop_all_tables
 
-    # Create all tables
+    # Use environment variable for native testing (e.g. PostgreSQL)
+    # Default to in-memory SQLite for legacy unit tests if URL not provided
+    url = os.getenv("TEST_DATABASE_URL") or os.getenv("DATABASE_URL") or "sqlite:///:memory:"
+    
+    factory = SessionFactory(url=url)
+
+    # 100% Accuracy: Wipe everything before starting tests on a persistent DB
+    if factory.engine.dialect.name == "postgresql":
+        drop_all_tables(factory.engine)
+
+    # Create all tables (idempotent)
     create_all_tables(factory.engine)
 
     yield factory
@@ -52,7 +62,9 @@ def session_factory() -> Generator[SessionFactory, None, None]:
 
 @pytest.fixture
 def db_session(session_factory: SessionFactory):
-    """Create a database session for tests."""
+    """Create a database session for tests with automatic cleanup."""
+    # For PostgreSQL, we might want to ensure a clean slate even between tests
+    # depending on the test type. For now, the factory wipe is enough for local runs.
     with session_factory.session() as session:
         yield session
 

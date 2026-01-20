@@ -315,10 +315,10 @@ def run_ingest(
         # =====================================================================
         # STEP 4: Encode blocks to vectors (256 dim, NO ML)
         # =====================================================================
-        from encoding import encode_blocks
+        from encoding import vectorize_blocks
         from encoding.vector_schema import VECTOR_DIMENSION
 
-        vectors = encode_blocks(blocks)
+        vectors = vectorize_blocks(blocks)
 
         # Verify dimension
         if vectors and len(vectors[0].v_native) != VECTOR_DIMENSION:
@@ -351,7 +351,7 @@ def run_ingest(
             node_repo=node_repo,
             edge_repo=edge_repo,
             event_repo=event_repo,
-            gv_repo=gv_repo,
+            graph_version_repo=gv_repo,
         )
 
         write_result = engine.write_atoms(

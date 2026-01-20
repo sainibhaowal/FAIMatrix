@@ -105,6 +105,8 @@ class FAIMNativeEngine:
         self,
         graph_id: str,
         vectors: List[FAIMVector],
+        raw_id: Optional[str] = None,
+        packet_hash: Optional[str] = None,
     ) -> WriteResult:
         """Write atom vectors to graph.
 
@@ -228,6 +230,7 @@ class FAIMNativeEngine:
 
         # 5. Bump graph version
         new_version = self.graph_version_repo.bump(
+            self.node_repo.session,
             graph_id=graph_id,
             reason=f"write_atoms: {result.nodes_written} nodes",
         )
@@ -297,11 +300,13 @@ class FAIMNativeEngine:
         payload: Dict[str, Any],
     ) -> None:
         """Emit an event to the journal."""
-        self.event_repo.append(
-            graph_id=graph_id,
-            kind=kind,
-            payload=payload,
-        )
+        if self.event_repo:
+            self.event_repo.emit(
+                session=self.node_repo.session,
+                graph_id=graph_id,
+                kind=kind,
+                payload=payload,
+            )
 
     def compute_graph_hash(self, graph_id: str) -> str:
         """Compute deterministic hash of graph state.

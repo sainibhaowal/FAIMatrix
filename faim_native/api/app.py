@@ -103,6 +103,16 @@ def create_app() -> FastAPI:
     from api.middleware.auth import TenantAuthMiddleware
     app.add_middleware(TenantAuthMiddleware)
 
+    # JWT Auth (Stage-12: NextAuth token verification)
+    # Runs BEFORE TenantAuth - if Bearer token present, uses JWT claims
+    # Otherwise falls through to API key auth
+    try:
+        from api.middleware.jwt import JWTAuthMiddleware
+        app.add_middleware(JWTAuthMiddleware)
+        logger.info("JWTAuthMiddleware registered")
+    except Exception as e:
+        logger.warning(f"Failed to register JWTAuthMiddleware: {e}")
+
     # Security Headers
     from api.middleware.security import SecurityHeadersMiddleware
     app.add_middleware(SecurityHeadersMiddleware)
@@ -124,20 +134,19 @@ def create_app() -> FastAPI:
         query_router,
     )
 
-    # Health routes (no prefix)
+    # Health routes (no prefix - for external status checks)
     app.include_router(health_router)
 
-    # Auth routes (public - exempt from tenant auth)
-    app.include_router(auth_router)
-
-    # API v1 routes
-    app.include_router(events_router)
-    app.include_router(ingest_router)
-    app.include_router(query_router)
-    app.include_router(node_router)
-    app.include_router(evolve_router)
-    app.include_router(metrics_router)
-    app.include_router(admin_router)
+    # API v1 routes (consistent /api/v1 prefix)
+    app.include_router(auth_router)  # Auth router already has /api/v1/auth from its file
+    prefix = "/api/v1"
+    app.include_router(events_router, prefix=prefix)
+    app.include_router(ingest_router, prefix=prefix)
+    app.include_router(query_router, prefix=prefix)
+    app.include_router(node_router, prefix=prefix)
+    app.include_router(evolve_router, prefix=prefix)
+    app.include_router(metrics_router, prefix=prefix)
+    app.include_router(admin_router, prefix=prefix)
 
     # ==========================================================================
     # Startup/Shutdown Events

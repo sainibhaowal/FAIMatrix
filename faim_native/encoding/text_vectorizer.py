@@ -19,8 +19,9 @@ import math
 import re
 import sys
 import unicodedata
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Flexible imports
 try:
@@ -287,19 +288,23 @@ def build_opp_signature(
     }
 
 
-# -----------------------------------------------------------------------------
-# Main Vectorization Pipeline
-# -----------------------------------------------------------------------------
+@dataclass(frozen=True)
+class VectorizationResult:
+    """Result of text vectorization."""
+
+    v_native: List[float]
+    stats: Dict[str, float]
+    opp_signature: Dict[str, float]
 
 
-def vectorize_text(text: str) -> Tuple[List[float], Dict[str, float], Dict[str, float]]:
+def vectorize_text(text: str) -> VectorizationResult:
     """Convert text to FAIM-native vector.
 
     Args:
         text: Raw text content.
 
     Returns:
-        Tuple of (v_native, stats, opp_signature).
+        VectorizationResult object.
     """
     # Normalize
     normalized = normalize_text(text)
@@ -324,7 +329,9 @@ def vectorize_text(text: str) -> Tuple[List[float], Dict[str, float], Dict[str, 
     # Build opposition signature
     opp_signature = build_opp_signature(ngram_normalized, stats)
 
-    return v_native, stats, opp_signature
+    return VectorizationResult(
+        v_native=v_native, stats=stats, opp_signature=opp_signature
+    )
 
 
 def vectorize_block(
@@ -341,7 +348,9 @@ def vectorize_block(
         FAIMVector with computed v_native and hash.
     """
     # Vectorize text content
-    v_native, stats, opp_signature = vectorize_text(block.content)
+    v_res = vectorize_text(block.content)
+    v_native = v_res.v_native
+    opp_signature = v_res.opp_signature
 
     return FAIMVector.create(
         raw_id=block.raw_id,
