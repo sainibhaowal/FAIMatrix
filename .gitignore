@@ -50,3 +50,10 @@ docs/simulation_run*.txt
 /faim_native/docs/pdf/
 /faim_native/docs/*.pdf
 /faim_native/docs/*.docx
+# Production Exclusions
+.env*
+!.env.example
+frontend/.env*
+frontend/env.example
+frontend/frontend.log
+/docs/
