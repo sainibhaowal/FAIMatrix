@@ -55,14 +55,8 @@ export function PerformanceEvolutionChart() {
               nodes: p.nodes,
             })));
           } else {
-            // Generate fallback data
-            const mockData = Array.from({ length: 20 }).map((_, i) => ({
-              time: `${i}:00`,
-              cr: 1.2 + Math.random() * 0.8 + (i * 0.1),
-              latency: 45 - (i * 0.5) + Math.random() * 5,
-              nodes: 100 + (i * 50),
-            }));
-            setData(mockData);
+            // Production: Show empty state (waiting for neural activity)
+            setData([]);
           }
         }
       } catch (e) {

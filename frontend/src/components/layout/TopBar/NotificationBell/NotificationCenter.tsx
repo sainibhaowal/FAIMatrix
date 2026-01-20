@@ -18,30 +18,8 @@ function IconBell(props: { className?: string }) {
   );
 }
 
-// Placeholder notifications
-const MOCK_NOTIFS = [
-  {
-    id: "n1",
-    title: "Analysis completed",
-    msg: "Your graph analysis for 'Project Titan' is ready.",
-    time: "2m ago",
-    unread: true,
-  },
-  {
-    id: "n2",
-    title: "System update",
-    msg: "FAIM Core updated to v2.1.0.",
-    time: "1h ago",
-    unread: true,
-  },
-  {
-    id: "n3",
-    title: "Memory limit warning",
-    msg: "Graph size approaching 80% of allocated memory.",
-    time: "3h ago",
-    unread: false,
-  },
-];
+// Production: Notifications are handled via standard event stream
+const MOCK_NOTIFS: any[] = [];
 
 export function NotificationCenter() {
   const [open, setOpen] = useState(false);
