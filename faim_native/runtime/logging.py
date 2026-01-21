@@ -14,7 +14,6 @@ import sys
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Pattern
 
-
 # =============================================================================
 # Stage-11: Redaction Patterns
 # =============================================================================
@@ -22,26 +21,22 @@ from typing import Any, Dict, List, Pattern
 # Patterns that will be redacted from log messages
 REDACT_PATTERNS: List[Pattern] = [
     # API keys and authorization headers
-    re.compile(r'(?i)(x-api-key|x-admin-key|authorization)[=:\s"\']+[^\s"\']+', re.IGNORECASE),
+    re.compile(
+        r'(?i)(x-api-key|x-admin-key|authorization)[=:\s"\']+[^\s"\']+', re.IGNORECASE
+    ),
     re.compile(r'(?i)(api[_-]?key|apikey)[=:\s"\']+[^\s"\']+', re.IGNORECASE),
-    
     # Passwords and secrets
     re.compile(r'(?i)(password|passwd|secret|token)[=:\s"\']+[^\s"\']+', re.IGNORECASE),
-    
     # Database URLs with credentials
-    re.compile(r'(?i)postgresql://[^@]+@', re.IGNORECASE),
-    re.compile(r'(?i)redis://[^@]+@', re.IGNORECASE),
-    
+    re.compile(r"(?i)postgresql://[^@]+@", re.IGNORECASE),
+    re.compile(r"(?i)redis://[^@]+@", re.IGNORECASE),
     # Bearer tokens (redact entire line portion after Bearer)
-    re.compile(r'Bearer\s+\S+', re.IGNORECASE),
-    
+    re.compile(r"Bearer\s+\S+", re.IGNORECASE),
     # Authorization header with full value
-    re.compile(r'(?i)Authorization:\s+\S+.*', re.IGNORECASE),
-    
+    re.compile(r"(?i)Authorization:\s+\S+.*", re.IGNORECASE),
     # FAIM-specific key patterns
-    re.compile(r'faim_[a-f0-9]{6}_[a-zA-Z0-9_-]+'),  # Generated API keys
-    re.compile(r'admin_[a-f0-9]{6}_[a-zA-Z0-9_-]+'),  # Admin keys
-    
+    re.compile(r"faim_[a-f0-9]{6}_[a-zA-Z0-9_-]+"),  # Generated API keys
+    re.compile(r"admin_[a-f0-9]{6}_[a-zA-Z0-9_-]+"),  # Admin keys
     # JSON key values (common in env vars)
     re.compile(r'"key":\s*"[^"]+"'),
     re.compile(r'"api_key":\s*"[^"]+"'),
@@ -61,25 +56,30 @@ def redact_sensitive(message: str) -> str:
 class RedactingFilter(logging.Filter):
     """
     Log filter that redacts sensitive information.
-    
+
     Stage-11: Prevents secrets from leaking to logs.
     """
-    
+
     def filter(self, record: logging.LogRecord) -> bool:
         # Redact the main message
         if record.msg:
             record.msg = redact_sensitive(str(record.msg))
-        
+
         # Redact args if present
         if record.args:
             if isinstance(record.args, dict):
-                record.args = {k: redact_sensitive(str(v)) if isinstance(v, str) else v 
-                               for k, v in record.args.items()}
+                record.args = {
+                    k: redact_sensitive(str(v)) if isinstance(v, str) else v
+                    for k, v in record.args.items()
+                }
             elif isinstance(record.args, tuple):
-                record.args = tuple(redact_sensitive(str(a)) if isinstance(a, str) else a 
-                                    for a in record.args)
-        
+                record.args = tuple(
+                    redact_sensitive(str(a)) if isinstance(a, str) else a
+                    for a in record.args
+                )
+
         return True
+
 
 # =============================================================================
 # JSON Formatter
@@ -156,7 +156,7 @@ class ContextLogger:
 
 def setup_logging(level: str = "INFO", json_format: bool = True) -> None:
     """Configure logging for FAIM.
-    
+
     Stage-11: Adds RedactingFilter to prevent secret leaks.
     """
     root_logger = logging.getLogger()
@@ -169,7 +169,7 @@ def setup_logging(level: str = "INFO", json_format: bool = True) -> None:
     # Add new handler
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(logging.DEBUG)
-    
+
     # Stage-11: Add redacting filter
     handler.addFilter(RedactingFilter())
 

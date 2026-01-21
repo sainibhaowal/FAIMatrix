@@ -302,7 +302,7 @@ def adapt_speed_budget_to_system() -> SpeedBudget:
     if _PSUTIL_AVAILABLE and psutil is not None:
         try:
             total_ram = psutil.virtual_memory().total
-        except Exception:
+        except Exception:  # nosec B110 - graceful fallback
             pass  # Use default
 
     # Compute parameters based on RAM
@@ -350,7 +350,7 @@ def get_memory_info() -> Dict[str, int]:
             "available": mem.available,
             "used": mem.used,
         }
-    except Exception:
+    except Exception:  # nosec B110 - graceful fallback
         return {"total": 0, "available": 0, "used": 0}
 
 

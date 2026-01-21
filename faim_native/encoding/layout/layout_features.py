@@ -90,7 +90,7 @@ def extract_layout_features(anchor: BlockAnchor) -> List[float]:
     features.append(doc_type_map.get(anchor.doc_type, 0.0))
 
     # Ensure fixed dimension
-    assert (
+    assert (  # nosec B101 - Contract enforcement, not production runtime check
         len(features) == LAYOUT_FEATURE_DIM
     ), f"Expected {LAYOUT_FEATURE_DIM}, got {len(features)}"
 

@@ -262,8 +262,6 @@ def evolve_once(
         return result
 
     # 2. Emit DIAGNOSTICS_SNAPSHOT event
-    from store.pg.session import get_session
-    from runtime.context import get_repos
     _sess = getattr(node_repo, "session", None)
     if _sess:
         event_repo.emit(

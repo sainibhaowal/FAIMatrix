@@ -85,40 +85,42 @@ def _constant_time_compare(a: str, b: str) -> bool:
 
 def validate_tenant_key(tenant_id: str, api_key: str) -> bool:
     """Validate tenant API key.
-    
+
     Stage-11: Supports BOTH legacy (env var) and new (DB hashed) modes.
-    
+
     Verification order:
     1. Check legacy TENANT_KEYS_JSON (for backward compatibility)
     2. Check database hashed keys (preferred for production)
-    
+
     Args:
         tenant_id: Tenant identifier.
         api_key: API key provided.
-        
+
     Returns:
         True if valid, False otherwise.
     """
     # --- Legacy Mode (TENANT_KEYS_JSON env var) ---
     # Will be deprecated after migration to DB hashes
     keys = get_tenant_keys()
-    
+
     # No keys configured - production safety: REJECT ALL
     if not keys:
-        logger.error("CRITICAL: No tenant keys configured. Access denied for all tenants.")
+        logger.error(
+            "CRITICAL: No tenant keys configured. Access denied for all tenants."
+        )
         return False
-    
+
     # Check legacy plaintext keys first
     valid_keys = keys.get(tenant_id, [])
     for valid_key in valid_keys:
         if _constant_time_compare(api_key, valid_key):
             return True
-    
+
     # Legacy key not found, try DB hashed keys
     try:
-        from store.pg.session import get_session
         from store.pg.repos.auth_repo import AuthRepo
-        
+        from store.pg.session import get_session
+
         session = get_session()
         try:
             repo = AuthRepo(session)
@@ -130,7 +132,7 @@ def validate_tenant_key(tenant_id: str, api_key: str) -> bool:
     except Exception as e:
         logger.debug(f"Hashed key verification failed: {e}")
         pass
-    
+
     return False
 
 

@@ -17,6 +17,7 @@ import {
   Database,
 } from "lucide-react";
 import { getSession } from "next-auth/react";
+import Image from "next/image";
 import { useUserIds } from "@/contexts/UserContext";
 
 // UI Components
@@ -653,9 +654,10 @@ export default function StoragePage() {
                   </div>
                ) : previewContent === "IMAGE_BLOB" ? (
                   <div className="flex h-full items-center justify-center p-4">
+                     {/* eslint-disable-next-line @next/next/no-img-element */}
                      <img 
                         src={previewBlobUrl || ""} 
-                        alt={previewDoc?.filename}
+                        alt={previewDoc?.filename || "Preview"}
                         className="max-w-full max-h-[60vh] rounded-lg shadow-lg border border-slate-700 bg-slate-800"
                      />
                   </div>

@@ -117,7 +117,7 @@ class FAIMVector:
         Returns:
             FAIMVector with computed vector_hash.
         """
-        assert (
+        assert (  # nosec B101
             len(v_native) == VECTOR_DIMENSION
         ), f"v_native must be {VECTOR_DIMENSION} dims, got {len(v_native)}"
 

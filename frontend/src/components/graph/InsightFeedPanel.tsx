@@ -119,7 +119,7 @@ const InsightFeedPanel: React.FC<InsightFeedPanelProps> = ({ graphId }) => {
                  <span className="text-[9px] font-bold text-slate-500 uppercase">Evidence</span>
                </div>
                <p className="text-[9px] text-slate-500 italic line-clamp-2 italic">
-                 "{insight.evidence}"
+                 &quot;{insight.evidence}&quot;
                </p>
             </div>
 

@@ -23,16 +23,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt gunicorn uvicorn[standard] psycopg2-binary redis qdrant-client
 
-# Copy ENTIRE application context (faim_native, scripts, config)
-COPY . /app
+# Non-root user (security) - Create BEFORE copy to fix ownership
+RUN useradd -m -u 1000 -s /bin/false faim
 
-# Set PYTHONPATH to include faim_native so modules (api, store) are importable
+# Set essential environment variables
 ENV PYTHONPATH=/app/faim_native:/app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# Non-root user (security)
-RUN useradd -m -u 1000 -s /bin/false faim && chown -R faim:faim /app
+# Copy application context with CORRECT OWNERSHIP in one step (Zero Duplicate Layers)
+COPY --chown=faim:faim . /app
 USER faim
 
 # Entrypoint gating

@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 # =============================================================================
 
+
 def _get_jwt_secret() -> Optional[str]:
     """Get JWT secret from environment."""
     return os.getenv("NEXTAUTH_SECRET")
@@ -42,10 +43,11 @@ def _get_jwt_secret() -> Optional[str]:
 # JWT Verification
 # =============================================================================
 
+
 def verify_jwt(token: str) -> Optional[dict]:
     """
     Verify a JWT token and return claims if valid.
-    
+
     Returns None if:
     - Token is malformed
     - Signature is invalid
@@ -55,10 +57,10 @@ def verify_jwt(token: str) -> Optional[dict]:
     if not secret:
         logger.warning("NEXTAUTH_SECRET not configured, JWT auth disabled")
         return None
-    
+
     try:
         import jwt
-        
+
         # Verify signature and decode
         claims = jwt.decode(
             token,
@@ -68,11 +70,11 @@ def verify_jwt(token: str) -> Optional[dict]:
                 "require": ["sub", "exp"],
                 "verify_signature": True,
                 "verify_exp": True,
-            }
+            },
         )
-        
+
         return claims
-        
+
     except jwt.ExpiredSignatureError:
         logger.debug("JWT token expired")
         return None
@@ -87,10 +89,10 @@ def verify_jwt(token: str) -> Optional[dict]:
 def extract_bearer_token(request: Request) -> Optional[str]:
     """Extract Bearer token from Authorization header."""
     auth_header = request.headers.get("Authorization", "")
-    
+
     if not auth_header.startswith("Bearer "):
         return None
-    
+
     return auth_header[7:]  # Remove "Bearer " prefix
 
 
@@ -127,59 +129,59 @@ def is_jwt_exempt(path: str) -> bool:
 class JWTAuthMiddleware(BaseHTTPMiddleware):
     """
     Middleware for JWT-based authentication.
-    
+
     Verifies Bearer tokens from NextAuth frontend.
     Falls back to API key auth if no Bearer token present.
-    
+
     Stage-12: Production-hardened JWT verification.
     """
-    
+
     async def dispatch(self, request: Request, call_next):
         # Skip for exempt paths
         if is_jwt_exempt(request.url.path):
             return await call_next(request)
-        
+
         # Check for Bearer token
         token = extract_bearer_token(request)
-        
+
         if not token:
             # No Bearer token, fall through to API key auth
             return await call_next(request)
-        
+
         # Verify JWT
         claims = verify_jwt(token)
-        
+
         if not claims:
             # Invalid token - reject immediately
             return JSONResponse(
                 status_code=401,
                 content={"error": "Invalid or expired token"},
             )
-        
+
         # Extract user info from claims
         user_id = claims.get("sub") or claims.get("id")
         email = claims.get("email")
         graph_id = claims.get("graphId")
-        
+
         if not user_id:
             return JSONResponse(
                 status_code=401,
                 content={"error": "Token missing user identifier"},
             )
-        
+
         # Set tenant_id for isolation (prefix with "user:" to distinguish from API tenants)
         # This ensures complete isolation between users
         tenant_id = f"user:{user_id}"
-        
+
         # Attach to request state
         request.state.tenant_id = tenant_id
         request.state.user_id = user_id
         request.state.email = email
         request.state.graph_id = graph_id
         request.state.auth_method = "jwt"
-        
+
         logger.debug(f"JWT auth successful for user: {user_id[:8]}...")
-        
+
         return await call_next(request)
 
 

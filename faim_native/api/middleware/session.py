@@ -24,7 +24,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import Request, HTTPException
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
@@ -45,20 +45,23 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "strict"
 
 # Secret for HMAC (generate if not provided)
-SESSION_SECRET = os.getenv("FAIM_SESSION_SECRET", "").encode() or secrets.token_bytes(32)
+SESSION_SECRET = os.getenv("FAIM_SESSION_SECRET", "").encode() or secrets.token_bytes(
+    32
+)
 
 
 # =============================================================================
 # Session Token
 # =============================================================================
 
+
 class SessionToken:
     """
     Secure session token.
-    
+
     Format: <timestamp>.<tenant_id>.<random>.<signature>
     """
-    
+
     def __init__(
         self,
         tenant_id: str,
@@ -68,7 +71,7 @@ class SessionToken:
         self.tenant_id = tenant_id
         self.created_at = created_at
         self.random_part = random_part
-    
+
     @classmethod
     def generate(cls, tenant_id: str) -> "SessionToken":
         """Generate a new session token."""
@@ -77,35 +80,35 @@ class SessionToken:
             created_at=datetime.utcnow(),
             random_part=secrets.token_urlsafe(24),
         )
-    
+
     def to_string(self) -> str:
         """Serialize token to string with HMAC signature."""
         timestamp = int(self.created_at.timestamp())
         payload = f"{timestamp}.{self.tenant_id}.{self.random_part}"
-        
+
         # Sign with HMAC
         signature = hmac.new(
             SESSION_SECRET,
             payload.encode(),
             hashlib.sha256,
         ).hexdigest()[:32]
-        
+
         return f"{payload}.{signature}"
-    
+
     @classmethod
     def from_string(cls, token_str: str) -> Optional["SessionToken"]:
         """
         Parse and verify a session token string.
-        
+
         Returns None if token is invalid or tampered.
         """
         try:
             parts = token_str.split(".")
             if len(parts) != 4:
                 return None
-            
+
             timestamp_str, tenant_id, random_part, signature = parts
-            
+
             # Reconstruct and verify signature
             payload = f"{timestamp_str}.{tenant_id}.{random_part}"
             expected_sig = hmac.new(
@@ -113,30 +116,30 @@ class SessionToken:
                 payload.encode(),
                 hashlib.sha256,
             ).hexdigest()[:32]
-            
+
             if not hmac.compare_digest(signature, expected_sig):
                 logger.warning("Invalid session signature")
                 return None
-            
+
             # Parse timestamp
             timestamp = int(timestamp_str)
             created_at = datetime.fromtimestamp(timestamp)
-            
+
             return cls(
                 tenant_id=tenant_id,
                 created_at=created_at,
                 random_part=random_part,
             )
-            
+
         except (ValueError, TypeError, IndexError) as e:
             logger.warning(f"Failed to parse session token: {e}")
             return None
-    
+
     def is_expired(self) -> bool:
         """Check if session has expired."""
         expiry = self.created_at + timedelta(minutes=SESSION_DURATION_MINUTES)
         return datetime.utcnow() > expiry
-    
+
     def refresh(self) -> "SessionToken":
         """Create a refreshed token (rolling session)."""
         return SessionToken(
@@ -149,6 +152,7 @@ class SessionToken:
 # =============================================================================
 # Cookie Helpers
 # =============================================================================
+
 
 def set_session_cookie(response: Response, token: SessionToken) -> None:
     """Set the session cookie on a response."""
@@ -177,15 +181,15 @@ def get_session_from_request(request: Request) -> Optional[SessionToken]:
     token_str = request.cookies.get(SESSION_COOKIE_NAME)
     if not token_str:
         return None
-    
+
     token = SessionToken.from_string(token_str)
     if token is None:
         return None
-    
+
     if token.is_expired():
         logger.debug("Session expired")
         return None
-    
+
     return token
 
 
@@ -193,34 +197,35 @@ def get_session_from_request(request: Request) -> Optional[SessionToken]:
 # Session Middleware
 # =============================================================================
 
+
 class SessionMiddleware(BaseHTTPMiddleware):
     """
     Middleware for session-based authentication.
-    
+
     Allows requests authenticated via:
     1. X-Api-Key header (traditional API key)
     2. Session cookie (for browser UIs)
-    
+
     When a valid session is found, sets request.state.tenant_id.
     """
-    
+
     async def dispatch(self, request: Request, call_next):
         # Check for existing session
         session = get_session_from_request(request)
-        
+
         if session:
             # Valid session found
             request.state.tenant_id = session.tenant_id
             request.state.session = session
-            
+
             response = await call_next(request)
-            
+
             # Rolling session: refresh on each request
             refreshed = session.refresh()
             set_session_cookie(response, refreshed)
-            
+
             return response
-        
+
         # No session, fall through to API key auth
         return await call_next(request)
 

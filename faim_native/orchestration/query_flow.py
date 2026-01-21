@@ -169,7 +169,6 @@ def emit_query_complete(
 def get_graph_metrics(session, tenant_id: str, graph_id: str) -> Dict[str, float]:
     """Get graph metrics for query scoring."""
     from sqlalchemy import func
-
     from store.pg.models_faim import NodeModel
 
     # Quick stats

@@ -125,13 +125,15 @@ def run_status(require_latest: bool = False):
     session.close()
 
     if require_latest and pending_count > 0:
-        print(f"\nERROR: {pending_count} pending migration(s). Run 'python -m store.pg.migrate up' first.")
+        print(
+            f"\nERROR: {pending_count} pending migration(s). Run 'python -m store.pg.migrate up' first."
+        )
         sys.exit(1)
 
 
 def run_up(require_latest: bool = False):
     """Apply pending migrations.
-    
+
     Args:
         require_latest: If True, do not apply migrations; only exit with code 1 if any are pending.
     """
@@ -172,7 +174,9 @@ def run_up(require_latest: bool = False):
 
     # If require_latest is set, we fail here instead of applying
     if require_latest:
-        print(f"\nERROR: {len(to_apply)} pending migration(s). Refusing to start because --require-latest is set.")
+        print(
+            f"\nERROR: {len(to_apply)} pending migration(s). Refusing to start because --require-latest is set."
+        )
         session.close()
         sys.exit(1)
 
@@ -231,9 +235,13 @@ def run_up(require_latest: bool = False):
                 stmt = stmt.strip()
                 if not stmt:
                     continue
-                
+
                 # Verify statement has actual content (not just comments)
-                lines = [line for line in stmt.split("\n") if not line.strip().startswith("--")]
+                lines = [
+                    line
+                    for line in stmt.split("\n")
+                    if not line.strip().startswith("--")
+                ]
                 if not "".join(lines).strip():
                     continue
 

@@ -97,7 +97,7 @@ def extract_pdf_blocks(
 
     except ImportError:
         pass
-    except Exception:
+    except Exception:  # nosec B110 - graceful fallback
         pass
 
     # Try pdfplumber
@@ -151,7 +151,7 @@ def extract_pdf_blocks(
 
     except ImportError:
         pass
-    except Exception:
+    except Exception:  # nosec B110 - graceful fallback
         pass
 
     # Fallback to pypdf
@@ -183,7 +183,7 @@ def extract_pdf_blocks(
 
         return blocks
 
-    except Exception:
+    except Exception:  # nosec B110 - graceful fallback
         pass
 
     # Ultimate fallback: single stub block
@@ -295,7 +295,7 @@ def extract_docx_blocks(
 
     except ImportError:
         pass
-    except Exception:
+    except Exception:  # nosec B110 - graceful fallback
         pass
 
     # Fallback
@@ -369,7 +369,7 @@ def extract_pptx_blocks(
 
     except ImportError:
         pass
-    except Exception:
+    except Exception:  # nosec B110 - graceful fallback
         pass
 
     # Fallback
@@ -451,7 +451,7 @@ def extract_xlsx_blocks(
 
             return blocks if blocks else [_fallback_block(raw_id, "xlsx")]
 
-        except Exception:
+        except Exception:  # nosec B110 - graceful fallback
             pass
 
     # XLSX handling
@@ -508,7 +508,7 @@ def extract_xlsx_blocks(
 
     except ImportError:
         pass
-    except Exception:
+    except Exception:  # nosec B110 - graceful fallback
         pass
 
     return [_fallback_block(raw_id, "xlsx")]

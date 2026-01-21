@@ -345,7 +345,7 @@ class _GraphVectors:
         """
         Initialise an empty (0, dim) matrix when we first learn the dimension.
         """
-        assert self.dim is not None
+        assert self.dim is not None  # nosec B101 - runtime invariant
         self.vectors_cpu = np.zeros((0, self.dim), dtype=np.float32)
 
     def _append_row(self, v: np.ndarray) -> None:
@@ -490,7 +490,7 @@ class _GraphVectors:
         The CPU matrix remains canonical; this method creates or updates the
         GPU tensor lazily when needed.
         """
-        assert _TORCH_AVAILABLE and torch is not None  # for type checkers
+        assert _TORCH_AVAILABLE and torch is not None  # nosec B101 - type checker hint
 
         if self._vectors_gpu is None:
             if self.vectors_cpu.size == 0:
@@ -540,7 +540,7 @@ class _GraphVectors:
             except Exception:
                 pass
 
-        assert _TORCH_AVAILABLE and torch is not None  # for type checkers
+        assert _TORCH_AVAILABLE and torch is not None  # nosec B101 - type checker hint
 
         v_gpu = self._ensure_gpu_synced()
         q_gpu = torch.as_tensor(q, dtype=torch.float32, device=v_gpu.device).view(-1, 1)
@@ -570,7 +570,7 @@ class _GraphVectors:
         """
         GPU implementation of batched squared L2 distance to all vectors.
         """
-        assert _TORCH_AVAILABLE and torch is not None  # for type checkers
+        assert _TORCH_AVAILABLE and torch is not None  # nosec B101 - type checker hint
         v_gpu = self._ensure_gpu_synced()
         q_gpu = torch.as_tensor(q, dtype=torch.float32, device=v_gpu.device).view(1, -1)
 

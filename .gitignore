@@ -59,3 +59,7 @@ Runtime/
 /docs/
 node_modules/
 **/node_modules/
+
+# Development (keep local, not in repo)
+tests/
+scripts/
