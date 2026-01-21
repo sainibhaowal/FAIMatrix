@@ -21,7 +21,7 @@ import sys
 import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List
 
 # Flexible imports
 try:
@@ -322,7 +322,7 @@ def vectorize_text(text: str) -> VectorizationResult:
     # Combine: ngram (240) + stats (16) = 256
     v_native = ngram_normalized + stats_vector
 
-    assert (
+    assert (  # nosec B101 - Contract enforcement, not production runtime check
         len(v_native) == VECTOR_DIMENSION
     ), f"Expected {VECTOR_DIMENSION}, got {len(v_native)}"
 

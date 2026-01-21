@@ -195,7 +195,7 @@ function LoginContent() {
 
                 <div className="mt-8 pt-6 border-t border-white/5 text-center">
                   <p className="text-slate-500 text-sm">
-                    Don't have an account?{" "}
+                    Don&apos;t have an account?{" "}
                     <Link 
                       href="/auth/signup"
                       className="text-cyan-400 font-semibold hover:text-cyan-300 transition-colors"
@@ -223,7 +223,7 @@ function LoginContent() {
                   </button>
                   <h1 className="text-2xl font-bold text-white mb-2">Verify</h1>
                   <p className="text-slate-400 text-sm">
-                    We've sent a 6-digit code to <span className="text-cyan-400 font-medium">{email}</span>
+                    We&apos;ve sent a 6-digit code to <span className="text-cyan-400 font-medium">{email}</span>
                   </p>
                 </div>
 
@@ -280,7 +280,7 @@ function LoginContent() {
                     onClick={handleRequestOtp}
                     className="text-slate-500 text-xs hover:text-cyan-400 transition-colors"
                   >
-                    Didn't receive a code? <span className="font-semibold underline">Resend</span>
+                    Didn&apos;t receive a code? <span className="font-semibold underline">Resend</span>
                   </button>
                 </div>
               </motion.div>

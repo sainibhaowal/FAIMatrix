@@ -12,7 +12,6 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
-
 from store.pg.models_faim import JobEventModel, JobModel
 
 logger = logging.getLogger(__name__)

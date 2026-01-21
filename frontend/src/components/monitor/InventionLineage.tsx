@@ -93,7 +93,7 @@ export default function InventionLineage({ graphId, conceptId }: InventionLineag
           </div>
         </div>
         <p className="text-xs text-slate-400 leading-relaxed italic">
-          "{invention.description}"
+          &quot;{invention.description}&quot;
         </p>
       </div>
 

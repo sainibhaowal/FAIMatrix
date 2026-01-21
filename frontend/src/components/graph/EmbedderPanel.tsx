@@ -77,7 +77,7 @@ const EmbedderPanel: React.FC<EmbedderPanelProps> = ({ graphId }) => {
           Embedding Sandbox
         </h2>
         <p className="text-[10px] text-slate-500 mt-1">
-          Explore FAIM's linguistic vector space. Test how the local model perceives concept proximity.
+          Explore FAIM&apos;s linguistic vector space. Test how the local model perceives concept proximity.
         </p>
       </header>
 

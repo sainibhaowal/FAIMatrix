@@ -233,7 +233,7 @@ def run_evolve(
                             try:
                                 gv = gv_repo.get(None, graph_id)
                                 graph_hash = getattr(gv, "graph_hash", "")
-                            except Exception:
+                            except Exception:  # nosec B110 - graceful fallback
                                 pass
 
                         # Convert FractalDiagnostics to MetricsSnapshot

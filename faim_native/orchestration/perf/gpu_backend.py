@@ -161,7 +161,7 @@ class GPUSearchBackend:
     def _cuda_mem_info(self) -> Tuple[int, int]:
         if not self.is_available():
             return 0, 0
-        assert torch is not None  # for type checkers
+        assert torch is not None  # nosec B101 - type checker hint
         try:
             return torch.cuda.mem_get_info(self._config.device)  # type: ignore[arg-type]
         except Exception:
@@ -200,7 +200,7 @@ class GPUSearchBackend:
         """
         if not _TORCH_AVAILABLE:
             return False
-        assert torch is not None  # for type checkers
+        assert torch is not None  # nosec B101 - type checker hint
         return torch.cuda.is_available()  # type: ignore[union-attr]
 
     @property
@@ -235,7 +235,7 @@ class GPUSearchBackend:
         if not self.is_available():
             raise RuntimeError("GPUSearchBackend.attach_cpu_matrix: CUDA not available")
 
-        assert torch is not None  # for type checkers
+        assert torch is not None  # nosec B101 - type checker hint
 
         arr = np.asarray(vectors_cpu, dtype=np.float32)
         if arr.ndim != 2:
@@ -430,8 +430,8 @@ class GPUSearchBackend:
         q: np.ndarray,
         k_eff: int,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        assert self._vectors_gpu is not None
-        assert torch is not None  # for type checkers
+        assert self._vectors_gpu is not None  # nosec B101 - runtime invariant
+        assert torch is not None  # nosec B101 - type checker hint
 
         v_gpu = self._vectors_gpu
         q_gpu = torch.as_tensor(q, dtype=torch.float32, device=v_gpu.device).view(-1, 1)
@@ -450,8 +450,8 @@ class GPUSearchBackend:
         q: np.ndarray,
         radius: float,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        assert self._vectors_gpu is not None
-        assert torch is not None  # for type checkers
+        assert self._vectors_gpu is not None  # nosec B101 - runtime invariant
+        assert torch is not None  # nosec B101 - type checker hint
 
         v_gpu = self._vectors_gpu
         q_gpu = torch.as_tensor(q, dtype=torch.float32, device=v_gpu.device).view(1, -1)
@@ -480,8 +480,8 @@ class GPUSearchBackend:
         q: np.ndarray,
         k_eff: int,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        assert self._vectors_cpu is not None
-        assert torch is not None  # for type checkers
+        assert self._vectors_cpu is not None  # nosec B101 - runtime invariant
+        assert torch is not None  # nosec B101 - type checker hint
 
         N = self._n_rows
         chunk_rows = max(
@@ -543,8 +543,8 @@ class GPUSearchBackend:
         q: np.ndarray,
         radius: float,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        assert self._vectors_cpu is not None
-        assert torch is not None  # for type checkers
+        assert self._vectors_cpu is not None  # nosec B101 - runtime invariant
+        assert torch is not None  # nosec B101 - type checker hint
 
         N = self._n_rows
         chunk_rows = max(

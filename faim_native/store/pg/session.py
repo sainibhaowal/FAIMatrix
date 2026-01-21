@@ -29,9 +29,9 @@ from sqlalchemy.orm import Session, sessionmaker
 # Default database URL for development
 # Prioritize TEST_DATABASE_URL if set (for running tests against Postgres)
 DEFAULT_DATABASE_URL = (
-    os.getenv("TEST_DATABASE_URL") or 
-    os.getenv("FAIM_DATABASE_URL") or 
-    os.getenv("DATABASE_URL", "sqlite:///:memory:")
+    os.getenv("TEST_DATABASE_URL")
+    or os.getenv("FAIM_DATABASE_URL")
+    or os.getenv("DATABASE_URL", "sqlite:///:memory:")
 )
 
 

@@ -76,7 +76,6 @@ async def readiness_check():
     try:
         # Try to get a session and check tables
         from sqlalchemy import text
-
         from store.pg.migrate import (
             get_latest_applied_version,
             get_latest_local_version,

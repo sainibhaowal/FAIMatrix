@@ -22,7 +22,6 @@ import secrets
 import string
 from datetime import datetime, timedelta, timezone
 from typing import Optional
-import json
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr
@@ -47,11 +46,14 @@ LOCKOUT_MINUTES = 30
 # OTP expiry: 10 minutes
 OTP_EXPIRY_MINUTES = 10
 
+
 # Encryption key for OTP storage (derived from NEXTAUTH_SECRET)
 def _get_encryption_key() -> bytes:
     secret = os.getenv("NEXTAUTH_SECRET")
     if not secret:
-        raise RuntimeError("NEXTAUTH_SECRET environment variable is required for production")
+        raise RuntimeError(
+            "NEXTAUTH_SECRET environment variable is required for production"
+        )
     return hashlib.sha256(secret.encode()).digest()
 
 
@@ -99,14 +101,14 @@ def _check_rate_limit(email: str) -> bool:
     email_hash = _hash_email(email)
     now = datetime.now(timezone.utc)
     window_start = now - timedelta(minutes=RATE_LIMIT_WINDOW_MINUTES)
-    
+
     # Get recent requests
     requests = _RATE_LIMIT_STORE.get(email_hash, [])
-    
+
     # Filter to only requests within window
     recent = [t for t in requests if t > window_start]
     _RATE_LIMIT_STORE[email_hash] = recent
-    
+
     return len(recent) < RATE_LIMIT_MAX_REQUESTS
 
 
@@ -114,10 +116,10 @@ def _record_rate_limit(email: str) -> None:
     """Record an OTP request for rate limiting."""
     email_hash = _hash_email(email)
     now = datetime.now(timezone.utc)
-    
+
     if email_hash not in _RATE_LIMIT_STORE:
         _RATE_LIMIT_STORE[email_hash] = []
-    
+
     _RATE_LIMIT_STORE[email_hash].append(now)
 
 
@@ -130,15 +132,15 @@ def _check_lockout(email: str) -> Optional[int]:
     """Check if email is locked out. Returns remaining seconds if locked."""
     email_hash = _hash_email(email)
     record = _FAILED_ATTEMPTS.get(email_hash)
-    
+
     if not record:
         return None
-    
+
     locked_until = record.get("locked_until")
     if locked_until and datetime.now(timezone.utc) < locked_until:
         remaining = (locked_until - datetime.now(timezone.utc)).seconds
         return remaining
-    
+
     return None
 
 
@@ -146,18 +148,22 @@ def _record_failed_attempt(email: str) -> int:
     """Record a failed verification attempt. Returns attempt count."""
     email_hash = _hash_email(email)
     now = datetime.now(timezone.utc)
-    
+
     if email_hash not in _FAILED_ATTEMPTS:
         _FAILED_ATTEMPTS[email_hash] = {"count": 0, "locked_until": None}
-    
+
     _FAILED_ATTEMPTS[email_hash]["count"] += 1
     count = _FAILED_ATTEMPTS[email_hash]["count"]
-    
+
     # Lock if exceeded max attempts
     if count >= MAX_FAILED_ATTEMPTS:
-        _FAILED_ATTEMPTS[email_hash]["locked_until"] = now + timedelta(minutes=LOCKOUT_MINUTES)
-        logger.warning(f"Account locked due to {count} failed attempts: {email_hash[:8]}...")
-    
+        _FAILED_ATTEMPTS[email_hash]["locked_until"] = now + timedelta(
+            minutes=LOCKOUT_MINUTES
+        )
+        logger.warning(
+            f"Account locked due to {count} failed attempts: {email_hash[:8]}..."
+        )
+
     return count
 
 
@@ -175,17 +181,20 @@ def _clear_failed_attempts(email: str) -> None:
 
 class OTPRequestBody(BaseModel):
     """OTP request body."""
+
     email: EmailStr
 
 
 class OTPRequestResponse(BaseModel):
     """OTP request response."""
+
     success: bool
     message: str
 
 
 class OTPVerifyBody(BaseModel):
     """OTP verify body."""
+
     email: EmailStr
     code: str
     full_name: Optional[str] = None
@@ -193,6 +202,7 @@ class OTPVerifyBody(BaseModel):
 
 class OTPVerifyResponse(BaseModel):
     """OTP verify response."""
+
     success: bool
     user: Optional[dict] = None
     message: Optional[str] = None
@@ -217,15 +227,15 @@ def _generate_otp() -> str:
 def _send_otp_email(email: str, code: str) -> bool:
     """Send OTP email via Resend API."""
     api_key = os.getenv("RESEND_API_KEY")
-    
+
     if not api_key:
         # PRODUCTION: Fail if no API key - do NOT expose OTP
         logger.error("RESEND_API_KEY not configured - cannot send OTP")
         return False
-    
+
     try:
         import httpx
-        
+
         response = httpx.post(
             "https://api.resend.com/emails",
             headers={
@@ -235,7 +245,7 @@ def _send_otp_email(email: str, code: str) -> bool:
             json={
                 "from": "FAIMATRIX <noreply@faimatrix.com>",
                 "to": [email],
-                "subject": f"Your FAIMATRIX verification code",
+                "subject": "Your FAIMATRIX verification code",
                 "html": f"""
                 <div style="font-family: system-ui, -apple-system, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
                     <h1 style="color: #0891b2; font-size: 24px; margin-bottom: 20px;">FAIMATRIX</h1>
@@ -258,14 +268,14 @@ def _send_otp_email(email: str, code: str) -> bool:
             },
             timeout=10.0,
         )
-        
+
         if response.status_code == 200:
-            logger.info(f"OTP email sent successfully")
+            logger.info("OTP email sent successfully")
             return True
         else:
             logger.error(f"Resend API error: {response.status_code}")
             return False
-            
+
     except Exception as e:
         logger.error(f"Failed to send OTP email: {e}")
         return False
@@ -279,42 +289,44 @@ def _send_otp_email(email: str, code: str) -> bool:
 @router.post("/otp/request", response_model=OTPRequestResponse)
 async def request_otp(body: OTPRequestBody, request: Request):
     """Request an OTP code to be sent via email.
-    
+
     Security:
     - Rate limited: 3 requests per 15 minutes per email
     - OTP stored as salted hash (never plaintext)
     - Uses cryptographically secure random generation
     """
     email = body.email.lower().strip()
-    
+
     # Check rate limit
     if not _check_rate_limit(email):
-        logger.warning(f"Rate limit exceeded for email hash: {_hash_email(email)[:8]}...")
+        logger.warning(
+            f"Rate limit exceeded for email hash: {_hash_email(email)[:8]}..."
+        )
         raise HTTPException(
             status_code=429,
             detail="Too many requests. Please wait 15 minutes before trying again.",
         )
-    
+
     # Record this request for rate limiting
     _record_rate_limit(email)
-    
+
     # Generate secure OTP
     code = _generate_otp()
-    
+
     # Store OTP hash (NEVER store plaintext)
     email_hash = _hash_email(email)
     otp_hash = _hash_otp(code, email)
     expiry = datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRY_MINUTES)
-    
+
     _OTP_STORE[email_hash] = {
         "otp_hash": otp_hash,
         "expiry": expiry,
         "attempts": 0,
     }
-    
+
     # Send email - MUST succeed in production
     success = _send_otp_email(email, code)
-    
+
     if not success:
         # Clean up - don't leave orphaned OTPs
         del _OTP_STORE[email_hash]
@@ -322,7 +334,7 @@ async def request_otp(body: OTPRequestBody, request: Request):
             status_code=503,
             detail="Unable to send verification email. Please try again later.",
         )
-    
+
     return OTPRequestResponse(
         success=True,
         message="Verification code sent to your email",
@@ -332,7 +344,7 @@ async def request_otp(body: OTPRequestBody, request: Request):
 @router.post("/otp/verify", response_model=OTPVerifyResponse)
 async def verify_otp(body: OTPVerifyBody):
     """Verify OTP code and return user session.
-    
+
     Security:
     - Brute force protection: 5 failed attempts = 30 min lockout
     - Constant-time hash comparison
@@ -341,7 +353,7 @@ async def verify_otp(body: OTPVerifyBody):
     """
     email = body.email.lower().strip()
     email_hash = _hash_email(email)
-    
+
     # Check lockout
     lockout_remaining = _check_lockout(email)
     if lockout_remaining:
@@ -349,7 +361,7 @@ async def verify_otp(body: OTPVerifyBody):
             status_code=429,
             detail=f"Account temporarily locked. Please try again in {lockout_remaining // 60} minutes.",
         )
-    
+
     # Check if OTP exists
     record = _OTP_STORE.get(email_hash)
     if not record:
@@ -358,7 +370,7 @@ async def verify_otp(body: OTPVerifyBody):
             success=False,
             message="Invalid or expired verification code.",
         )
-    
+
     # Check expiration
     if datetime.now(timezone.utc) > record["expiry"]:
         del _OTP_STORE[email_hash]
@@ -367,34 +379,35 @@ async def verify_otp(body: OTPVerifyBody):
             success=False,
             message="Invalid or expired verification code.",
         )
-    
+
     # Verify OTP hash (constant-time comparison)
     if not _verify_otp_hash(record["otp_hash"], body.code, email):
         attempts = _record_failed_attempt(email)
         remaining = MAX_FAILED_ATTEMPTS - attempts
-        
+
         if remaining <= 0:
             return OTPVerifyResponse(
                 success=False,
                 message=f"Account locked for {LOCKOUT_MINUTES} minutes due to too many failed attempts.",
             )
-        
+
         return OTPVerifyResponse(
             success=False,
             message=f"Invalid verification code. {remaining} attempts remaining.",
         )
-    
+
     # Success - clear OTP and failed attempts
     del _OTP_STORE[email_hash]
     _clear_failed_attempts(email)
-    
+
     # Create user with deterministic ID
     import uuid
+
     user_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, email))
     graph_id = f"U:{user_id[:8]}"
-    
+
     logger.info(f"Successful authentication for user: {email_hash[:8]}...")
-    
+
     return OTPVerifyResponse(
         success=True,
         user={

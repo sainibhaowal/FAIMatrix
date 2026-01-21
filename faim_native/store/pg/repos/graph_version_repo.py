@@ -41,8 +41,9 @@ class GraphVersionRepo:
         session = session or self.session
         if session is None:
             from store.pg.session import get_session
+
             session = get_session()
-            # If we created a session here, we should probably close it, but 
+            # If we created a session here, we should probably close it, but
             # for now we just want it to work for the E2E simulation.
         model = (
             session.query(GraphVersionModel)
@@ -65,6 +66,7 @@ class GraphVersionRepo:
         session = session or self.session
         if session is None:
             from store.pg.session import get_session
+
             session = get_session()
         model = (
             session.query(GraphVersionModel)
