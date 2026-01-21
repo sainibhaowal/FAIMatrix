@@ -71,7 +71,11 @@ htmlcov
 *.backup
 *.dump
 
-# SECURITY: Credentials and secrets
-secrets/
-credentials/
-*.secret
+# FAIM-Native Project Specific
+Runtime/
+frontend/
+postgres_data/
+qdrant_data/
+redis_data/
+docs/
+tests/

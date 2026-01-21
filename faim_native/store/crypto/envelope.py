@@ -16,17 +16,13 @@ Security:
 
 from __future__ import annotations
 
-import base64
-import hashlib
 import os
 import secrets
 from dataclasses import dataclass
-from typing import Tuple, Optional
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-
 
 # =============================================================================
 # Constants
@@ -45,36 +41,38 @@ MASTER_KEY_SALT_ENV = "FAIM_MASTER_SALT"
 # Encrypted Blob Format
 # =============================================================================
 
+
 @dataclass
 class EncryptedBlob:
     """
     Container for encrypted data.
-    
+
     Format: version (1 byte) + nonce (12 bytes) + ciphertext + tag (16 bytes)
-    
+
     Attributes:
         version: Encryption version (for future algorithm changes).
         nonce: Unique nonce for this encryption.
         ciphertext: Encrypted data (includes GCM tag at end).
     """
+
     version: int
     nonce: bytes
     ciphertext: bytes
-    
+
     def to_bytes(self) -> bytes:
         """Serialize to bytes for storage."""
         return bytes([self.version]) + self.nonce + self.ciphertext
-    
+
     @classmethod
     def from_bytes(cls, data: bytes) -> "EncryptedBlob":
         """Deserialize from bytes."""
         if len(data) < 1 + NONCE_SIZE + TAG_SIZE:
             raise ValueError("Invalid encrypted blob: too short")
-        
+
         version = data[0]
-        nonce = data[1:1 + NONCE_SIZE]
-        ciphertext = data[1 + NONCE_SIZE:]
-        
+        nonce = data[1 : 1 + NONCE_SIZE]
+        ciphertext = data[1 + NONCE_SIZE :]
+
         return cls(version=version, nonce=nonce, ciphertext=ciphertext)
 
 
@@ -82,16 +80,17 @@ class EncryptedBlob:
 # Key Derivation
 # =============================================================================
 
+
 def derive_master_key(password: str, salt: bytes) -> bytes:
     """
     Derive master key from password using PBKDF2.
-    
+
     Used when FAIM_MASTER_KEY is not provided directly.
-    
+
     Args:
         password: The master password.
         salt: Random salt (store with the database).
-        
+
     Returns:
         32-byte master key.
     """
@@ -107,13 +106,13 @@ def derive_master_key(password: str, salt: bytes) -> bytes:
 def get_master_key() -> bytes:
     """
     Get the master key from environment.
-    
+
     Prefers FAIM_MASTER_KEY as hex-encoded key.
     Falls back to PBKDF2 derivation if salt is provided.
-    
+
     Returns:
         32-byte master key.
-        
+
     Raises:
         ValueError: If master key is not configured.
     """
@@ -124,15 +123,15 @@ def get_master_key() -> bytes:
         if len(key) == KEY_SIZE:
             return key
         raise ValueError(f"FAIM_MASTER_KEY must be {KEY_SIZE * 2} hex chars")
-    
+
     # Fall back to derivation (for development)
     password = os.getenv("FAIM_MASTER_PASSWORD")
     salt_hex = os.getenv(MASTER_KEY_SALT_ENV)
-    
+
     if password and salt_hex:
         salt = bytes.fromhex(salt_hex)
         return derive_master_key(password, salt)
-    
+
     raise ValueError(
         f"Encryption requires {MASTER_KEY_ENV} or "
         f"FAIM_MASTER_PASSWORD + {MASTER_KEY_SALT_ENV}"
@@ -143,6 +142,7 @@ def get_master_key() -> bytes:
 # Data Encryption Key Management
 # =============================================================================
 
+
 def generate_dek() -> bytes:
     """Generate a new Data Encryption Key."""
     return secrets.token_bytes(KEY_SIZE)
@@ -151,11 +151,11 @@ def generate_dek() -> bytes:
 def wrap_dek(dek: bytes, master_key: bytes) -> bytes:
     """
     Wrap (encrypt) a DEK with the master key.
-    
+
     Args:
         dek: The data encryption key to wrap.
         master_key: The master key.
-        
+
     Returns:
         Wrapped DEK (nonce + ciphertext).
     """
@@ -168,20 +168,20 @@ def wrap_dek(dek: bytes, master_key: bytes) -> bytes:
 def unwrap_dek(wrapped_dek: bytes, master_key: bytes) -> bytes:
     """
     Unwrap (decrypt) a DEK with the master key.
-    
+
     Args:
         wrapped_dek: The wrapped DEK (nonce + ciphertext).
         master_key: The master key.
-        
+
     Returns:
         The unwrapped DEK.
     """
     if len(wrapped_dek) < NONCE_SIZE + TAG_SIZE:
         raise ValueError("Invalid wrapped DEK")
-    
+
     nonce = wrapped_dek[:NONCE_SIZE]
     ciphertext = wrapped_dek[NONCE_SIZE:]
-    
+
     aesgcm = AESGCM(master_key)
     return aesgcm.decrypt(nonce, ciphertext, None)
 
@@ -190,47 +190,48 @@ def unwrap_dek(wrapped_dek: bytes, master_key: bytes) -> bytes:
 # Encryption/Decryption
 # =============================================================================
 
+
 def encrypt(plaintext: bytes, key: bytes) -> EncryptedBlob:
     """
     Encrypt data using AES-256-GCM.
-    
+
     Args:
         plaintext: Data to encrypt.
         key: 32-byte encryption key.
-        
+
     Returns:
         EncryptedBlob containing the encrypted data.
     """
     if len(key) != KEY_SIZE:
         raise ValueError(f"Key must be {KEY_SIZE} bytes")
-    
+
     aesgcm = AESGCM(key)
     nonce = secrets.token_bytes(NONCE_SIZE)
     ciphertext = aesgcm.encrypt(nonce, plaintext, None)
-    
+
     return EncryptedBlob(version=1, nonce=nonce, ciphertext=ciphertext)
 
 
 def decrypt(blob: EncryptedBlob, key: bytes) -> bytes:
     """
     Decrypt data using AES-256-GCM.
-    
+
     Args:
         blob: EncryptedBlob to decrypt.
         key: 32-byte encryption key.
-        
+
     Returns:
         Decrypted plaintext.
-        
+
     Raises:
         InvalidTag: If authentication fails (tampered data).
     """
     if len(key) != KEY_SIZE:
         raise ValueError(f"Key must be {KEY_SIZE} bytes")
-    
+
     if blob.version != 1:
         raise ValueError(f"Unsupported encryption version: {blob.version}")
-    
+
     aesgcm = AESGCM(key)
     return aesgcm.decrypt(blob.nonce, blob.ciphertext, None)
 
@@ -239,14 +240,15 @@ def decrypt(blob: EncryptedBlob, key: bytes) -> bytes:
 # Convenience Functions
 # =============================================================================
 
+
 def encrypt_for_storage(plaintext: bytes, key: bytes) -> bytes:
     """
     Encrypt and serialize for database storage.
-    
+
     Args:
         plaintext: Data to encrypt.
         key: 32-byte encryption key.
-        
+
     Returns:
         Serialized encrypted blob.
     """
@@ -257,11 +259,11 @@ def encrypt_for_storage(plaintext: bytes, key: bytes) -> bytes:
 def decrypt_from_storage(data: bytes, key: bytes) -> bytes:
     """
     Deserialize and decrypt from database storage.
-    
+
     Args:
         data: Serialized encrypted blob.
         key: 32-byte encryption key.
-        
+
     Returns:
         Decrypted plaintext.
     """

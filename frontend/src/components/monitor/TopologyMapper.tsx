@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { 
   Network, 
   Share2, 
@@ -32,7 +32,7 @@ export default function TopologyMapper({ graphId }: { graphId: string }) {
   const [metrics, setMetrics] = useState<TopologyMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchTopology = async () => {
+  const fetchTopology = useCallback(async () => {
     if (!graphId) return;
     try {
       const { getSession } = await import("next-auth/react");
@@ -52,13 +52,13 @@ export default function TopologyMapper({ graphId }: { graphId: string }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [graphId]);
 
   useEffect(() => {
     fetchTopology();
     const interval = setInterval(fetchTopology, 10000);
     return () => clearInterval(interval);
-  }, [graphId]);
+  }, [fetchTopology]);
 
   if (loading || !metrics) {
     return (

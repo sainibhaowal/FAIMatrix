@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { MessageSquare, FileText, Network, Zap, TrendingUp, TrendingDown } from "lucide-react";
+import { MessageSquare, FileText, Network, Zap, TrendingUp, TrendingDown, Activity } from "lucide-react";
 import { Card } from "@/components/ui";
 
 interface DashboardMetricsProps {

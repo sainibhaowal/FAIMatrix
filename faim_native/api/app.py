@@ -17,15 +17,23 @@ _parent = Path(__file__).parent.parent
 if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
+
 # Configure logging
 class SecureLogFilter(logging.Filter):
     """Filter to redact sensitive information from logs."""
+
     SENSITIVE_PATTERNS = [
-        "X-Api-Key", "Authorization", "accessToken", "NEXTAUTH_SECRET",
-        "REDIS_PASSWORD", "POSTGRES_PASSWORD", "QDRANT_API_KEY",
-        "X-Tenant-Id", "tenant_id"
+        "X-Api-Key",
+        "Authorization",
+        "accessToken",
+        "NEXTAUTH_SECRET",
+        "REDIS_PASSWORD",
+        "POSTGRES_PASSWORD",
+        "QDRANT_API_KEY",
+        "X-Tenant-Id",
+        "tenant_id",
     ]
-    
+
     def filter(self, record):
         msg = str(record.msg)
         for pattern in self.SENSITIVE_PATTERNS:
@@ -33,6 +41,7 @@ class SecureLogFilter(logging.Filter):
                 # Simple redaction
                 record.msg = f"[REDACTED SENSITIVE {pattern}]"
         return True
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -119,6 +128,7 @@ def create_app() -> FastAPI:
 
     # Tenant Auth
     from api.middleware.auth import TenantAuthMiddleware
+
     app.add_middleware(TenantAuthMiddleware)
 
     # JWT Auth (Stage-12: NextAuth token verification)
@@ -126,6 +136,7 @@ def create_app() -> FastAPI:
     # Otherwise falls through to API key auth
     try:
         from api.middleware.jwt import JWTAuthMiddleware
+
         app.add_middleware(JWTAuthMiddleware)
         logger.info("JWTAuthMiddleware registered")
     except Exception as e:
@@ -133,6 +144,7 @@ def create_app() -> FastAPI:
 
     # Security Headers
     from api.middleware.security import SecurityHeadersMiddleware
+
     app.add_middleware(SecurityHeadersMiddleware)
     logger.info("SecurityHeadersMiddleware registered")
 
@@ -156,7 +168,9 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
 
     # API v1 routes (consistent /api/v1 prefix)
-    app.include_router(auth_router)  # Auth router already has /api/v1/auth from its file
+    app.include_router(
+        auth_router
+    )  # Auth router already has /api/v1/auth from its file
     prefix = "/api/v1"
     app.include_router(events_router, prefix=prefix)
     app.include_router(ingest_router, prefix=prefix)

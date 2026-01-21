@@ -42,8 +42,10 @@ export default withAuth(
 // 2. Ensure it matches dashboard and protected API routes
 export const config = {
   matcher: [
+    "/dashboard",
     "/dashboard/:path*", 
     "/api/v1/:path*", 
+    "/api/admin/:path*",
     "/api/ops/:path*", 
     "/api/billing/:path*"
   ],

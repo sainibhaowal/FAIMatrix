@@ -99,7 +99,7 @@ def get_repos(tenant_id: str) -> Dict[str, Any]:
         project_hash = hashlib.sha256(tenant_id.encode()).digest()[:16]
         project_id = UUID(bytes=project_hash)
         index = FAIMIndex(project_id)
-    except Exception:
+    except Exception:  # nosec B110 - Graceful degradation if index not available
         pass
 
     try:
@@ -110,7 +110,7 @@ def get_repos(tenant_id: str) -> Dict[str, Any]:
         cache_hash = hashlib.sha256(tenant_id.encode()).digest()[:16]
         cache_id = UUID(bytes=cache_hash)
         cache = QueryCache(cache_id)
-    except Exception:
+    except Exception:  # nosec B110 - Graceful degradation if cache not available
         pass
 
     return {
