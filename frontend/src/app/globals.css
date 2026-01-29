@@ -2,174 +2,134 @@
 @tailwind components;
 @tailwind utilities;
 
-/* =========================================
-   OmniSync Theme — Neo-Glass Dark (Cyan/Violet)
-   Works with shadcn/ui (HSL variables).
-   ========================================= */
+/* =============================================================================
+   FAIMATRIX Enterprise Design System — Big Tech Edition
+   ============================================================================= */
 
 @layer base {
   :root {
-    /* shadcn required */
+    /* Base HSL Colors (Compatible with shadcn/ui) */
     --background: 223.6 44% 4.9%; /* #070A12 */
-    --foreground: 0 0% 98%;
+    --foreground: 210 40% 98%;
 
     --card: 223.6 44% 6.5%;
-    --card-foreground: 0 0% 98%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 223.6 44% 6.5%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 223.6 44% 7%;
+    --popover-foreground: 210 40% 98%;
 
-    --primary: 189 94% 55%; /* cyan */
+    --primary: 189 94% 55%; /* #22D3EE */
     --primary-foreground: 223.6 44% 6%;
 
-    --secondary: 223.6 20% 12%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 258 90% 66%; /* #8B5CF6 */
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 223.6 20% 10%;
-    --muted-foreground: 0 0% 70%;
+    --muted: 223.6 20% 12%;
+    --muted-foreground: 215 20% 65%;
 
-    --accent: 263 83% 76%; /* violet */
-    --accent-foreground: 223.6 44% 6%;
+    --accent: 223.6 20% 15%;
+    --accent-foreground: 210 40% 98%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 210 40% 98%;
 
-    --border: 0 0% 100% / 0.1; /* hairline */
-    --input: 0 0% 100% / 0.1;
+    --border: 217 20% 15%;
+    --input: 217 20% 15%;
     --ring: 189 94% 55%;
 
-    --radius: 1.25rem; /* 2xl-ish */
-
-    /* OmniSync custom tokens(FAIM specific mappings) */
-    --faim-primary: #22d3ee;
-    --faim-secondary: #a78bfa;
-    --faim-accent: #f472b6;
-    --faim-success: #34d399;
-    --faim-warning: #fbbf24;
-    --faim-error: #f87171;
-    --faim-info: #60a5fa;
-
-    /* OmniSync custom tokens */
+    /* Enterprise Surface Scale */
     --os-bg: #070a12;
-    --os-surface-1: rgba(255, 255, 255, 0.035);
-    --os-surface-2: rgba(255, 255, 255, 0.045);
+    --os-surface-1: rgba(255, 255, 255, 0.03);
+    --os-surface-2: rgba(255, 255, 255, 0.04);
     --os-surface-3: rgba(255, 255, 255, 0.06);
-    --os-stroke: rgba(255, 255, 255, 0.1);
+    --os-stroke: rgba(255, 255, 255, 0.08);
 
-    --os-text-1: rgba(255, 255, 255, 0.92);
-    --os-text-2: rgba(255, 255, 255, 0.75);
-    --os-text-3: rgba(255, 255, 255, 0.55); /* Increased from 0.45 for 4.5:1 contrast */
+    /* Text Hierarchy */
+    --os-text-1: rgba(255, 255, 255, 0.95);
+    --os-text-2: rgba(255, 255, 255, 0.7);
+    --os-text-3: rgba(255, 255, 255, 0.45);
 
-    /* Compatibility Mappings */
-    --text-primary: var(--os-text-1);
-    --text-secondary: var(--os-text-2);
-    --text-tertiary: var(--os-text-3);
-    --text-muted: var(--os-text-3);
+    /* Shadow Stacks */
+    --os-shadow-deep: 0 30px 120px rgba(0, 0, 0, 0.4);
+    --os-shadow-line: 0 0 0 1px var(--os-stroke);
 
-    --border-default: var(--os-stroke);
-    --border-subtle: rgba(255, 255, 255, 0.05);
-
-    --os-glow-cyan: rgba(34, 211, 238, 0.16);
-    --os-glow-violet: rgba(167, 139, 250, 0.16);
-    --os-glow-sky: rgba(96, 165, 250, 0.12);
-
-    --os-shadow-deep: 0 30px 120px rgba(0, 0, 0, 0.45);
-    --os-shadow-line: 0 0 0 1px rgba(255, 255, 255, 0.1);
-
-    /* Animation Tokens */
+    /* Animation */
     --ease-faim: cubic-bezier(0.16, 1, 0.3, 1);
-
-    /* Z-Index Tokens */
-    --z-dropdown: 50;
-    --z-sticky: 100;
-    --z-fixed: 100;
-    --z-modal-backdrop: 100;
-    --z-modal: 100;
-    --z-popover: 100;
-    --z-tooltip: 100;
-  }
-
-  .dark {
-    /* same as :root, you can keep it identical for a dark-only app */
   }
 
   * {
     border-color: hsl(var(--border));
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11"; /* Inter features */
   }
 
   body {
     background: var(--os-bg);
     color: hsl(var(--foreground));
-  }
-
-  /* OmniSync Scrollbar */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: var(--os-surface-3);
-    border-radius: 3px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.2);
+    font-size: 14px; /* Enterprise default density */
+    letter-spacing: -0.011em;
   }
 }
 
-/* =========================================
-   OmniSync utilities — copy/paste classes
-   ========================================= */
 @layer utilities {
+  /* Surface System */
   .os-surface {
     background: var(--os-surface-1);
     box-shadow: var(--os-shadow-deep);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 1.5rem;
+    border: 1px solid var(--os-stroke);
   }
 
   .os-card {
     background: var(--os-surface-2);
-    box-shadow: var(--os-shadow-line);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 1.5rem;
+    border: 1px solid var(--os-stroke);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    transition: all 0.2s var(--ease-faim);
   }
 
-  .os-pill {
-    background: rgba(255, 255, 255, 0.05);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
-    border-radius: 9999px;
+  .os-card:hover {
+    background: var(--os-surface-3);
+    border-color: rgba(255, 255, 255, 0.15);
   }
 
   .os-glass {
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: rgba(7, 10, 18, 0.4);
   }
 
-  /* Restored FAIM Grid */
+  /* Grid Overlay Refinement */
   .faim-grid {
     position: absolute;
     inset: 0;
     pointer-events: none;
     z-index: -1;
-    background-size: 40px 40px;
+    background-size: 32px 32px;
     background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-    mask-image: radial-gradient(circle at center, black 40%, transparent 100%);
+      linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    mask-image: radial-gradient(circle at center, black 30%, transparent 100%);
   }
 }
 
-/* =============================================================================
-   ANIMATION KEYFRAMES
-   Used by FAIM UI components
-============================================================================= */
+/* Scrollbar Refinement */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
 
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--os-surface-3);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Enterprise Animations */
 @keyframes shimmer {
   0% {
     transform: translateX(-100%);
@@ -178,103 +138,10 @@
     transform: translateX(100%);
   }
 }
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes progress-stripe {
-  from {
-    background-position: 1rem 0;
-  }
-  to {
-    background-position: 0 0;
-  }
-}
-
-@keyframes pulse-glow {
-  0%,
-  100% {
-    opacity: 1;
-    box-shadow: 0 0 8px var(--primary);
-  }
-  50% {
-    opacity: 0.7;
-    box-shadow: 0 0 16px var(--primary);
-  }
-}
-
 /* =============================================================================
-   PHASE 9: ACCESSIBILITY
-   Production-grade accessibility for public users
-============================================================================= */
+   ACCESSIBILITY UTILITIES
+   ============================================================================= */
 
-/* 1. Focus Indicators (focus-visible) 
-   Shows clear outline when navigating with keyboard, not on mouse click */
-@layer base {
-  *:focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-
-  /* Remove focus ring for mouse users */
-  *:focus:not(:focus-visible) {
-    outline: none;
-  }
-
-  /* Enhanced focus for buttons and links */
-  button:focus-visible,
-  a:focus-visible,
-  [role="button"]:focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 2px;
-    box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.2);
-  }
-
-  /* Focus for form inputs */
-  input:focus-visible,
-  textarea:focus-visible,
-  select:focus-visible {
-    outline: 2px solid hsl(var(--ring));
-    outline-offset: 0;
-    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.15);
-  }
-}
-
-/* 2. Reduced Motion 
-   Respects user preference to reduce animations */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* 3. Skip Link 
-   Hidden link for keyboard users to skip navigation */
 .skip-link {
   position: absolute;
   top: -100px;
@@ -288,7 +155,7 @@
   font-size: 0.875rem;
   border-radius: 0.5rem;
   text-decoration: none;
-  transition: top 0.2s ease;
+  transition: top 0.2s var(--ease-faim);
 }
 
 .skip-link:focus {
@@ -297,8 +164,6 @@
   outline-offset: 2px;
 }
 
-/* 4. Screen Reader Only 
-   Visually hidden but accessible to screen readers */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -311,38 +176,34 @@
   border: 0;
 }
 
-/* Makes sr-only visible on focus (for skip links) */
-.sr-only-focusable:focus,
-.sr-only-focusable:active {
-  position: static;
-  width: auto;
-  height: auto;
-  padding: inherit;
-  margin: inherit;
-  overflow: visible;
-  clip: auto;
-  white-space: normal;
-}
-
-/* 5. High Contrast Mode Support */
-@media (prefers-contrast: high) {
-  :root {
-    --border: 0 0% 100% / 0.3;
-    --os-stroke: rgba(255, 255, 255, 0.3);
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-
-  button,
-  a,
-  input,
-  select,
-  textarea {
-    border-width: 2px !important;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-/* 6. Forced Colors Mode (Windows High Contrast) */
-@media (forced-colors: active) {
-  *:focus-visible {
-    outline: 3px solid CanvasText !important;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    opacity: 1;
+    filter: brightness(1);
+  }
+  50% {
+    opacity: 0.8;
+    filter: brightness(1.3);
   }
 }

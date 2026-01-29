@@ -51,7 +51,7 @@ export default function ContactPage() {
               Get in Touch
             </h1>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-              Have questions about FAIM Lab? We&apos;d love to hear from you.
+              Have questions about FAIMATRIX? We&apos;d love to hear from you.
             </p>
           </motion.div>
 
@@ -233,11 +233,11 @@ export default function ContactPage() {
                   <div>
                     <h4 className="text-white font-semibold">Ravinder Singh</h4>
                     <p className="text-cyan-400 text-sm mb-2">
-                      Founder & CEO, FAIM Lab
+                      Founder & CEO, FAIMATRIX
                     </p>
                     <p className="text-slate-400 text-sm leading-relaxed">
                       Building the future of AI-powered knowledge management.
-                      FAIM Lab transforms how you store, connect, and retrieve
+                      FAIMATRIX transforms how you store, connect, and retrieve
                       information.
                     </p>
                   </div>

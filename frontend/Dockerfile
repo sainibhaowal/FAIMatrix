@@ -1,31 +1,26 @@
-# FAIM Frontend Production Dockerfile
-FROM node:20-alpine AS builder
+# ==========================================
+# FAIMATRIX: Monolithic Intelligence Build
+# ==========================================
+
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies (legacy-peer-deps for safety)
+# 1. Ingest Dependencies
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
-# Copy code and build
+# 2. Absorb Codebase (The entire fractal)
 COPY . .
-RUN npm run build
 
-# Runner stage
-FROM node:20-alpine AS runner
-WORKDIR /app
-
+# 3. Generate Intelligence (Production Build)
+ARG API_HOST=api:8000
+ENV API_HOST=${API_HOST}
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
+RUN npm run build
 
-# Copy build artifacts
-COPY --from=builder /app/next.config.mjs ./
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
-
+# 4. Ignite
+# Using 'npm start' handles all serving logic automatically
 EXPOSE 3000
-
-# Start Next.js (standalone mode)
-CMD ["node", ".next/standalone/server.js"]
+CMD ["npm", "start"]

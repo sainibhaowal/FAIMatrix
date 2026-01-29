@@ -22,8 +22,8 @@ RUN pip install --no-cache-dir \
     watchfiles \
     gunicorn
 
-# Copy application code
-COPY faim_native/ /app/
+# Direct Native Access (Managed via Volume Mounts)
+# No copying of core engine code - live code only.
 
 # Environment
 ENV PYTHONPATH=/app

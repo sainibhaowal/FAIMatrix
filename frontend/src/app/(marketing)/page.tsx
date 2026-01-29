@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * Marketing Landing Page
  * 
@@ -17,6 +15,7 @@ import {
 export default function LandingPage() {
   return (
     <>
+      <h1 className="sr-only">FAIM Landing Page Loaded</h1>
       <Hero />
       <Features />
       <DemoPreview />

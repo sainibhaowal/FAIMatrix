@@ -59,7 +59,7 @@ export function UserDropdownContent({
       </div>
 
       <div className="mt-3 border-t border-white/5 pt-2 text-center text-[10px] text-slate-600">
-        FAIM Lab v0.1.0-beta
+        FAIMATRIX v0.1.0-beta
       </div>
     </div>
   );

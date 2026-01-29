@@ -9,8 +9,9 @@ export default withAuth(
     const token = req.nextauth.token;
 
     // Intercept proxied API routes to inject Authorization header
+    // But SKIP public auth routes (otp request/verify)
     if (
-      req.nextUrl.pathname.startsWith("/api/v1/") ||
+      (req.nextUrl.pathname.startsWith("/api/v1/") && !req.nextUrl.pathname.startsWith("/api/v1/auth/")) ||
       req.nextUrl.pathname.startsWith("/api/ops/") ||
       req.nextUrl.pathname.startsWith("/api/billing/")
     ) {
@@ -44,7 +45,7 @@ export const config = {
   matcher: [
     "/dashboard",
     "/dashboard/:path*", 
-    "/api/v1/:path*", 
+    "/api/v1/((?!auth/).*)", // Protect all v1 except auth
     "/api/admin/:path*",
     "/api/ops/:path*", 
     "/api/billing/:path*"

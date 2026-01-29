@@ -168,10 +168,8 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
 
     # API v1 routes (consistent /api/v1 prefix)
-    app.include_router(
-        auth_router
-    )  # Auth router already has /api/v1/auth from its file
     prefix = "/api/v1"
+    app.include_router(auth_router, prefix=prefix)
     app.include_router(events_router, prefix=prefix)
     app.include_router(ingest_router, prefix=prefix)
     app.include_router(query_router, prefix=prefix)

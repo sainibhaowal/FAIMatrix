@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+psycopg2-binary
+redis
+qdrant-client
+python-multipart
+httpx
+orjson
+pyjwt
+email-validator

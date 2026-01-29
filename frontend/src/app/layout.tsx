@@ -17,18 +17,17 @@ export const metadata: Metadata = {
     "fractal memory",
     "knowledge graph",
     "document intelligence",
-
     "FAIMATRIX",
   ],
-  authors: [{ name: "Ravinder Singh", url: "https://faimlab.com" }],
+  authors: [{ name: "Ravinder Singh", url: "https://faimatrix.ai" }],
   creator: "Ravinder Singh",
   publisher: "FAIMATRIX",
 
-  // Open Graph (Facebook, LinkedIn)
+  // Open Graph
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://faimlab.com",
+    url: "https://faimatrix.ai",
     siteName: "FAIMATRIX",
     title: "FAIMATRIX - Where Your Knowledge Becomes Intelligence",
     description:
@@ -43,7 +42,7 @@ export const metadata: Metadata = {
     ],
   },
 
-  // Twitter Card
+  // Twitter
   twitter: {
     card: "summary_large_image",
     title: "FAIMATRIX - Fractal AI Memory",
@@ -63,13 +62,12 @@ export const metadata: Metadata = {
   },
 };
 
-// JSON-LD Structured Data
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   name: "FAIMATRIX",
   description: "AI-powered knowledge management with fractal memory engine",
-  url: "https://faimlab.com",
+  url: "https://faimatrix.ai",
   applicationCategory: "ProductivityApplication",
   operatingSystem: "Web",
   author: {
@@ -98,13 +96,14 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-slate-950 text-slate-100 antialiased overflow-x-hidden">
-        {/* Skip Link for Keyboard Navigation */}
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>
         <Providers>
-          <div id="main-content" tabIndex={-1}>
-            {children}
+          <div className="min-h-screen bg-slate-950 flex flex-col">
+            <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col">
+              {children}
+            </main>
           </div>
         </Providers>
       </body>

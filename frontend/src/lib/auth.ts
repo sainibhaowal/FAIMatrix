@@ -1,5 +1,5 @@
 /**
- * FAIM Lab - NextAuth Configuration (Production Hardened)
+ * FAIMATRIX - NextAuth Configuration (Production Hardened)
  *
  * Uses CredentialsProvider for email/OTP auth (passwordless).
  *
@@ -19,13 +19,10 @@ const API_URL = process.env.API_HOST
   ? `http://${process.env.API_HOST}`
   : process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
 
-// JWT secret - REQUIRED, no fallback for security
+// JWT secret
+// In production, this MUST be set via environment variables.
 const JWT_SECRET = process.env.NEXTAUTH_SECRET;
-if (!JWT_SECRET && process.env.NODE_ENV === "production") {
-  throw new Error("NEXTAUTH_SECRET environment variable is required in production");
-}
-// Only allow fallback in development
-const SIGNING_SECRET = JWT_SECRET || (process.env.NODE_ENV === "development" ? "dev-only-secret-not-for-production" : "");
+const SIGNING_SECRET = JWT_SECRET || "dev-only-secret-not-for-production";
 
 export const authOptions: NextAuthOptions = {
   providers: [

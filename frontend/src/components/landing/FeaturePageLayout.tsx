@@ -135,7 +135,7 @@ export default function FeaturePageLayout({
             Ready to Get Started?
           </h2>
           <p className="text-slate-400 mb-8">
-            Experience the power of FAIM Lab today.
+            Experience the power of FAIMATRIX today.
           </p>
           <Link
             href="/dashboard"
