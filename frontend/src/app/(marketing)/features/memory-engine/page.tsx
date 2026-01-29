@@ -35,7 +35,7 @@ export default function MemoryEnginePage() {
     >
       <h2 className="text-2xl font-bold text-white mb-4">How It Works</h2>
       <p className="text-slate-400 mb-6">
-        The Fractal Memory Engine is the core of FAIM Lab. Unlike traditional
+        The Fractal Memory Engine is the core of FAIMATRIX. Unlike traditional
         databases that store information in rigid hierarchies, our engine uses
         fractal patterns to organize knowledge in a way that mirrors human
         memory.

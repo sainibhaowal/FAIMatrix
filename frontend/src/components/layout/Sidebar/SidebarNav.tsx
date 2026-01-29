@@ -1,10 +1,10 @@
 "use client";
 
 /* =============================================================================
-   FAIM LAB — SidebarNav (Golden Edition)
+   FAIMATRIX — SidebarNav (Golden Edition)
    -----------------------------------------------------------------------------
    Purpose:
-   - Left navigation for FAIM Lab pages.
+   - Left navigation for FAIMATRIX pages.
    - Correct routing (Monitor must be /monitor, not "/").
    - Active route highlighting + premium hover glow.
    - Collapsed mode shows icons only with tooltips.
@@ -24,10 +24,10 @@ import {
   CreditCard,
   Dna,
   User,
+  ChevronRight,
 } from "lucide-react";
 
 import Logo from "@/components/brand/Logo";
-import { TenantSelector } from "./TenantSelector";
 
 type NavItem = {
   href: string;
@@ -112,10 +112,8 @@ export function SidebarNav({
   if (collapsed) {
     return (
       <div className="w-full">
-        {/* TENANT CONTEXT - hidden in collapsed mode */}
-        
         {/* NAV - Icons only */}
-        <nav className="space-y-2" role="navigation" aria-label="Main navigation">
+        <nav className="space-y-1.5" role="navigation" aria-label="Main navigation">
           {NAV_GROUPS.flatMap((group) => group.items).map((item) => {
             const active = item.href === activeHref;
             const Icon = item.icon;
@@ -127,18 +125,18 @@ export function SidebarNav({
                 title={item.label}
                 aria-label={item.label}
                 className={[
-                  "group relative flex items-center justify-center w-11 h-11 rounded-xl mx-auto",
+                  "group relative flex items-center justify-center w-10 h-10 rounded-lg mx-auto",
                   "transition-all duration-200",
                   active
-                    ? "bg-cyan-500/20 text-cyan-200 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
-                    : "text-slate-400 hover:text-white hover:bg-white/10",
+                    ? "bg-primary-500/15 text-primary-300 shadow-[0_0_12px_rgba(34,211,238,0.15)]"
+                    : "text-slate-400 hover:text-white hover:bg-white/5",
                 ].join(" ")}
               >
                 {/* Active indicator */}
                 {active && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[3px] rounded-r-full bg-gradient-to-b from-cyan-300 to-purple-300" />
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-[2px] rounded-r-full bg-gradient-to-b from-primary-400 to-secondary-400" />
                 )}
-                <Icon size={20} />
+                <Icon size={18} />
               </Link>
             );
           })}
@@ -147,36 +145,10 @@ export function SidebarNav({
     );
   }
 
-  // Expanded mode: Full nav with labels
   return (
-    <div className="w-full">
-      {/* BRAND (optional) */}
-      {showBrand ? (
-        <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
-          <div className="flex items-center gap-3">
-            <Logo size="small" className="rounded-xl" />
-            <div>
-              <div className="text-white font-semibold leading-tight">
-                FAIM Lab
-              </div>
-              <div className="text-white/60 text-xs leading-tight">
-                Fractal Antisymmetric Inheritance Memory
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 text-[11px] tracking-wide text-white/40">
-            FIG · Antisym · Evolution · CR · R · Drift
-          </div>
-        </div>
-      ) : null}
-
-      {/* TENANT CONTEXT */}
-      <TenantSelector />
-
-      {/* NAV */}
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-2">
-        <nav className="space-y-6 text-sm" role="navigation" aria-label="Main navigation">
+    <div className="w-full px-2">
+      <div className="os-surface rounded-xl p-1.5">
+        <nav className="space-y-4" role="navigation" aria-label="Main navigation">
           {NAV_GROUPS.map((group, gIdx) => (
             <CollapsibleGroup key={gIdx} group={group} isActive={isActive} activeHref={activeHref} onMove={onMove} />
           ))}
@@ -200,22 +172,23 @@ function CollapsibleGroup({
   const [open, setOpen] = useState(true);
 
   return (
-    <div>
+    <div className="flex flex-col gap-1">
       {group.title && (
         <button 
           onClick={() => setOpen(!open)}
           aria-expanded={open}
-          aria-label={`${open ? 'Collapse' : 'Expand'} ${group.title} navigation section`}
-          className="flex items-center gap-2 w-full px-5 mb-2 text-[10px] uppercase tracking-widest text-slate-500 font-semibold hover:text-slate-300 transition-colors"
+          className="group/btn flex items-center gap-2 w-full px-3 py-1.5 text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold hover:text-slate-300 transition-colors"
         >
-          <span className={`transition-transform duration-200 ${open ? 'rotate-90' : ''}`} aria-hidden="true">
-            ▶
-          </span>
+          <ChevronRight 
+            size={10} 
+            className={`transition-transform duration-200 ${open ? 'rotate-90 text-primary-400/70' : 'text-slate-600'}`} 
+            aria-hidden="true" 
+          />
           {group.title}
         </button>
       )}
       
-      <div className={`space-y-1 overflow-hidden transition-all duration-300 ${open ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`space-y-0.5 overflow-hidden transition-all duration-300 ${open ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
         {group.items.map((item) => {
           const active = item.href === activeHref;
           const Icon = item.icon;
@@ -226,50 +199,31 @@ function CollapsibleGroup({
               href={item.href}
               onMouseMove={onMove}
               className={[
-                "group relative flex items-center gap-3 rounded-xl px-5 py-2.5",
-                "transition-all duration-300 ease-out",
-                "border border-transparent",
+                "group relative flex items-center gap-2.5 rounded-lg px-3 py-1.5",
+                "transition-all duration-200",
                 active
-                  ? "bg-cyan-500/10 text-cyan-100 border-cyan-400/30 shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_0_18px_rgba(34,211,238,0.10)]"
-                  : "text-slate-300 hover:text-white hover:border-white/10 hover:bg-white/5",
+                  ? "bg-primary-500/10 text-primary-200 border border-primary-500/20 shadow-[0_0_8px_rgba(34,211,238,0.05)]"
+                  : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent",
               ].join(" ")}
               style={{
                 backgroundImage: active
                   ? undefined
-                  : "radial-gradient(240px 140px at var(--mx, 50%) var(--my, 50%), rgba(34,211,238,0.16), transparent 60%)",
+                  : "radial-gradient(120px 80px at var(--mx, 50%) var(--my, 50%), rgba(34,211,238,0.08), transparent 80%)",
               }}
             >
-              {/* Active rail */}
-              <span
-                className={[
-                  "absolute left-0 top-1/2 -translate-y-1/2 h-7 w-[3px] rounded-r-full transition-opacity",
-                  active
-                    ? "opacity-100 bg-gradient-to-b from-cyan-300/80 to-purple-300/60"
-                    : "opacity-0",
-                ].join(" ")}
-              />
-
               <Icon
-                size={18}
+                size={16}
                 className={[
                   "transition-colors",
-                  active
-                    ? "text-cyan-200"
-                    : "text-slate-400 group-hover:text-cyan-200",
+                  active ? "text-primary-300" : "text-slate-500 group-hover:text-primary-300",
                 ].join(" ")}
               />
 
-              <span className="flex-1">{item.label}</span>
+              <span className="flex-1 text-sm font-medium tracking-tight">{item.label}</span>
 
-              {/* Active dot */}
-              <span
-                className={[
-                  "h-2.5 w-1.5 rounded-full transition-opacity",
-                  active
-                    ? "opacity-100 bg-cyan-300"
-                    : "opacity-0 group-hover:opacity-60 bg-white/40",
-                ].join(" ")}
-              />
+              {active && (
+                <div className="h-1 w-1 rounded-full bg-primary-400 shadow-[0_0_4px_rgba(34,211,238,0.5)]" />
+              )}
             </Link>
           );
         })}

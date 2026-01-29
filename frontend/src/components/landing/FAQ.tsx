@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const faqs = [
   {
-    question: "What is FAIM Lab?",
+    question: "What is FAIMATRIX?",
     answer:
-      "FAIM Lab (Fractal Antisymmetric Inheritance Memory) is an AI-powered knowledge management system that organizes your information into an intelligent, self-evolving knowledge graph. It learns from your data and helps you discover connections you never knew existed.",
+      "FAIMATRIX (Fractal Antisymmetric Inheritance Memory) is an AI-powered knowledge management system that organizes your information into an intelligent, self-evolving knowledge graph. It learns from your data and helps you discover connections you never knew existed.",
   },
   {
     question: "How does the knowledge graph work?",

@@ -1,5 +1,5 @@
 // ============================================================================
-// FAIM LAB — GOLDEN EDITION SHELL
+// FAIMATRIX — GOLDEN EDITION SHELL
 // File: src/components/shell/FaimShell.tsx
 //
 // Purpose
@@ -15,7 +15,7 @@
 // Dependencies
 // - SidebarNav: left navigation
 // - TopBar: header control plane (workspace/search/settings/profile/health)
-// - FaimHeader + Logo: brand blocks
+// - Logo: branding identity
 // ============================================================================
 
 "use client";
@@ -24,7 +24,6 @@ import React, { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { SidebarNav } from "@/components/layout/Sidebar/SidebarNav";
 import { TopBar } from "./TopBar/TopBar";
-import { FaimHeader } from "@/components/layout/FaimHeader";
 import Logo from "@/components/brand/Logo";
 import { DEFAULT_GRAPH_ID } from "@/lib/api-client";
 
@@ -149,15 +148,6 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   // --------------------------------------------------------------------------
-  // Render: Shell Layout
-  // --------------------------------------------------------------------------
-  // Structure:
-  //  - Global background (cursor-follow)
-  //  - Left sidebar (sticky, scrollable nav)
-  //  - Right content (TopBar + page content)
-  // --------------------------------------------------------------------------
-
-  // --------------------------------------------------------------------------
   // Render: Shell Layout (OmniSync Theme)
   // --------------------------------------------------------------------------
 
@@ -167,11 +157,8 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
       {/* Global Background Layer (OmniGlow)                                    */}
       {/* -------------------------------------------------------------------- */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute -top-24 left-[-10%] h-[420px] w-[420px] rounded-full bg-cyan-500/15 blur-3xl animate-pulse-glow" />
-        <div className="absolute top-10 right-[-8%] h-[420px] w-[420px] rounded-full bg-violet-500/15 blur-3xl animate-pulse-glow" style={{ animationDelay: "1s" }} />
-        <div className="absolute bottom-[-20%] left-[20%] h-[520px] w-[520px] rounded-full bg-sky-500/10 blur-3xl animate-pulse-glow" style={{ animationDelay: "2s" }} />
-        {/* Restored Grid Overlay */}
-        <div className="faim-grid opacity-40" />
+        {/* Grid Overlay */}
+        <div className="faim-grid opacity-20" />
       </div>
 
       {/* -------------------------------------------------------------------- */}
@@ -190,20 +177,26 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
             sidebarCollapsed ? "items-center" : "",
           ].join(" ")}
         >
-          {/* Branding block: Minimal Text */}
-          {!sidebarCollapsed && (
-            <div className="px-4 pt-5 pb-2">
-              <div className="text-[11px] uppercase tracking-[0.15em] text-cyan-300 font-medium">FAIMATRIX SYNAPSE</div>
-              <div className="text-sm font-semibold text-slate-100 mt-0.5">Neural Knowledge Synthesis</div>
-            </div>
-          )}
-          
-          {/* Collapsed logo */}
-          {sidebarCollapsed && (
-            <div className="pt-4 pb-2">
-              <Logo px={40} className="rounded-lg" />
-            </div>
-          )}
+          {/* Unified Branding Header */}
+          <div className={[
+            "px-4 pt-6 pb-4 transition-all duration-300",
+            sidebarCollapsed ? "flex flex-col items-center" : "flex items-center gap-3"
+          ].join(" ")}>
+            <Logo px={sidebarCollapsed ? 44 : 38} className="transition-all duration-500" />
+            {!sidebarCollapsed && (
+              <div className="animate-in fade-in slide-in-from-left-2 duration-700 flex flex-col">
+                {/* FAIMATRIX Title - Split Color */}
+                <div className="text-lg uppercase tracking-[0.3em] font-black leading-none mb-1.5">
+                  <span className="text-primary-300">FAIM</span><span className="text-secondary-400">ATRIX</span>
+                </div>
+                
+                {/* Tagline */}
+                <div className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-semibold leading-tight">
+                  Fractal Intelligence Core
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Navigation */}
           <div className={[
@@ -217,7 +210,7 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
           {!sidebarCollapsed && (
             <div className="mt-auto px-4 pb-6 pt-6 text-[10px] text-white/40">
               <div>Fractal antisymmetric memory engine.</div>
-              <div>Built by you; this UI is just the lab window.</div>
+              <div>Exclusively powered by FAIMATRIX.</div>
             </div>
           )}
         </div>
@@ -262,8 +255,8 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
               <div className="px-4 pt-4 pb-2 border-b border-white/5">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <Logo size="small" className="rounded-lg" />
-                    <span className="font-semibold text-slate-100">FAIM Lab</span>
+                    <Logo px={32} />
+                    <span className="text-[13px] uppercase tracking-[0.3em] font-black"><span className="text-cyan-300">FAIM</span><span className="text-violet-400">ATRIX</span></span>
                   </div>
                   <button 
                     onClick={() => setMobileMenuOpen(false)}
@@ -283,7 +276,7 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
 
               {/* Footer */}
               <div className="px-4 py-4 border-t border-white/5 text-[10px] text-zinc-500">
-                FAIM Lab Mobile
+                FAIMATRIX Mobile
               </div>
             </div>
           </div>

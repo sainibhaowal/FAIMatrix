@@ -30,7 +30,7 @@ from orchestration.ingest_flow import FAIMProfile  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v1", tags=["query"])
+router = APIRouter(prefix="", tags=["query"])
 
 
 # =============================================================================

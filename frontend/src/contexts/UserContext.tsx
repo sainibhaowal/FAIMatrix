@@ -63,9 +63,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           Authorization: `Bearer ${accessToken}`,
         },
       })
-        .then((res) => {
-          if (res.ok) return res.json();
-          throw new Error("Sync failed");
+        .then(async (res) => {
+          if (!res.ok) {
+            throw new Error(`Sync failed with status: ${res.status}`);
+          }
+          const contentType = res.headers.get("content-type");
+          if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Received non-JSON response from server");
+          }
+          return res.json();
         })
         .then((data) => {
           if (data.graph_id && data.graph_id !== graphId) {

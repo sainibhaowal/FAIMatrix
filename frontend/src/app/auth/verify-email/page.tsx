@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FAIM Lab - Email Verification Page
+ * FAIMATRIX - Email Verification Page
  *
  * Handles email verification token from URL.
  */
