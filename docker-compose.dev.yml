@@ -27,12 +27,20 @@ services:
   redis:
     image: redis:7-alpine
     container_name: faim-redis
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-redis_secret}"]
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${REDIS_PASSWORD:-redis_secret}",
+      ]
     volumes:
       - redis_data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      test:
+        ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -57,6 +65,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     container_name: faim-api
+    env_file: .env
     environment:
       - DATABASE_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_native
       - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379/0
@@ -66,6 +75,7 @@ services:
       - FAIM_LOG_LEVEL=DEBUG
       - TENANT_KEYS_JSON=${TENANT_KEYS_JSON:-{"default":["test-key"]}}
       - ADMIN_KEYS_JSON=${ADMIN_KEYS_JSON:-{"admin":"admin-key"}}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET required}
     volumes:
       # Hot-reload: mount local faim_native code into container
       - ./faim_native:/app:ro
@@ -89,6 +99,7 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     container_name: faim-worker
+    env_file: .env
     command: ["python", "-m", "orchestration.jobs.worker"]
     environment:
       - DATABASE_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:5432/faim_native
@@ -102,6 +113,29 @@ services:
     restart: unless-stopped
     networks:
       - faim-internal
+
+  # FAIM Frontend (Next.js with hot-reload)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: faim-frontend
+    environment:
+      - API_HOST=api:8000
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - faim-internal
+      - faim-external
 
 volumes:
   postgres_data:

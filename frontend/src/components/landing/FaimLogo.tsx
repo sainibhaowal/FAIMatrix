@@ -99,7 +99,7 @@ export default function FaimLogo({
       {showText && (
         <div>
           <p className="text-white font-bold text-lg tracking-tight">
-            FAIM<span className="text-cyan-400 ml-1">ATRIX</span>
+            FAIM<span className="text-cyan-400">ATRIX</span>
           </p>
           <p className="text-slate-500 text-[10px] tracking-wider -mt-0.5">
             FRACTAL AI MEMORY

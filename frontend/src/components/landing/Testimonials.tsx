@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 const testimonials = [
   {
     quote:
-      "FAIM Lab transformed how we manage research. Finding connections between papers that would have taken days now happens instantly.",
+      "FAIMATRIX transformed how we manage research. Finding connections between papers that would have taken days now happens instantly.",
     author: "Dr. Sarah Chen",
     role: "Head of Research, BioTech Innovations",
     avatar: "SC",

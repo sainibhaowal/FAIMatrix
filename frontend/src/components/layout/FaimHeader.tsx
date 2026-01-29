@@ -61,7 +61,7 @@ export function FaimHeader() {
     >
       <div className="relative z-[1] space-y-1">
         <div className="text-[10px] uppercase tracking-[0.24em] text-cyan-400/80">
-          FAIM LAB
+          FAIMATRIX
         </div>
         <div className="text-lg font-semibold text-slate-50">
           Fractal Antisymmetric Inheritance Memory

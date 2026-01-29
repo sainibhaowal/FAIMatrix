@@ -5,6 +5,7 @@ const nextConfig = {
   experimental: { 
     turbo: { rules: {} },
   },
+  // Output: Standard (Monolithic) for maximum stability
   // PORT MUST BE REMOVED! Next.js only checks hostname against this list.
   allowedDevOrigins: [
     "127.0.0.1",
@@ -35,42 +36,31 @@ const nextConfig = {
   // Outside Docker: defaults to 127.0.0.1:8000
   async rewrites() {
     // Use API_HOST (runtime) not NEXT_PUBLIC_API_HOST (build-time)
+    // Note: We bake 'api:8000' during Docker build via Dockerfile.
     const apiHost = process.env.API_HOST || "127.0.0.1:8000";
     const apiUrl = `http://${apiHost}`;
 
     return [
-      // Control plane routes (orgs, projects, api_keys, etc.) - backend has /v1 prefix
       {
-        source: "/api/v1/orgs",
-        destination: `${apiUrl}/v1/orgs`,
+        source: "/api/health",
+        destination: `${apiUrl}/health`,
       },
       {
-        source: "/api/v1/projects",
-        destination: `${apiUrl}/v1/projects`,
+        source: "/api/ready",
+        destination: `${apiUrl}/ready`,
       },
       {
-        source: "/api/v1/api_keys",
-        destination: `${apiUrl}/v1/api_keys`,
+        source: "/api/version",
+        destination: `${apiUrl}/version`,
       },
-      {
-        source: "/api/v1/api_keys/:path*",
-        destination: `${apiUrl}/v1/api_keys/:path*`,
-      },
-      {
-        source: "/api/v1/me",
-        destination: `${apiUrl}/api/v1/me`,
-      },
-      // Graph and core API routes - backend has /api/v1 prefix
       {
         source: "/api/v1/:path*",
         destination: `${apiUrl}/api/v1/:path*`,
       },
-      // Billing routes - backend has /api/billing prefix
       {
         source: "/api/billing/:path*",
         destination: `${apiUrl}/api/billing/:path*`,
       },
-      // Admin/Ops routes - backend has /api prefix
       {
         source: "/api/admin/:path*",
         destination: `${apiUrl}/api/admin/:path*`,

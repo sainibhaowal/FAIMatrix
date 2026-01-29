@@ -22,7 +22,7 @@ from api.deps import FAIMContext, get_faim_context  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v1", tags=["evolve"])
+router = APIRouter(prefix="", tags=["evolve"])
 
 
 # =============================================================================
