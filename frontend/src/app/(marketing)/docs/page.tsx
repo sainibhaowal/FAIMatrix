@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { FaimLogo } from "@/components";
+import Logo from "@/components/brand/Logo";
 
 const sections = [
   {
@@ -71,7 +71,7 @@ export default function DocsPage() {
         <div className="max-w-7xl mx-auto px-6 py-3 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl">
           <div className="flex items-center justify-between">
             <Link href="/">
-              <FaimLogo size={36} />
+              <Logo px={36} />
             </Link>
             <Link
               href="/"

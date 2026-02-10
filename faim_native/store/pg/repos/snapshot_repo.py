@@ -38,6 +38,7 @@ class SnapshotRepo:
             Created SnapshotRecord.
         """
         model = SnapshotModel.from_domain(snapshot)
+        model.tenant_id = self.tenant_id  # Force override
         session.add(model)
         session.flush()
         return model.to_domain()
@@ -52,7 +53,12 @@ class SnapshotRepo:
         Returns:
             SnapshotRecord if found, None otherwise.
         """
-        model = session.query(SnapshotModel).filter(SnapshotModel.id == id).first()
+        model = session.query(SnapshotModel).filter(
+            and_(
+                SnapshotModel.tenant_id == self.tenant_id,
+                SnapshotModel.id == id
+            )
+        ).first()
         return model.to_domain() if model else None
 
     def get_latest(self, session: Session, graph_id: str) -> Optional[SnapshotRecord]:
@@ -67,7 +73,12 @@ class SnapshotRepo:
         """
         model = (
             session.query(SnapshotModel)
-            .filter(SnapshotModel.graph_id == graph_id)
+            .filter(
+                and_(
+                    SnapshotModel.tenant_id == self.tenant_id,
+                    SnapshotModel.graph_id == graph_id
+                )
+            )
             .order_by(desc(SnapshotModel.created_at))
             .first()
         )
@@ -96,7 +107,12 @@ class SnapshotRepo:
         """
         query = (
             session.query(SnapshotModel)
-            .filter(SnapshotModel.graph_id == graph_id)
+            .filter(
+                and_(
+                    SnapshotModel.tenant_id == self.tenant_id,
+                    SnapshotModel.graph_id == graph_id
+                )
+            )
             .order_by(desc(SnapshotModel.created_at))
             .limit(limit)
             .offset(offset)
@@ -124,9 +140,14 @@ class SnapshotRepo:
         """
         query = (
             session.query(SnapshotModel)
-            .filter(SnapshotModel.graph_id == graph_id)
-            .filter(SnapshotModel.graph_version >= min_version)
-            .filter(SnapshotModel.graph_version <= max_version)
+            .filter(
+                and_(
+                    SnapshotModel.tenant_id == self.tenant_id,
+                    SnapshotModel.graph_id == graph_id,
+                    SnapshotModel.graph_version >= min_version,
+                    SnapshotModel.graph_version <= max_version
+                )
+            )
             .order_by(asc(SnapshotModel.graph_version))
         )
 
@@ -144,7 +165,12 @@ class SnapshotRepo:
         """
         return (
             session.query(SnapshotModel)
-            .filter(SnapshotModel.graph_id == graph_id)
+            .filter(
+                and_(
+                    SnapshotModel.tenant_id == self.tenant_id,
+                    SnapshotModel.graph_id == graph_id
+                )
+            )
             .count()
         )
 
@@ -166,8 +192,13 @@ class SnapshotRepo:
         """
         model = (
             session.query(SnapshotModel)
-            .filter(SnapshotModel.graph_id == graph_id)
-            .filter(SnapshotModel.graph_version == graph_version)
+            .filter(
+                and_(
+                    SnapshotModel.tenant_id == self.tenant_id,
+                    SnapshotModel.graph_id == graph_id,
+                    SnapshotModel.graph_version == graph_version
+                )
+            )
             .first()
         )
 

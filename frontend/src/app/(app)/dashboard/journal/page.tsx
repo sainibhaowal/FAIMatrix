@@ -174,7 +174,7 @@ export default function JournalPage() {
                   <p>Memory consolidation: <span className="text-violet-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span> absorbed related context.</p>
                 )}
                 {entry.operation === "evolve" && (
-                  <p>Structural evolution: Knowledge region refined around <span className="text-amber-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
+                  <p>Structural evolution: Knowledge region optimized around <span className="text-amber-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
                 )}
                 {entry.operation === "add" && (
                   <p>New synthesis: Neural node <span className="text-emerald-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span> integrated into graph.</p>

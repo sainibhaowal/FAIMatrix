@@ -140,6 +140,7 @@ class NodeRepo:
             self.session.query(NodeModel)
             .filter(
                 and_(
+                    NodeModel.tenant_id == self.tenant_id,
                     NodeModel.graph_id == graph_id,
                     NodeModel.node_id == node_id,
                 )
@@ -155,6 +156,7 @@ class NodeRepo:
             self.session.query(NodeModel)
             .filter(
                 and_(
+                    NodeModel.tenant_id == self.tenant_id,
                     NodeModel.graph_id == graph_id,
                     NodeModel.vector_hash == vector_hash,
                 )
@@ -174,7 +176,12 @@ class NodeRepo:
         """
         return (
             self.session.query(NodeModel)
-            .filter(NodeModel.graph_id == graph_id)
+            .filter(
+                and_(
+                    NodeModel.tenant_id == self.tenant_id,
+                    NodeModel.graph_id == graph_id,
+                )
+            )
             .order_by(
                 asc(NodeModel.created_at),
                 asc(NodeModel.node_id),
@@ -190,6 +197,7 @@ class NodeRepo:
             self.session.query(NodeModel)
             .filter(
                 and_(
+                    NodeModel.tenant_id == self.tenant_id,
                     NodeModel.graph_id == graph_id,
                     NodeModel.kind == "atom",
                 )
@@ -205,7 +213,14 @@ class NodeRepo:
     def count_nodes(self, graph_id: str) -> int:
         """Count nodes in graph."""
         return (
-            self.session.query(NodeModel).filter(NodeModel.graph_id == graph_id).count()
+            self.session.query(NodeModel)
+            .filter(
+                and_(
+                    NodeModel.tenant_id == self.tenant_id,
+                    NodeModel.graph_id == graph_id,
+                )
+            )
+            .count()
         )
 
     def count_atoms(self, graph_id: str) -> int:
@@ -214,6 +229,7 @@ class NodeRepo:
             self.session.query(NodeModel)
             .filter(
                 and_(
+                    NodeModel.tenant_id == self.tenant_id,
                     NodeModel.graph_id == graph_id,
                     NodeModel.kind == "atom",
                 )
@@ -227,6 +243,7 @@ class NodeRepo:
             self.session.query(NodeModel)
             .filter(
                 and_(
+                    NodeModel.tenant_id == self.tenant_id,
                     NodeModel.graph_id == graph_id,
                     NodeModel.kind == "macro",
                 )
@@ -264,7 +281,12 @@ class NodeRepo:
                 NodeModel.node_id,
                 NodeModel.v_native,
             )
-            .filter(NodeModel.graph_id == graph_id)
+            .filter(
+                and_(
+                    NodeModel.tenant_id == self.tenant_id,
+                    NodeModel.graph_id == graph_id,
+                )
+            )
             .order_by(
                 asc(NodeModel.created_at),
                 asc(NodeModel.node_id),

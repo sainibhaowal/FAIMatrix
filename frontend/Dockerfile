@@ -22,5 +22,5 @@ RUN npm run build
 
 # 4. Ignite
 # Using 'npm start' handles all serving logic automatically
-EXPOSE 3000
+EXPOSE 8010
 CMD ["npm", "start"]

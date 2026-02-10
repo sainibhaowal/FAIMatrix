@@ -109,3 +109,34 @@ class AdminApiKey(Base):
     def revoke(self) -> None:
         """Mark this key as revoked."""
         self.revoked_at = datetime.utcnow()
+
+class UserModel(Base):
+    """
+    Formal user registry for identity management.
+
+    Attributes:
+        id: Unique identifier (UUID5 deterministic).
+        email: Verified email address.
+        full_name: Display name.
+        created_at: When the user first signed up.
+        updated_at: Last profile update.
+    """
+
+    __tablename__ = "users"
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    email = Column(Text, nullable=False, unique=True, index=True)
+    full_name = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at = Column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for API responses."""
+        return {
+            "id": str(self.id),
+            "email": self.email,
+            "name": self.full_name,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

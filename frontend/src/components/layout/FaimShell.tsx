@@ -3,7 +3,7 @@
 // File: src/components/shell/FaimShell.tsx
 //
 // Purpose
-// - Owns the selected Workspace (graph_id) and persists it to localStorage.
+// - Owns the selected Universe (graph_id) and persists it to localStorage.
 // - Applies global cursor-follow spotlight variables (--cx, --cy) for the UI.
 // - Renders the stable App Shell: Sidebar + TopBar + Main content area.
 //
@@ -14,7 +14,7 @@
 //
 // Dependencies
 // - SidebarNav: left navigation
-// - TopBar: header control plane (workspace/search/settings/profile/health)
+// - TopBar: header control plane (universe/search/settings/profile/health)
 // - Logo: branding identity
 // ============================================================================
 
@@ -42,12 +42,12 @@ const LS_SIDEBAR_KEY = "faim.ui.sidebar_collapsed";
 // ----------------------------------------------------------------------------
 // Component: FaimShell
 // ----------------------------------------------------------------------------
-// Title: App Shell + Workspace persistence + global cursor-follow effect
+// Title: App Shell + Universe persistence + global cursor-follow effect
 // ----------------------------------------------------------------------------
 
 export function FaimShell({ children }: { children: React.ReactNode }) {
   // --------------------------------------------------------------------------
-  // Section: Workspace (graph_id) state
+  // Section: Universe (graph_id) state
   // --------------------------------------------------------------------------
 
   const [graphId, setGraphId] = useState<string>(() => {
@@ -220,7 +220,7 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
       {/* Right Content                                                        */}
       {/* -------------------------------------------------------------------- */}
       <div className="relative z-10 flex min-w-0 flex-1 flex-col">
-        {/* Top Bar: workspace/search/settings/user/health */}
+        {/* Top Bar: universe/search/settings/user/health */}
         <TopBar
           graphId={graphId}
           setGraphId={setGraphId}

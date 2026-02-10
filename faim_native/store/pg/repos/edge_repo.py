@@ -58,6 +58,7 @@ class EdgeRepo:
         # Delete existing inheritance edges for this child
         self.session.query(EdgeModel).filter(
             and_(
+                EdgeModel.tenant_id == self.tenant_id,
                 EdgeModel.graph_id == graph_id,
                 EdgeModel.dst_node_id == child_id,
                 EdgeModel.kind == "inheritance",
@@ -139,6 +140,7 @@ class EdgeRepo:
             self.session.query(EdgeModel)
             .filter(
                 and_(
+                    EdgeModel.tenant_id == self.tenant_id,
                     EdgeModel.graph_id == graph_id,
                     EdgeModel.dst_node_id == child_id,
                     EdgeModel.kind == "inheritance",
@@ -163,6 +165,7 @@ class EdgeRepo:
             self.session.query(EdgeModel)
             .filter(
                 and_(
+                    EdgeModel.tenant_id == self.tenant_id,
                     EdgeModel.graph_id == graph_id,
                     EdgeModel.src_node_id == parent_id,
                     EdgeModel.kind == "inheritance",
@@ -191,6 +194,7 @@ class EdgeRepo:
             self.session.query(EdgeModel)
             .filter(
                 and_(
+                    EdgeModel.tenant_id == self.tenant_id,
                     EdgeModel.graph_id == graph_id,
                     EdgeModel.src_node_id == a_id,
                     EdgeModel.dst_node_id == b_id,
@@ -210,6 +214,7 @@ class EdgeRepo:
             self.session.query(EdgeModel)
             .filter(
                 and_(
+                    EdgeModel.tenant_id == self.tenant_id,
                     EdgeModel.graph_id == graph_id,
                     EdgeModel.kind == "opposition",
                 )
@@ -238,6 +243,7 @@ class EdgeRepo:
             self.session.query(EdgeModel)
             .filter(
                 and_(
+                    EdgeModel.tenant_id == self.tenant_id,
                     EdgeModel.graph_id == graph_id,
                     EdgeModel.src_node_id == node_id,
                 )
@@ -250,6 +256,7 @@ class EdgeRepo:
             self.session.query(EdgeModel)
             .filter(
                 and_(
+                    EdgeModel.tenant_id == self.tenant_id,
                     EdgeModel.graph_id == graph_id,
                     EdgeModel.dst_node_id == node_id,
                 )
@@ -263,7 +270,14 @@ class EdgeRepo:
     def count_edges(self, graph_id: str) -> int:
         """Count all edges in graph."""
         return (
-            self.session.query(EdgeModel).filter(EdgeModel.graph_id == graph_id).count()
+            self.session.query(EdgeModel)
+            .filter(
+                and_(
+                    EdgeModel.tenant_id == self.tenant_id,
+                    EdgeModel.graph_id == graph_id,
+                )
+            )
+            .count()
         )
 
     def count_inheritance_edges(self, graph_id: str) -> int:
@@ -272,6 +286,7 @@ class EdgeRepo:
             self.session.query(EdgeModel)
             .filter(
                 and_(
+                    EdgeModel.tenant_id == self.tenant_id,
                     EdgeModel.graph_id == graph_id,
                     EdgeModel.kind == "inheritance",
                 )
@@ -290,7 +305,12 @@ class EdgeRepo:
         """
         return (
             self.session.query(EdgeModel)
-            .filter(EdgeModel.graph_id == graph_id)
+            .filter(
+                and_(
+                    EdgeModel.tenant_id == self.tenant_id,
+                    EdgeModel.graph_id == graph_id,
+                )
+            )
             .order_by(
                 asc(EdgeModel.src_node_id),
                 asc(EdgeModel.dst_node_id),

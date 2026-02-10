@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import FaimLogo from "./FaimLogo";
+import Logo from "@/components/brand/Logo";
 
 const footerLinks = {
   product: [
@@ -27,7 +27,7 @@ export default function Footer() {
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           {/* Brand */}
           <div className="md:col-span-1">
-            <FaimLogo size={40} />
+            <Logo px={40} />
             <p className="mt-4 text-slate-400 text-sm leading-relaxed">
               Transform your knowledge into intelligence with AI-powered memory.
             </p>

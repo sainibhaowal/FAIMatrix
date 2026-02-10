@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import logging
 import os
+import uuid
 from typing import Optional
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -36,7 +37,10 @@ logger = logging.getLogger(__name__)
 
 def _get_jwt_secret() -> Optional[str]:
     """Get JWT secret from environment."""
-    return os.getenv("NEXTAUTH_SECRET")
+    s = os.getenv("NEXTAUTH_SECRET")
+    if s:
+        logger.info(f"Loaded NEXTAUTH_SECRET (len: {len(s)})")
+    return s
 
 
 # =============================================================================
@@ -76,10 +80,13 @@ def verify_jwt(token: str) -> Optional[dict]:
         return claims
 
     except jwt.ExpiredSignatureError:
-        logger.debug("JWT token expired")
+        logger.warning(f"[JWT] Token EXPIRED. Secret len: {len(secret) if secret else 0}")
         return None
     except jwt.InvalidTokenError as e:
-        logger.debug(f"Invalid JWT token: {e}")
+        logger.warning(f"[JWT] Invalid Token: {e}. Secret len: {len(secret) if secret else 0}. Token preview: {token[:10]}...{token[-10:]}")
+        return None
+    except Exception as e:
+        logger.error(f"[JWT] Unexpected error during verification: {type(e).__name__}: {e}")
         return None
     except ImportError:
         logger.error("PyJWT not installed, JWT auth disabled")
@@ -108,12 +115,15 @@ JWT_EXEMPT_PATHS = {
     "/docs",
     "/openapi.json",
     "/redoc",
+    "/api/v1/health",
+    "/api/v1/ready",
+    "/api/v1/auth/otp/request",
+    "/api/v1/auth/otp/verify",
+    "/v1/auth/otp/request",
+    "/v1/auth/otp/verify",
 }
 
-JWT_EXEMPT_PREFIXES = [
-    "/api/v1/auth",
-    "/v1/auth",
-]
+JWT_EXEMPT_PREFIXES = []
 
 
 def is_jwt_exempt(path: str) -> bool:
@@ -153,14 +163,15 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
 
         if not claims:
             # Invalid token - reject immediately
+            logger.warning(f"[JWT] Rejecting request to {request.url.path} (Invalid/Expired token)")
             return JSONResponse(
                 status_code=401,
                 content={"error": "Invalid or expired token"},
             )
 
         # Extract user info from claims
-        user_id = claims.get("sub") or claims.get("id")
         email = claims.get("email")
+        user_id = claims.get("userId") or claims.get("sub") or claims.get("id")
         graph_id = claims.get("graphId")
 
         if not user_id:
@@ -179,8 +190,16 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         request.state.email = email
         request.state.graph_id = graph_id
         request.state.auth_method = "jwt"
+        
+        # Consistent user object for routers
+        request.state.user = {
+            "id": user_id,
+            "email": email,
+            "name": claims.get("name") or email.split("@")[0] if email else "User",
+            "graph_id": graph_id,
+        }
 
-        logger.debug(f"JWT auth successful for user: {user_id[:8]}...")
+        logger.info(f"JWT auth successful: email={email}, derived_id={user_id}, graph_id={graph_id}")
 
         return await call_next(request)
 

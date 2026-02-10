@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import FaimLogo from "./FaimLogo";
+import Logo from "@/components/brand/Logo";
 
 const navLinks = [
   { href: "#features", label: "Features" },
@@ -37,7 +37,7 @@ export default function Navbar() {
           <div className="flex items-center justify-between">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
-              <FaimLogo size={36} />
+              <Logo px={36} />
             </Link>
 
             {/* Desktop Navigation */}

@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
 # Flexible imports
@@ -47,7 +48,12 @@ class GraphVersionRepo:
             # for now we just want it to work for the E2E simulation.
         model = (
             session.query(GraphVersionModel)
-            .filter(GraphVersionModel.graph_id == graph_id)
+            .filter(
+                and_(
+                    GraphVersionModel.tenant_id == self.tenant_id,
+                    GraphVersionModel.graph_id == graph_id,
+                )
+            )
             .first()
         )
 
@@ -70,7 +76,12 @@ class GraphVersionRepo:
             session = get_session()
         model = (
             session.query(GraphVersionModel)
-            .filter(GraphVersionModel.graph_id == graph_id)
+            .filter(
+                and_(
+                    GraphVersionModel.tenant_id == self.tenant_id,
+                    GraphVersionModel.graph_id == graph_id,
+                )
+            )
             .first()
         )
 
@@ -101,7 +112,12 @@ class GraphVersionRepo:
             raise ValueError("Session required for bump")
         model = (
             session.query(GraphVersionModel)
-            .filter(GraphVersionModel.graph_id == graph_id)
+            .filter(
+                and_(
+                    GraphVersionModel.tenant_id == self.tenant_id,
+                    GraphVersionModel.graph_id == graph_id,
+                )
+            )
             .first()
         )
 
@@ -115,7 +131,7 @@ class GraphVersionRepo:
         else:
             new_version = 1
             model = GraphVersionModel(
-                tenant_id=tenant_id,
+                tenant_id=self.tenant_id,
                 graph_id=graph_id,
                 version=new_version,
                 reason=reason,
@@ -148,7 +164,12 @@ class GraphVersionRepo:
 
         model = (
             session.query(GraphVersionModel)
-            .filter(GraphVersionModel.graph_id == graph_id)
+            .filter(
+                and_(
+                    GraphVersionModel.tenant_id == self.tenant_id,
+                    GraphVersionModel.graph_id == graph_id,
+                )
+            )
             .first()
         )
 
@@ -158,7 +179,7 @@ class GraphVersionRepo:
             model.updated_at = now
         else:
             model = GraphVersionModel(
-                tenant_id=tenant_id,
+                tenant_id=self.tenant_id,
                 graph_id=graph_id,
                 version=version,
                 reason=reason,

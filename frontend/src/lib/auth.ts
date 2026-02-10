@@ -21,34 +21,35 @@ const API_URL = process.env.API_HOST
 
 // JWT secret
 // In production, this MUST be set via environment variables.
-const JWT_SECRET = process.env.NEXTAUTH_SECRET;
-const SIGNING_SECRET = JWT_SECRET || "dev-only-secret-not-for-production";
+const SIGNING_SECRET = process.env.NEXTAUTH_SECRET;
+
+if (!SIGNING_SECRET) {
+  console.error("CRITICAL: NEXTAUTH_SECRET is not defined in environment variables!");
+} else {
+  console.log(`[Auth] Loaded SIGNING_SECRET (len: ${SIGNING_SECRET.length})`);
+}
 
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       id: "credentials",
-      name: "Email & Password",
+      name: "Email & OTP",
       credentials: {
-        email: {
-          label: "Email",
-          type: "email",
-          placeholder: "you@example.com",
-        },
-        code: {
-          label: "Verification Code",
-          type: "text",
-          placeholder: "123456",
-        },
+        email: { label: "Email", type: "email" },
+        code: { label: "Code", type: "text" },
+        full_name: { label: "Name", type: "text" }, // Support signup name passthrough
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.code) {
+          console.warn("[Auth] authorize: Missing email or code");
           return null;
         }
-    
+
+        const verifyUrl = `${API_URL}/api/v1/auth/otp/verify`;
+        console.log(`[Auth] Verifying ${credentials.email} at ${verifyUrl}...`);
+
         try {
-          // Call backend to verify OTP code
-          const res = await fetch(`${API_URL}/api/v1/auth/otp/verify`, {
+          const res = await fetch(verifyUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -57,77 +58,85 @@ export const authOptions: NextAuthOptions = {
               full_name: (credentials as any).full_name,
             }),
           });
-    
+
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error(`[Auth] Verification HTTP ${res.status}: ${errorText}`);
+            return null;
+          }
+
           const data = await res.json();
-    
-          if (res.ok && data.success && data.user) {
-            // Return user object for session
+          
+          if (data.success && data.user) {
+            console.log(`[Auth] Verification SUCCESS for ${credentials.email}`);
             return {
               id: data.user.id,
               email: data.user.email,
               name: data.user.name || data.user.email,
               graphId: data.user.graph_id,
-              // We could also store the backend tokens if we want to proxy them,
-              // but current JWT callback generates its own for consistency with middleware.
             };
           }
-    
+
+          console.warn(`[Auth] Verification FAILED: ${data.message || "Unknown reason"}`);
           return null;
-        } catch (error) {
-          console.error("Auth error:", error);
+        } catch (err: any) {
+          console.error(`[Auth] Verification FETCH ERROR: ${err.message}`);
           return null;
         }
       },
     }),
   ],
 
-  // Use JWT sessions
+  // Storage
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
 
-  // Custom pages
+  // Security
+  secret: SIGNING_SECRET,
+
+  // UI
   pages: {
     signIn: "/auth/login",
     signOut: "/auth/logout",
     error: "/auth/error",
-    newUser: "/dashboard",
   },
 
-  // JWT and session callbacks
   callbacks: {
     async jwt({ token, user }) {
-      // On initial sign in, persist user data to token
+      // 1. Persist user data to token on initial sign-in
       if (user) {
         token.userId = user.id;
         token.email = user.email;
         token.name = user.name;
-
         token.graphId = (user as any).graphId;
       }
       
-      // Generate accessToken for backend API calls (HS256 signed)
-      // This is what the backend will verify
-      token.accessToken = jwt.sign(
-        {
-          sub: token.userId || token.sub,
-          id: token.userId || token.sub,
-          email: token.email,
-          name: token.name,
-
-          graphId: token.graphId,
-          type: "access",
-        },
-        SIGNING_SECRET as string,
-        { algorithm: "HS256", expiresIn: "30d" }
-      );
+      // 2. Generate/Rotate access token for backend API (HS256)
+      if (SIGNING_SECRET) {
+        try {
+          token.accessToken = jwt.sign(
+            {
+              sub: token.userId || token.sub,
+              id: token.userId || token.sub,
+              email: token.email,
+              name: token.name,
+              graphId: token.graphId,
+              type: "access",
+            },
+            SIGNING_SECRET,
+            { algorithm: "HS256", expiresIn: "30d" }
+          );
+        } catch (err: any) {
+          console.error(`[Auth] JWT Sign Error: ${err.message}`);
+        }
+      }
 
       return token;
     },
 
     async session({ session, token }) {
-      // Send user data to client session
       if (token) {
         session.user = {
           ...session.user,
@@ -135,19 +144,12 @@ export const authOptions: NextAuthOptions = {
           email: token.email as string,
           name: token.name as string,
         };
-        // Add custom properties
-
         (session as any).graphId = token.graphId;
-        // CRITICAL: Expose accessToken for backend API calls
         (session as any).accessToken = token.accessToken;
       }
       return session;
     },
   },
 
-  // Security
-  secret: process.env.NEXTAUTH_SECRET,
-
-  // Debug in development
   debug: process.env.NODE_ENV === "development",
 };

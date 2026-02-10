@@ -253,3 +253,17 @@ CREATE INDEX IF NOT EXISTS idx_jobs_graph ON jobs(tenant_id, graph_id);
 
 COMMENT ON TABLE jobs IS 'Durable job queue for background operations (Stage-9)';
 
+-- -----------------------------------------------------------------------------
+-- users: Formal user registry for identity management
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY,                    -- UUID5 deterministic (email-based)
+    email TEXT NOT NULL UNIQUE,             -- Verified email address
+    full_name TEXT,                         -- Display name
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+COMMENT ON TABLE users IS 'Formal user registry for identity management (Enterprise Hardening)';

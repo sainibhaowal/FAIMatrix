@@ -52,7 +52,7 @@ function SignupContent() {
       const res = await fetch("/api/v1/auth/otp/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, mode: "signup" }),
       });
 
       const data = await res.json();
