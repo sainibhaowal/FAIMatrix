@@ -106,6 +106,20 @@ class JSONFormatter(logging.Formatter):
             log_entry["graph_id"] = record.graph_id
         if hasattr(record, "latency_ms"):
             log_entry["latency_ms"] = record.latency_ms
+        if hasattr(record, "job_id"):
+            log_entry["job_id"] = record.job_id
+        if hasattr(record, "raw_id"):
+            log_entry["raw_id"] = record.raw_id
+        if hasattr(record, "op"):
+            log_entry["op"] = record.op
+        if hasattr(record, "status"):
+            log_entry["status"] = record.status
+        if hasattr(record, "failure_reason"):
+            log_entry["failure_reason"] = record.failure_reason
+        if hasattr(record, "endpoint"):
+            log_entry["endpoint"] = record.endpoint
+        if hasattr(record, "component"):
+            log_entry["component"] = record.component
 
         # Add exception info if present
         if record.exc_info:

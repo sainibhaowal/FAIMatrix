@@ -24,12 +24,20 @@ This is the security baseline and hardening plan for storage + ingestion.
 - request correlation IDs
 - structured logging with sensitive value redaction
 
-## 2) Current Security Gaps Affecting Storage
+## 2) Security Gap Status (Post Phase D/E)
 
-1. Raw file encryption at rest is not yet wired through ingest API flow.
-2. Envelope encryption modules exist but are not integrated end-to-end.
-3. Upload validators exist but are not consistently enforced by ingest endpoints.
-4. Some auth code paths still permit fallback behavior that should be environment-gated for production.
+Implemented:
+
+1. Raw file encryption-at-rest path is wired and production fail-closed policy is enforced.
+2. Envelope encryption runtime integration is active with tenant DEK manager support.
+3. Upload validators are consistently enforced on ingest/storage upload paths.
+4. Production plaintext fallback is blocked in runtime and routers.
+5. Storage route authz/tenant isolation coverage exists in acceptance tests.
+
+Remaining hardening focus:
+
+1. Historical payload re-encryption program for pre-rollout plaintext blobs.
+2. Environment-level alerting/dashboard integration for security observability signals.
 
 ## 3) Required Security Model for Storage Setup
 
@@ -95,3 +103,8 @@ Required automated gates:
 - upload abuse tests (oversize, traversal names, malformed payload)
 - encryption/decryption roundtrip tests with rotated keys
 - deletion and restore policy tests
+
+Current status:
+
+- These gate categories are largely implemented in unit/acceptance suites for Phase D and Phase E.
+- Key rotation behavior is documented in runbook (`16_STORAGE_OPERATIONS_RUNBOOK.md`) and supported by tenant DEK manager rotation API.

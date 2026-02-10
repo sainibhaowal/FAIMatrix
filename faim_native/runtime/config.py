@@ -14,6 +14,8 @@ Optional env vars:
 - FAIM_STORAGE_HARD_DELETE_ENABLED
 - FAIM_STORAGE_LIVE_JOB_STREAM_ENABLED
 - FAIM_STORAGE_CONTRACT_STRICT
+- FAIM_STORAGE_OBSERVABILITY_ENABLED
+- FAIM_STORAGE_STRUCTURED_LIFECYCLE_LOGS
 - FAIM_RATE_LIMITS_JSON
 - FAIM_EVENT_PAYLOAD_MAX_BYTES
 - FAIM_EXPLAIN_MAX_ITEMS
@@ -56,7 +58,9 @@ def parse_bool_env(name: str, default: bool = False) -> bool:
     raw = os.environ.get(name, "").lower()
     if raw in ("true", "1", "yes", "on"):
         return True
-    if raw in ("false", "0", "no", "off", ""):
+    if raw in ("false", "0", "no", "off"):
+        return False
+    if raw == "":
         return default
     return default
 
@@ -98,6 +102,8 @@ class FAIMConfig:
     storage_hard_delete_enabled: bool = False
     storage_live_job_stream_enabled: bool = False
     storage_contract_strict: bool = True
+    storage_observability_enabled: bool = True
+    storage_structured_lifecycle_logs: bool = True
 
     # Optional - rate limits
     rate_limits: Dict[str, int] = field(
@@ -209,6 +215,12 @@ def load_config() -> FAIMConfig:
             "FAIM_STORAGE_LIVE_JOB_STREAM_ENABLED", False
         ),
         storage_contract_strict=parse_bool_env("FAIM_STORAGE_CONTRACT_STRICT", True),
+        storage_observability_enabled=parse_bool_env(
+            "FAIM_STORAGE_OBSERVABILITY_ENABLED", True
+        ),
+        storage_structured_lifecycle_logs=parse_bool_env(
+            "FAIM_STORAGE_STRUCTURED_LIFECYCLE_LOGS", True
+        ),
         rate_limits=default_limits,
         event_payload_max_bytes=parse_int_env("FAIM_EVENT_PAYLOAD_MAX_BYTES", 4096),
         explain_max_items=parse_int_env("FAIM_EXPLAIN_MAX_ITEMS", 25),

@@ -55,11 +55,11 @@ flowchart TD
 - FAIM score components applied
 - response returns node/evidence metadata
 
-## B. Current Missing Link (Raw File Persistence)
+## B. Raw File Persistence Link (Implemented)
 
-The codebase has raw immutable storage components, but ingest router path currently does not wire them before extraction.
+Raw immutable storage is now wired before extraction in ingest/storage API paths.
 
-Intended path should be:
+Implemented path:
 
 ```mermaid
 flowchart TD
@@ -70,9 +70,9 @@ flowchart TD
   PK --> EN[Encode + Graph write]
 ```
 
-Without this link, raw file lifecycle and traceability are incomplete in runtime behavior.
+This link is active and supports runtime provenance via `raw_id` and `raw_refs`.
 
-## C. Target Production Flow (Planned)
+## C. Target Production Flow (Implemented Baseline)
 
 ```mermaid
 sequenceDiagram
@@ -120,7 +120,7 @@ AI/agent consumers should use:
 - explain payload for provenance
 - raw reference lookup for original immutable source when needed
 
-## E. Multi-file Upload Behavior (planned)
+## E. Multi-file Upload Behavior (implemented)
 
 For storage page and backend API, each file must follow independent status transitions:
 
@@ -133,3 +133,9 @@ For storage page and backend API, each file must follow independent status trans
 - `completed` or `failed`
 
 Batch should support partial success without losing successful file writes.
+
+Current implementation notes:
+
+- Storage UI runs per-file queue state machine and tracks individual job/event timelines.
+- Upload jobs support cancellation and retry paths.
+- Observability includes failure taxonomy, dedup ratio, and ingest phase latency aggregates.

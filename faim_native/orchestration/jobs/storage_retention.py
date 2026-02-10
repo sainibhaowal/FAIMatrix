@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, List, Optional
 from urllib.parse import urlparse
@@ -64,6 +65,16 @@ def run_storage_retention_cleanup(
     reason: Optional[str] = None,
 ) -> RetentionRunResult:
     """Execute retention cleanup for delete-requested storage files."""
+    run_started = datetime.now(timezone.utc)
+    logger.info(
+        "storage_retention started",
+        extra={
+            "tenant_id": tenant_id,
+            "graph_id": graph_id,
+            "op": "retention_cleanup",
+            "status": "started",
+        },
+    )
     if not dry_run and not irreversible:
         raise ValueError("Physical delete requires irreversible=true")
 
@@ -154,6 +165,16 @@ def run_storage_retention_cleanup(
 
             session.commit()
             deleted += 1
+            logger.info(
+                "storage_retention item deleted",
+                extra={
+                    "tenant_id": tenant_id,
+                    "graph_id": graph_text,
+                    "raw_id": raw_id_text,
+                    "op": "retention_cleanup",
+                    "status": "deleted",
+                },
+            )
             results.append(
                 RetentionItemResult(
                     raw_id=raw_id_text,
@@ -168,6 +189,17 @@ def run_storage_retention_cleanup(
         except Exception as exc:
             session.rollback()
             failed += 1
+            logger.warning(
+                "storage_retention item failed",
+                extra={
+                    "tenant_id": tenant_id,
+                    "graph_id": graph_text,
+                    "raw_id": raw_id_text,
+                    "op": "retention_cleanup",
+                    "status": "failed",
+                    "failure_reason": str(exc)[:120],
+                },
+            )
             results.append(
                 RetentionItemResult(
                     raw_id=raw_id_text,
@@ -177,6 +209,18 @@ def run_storage_retention_cleanup(
                     detail=str(exc),
                 )
             )
+
+    elapsed_ms = int((datetime.now(timezone.utc) - run_started).total_seconds() * 1000)
+    logger.info(
+        "storage_retention completed",
+        extra={
+            "tenant_id": tenant_id,
+            "graph_id": graph_id,
+            "op": "retention_cleanup",
+            "status": "completed" if failed == 0 else "partial_failed",
+            "latency_ms": elapsed_ms,
+        },
+    )
 
     return RetentionRunResult(
         dry_run=dry_run,

@@ -40,12 +40,7 @@ Resolved from this audit:
 - node/metrics/admin router-to-repo method mismatches are aligned
 - frontend stream proxy path now matches backend `/api/v1/events/stream`
 
-Still pending (non-P0):
-
-- storage UI remains placeholder
-- multi-file upload product workflow is not yet implemented
-- encryption-at-rest integration remains pending
-- cache/index integration hardening remains pending
+Historical note (resolved by later phases): storage UI, multi-file workflow, encryption-at-rest integration, and cache/index hardening were completed in P1/P2.
 
 ## Post-P1 Update (2026-02-10)
 
@@ -63,10 +58,10 @@ Resolved from prior audit gaps:
   - re-ingest/retry/delete-request actions
 - ingest endpoints now also populate/update storage catalog metadata
 
-Still pending:
+Residual risks (not blocking current production baseline):
 
-- operational retention/deletion execution semantics beyond delete-request state
-- historical blob re-encryption tooling for previously stored plaintext payloads
+- historical blob re-encryption tooling for pre-policy plaintext payloads
+- environment-level alert/dashboard wiring for security and storage SLO signals
 
 ## Post-P2 Update (2026-02-10)
 
@@ -88,6 +83,17 @@ Contract freeze and startup guardrails are now implemented:
 - storage API method/path + response field contract is validated at startup
 - feature-flag guardrails are validated at startup
 - new rollout flags are defined for contract strictness, hard-delete gate, and live-job-stream rollout
+
+## Post-Phase-E Update (2026-02-10)
+
+Observability + operations baseline is now implemented:
+
+- storage ops metrics endpoint is live (`/api/v1/storage/ops/metrics`)
+- ingest phase latency is emitted as durable event (`INGEST_PHASE_LATENCY`)
+- failure taxonomy and dedup ratio are queryable in storage ops metrics
+- backend health state model (`up`/`degraded`/`down`) is exposed with probe latency
+- structured lifecycle logs now include correlation fields (`request_id`, `tenant_id`, `graph_id`, `job_id`, `raw_id`)
+- operations runbook is documented for rollout/rollback and incident handling
 
 ## Frontend Storage Page (Current)
 
@@ -141,8 +147,8 @@ Not intended as truth store.
 
 ## Remaining Gaps and Risks
 
-1. Retention/deletion is still request-state only for storage files (`delete_requested`), not full physical purge workflow.
-2. Existing plaintext blobs from before encryption rollout are not automatically re-encrypted.
+1. Existing plaintext blobs from before encryption rollout are not automatically re-encrypted.
+2. Observability baseline is implemented, but external dashboards/alerts must still be wired in each deployment environment.
 3. Query cache currently accelerates candidate recall path only; deeper stats cache wiring remains optional.
 
 ## Existing Strengths
@@ -155,10 +161,6 @@ Not intended as truth store.
 
 ## Conclusion
 
-The platform has strong computational core pieces but **storage product surface is incomplete**.
-The next implementation phase should focus on:
+Storage program phases P0-P2 and A-E are implemented with production guardrails, operational UI/API surface, security hardening, and observability baseline.
 
-1. repairing ingest/storage contract correctness
-2. wiring raw immutable storage + metadata persistence
-3. building batch/multi-file API layer
-4. implementing Storage page UX on top of stable endpoints
+Remaining work is now operational maturity and rollout-specific integration (dashboards/alerts and historical payload re-encryption strategy), not core storage product delivery.

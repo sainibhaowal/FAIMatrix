@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
@@ -65,6 +65,7 @@ class IngestResult:
         dedup_hit: True if this was a duplicate (no processing done)
         raw_id: Raw file ID
         error: Error message if status is "error"
+        phase_latency_ms: Per-phase latency breakdown in milliseconds
     """
 
     status: str
@@ -80,6 +81,7 @@ class IngestResult:
     dedup_hit: bool = False
     raw_id: Optional[str] = None
     error: Optional[str] = None
+    phase_latency_ms: Dict[str, int] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for API response."""
@@ -97,6 +99,7 @@ class IngestResult:
             "dedup_hit": self.dedup_hit,
             "raw_id": self.raw_id,
             "error": self.error,
+            "phase_latency_ms": self.phase_latency_ms,
         }
 
 
@@ -192,8 +195,13 @@ def run_ingest(
         content will not create duplicate nodes.
     """
     start_time = time.time()
+    perf_start = time.perf_counter()
     events_emitted: List[str] = []
+    phase_latency_ms: Dict[str, int] = {}
     raw_id = str(raw_id or "").strip()
+
+    def _finish_phase(phase: str, started_at: float) -> None:
+        phase_latency_ms[phase] = int((time.perf_counter() - started_at) * 1000)
 
     # Normalize profile
     if isinstance(profile, str):
@@ -232,7 +240,9 @@ def run_ingest(
         # =====================================================================
         from perception.router import route_extraction
 
+        phase_started = time.perf_counter()
         blocks = route_extraction(file_bytes, filename, raw_id)
+        _finish_phase("extract", phase_started)
 
         if not blocks:
             return IngestResult(
@@ -247,6 +257,7 @@ def run_ingest(
                 events_emitted=events_emitted,
                 latency_ms=int((time.time() - start_time) * 1000),
                 error="No blocks extracted from file",
+                phase_latency_ms=phase_latency_ms,
             )
 
         logger.info(f"[Ingest] Extracted {len(blocks)} EvidenceBlocks")
@@ -256,7 +267,9 @@ def run_ingest(
         # =====================================================================
         from perception.packetize import create_packet
 
+        phase_started = time.perf_counter()
         packet = create_packet(raw_id, blocks)
+        _finish_phase("packetize", phase_started)
         packet_hash = packet.packet_hash
 
         _emit_event(
@@ -277,6 +290,7 @@ def run_ingest(
         # =====================================================================
         # STEP 2.5: DEDUP CHECK (Stage-9 idempotency)
         # =====================================================================
+        phase_started = time.perf_counter()
         if session is not None:
             try:
                 from store.pg.models_faim import IngestDedupModel
@@ -305,6 +319,22 @@ def run_ingest(
                         "[Ingest] DEDUP HIT: packet already processed, returning cached result"
                     )
 
+                    total_latency_ms = int((time.perf_counter() - perf_start) * 1000)
+                    _emit_event(
+                        "INGEST_PHASE_LATENCY",
+                        graph_id,
+                        {
+                            "raw_id": raw_id,
+                            "packet_hash": packet_hash,
+                            "status": "dedup_hit",
+                            "phase_latency_ms": phase_latency_ms,
+                            "latency_ms": total_latency_ms,
+                        },
+                        event_repo,
+                        session=session,
+                    )
+                    events_emitted.append("INGEST_PHASE_LATENCY")
+
                     return IngestResult(
                         status="dedup_hit",
                         packet_hash=packet_hash,
@@ -318,16 +348,20 @@ def run_ingest(
                         latency_ms=int((time.time() - start_time) * 1000),
                         dedup_hit=True,
                         raw_id=str(existing.raw_id) if existing.raw_id else raw_id,
+                        phase_latency_ms=phase_latency_ms,
                     )
             except Exception as e:
                 logger.warning(f"[Ingest] Dedup check failed (continuing): {e}")
+        _finish_phase("dedup_check", phase_started)
 
         # =====================================================================
         # STEP 3: Validate packet + blocks
         # =====================================================================
         from perception.validate import assert_valid
 
+        phase_started = time.perf_counter()
         assert_valid(packet, blocks)
+        _finish_phase("validate", phase_started)
         logger.info("[Ingest] Packet validation passed")
 
         # =====================================================================
@@ -336,7 +370,9 @@ def run_ingest(
         from encoding import vectorize_blocks
         from encoding.vector_schema import VECTOR_DIMENSION
 
+        phase_started = time.perf_counter()
         vectors = vectorize_blocks(blocks)
+        _finish_phase("encode", phase_started)
 
         # Verify dimension
         if vectors and len(vectors[0].v_native) != VECTOR_DIMENSION:
@@ -372,12 +408,14 @@ def run_ingest(
             graph_version_repo=gv_repo,
         )
 
+        phase_started = time.perf_counter()
         write_result = engine.write_atoms(
             graph_id=graph_id,
             vectors=vectors,
             raw_id=raw_id,
             packet_hash=packet_hash,
         )
+        _finish_phase("write", phase_started)
 
         _emit_event(
             "WRITE_ATOMS_DONE",
@@ -423,6 +461,7 @@ def run_ingest(
                 index = FAIMIndex(project_id)
 
                 # WriteResult carries canonical node UUIDs in the same order as vectors.
+                phase_started = time.perf_counter()
                 node_ids = [str(nid) for nid in (write_result.node_ids or [])]
                 for idx, vector in enumerate(vectors):
                     if idx < len(node_ids):
@@ -449,6 +488,7 @@ def run_ingest(
                 )
                 events_emitted.append("INDEX_UPSERTED")
                 logger.info(f"[Ingest] Indexed {len(vectors)} vectors")
+                _finish_phase("index", phase_started)
 
             except Exception as e:
                 # Index failures are non-fatal (acceleration only)
@@ -460,12 +500,14 @@ def run_ingest(
         # STEP 6: Build result
         # =====================================================================
         latency_ms = int((time.time() - start_time) * 1000)
+        total_latency_ms = int((time.perf_counter() - perf_start) * 1000)
 
         # Record successful ingest for future dedup (Stage-9)
         if session is not None:
             try:
                 from store.pg.models_faim import IngestDedupModel
 
+                phase_started = time.perf_counter()
                 IngestDedupModel.record_ingest(
                     session=session,
                     tenant_id=tenant_id,
@@ -474,9 +516,25 @@ def run_ingest(
                     raw_id=_parse_uuid_or_none(raw_id),
                     node_count=write_result.nodes_written,
                 )
+                _finish_phase("dedup_record", phase_started)
                 logger.info("[Ingest] Recorded in dedup table for future retry safety")
             except Exception as e:
                 logger.warning(f"[Ingest] Failed to record dedup (non-fatal): {e}")
+
+        _emit_event(
+            "INGEST_PHASE_LATENCY",
+            graph_id,
+            {
+                "raw_id": raw_id,
+                "packet_hash": packet_hash,
+                "status": "completed",
+                "phase_latency_ms": phase_latency_ms,
+                "latency_ms": total_latency_ms,
+            },
+            event_repo,
+            session=session,
+        )
+        events_emitted.append("INGEST_PHASE_LATENCY")
 
         return IngestResult(
             status="completed",
@@ -491,6 +549,7 @@ def run_ingest(
             latency_ms=latency_ms,
             dedup_hit=False,
             raw_id=raw_id,
+            phase_latency_ms=phase_latency_ms,
         )
 
     except Exception as e:
@@ -509,6 +568,22 @@ def run_ingest(
         )
         events_emitted.append("INGEST_ERROR")
 
+        total_latency_ms = int((time.perf_counter() - perf_start) * 1000)
+        _emit_event(
+            "INGEST_PHASE_LATENCY",
+            graph_id,
+            {
+                "raw_id": raw_id,
+                "status": "error",
+                "phase_latency_ms": phase_latency_ms,
+                "latency_ms": total_latency_ms,
+                "error": str(e),
+            },
+            event_repo,
+            session=session,
+        )
+        events_emitted.append("INGEST_PHASE_LATENCY")
+
         return IngestResult(
             status="error",
             packet_hash="",
@@ -521,6 +596,7 @@ def run_ingest(
             events_emitted=events_emitted,
             latency_ms=latency_ms,
             error=str(e),
+            phase_latency_ms=phase_latency_ms,
         )
 
 
