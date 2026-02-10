@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from uuid import UUID
 
 from sqlalchemy import and_, asc
@@ -148,6 +148,23 @@ class NodeRepo:
             .first()
         )
 
+    @staticmethod
+    def _coerce_uuid(node_id: Union[UUID, str]) -> Optional[UUID]:
+        """Normalize node_id input to UUID."""
+        if isinstance(node_id, UUID):
+            return node_id
+        try:
+            return UUID(str(node_id))
+        except (ValueError, TypeError, AttributeError):
+            return None
+
+    def get_by_id(self, graph_id: str, node_id: Union[UUID, str]) -> Optional[NodeModel]:
+        """Compatibility alias used by API routers."""
+        parsed = self._coerce_uuid(node_id)
+        if parsed is None:
+            return None
+        return self.get_node(graph_id, parsed)
+
     def get_by_vector_hash(
         self, graph_id: str, vector_hash: str
     ) -> Optional[NodeModel]:
@@ -191,6 +208,15 @@ class NodeRepo:
             .all()
         )
 
+    def list_by_graph(
+        self,
+        graph_id: str,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[NodeModel]:
+        """Compatibility alias used by API routers."""
+        return self.list_nodes(graph_id=graph_id, limit=limit, offset=offset)
+
     def list_atoms(self, graph_id: str, limit: int = 100) -> List[NodeModel]:
         """List atom nodes only."""
         return (
@@ -222,6 +248,10 @@ class NodeRepo:
             )
             .count()
         )
+
+    def count(self, graph_id: str) -> int:
+        """Compatibility alias used by API routers."""
+        return self.count_nodes(graph_id)
 
     def count_atoms(self, graph_id: str) -> int:
         """Count atom nodes in graph."""

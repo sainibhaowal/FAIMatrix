@@ -23,6 +23,7 @@ if str(_parent) not in sys.path:
 
 _engine = None
 _SessionLocal = None
+_raw_store = None
 
 
 def _get_engine():
@@ -62,6 +63,19 @@ def get_session():
     return SessionLocal()
 
 
+def _get_raw_store():
+    """Get or create the shared immutable raw store."""
+    global _raw_store
+    if _raw_store is None:
+        from store.raw.raw_store import RawStore
+
+        path = os.getenv("FAIM_RAW_STORE_PATH")
+        if not path:
+            path = str(Path(__file__).resolve().parent.parent / "store" / "raw" / "blobs")
+        _raw_store = RawStore(path)
+    return _raw_store
+
+
 # =============================================================================
 # Repository Factory
 # =============================================================================
@@ -85,6 +99,7 @@ def get_repos(tenant_id: str) -> Dict[str, Any]:
     from store.pg.repos.node_repo import NodeRepo
     from store.pg.repos.raw_repo import RawRepo
     from store.pg.repos.snapshot_repo import SnapshotRepo
+    from store.pg.repos.storage_file_repo import StorageFileRepo
 
     # Try to get index and cache
     index = None
@@ -122,6 +137,8 @@ def get_repos(tenant_id: str) -> Dict[str, Any]:
         "gv_repo": GraphVersionRepo(tenant_id=tenant_id),
         "snapshot_repo": SnapshotRepo(tenant_id=tenant_id),
         "raw_repo": RawRepo(tenant_id=tenant_id),
+        "storage_file_repo": StorageFileRepo(tenant_id=tenant_id),
+        "raw_store": _get_raw_store(),
         "index": index,
         "cache": cache,
     }

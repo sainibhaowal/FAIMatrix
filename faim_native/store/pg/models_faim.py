@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Column, DateTime, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.declarative import declarative_base
@@ -134,6 +134,45 @@ class RawRefModel(Base):
             graph_id=raw_ref.graph_id,
             created_at=raw_ref.created_at,
         )
+
+
+# -----------------------------------------------------------------------------
+# StorageFileModel - P1 storage catalog table
+# -----------------------------------------------------------------------------
+
+
+class StorageFileModel(Base):
+    """ORM model for storage upload/catalog metadata."""
+
+    __tablename__ = "storage_files"
+
+    id = Column(UUIDType, primary_key=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    raw_id = Column(UUIDType, nullable=False, index=True)
+    filename = Column(Text, nullable=False)
+    mime_type = Column(String(128), default="application/octet-stream")
+    size_bytes = Column(BigInteger, nullable=False, default=0)
+    sha256 = Column(String(64), nullable=False, index=True)
+    ingest_status = Column(String(32), nullable=False, default="uploaded")
+    packet_hash = Column(String(64), nullable=True)
+    node_count = Column(Integer, nullable=False, default=0)
+    vector_count = Column(Integer, nullable=False, default=0)
+    error_message = Column(Text, nullable=True)
+    last_job_id = Column(UUIDType, nullable=True, index=True)
+    delete_requested = Column(Boolean, nullable=False, default=False)
+    delete_requested_at = Column(DateTime(timezone=True), nullable=True)
+    uploaded_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    ingested_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
 
 
 # -----------------------------------------------------------------------------
