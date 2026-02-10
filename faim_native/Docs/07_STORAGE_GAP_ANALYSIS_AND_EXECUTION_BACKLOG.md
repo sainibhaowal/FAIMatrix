@@ -202,9 +202,9 @@ Goal: activate tenant DEK workflow in live ingest/storage path.
 
 | Area | Status |
 |---|---|
-| Storage UI | implemented (P1 baseline) |
+| Storage UI | implemented (Phase C complete: drag-drop, queue lifecycle, cancel/retry, provenance drawer) |
 | Core ingest math | implemented |
-| Multi-file workflow | implemented (batch upload endpoint + UI queue) |
+| Multi-file workflow | implemented (per-file queue + status/event polling) |
 | Raw immutable persistence in ingest path | wired for ingest endpoints |
 | Dedup runtime correctness | active in API path |
 | Router/repo API consistency | aligned for node/metrics/admin routes |
@@ -299,6 +299,52 @@ Validation:
 Implementation evidence:
 
 - `12_PHASE_B_BACKEND_COMPLETION_REPORT.md`
+
+## Phase C - Storage UI Completion
+
+Status (2026-02-10): implemented.
+
+Completed:
+
+- [x] Drag-drop zone with append-style multi-file selection
+  - implementation:
+    - `frontend/src/app/(app)/dashboard/storage/page.tsx`
+
+- [x] Real upload queue state machine (per-file)
+  - lifecycle statuses:
+    - `queued`, `uploading`, `ingesting`, `dedup_hit`, `ingested`, `failed`, `cancelled`
+  - bounded queue memory and per-item state transitions
+
+- [x] Per-file cancel/retry controls
+  - cancel flow:
+    - queued cancel immediate in UI
+    - in-flight upload abort support (client-side)
+    - backend cancellation request when `job_id` exists:
+      - `POST /api/v1/storage/uploads/{job_id}/cancel`
+  - retry flow:
+    - reprocess existing raw source using:
+      - `POST /api/v1/storage/files/{raw_id}/retry`
+    - fallback requeue path when `raw_id` is not available
+
+- [x] Upload job status/event polling wired in UI
+  - `GET /api/v1/storage/uploads/{job_id}`
+  - `GET /api/v1/storage/uploads/{job_id}/events`
+  - per-file timeline rendering and terminal-state refresh
+
+- [x] Provenance inspect drawer integrated
+  - `GET /api/v1/storage/files/{raw_id}/provenance`
+  - file/raw_ref/dedup/nodes/events summary rendered in Storage UI
+
+- [x] Existing storage summary/cards/catalog behavior preserved
+
+Validation:
+
+- `cd frontend && npm run lint -- --file src/app/(app)/dashboard/storage/page.tsx`
+- `PYTHONPATH=faim_native pytest -q tests/acceptance/test_AT_P1_storage_api_surface.py tests/acceptance/test_AT_PB_storage_phase_b_surface.py tests/acceptance/test_AT_PD_storage_auth_tenant_isolation.py`
+
+Implementation evidence:
+
+- `13_PHASE_C_STORAGE_UI_COMPLETION_REPORT.md`
 
 ## Phase D - Security Hardening to Production Grade
 

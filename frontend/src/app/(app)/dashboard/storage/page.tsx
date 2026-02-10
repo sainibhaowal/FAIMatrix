@@ -4,6 +4,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Database,
+  FileSearch,
   FileText,
   HardDrive,
   RefreshCw,
@@ -11,10 +12,11 @@ import {
   Search,
   Shield,
   UploadCloud,
+  X,
   XCircle,
 } from "lucide-react";
 import { getSession, useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge, Button, Card, Input, Progress, useToast } from "@/components/ui";
 
@@ -70,7 +72,99 @@ type UploadBatchResponse = {
   success_files: number;
   failed_files: number;
   dedup_hits: number;
+  cancelled_files: number;
   files: UploadResult[];
+};
+
+type UploadStatusResponse = {
+  job_id: string;
+  graph_id: string;
+  status: string;
+  requested_files: number;
+  processed_files: number;
+  success_files: number;
+  failed_files: number;
+  dedup_hits: number;
+  cancelled_files: number;
+  cancel_requested: boolean;
+  cancel_reason?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+  completed_at?: string | null;
+  files: StorageFileItem[];
+};
+
+type StorageJobEvent = {
+  seq: number;
+  kind: string;
+  ts?: string | null;
+  payload: Record<string, unknown>;
+};
+
+type StorageJobEventsResponse = {
+  job_id: string;
+  events: StorageJobEvent[];
+};
+
+type StorageUploadCancelResponse = {
+  job_id: string;
+  status: string;
+  cancel_requested: boolean;
+  cancel_reason?: string | null;
+};
+
+type StorageIngestActionResponse = {
+  status: string;
+  file: StorageFileItem;
+  ingest: {
+    status: string;
+    packet_hash?: string | null;
+    nodes_written?: number;
+    vector_count?: number;
+    error?: string | null;
+  };
+};
+
+type StorageProvenanceRawRef = {
+  raw_id: string;
+  sha256: string;
+  uri: string;
+  mime_type: string;
+  size_bytes: number;
+  created_at?: string | null;
+};
+
+type StorageProvenanceDedup = {
+  packet_hash?: string | null;
+  dedup_record_found: boolean;
+  dedup_raw_id?: string | null;
+  dedup_node_count: number;
+  dedup_created_at?: string | null;
+};
+
+type StorageProvenanceNode = {
+  node_id: string;
+  kind: string;
+  vector_hash: string;
+  block_id?: string | null;
+  created_at?: string | null;
+};
+
+type StorageProvenanceEvent = {
+  seq: number;
+  kind: string;
+  ts?: string | null;
+  payload_keys: string[];
+};
+
+type StorageProvenanceResponse = {
+  file: StorageFileItem;
+  raw_ref?: StorageProvenanceRawRef | null;
+  dedup: StorageProvenanceDedup;
+  node_count: number;
+  event_count: number;
+  nodes: StorageProvenanceNode[];
+  events: StorageProvenanceEvent[];
 };
 
 type FileListResponse = {
@@ -80,7 +174,57 @@ type FileListResponse = {
   offset: number;
 };
 
+type QueueStatus =
+  | "queued"
+  | "uploading"
+  | "ingesting"
+  | "ingested"
+  | "dedup_hit"
+  | "failed"
+  | "cancelled";
+
+type QueueItem = {
+  id: string;
+  file: File;
+  filename: string;
+  sizeBytes: number;
+  mimeType: string;
+  status: QueueStatus;
+  progress: number;
+  jobId?: string;
+  rawId?: string;
+  packetHash?: string | null;
+  nodeCount: number;
+  vectorCount: number;
+  error?: string;
+  cancelRequested: boolean;
+  events: StorageJobEvent[];
+  lastEventSeq: number;
+  createdAt: number;
+  updatedAt: number;
+  busyAction?: "cancel" | "retry";
+};
+
 const PAGE_SIZE = 20;
+const MAX_UPLOAD_CONCURRENCY = 3;
+const MAX_QUEUE_ITEMS = 120;
+const MAX_QUEUE_EVENTS = 60;
+const JOB_POLL_INTERVAL_MS = 1800;
+const TERMINAL_QUEUE_STATUS = new Set<QueueStatus>([
+  "ingested",
+  "dedup_hit",
+  "failed",
+  "cancelled",
+]);
+
+class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
 
 function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -92,38 +236,125 @@ function formatBytes(bytes: number): string {
 
 function statusVariant(status: string): "default" | "success" | "warning" | "error" | "info" {
   if (status === "ingested" || status === "dedup_hit") return "success";
-  if (status === "failed") return "error";
-  if (status === "ingesting") return "info";
+  if (status === "failed" || status === "cancelled") return "error";
+  if (status === "ingesting" || status === "uploading") return "info";
   if (status === "delete_requested") return "warning";
   return "default";
 }
 
-async function authHeaders(): Promise<HeadersInit> {
+function shortId(value?: string | null): string {
+  if (!value) return "-";
+  if (value.length <= 14) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
+function redactUri(uri?: string | null): string {
+  if (!uri) return "-";
+  if (uri.length <= 28) return uri;
+  return `${uri.slice(0, 16)}...${uri.slice(-12)}`;
+}
+
+function mapStorageStatus(status?: string | null): QueueStatus {
+  const normalized = String(status || "").toLowerCase();
+  if (normalized === "ingested" || normalized === "completed") return "ingested";
+  if (normalized === "dedup_hit") return "dedup_hit";
+  if (normalized === "failed" || normalized === "error") return "failed";
+  if (normalized === "cancelled") return "cancelled";
+  if (normalized === "ingesting" || normalized === "running" || normalized === "pending") {
+    return "ingesting";
+  }
+  if (normalized === "uploading" || normalized === "uploaded") return "uploading";
+  return "queued";
+}
+
+function queueProgress(status: QueueStatus): number {
+  if (status === "queued") return 0;
+  if (status === "uploading") return 30;
+  if (status === "ingesting") return 75;
+  return 100;
+}
+
+function safeNow(): number {
+  return Date.now();
+}
+
+function latestMessage(item: QueueItem): string {
+  const last = item.events[item.events.length - 1];
+  if (!last) {
+    if (item.error) return item.error;
+    if (item.cancelRequested) return "Cancel requested";
+    return "Waiting";
+  }
+
+  const message = typeof last.payload?.message === "string" ? String(last.payload.message) : "";
+  const status = typeof last.payload?.status === "string" ? String(last.payload.status) : "";
+
+  if (message) return message;
+  if (status) return status;
+  return last.kind;
+}
+
+async function authHeaders(extra?: HeadersInit): Promise<HeadersInit> {
   const session = await getSession();
-  const headers: Record<string, string> = {};
-  const token = (session as any)?.accessToken;
-  if (token) headers.Authorization = `Bearer ${token}`;
-  return headers;
+  const token = (session as { accessToken?: string } | null)?.accessToken;
+  const base: Record<string, string> = {};
+  if (token) base.Authorization = `Bearer ${token}`;
+
+  if (!extra) return base;
+
+  if (extra instanceof Headers) {
+    extra.forEach((value, key) => {
+      base[key] = value;
+    });
+    return base;
+  }
+
+  if (Array.isArray(extra)) {
+    for (const [key, value] of extra) base[key] = value;
+    return base;
+  }
+
+  return { ...base, ...(extra as Record<string, string>) };
+}
+
+function normalizeApiError(payload: unknown, fallback: string): string {
+  if (!payload) return fallback;
+  if (typeof payload === "string") return payload;
+  if (typeof payload === "object") {
+    const detail = (payload as { detail?: unknown }).detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+  }
+  return fallback;
+}
+
+function trimQueue(items: QueueItem[]): QueueItem[] {
+  if (items.length <= MAX_QUEUE_ITEMS) return items;
+  const terminal = items.filter((i) => TERMINAL_QUEUE_STATUS.has(i.status));
+  const active = items.filter((i) => !TERMINAL_QUEUE_STATUS.has(i.status));
+  const removable = [...terminal].sort((a, b) => a.updatedAt - b.updatedAt);
+  while (active.length + removable.length > MAX_QUEUE_ITEMS) {
+    removable.shift();
+  }
+  return [...active, ...removable].sort((a, b) => a.createdAt - b.createdAt);
 }
 
 export default function StoragePage() {
   const { data: session } = useSession();
   const { toast } = useToast();
 
-  const graphId = (session as any)?.graphId || "default";
+  const graphId = (session as { graphId?: string } | null)?.graphId || "default";
 
   const [files, setFiles] = useState<StorageFileItem[]>([]);
   const [summary, setSummary] = useState<StorageSummary | null>(null);
   const [backends, setBackends] = useState<StorageBackends | null>(null);
   const [total, setTotal] = useState(0);
 
+  const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
+  const [isDragOver, setIsDragOver] = useState(false);
+
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [actionRawId, setActionRawId] = useState<string | null>(null);
-
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [batchResult, setBatchResult] = useState<UploadBatchResponse | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [query, setQuery] = useState("");
@@ -131,15 +362,68 @@ export default function StoragePage() {
   const [profile, setProfile] = useState("strict");
   const [persistMode, setPersistMode] = useState("relaxed");
 
+  const [provenanceOpen, setProvenanceOpen] = useState(false);
+  const [provenanceLoading, setProvenanceLoading] = useState(false);
+  const [provenanceRawId, setProvenanceRawId] = useState<string | null>(null);
+  const [provenanceData, setProvenanceData] = useState<StorageProvenanceResponse | null>(null);
+
+  const queueRef = useRef<QueueItem[]>([]);
+  const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const refreshLockRef = useRef(false);
+
+  useEffect(() => {
+    queueRef.current = queueItems;
+  }, [queueItems]);
+
   const totalPages = useMemo(() => {
     if (!total) return 1;
     return Math.max(1, Math.ceil(total / PAGE_SIZE));
   }, [total]);
 
-  const fetchFiles = useCallback(async () => {
+  const queueCounts = useMemo(() => {
+    const counts: Record<QueueStatus, number> = {
+      queued: 0,
+      uploading: 0,
+      ingesting: 0,
+      ingested: 0,
+      dedup_hit: 0,
+      failed: 0,
+      cancelled: 0,
+    };
+    for (const item of queueItems) {
+      counts[item.status] += 1;
+    }
+    return counts;
+  }, [queueItems]);
+
+  async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+    const headers = await authHeaders(init?.headers);
+    const response = await fetch(url, {
+      ...init,
+      headers,
+      cache: "no-store",
+    });
+
+    let payload: unknown = null;
+    const text = await response.text();
+    if (text) {
+      try {
+        payload = JSON.parse(text);
+      } catch {
+        payload = text;
+      }
+    }
+
+    if (!response.ok) {
+      throw new ApiError(response.status, normalizeApiError(payload, `Request failed (${response.status})`));
+    }
+
+    return (payload as T) || ({} as T);
+  }
+
+  const fetchFilesInternal = useCallback(async () => {
     setLoadingFiles(true);
     try {
-      const headers = await authHeaders();
       const params = new URLSearchParams({
         graph_id: graphId,
         limit: String(PAGE_SIZE),
@@ -148,178 +432,574 @@ export default function StoragePage() {
       if (statusFilter) params.set("status", statusFilter);
       if (query.trim()) params.set("q", query.trim());
 
-      const res = await fetch(`/api/v1/storage/files?${params.toString()}`, {
-        headers,
-        cache: "no-store",
-      });
-      if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || "Failed to load files");
-      }
-      const data: FileListResponse = await res.json();
+      const data = await fetchJson<FileListResponse>(`/api/v1/storage/files?${params.toString()}`);
       setFiles(data.items || []);
       setTotal(data.total || 0);
-    } catch (e: any) {
-      toast.error("Failed to load storage files", e?.message || "Unknown error");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast.error("Failed to load storage files", message);
     } finally {
       setLoadingFiles(false);
     }
   }, [graphId, page, query, statusFilter, toast]);
 
-  const fetchSummary = useCallback(async () => {
+  const fetchSummaryInternal = useCallback(async () => {
     setLoadingSummary(true);
     try {
-      const headers = await authHeaders();
-
-      const [summaryRes, backendsRes] = await Promise.all([
-        fetch(`/api/v1/storage/summary?graph_id=${encodeURIComponent(graphId)}`, {
-          headers,
-          cache: "no-store",
-        }),
-        fetch(`/api/v1/storage/backends/health`, {
-          headers,
-          cache: "no-store",
-        }),
+      const [summaryData, backendData] = await Promise.all([
+        fetchJson<StorageSummary>(`/api/v1/storage/summary?graph_id=${encodeURIComponent(graphId)}`),
+        fetchJson<StorageBackends>(`/api/v1/storage/backends/health`),
       ]);
-
-      if (summaryRes.ok) {
-        const summaryData: StorageSummary = await summaryRes.json();
-        setSummary(summaryData);
-      }
-      if (backendsRes.ok) {
-        const backendData: StorageBackends = await backendsRes.json();
-        setBackends(backendData);
-      }
-    } catch (e: any) {
-      toast.warning("Storage summary unavailable", e?.message || "Try refresh");
+      setSummary(summaryData);
+      setBackends(backendData);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast.warning("Storage summary unavailable", message);
     } finally {
       setLoadingSummary(false);
     }
   }, [graphId, toast]);
 
-  useEffect(() => {
-    fetchFiles();
-  }, [fetchFiles]);
-
-  useEffect(() => {
-    fetchSummary();
-  }, [fetchSummary]);
-
-  useEffect(() => {
-    const id = setInterval(() => {
-      fetchSummary();
-    }, 15000);
-    return () => clearInterval(id);
-  }, [fetchSummary]);
-
-  const handleSelectFiles = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const incoming = Array.from(event.target.files || []);
-    setSelectedFiles(incoming);
-  };
-
-  const uploadProgress = useMemo(() => {
-    if (!selectedFiles.length || !batchResult) return 0;
-    return Math.round((batchResult.processed_files / Math.max(1, batchResult.requested_files)) * 100);
-  }, [batchResult, selectedFiles.length]);
-
-  const handleUpload = async () => {
-    if (!selectedFiles.length) {
-      toast.warning("No files selected", "Pick one or more files to upload");
-      return;
-    }
-
-    setUploading(true);
-    setBatchResult(null);
-
+  const refreshViews = useCallback(async () => {
+    if (refreshLockRef.current) return;
+    refreshLockRef.current = true;
     try {
-      const headers = await authHeaders();
-      const formData = new FormData();
-      formData.set("graph_id", graphId);
-      formData.set("profile", profile);
-      formData.set("persist_mode", persistMode);
-      for (const file of selectedFiles) {
-        formData.append("files", file);
-      }
+      await Promise.all([fetchFilesInternal(), fetchSummaryInternal()]);
+    } finally {
+      refreshLockRef.current = false;
+    }
+  }, [fetchFilesInternal, fetchSummaryInternal]);
 
-      const res = await fetch(`/api/v1/storage/uploads`, {
-        method: "POST",
-        headers,
-        body: formData,
+  const patchQueueItem = useCallback(
+    (itemId: string, updater: (item: QueueItem) => QueueItem) => {
+      setQueueItems((prev) => prev.map((item) => (item.id === itemId ? updater(item) : item)));
+    },
+    []
+  );
+
+  const appendQueueEvents = useCallback(
+    (itemId: string, incoming: StorageJobEvent[]) => {
+      if (!incoming.length) return;
+      patchQueueItem(itemId, (current) => {
+        const seen = new Set<number>(current.events.map((event) => event.seq));
+        const merged = [...current.events];
+        for (const event of incoming) {
+          if (!seen.has(event.seq)) merged.push(event);
+        }
+        merged.sort((a, b) => a.seq - b.seq);
+        const trimmed = merged.slice(-MAX_QUEUE_EVENTS);
+        const latestSeq = trimmed.length ? trimmed[trimmed.length - 1].seq : current.lastEventSeq;
+        return {
+          ...current,
+          events: trimmed,
+          lastEventSeq: Math.max(current.lastEventSeq, latestSeq),
+          updatedAt: safeNow(),
+        };
       });
+    },
+    [patchQueueItem]
+  );
 
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(payload?.detail || "Upload failed");
+  const refreshQueueJob = useCallback(
+    async (itemId: string, jobId: string) => {
+      const current = queueRef.current.find((item) => item.id === itemId);
+      if (!current || TERMINAL_QUEUE_STATUS.has(current.status)) return;
+
+      try {
+        const [statusData, eventsData] = await Promise.all([
+          fetchJson<UploadStatusResponse>(`/api/v1/storage/uploads/${encodeURIComponent(jobId)}`),
+          fetchJson<StorageJobEventsResponse>(`/api/v1/storage/uploads/${encodeURIComponent(jobId)}/events`),
+        ]);
+
+        const fileMatch =
+          statusData.files.find((row) => (current.rawId ? row.raw_id === current.rawId : row.filename === current.filename)) ||
+          statusData.files[0];
+
+        const nextEvents = (eventsData.events || []).filter((event) => event.seq > current.lastEventSeq);
+        appendQueueEvents(itemId, nextEvents);
+
+        const storageStatus = fileMatch?.ingest_status || statusData.status;
+        let nextStatus = mapStorageStatus(storageStatus);
+        if (statusData.status === "cancelled") nextStatus = "cancelled";
+
+        const nextProgress = TERMINAL_QUEUE_STATUS.has(nextStatus)
+          ? 100
+          : nextStatus === "ingesting"
+            ? 78
+            : nextStatus === "uploading"
+              ? 35
+              : queueProgress(nextStatus);
+
+        const wasTerminal = TERMINAL_QUEUE_STATUS.has(current.status);
+        const nowTerminal = TERMINAL_QUEUE_STATUS.has(nextStatus);
+
+        patchQueueItem(itemId, (item) => ({
+          ...item,
+          status: nextStatus,
+          progress: nextProgress,
+          jobId,
+          rawId: fileMatch?.raw_id || item.rawId,
+          packetHash: fileMatch?.packet_hash ?? item.packetHash,
+          nodeCount: fileMatch?.node_count ?? item.nodeCount,
+          vectorCount: fileMatch?.vector_count ?? item.vectorCount,
+          error: fileMatch?.error || item.error,
+          cancelRequested: statusData.cancel_requested || item.cancelRequested,
+          updatedAt: safeNow(),
+        }));
+
+        if (!wasTerminal && nowTerminal) {
+          await refreshViews();
+        }
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404) {
+          patchQueueItem(itemId, (item) => ({
+            ...item,
+            status: "failed",
+            progress: 100,
+            error: "Upload job no longer available",
+            updatedAt: safeNow(),
+          }));
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : "Unknown error";
+        patchQueueItem(itemId, (item) => ({
+          ...item,
+          error: message,
+          updatedAt: safeNow(),
+        }));
+      }
+    },
+    [appendQueueEvents, patchQueueItem, refreshViews]
+  );
+
+  const enqueueFiles = useCallback(
+    (incomingFiles: File[]) => {
+      const accepted: QueueItem[] = [];
+      const rejected: string[] = [];
+
+      for (const file of incomingFiles) {
+        const name = (file.name || "").trim();
+        if (!name) {
+          rejected.push("unnamed file");
+          continue;
+        }
+        if (!Number.isFinite(file.size) || file.size < 0) {
+          rejected.push(name);
+          continue;
+        }
+        if (!(file.type || "").trim()) {
+          rejected.push(name);
+          continue;
+        }
+
+        const now = safeNow();
+        accepted.push({
+          id: `${now}-${Math.random().toString(36).slice(2, 8)}`,
+          file,
+          filename: name,
+          sizeBytes: file.size,
+          mimeType: file.type,
+          status: "queued",
+          progress: 0,
+          nodeCount: 0,
+          vectorCount: 0,
+          cancelRequested: false,
+          events: [],
+          lastEventSeq: 0,
+          createdAt: now,
+          updatedAt: now,
+        });
       }
 
-      const batch: UploadBatchResponse = payload;
-      setBatchResult(batch);
-      setSelectedFiles([]);
-
-      if (batch.failed_files > 0) {
+      if (rejected.length) {
         toast.warning(
-          "Upload completed with failures",
-          `${batch.success_files} succeeded, ${batch.failed_files} failed`
-        );
-      } else {
-        toast.success(
-          "Upload completed",
-          `${batch.success_files} files ingested (${batch.dedup_hits} dedup hits)`
+          "Some files were rejected",
+          `${rejected.length} file(s) missing required client metadata (name/type/size)`
         );
       }
 
-      setPage(0);
-      await Promise.all([fetchFiles(), fetchSummary()]);
-    } catch (e: any) {
-      toast.error("Upload failed", e?.message || "Unknown error");
-    } finally {
-      setUploading(false);
+      if (!accepted.length) return;
+
+      setQueueItems((prev) => trimQueue([...prev, ...accepted]));
+    },
+    [toast]
+  );
+
+  const startQueueUpload = useCallback(
+    async (itemId: string) => {
+      const current = queueRef.current.find((item) => item.id === itemId);
+      if (!current || current.status !== "queued") return;
+
+      const controller = new AbortController();
+      uploadControllersRef.current.set(itemId, controller);
+
+      patchQueueItem(itemId, (item) => ({
+        ...item,
+        status: "uploading",
+        progress: 20,
+        error: undefined,
+        cancelRequested: false,
+        updatedAt: safeNow(),
+      }));
+
+      try {
+        const formData = new FormData();
+        formData.set("graph_id", graphId);
+        formData.set("profile", profile);
+        formData.set("persist_mode", persistMode);
+        formData.append("files", current.file);
+
+        const headers = await authHeaders();
+        const response = await fetch(`/api/v1/storage/uploads`, {
+          method: "POST",
+          headers,
+          body: formData,
+          signal: controller.signal,
+        });
+
+        let payload: unknown = null;
+        const text = await response.text();
+        if (text) {
+          try {
+            payload = JSON.parse(text);
+          } catch {
+            payload = text;
+          }
+        }
+
+        if (!response.ok) {
+          throw new ApiError(response.status, normalizeApiError(payload, "Upload failed"));
+        }
+
+        const batch = payload as UploadBatchResponse;
+        const result = batch.files?.[0];
+        const status = mapStorageStatus(result?.status || batch.status);
+
+        patchQueueItem(itemId, (item) => ({
+          ...item,
+          status,
+          progress: queueProgress(status),
+          jobId: batch.job_id,
+          rawId: result?.raw_id || item.rawId,
+          packetHash: result?.packet_hash ?? item.packetHash,
+          nodeCount: result?.node_count ?? item.nodeCount,
+          vectorCount: result?.vector_count ?? item.vectorCount,
+          error: result?.error || item.error,
+          updatedAt: safeNow(),
+        }));
+
+        if (batch.job_id) {
+          await refreshQueueJob(itemId, batch.job_id);
+        }
+
+        if (TERMINAL_QUEUE_STATUS.has(status)) {
+          await refreshViews();
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          patchQueueItem(itemId, (item) => ({
+            ...item,
+            status: "cancelled",
+            progress: 100,
+            error: "Upload cancelled before completion",
+            cancelRequested: true,
+            updatedAt: safeNow(),
+          }));
+          return;
+        }
+
+        const message = error instanceof Error ? error.message : "Unknown error";
+        patchQueueItem(itemId, (item) => ({
+          ...item,
+          status: "failed",
+          progress: 100,
+          error: message,
+          updatedAt: safeNow(),
+        }));
+      } finally {
+        uploadControllersRef.current.delete(itemId);
+      }
+    },
+    [graphId, patchQueueItem, persistMode, profile, refreshQueueJob, refreshViews]
+  );
+
+  const requestQueueCancel = useCallback(
+    async (itemId: string) => {
+      const current = queueRef.current.find((item) => item.id === itemId);
+      if (!current || TERMINAL_QUEUE_STATUS.has(current.status) || current.busyAction) return;
+
+      patchQueueItem(itemId, (item) => ({ ...item, busyAction: "cancel", updatedAt: safeNow() }));
+
+      try {
+        if (current.status === "queued") {
+          patchQueueItem(itemId, (item) => ({
+            ...item,
+            status: "cancelled",
+            progress: 100,
+            cancelRequested: true,
+            busyAction: undefined,
+            error: "Cancelled before upload started",
+            updatedAt: safeNow(),
+          }));
+          return;
+        }
+
+        if (current.jobId) {
+          const data = await fetchJson<StorageUploadCancelResponse>(
+            `/api/v1/storage/uploads/${encodeURIComponent(current.jobId)}/cancel?reason=${encodeURIComponent("Requested from storage UI")}`,
+            { method: "POST" }
+          );
+
+          const status = mapStorageStatus(data.status);
+          patchQueueItem(itemId, (item) => ({
+            ...item,
+            status,
+            cancelRequested: data.cancel_requested || true,
+            busyAction: undefined,
+            updatedAt: safeNow(),
+          }));
+          if (status === "cancelled") {
+            await refreshViews();
+          }
+          return;
+        }
+
+        const controller = uploadControllersRef.current.get(itemId);
+        if (controller) controller.abort();
+
+        patchQueueItem(itemId, (item) => ({
+          ...item,
+          status: "cancelled",
+          progress: 100,
+          cancelRequested: true,
+          busyAction: undefined,
+          updatedAt: safeNow(),
+        }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        patchQueueItem(itemId, (item) => ({
+          ...item,
+          busyAction: undefined,
+          error: message,
+          updatedAt: safeNow(),
+        }));
+      }
+    },
+    [patchQueueItem, refreshViews]
+  );
+
+  const retryQueueItem = useCallback(
+    async (itemId: string) => {
+      const current = queueRef.current.find((item) => item.id === itemId);
+      if (!current || current.busyAction) return;
+      if (!(current.status === "failed" || current.status === "cancelled")) return;
+
+      patchQueueItem(itemId, (item) => ({ ...item, busyAction: "retry", updatedAt: safeNow() }));
+
+      try {
+        if (!current.rawId) {
+          patchQueueItem(itemId, (item) => ({
+            ...item,
+            status: "queued",
+            progress: 0,
+            jobId: undefined,
+            packetHash: undefined,
+            nodeCount: 0,
+            vectorCount: 0,
+            error: undefined,
+            cancelRequested: false,
+            busyAction: undefined,
+            events: [],
+            lastEventSeq: 0,
+            updatedAt: safeNow(),
+          }));
+          return;
+        }
+
+        patchQueueItem(itemId, (item) => ({
+          ...item,
+          status: "ingesting",
+          progress: 78,
+          error: undefined,
+          busyAction: "retry",
+          updatedAt: safeNow(),
+        }));
+
+        const data = await fetchJson<StorageIngestActionResponse>(
+          `/api/v1/storage/files/${encodeURIComponent(current.rawId)}/retry?graph_id=${encodeURIComponent(graphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}`,
+          { method: "POST" }
+        );
+
+        const status = mapStorageStatus(data.ingest?.status || data.file?.ingest_status || data.status);
+
+        patchQueueItem(itemId, (item) => ({
+          ...item,
+          status,
+          progress: queueProgress(status),
+          rawId: data.file?.raw_id || item.rawId,
+          packetHash: data.ingest?.packet_hash ?? item.packetHash,
+          nodeCount: data.file?.node_count ?? item.nodeCount,
+          vectorCount: data.file?.vector_count ?? item.vectorCount,
+          error: data.ingest?.error || data.file?.error || undefined,
+          busyAction: undefined,
+          updatedAt: safeNow(),
+        }));
+
+        await refreshViews();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        patchQueueItem(itemId, (item) => ({
+          ...item,
+          status: "failed",
+          progress: 100,
+          error: message,
+          busyAction: undefined,
+          updatedAt: safeNow(),
+        }));
+      }
+    },
+    [graphId, patchQueueItem, persistMode, profile, refreshViews]
+  );
+
+  const clearTerminalQueueItems = useCallback(() => {
+    setQueueItems((prev) => prev.filter((item) => !TERMINAL_QUEUE_STATUS.has(item.status)));
+  }, []);
+
+  const removeQueueItem = useCallback((itemId: string) => {
+    setQueueItems((prev) => prev.filter((item) => item.id !== itemId));
+  }, []);
+
+  const runFileAction = useCallback(
+    async (rawId: string, action: "ingest" | "retry" | "delete") => {
+      setActionRawId(rawId);
+      try {
+        let url = `/api/v1/storage/files/${encodeURIComponent(rawId)}`;
+        let method = "POST";
+
+        if (action === "ingest") {
+          url += `/ingest?graph_id=${encodeURIComponent(graphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}`;
+        } else if (action === "retry") {
+          url += `/retry?graph_id=${encodeURIComponent(graphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}`;
+        } else {
+          method = "DELETE";
+          url += `?graph_id=${encodeURIComponent(graphId)}&reason=${encodeURIComponent("Requested from storage UI")}`;
+        }
+
+        await fetchJson<unknown>(url, { method });
+
+        if (action === "delete") {
+          toast.info("Delete request submitted", "File marked as delete_requested");
+        } else if (action === "retry") {
+          toast.success("Retry completed", "File reprocessed");
+        } else {
+          toast.success("Re-ingest completed", "File reprocessed");
+        }
+
+        await refreshViews();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        toast.error(`Failed to ${action}`, message);
+      } finally {
+        setActionRawId(null);
+      }
+    },
+    [graphId, persistMode, profile, refreshViews, toast]
+  );
+
+  const openProvenance = useCallback(
+    async (rawId: string) => {
+      setProvenanceOpen(true);
+      setProvenanceRawId(rawId);
+      setProvenanceLoading(true);
+      setProvenanceData(null);
+
+      try {
+        const data = await fetchJson<StorageProvenanceResponse>(
+          `/api/v1/storage/files/${encodeURIComponent(rawId)}/provenance?graph_id=${encodeURIComponent(graphId)}`
+        );
+        setProvenanceData(data);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        toast.error("Failed to load provenance", message);
+      } finally {
+        setProvenanceLoading(false);
+      }
+    },
+    [graphId, toast]
+  );
+
+  useEffect(() => {
+    fetchFilesInternal();
+  }, [fetchFilesInternal]);
+
+  useEffect(() => {
+    fetchSummaryInternal();
+  }, [fetchSummaryInternal]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      fetchSummaryInternal();
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [fetchSummaryInternal]);
+
+  useEffect(() => {
+    const activeUploads = queueItems.filter((item) => item.status === "uploading" || item.status === "ingesting").length;
+    const capacity = MAX_UPLOAD_CONCURRENCY - activeUploads;
+    if (capacity <= 0) return;
+
+    const queued = queueItems.filter((item) => item.status === "queued").slice(0, capacity);
+    for (const item of queued) {
+      void startQueueUpload(item.id);
     }
-  };
+  }, [queueItems, startQueueUpload]);
 
-  const runFileAction = async (
-    rawId: string,
-    action: "ingest" | "retry" | "delete"
-  ) => {
-    setActionRawId(rawId);
-    try {
-      const headers = await authHeaders();
-      let url = `/api/v1/storage/files/${encodeURIComponent(rawId)}`;
-      let method = "POST";
+  useEffect(() => {
+    const pollTargets = queueItems.filter(
+      (item) => item.jobId && !TERMINAL_QUEUE_STATUS.has(item.status)
+    );
+    if (!pollTargets.length) return;
 
-      if (action === "ingest") {
-        url += `/ingest?graph_id=${encodeURIComponent(graphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}`;
-      } else if (action === "retry") {
-        url += `/retry?graph_id=${encodeURIComponent(graphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}`;
-      } else {
-        method = "DELETE";
-        url += `?graph_id=${encodeURIComponent(graphId)}&reason=${encodeURIComponent("Requested from storage UI")}`;
+    const poll = () => {
+      for (const item of pollTargets) {
+        if (!item.jobId) continue;
+        void refreshQueueJob(item.id, item.jobId);
       }
+    };
 
-      const res = await fetch(url, {
-        method,
-        headers,
-      });
-      const payload = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(payload?.detail || `${action} failed`);
-      }
+    poll();
+    const timer = window.setInterval(poll, JOB_POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [queueItems, refreshQueueJob]);
 
-      if (action === "delete") {
-        toast.info("Delete request submitted", "File marked as delete_requested");
-      } else if (action === "retry") {
-        toast.success("Retry finished", payload?.ingest?.status || "done");
-      } else {
-        toast.success("Re-ingest finished", payload?.ingest?.status || "done");
-      }
+  useEffect(() => {
+    if (!provenanceOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setProvenanceOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [provenanceOpen]);
 
-      await Promise.all([fetchFiles(), fetchSummary()]);
-    } catch (e: any) {
-      toast.error(`Failed to ${action}`, e?.message || "Unknown error");
-    } finally {
-      setActionRawId(null);
-    }
-  };
+  const onInputFiles = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const incoming = Array.from(event.target.files || []);
+      enqueueFiles(incoming);
+      event.currentTarget.value = "";
+    },
+    [enqueueFiles]
+  );
+
+  const onDropFiles = useCallback(
+    (event: React.DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setIsDragOver(false);
+      const dropped = Array.from(event.dataTransfer.files || []);
+      enqueueFiles(dropped);
+    },
+    [enqueueFiles]
+  );
 
   const ingestedCount = summary?.by_status?.ingested || 0;
   const failedCount = summary?.by_status?.failed || 0;
@@ -331,15 +1011,15 @@ export default function StoragePage() {
         <div>
           <h1 className="text-xl font-semibold">Storage Control Plane</h1>
           <p className="mt-1 text-sm text-slate-400">
-            Multi-file upload, ingest lifecycle tracking, and immutable raw provenance for graph `{graphId}`.
+            Multi-file upload queue, ingest lifecycle tracking, and immutable provenance for graph `{graphId}`.
           </p>
         </div>
         <Button
           variant="outline"
           size="sm"
           leftIcon={<RefreshCw size={14} />}
-          onClick={async () => {
-            await Promise.all([fetchFiles(), fetchSummary()]);
+          onClick={() => {
+            void refreshViews();
           }}
         >
           Refresh
@@ -390,23 +1070,38 @@ export default function StoragePage() {
       <Card className="os-card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold">Batch Upload</h2>
-            <p className="text-xs text-slate-400">Uploads are persisted as immutable raw blobs before ingest.</p>
+            <h2 className="text-sm font-semibold">Upload Panel</h2>
+            <p className="text-xs text-slate-400">Drag-drop or select files. Each file runs as its own upload job for per-file control.</p>
           </div>
           <div className="flex items-center gap-2">
             <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-900/40">
               <UploadCloud size={14} />
-              Select Files
-              <input type="file" multiple className="hidden" onChange={handleSelectFiles} />
+              Add Files
+              <input type="file" multiple className="hidden" onChange={onInputFiles} />
             </label>
-            <Button
-              size="sm"
-              loading={uploading}
-              onClick={handleUpload}
-              disabled={!selectedFiles.length || uploading}
-            >
-              Upload & Ingest
+            <Button size="sm" variant="outline" onClick={clearTerminalQueueItems}>
+              Clear Completed
             </Button>
+          </div>
+        </div>
+
+        <div
+          className={`rounded-xl border border-dashed p-5 transition ${
+            isDragOver
+              ? "border-cyan-400 bg-cyan-500/10"
+              : "border-slate-700 bg-slate-950/40"
+          }`}
+          onDragOver={(event) => {
+            event.preventDefault();
+            setIsDragOver(true);
+          }}
+          onDragLeave={() => setIsDragOver(false)}
+          onDrop={onDropFiles}
+        >
+          <div className="flex flex-col items-center justify-center gap-1 text-center">
+            <UploadCloud className="text-cyan-400" size={20} />
+            <p className="text-sm text-slate-200">Drop files here</p>
+            <p className="text-xs text-slate-400">Multi-file add is append-only. Queue keeps current in-flight work.</p>
           </div>
         </div>
 
@@ -435,51 +1130,124 @@ export default function StoragePage() {
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-xs text-slate-400">Selected</label>
+            <label className="mb-1 block text-xs text-slate-400">Queue Depth</label>
             <div className="h-9 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm leading-9 text-slate-300">
-              {selectedFiles.length} file(s)
+              {queueItems.length} item(s)
             </div>
           </div>
         </div>
 
-        {!!selectedFiles.length && (
-          <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-            <p className="mb-2 text-xs text-slate-400">Pending Files</p>
-            <div className="max-h-32 space-y-1 overflow-auto pr-1 text-xs text-slate-300">
-              {selectedFiles.map((f) => (
-                <div key={`${f.name}-${f.size}`} className="flex items-center justify-between">
-                  <span className="truncate">{f.name}</span>
-                  <span className="text-slate-500">{formatBytes(f.size)}</span>
-                </div>
-              ))}
-            </div>
+        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <Badge size="xs" variant="default">queued: {queueCounts.queued}</Badge>
+            <Badge size="xs" variant="info">running: {queueCounts.uploading + queueCounts.ingesting}</Badge>
+            <Badge size="xs" variant="success">done: {queueCounts.ingested + queueCounts.dedup_hit}</Badge>
+            <Badge size="xs" variant="error">failed: {queueCounts.failed}</Badge>
+            <Badge size="xs" variant="warning">cancelled: {queueCounts.cancelled}</Badge>
           </div>
-        )}
 
-        {batchResult && (
-          <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-300">
-              <span>Batch `{batchResult.job_id}`</span>
-              <span>
-                {batchResult.success_files} success / {batchResult.failed_files} failed / {batchResult.dedup_hits} dedup
-              </span>
-            </div>
-            <Progress value={uploadProgress} showLabel label="Batch Progress" variant="gradient" />
-            <div className="max-h-40 space-y-1 overflow-auto pr-1">
-              {batchResult.files.map((f) => (
-                <div
-                  key={`${f.filename}-${f.raw_id || "na"}`}
-                  className="flex items-center justify-between rounded-md border border-slate-800 px-2 py-1 text-xs"
-                >
-                  <span className="truncate pr-2">{f.filename}</span>
-                  <Badge size="xs" variant={statusVariant(f.status)}>
-                    {f.status}
-                  </Badge>
-                </div>
-              ))}
-            </div>
+          <div className="max-h-[420px] space-y-2 overflow-auto pr-1">
+            {queueItems.length === 0 ? (
+              <div className="rounded-md border border-slate-800 px-3 py-5 text-center text-xs text-slate-500">
+                No queued files yet.
+              </div>
+            ) : (
+              queueItems.map((item) => {
+                const canCancel = !TERMINAL_QUEUE_STATUS.has(item.status) && !item.busyAction;
+                const canRetry = (item.status === "failed" || item.status === "cancelled") && !item.busyAction;
+                const latest = latestMessage(item);
+
+                return (
+                  <div key={item.id} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="max-w-[320px] truncate text-sm text-slate-200">{item.filename}</p>
+                          <Badge size="xs" variant={statusVariant(item.status)}>
+                            {item.status}
+                          </Badge>
+                          {item.cancelRequested && !TERMINAL_QUEUE_STATUS.has(item.status) && (
+                            <Badge size="xs" variant="warning">cancel requested</Badge>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-[11px] text-slate-500">
+                          {formatBytes(item.sizeBytes)} | {item.mimeType || "application/octet-stream"} | job: {shortId(item.jobId)} | raw: {shortId(item.rawId)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="h-7"
+                          disabled={!canCancel}
+                          onClick={() => {
+                            void requestQueueCancel(item.id);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="h-7"
+                          disabled={!canRetry}
+                          leftIcon={<RotateCcw size={12} />}
+                          onClick={() => {
+                            void retryQueueItem(item.id);
+                          }}
+                        >
+                          Retry
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="h-7"
+                          onClick={() => removeQueueItem(item.id)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="mt-2">
+                      <Progress
+                        value={item.progress}
+                        showLabel
+                        label="Lifecycle"
+                        variant={item.status === "failed" || item.status === "cancelled" ? "error" : "gradient"}
+                      />
+                      <p className="mt-1 text-[11px] text-slate-400">{latest}</p>
+                    </div>
+
+                    {!!item.events.length && (
+                      <details className="mt-2 rounded-md border border-slate-800 bg-slate-950/30 px-2 py-1">
+                        <summary className="cursor-pointer text-[11px] text-slate-400">
+                          Timeline events ({item.events.length})
+                        </summary>
+                        <div className="mt-1 max-h-28 space-y-1 overflow-auto text-[11px]">
+                          {item.events.slice(-8).map((event) => (
+                            <div key={`${item.id}-${event.seq}`} className="flex items-start justify-between gap-2 text-slate-300">
+                              <span className="min-w-0 flex-1 truncate">#{event.seq} {event.kind}</span>
+                              <span className="whitespace-nowrap text-slate-500">
+                                {event.ts ? new Date(event.ts).toLocaleTimeString() : "-"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+
+                    {item.error && (
+                      <div className="mt-2 flex items-center gap-1 text-[11px] text-rose-400">
+                        <XCircle size={12} /> {item.error}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
-        )}
+        </div>
       </Card>
 
       <Card className="os-card space-y-4">
@@ -507,18 +1275,18 @@ export default function StoragePage() {
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <Input
             value={query}
-            onChange={(e) => {
+            onChange={(event) => {
               setPage(0);
-              setQuery(e.target.value);
+              setQuery(event.target.value);
             }}
             placeholder="Search filename or hash"
             leftIcon={<Search size={14} />}
           />
           <select
             value={statusFilter}
-            onChange={(e) => {
+            onChange={(event) => {
               setPage(0);
-              setStatusFilter(e.target.value);
+              setStatusFilter(event.target.value);
             }}
             className="h-9 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm"
           >
@@ -528,6 +1296,7 @@ export default function StoragePage() {
             <option value="ingested">ingested</option>
             <option value="dedup_hit">dedup_hit</option>
             <option value="failed">failed</option>
+            <option value="cancelled">cancelled</option>
             <option value="delete_requested">delete_requested</option>
           </select>
           <Button
@@ -535,8 +1304,7 @@ export default function StoragePage() {
             size="sm"
             leftIcon={<RefreshCw size={14} />}
             onClick={() => {
-              fetchFiles();
-              fetchSummary();
+              void refreshViews();
             }}
           >
             Refresh Catalog
@@ -544,7 +1312,7 @@ export default function StoragePage() {
         </div>
 
         <div className="overflow-x-auto rounded-lg border border-slate-800">
-          <table className="w-full min-w-[980px] text-left text-xs">
+          <table className="w-full min-w-[1040px] text-left text-xs">
             <thead className="bg-slate-900/50 text-slate-400">
               <tr>
                 <th className="px-3 py-2 font-medium">Filename</th>
@@ -574,7 +1342,7 @@ export default function StoragePage() {
                   return (
                     <tr key={row.raw_id} className="border-t border-slate-800/80">
                       <td className="px-3 py-2">
-                        <div className="max-w-[260px] truncate text-slate-200">{row.filename}</div>
+                        <div className="max-w-[280px] truncate text-slate-200">{row.filename}</div>
                         {row.error && (
                           <div className="mt-0.5 flex items-center gap-1 text-[11px] text-rose-400">
                             <XCircle size={12} /> {row.error}
@@ -587,7 +1355,7 @@ export default function StoragePage() {
                         </Badge>
                       </td>
                       <td className="px-3 py-2 text-slate-300">{formatBytes(row.size_bytes)}</td>
-                      <td className="px-3 py-2 font-mono text-[11px] text-slate-400">{row.raw_id.slice(0, 12)}...</td>
+                      <td className="px-3 py-2 font-mono text-[11px] text-slate-400">{shortId(row.raw_id)}</td>
                       <td className="px-3 py-2 text-slate-400">
                         {row.updated_at ? new Date(row.updated_at).toLocaleString() : "-"}
                       </td>
@@ -598,7 +1366,21 @@ export default function StoragePage() {
                             variant="outline"
                             className="h-7"
                             disabled={busy || row.delete_requested}
-                            onClick={() => runFileAction(row.raw_id, "ingest")}
+                            leftIcon={<FileSearch size={12} />}
+                            onClick={() => {
+                              void openProvenance(row.raw_id);
+                            }}
+                          >
+                            Inspect
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            className="h-7"
+                            disabled={busy || row.delete_requested}
+                            onClick={() => {
+                              void runFileAction(row.raw_id, "ingest");
+                            }}
                           >
                             Re-ingest
                           </Button>
@@ -608,7 +1390,9 @@ export default function StoragePage() {
                             className="h-7"
                             disabled={busy || row.ingest_status !== "failed"}
                             leftIcon={<RotateCcw size={12} />}
-                            onClick={() => runFileAction(row.raw_id, "retry")}
+                            onClick={() => {
+                              void runFileAction(row.raw_id, "retry");
+                            }}
                           >
                             Retry
                           </Button>
@@ -617,7 +1401,9 @@ export default function StoragePage() {
                             variant="danger"
                             className="h-7"
                             disabled={busy || row.delete_requested}
-                            onClick={() => runFileAction(row.raw_id, "delete")}
+                            onClick={() => {
+                              void runFileAction(row.raw_id, "delete");
+                            }}
                           >
                             Delete Req
                           </Button>
@@ -632,16 +1418,14 @@ export default function StoragePage() {
         </div>
 
         <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>
-            {loadingSummary ? "Loading summary..." : `Total ${total} file(s)`}
-          </span>
+          <span>{loadingSummary ? "Loading summary..." : `Total ${total} file(s)`}</span>
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
               size="xs"
               className="h-7"
               disabled={page <= 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              onClick={() => setPage((prev) => Math.max(0, prev - 1))}
             >
               Prev
             </Button>
@@ -653,13 +1437,130 @@ export default function StoragePage() {
               size="xs"
               className="h-7"
               disabled={page + 1 >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
+              onClick={() => setPage((prev) => prev + 1)}
             >
               Next
             </Button>
           </div>
         </div>
       </Card>
+
+      {provenanceOpen && (
+        <div className="fixed inset-0 z-50">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setProvenanceOpen(false)}
+            aria-label="Close provenance panel"
+          />
+
+          <aside className="absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold">Provenance Inspect</h3>
+                <p className="text-xs text-slate-400">Raw source to node/event lineage</p>
+              </div>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                onClick={() => setProvenanceOpen(false)}
+                aria-label="Close"
+              >
+                <X size={14} />
+              </Button>
+            </div>
+
+            {provenanceLoading ? (
+              <div className="rounded-lg border border-slate-800 px-4 py-8 text-center text-sm text-slate-400">
+                Loading provenance...
+              </div>
+            ) : !provenanceData ? (
+              <div className="rounded-lg border border-slate-800 px-4 py-8 text-center text-sm text-slate-500">
+                No provenance loaded for {shortId(provenanceRawId)}.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Card className="os-card space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-300">File</h4>
+                  <div className="text-xs text-slate-300">
+                    <p><span className="text-slate-500">filename:</span> {provenanceData.file.filename}</p>
+                    <p><span className="text-slate-500">raw_id:</span> <span className="font-mono">{provenanceData.file.raw_id}</span></p>
+                    <p><span className="text-slate-500">sha256:</span> <span className="font-mono">{provenanceData.file.sha256}</span></p>
+                    <p><span className="text-slate-500">status:</span> {provenanceData.file.ingest_status}</p>
+                    <p><span className="text-slate-500">size:</span> {formatBytes(provenanceData.file.size_bytes)}</p>
+                  </div>
+                </Card>
+
+                <Card className="os-card space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-300">Raw Ref</h4>
+                  {provenanceData.raw_ref ? (
+                    <div className="text-xs text-slate-300">
+                      <p><span className="text-slate-500">mime:</span> {provenanceData.raw_ref.mime_type}</p>
+                      <p><span className="text-slate-500">uri:</span> <span className="font-mono">{redactUri(provenanceData.raw_ref.uri)}</span></p>
+                      <p><span className="text-slate-500">created:</span> {provenanceData.raw_ref.created_at ? new Date(provenanceData.raw_ref.created_at).toLocaleString() : "-"}</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500">No raw_ref record available.</p>
+                  )}
+                </Card>
+
+                <Card className="os-card space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-300">Dedup</h4>
+                  <div className="text-xs text-slate-300">
+                    <p><span className="text-slate-500">packet_hash:</span> <span className="font-mono">{provenanceData.dedup.packet_hash || "-"}</span></p>
+                    <p><span className="text-slate-500">dedup_record_found:</span> {String(provenanceData.dedup.dedup_record_found)}</p>
+                    <p><span className="text-slate-500">dedup_raw_id:</span> <span className="font-mono">{provenanceData.dedup.dedup_raw_id || "-"}</span></p>
+                    <p><span className="text-slate-500">dedup_node_count:</span> {provenanceData.dedup.dedup_node_count}</p>
+                  </div>
+                </Card>
+
+                <Card className="os-card space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-semibold text-slate-300">Nodes</h4>
+                    <span className="text-[11px] text-slate-500">{provenanceData.node_count} total</span>
+                  </div>
+                  {provenanceData.nodes.length === 0 ? (
+                    <p className="text-xs text-slate-500">No linked nodes.</p>
+                  ) : (
+                    <div className="max-h-44 space-y-1 overflow-auto text-[11px] text-slate-300">
+                      {provenanceData.nodes.map((node) => (
+                        <div key={node.node_id} className="rounded-md border border-slate-800 px-2 py-1">
+                          <p className="font-mono">{shortId(node.node_id)} | {node.kind}</p>
+                          <p className="text-slate-500">vector: {shortId(node.vector_hash)} | block: {node.block_id || "-"}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+
+                <Card className="os-card space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-semibold text-slate-300">Events</h4>
+                    <span className="text-[11px] text-slate-500">{provenanceData.event_count} shown</span>
+                  </div>
+                  {provenanceData.events.length === 0 ? (
+                    <p className="text-xs text-slate-500">No matching provenance events.</p>
+                  ) : (
+                    <div className="max-h-52 space-y-1 overflow-auto text-[11px] text-slate-300">
+                      {provenanceData.events.map((event) => (
+                        <div key={`${event.seq}-${event.kind}`} className="rounded-md border border-slate-800 px-2 py-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span>#{event.seq} {event.kind}</span>
+                            <span className="text-slate-500">
+                              {event.ts ? new Date(event.ts).toLocaleString() : "-"}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-slate-500">keys: {event.payload_keys.join(", ") || "-"}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
     </div>
   );
 }
