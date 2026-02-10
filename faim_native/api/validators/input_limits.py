@@ -10,8 +10,9 @@ Security-focused input validation:
 
 from __future__ import annotations
 
+import os
 import re
-from typing import Optional, Set
+from typing import Dict, Optional, Set
 
 from fastapi import HTTPException, UploadFile
 
@@ -110,6 +111,45 @@ ALLOWED_EXTENSIONS: Set[str] = {
     ".sql",
 }
 
+# MIME/extension compatibility map (security hardening)
+ALLOWED_MIME_BY_EXTENSION: Dict[str, Set[str]] = {
+    ".txt": {"text/plain", "application/octet-stream"},
+    ".md": {"text/markdown", "text/x-markdown", "text/plain", "application/octet-stream"},
+    ".markdown": {"text/markdown", "text/x-markdown", "text/plain", "application/octet-stream"},
+    ".csv": {"text/csv", "text/plain", "application/octet-stream"},
+    ".json": {"application/json", "text/plain", "application/octet-stream"},
+    ".yaml": {"application/yaml", "application/x-yaml", "text/plain", "application/octet-stream"},
+    ".yml": {"application/yaml", "application/x-yaml", "text/plain", "application/octet-stream"},
+    ".toml": {"application/toml", "text/plain", "application/octet-stream"},
+    ".xml": {"application/xml", "text/xml", "application/octet-stream"},
+    ".html": {"text/html", "application/octet-stream"},
+    ".htm": {"text/html", "application/octet-stream"},
+    ".pdf": {"application/pdf", "application/octet-stream"},
+    ".doc": {"application/msword", "application/octet-stream"},
+    ".docx": {
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/octet-stream",
+    },
+    ".ppt": {"application/vnd.ms-powerpoint", "application/octet-stream"},
+    ".pptx": {
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        "application/octet-stream",
+    },
+    ".xls": {"application/vnd.ms-excel", "application/octet-stream"},
+    ".xlsx": {
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "application/octet-stream",
+    },
+    ".png": {"image/png", "application/octet-stream"},
+    ".jpg": {"image/jpeg", "image/jpg", "application/octet-stream"},
+    ".jpeg": {"image/jpeg", "image/jpg", "application/octet-stream"},
+    ".gif": {"image/gif", "application/octet-stream"},
+    ".webp": {"image/webp", "application/octet-stream"},
+    ".svg": {"image/svg+xml", "application/octet-stream"},
+    ".bmp": {"image/bmp", "application/octet-stream"},
+    ".tiff": {"image/tiff", "application/octet-stream"},
+}
+
 # Dangerous filename patterns
 DANGEROUS_FILENAME_PATTERNS = [
     r"\.\.",  # Path traversal
@@ -184,16 +224,26 @@ def sanitize_filename(filename: str) -> str:
     if not filename:
         return "unnamed"
 
+    stripped = filename.strip()
+    if not stripped:
+        return "unnamed"
+
+    # Explicitly reject path-like names and path traversal attempts.
+    if "/" in stripped or "\\" in stripped:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    if os.path.basename(stripped) != stripped:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
     # Check for dangerous patterns
     for pattern in _dangerous_patterns:
-        if pattern.search(filename):
+        if pattern.search(stripped):
             raise HTTPException(
                 status_code=400,
                 detail="Invalid filename",
             )
 
     # Keep only safe characters
-    safe_name = re.sub(r"[^\w\-_\. ]", "_", filename)
+    safe_name = re.sub(r"[^\w\-_\. ]", "_", stripped)
 
     # Limit length
     if len(safe_name) > 200:
@@ -226,6 +276,31 @@ def validate_file_extension(filename: str) -> None:
         )
 
 
+def validate_mime_extension_match(
+    filename: str,
+    content_type: Optional[str],
+) -> None:
+    """Validate MIME type matches file extension for known formats."""
+    if not content_type:
+        return
+
+    parts = filename.rsplit(".", 1)
+    if len(parts) < 2:
+        return
+
+    ext = "." + parts[1].lower()
+    allowed = ALLOWED_MIME_BY_EXTENSION.get(ext)
+    if not allowed:
+        return
+
+    base_type = content_type.split(";")[0].strip().lower()
+    if base_type not in allowed:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Content type '{base_type}' does not match file extension '{ext}'",
+        )
+
+
 async def validate_upload_file(file: UploadFile) -> None:
     """
     Validate an uploaded file.
@@ -247,8 +322,9 @@ async def validate_upload_file(file: UploadFile) -> None:
 
     # Sanitize and validate filename
     if file.filename:
-        sanitize_filename(file.filename)
-        validate_file_extension(file.filename)
+        safe_name = sanitize_filename(file.filename)
+        validate_file_extension(safe_name)
+        validate_mime_extension_match(safe_name, file.content_type)
 
 
 def validate_json_size(content_length: Optional[int]) -> None:
@@ -337,6 +413,7 @@ __all__ = [
     "validate_content_type",
     "sanitize_filename",
     "validate_file_extension",
+    "validate_mime_extension_match",
     "validate_upload_file",
     "validate_json_size",
     "validate_text_field",

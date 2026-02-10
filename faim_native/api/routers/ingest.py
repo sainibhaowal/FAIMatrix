@@ -27,6 +27,7 @@ from api.validators import (  # noqa: E402
     sanitize_filename,
     validate_content_type,
     validate_file_extension,
+    validate_mime_extension_match,
     validate_upload_file,
     validate_upload_size,
 )
@@ -134,6 +135,12 @@ def _persist_raw_upload(
 
     store = ctx.raw_store
     if store is None:
+        env = os.getenv("FAIM_ENV", "").strip().lower()
+        if env in {"prod", "production"}:
+            raise HTTPException(
+                status_code=500,
+                detail="Raw store is unavailable in production mode",
+            )
         from store.raw.raw_store import RawStore
 
         fallback = Path(__file__).resolve().parents[2] / "store" / "raw" / "blobs"
@@ -292,6 +299,7 @@ async def ingest_file(
         filename = sanitize_filename(request.filename)
         validate_file_extension(filename)
         validate_content_type(request.content_type)
+        validate_mime_extension_match(filename, request.content_type)
         validate_upload_size(len(file_bytes))
 
         mime_type = (request.content_type or "application/octet-stream").split(";")[
@@ -395,6 +403,7 @@ async def ingest_upload(
 
         filename = sanitize_filename(file.filename or "upload")
         validate_file_extension(filename)
+        validate_mime_extension_match(filename, file.content_type)
 
         mime_type = (file.content_type or "application/octet-stream").split(";")[
             0

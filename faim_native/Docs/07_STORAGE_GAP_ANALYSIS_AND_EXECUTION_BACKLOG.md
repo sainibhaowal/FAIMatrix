@@ -299,3 +299,50 @@ Validation:
 Implementation evidence:
 
 - `12_PHASE_B_BACKEND_COMPLETION_REPORT.md`
+
+## Phase D - Security Hardening to Production Grade
+
+Status (2026-02-10): implemented.
+
+Completed:
+
+- [x] Production encryption policy mode enforced
+  - `FAIM_ENV=production` now requires:
+    - `FAIM_ENCRYPTION_AT_REST=true`
+    - `FAIM_ENCRYPTION_FAIL_CLOSED=true`
+  - implementation:
+    - `runtime/config.py`
+    - `runtime/feature_flags.py`
+
+- [x] Plaintext fallback removed in production profile
+  - raw-store init fails closed in production when encryption path is unavailable
+  - storage/ingest routers do not fallback to local plaintext raw store in production
+  - implementation:
+    - `runtime/context.py`
+    - `api/routers/storage.py`
+    - `api/routers/ingest.py`
+
+- [x] Upload abuse explicit rejection paths
+  - path-like filename rejection
+  - MIME/extension mismatch rejection
+  - oversize rejection retained
+  - implementation:
+    - `api/validators/input_limits.py`
+    - `api/routers/storage.py`
+    - `api/routers/ingest.py`
+
+- [x] Storage route authz + tenant isolation coverage
+  - all storage routes require tenant auth headers
+  - cross-tenant access to storage job/file/provenance rejected
+  - tests:
+    - `tests/acceptance/test_AT_PD_storage_auth_tenant_isolation.py`
+
+Validation:
+
+- `tests/unit/test_phase_d_production_policy.py`
+- `tests/unit/test_phase_d_upload_abuse_guards.py`
+- `tests/acceptance/test_AT_PD_storage_auth_tenant_isolation.py`
+
+Implementation evidence:
+
+- `14_PHASE_D_SECURITY_HARDENING_REPORT.md`
