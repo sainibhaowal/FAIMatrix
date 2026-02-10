@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
+from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,19 @@ class IngestResult:
 # =============================================================================
 
 
+def _parse_uuid_or_none(value: Optional[str]) -> Optional[UUID]:
+    """Parse UUID value safely for DB models that require UUID type."""
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        return UUID(text)
+    except (ValueError, TypeError, AttributeError):
+        return None
+
+
 def _emit_event(
     event_type: str,
     graph_id: str,
@@ -179,6 +193,7 @@ def run_ingest(
     """
     start_time = time.time()
     events_emitted: List[str] = []
+    raw_id = str(raw_id or "").strip()
 
     # Normalize profile
     if isinstance(profile, str):
@@ -191,6 +206,9 @@ def run_ingest(
     )
 
     try:
+        if not raw_id:
+            raise ValueError("raw_id is required and cannot be empty")
+
         # =====================================================================
         # STEP 0: Emit INGEST_START
         # =====================================================================
@@ -449,7 +467,7 @@ def run_ingest(
                     tenant_id=tenant_id,
                     graph_id=graph_id,
                     packet_hash=packet_hash,
-                    raw_id=raw_id,
+                    raw_id=_parse_uuid_or_none(raw_id),
                     node_count=write_result.nodes_written,
                 )
                 logger.info("[Ingest] Recorded in dedup table for future retry safety")
@@ -483,6 +501,7 @@ def run_ingest(
                 "error": str(e),
             },
             event_repo,
+            session=session,
         )
         events_emitted.append("INGEST_ERROR")
 

@@ -162,6 +162,7 @@ def create_app() -> FastAPI:
         metrics_router,
         node_router,
         query_router,
+        storage_router,
     )
 
     # Health routes (no prefix - for external status checks)
@@ -177,6 +178,7 @@ def create_app() -> FastAPI:
     app.include_router(evolve_router, prefix=prefix)
     app.include_router(metrics_router, prefix=prefix)
     app.include_router(admin_router, prefix=prefix)
+    app.include_router(storage_router, prefix=prefix)
 
     # ==========================================================================
     # Startup/Shutdown Events

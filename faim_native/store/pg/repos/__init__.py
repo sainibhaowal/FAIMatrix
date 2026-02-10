@@ -7,6 +7,7 @@ __all__ = [
     "EventRepo",
     "SnapshotRepo",
     "GraphVersionRepo",
+    "StorageFileRepo",
 ]
 
 
@@ -28,4 +29,8 @@ def __getattr__(name):
         from .graph_version_repo import GraphVersionRepo
 
         return GraphVersionRepo
+    elif name == "StorageFileRepo":
+        from .storage_file_repo import StorageFileRepo
+
+        return StorageFileRepo
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -19,12 +19,14 @@ __all__ = [
     "EventModel",
     "SnapshotModel",
     "GraphVersionModel",
+    "StorageFileModel",
     "create_all_tables",
     # Repositories
     "RawRepo",
     "EventRepo",
     "SnapshotRepo",
     "GraphVersionRepo",
+    "StorageFileRepo",
     # Journal
     "EventJournal",
 ]
@@ -54,6 +56,7 @@ def __getattr__(name):
         "EventModel",
         "SnapshotModel",
         "GraphVersionModel",
+        "StorageFileModel",
         "create_all_tables",
     ):
         from . import pg  # noqa: F401
@@ -76,6 +79,10 @@ def __getattr__(name):
         from .pg.repos.graph_version_repo import GraphVersionRepo
 
         return GraphVersionRepo
+    elif name == "StorageFileRepo":
+        from .pg.repos.storage_file_repo import StorageFileRepo
+
+        return StorageFileRepo
     elif name == "EventJournal":
         from .journal.event_journal import EventJournal
 

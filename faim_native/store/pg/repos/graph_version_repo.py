@@ -27,6 +27,15 @@ class GraphVersionRepo:
         self.session = session
         self.tenant_id = tenant_id
 
+    def _resolve_session(self, session: Optional[Session]) -> Session:
+        """Get a usable session from arg, instance, or new session."""
+        resolved = session or self.session
+        if resolved is None:
+            from store.pg.session import get_session
+
+            resolved = get_session()
+        return resolved
+
     def get_version(self, session: Optional[Session], graph_id: str) -> int:
         """Get the current version for a graph.
 
@@ -39,13 +48,7 @@ class GraphVersionRepo:
         Returns:
             Current version number (0 if none).
         """
-        session = session or self.session
-        if session is None:
-            from store.pg.session import get_session
-
-            session = get_session()
-            # If we created a session here, we should probably close it, but
-            # for now we just want it to work for the E2E simulation.
+        session = self._resolve_session(session)
         model = (
             session.query(GraphVersionModel)
             .filter(
@@ -59,7 +62,11 @@ class GraphVersionRepo:
 
         return model.version if model else 0
 
-    def get(self, session: Optional[Session], graph_id: str) -> Optional[GraphVersion]:
+    def get(
+        self,
+        session: Optional[Session] = None,
+        graph_id: Optional[str] = None,
+    ) -> Optional[GraphVersion]:
         """Get the full GraphVersion record.
 
         Args:
@@ -69,11 +76,13 @@ class GraphVersionRepo:
         Returns:
             GraphVersion if exists, None otherwise.
         """
-        session = session or self.session
-        if session is None:
-            from store.pg.session import get_session
+        if graph_id is None and isinstance(session, str):
+            graph_id = session
+            session = None
+        if graph_id is None:
+            raise ValueError("graph_id is required")
 
-            session = get_session()
+        session = self._resolve_session(session)
         model = (
             session.query(GraphVersionModel)
             .filter(
@@ -86,6 +95,35 @@ class GraphVersionRepo:
         )
 
         return model.to_domain() if model else None
+
+    def get_or_create(
+        self,
+        session: Optional[Session],
+        graph_id: str,
+    ) -> GraphVersionModel:
+        """Get graph version row; create version=0 row if missing."""
+        session = self._resolve_session(session)
+        model = (
+            session.query(GraphVersionModel)
+            .filter(
+                and_(
+                    GraphVersionModel.tenant_id == self.tenant_id,
+                    GraphVersionModel.graph_id == graph_id,
+                )
+            )
+            .first()
+        )
+        if model is None:
+            model = GraphVersionModel(
+                tenant_id=self.tenant_id,
+                graph_id=graph_id,
+                version=0,
+                reason="init",
+                updated_at=datetime.now(timezone.utc),
+            )
+            session.add(model)
+            session.flush()
+        return model
 
     def bump(
         self,
@@ -107,9 +145,7 @@ class GraphVersionRepo:
         Returns:
             New version number after bump.
         """
-        session = session or self.session
-        if session is None:
-            raise ValueError("Session required for bump")
+        session = self._resolve_session(session)
         model = (
             session.query(GraphVersionModel)
             .filter(

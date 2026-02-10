@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import asc, desc
+from sqlalchemy import and_, asc, desc
 from sqlalchemy.orm import Session
 
 # Flexible imports

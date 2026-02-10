@@ -42,10 +42,12 @@ class FAIMContext:
     gv_repo: Any = None
     snapshot_repo: Any = None
     raw_repo: Any = None
+    storage_file_repo: Any = None
 
     # Optional index and cache
     index: Any = None
     cache: Any = None
+    raw_store: Any = None
 
 
 # =============================================================================
@@ -119,6 +121,8 @@ async def get_faim_context(
         gv_repo=repos.get("gv_repo"),
         snapshot_repo=repos.get("snapshot_repo"),
         raw_repo=repos.get("raw_repo"),
+        storage_file_repo=repos.get("storage_file_repo"),
+        raw_store=repos.get("raw_store"),
         index=repos.get("index"),
         cache=repos.get("cache"),
     )

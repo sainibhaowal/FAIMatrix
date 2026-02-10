@@ -11,11 +11,14 @@ This folder documents current storage/ingestion behavior and the implementation 
 5. `05_STORAGE_SECURITY_AND_CRYPTO_PLAN.md`
 6. `06_STORAGE_UI_BACKEND_API_PLAN.md`
 7. `07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+8. `08_P0_IMPLEMENTATION_REPORT.md`
+9. `09_P1_IMPLEMENTATION_REPORT.md`
 
 ## Intent
 
-- No implementation changes in this pack.
-- This is a verified architecture + plan baseline.
+- Architecture + plan baseline is documented in 01-07.
+- P0 implementation completion is documented in 08.
+- P1 implementation completion is documented in 09.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

@@ -2,6 +2,18 @@
 
 This is a no-code implementation plan for full storage setup.
 
+## Implementation Update (2026-02-10)
+
+P1 implementation now exists for the route set described in this document.
+
+Actual implemented baseline:
+
+- backend: `api/routers/storage.py` under `/api/v1/storage/*`
+- frontend: `frontend/src/app/(app)/dashboard/storage/page.tsx`
+- persistence: `storage_files` table + repo + migration
+
+Use this doc as design intent, and `09_P1_IMPLEMENTATION_REPORT.md` as implementation record.
+
 ## 1) Product Objective
 
 Build a production Storage page that can:

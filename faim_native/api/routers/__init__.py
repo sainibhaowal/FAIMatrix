@@ -9,6 +9,7 @@ from .ingest import router as ingest_router
 from .metrics import router as metrics_router
 from .node import router as node_router
 from .query import router as query_router
+from .storage import router as storage_router
 
 __all__ = [
     "health_router",
@@ -20,4 +21,5 @@ __all__ = [
     "evolve_router",
     "metrics_router",
     "admin_router",
+    "storage_router",
 ]
