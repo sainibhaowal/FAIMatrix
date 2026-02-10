@@ -56,6 +56,27 @@ Implemented in Phase B:
 
 See `12_PHASE_B_BACKEND_COMPLETION_REPORT.md` for implementation evidence.
 
+## Phase C Update (2026-02-10)
+
+Storage UI completion items are now implemented.
+
+Implemented in Phase C:
+
+- drag-drop upload zone with multi-file append behavior
+- real per-file queue lifecycle state model in UI:
+  - `queued`, `uploading`, `ingesting`, `dedup_hit`, `ingested`, `failed`, `cancelled`
+- per-file queue actions:
+  - cancel (`POST /api/v1/storage/uploads/{job_id}/cancel` when job id exists)
+  - retry (`POST /api/v1/storage/files/{raw_id}/retry` when raw_id exists)
+- upload job status/event polling wired:
+  - `GET /api/v1/storage/uploads/{job_id}`
+  - `GET /api/v1/storage/uploads/{job_id}/events`
+- provenance inspect drawer wired:
+  - `GET /api/v1/storage/files/{raw_id}/provenance`
+- summary cards + catalog filters/actions preserved from baseline
+
+See `13_PHASE_C_STORAGE_UI_COMPLETION_REPORT.md` for implementation evidence.
+
 ## Phase D Update (2026-02-10)
 
 Security hardening for production policy is now implemented.
