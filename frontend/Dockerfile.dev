@@ -13,9 +13,8 @@ RUN npm install --legacy-peer-deps
 # Direct Native Access
 # All frontend assets are served natively from the source.
 
-# Expose port
-EXPOSE 3000
+EXPOSE 8010
 
 # Run Next.js on 0.0.0.0 so it's accessible from outside container
-CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0", "-p", "3000"]
+CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0", "-p", "8010"]
 

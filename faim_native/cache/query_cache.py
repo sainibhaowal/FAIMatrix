@@ -29,7 +29,7 @@ _redis_available = None
 
 def _get_redis_url() -> str:
     """Get Redis URL from environment."""
-    return os.getenv("REDIS_URL", "redis://localhost:6379/0")
+    return os.getenv("REDIS_URL", "redis://localhost:8030/0")
 
 
 def _get_client():

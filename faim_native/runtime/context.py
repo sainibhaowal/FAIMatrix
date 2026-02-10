@@ -116,12 +116,12 @@ def get_repos(tenant_id: str) -> Dict[str, Any]:
     return {
         "session": session,
         "tenant_id": tenant_id,
-        "node_repo": NodeRepo(session),
-        "edge_repo": EdgeRepo(session),
-        "event_repo": EventRepo(),
-        "gv_repo": GraphVersionRepo(),
-        "snapshot_repo": SnapshotRepo(),
-        "raw_repo": RawRepo(),
+        "node_repo": NodeRepo(session, tenant_id=tenant_id),
+        "edge_repo": EdgeRepo(session, tenant_id=tenant_id),
+        "event_repo": EventRepo(tenant_id=tenant_id),
+        "gv_repo": GraphVersionRepo(tenant_id=tenant_id),
+        "snapshot_repo": SnapshotRepo(tenant_id=tenant_id),
+        "raw_repo": RawRepo(tenant_id=tenant_id),
         "index": index,
         "cache": cache,
     }

@@ -10,6 +10,18 @@
   - `store/` – PostgreSQL & Redis storage layers.
 - **Docker** – Production-ready containerization.
 
+## Infrastructure Standard (Port Alignment)
+
+All services are aligned to the `80x0` port range for consistency and to avoid collisions:
+
+| Service | Host Port | Internal Port | Description |
+| :--- | :--- | :--- | :--- |
+| **API** | `8000` | `8000` | FastAPI Engine |
+| **Frontend** | `8010` | `8010` | Next.js Dashboard |
+| **Postgres** | `8020` | `8020` | Database |
+| **Redis** | `8030` | `8030` | Cache/Locks |
+| **Qdrant** | `8040` / `8050` | `8040` / `8050` | Vector Database (HTTP/gRPC) |
+
 ## Quick Start
 
 ```bash

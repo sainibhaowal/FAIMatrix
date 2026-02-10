@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import asc
+from sqlalchemy import and_, asc
 from sqlalchemy.orm import Session
 
 # Flexible imports
@@ -45,6 +45,7 @@ class RawRepo:
             return existing
 
         model = RawRefModel.from_domain(raw_ref)
+        model.tenant_id = self.tenant_id
         session.add(model)
         session.flush()
         return model.to_domain()
@@ -59,7 +60,12 @@ class RawRepo:
         Returns:
             RawRef if found, None otherwise.
         """
-        model = session.query(RawRefModel).filter(RawRefModel.id == id).first()
+        model = session.query(RawRefModel).filter(
+            and_(
+                RawRefModel.tenant_id == self.tenant_id,
+                RawRefModel.id == id
+            )
+        ).first()
         return model.to_domain() if model else None
 
     def get_by_sha(self, session: Session, sha256: str) -> Optional[RawRef]:
@@ -72,7 +78,12 @@ class RawRepo:
         Returns:
             RawRef if found, None otherwise.
         """
-        model = session.query(RawRefModel).filter(RawRefModel.sha256 == sha256).first()
+        model = session.query(RawRefModel).filter(
+            and_(
+                RawRefModel.tenant_id == self.tenant_id,
+                RawRefModel.sha256 == sha256
+            )
+        ).first()
         return model.to_domain() if model else None
 
     def list_all(
@@ -98,7 +109,14 @@ class RawRepo:
         query = session.query(RawRefModel)
 
         if graph_id is not None:
-            query = query.filter(RawRefModel.graph_id == graph_id)
+            query = query.filter(
+                and_(
+                    RawRefModel.tenant_id == self.tenant_id,
+                    RawRefModel.graph_id == graph_id
+                )
+            )
+        else:
+            query = query.filter(RawRefModel.tenant_id == self.tenant_id)
 
         # Deterministic ordering
         query = query.order_by(asc(RawRefModel.created_at), asc(RawRefModel.id))
@@ -119,8 +137,15 @@ class RawRepo:
         query = session.query(RawRefModel)
 
         if graph_id is not None:
-            query = query.filter(RawRefModel.graph_id == graph_id)
-
+            query = query.filter(
+                and_(
+                    RawRefModel.tenant_id == self.tenant_id,
+                    RawRefModel.graph_id == graph_id
+                )
+            )
+        else:
+            query = query.filter(RawRefModel.tenant_id == self.tenant_id)
+        
         return query.count()
 
     def exists(self, session: Session, sha256: str) -> bool:
@@ -134,6 +159,11 @@ class RawRepo:
             True if exists, False otherwise.
         """
         return (
-            session.query(RawRefModel).filter(RawRefModel.sha256 == sha256).first()
+            session.query(RawRefModel).filter(
+                and_(
+                    RawRefModel.tenant_id == self.tenant_id,
+                    RawRefModel.sha256 == sha256
+                )
+            ).first()
             is not None
         )
