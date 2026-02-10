@@ -58,10 +58,15 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
             "FAIM_STORAGE_HARD_DELETE_ENABLED requires FAIM_ENABLE_JOBS=true"
         )
 
-    if env in {"prod", "production"} and encryption_enabled and not flags.encryption_fail_closed:
-        errors.append(
-            "Production mode with FAIM_ENCRYPTION_AT_REST=true requires FAIM_ENCRYPTION_FAIL_CLOSED=true"
-        )
+    if env in {"prod", "production"}:
+        if not encryption_enabled:
+            errors.append(
+                "Production mode requires FAIM_ENCRYPTION_AT_REST=true"
+            )
+        if not flags.encryption_fail_closed:
+            errors.append(
+                "Production mode requires FAIM_ENCRYPTION_FAIL_CLOSED=true"
+            )
 
     if flags.storage_live_job_stream_enabled:
         warnings.append(

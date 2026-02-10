@@ -31,7 +31,7 @@ def test_validate_feature_flags_requires_jobs_for_hard_delete(monkeypatch):
     assert isinstance(warnings, list)
 
 
-def test_validate_feature_flags_requires_fail_closed_in_prod_with_encryption(monkeypatch):
+def test_validate_feature_flags_requires_fail_closed_in_prod(monkeypatch):
     from runtime.feature_flags import FeatureFlags, validate_feature_flags
 
     monkeypatch.setenv("FAIM_ENV", "production")
@@ -40,6 +40,17 @@ def test_validate_feature_flags_requires_fail_closed_in_prod_with_encryption(mon
     errors, _warnings = validate_feature_flags(flags)
 
     assert any("requires FAIM_ENCRYPTION_FAIL_CLOSED=true" in e for e in errors)
+
+
+def test_validate_feature_flags_requires_encryption_in_prod(monkeypatch):
+    from runtime.feature_flags import FeatureFlags, validate_feature_flags
+
+    monkeypatch.setenv("FAIM_ENV", "production")
+    monkeypatch.setenv("FAIM_ENCRYPTION_AT_REST", "false")
+    flags = FeatureFlags(encryption_fail_closed=True)
+    errors, _warnings = validate_feature_flags(flags)
+
+    assert any("requires FAIM_ENCRYPTION_AT_REST=true" in e for e in errors)
 
 
 def test_runtime_config_parses_phase_a_flags(monkeypatch):
@@ -69,4 +80,3 @@ def test_runtime_config_parses_phase_a_flags(monkeypatch):
         "FAIM_STORAGE_CONTRACT_STRICT",
     ):
         os.environ.pop(key, None)
-

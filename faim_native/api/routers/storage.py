@@ -27,6 +27,7 @@ from api.validators import (  # noqa: E402
     sanitize_filename,
     validate_content_type,
     validate_file_extension,
+    validate_mime_extension_match,
     validate_upload_file,
     validate_upload_size,
 )
@@ -293,6 +294,13 @@ def _resolve_raw_store(ctx: FAIMContext):
     if store is not None:
         return store
 
+    env = os.getenv("FAIM_ENV", "").strip().lower()
+    if env in {"prod", "production"}:
+        raise HTTPException(
+            status_code=500,
+            detail="Raw store is unavailable in production mode",
+        )
+
     from store.raw.raw_store import RawStore
 
     fallback = Path(__file__).resolve().parents[2] / "store" / "raw" / "blobs"
@@ -485,6 +493,7 @@ async def create_upload_batch(
                     0
                 ].strip()
                 validate_content_type(mime_type)
+                validate_mime_extension_match(filename, mime_type)
 
                 try:
                     saved_ref = _store_raw_upload(

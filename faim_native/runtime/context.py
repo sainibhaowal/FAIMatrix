@@ -38,6 +38,11 @@ def _flag(name: str, default: bool = False) -> bool:
     return default
 
 
+def _is_production_env() -> bool:
+    env = os.getenv("FAIM_ENV", "").strip().lower()
+    return env in {"prod", "production"}
+
+
 def _get_engine():
     """Get or create SQLAlchemy engine."""
     global _engine
@@ -88,14 +93,21 @@ def _get_raw_store(tenant_id: str):
 
         _raw_store_plain = RawStore(path)
 
+    production = _is_production_env()
     mode = os.getenv("FAIM_PAYLOAD_CIPHER", "").strip().lower()
     if not mode and _flag("FAIM_ENCRYPTION_AT_REST", default=False):
         mode = "envelope"
+    if production and mode in {"", "none", "plain"}:
+        raise RuntimeError(
+            "Production mode requires encrypted raw store (FAIM_PAYLOAD_CIPHER=envelope and FAIM_ENCRYPTION_AT_REST=true)"
+        )
     if mode in {"", "none", "plain"}:
         return _raw_store_plain
 
     tid = str(tenant_id or "").strip()
     if not tid:
+        if production:
+            raise RuntimeError("Production mode requires non-empty tenant_id for raw store")
         return _raw_store_plain
 
     cached = _raw_store_by_tenant.get(tid)
@@ -113,6 +125,8 @@ def _get_raw_store(tenant_id: str):
             session_factory=get_session,
         )
         if isinstance(cipher, NoopCipher):
+            if production:
+                raise RuntimeError("Production mode forbids plaintext/noop payload cipher")
             return _raw_store_plain
 
         wrapped = EncryptedRawStore(
@@ -123,7 +137,7 @@ def _get_raw_store(tenant_id: str):
         _raw_store_by_tenant[tid] = wrapped
         return wrapped
     except Exception as exc:
-        if fail_closed:
+        if production or fail_closed:
             raise RuntimeError(
                 f"Encryption-at-rest initialization failed for tenant={tid}"
             ) from exc
