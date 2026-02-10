@@ -21,6 +21,23 @@ class JobStore:
     """Repository for persistent jobs and progress tracking."""
 
     @staticmethod
+    def _is_cancel_requested(job: Optional[JobModel]) -> bool:
+        if job is None:
+            return False
+        payload = job.payload_json or {}
+        return bool(payload.get("cancel_requested"))
+
+    @staticmethod
+    def _cancel_reason(job: Optional[JobModel]) -> Optional[str]:
+        if job is None:
+            return None
+        payload = job.payload_json or {}
+        reason = payload.get("cancel_reason")
+        if reason is None:
+            return None
+        return str(reason)
+
+    @staticmethod
     def enqueue(
         session: Session,
         tenant_id: str,
@@ -57,22 +74,37 @@ class JobStore:
 
         stale_time = datetime.now(timezone.utc) - timedelta(seconds=timeout_seconds)
 
-        job = (
-            session.query(JobModel)
-            .filter(
-                or_(
-                    JobModel.status == "pending",
-                    and_(
-                        JobModel.status == "running", JobModel.updated_at < stale_time
-                    ),
+        while True:
+            job = (
+                session.query(JobModel)
+                .filter(
+                    or_(
+                        JobModel.status == "pending",
+                        and_(
+                            JobModel.status == "running", JobModel.updated_at < stale_time
+                        ),
+                    )
                 )
+                .order_by(JobModel.created_at.asc(), JobModel.job_id.asc())
+                .with_for_update(skip_locked=True)
+                .first()
             )
-            .order_by(JobModel.created_at.asc(), JobModel.job_id.asc())
-            .with_for_update(skip_locked=True)
-            .first()
-        )
 
-        if job:
+            if job is None:
+                return None
+
+            if JobStore._is_cancel_requested(job):
+                # Request acknowledged before claim: finalize as cancelled and continue.
+                job.status = "cancelled"
+                job.completed_at = datetime.now(timezone.utc)
+                job.updated_at = datetime.now(timezone.utc)
+                if not job.error_message:
+                    reason = JobStore._cancel_reason(job) or "Cancelled before execution"
+                    job.error_message = reason[:1024]
+                session.commit()
+                logger.info("Job cancelled before claim: %s", job.job_id)
+                continue
+
             job.status = "running"
             job.started_at = datetime.now(timezone.utc)
             job.updated_at = datetime.now(timezone.utc)
@@ -95,6 +127,9 @@ class JobStore:
         """Mark job as successfully completed."""
         job = session.query(JobModel).filter_by(job_id=job_id).first()
         if job:
+            if JobStore._is_cancel_requested(job):
+                JobStore.mark_cancelled(session, job_id, JobStore._cancel_reason(job))
+                return
             job.status = "done"
             job.completed_at = datetime.now(timezone.utc)
             job.updated_at = datetime.now(timezone.utc)
@@ -106,12 +141,76 @@ class JobStore:
         """Mark job as failed."""
         job = session.query(JobModel).filter_by(job_id=job_id).first()
         if job:
+            if JobStore._is_cancel_requested(job):
+                JobStore.mark_cancelled(session, job_id, JobStore._cancel_reason(job))
+                return
             job.status = "failed"
             job.error_message = error
             job.completed_at = datetime.now(timezone.utc)
             job.updated_at = datetime.now(timezone.utc)
             session.commit()
             logger.error(f"Job failed: {job_id} - {error}")
+
+    @staticmethod
+    def request_cancel(
+        session: Session,
+        job_id: UUID,
+        reason: Optional[str] = None,
+    ) -> Optional[JobModel]:
+        """Request job cancellation (idempotent)."""
+        job = session.query(JobModel).filter_by(job_id=job_id).first()
+        if job is None:
+            return None
+
+        if job.status in {"done", "failed", "cancelled"}:
+            return job
+
+        payload = dict(job.payload_json or {})
+        payload["cancel_requested"] = True
+        payload["cancel_requested_at"] = datetime.now(timezone.utc).isoformat()
+        if reason:
+            payload["cancel_reason"] = reason[:1024]
+        job.payload_json = payload
+        job.updated_at = datetime.now(timezone.utc)
+        session.commit()
+        return job
+
+    @staticmethod
+    def is_cancel_requested(session: Session, job_id: UUID) -> bool:
+        """Check if cancellation has been requested for the job."""
+        job = session.query(JobModel).filter_by(job_id=job_id).first()
+        return JobStore._is_cancel_requested(job)
+
+    @staticmethod
+    def get_cancel_reason(session: Session, job_id: UUID) -> Optional[str]:
+        """Read cancellation reason if present."""
+        job = session.query(JobModel).filter_by(job_id=job_id).first()
+        return JobStore._cancel_reason(job)
+
+    @staticmethod
+    def mark_cancelled(session: Session, job_id: UUID, reason: Optional[str] = None):
+        """Mark job as cancelled."""
+        job = session.query(JobModel).filter_by(job_id=job_id).first()
+        if job is None:
+            return
+
+        payload = dict(job.payload_json or {})
+        payload["cancel_requested"] = True
+        if reason:
+            payload["cancel_reason"] = reason[:1024]
+        if "cancel_requested_at" not in payload:
+            payload["cancel_requested_at"] = datetime.now(timezone.utc).isoformat()
+        payload["cancelled_at"] = datetime.now(timezone.utc).isoformat()
+        job.payload_json = payload
+        job.status = "cancelled"
+        job.completed_at = datetime.now(timezone.utc)
+        job.updated_at = datetime.now(timezone.utc)
+        if reason:
+            job.error_message = reason[:1024]
+        elif not job.error_message:
+            job.error_message = "Cancelled"
+        session.commit()
+        logger.info("Job cancelled: %s", job_id)
 
     @staticmethod
     def append_event(

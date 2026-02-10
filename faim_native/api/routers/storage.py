@@ -6,13 +6,14 @@ Provides storage upload/catalog APIs used by Storage UI.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, text
 
@@ -83,6 +84,7 @@ class StorageUploadBatchResponse(BaseModel):
     success_files: int
     failed_files: int
     dedup_hits: int
+    cancelled_files: int = 0
     files: List[UploadFileResult]
 
 
@@ -97,6 +99,9 @@ class StorageUploadStatusResponse(BaseModel):
     success_files: int
     failed_files: int
     dedup_hits: int
+    cancelled_files: int = 0
+    cancel_requested: bool = False
+    cancel_reason: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     completed_at: Optional[str] = None
@@ -155,6 +160,111 @@ class StorageIngestActionResponse(BaseModel):
     ingest: Dict[str, Any]
 
 
+class StorageUploadCancelResponse(BaseModel):
+    """Response for upload cancellation request."""
+
+    job_id: str
+    status: str
+    cancel_requested: bool
+    cancel_reason: Optional[str] = None
+
+
+class StorageProvenanceRawRef(BaseModel):
+    """Raw reference details used in provenance inspect flow."""
+
+    raw_id: str
+    sha256: str
+    uri: str
+    mime_type: str
+    size_bytes: int
+    created_at: Optional[str] = None
+
+
+class StorageProvenanceDedup(BaseModel):
+    """Dedup linkage details for provenance."""
+
+    packet_hash: Optional[str] = None
+    dedup_record_found: bool = False
+    dedup_raw_id: Optional[str] = None
+    dedup_node_count: int = 0
+    dedup_created_at: Optional[str] = None
+
+
+class StorageProvenanceNode(BaseModel):
+    """Minimal node summary for raw provenance."""
+
+    node_id: str
+    kind: str
+    vector_hash: str
+    block_id: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class StorageProvenanceEvent(BaseModel):
+    """Minimal event summary for raw provenance."""
+
+    seq: int
+    kind: str
+    ts: Optional[str] = None
+    payload_keys: List[str]
+
+
+class StorageProvenanceResponse(BaseModel):
+    """Provenance inspect response for one raw file."""
+
+    file: StorageFileItem
+    raw_ref: Optional[StorageProvenanceRawRef] = None
+    dedup: StorageProvenanceDedup
+    node_count: int
+    event_count: int
+    nodes: List[StorageProvenanceNode]
+    events: List[StorageProvenanceEvent]
+
+
+class StorageRetentionRequest(BaseModel):
+    """Retention execution request payload."""
+
+    graph_id: Optional[str] = None
+    limit: int = Field(default=100, ge=1, le=1000)
+    dry_run: bool = True
+    irreversible: bool = False
+    reason: Optional[str] = None
+
+
+class StorageRetentionItem(BaseModel):
+    """Per-item retention action result."""
+
+    raw_id: str
+    graph_id: str
+    filename: str
+    status: str
+    detail: Optional[str] = None
+    blob_deleted: bool = False
+    raw_ref_deleted: bool = False
+
+
+class StorageRetentionResponse(BaseModel):
+    """Retention execution summary."""
+
+    status: str
+    dry_run: bool
+    irreversible: bool
+    scanned: int
+    deleted: int
+    skipped: int
+    failed: int
+    results: List[StorageRetentionItem]
+
+
+class StorageRetentionJobResponse(BaseModel):
+    """Retention job enqueue response."""
+
+    job_id: str
+    graph_id: str
+    kind: str
+    status: str
+
+
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -187,6 +297,40 @@ def _resolve_raw_store(ctx: FAIMContext):
 
     fallback = Path(__file__).resolve().parents[2] / "store" / "raw" / "blobs"
     return RawStore(fallback)
+
+
+def _storage_encryption_enabled() -> bool:
+    mode = os.getenv("FAIM_PAYLOAD_CIPHER", "").strip().lower()
+    if mode in {"fernet", "envelope"}:
+        return True
+    raw = os.getenv("FAIM_ENCRYPTION_AT_REST", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _emit_storage_audit_event(
+    *,
+    ctx: FAIMContext,
+    graph_id: str,
+    kind: str,
+    payload: Dict[str, Any],
+    commit: bool = False,
+) -> None:
+    if not ctx.event_repo or not ctx.session:
+        return
+    try:
+        ctx.event_repo.emit(ctx.session, graph_id, kind, payload)
+        if commit:
+            ctx.session.commit()
+        else:
+            ctx.session.flush()
+    except Exception as exc:  # nosec B110
+        logger.warning("Failed to emit storage audit event %s: %s", kind, exc)
+
+
+def _job_cancel_requested(ctx: FAIMContext, job_id: UUID) -> bool:
+    from orchestration.jobs.job_store import JobStore
+
+    return bool(JobStore.is_cancel_requested(ctx.session, job_id))
 
 
 def _row_to_file_item(row: Any) -> StorageFileItem:
@@ -297,6 +441,8 @@ async def create_upload_batch(
     success = 0
     failed = 0
     dedup_hits = 0
+    cancelled = 0
+    cancel_triggered = False
 
     try:
         JobStore.append_event(
@@ -310,6 +456,20 @@ async def create_upload_batch(
         )
 
         for index, upload in enumerate(files):
+            if _job_cancel_requested(ctx, job_id):
+                cancel_triggered = True
+                JobStore.append_event(
+                    ctx.session,
+                    job_id,
+                    "step_progress",
+                    {
+                        "index": index,
+                        "status": "cancelled",
+                        "message": "Cancellation acknowledged before next file",
+                    },
+                )
+                break
+
             filename = sanitize_filename(upload.filename or f"upload-{index + 1}")
             result_entry = UploadFileResult(filename=filename, status="pending")
             file_results.append(result_entry)
@@ -326,15 +486,32 @@ async def create_upload_batch(
                 ].strip()
                 validate_content_type(mime_type)
 
-                saved_ref = _store_raw_upload(
-                    ctx=ctx,
-                    graph_id=graph_id,
-                    file_bytes=file_bytes,
-                    mime_type=mime_type,
-                )
+                try:
+                    saved_ref = _store_raw_upload(
+                        ctx=ctx,
+                        graph_id=graph_id,
+                        file_bytes=file_bytes,
+                        mime_type=mime_type,
+                    )
+                except Exception as exc:
+                    if _storage_encryption_enabled():
+                        _emit_storage_audit_event(
+                            ctx=ctx,
+                            graph_id=graph_id,
+                            kind="STORAGE_ENCRYPT_FAILED",
+                            payload={
+                                "filename": filename,
+                                "mime_type": mime_type,
+                                "size_bytes": len(file_bytes),
+                                "error": str(exc),
+                            },
+                            commit=True,
+                        )
+                    raise
+
                 raw_uuid = _parse_uuid(str(saved_ref.id), "raw_id")
 
-                row = ctx.storage_file_repo.upsert_upload(
+                ctx.storage_file_repo.upsert_upload(
                     ctx.session,
                     graph_id=graph_id,
                     raw_id=raw_uuid,
@@ -350,6 +527,19 @@ async def create_upload_batch(
                     graph_id=graph_id,
                     job_id=job_id,
                 )
+                _emit_storage_audit_event(
+                    ctx=ctx,
+                    graph_id=graph_id,
+                    kind="STORAGE_RAW_STORED",
+                    payload={
+                        "job_id": str(job_id),
+                        "raw_id": str(raw_uuid),
+                        "filename": filename,
+                        "mime_type": mime_type,
+                        "size_bytes": len(file_bytes),
+                        "sha256": str(saved_ref.sha256),
+                    },
+                )
                 ctx.session.commit()
 
                 JobStore.append_event(
@@ -364,6 +554,35 @@ async def create_upload_batch(
                     },
                 )
 
+                if _job_cancel_requested(ctx, job_id):
+                    cancel_triggered = True
+                    cancelled += 1
+                    processed += 1
+                    result_entry.raw_id = str(raw_uuid)
+                    result_entry.status = "cancelled"
+                    result_entry.error = "Upload cancelled before ingest execution"
+                    ctx.storage_file_repo.mark_cancelled(
+                        ctx.session,
+                        raw_id=raw_uuid,
+                        graph_id=graph_id,
+                        error_message=result_entry.error,
+                        job_id=job_id,
+                    )
+                    JobStore.append_event(
+                        ctx.session,
+                        job_id,
+                        "step_progress",
+                        {
+                            "index": index,
+                            "filename": filename,
+                            "raw_id": str(raw_uuid),
+                            "status": "cancelled",
+                            "message": "Cancellation acknowledged before ingest",
+                        },
+                    )
+                    ctx.session.commit()
+                    break
+
                 ingest_result = _run_ingest_existing_raw(
                     ctx=ctx,
                     graph_id=graph_id,
@@ -374,7 +593,7 @@ async def create_upload_batch(
                     persist_mode=persist_mode,
                 )
 
-                row = ctx.storage_file_repo.mark_ingest_result(
+                ctx.storage_file_repo.mark_ingest_result(
                     ctx.session,
                     raw_id=raw_uuid,
                     graph_id=graph_id,
@@ -385,6 +604,30 @@ async def create_upload_batch(
                     error_message=ingest_result.error,
                     job_id=job_id,
                 )
+                if ingest_result.status == "dedup_hit":
+                    _emit_storage_audit_event(
+                        ctx=ctx,
+                        graph_id=graph_id,
+                        kind="STORAGE_DEDUP_HIT",
+                        payload={
+                            "job_id": str(job_id),
+                            "raw_id": str(raw_uuid),
+                            "filename": filename,
+                            "packet_hash": ingest_result.packet_hash,
+                        },
+                    )
+                elif ingest_result.status == "error":
+                    _emit_storage_audit_event(
+                        ctx=ctx,
+                        graph_id=graph_id,
+                        kind="STORAGE_EXTRACT_FAILED",
+                        payload={
+                            "job_id": str(job_id),
+                            "raw_id": str(raw_uuid),
+                            "filename": filename,
+                            "error": ingest_result.error,
+                        },
+                    )
                 ctx.session.commit()
 
                 processed += 1
@@ -453,11 +696,29 @@ async def create_upload_batch(
                     },
                 )
 
-        final_status = "completed"
-        if failed and success:
-            final_status = "partial_failed"
-        elif failed and not success:
-            final_status = "failed"
+        if cancel_triggered:
+            if len(file_results) < requested_files:
+                for upload in files[len(file_results) :]:
+                    file_results.append(
+                        UploadFileResult(
+                            filename=sanitize_filename(upload.filename or "upload"),
+                            status="cancelled",
+                            error="Upload cancelled before processing",
+                        )
+                    )
+                    cancelled += 1
+            for pending in file_results:
+                if pending.status == "pending":
+                    pending.status = "cancelled"
+                    pending.error = "Upload cancelled before processing"
+                    cancelled += 1
+            final_status = "cancelled"
+        else:
+            final_status = "completed"
+            if failed and success:
+                final_status = "partial_failed"
+            elif failed and not success:
+                final_status = "failed"
 
         JobStore.append_event(
             ctx.session,
@@ -470,6 +731,7 @@ async def create_upload_batch(
                 "success": success,
                 "failed": failed,
                 "dedup_hits": dedup_hits,
+                "cancelled_files": cancelled,
             },
         )
 
@@ -482,18 +744,27 @@ async def create_upload_batch(
                     "success_files": success,
                     "failed_files": failed,
                     "dedup_hits": dedup_hits,
+                    "cancelled_files": cancelled,
                 }
             )
             job.payload_json = payload
             job.updated_at = datetime.now(timezone.utc)
-            if final_status == "failed":
+            if final_status == "cancelled":
+                JobStore.mark_cancelled(
+                    ctx.session,
+                    job_id,
+                    reason=JobStore.get_cancel_reason(ctx.session, job_id)
+                    or "Cancelled by user request",
+                )
+            elif final_status == "failed":
                 job.status = "failed"
                 job.error_message = "All files failed ingestion"
                 job.completed_at = datetime.now(timezone.utc)
+                ctx.session.commit()
             else:
                 job.status = "done"
                 job.completed_at = datetime.now(timezone.utc)
-            ctx.session.commit()
+                ctx.session.commit()
 
         return StorageUploadBatchResponse(
             job_id=str(job_id),
@@ -504,6 +775,7 @@ async def create_upload_batch(
             success_files=success,
             failed_files=failed,
             dedup_hits=dedup_hits,
+            cancelled_files=cancelled,
             files=file_results,
         )
     except HTTPException:
@@ -550,8 +822,14 @@ async def get_upload_status(
     )
     failed_files = len([f for f in file_items if f.ingest_status == "failed"])
     dedup_hits = len([f for f in file_items if f.ingest_status == "dedup_hit"])
-
-    requested_files = int((job.payload_json or {}).get("requested_files", processed_files))
+    payload = job.payload_json or {}
+    cancelled_files = max(
+        len([f for f in file_items if f.ingest_status == "cancelled"]),
+        int(payload.get("cancelled_files", 0)),
+    )
+    requested_files = int(payload.get("requested_files", processed_files))
+    cancel_requested = bool(payload.get("cancel_requested", False))
+    cancel_reason = payload.get("cancel_reason")
 
     return StorageUploadStatusResponse(
         job_id=str(job.job_id),
@@ -562,6 +840,9 @@ async def get_upload_status(
         success_files=success_files,
         failed_files=failed_files,
         dedup_hits=dedup_hits,
+        cancelled_files=cancelled_files,
+        cancel_requested=cancel_requested,
+        cancel_reason=str(cancel_reason) if cancel_reason is not None else None,
         created_at=job.created_at.isoformat() if job.created_at else None,
         updated_at=job.updated_at.isoformat() if job.updated_at else None,
         completed_at=job.completed_at.isoformat() if job.completed_at else None,
@@ -596,6 +877,53 @@ async def get_upload_job_events(
             )
             for e in events
         ],
+    )
+
+
+@router.post("/uploads/{job_id}/cancel", response_model=StorageUploadCancelResponse)
+async def cancel_upload_job(
+    job_id: str,
+    reason: Optional[str] = Query(None),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageUploadCancelResponse:
+    """Request cancellation for an upload job."""
+    _require_storage_repos(ctx)
+
+    from orchestration.jobs.job_store import JobStore
+
+    job_uuid = _parse_uuid(job_id, "job_id")
+    job = JobStore.get_job(ctx.session, job_uuid)
+    if job is None or job.tenant_id != ctx.tenant_id:
+        raise HTTPException(status_code=404, detail="Upload job not found")
+
+    if job.status in {"done", "failed", "cancelled"}:
+        return StorageUploadCancelResponse(
+            job_id=str(job_uuid),
+            status=job.status,
+            cancel_requested=bool((job.payload_json or {}).get("cancel_requested")),
+            cancel_reason=(job.payload_json or {}).get("cancel_reason"),
+        )
+
+    updated = JobStore.request_cancel(ctx.session, job_uuid, reason=reason)
+    if updated is None:
+        raise HTTPException(status_code=404, detail="Upload job not found")
+
+    JobStore.append_event(
+        ctx.session,
+        job_uuid,
+        "step_progress",
+        {
+            "status": "cancel_requested",
+            "message": "Cancellation requested",
+            "reason": reason,
+        },
+    )
+    payload = updated.payload_json or {}
+    return StorageUploadCancelResponse(
+        job_id=str(job_uuid),
+        status=updated.status,
+        cancel_requested=bool(payload.get("cancel_requested")),
+        cancel_reason=payload.get("cancel_reason"),
     )
 
 
@@ -652,6 +980,122 @@ async def get_storage_file(
     return _row_to_file_item(row)
 
 
+@router.get("/files/{raw_id}/provenance", response_model=StorageProvenanceResponse)
+async def get_storage_file_provenance(
+    raw_id: str,
+    graph_id: Optional[str] = Query(None),
+    limit_nodes: int = Query(25, ge=1, le=200),
+    limit_events: int = Query(50, ge=1, le=500),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageProvenanceResponse:
+    """Inspect provenance linkage from raw source to nodes/events."""
+    _require_storage_repos(ctx)
+
+    from store.pg.models_faim import IngestDedupModel, NodeModel
+
+    raw_uuid = _parse_uuid(raw_id, "raw_id")
+    row = ctx.storage_file_repo.get_by_raw_id(ctx.session, raw_uuid, graph_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Storage file not found")
+
+    raw_ref = ctx.raw_repo.get_by_id(ctx.session, raw_uuid)
+    raw_ref_model = None
+    if raw_ref is not None:
+        raw_ref_model = StorageProvenanceRawRef(
+            raw_id=str(raw_ref.id),
+            sha256=str(raw_ref.sha256),
+            uri=str(raw_ref.uri),
+            mime_type=str(raw_ref.mime_type),
+            size_bytes=int(raw_ref.size_bytes),
+            created_at=raw_ref.created_at.isoformat() if raw_ref.created_at else None,
+        )
+
+    dedup_record = None
+    dedup_raw_id = str(raw_uuid)
+    if row.packet_hash:
+        dedup_record = IngestDedupModel.check_exists(
+            ctx.session,
+            ctx.tenant_id,
+            row.graph_id,
+            row.packet_hash,
+        )
+        if dedup_record is not None and dedup_record.raw_id:
+            dedup_raw_id = str(dedup_record.raw_id)
+
+    provenance_raw_ids = {str(raw_uuid)}
+    if dedup_raw_id:
+        provenance_raw_ids.add(dedup_raw_id)
+
+    nodes_q = (
+        ctx.session.query(NodeModel)
+        .filter(
+            and_(
+                NodeModel.tenant_id == ctx.tenant_id,
+                NodeModel.graph_id == row.graph_id,
+                NodeModel.raw_id.in_(list(provenance_raw_ids)),
+            )
+        )
+        .order_by(NodeModel.created_at.desc(), NodeModel.node_id.asc())
+    )
+    node_rows = nodes_q.limit(limit_nodes).all()
+    node_count = int(nodes_q.count())
+
+    event_items: List[StorageProvenanceEvent] = []
+    if ctx.event_repo:
+        try:
+            all_events = ctx.event_repo.get_by_seq(
+                ctx.session,
+                graph_id=row.graph_id,
+                after_seq=0,
+                limit=max(limit_events * 4, 100),
+            )
+            for event in reversed(all_events):
+                payload = event.payload or {}
+                payload_raw_id = str(payload.get("raw_id", "")).strip()
+                if payload_raw_id and payload_raw_id in provenance_raw_ids:
+                    event_items.append(
+                        StorageProvenanceEvent(
+                            seq=int(event.seq),
+                            kind=event.kind,
+                            ts=event.ts.isoformat() if event.ts else None,
+                            payload_keys=sorted([str(k) for k in payload.keys()]),
+                        )
+                    )
+                if len(event_items) >= limit_events:
+                    break
+        except Exception as exc:  # nosec B110
+            logger.warning("Failed to load provenance events: %s", exc)
+
+    return StorageProvenanceResponse(
+        file=_row_to_file_item(row),
+        raw_ref=raw_ref_model,
+        dedup=StorageProvenanceDedup(
+            packet_hash=row.packet_hash,
+            dedup_record_found=dedup_record is not None,
+            dedup_raw_id=dedup_raw_id,
+            dedup_node_count=int(getattr(dedup_record, "node_count", 0) or 0),
+            dedup_created_at=(
+                dedup_record.created_at.isoformat()
+                if dedup_record is not None and dedup_record.created_at
+                else None
+            ),
+        ),
+        node_count=node_count,
+        event_count=len(event_items),
+        nodes=[
+            StorageProvenanceNode(
+                node_id=str(node.node_id),
+                kind=node.kind,
+                vector_hash=node.vector_hash,
+                block_id=node.block_id,
+                created_at=node.created_at.isoformat() if node.created_at else None,
+            )
+            for node in node_rows
+        ],
+        events=event_items,
+    )
+
+
 @router.delete("/files/{raw_id}", response_model=StorageFileItem)
 async def request_delete_storage_file(
     raw_id: str,
@@ -672,19 +1116,15 @@ async def request_delete_storage_file(
     if row is None:
         raise HTTPException(status_code=404, detail="Storage file not found")
 
-    if ctx.event_repo:
-        try:
-            ctx.event_repo.emit(
-                ctx.session,
-                graph_id,
-                "STORAGE_DELETE_REQUESTED",
-                {
-                    "raw_id": str(raw_uuid),
-                    "reason": reason,
-                },
-            )
-        except Exception as e:
-            logger.warning(f"Failed to emit delete-request event: {e}")
+    _emit_storage_audit_event(
+        ctx=ctx,
+        graph_id=graph_id,
+        kind="STORAGE_DELETE_REQUESTED",
+        payload={
+            "raw_id": str(raw_uuid),
+            "reason": reason,
+        },
+    )
 
     ctx.session.commit()
     return _row_to_file_item(row)
@@ -750,6 +1190,28 @@ async def reingest_storage_file(
         error_message=ingest_result.error,
         job_id=None,
     )
+    if ingest_result.status == "dedup_hit":
+        _emit_storage_audit_event(
+            ctx=ctx,
+            graph_id=row.graph_id,
+            kind="STORAGE_DEDUP_HIT",
+            payload={
+                "raw_id": str(raw_uuid),
+                "filename": row.filename,
+                "packet_hash": ingest_result.packet_hash,
+            },
+        )
+    elif ingest_result.status == "error":
+        _emit_storage_audit_event(
+            ctx=ctx,
+            graph_id=row.graph_id,
+            kind="STORAGE_EXTRACT_FAILED",
+            payload={
+                "raw_id": str(raw_uuid),
+                "filename": row.filename,
+                "error": ingest_result.error,
+            },
+        )
     ctx.session.commit()
 
     return StorageIngestActionResponse(
@@ -858,6 +1320,153 @@ async def get_storage_backends_health(
         redis=redis_ok,
         qdrant=qdrant_ok,
         raw_store=raw_store_ok,
+    )
+
+
+@router.post("/retention/execute", response_model=StorageRetentionResponse)
+async def execute_storage_retention(
+    request: StorageRetentionRequest = Body(default_factory=StorageRetentionRequest),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageRetentionResponse:
+    """Run retention cleanup for delete-requested files.
+
+    Default mode is dry-run; physical deletion requires irreversible mode and
+    enabled hard-delete feature flag.
+    """
+    _require_storage_repos(ctx)
+
+    if not request.dry_run and not request.irreversible:
+        raise HTTPException(
+            status_code=400,
+            detail="Physical deletion requires irreversible=true",
+        )
+
+    if not request.dry_run:
+        from runtime.feature_flags import get_feature_flags
+
+        flags = get_feature_flags()
+        if not flags.storage_hard_delete_enabled:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Physical deletion disabled. "
+                    "Set FAIM_STORAGE_HARD_DELETE_ENABLED=true for irreversible cleanup."
+                ),
+            )
+
+    try:
+        from orchestration.jobs.storage_retention import run_storage_retention_cleanup
+
+        result = run_storage_retention_cleanup(
+            session=ctx.session,
+            tenant_id=ctx.tenant_id,
+            storage_file_repo=ctx.storage_file_repo,
+            raw_repo=ctx.raw_repo,
+            raw_store=_resolve_raw_store(ctx),
+            event_repo=ctx.event_repo,
+            graph_id=request.graph_id,
+            limit=request.limit,
+            dry_run=request.dry_run,
+            irreversible=request.irreversible,
+            reason=request.reason,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        ctx.session.rollback()
+        logger.error("Storage retention execution failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return StorageRetentionResponse(
+        status="ok" if result.failed == 0 else "partial_failed",
+        dry_run=result.dry_run,
+        irreversible=result.irreversible,
+        scanned=result.scanned,
+        deleted=result.deleted,
+        skipped=result.skipped,
+        failed=result.failed,
+        results=[
+            StorageRetentionItem(
+                raw_id=item.raw_id,
+                graph_id=item.graph_id,
+                filename=item.filename,
+                status=item.status,
+                detail=item.detail,
+                blob_deleted=item.blob_deleted,
+                raw_ref_deleted=item.raw_ref_deleted,
+            )
+            for item in result.results
+        ],
+    )
+
+
+@router.post("/retention/jobs", response_model=StorageRetentionJobResponse)
+async def enqueue_storage_retention_job(
+    request: StorageRetentionRequest = Body(default_factory=StorageRetentionRequest),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageRetentionJobResponse:
+    """Enqueue retention cleanup for background worker execution."""
+    _require_storage_repos(ctx)
+
+    from runtime.config import get_config
+
+    cfg = get_config()
+    if not cfg.enable_jobs:
+        raise HTTPException(
+            status_code=409,
+            detail="Background jobs are disabled (FAIM_ENABLE_JOBS=false)",
+        )
+
+    if not request.dry_run and not request.irreversible:
+        raise HTTPException(
+            status_code=400,
+            detail="Physical deletion requires irreversible=true",
+        )
+
+    if not request.dry_run and not cfg.storage_hard_delete_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Physical deletion disabled. "
+                "Set FAIM_STORAGE_HARD_DELETE_ENABLED=true for irreversible cleanup."
+            ),
+        )
+
+    from orchestration.jobs.job_store import JobStore
+
+    payload = {
+        "graph_id": request.graph_id,
+        "limit": request.limit,
+        "dry_run": request.dry_run,
+        "irreversible": request.irreversible,
+        "reason": request.reason,
+    }
+    graph_for_job = request.graph_id or "default"
+    job_id = JobStore.enqueue(
+        session=ctx.session,
+        tenant_id=ctx.tenant_id,
+        graph_id=graph_for_job,
+        kind="storage_retention",
+        payload=payload,
+    )
+    JobStore.append_event(
+        ctx.session,
+        job_id,
+        "step_start",
+        {
+            "message": "Storage retention job enqueued",
+            "graph_id": request.graph_id,
+            "dry_run": request.dry_run,
+            "irreversible": request.irreversible,
+            "limit": request.limit,
+        },
+    )
+
+    return StorageRetentionJobResponse(
+        job_id=str(job_id),
+        graph_id=graph_for_job,
+        kind="storage_retention",
+        status="pending",
     )
 
 

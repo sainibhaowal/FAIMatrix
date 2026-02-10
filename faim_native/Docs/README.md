@@ -15,6 +15,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 9. `09_P1_IMPLEMENTATION_REPORT.md`
 10. `10_P2_IMPLEMENTATION_REPORT.md`
 11. `11_PHASE_A_CONTRACT_FREEZE_REPORT.md`
+12. `12_PHASE_B_BACKEND_COMPLETION_REPORT.md`
 
 ## Intent
 
@@ -23,6 +24,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - P1 implementation completion is documented in 09.
 - P2 implementation completion is documented in 10.
 - Phase A contract freeze and guardrails are documented in 11.
+- Phase B backend completion is documented in 12.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

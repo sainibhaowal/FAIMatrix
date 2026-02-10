@@ -32,6 +32,30 @@ Implemented in Phase A:
 
 See `11_PHASE_A_CONTRACT_FREEZE_REPORT.md` for implementation evidence.
 
+## Phase B Update (2026-02-10)
+
+Backend completion items are now implemented.
+
+Implemented in Phase B:
+
+- provenance inspect API:
+  - `GET /api/v1/storage/files/{raw_id}/provenance`
+- upload cancellation API + job cancellation model:
+  - `POST /api/v1/storage/uploads/{job_id}/cancel`
+- retention cleanup APIs:
+  - `POST /api/v1/storage/retention/execute`
+  - `POST /api/v1/storage/retention/jobs`
+- retention worker execution path in `orchestration/jobs/worker.py` for `kind="storage_retention"`
+- lifecycle audit event coverage:
+  - `STORAGE_RAW_STORED`
+  - `STORAGE_DEDUP_HIT`
+  - `STORAGE_EXTRACT_FAILED`
+  - `STORAGE_ENCRYPT_FAILED`
+  - `STORAGE_DELETE_REQUESTED`
+  - `STORAGE_DELETE_EXECUTED`
+
+See `12_PHASE_B_BACKEND_COMPLETION_REPORT.md` for implementation evidence.
+
 ## 1) Product Objective
 
 Build a production Storage page that can:

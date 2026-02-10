@@ -251,3 +251,51 @@ Validation:
 
 - `tests/unit/test_phase_a_storage_contract.py`
 - `tests/unit/test_phase_a_feature_flags.py`
+
+## Phase B - Backend Completion
+
+Status (2026-02-10): implemented.
+
+Completed:
+
+- [x] Provenance inspect API surface
+  - `GET /api/v1/storage/files/{raw_id}/provenance`
+  - implementation: `api/routers/storage.py`
+
+- [x] Upload cancellation model + safe stop points
+  - `POST /api/v1/storage/uploads/{job_id}/cancel`
+  - `orchestration/jobs/job_store.py` cancellation primitives
+  - upload loop cancellation checkpoints in `api/routers/storage.py`
+
+- [x] Full storage lifecycle audit events
+  - wired events:
+    - `STORAGE_RAW_STORED`
+    - `STORAGE_DEDUP_HIT`
+    - `STORAGE_EXTRACT_FAILED`
+    - `STORAGE_ENCRYPT_FAILED`
+    - `STORAGE_DELETE_REQUESTED`
+    - `STORAGE_DELETE_EXECUTED`
+  - implementation:
+    - `api/routers/storage.py`
+    - `api/routers/ingest.py`
+    - `orchestration/jobs/storage_retention.py`
+
+- [x] Retention cleanup worker path (dry-run + irreversible guardrails)
+  - execution APIs:
+    - `POST /api/v1/storage/retention/execute`
+    - `POST /api/v1/storage/retention/jobs`
+  - worker integration:
+    - `orchestration/jobs/worker.py` supports `kind="storage_retention"`
+  - hard-delete guardrails enforced using:
+    - `FAIM_STORAGE_HARD_DELETE_ENABLED`
+    - `irreversible=true` for physical delete
+
+Validation:
+
+- `tests/unit/test_phase_b_job_cancellation.py`
+- `tests/unit/test_phase_b_storage_retention.py`
+- `tests/acceptance/test_AT_PB_storage_phase_b_surface.py`
+
+Implementation evidence:
+
+- `12_PHASE_B_BACKEND_COMPLETION_REPORT.md`
