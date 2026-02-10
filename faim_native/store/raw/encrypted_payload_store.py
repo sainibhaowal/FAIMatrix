@@ -127,6 +127,20 @@ class EncryptedRawStore:
             return bool(verify_fn(raw_ref))
         return self.exists(raw_ref)
 
+    def delete(self, raw_ref: RawRef) -> bool:
+        """Delete encrypted blob from underlying store."""
+        delete_fn = getattr(self._inner, "delete", None)
+        if callable(delete_fn):
+            return bool(delete_fn(raw_ref))
+        return False
+
+    def delete_by_sha(self, sha256: str) -> bool:
+        """Delete encrypted blob by SHA from underlying store."""
+        delete_by_sha = getattr(self._inner, "delete_by_sha", None)
+        if callable(delete_by_sha):
+            return bool(delete_by_sha(sha256))
+        return False
+
     def get_stats(self) -> dict:
         """Delegate storage stats to underlying store."""
         get_stats = getattr(self._inner, "get_stats", None)

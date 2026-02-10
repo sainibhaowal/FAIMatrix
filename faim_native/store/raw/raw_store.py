@@ -240,6 +240,26 @@ class RawStore:
         except (BlobNotFoundError, BlobVerificationError):
             return False
 
+    def delete(self, raw_ref: RawRef) -> bool:
+        """Physically delete blob by RawRef.
+
+        Returns:
+            True if file existed and was removed, False if already missing.
+        """
+        return self.delete_by_sha(raw_ref.sha256)
+
+    def delete_by_sha(self, sha256: str) -> bool:
+        """Physically delete blob by SHA256.
+
+        Note:
+            This is reserved for retention workflows. Normal ingest path remains immutable.
+        """
+        blob_path = self._blob_path(sha256)
+        if not blob_path.exists():
+            return False
+        blob_path.unlink()
+        return True
+
     def get_stats(self) -> dict:
         """Get storage statistics.
 

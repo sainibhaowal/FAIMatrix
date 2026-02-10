@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import binascii
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -88,6 +89,34 @@ def _parse_uuid(raw_id: str) -> UUID:
         raise HTTPException(status_code=400, detail="raw_id must be a valid UUID") from e
 
 
+def _encryption_enabled() -> bool:
+    mode = os.getenv("FAIM_PAYLOAD_CIPHER", "").strip().lower()
+    if mode in {"fernet", "envelope"}:
+        return True
+    raw = os.getenv("FAIM_ENCRYPTION_AT_REST", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _emit_storage_audit_event(
+    *,
+    ctx: FAIMContext,
+    graph_id: str,
+    kind: str,
+    payload: dict[str, Any],
+    commit: bool = False,
+) -> None:
+    if not ctx.event_repo or not ctx.session:
+        return
+    try:
+        ctx.event_repo.emit(ctx.session, graph_id, kind, payload)
+        if commit:
+            ctx.session.commit()
+        else:
+            ctx.session.flush()
+    except Exception as exc:  # nosec B110
+        logger.warning("Failed to emit storage audit event %s: %s", kind, exc)
+
+
 def _persist_raw_upload(
     *,
     ctx: FAIMContext,
@@ -110,8 +139,36 @@ def _persist_raw_upload(
         fallback = Path(__file__).resolve().parents[2] / "store" / "raw" / "blobs"
         store = RawStore(fallback)
 
-    raw_ref = store.store(file_bytes, mime_type=mime_type, graph_id=graph_id)
+    try:
+        raw_ref = store.store(file_bytes, mime_type=mime_type, graph_id=graph_id)
+    except Exception as exc:
+        if _encryption_enabled():
+            _emit_storage_audit_event(
+                ctx=ctx,
+                graph_id=graph_id,
+                kind="STORAGE_ENCRYPT_FAILED",
+                payload={
+                    "filename": "ingest_upload",
+                    "mime_type": mime_type,
+                    "size_bytes": len(file_bytes),
+                    "error": str(exc),
+                },
+                commit=True,
+            )
+        raise
+
     saved_ref = ctx.raw_repo.create(ctx.session, raw_ref)
+    _emit_storage_audit_event(
+        ctx=ctx,
+        graph_id=graph_id,
+        kind="STORAGE_RAW_STORED",
+        payload={
+            "raw_id": str(saved_ref.id),
+            "sha256": str(saved_ref.sha256),
+            "mime_type": mime_type,
+            "size_bytes": len(file_bytes),
+        },
+    )
     ctx.session.commit()
 
     persisted_raw_id = str(saved_ref.id)
@@ -183,6 +240,26 @@ def _track_storage_ingest_result(
         error_message=result.error,
         job_id=None,
     )
+    if result.status == "dedup_hit":
+        _emit_storage_audit_event(
+            ctx=ctx,
+            graph_id=graph_id,
+            kind="STORAGE_DEDUP_HIT",
+            payload={
+                "raw_id": raw_id,
+                "packet_hash": result.packet_hash,
+            },
+        )
+    elif result.status == "error":
+        _emit_storage_audit_event(
+            ctx=ctx,
+            graph_id=graph_id,
+            kind="STORAGE_EXTRACT_FAILED",
+            payload={
+                "raw_id": raw_id,
+                "error": result.error,
+            },
+        )
     ctx.session.commit()
 
 

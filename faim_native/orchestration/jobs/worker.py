@@ -82,6 +82,10 @@ class Worker:
             try:
                 if kind == "evolve":
                     self._run_evolve_job(session, tenant_id, graph_id, payload, job_id)
+                elif kind == "storage_retention":
+                    self._run_storage_retention_job(
+                        session, tenant_id, graph_id, payload, job_id
+                    )
                 else:
                     raise ValueError(f"Unknown job kind: {kind}")
 
@@ -142,6 +146,49 @@ class Worker:
                 "merges": result.merges,
                 "prunes": result.prunes,
                 "version": result.graph_version,
+            },
+        )
+
+    def _run_storage_retention_job(self, session, tenant_id, graph_id, payload, job_id):
+        """Execute storage retention cleanup job."""
+        from orchestration.jobs.storage_retention import run_storage_retention_cleanup
+        from runtime.context import _get_raw_store
+        from store.pg.repos.event_repo import EventRepo
+        from store.pg.repos.raw_repo import RawRepo
+        from store.pg.repos.storage_file_repo import StorageFileRepo
+
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {"message": "Running storage retention cleanup"},
+        )
+
+        result = run_storage_retention_cleanup(
+            session=session,
+            tenant_id=tenant_id,
+            storage_file_repo=StorageFileRepo(tenant_id=tenant_id),
+            raw_repo=RawRepo(tenant_id=tenant_id),
+            raw_store=_get_raw_store(tenant_id),
+            event_repo=EventRepo(tenant_id=tenant_id),
+            graph_id=payload.get("graph_id") or graph_id,
+            limit=int(payload.get("limit", 100)),
+            dry_run=bool(payload.get("dry_run", True)),
+            irreversible=bool(payload.get("irreversible", False)),
+            reason=payload.get("reason"),
+        )
+
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {
+                "message": "Storage retention cleanup complete",
+                "dry_run": result.dry_run,
+                "scanned": result.scanned,
+                "deleted": result.deleted,
+                "skipped": result.skipped,
+                "failed": result.failed,
             },
         )
 
