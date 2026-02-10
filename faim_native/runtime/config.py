@@ -143,10 +143,11 @@ class FAIMConfig:
 
         env = os.environ.get("FAIM_ENV", "").strip().lower()
         encryption_enabled = parse_bool_env("FAIM_ENCRYPTION_AT_REST", False)
-        if env in ("prod", "production") and encryption_enabled and not self.encryption_fail_closed:
-            errors.append(
-                "Production with FAIM_ENCRYPTION_AT_REST=true requires FAIM_ENCRYPTION_FAIL_CLOSED=true"
-            )
+        if env in ("prod", "production"):
+            if not encryption_enabled:
+                errors.append("Production requires FAIM_ENCRYPTION_AT_REST=true")
+            if not self.encryption_fail_closed:
+                errors.append("Production requires FAIM_ENCRYPTION_FAIL_CLOSED=true")
 
         return errors
 

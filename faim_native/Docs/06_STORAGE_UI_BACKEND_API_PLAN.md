@@ -56,6 +56,28 @@ Implemented in Phase B:
 
 See `12_PHASE_B_BACKEND_COMPLETION_REPORT.md` for implementation evidence.
 
+## Phase D Update (2026-02-10)
+
+Security hardening for production policy is now implemented.
+
+Implemented in Phase D:
+
+- production policy enforcement:
+  - production requires `FAIM_ENCRYPTION_AT_REST=true`
+  - production requires `FAIM_ENCRYPTION_FAIL_CLOSED=true`
+- production plaintext fallback removal:
+  - runtime raw store fails closed if encryption path is unavailable in production
+  - storage/ingest routers do not use plaintext fallback store in production mode
+- upload abuse protections:
+  - explicit MIME/extension mismatch rejection
+  - explicit path-like filename rejection
+  - oversize rejection path retained (413)
+- storage route authz/tenant isolation test coverage:
+  - all storage routes require auth headers
+  - cross-tenant job/file/provenance access is rejected
+
+See `14_PHASE_D_SECURITY_HARDENING_REPORT.md` for implementation evidence.
+
 ## 1) Product Objective
 
 Build a production Storage page that can:
