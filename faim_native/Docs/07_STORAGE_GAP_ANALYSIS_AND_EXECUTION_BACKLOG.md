@@ -231,3 +231,23 @@ Goal: activate tenant DEK workflow in live ingest/storage path.
 - Retrieval/explain path traces results back to immutable raw source.
 - Security baseline enforced (authz, validation, redaction, encryption where required).
 - Deterministic behavior preserved in STRICT mode.
+
+## Phase A - Contract Freeze and Safety Guardrails
+
+Status (2026-02-10): implemented.
+
+Completed:
+
+- [x] Storage API contract matrix frozen and validated at startup.
+- [x] Required response-model fields checked via contract validator.
+- [x] Feature-flag guardrail validation added for risky rollout paths.
+- [x] New rollout flags defined and parsed in runtime config:
+  - `FAIM_ENCRYPTION_FAIL_CLOSED`
+  - `FAIM_STORAGE_HARD_DELETE_ENABLED`
+  - `FAIM_STORAGE_LIVE_JOB_STREAM_ENABLED`
+  - `FAIM_STORAGE_CONTRACT_STRICT`
+
+Validation:
+
+- `tests/unit/test_phase_a_storage_contract.py`
+- `tests/unit/test_phase_a_feature_flags.py`

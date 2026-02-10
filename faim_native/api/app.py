@@ -188,6 +188,33 @@ def create_app() -> FastAPI:
     async def startup_event():
         logger.info("FAIM-Native API starting up...")
 
+        # Phase A: feature-flag guardrails + contract freeze checks
+        try:
+            from api.contracts.storage_contract import validate_storage_router_contract
+            from runtime.feature_flags import get_feature_flags, validate_feature_flags
+
+            flags = get_feature_flags()
+            errors, warnings = validate_feature_flags(flags)
+            for warning in warnings:
+                logger.warning(f"Feature flag warning: {warning}")
+
+            if errors:
+                for err in errors:
+                    logger.critical(f"Feature flag validation error: {err}")
+                raise RuntimeError("Feature flag validation failed")
+
+            contract = validate_storage_router_contract(storage_router.routes)
+            if not contract.ok:
+                for err in contract.errors:
+                    logger.critical(f"Storage contract violation: {err}")
+                if flags.storage_contract_strict:
+                    raise RuntimeError("Storage contract validation failed")
+            else:
+                logger.info(f"Storage contract validated (v={contract.version})")
+        except Exception as e:
+            logger.critical(f"Startup contract/flag validation failed: {e}")
+            raise
+
         # Stage-10: Auto-migrate if enabled (default=false)
         import os
 
