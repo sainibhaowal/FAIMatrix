@@ -14,6 +14,24 @@ Actual implemented baseline:
 
 Use this doc as design intent, and `09_P1_IMPLEMENTATION_REPORT.md` as implementation record.
 
+## Phase A Update (2026-02-10)
+
+Contract freeze and safety guardrails are now implemented.
+
+Implemented in Phase A:
+
+- storage route/method matrix compatibility validator (`api/contracts/storage_contract.py`)
+- startup contract check in API app (`api/app.py`)
+- rollout feature flags and guardrail validation:
+  - `FAIM_ENCRYPTION_FAIL_CLOSED`
+  - `FAIM_STORAGE_HARD_DELETE_ENABLED`
+  - `FAIM_STORAGE_LIVE_JOB_STREAM_ENABLED`
+  - `FAIM_STORAGE_CONTRACT_STRICT`
+- runtime config parsing/validation for new flags (`runtime/config.py`)
+- regression tests for contract freeze and guardrail rules
+
+See `11_PHASE_A_CONTRACT_FREEZE_REPORT.md` for implementation evidence.
+
 ## 1) Product Objective
 
 Build a production Storage page that can:
