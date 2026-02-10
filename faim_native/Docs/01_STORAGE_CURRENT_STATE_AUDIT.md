@@ -27,6 +27,48 @@ Current state is **backend-heavy and partially wired**:
 - Raw immutable blob storage exists as modules, but is not connected to ingest API flow.
 - Several router-to-repository method mismatches indicate broken runtime paths.
 
+## Post-P0 Update (2026-02-10)
+
+The P0 correctness scope from `07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md` has now been implemented.
+
+Resolved from this audit:
+
+- ingest endpoints now enforce upload validators and valid raw_id contract
+- raw blob persistence is wired before orchestration in ingest API path
+- dedup runtime path is active (tenant/session passed into orchestration)
+- dedup raw_id type mismatch risk is handled for UUID-backed storage
+- node/metrics/admin router-to-repo method mismatches are aligned
+- frontend stream proxy path now matches backend `/api/v1/events/stream`
+
+Still pending (non-P0):
+
+- storage UI remains placeholder
+- multi-file upload product workflow is not yet implemented
+- encryption-at-rest integration remains pending
+- cache/index integration hardening remains pending
+
+## Post-P1 Update (2026-02-10)
+
+P1 feature delivery is now implemented.
+
+Resolved from prior audit gaps:
+
+- storage backend API surface is now available under `/api/v1/storage/*`
+- storage catalog persistence is implemented (`storage_files` table + repo)
+- upload batch jobs/events are exposed for UI progress tracking
+- storage page now supports:
+  - multi-file upload
+  - per-file lifecycle display
+  - summary + backend health display
+  - re-ingest/retry/delete-request actions
+- ingest endpoints now also populate/update storage catalog metadata
+
+Still pending:
+
+- encryption-at-rest activation for live ingest path (P2)
+- query cache/index contract hardening (P2)
+- operational retention/deletion execution semantics beyond delete-request state (P2)
+
 ## Frontend Storage Page (Current)
 
 - `frontend/src/app/(app)/dashboard/storage/page.tsx` is a placeholder shell only.

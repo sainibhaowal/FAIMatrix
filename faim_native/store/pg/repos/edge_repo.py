@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 from sqlalchemy import and_, asc, desc
@@ -36,6 +36,16 @@ class EdgeRepo:
     def __init__(self, session: Session, tenant_id: str = "__test__"):
         self.session = session
         self.tenant_id = tenant_id
+
+    @staticmethod
+    def _coerce_uuid(node_id: Union[UUID, str]) -> Optional[UUID]:
+        """Normalize node_id input to UUID."""
+        if isinstance(node_id, UUID):
+            return node_id
+        try:
+            return UUID(str(node_id))
+        except (ValueError, TypeError, AttributeError):
+            return None
 
     def set_inheritance_parents(
         self,
@@ -130,19 +140,23 @@ class EdgeRepo:
     def list_parents(
         self,
         graph_id: str,
-        child_id: UUID,
+        child_id: Union[UUID, str],
     ) -> List[Tuple[UUID, float]]:
         """List parents of a child node.
 
         Returns list of (parent_id, fraction) ordered by weight desc, parent_id asc.
         """
+        child_uuid = self._coerce_uuid(child_id)
+        if child_uuid is None:
+            return []
+
         edges = (
             self.session.query(EdgeModel)
             .filter(
                 and_(
                     EdgeModel.tenant_id == self.tenant_id,
                     EdgeModel.graph_id == graph_id,
-                    EdgeModel.dst_node_id == child_id,
+                    EdgeModel.dst_node_id == child_uuid,
                     EdgeModel.kind == "inheritance",
                 )
             )
@@ -154,6 +168,33 @@ class EdgeRepo:
         )
 
         return [(e.src_node_id, e.weight / 1e9) for e in edges]
+
+    def get_parents(
+        self,
+        graph_id: str,
+        child_id: Union[UUID, str],
+    ) -> List[EdgeModel]:
+        """Compatibility helper returning edge models for parent inspection."""
+        child_uuid = self._coerce_uuid(child_id)
+        if child_uuid is None:
+            return []
+
+        return (
+            self.session.query(EdgeModel)
+            .filter(
+                and_(
+                    EdgeModel.tenant_id == self.tenant_id,
+                    EdgeModel.graph_id == graph_id,
+                    EdgeModel.dst_node_id == child_uuid,
+                    EdgeModel.kind == "inheritance",
+                )
+            )
+            .order_by(
+                desc(EdgeModel.weight),
+                asc(EdgeModel.src_node_id),
+            )
+            .all()
+        )
 
     def list_children(
         self,
@@ -279,6 +320,10 @@ class EdgeRepo:
             )
             .count()
         )
+
+    def count(self, graph_id: str) -> int:
+        """Compatibility alias used by API routers."""
+        return self.count_edges(graph_id)
 
     def count_inheritance_edges(self, graph_id: str) -> int:
         """Count inheritance edges in graph."""

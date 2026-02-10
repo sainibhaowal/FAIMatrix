@@ -47,6 +47,7 @@ REQUIRED_TABLES = [
     "ingest_dedup",
     "jobs",
     "job_events",
+    "storage_files",
     "schema_migrations",
 ]
 

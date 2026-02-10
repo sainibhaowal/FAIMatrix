@@ -33,7 +33,95 @@ Goal: remove runtime method mismatch failures.
 
 - frontend stream proxy route contract must match backend events stream endpoint.
 
+## P0 Implementation Status (2026-02-10)
+
+P0 is implemented and validated.
+
+## Completed Items
+
+- [x] Ingest contract hardening (`api/routers/ingest.py`)
+  - strict upload validators enforced
+  - non-empty valid UUID raw_id path enforced
+  - raw bytes are persisted before orchestration
+  - tenant/session are passed into orchestration for runtime dedup
+
+- [x] Orchestration dedup + typing (`orchestration/ingest_flow.py`)
+  - runtime session path is active
+  - dedup table write now stores UUID-safe `raw_id` (or null fallback)
+  - ingest now rejects empty raw_id
+
+- [x] Router/repo contract alignment
+  - `store/pg/repos/node_repo.py`: `get_by_id`, `list_by_graph`, `count`
+  - `store/pg/repos/edge_repo.py`: `get_parents`, `count`
+  - `store/pg/repos/graph_version_repo.py`: `get_or_create`
+  - `store/pg/repos/event_repo.py` + `store/pg/repos/snapshot_repo.py`: fixed runtime query import (`and_`)
+
+- [x] Stream path alignment
+  - `frontend/src/app/api/v1/stream/route.ts` now proxies to backend `/api/v1/events/stream`
+
+## Validation Evidence
+
+- `python3 -m compileall` on all changed backend P0 modules: passed.
+- `PYTHONPATH=/home/sephi-asi/FAIM/faim_native pytest` targeted suites:
+  - `tests/acceptance/test_AT_A3_ingest_emits_events.py`
+  - `tests/acceptance/test_AT_A6_node_inspector_no_leak.py`
+  - `tests/acceptance/test_AT_A4_sse_resume_after_seq.py`
+  - `tests/acceptance/test_AT_S9_ingest_idempotency.py`
+  - `tests/unit/test_stage_7_1_hardening.py`
+  - `tests/unit/test_snapshot_repo.py`
+- Result: all selected tests passed.
+
 ## P1 - Full Storage Feature Delivery
+
+## P1 Implementation Status (2026-02-10)
+
+P1 is implemented and validated.
+
+## Completed Items
+
+- [x] Raw truth wiring (`store/raw/raw_store.py`, `store/pg/repos/raw_repo.py`, `runtime/context.py`)
+  - runtime now provides a shared `raw_store`
+  - storage APIs and ingest path persist immutable raw bytes + `raw_refs` metadata before pipeline ingest
+  - ingest endpoints now also write/update storage catalog lifecycle rows
+
+- [x] Storage API surface (`api/routers/storage.py`)
+  - `POST /api/v1/storage/uploads`
+  - `GET /api/v1/storage/uploads/{job_id}`
+  - `GET /api/v1/storage/uploads/{job_id}/events`
+  - `GET /api/v1/storage/files`
+  - `GET /api/v1/storage/files/{raw_id}`
+  - `DELETE /api/v1/storage/files/{raw_id}`
+  - `POST /api/v1/storage/files/{raw_id}/ingest`
+  - `POST /api/v1/storage/files/{raw_id}/retry`
+  - `GET /api/v1/storage/summary`
+  - `GET /api/v1/storage/backends/health`
+
+- [x] Storage UI (`frontend/src/app/(app)/dashboard/storage/page.tsx`)
+  - multi-file upload with profile/persist selectors
+  - per-batch result queue and progress
+  - searchable/filterable catalog
+  - re-ingest, retry, and delete-request actions
+  - summary cards + backend health badges
+
+- [x] Additive persistence model for storage catalog
+  - new table/model: `storage_files`
+  - migration: `store/pg/migrations/0005_storage_files.sql`
+  - repo: `store/pg/repos/storage_file_repo.py`
+
+## Validation Evidence
+
+- compile checks: changed backend modules compile successfully
+- backend regression suites from P0 still pass
+- new tests:
+  - `tests/acceptance/test_AT_P1_storage_api_surface.py`
+  - `tests/unit/test_storage_file_repo.py`
+- frontend storage page lint check passes:
+  - `npx eslint src/app/(app)/dashboard/storage/page.tsx --max-warnings=0`
+
+## Notes
+
+- Full frontend project lint still reports pre-existing unrelated errors in other pages.
+- P2 security/performance hardening items remain pending.
 
 ## Raw Truth Wiring
 
@@ -82,12 +170,14 @@ Goal: activate tenant DEK workflow in live ingest/storage path.
 
 | Area | Status |
 |---|---|
-| Storage UI | placeholder |
+| Storage UI | implemented (P1 baseline) |
 | Core ingest math | implemented |
-| Multi-file workflow | missing |
-| Raw immutable persistence in ingest path | missing wiring |
-| Dedup runtime correctness | partial/broken path |
-| Router/repo API consistency | broken in multiple routes |
+| Multi-file workflow | implemented (batch upload endpoint + UI queue) |
+| Raw immutable persistence in ingest path | wired for ingest endpoints |
+| Dedup runtime correctness | active in API path |
+| Router/repo API consistency | aligned for node/metrics/admin routes |
+| Frontend SSE proxy path | aligned with backend events stream |
+| Storage API surface | implemented |
 | Redis cache usage in query path | mostly not wired |
 | Qdrant acceleration in query path | fallback-dominant |
 | Security primitives | strong foundation, partial integration |
