@@ -422,10 +422,14 @@ def run_ingest(
 
                 index = FAIMIndex(project_id)
 
-                for vector in vectors:
-                    node_id = getattr(vector, "node_id", None) or str(
-                        vector.vector_hash
-                    )
+                # WriteResult carries canonical node UUIDs in the same order as vectors.
+                node_ids = [str(nid) for nid in (write_result.node_ids or [])]
+                for idx, vector in enumerate(vectors):
+                    if idx < len(node_ids):
+                        node_id = node_ids[idx]
+                    else:
+                        # Defensive fallback if engine contract changes.
+                        node_id = str(getattr(vector, "node_id", "") or vector.vector_hash)
                     index.add(
                         graph_id=graph_id,
                         node_id=node_id,

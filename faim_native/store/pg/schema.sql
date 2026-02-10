@@ -288,6 +288,22 @@ CREATE INDEX IF NOT EXISTS idx_storage_files_last_job ON storage_files(last_job_
 COMMENT ON TABLE storage_files IS 'P1 storage catalog metadata and ingest lifecycle state';
 
 -- -----------------------------------------------------------------------------
+-- tenant_crypto_keys: Wrapped tenant DEKs for envelope encryption (P2)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS tenant_crypto_keys (
+    tenant_id TEXT PRIMARY KEY,
+    dek_wrapped BYTEA NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    rotated_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_tenant_crypto_keys_created
+    ON tenant_crypto_keys(created_at DESC);
+
+COMMENT ON TABLE tenant_crypto_keys IS 'P2: wrapped tenant DEKs for envelope encryption at rest';
+COMMENT ON COLUMN tenant_crypto_keys.dek_wrapped IS 'DEK encrypted using FAIM master key';
+
+-- -----------------------------------------------------------------------------
 -- users: Formal user registry for identity management
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS users (

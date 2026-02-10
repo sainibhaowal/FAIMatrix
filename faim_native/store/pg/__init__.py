@@ -11,6 +11,7 @@ __all__ = [
     "EventModel",
     "SnapshotModel",
     "GraphVersionModel",
+    "TenantCryptoKey",
     "create_all_tables",
     "drop_all_tables",
 ]
@@ -33,10 +34,13 @@ def __getattr__(name):
         "EventModel",
         "SnapshotModel",
         "GraphVersionModel",
+        "TenantCryptoKey",
         "create_all_tables",
         "drop_all_tables",
     ):
-        from . import models_faim
+        from . import models_crypto, models_faim
 
-        return getattr(models_faim, name)
+        if hasattr(models_faim, name):
+            return getattr(models_faim, name)
+        return getattr(models_crypto, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

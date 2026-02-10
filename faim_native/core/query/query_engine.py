@@ -308,18 +308,42 @@ def recall_candidates_index(
     q_vec: Tuple[float, ...],
     n: int = 200,
 ) -> List[Tuple[UUID, float]]:
-    """Index-based candidate recall (Qdrant).
+    """Index-based candidate recall.
 
-    Returns list of (node_id, score) from index.
+    Supports both contracts:
+    - Preferred: ``index.top_k(graph_id, query_vec, k)``
+    - Legacy: ``index.search(tenant_id=..., graph_id=..., vector=..., k=...)``
     """
     try:
-        results = index.search(
-            tenant_id=tenant_id,
-            graph_id=graph_id,
-            vector=list(q_vec),
-            k=n,
-        )
-        return [(UUID(r["id"]), r["score"]) for r in results]
+        results: List[Tuple[UUID, float]] = []
+
+        if hasattr(index, "top_k"):
+            raw = index.top_k(graph_id=graph_id, query_vec=q_vec, k=n)
+            for node_id, score in raw:
+                try:
+                    results.append((UUID(str(node_id)), float(score)))
+                except (ValueError, TypeError):
+                    continue
+        elif hasattr(index, "search"):
+            raw = index.search(
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                vector=list(q_vec),
+                k=n,
+            )
+            for item in raw:
+                node_id = item.get("id") if isinstance(item, dict) else None
+                score = item.get("score") if isinstance(item, dict) else None
+                try:
+                    results.append((UUID(str(node_id)), float(score)))
+                except (ValueError, TypeError):
+                    continue
+        else:
+            return []
+
+        # Stable ordering to preserve deterministic behavior on ties.
+        results.sort(key=lambda x: (-x[1], str(x[0])))
+        return results[:n]
     except Exception:
         # Fallback to empty if index unavailable
         return []

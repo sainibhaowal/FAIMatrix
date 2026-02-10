@@ -19,13 +19,13 @@ Also reviewed migrations, docker/env wiring, and selected acceptance/security te
 
 ## Executive Summary
 
-Current state is **backend-heavy and partially wired**:
+Current state is **implemented end-to-end for storage baseline (P0/P1/P2)**:
 
-- Core ingest, vectorization, graph write, and evolution math exist.
-- Storage page UI is currently placeholder only.
-- Multi-file upload workflow is not implemented in UI or API contract.
-- Raw immutable blob storage exists as modules, but is not connected to ingest API flow.
-- Several router-to-repository method mismatches indicate broken runtime paths.
+- Core ingest, vectorization, graph write, and evolution math are active.
+- Storage page supports operational multi-file upload and lifecycle actions.
+- Raw immutable blob persistence is wired in ingest and storage API paths.
+- Router/repository contract mismatches from the original audit were repaired.
+- Security/performance hardening from P2 is integrated with env-gated rollout.
 
 ## Post-P0 Update (2026-02-10)
 
@@ -65,15 +65,27 @@ Resolved from prior audit gaps:
 
 Still pending:
 
-- encryption-at-rest activation for live ingest path (P2)
-- query cache/index contract hardening (P2)
-- operational retention/deletion execution semantics beyond delete-request state (P2)
+- operational retention/deletion execution semantics beyond delete-request state
+- historical blob re-encryption tooling for previously stored plaintext payloads
+
+## Post-P2 Update (2026-02-10)
+
+P2 hardening scope is now implemented.
+
+Resolved from prior audit gaps:
+
+- envelope encryption-at-rest can be activated in live runtime path
+- tenant DEK persistence is wired (`tenant_crypto_keys`)
+- query flow now uses Redis query cache for candidate recall acceleration
+- query/index contract mismatch is resolved (`top_k` + legacy `search` compatibility)
+- ingest index upsert now uses canonical node IDs from write result
+- perf namespace is explicitly marked isolated (`PERF_LAYER_STATUS=isolated_legacy`)
 
 ## Frontend Storage Page (Current)
 
-- `frontend/src/app/(app)/dashboard/storage/page.tsx` is a placeholder shell only.
-- No file picker, no drop zone, no upload queue, no progress state, no storage metrics.
-- No frontend API calls for ingest or storage catalog.
+- `frontend/src/app/(app)/dashboard/storage/page.tsx` is implemented and operational.
+- Supports multi-file upload, batch progress, catalog filtering, and lifecycle actions.
+- Uses storage API surface under `/api/v1/storage/*`.
 
 ## Current Ingest Pipeline (Implemented Core)
 
@@ -119,49 +131,11 @@ Not intended as truth store.
 `faim_native/store/raw/raw_store.py` provides immutable SHA256-addressed blob store.
 `EncryptedRawStore` wrapper exists.
 
-## Verified Gaps and Risks
+## Remaining Gaps and Risks
 
-## Critical (must fix first)
-
-1. Ingest upload default fails when `raw_id` empty.
-- API upload path passes `raw_id=""`.
-- validation requires non-empty `block.raw_id` and `packet.raw_id`.
-- Effect: multipart upload path fails unless caller forces non-empty raw_id.
-
-2. Storage UI is non-functional for ingestion.
-- no upload UX and no ingest API usage from storage page.
-
-3. Frontend SSE proxy path mismatch.
-- frontend proxies to `/api/v1/stream`
-- backend exposes `/api/v1/events/stream`
-- Effect: stream route contract mismatch.
-
-## High
-
-4. Router/repository contract mismatches in node/metrics/admin routers.
-- Routers call methods not present in repos (`get_by_id`, `get_parents`, `get_or_create`, `count`, `list_by_graph`).
-- Effect: endpoints can fail at runtime.
-
-5. Ingest dedup is not effectively active from API ingest path.
-- `run_ingest` dedup path depends on `session` parameter.
-- API ingest router does not pass session into `run_ingest`.
-
-6. Dedup raw_id typing mismatch risk.
-- dedup model stores `raw_id` as UUID type.
-- ingest inputs treat `raw_id` as generic string.
-
-## Medium
-
-7. Raw blob store modules are not wired into ingest API.
-- bytes are processed in-memory for extraction/encoding but raw files are not persisted to RawStore in current API path.
-
-8. Query cache is instantiated but not used in query flow.
-
-9. Index contract mismatch in query path.
-- query engine calls `index.search(...)` while FAIMIndex exposes `top_k`/`radius_search`.
-- currently falls back to brute-force path.
-
-10. Encryption-at-rest modules exist but are not integrated end-to-end for ingest raw content.
+1. Retention/deletion is still request-state only for storage files (`delete_requested`), not full physical purge workflow.
+2. Existing plaintext blobs from before encryption rollout are not automatically re-encrypted.
+3. Query cache currently accelerates candidate recall path only; deeper stats cache wiring remains optional.
 
 ## Existing Strengths
 

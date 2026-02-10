@@ -19,6 +19,8 @@ from __future__ import annotations
 import os
 import secrets
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any, Callable, Dict, Optional
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -35,6 +37,7 @@ TAG_SIZE = 16  # 128 bits (GCM standard)
 # Environment variable for master key
 MASTER_KEY_ENV = "FAIM_MASTER_KEY"
 MASTER_KEY_SALT_ENV = "FAIM_MASTER_SALT"
+MASTER_KEY_PASSWORD_ENV = "FAIM_MASTER_PASSWORD"
 
 
 # =============================================================================
@@ -74,6 +77,23 @@ class EncryptedBlob:
         ciphertext = data[1 + NONCE_SIZE :]
 
         return cls(version=version, nonce=nonce, ciphertext=ciphertext)
+
+
+# =============================================================================
+# Runtime Flags
+# =============================================================================
+
+
+def encryption_at_rest_enabled() -> bool:
+    """Check if tenant envelope encryption is enabled."""
+    raw = os.getenv("FAIM_ENCRYPTION_AT_REST", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def encryption_fail_closed() -> bool:
+    """If true, startup/request fails when encryption cannot initialize."""
+    raw = os.getenv("FAIM_ENCRYPTION_FAIL_CLOSED", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
 
 
 # =============================================================================
@@ -125,7 +145,7 @@ def get_master_key() -> bytes:
         raise ValueError(f"FAIM_MASTER_KEY must be {KEY_SIZE * 2} hex chars")
 
     # Fall back to derivation (for development)
-    password = os.getenv("FAIM_MASTER_PASSWORD")
+    password = os.getenv(MASTER_KEY_PASSWORD_ENV)
     salt_hex = os.getenv(MASTER_KEY_SALT_ENV)
 
     if password and salt_hex:
@@ -134,7 +154,7 @@ def get_master_key() -> bytes:
 
     raise ValueError(
         f"Encryption requires {MASTER_KEY_ENV} or "
-        f"FAIM_MASTER_PASSWORD + {MASTER_KEY_SALT_ENV}"
+        f"{MASTER_KEY_PASSWORD_ENV} + {MASTER_KEY_SALT_ENV}"
     )
 
 
@@ -272,6 +292,127 @@ def decrypt_from_storage(data: bytes, key: bytes) -> bytes:
 
 
 # =============================================================================
+# Tenant DEK Manager
+# =============================================================================
+
+
+class TenantDEKManager:
+    """Manage wrapped tenant DEKs using table tenant_crypto_keys.
+
+    This class is intentionally lightweight and request-safe:
+    - Each call uses a short-lived session from session_factory
+    - A small in-process cache avoids repeated DB round-trips
+    """
+
+    def __init__(
+        self,
+        session_factory: Callable[[], Any],
+        master_key: Optional[bytes] = None,
+    ) -> None:
+        if session_factory is None:
+            raise ValueError("session_factory is required")
+
+        self._session_factory = session_factory
+        self._master_key = master_key or get_master_key()
+        self._dek_cache: Dict[str, bytes] = {}
+
+    def clear_cache(self) -> None:
+        """Clear in-memory DEK cache."""
+        self._dek_cache.clear()
+
+    def _get_or_create_wrapped(self, tenant_id: str) -> bytes:
+        # Local import avoids heavy DB import unless encryption is enabled.
+        from sqlalchemy.exc import IntegrityError
+
+        from store.pg.models_crypto import TenantCryptoKey
+
+        session = self._session_factory()
+        try:
+            model = (
+                session.query(TenantCryptoKey)
+                .filter(TenantCryptoKey.tenant_id == tenant_id)
+                .first()
+            )
+            if model is not None:
+                return bytes(model.dek_wrapped)
+
+            wrapped = wrap_dek(generate_dek(), self._master_key)
+            created = TenantCryptoKey(
+                tenant_id=tenant_id,
+                dek_wrapped=wrapped,
+                created_at=datetime.now(timezone.utc),
+            )
+            session.add(created)
+            try:
+                session.commit()
+                return wrapped
+            except IntegrityError:
+                # Concurrent create won race; fetch canonical row.
+                session.rollback()
+                existing = (
+                    session.query(TenantCryptoKey)
+                    .filter(TenantCryptoKey.tenant_id == tenant_id)
+                    .first()
+                )
+                if existing is None:
+                    raise
+                return bytes(existing.dek_wrapped)
+        finally:
+            session.close()
+
+    def get_or_create_dek(self, tenant_id: str) -> bytes:
+        """Return unwrapped DEK for tenant, creating if needed."""
+        tid = str(tenant_id or "").strip()
+        if not tid:
+            raise ValueError("tenant_id is required for DEK lookup")
+
+        cached = self._dek_cache.get(tid)
+        if cached is not None:
+            return cached
+
+        wrapped = self._get_or_create_wrapped(tid)
+        dek = unwrap_dek(wrapped, self._master_key)
+        self._dek_cache[tid] = dek
+        return dek
+
+    def rotate_tenant_dek(self, tenant_id: str) -> None:
+        """Rotate tenant DEK (existing payload re-encryption is out of scope)."""
+        from store.pg.models_crypto import TenantCryptoKey
+
+        tid = str(tenant_id or "").strip()
+        if not tid:
+            raise ValueError("tenant_id is required for DEK rotation")
+
+        session = self._session_factory()
+        try:
+            model = (
+                session.query(TenantCryptoKey)
+                .filter(TenantCryptoKey.tenant_id == tid)
+                .first()
+            )
+            if model is None:
+                model = TenantCryptoKey(tenant_id=tid)
+                session.add(model)
+
+            model.dek_wrapped = wrap_dek(generate_dek(), self._master_key)
+            model.rotated_at = datetime.now(timezone.utc)
+            session.commit()
+            self._dek_cache.pop(tid, None)
+        finally:
+            session.close()
+
+    def encrypt_for_tenant(self, tenant_id: str, plaintext: bytes) -> bytes:
+        """Encrypt bytes with tenant DEK."""
+        key = self.get_or_create_dek(tenant_id)
+        return encrypt_for_storage(plaintext, key)
+
+    def decrypt_for_tenant(self, tenant_id: str, data: bytes) -> bytes:
+        """Decrypt bytes with tenant DEK."""
+        key = self.get_or_create_dek(tenant_id)
+        return decrypt_from_storage(data, key)
+
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -286,4 +427,7 @@ __all__ = [
     "decrypt_from_storage",
     "get_master_key",
     "derive_master_key",
+    "encryption_at_rest_enabled",
+    "encryption_fail_closed",
+    "TenantDEKManager",
 ]

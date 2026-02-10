@@ -471,6 +471,25 @@ class FAIMIndex:
             logger.warning(f"Qdrant radius search failed: {e}, using fallback")
             return self._fallback.radius_search(graph_id, query_vec, radius, limit)
 
+    def search(
+        self,
+        tenant_id: str,  # noqa: ARG002 - legacy compatibility arg
+        graph_id: GraphId,
+        vector: List[float],
+        k: int = 32,
+    ) -> List[Dict[str, Any]]:
+        """Legacy compatibility wrapper around ``top_k``.
+
+        Returns dict items to match older callers:
+        ``[{\"id\": \"<node_uuid>\", \"score\": 0.91}, ...]``.
+        """
+        results = self.top_k(
+            graph_id=graph_id,
+            query_vec=tuple(vector),
+            k=k,
+        )
+        return [{"id": node_id, "score": score} for node_id, score in results]
+
     def count(self, graph_id: Optional[GraphId] = None) -> int:
         """Count vectors in the index."""
         client = _get_client()
