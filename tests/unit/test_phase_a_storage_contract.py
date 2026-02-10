@@ -41,6 +41,7 @@ def test_storage_response_models_contain_minimum_required_fields():
         "StorageFileListResponse": storage_router_module.StorageFileListResponse,
         "StorageSummaryResponse": storage_router_module.StorageSummaryResponse,
         "StorageBackendsHealth": storage_router_module.StorageBackendsHealth,
+        "StorageOpsMetricsResponse": storage_router_module.StorageOpsMetricsResponse,
         "StorageIngestActionResponse": storage_router_module.StorageIngestActionResponse,
     }
 
@@ -49,4 +50,3 @@ def test_storage_response_models_contain_minimum_required_fields():
         fields = set(model.model_fields.keys())
         missing = required_fields - fields
         assert not missing, f"{model_name} missing required fields: {sorted(missing)}"
-

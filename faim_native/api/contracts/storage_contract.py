@@ -25,6 +25,7 @@ REQUIRED_STORAGE_ROUTES: Set[Tuple[str, str]] = {
     ("POST", "/storage/files/{raw_id}/ingest"),
     ("POST", "/storage/files/{raw_id}/retry"),
     ("GET", "/storage/summary"),
+    ("GET", "/storage/ops/metrics"),
     ("GET", "/storage/backends/health"),
 }
 
@@ -82,6 +83,20 @@ REQUIRED_MODEL_FIELDS: Dict[str, Set[str]] = {
         "by_type",
     },
     "StorageBackendsHealth": {"postgres", "redis", "qdrant", "raw_store"},
+    "StorageOpsMetricsResponse": {
+        "graph_id",
+        "window_seconds",
+        "generated_at",
+        "upload_count",
+        "upload_bytes",
+        "processed_files",
+        "dedup_hits",
+        "dedup_ratio",
+        "failures_total",
+        "failure_reasons",
+        "phase_latency_ms",
+        "backend_states",
+    },
     "StorageIngestActionResponse": {"status", "file", "ingest"},
 }
 
