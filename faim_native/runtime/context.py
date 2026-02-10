@@ -5,6 +5,7 @@ Wire repositories, engine, index, and cache for API operations.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from pathlib import Path
@@ -23,7 +24,18 @@ if str(_parent) not in sys.path:
 
 _engine = None
 _SessionLocal = None
-_raw_store = None
+_raw_store_plain = None
+_raw_store_by_tenant: Dict[str, Any] = {}
+logger = logging.getLogger(__name__)
+
+
+def _flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return default
 
 
 def _get_engine():
@@ -63,17 +75,64 @@ def get_session():
     return SessionLocal()
 
 
-def _get_raw_store():
-    """Get or create the shared immutable raw store."""
-    global _raw_store
-    if _raw_store is None:
+def _get_raw_store(tenant_id: str):
+    """Get raw store for tenant, optionally wrapped with encryption-at-rest."""
+    global _raw_store_plain
+
+    path = os.getenv("FAIM_RAW_STORE_PATH")
+    if not path:
+        path = str(Path(__file__).resolve().parent.parent / "store" / "raw" / "blobs")
+
+    if _raw_store_plain is None:
         from store.raw.raw_store import RawStore
 
-        path = os.getenv("FAIM_RAW_STORE_PATH")
-        if not path:
-            path = str(Path(__file__).resolve().parent.parent / "store" / "raw" / "blobs")
-        _raw_store = RawStore(path)
-    return _raw_store
+        _raw_store_plain = RawStore(path)
+
+    mode = os.getenv("FAIM_PAYLOAD_CIPHER", "").strip().lower()
+    if not mode and _flag("FAIM_ENCRYPTION_AT_REST", default=False):
+        mode = "envelope"
+    if mode in {"", "none", "plain"}:
+        return _raw_store_plain
+
+    tid = str(tenant_id or "").strip()
+    if not tid:
+        return _raw_store_plain
+
+    cached = _raw_store_by_tenant.get(tid)
+    if cached is not None:
+        return cached
+
+    fail_closed = _flag("FAIM_ENCRYPTION_FAIL_CLOSED", default=False)
+    try:
+        from store.raw.crypto import NoopCipher, build_cipher_from_env
+        from store.raw.encrypted_payload_store import EncryptedRawStore
+
+        cipher = build_cipher_from_env(
+            mode_override=mode,
+            tenant_id=tid,
+            session_factory=get_session,
+        )
+        if isinstance(cipher, NoopCipher):
+            return _raw_store_plain
+
+        wrapped = EncryptedRawStore(
+            inner=_raw_store_plain,
+            cipher=cipher,
+            graph_id=tid,
+        )
+        _raw_store_by_tenant[tid] = wrapped
+        return wrapped
+    except Exception as exc:
+        if fail_closed:
+            raise RuntimeError(
+                f"Encryption-at-rest initialization failed for tenant={tid}"
+            ) from exc
+        logger.warning(
+            "Encryption-at-rest unavailable for tenant=%s, falling back to plain raw store: %s",
+            tid,
+            exc,
+        )
+        return _raw_store_plain
 
 
 # =============================================================================
@@ -118,13 +177,9 @@ def get_repos(tenant_id: str) -> Dict[str, Any]:
         pass
 
     try:
-        import hashlib
-
         from cache.query_cache import QueryCache
 
-        cache_hash = hashlib.sha256(tenant_id.encode()).digest()[:16]
-        cache_id = UUID(bytes=cache_hash)
-        cache = QueryCache(cache_id)
+        cache = QueryCache(tenant_id)
     except Exception:  # nosec B110 - Graceful degradation if cache not available
         pass
 
@@ -138,7 +193,7 @@ def get_repos(tenant_id: str) -> Dict[str, Any]:
         "snapshot_repo": SnapshotRepo(tenant_id=tenant_id),
         "raw_repo": RawRepo(tenant_id=tenant_id),
         "storage_file_repo": StorageFileRepo(tenant_id=tenant_id),
-        "raw_store": _get_raw_store(),
+        "raw_store": _get_raw_store(tenant_id),
         "index": index,
         "cache": cache,
     }

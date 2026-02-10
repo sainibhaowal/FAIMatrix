@@ -121,7 +121,7 @@ P1 is implemented and validated.
 ## Notes
 
 - Full frontend project lint still reports pre-existing unrelated errors in other pages.
-- P2 security/performance hardening items remain pending.
+- P2 security/performance hardening is implemented (see section below and `10_P2_IMPLEMENTATION_REPORT.md`).
 
 ## Raw Truth Wiring
 
@@ -147,6 +147,38 @@ Goal: upload writes immutable blob + raw_ref metadata before ingest.
 Goal: operational UI with multi-file ingestion lifecycle.
 
 ## P2 - Security/Performance Hardening
+
+## P2 Implementation Status (2026-02-10)
+
+P2 is implemented and validated.
+
+## Completed Items
+
+- [x] Encryption-at-rest integration
+  - `runtime/context.py`: env-gated encrypted raw store wiring per tenant
+  - `store/raw/crypto.py`: envelope cipher mode wired to tenant DEK manager
+  - `store/raw/encrypted_payload_store.py`: production parity methods (`get_stats`, `load_by_sha`, `exists_by_sha`)
+  - `store/crypto/envelope.py`: tenant DEK lifecycle manager (`tenant_crypto_keys` backing table)
+  - `store/pg/models_crypto.py`, `store/pg/models_faim.py`, `store/pg/schema.sql`, `store/pg/migrations/0006_tenant_crypto_keys.sql`
+
+- [x] Cache/index integration
+  - `orchestration/query_flow.py`: query candidate recall cache get/set wired
+  - `api/routers/query.py`: query flow now receives cache object from runtime context
+  - `core/query/query_engine.py`: index recall aligned to `top_k` contract with stable fallback to legacy `search`
+  - `index/qdrant_index.py`: added legacy `search(...)` compatibility wrapper
+  - `orchestration/ingest_flow.py`: index upsert now uses canonical `write_result.node_ids` instead of vector hash fallback
+
+- [x] Perf layer evaluation
+  - decision: **isolate** legacy perf namespace from active ingest/query flow until explicit integration program
+  - marker added at `orchestration/perf/__init__.py` with `PERF_LAYER_STATUS = "isolated_legacy"`
+
+## Validation Evidence
+
+- `python3 -m compileall faim_native` for modified modules: passed.
+- targeted tests added and passing:
+  - `tests/unit/test_p2_encryption_at_rest.py`
+  - `tests/unit/test_p2_query_cache_index_alignment.py`
+  - `tests/acceptance/test_AT_P2_security_perf_surface.py`
 
 ## Encryption-at-Rest Integration
 
@@ -178,9 +210,9 @@ Goal: activate tenant DEK workflow in live ingest/storage path.
 | Router/repo API consistency | aligned for node/metrics/admin routes |
 | Frontend SSE proxy path | aligned with backend events stream |
 | Storage API surface | implemented |
-| Redis cache usage in query path | mostly not wired |
-| Qdrant acceleration in query path | fallback-dominant |
-| Security primitives | strong foundation, partial integration |
+| Redis cache usage in query path | wired for candidate recall cache |
+| Qdrant acceleration in query path | contract-aligned with stable fallback |
+| Security primitives | integrated into runtime path (tenant DEK envelope mode) |
 
 ## Implementation Order (Recommended)
 

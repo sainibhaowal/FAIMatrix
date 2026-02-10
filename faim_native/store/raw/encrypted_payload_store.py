@@ -56,6 +56,7 @@ class EncryptedRawStore:
         self,
         content: bytes,
         mime_type: str = "application/octet-stream",
+        graph_id: str | None = None,
     ) -> RawRef:
         """Store content with compression and encryption.
 
@@ -66,13 +67,19 @@ class EncryptedRawStore:
         Returns:
             RawRef pointing to the encrypted blob.
         """
+        scope = graph_id or self._graph_id
         compressed = zlib.compress(content)
-        encrypted = self._cipher.encrypt(self._graph_id, compressed)
+        encrypted = self._cipher.encrypt(scope, compressed)
         return self._inner.store(
-            encrypted, mime_type=mime_type, graph_id=self._graph_id
+            encrypted, mime_type=mime_type, graph_id=graph_id or self._graph_id
         )
 
-    def load(self, raw_ref: RawRef, verify: bool = True) -> bytes:
+    def load(
+        self,
+        raw_ref: RawRef,
+        verify: bool = True,
+        graph_id: str | None = None,
+    ) -> bytes:
         """Load and decrypt content.
 
         Args:
@@ -82,13 +89,54 @@ class EncryptedRawStore:
         Returns:
             Decrypted and decompressed content.
         """
+        scope = graph_id or self._graph_id
         encrypted = self._inner.load(raw_ref, verify=verify)
-        compressed = self._cipher.decrypt(self._graph_id, encrypted)
+        compressed = self._cipher.decrypt(scope, encrypted)
         return zlib.decompress(compressed)
 
     def exists(self, raw_ref: RawRef) -> bool:
         """Check if encrypted blob exists."""
         return self._inner.exists(raw_ref)
+
+    def exists_by_sha(self, sha256: str) -> bool:
+        """Check if encrypted blob exists by SHA."""
+        exists_by_sha = getattr(self._inner, "exists_by_sha", None)
+        if callable(exists_by_sha):
+            return bool(exists_by_sha(sha256))
+        return False
+
+    def load_by_sha(
+        self,
+        sha256: str,
+        verify: bool = True,
+        graph_id: str | None = None,
+    ) -> bytes:
+        """Load and decrypt blob content by SHA."""
+        scope = graph_id or self._graph_id
+        load_by_sha = getattr(self._inner, "load_by_sha", None)
+        if not callable(load_by_sha):
+            raise AttributeError("Inner store does not support load_by_sha")
+        encrypted = load_by_sha(sha256, verify=verify)
+        compressed = self._cipher.decrypt(scope, encrypted)
+        return zlib.decompress(compressed)
+
+    def verify(self, raw_ref: RawRef) -> bool:
+        """Verify encrypted blob integrity in underlying store."""
+        verify_fn = getattr(self._inner, "verify", None)
+        if callable(verify_fn):
+            return bool(verify_fn(raw_ref))
+        return self.exists(raw_ref)
+
+    def get_stats(self) -> dict:
+        """Delegate storage stats to underlying store."""
+        get_stats = getattr(self._inner, "get_stats", None)
+        if callable(get_stats):
+            stats = dict(get_stats())
+        else:
+            stats = {}
+        stats["encrypted"] = True
+        stats["cipher_version"] = self._cipher.version()
+        return stats
 
     def version(self) -> str:
         """Return version string including cipher version."""

@@ -10,6 +10,7 @@ __all__ = [
     "PayloadCipher",
     "NoopCipher",
     "FernetCipher",
+    "EnvelopeCipher",
     "CRYPTO_VERSION",
     "build_cipher_from_env",
     "EncryptedRawStore",
@@ -42,11 +43,13 @@ def __getattr__(name):
         "PayloadCipher",
         "NoopCipher",
         "FernetCipher",
+        "EnvelopeCipher",
         "CRYPTO_VERSION",
         "build_cipher_from_env",
     ):
         from .crypto import (
             CRYPTO_VERSION,
+            EnvelopeCipher,
             FernetCipher,
             NoopCipher,
             PayloadCipher,
@@ -57,6 +60,7 @@ def __getattr__(name):
             "PayloadCipher": PayloadCipher,
             "NoopCipher": NoopCipher,
             "FernetCipher": FernetCipher,
+            "EnvelopeCipher": EnvelopeCipher,
             "CRYPTO_VERSION": CRYPTO_VERSION,
             "build_cipher_from_env": build_cipher_from_env,
         }

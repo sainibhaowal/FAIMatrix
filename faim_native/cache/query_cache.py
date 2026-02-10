@@ -17,7 +17,7 @@ import hashlib
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
@@ -148,7 +148,7 @@ class QueryCache:
 
     def __init__(
         self,
-        tenant_id: UUID,
+        tenant_id: Union[UUID, str],
         default_ttl: int = DEFAULT_TTL,
     ) -> None:
         """Initialize query cache for a tenant.
@@ -310,7 +310,7 @@ class StatsCache:
 
     def __init__(
         self,
-        tenant_id: UUID,
+        tenant_id: Union[UUID, str],
         default_ttl: int = DEFAULT_TTL,
     ) -> None:
         self._tenant_id = str(tenant_id)

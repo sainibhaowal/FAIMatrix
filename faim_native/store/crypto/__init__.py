@@ -2,8 +2,11 @@
 
 from store.crypto.envelope import (
     EncryptedBlob,
+    TenantDEKManager,
     decrypt,
     decrypt_from_storage,
+    encryption_at_rest_enabled,
+    encryption_fail_closed,
     encrypt,
     encrypt_for_storage,
     generate_dek,
@@ -14,6 +17,7 @@ from store.crypto.envelope import (
 
 __all__ = [
     "EncryptedBlob",
+    "TenantDEKManager",
     "generate_dek",
     "wrap_dek",
     "unwrap_dek",
@@ -22,4 +26,6 @@ __all__ = [
     "encrypt_for_storage",
     "decrypt_from_storage",
     "get_master_key",
+    "encryption_at_rest_enabled",
+    "encryption_fail_closed",
 ]

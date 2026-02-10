@@ -573,6 +573,9 @@ def create_all_tables(engine) -> None:
     Args:
         engine: SQLAlchemy engine.
     """
+    # Ensure optional models are imported into Base metadata.
+    from store.pg import models_crypto as _models_crypto  # noqa: F401
+
     Base.metadata.create_all(bind=engine)
 
 
