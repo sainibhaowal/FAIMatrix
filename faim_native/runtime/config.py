@@ -10,6 +10,10 @@ Optional env vars:
 - ADMIN_KEYS_JSON
 - FAIM_PROFILE_DEFAULT (STRICT/FAST/RELAXED)
 - FAIM_ENABLE_INDEX, FAIM_ENABLE_CACHE, FAIM_ENABLE_JOBS
+- FAIM_ENCRYPTION_FAIL_CLOSED
+- FAIM_STORAGE_HARD_DELETE_ENABLED
+- FAIM_STORAGE_LIVE_JOB_STREAM_ENABLED
+- FAIM_STORAGE_CONTRACT_STRICT
 - FAIM_RATE_LIMITS_JSON
 - FAIM_EVENT_PAYLOAD_MAX_BYTES
 - FAIM_EXPLAIN_MAX_ITEMS
@@ -90,6 +94,10 @@ class FAIMConfig:
     enable_cache: bool = False
     enable_jobs: bool = False
     log_level: str = "INFO"
+    encryption_fail_closed: bool = False
+    storage_hard_delete_enabled: bool = False
+    storage_live_job_stream_enabled: bool = False
+    storage_contract_strict: bool = True
 
     # Optional - rate limits
     rate_limits: Dict[str, int] = field(
@@ -127,6 +135,18 @@ class FAIMConfig:
         # Validate profile
         if self.profile_default not in ("STRICT", "FAST", "RELAXED"):
             errors.append(f"Invalid profile: {self.profile_default}")
+
+        if self.storage_hard_delete_enabled and not self.enable_jobs:
+            errors.append(
+                "FAIM_STORAGE_HARD_DELETE_ENABLED requires FAIM_ENABLE_JOBS=true"
+            )
+
+        env = os.environ.get("FAIM_ENV", "").strip().lower()
+        encryption_enabled = parse_bool_env("FAIM_ENCRYPTION_AT_REST", False)
+        if env in ("prod", "production") and encryption_enabled and not self.encryption_fail_closed:
+            errors.append(
+                "Production with FAIM_ENCRYPTION_AT_REST=true requires FAIM_ENCRYPTION_FAIL_CLOSED=true"
+            )
 
         return errors
 
@@ -180,6 +200,14 @@ def load_config() -> FAIMConfig:
         enable_cache=parse_bool_env("FAIM_ENABLE_CACHE", False),
         enable_jobs=parse_bool_env("FAIM_ENABLE_JOBS", False),
         log_level=os.environ.get("FAIM_LOG_LEVEL", "INFO").upper(),
+        encryption_fail_closed=parse_bool_env("FAIM_ENCRYPTION_FAIL_CLOSED", False),
+        storage_hard_delete_enabled=parse_bool_env(
+            "FAIM_STORAGE_HARD_DELETE_ENABLED", False
+        ),
+        storage_live_job_stream_enabled=parse_bool_env(
+            "FAIM_STORAGE_LIVE_JOB_STREAM_ENABLED", False
+        ),
+        storage_contract_strict=parse_bool_env("FAIM_STORAGE_CONTRACT_STRICT", True),
         rate_limits=default_limits,
         event_payload_max_bytes=parse_int_env("FAIM_EVENT_PAYLOAD_MAX_BYTES", 4096),
         explain_max_items=parse_int_env("FAIM_EXPLAIN_MAX_ITEMS", 25),

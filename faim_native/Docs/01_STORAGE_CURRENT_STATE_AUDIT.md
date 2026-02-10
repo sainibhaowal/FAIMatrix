@@ -81,6 +81,14 @@ Resolved from prior audit gaps:
 - ingest index upsert now uses canonical node IDs from write result
 - perf namespace is explicitly marked isolated (`PERF_LAYER_STATUS=isolated_legacy`)
 
+## Post-Phase-A Update (2026-02-10)
+
+Contract freeze and startup guardrails are now implemented:
+
+- storage API method/path + response field contract is validated at startup
+- feature-flag guardrails are validated at startup
+- new rollout flags are defined for contract strictness, hard-delete gate, and live-job-stream rollout
+
 ## Frontend Storage Page (Current)
 
 - `frontend/src/app/(app)/dashboard/storage/page.tsx` is implemented and operational.
