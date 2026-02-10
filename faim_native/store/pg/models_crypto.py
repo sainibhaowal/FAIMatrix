@@ -6,7 +6,7 @@ Database models for encryption key management.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, LargeBinary, String
 from store.pg.models_faim import Base
@@ -30,7 +30,10 @@ class TenantCryptoKey(Base):
 
     tenant_id = Column(String, primary_key=True)
     dek_wrapped = Column(LargeBinary, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+    )
     rotated_at = Column(DateTime(timezone=True), nullable=True)
 
     def to_dict(self) -> dict:

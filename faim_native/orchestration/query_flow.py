@@ -254,6 +254,7 @@ def run_query(
     profile: FAIMProfile = FAIMProfile.STRICT,
     return_explain: bool = False,
     index=None,
+    cache=None,
 ) -> QueryResult:
     """Execute a FAIM-native query.
 
@@ -301,29 +302,43 @@ def run_query(
     metrics = get_graph_metrics(session, tenant_id, graph_id)
     graph_avg_touch = metrics.get("avg_touch", 1.0)
 
-    # 4. Recall candidates
-    # STRICT mode: always brute-force
-    if profile == FAIMProfile.STRICT or index is None:
-        candidates = recall_candidates_brute_force(
-            session=session,
-            tenant_id=tenant_id,
-            graph_id=graph_id,
-            q_vec=q_vec,
-            n=200,
-        )
-    else:
-        # Use index for acceleration
-        from core.query.query_engine import recall_candidates_index
+    from store.pg.repos.graph_version_repo import GraphVersionRepo
 
-        candidates = recall_candidates_index(
-            index=index,
-            tenant_id=tenant_id,
-            graph_id=graph_id,
-            q_vec=q_vec,
-            n=200,
-        )
-        # If index fails, fall back to brute-force
-        if not candidates:
+    gv_repo = GraphVersionRepo(tenant_id=tenant_id)
+    graph_version = gv_repo.get_version(session, graph_id)
+
+    # 4. Recall candidates (cache -> index/brute-force fallback)
+    cache_hit = False
+    profile_name_cache = (
+        profile.value if isinstance(profile, FAIMProfile) else str(profile).lower()
+    )
+    candidates: List[Any] = []
+
+    if cache is not None:
+        try:
+            cached = cache.get(
+                graph_id=graph_id,
+                graph_version=graph_version,
+                query_vector=q_vec,
+                profile=profile_name_cache,
+                k=200,
+            )
+            if cached:
+                parsed = []
+                for node_id, score in cached:
+                    try:
+                        parsed.append((UUID(str(node_id)), float(score)))
+                    except (ValueError, TypeError):
+                        continue
+                if parsed:
+                    candidates = parsed
+                    cache_hit = True
+        except Exception:
+            cache_hit = False
+
+    if not candidates:
+        # STRICT mode: always brute-force
+        if profile == FAIMProfile.STRICT or index is None:
             candidates = recall_candidates_brute_force(
                 session=session,
                 tenant_id=tenant_id,
@@ -331,6 +346,39 @@ def run_query(
                 q_vec=q_vec,
                 n=200,
             )
+        else:
+            # Use index for acceleration
+            from core.query.query_engine import recall_candidates_index
+
+            candidates = recall_candidates_index(
+                index=index,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                q_vec=q_vec,
+                n=200,
+            )
+            # If index fails, fall back to brute-force
+            if not candidates:
+                candidates = recall_candidates_brute_force(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=q_vec,
+                    n=200,
+                )
+
+        if cache is not None and candidates:
+            try:
+                cache.set(
+                    graph_id=graph_id,
+                    graph_version=graph_version,
+                    query_vector=q_vec,
+                    profile=profile_name_cache,
+                    k=200,
+                    results=[(str(node_id), float(score)) for node_id, score in candidates],
+                )
+            except Exception:
+                pass
 
     candidate_ids = [c[0] for c in candidates]
 
@@ -387,11 +435,7 @@ def run_query(
 
         results.append(result_item)
 
-    # Get graph version and hash
-    from store.pg.repos.graph_version_repo import GraphVersionRepo
-
-    gv_repo = GraphVersionRepo()
-    graph_version = gv_repo.get_version(session, graph_id)
+    metrics["cache_hit"] = 1.0 if cache_hit else 0.0
 
     # Compute result
     duration_ms = (time.perf_counter() - start_time) * 1000

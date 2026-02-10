@@ -20,6 +20,7 @@ __all__ = [
     "SnapshotModel",
     "GraphVersionModel",
     "StorageFileModel",
+    "TenantCryptoKey",
     "create_all_tables",
     # Repositories
     "RawRepo",
@@ -57,12 +58,15 @@ def __getattr__(name):
         "SnapshotModel",
         "GraphVersionModel",
         "StorageFileModel",
+        "TenantCryptoKey",
         "create_all_tables",
     ):
         from . import pg  # noqa: F401
-        from .pg import models_faim
+        from .pg import models_crypto, models_faim
 
-        return getattr(models_faim, name)
+        if hasattr(models_faim, name):
+            return getattr(models_faim, name)
+        return getattr(models_crypto, name)
     elif name == "RawRepo":
         from .pg.repos.raw_repo import RawRepo
 

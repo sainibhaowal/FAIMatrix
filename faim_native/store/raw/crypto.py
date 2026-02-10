@@ -3,7 +3,7 @@
 P2: this module lets you toggle encryption via env without breaking P0.
 By default, NoopCipher is used and payloads are stored as plain bytes.
 
-Version: v1 - Initial implementation with Fernet support.
+Version: v2 - Adds tenant envelope mode backed by wrapped DEKs.
 """
 
 from __future__ import annotations
@@ -11,10 +11,10 @@ from __future__ import annotations
 import importlib
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Protocol, cast, runtime_checkable
+from typing import Any, Callable, Dict, Optional, Protocol, cast, runtime_checkable
 
 # Crypto module version for traceability
-CRYPTO_VERSION = "v1"
+CRYPTO_VERSION = "v2"
 
 # Type alias for graph ID (avoid circular import)
 GraphId = str
@@ -115,18 +115,51 @@ class FernetCipher(PayloadCipher):
         return f.decrypt(ciphertext)
 
 
-def build_cipher_from_env() -> PayloadCipher:
+class EnvelopeCipher(PayloadCipher):
+    """Tenant-scoped AES-256-GCM envelope cipher."""
+
+    def __init__(
+        self,
+        tenant_id: str,
+        session_factory: Callable[[], Any],
+    ) -> None:
+        if not tenant_id:
+            raise ValueError("tenant_id is required for envelope cipher")
+        if session_factory is None:
+            raise ValueError("session_factory is required for envelope cipher")
+
+        from store.crypto.envelope import TenantDEKManager
+
+        self._tenant_id = tenant_id
+        self._manager = TenantDEKManager(session_factory=session_factory)
+
+    def encrypt(self, graph_id: GraphId, plaintext: bytes) -> bytes:  # noqa: ARG002
+        return self._manager.encrypt_for_tenant(self._tenant_id, plaintext)
+
+    def decrypt(self, graph_id: GraphId, ciphertext: bytes) -> bytes:  # noqa: ARG002
+        return self._manager.decrypt_for_tenant(self._tenant_id, ciphertext)
+
+    def version(self) -> str:
+        return f"{CRYPTO_VERSION}+envelope"
+
+
+def build_cipher_from_env(
+    mode_override: Optional[str] = None,
+    tenant_id: Optional[str] = None,
+    session_factory: Optional[Callable[[], Any]] = None,
+) -> PayloadCipher:
     """
     Build a PayloadCipher based on env vars.
 
     FAIM_PAYLOAD_CIPHER:
       - "none" / "" / unset => NoopCipher (default).
       - "fernet"           => FernetCipher (requires 'cryptography').
+      - "envelope"         => EnvelopeCipher (tenant DEK workflow).
 
     FAIM_GRAPH_KEY_DEFAULT (optional):
       - default fernet key for all graphs (base64 fernet key string).
     """
-    mode = os.getenv("FAIM_PAYLOAD_CIPHER", "").strip().lower()
+    mode = (mode_override or os.getenv("FAIM_PAYLOAD_CIPHER", "")).strip().lower()
     if mode in ("", "none", "plain"):
         return NoopCipher()
 
@@ -134,5 +167,13 @@ def build_cipher_from_env() -> PayloadCipher:
         default_key_env = os.getenv("FAIM_GRAPH_KEY_DEFAULT")
         default_key_bytes = default_key_env.encode("ascii") if default_key_env else None
         return FernetCipher(default_key=default_key_bytes)
+
+    if mode == "envelope":
+        tid = str(tenant_id or "").strip()
+        if not tid:
+            raise RuntimeError("FAIM_PAYLOAD_CIPHER=envelope requires tenant_id")
+        if session_factory is None:
+            raise RuntimeError("FAIM_PAYLOAD_CIPHER=envelope requires session_factory")
+        return EnvelopeCipher(tenant_id=tid, session_factory=session_factory)
 
     raise RuntimeError(f"Unknown FAIM_PAYLOAD_CIPHER mode: {mode!r}")

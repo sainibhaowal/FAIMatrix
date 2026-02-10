@@ -48,6 +48,7 @@ REQUIRED_TABLES = [
     "jobs",
     "job_events",
     "storage_files",
+    "tenant_crypto_keys",
     "schema_migrations",
 ]
 

@@ -93,6 +93,7 @@ class QueryMetrics(BaseModel):
     lambda_hat: float = 0.0
     novelty: float = 0.0
     energy: float = 0.0
+    cache_hit: float = 0.0
 
 
 class QueryResponse(BaseModel):
@@ -173,6 +174,7 @@ async def query_graph(
             profile=profile,
             return_explain=request.return_explain,
             index=ctx.index if profile != FAIMProfile.STRICT else None,
+            cache=ctx.cache,
         )
 
         # Build response
