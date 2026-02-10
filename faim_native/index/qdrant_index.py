@@ -45,7 +45,7 @@ _qdrant_available = None  # None = not checked, True/False = known
 
 def _get_qdrant_url() -> str:
     """Get Qdrant URL from environment."""
-    return os.getenv("QDRANT_URL", "http://localhost:6333")
+    return os.getenv("QDRANT_URL", "http://localhost:8040")
 
 
 def _get_qdrant_api_key() -> Optional[str]:

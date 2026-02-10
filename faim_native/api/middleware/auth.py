@@ -180,6 +180,8 @@ EXEMPT_PATHS = {
     "/docs",
     "/openapi.json",
     "/redoc",
+    "/api/v1/health",
+    "/api/v1/ready",
 }
 
 # Auth paths that should be exempt from tenant auth
@@ -220,6 +222,12 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         # Skip auth for exempt paths
         if is_exempt_path(request.url.path):
+            return await call_next(request)
+
+        # Stage-12: JWT Bypass
+        # If the request has already been authenticated by JWTAuthMiddleware,
+        # skip the requirement for X-Tenant-Id and X-Api-Key.
+        if getattr(request.state, "auth_method", None) == "jwt":
             return await call_next(request)
 
         # Get headers

@@ -15,11 +15,9 @@ import {
 } from "@/lib/api";
 import { CommandPalette } from "../CommandPalette";
 import { Breadcrumbs } from "../Breadcrumbs";
-import { WorkspaceSelector } from "./WorkspaceSelector";
 import { IconChevron } from "./IconChevron";
 import { Dropdown } from "./Dropdown";
 import { UserDropdownContent } from "./ProfileMenu/UserDropdownContent";
-
 import { NotificationCenter } from "./NotificationBell/NotificationCenter";
 
 // ----------------------------------------------------------------------------
@@ -52,14 +50,6 @@ function IconSidebar(props: { className?: string }) {
   );
 }
 
-function IconGear(props: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={props.className} fill="none">
-      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M19.4 15a7.94 7.94 0 0 0 .1-1l2-1.2-2-3.5-2.3.6a7.6 7.6 0 0 0-.8-.8l.6-2.3-3.5-2-1.2 2a7.94 7.94 0 0 0-1 0l-1.2-2-3.5 2 .6 2.3c-.28.25-.55.52-.8.8l-2.3-.6-2 3.5 2 1.2a7.94 7.94 0 0 0 0 1l-2 1.2 2 3.5 2.3-.6c.25.28.52.55.8.8l-.6 2.3 3.5 2 1.2-2a7.94 7.94 0 0 0 1 0l1.2 2 3.5-2-.6-2.3c.28-.25.55-.52.8-.8l2.3.6 2-3.5-2-1.2Z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" opacity="0.7" />
-    </svg>
-  );
-}
 
 function IconUser(props: { className?: string }) {
   return (
@@ -107,8 +97,6 @@ function getAvatarUrl(avatarId: string): string {
   return `https://api.dicebear.com/7.x/${avatar.style}/svg?seed=${avatar.seed}&backgroundColor=${avatar.bg}&size=128`;
 }
 
-const LS_UI_DENSITY = "faim.ui.density";
-const LS_UI_DEBUG = "faim.ui.debug";
 const LS_UNIVERSE_KEY = "faim.universe_graph_id";
 
 export type Health = "ok" | "degraded" | "down" | "unknown";
@@ -143,7 +131,7 @@ export function TopBar({
   // --- Search / CMDK State ---
   const [openCmdk, setOpenCmdk] = useState(false);
 
-  // --- Graph / Workspace State ---
+  // --- Graph / Universe State ---
   const [graphs, setGraphs] = useState<GraphSummary[]>([]);
   const [graphsLoaded, setGraphsLoaded] = useState(false);
 
@@ -160,24 +148,14 @@ export function TopBar({
   } | null>(null);
 
   // --- UI State ---
-  const [openSettings, setOpenSettings] = useState(false);
   const [openUser, setOpenUser] = useState(false);
   const [openHealth, setOpenHealth] = useState(false);
   
   // --- Avatar State ---
   const [avatarId, setAvatarId] = useState<string | null>(null);
 
-  const [density, setDensity] = useState<"comfortable" | "compact">(() => {
-    if (typeof window === "undefined") return "comfortable";
-    return (window.localStorage.getItem(LS_UI_DENSITY) as any) || "comfortable";
-  });
-  const [debugUi, setDebugUi] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem(LS_UI_DEBUG) === "1";
-  });
 
   // --- Refs ---
-  const settingsRef = useRef<HTMLButtonElement>(null);
   const userRef = useRef<HTMLButtonElement>(null);
   const healthRef = useRef<HTMLButtonElement>(null);
 
@@ -246,13 +224,6 @@ export function TopBar({
     };
   }, []);
 
-  // UI Prefs persistence
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(LS_UI_DENSITY, density);
-      window.localStorage.setItem(LS_UI_DEBUG, debugUi ? "1" : "0");
-    } catch {}
-  }, [density, debugUi]);
 
 
   // Load Graphs
@@ -285,14 +256,11 @@ export function TopBar({
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpenCmdk(true);
-        setOpenSettings(false);
         setOpenUser(false);
         setOpenHealth(false);
       }
       if (e.key === "Escape") {
          setOpenCmdk(false);
-         setOpenSettings(false);
          setOpenUser(false);
          setOpenHealth(false);
       }
@@ -302,7 +270,7 @@ export function TopBar({
   }, []);
 
   const currentGraph = useMemo(() => {
-    return graphs.find((g) => g.id === effectiveGraphId) ?? { id: effectiveGraphId, name: "Workspace" };
+    return graphs.find((g) => g.id === effectiveGraphId) ?? { id: effectiveGraphId, name: "Universe" };
   }, [graphs, effectiveGraphId]);
 
   const healthLabel = health === "ok" ? "FAIM Core: OK" : health === "degraded" ? "FAIM Core: Degraded" : health === "down" ? "FAIM Core: DOWN" : "FAIM Core: …";
@@ -327,7 +295,7 @@ export function TopBar({
     <>
       <header className="relative z-20 border-b border-white/10 bg-white/5 px-6 py-3 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
-          {/* LEFT: Sidebar Toggle & Workspace & Breadcrumbs */}
+          {/* LEFT: Sidebar Toggle & Universe & Breadcrumbs */}
           <div className="relative flex min-w-0 items-center gap-3 flex-1">
             {/* Collapse Button (Desktop) */}
             {onToggleSidebar && (
@@ -348,19 +316,6 @@ export function TopBar({
             >
               <IconMenu className="h-4 w-4 text-slate-300" />
             </button>
-
-            {/* Workspace Selector */}
-            <WorkspaceSelector 
-              graphId={graphId}
-              setGraphId={setGraphId}
-              graphs={graphs}
-              graphsLoaded={graphsLoaded}
-              setGraphs={setGraphs}
-              currentGraphName={currentGraph.name}
-            />
-
-            {/* Separator */}
-            <div className="hidden md:block h-4 w-px bg-white/10 mx-1" />
 
             {/* Breadcrumbs */}
             <Breadcrumbs />
@@ -386,105 +341,6 @@ export function TopBar({
                <IconSearch className="h-5 w-5" />
             </button>
 
-             {/* Settings */}
-             <div className="relative">
-              <button
-                ref={settingsRef}
-                onClick={() => {
-                  setOpenSettings((v) => !v);
-                  setOpenUser(false);
-                  setOpenHealth(false);
-                }}
-                className="hidden md:flex rounded-xl border border-white/10 bg-black/20 p-2 hover:border-white/15 hover:bg-white/5"
-                title="Settings"
-              >
-                <IconGear className="h-4 w-4 text-slate-300" />
-              </button>
-
-              <Dropdown
-                open={openSettings}
-                anchorRef={settingsRef}
-                onClose={() => setOpenSettings(false)}
-              >
-                <div className="p-3">
-                  <div className="mb-2 text-[11px] font-semibold text-slate-200">
-                    Quick settings
-                  </div>
-
-                  <div className="space-y-2 rounded-xl border border-white/10 p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-[11px] text-slate-300">
-                        UI density
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => setDensity("comfortable")}
-                          className={cx(
-                            "rounded-lg border px-2 py-1 text-[10px]",
-                            density === "comfortable"
-                              ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-200"
-                              : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10",
-                          )}
-                        >
-                          Comfortable
-                        </button>
-                        <button
-                          onClick={() => setDensity("compact")}
-                          className={cx(
-                            "rounded-lg border px-2 py-1 text-[10px]",
-                            density === "compact"
-                              ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-200"
-                              : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10",
-                          )}
-                        >
-                          Compact
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="text-[11px] text-slate-300">Debug UI</div>
-                      <button
-                        onClick={() => setDebugUi((v) => !v)}
-                        className={cx(
-                          "rounded-lg border px-2 py-1 text-[10px]",
-                          debugUi
-                            ? "border-violet-500/30 bg-violet-500/10 text-violet-200"
-                            : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10",
-                        )}
-                      >
-                        {debugUi ? "ON" : "OFF"}
-                      </button>
-                    </div>
-
-                    <div className="text-[10px] text-slate-500">
-                      Cmd/Ctrl+K: Search · ESC: close menus
-                    </div>
-                  </div>
-
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => {
-                        setOpenSettings(false);
-                        goAdmin("account");
-                      }}
-                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-200 hover:bg-white/10"
-                    >
-                      Open Settings
-                    </button>
-                    <button
-                      onClick={() => {
-                        setOpenSettings(false);
-                        goAdmin();
-                      }}
-                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-200 hover:bg-white/10"
-                    >
-                      Admin
-                    </button>
-                  </div>
-                </div>
-              </Dropdown>
-            </div>
 
             {/* Health Status */}
             <div className="relative">
@@ -492,7 +348,6 @@ export function TopBar({
                 ref={healthRef}
                  onClick={() => {
                   setOpenHealth((v) => !v);
-                  setOpenSettings(false);
                   setOpenUser(false);
                 }}
                 className={cx(
@@ -604,7 +459,6 @@ export function TopBar({
                  ref={userRef}
                  onClick={() => {
                     setOpenUser((v) => !v);
-                    setOpenSettings(false);
                     setOpenHealth(false);
                  }}
                  className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-xs font-medium text-white/80 hover:border-white/20 transition-colors overflow-hidden"

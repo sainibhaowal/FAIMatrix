@@ -58,7 +58,8 @@ export function resolveGraphId(input?: string): string {
   const fromStorage = getUniverseGraphId();
   if (raw && raw.startsWith("U:")) return raw;
   if (fromStorage && fromStorage.startsWith("U:")) return fromStorage;
-  return DEFAULT_GRAPH_ID || "";
+  // If no prefix, it's invalid for FAIM-Native Universe
+  return "";
 }
 
 // -----------------------------------------------------------------------------

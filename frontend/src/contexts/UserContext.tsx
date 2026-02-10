@@ -55,10 +55,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: true,
       });
 
-      // SYNC FRESH DATA: JWT might be stale (e.g. after DB wipe), so fetch real ID from DB
       const accessToken = (session as any).accessToken;
       
-      fetch("/api/v1/me", {
+      if (!accessToken) {
+        return;
+      }
+      
+      fetch("/api/v1/auth/me", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -69,39 +72,31 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           }
           const contentType = res.headers.get("content-type");
           if (!contentType || !contentType.includes("application/json")) {
-            throw new Error("Received non-JSON response from server");
+            throw new Error(`Received non-JSON response (${contentType}) from server`);
           }
           return res.json();
         })
         .then((data) => {
-          if (data.graph_id && data.graph_id !== graphId) {
-            // Auto-heal stale Graph ID silently
-            // Update localStorage
-            try {
-              window.localStorage.setItem(
-                "faim.universe_graph_id",
-                data.graph_id,
-              );
-              window.localStorage.setItem(
-                "faim_universe_graph_id",
-                data.graph_id,
-              );
-              window.localStorage.setItem("faim_user_id", data.user_id || "");
-            } catch (e) {
-              /* ignore */
-            }
+          // AGGRESSIVE SYNC: Always override with backend technical ID
+          const backendGid = data.user?.graph_id || data.graph_id;
+          const backendUid = data.user?.id || data.user_id;
 
-            // Update Context State
+          if (backendGid || backendUid) {
+            try {
+              if (backendGid) {
+                window.localStorage.setItem("faim.universe_graph_id", backendGid);
+                window.localStorage.setItem("faim_universe_graph_id", backendGid);
+              }
+              if (backendUid) {
+                window.localStorage.setItem("faim_user_id", backendUid);
+              }
+            } catch (e) {}
+
             setUserInfo((prev) => ({
               ...prev,
-              graphId: data.graph_id,
+              userId: backendUid || prev.userId,
+              graphId: backendGid || prev.graphId,
             }));
-          } else if (graphId) {
-            // Ensure storage is set even if matching (for first load)
-            try {
-              window.localStorage.setItem("faim.universe_graph_id", graphId);
-              window.localStorage.setItem("faim_universe_graph_id", graphId);
-            } catch (e) {}
           }
         })
         .catch((err) => console.warn("[UserContext] User sync skipped:", err));
