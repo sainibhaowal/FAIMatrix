@@ -15,7 +15,7 @@ from typing import Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -66,6 +66,7 @@ class IngestResponse(BaseModel):
     vector_count: int
     events_emitted: list[str]
     latency_ms: int
+    phase_latency_ms: dict[str, int] = Field(default_factory=dict)
     error: Optional[str] = None
 
 
@@ -116,6 +117,63 @@ def _emit_storage_audit_event(
             ctx.session.flush()
     except Exception as exc:  # nosec B110
         logger.warning("Failed to emit storage audit event %s: %s", kind, exc)
+
+
+def _normalize_failure_reason(error: Optional[str]) -> str:
+    text_value = str(error or "").strip().lower()
+    if not text_value:
+        return "unknown"
+    if "mime" in text_value and "extension" in text_value:
+        return "mime_extension_mismatch"
+    if "upload file too large" in text_value or "file size exceeds" in text_value:
+        return "upload_oversize"
+    if "unsupported file extension" in text_value:
+        return "unsupported_extension"
+    if "path separators" in text_value:
+        return "path_traversal_filename"
+    if "encrypt" in text_value or "decrypt" in text_value:
+        return "encryption_error"
+    if "raw_id" in text_value or "uuid" in text_value:
+        return "raw_id_contract_error"
+    if "extract" in text_value:
+        return "extract_error"
+    return "ingest_error"
+
+
+def _ingest_lifecycle_log(
+    *,
+    ctx: FAIMContext,
+    op: str,
+    status: str,
+    graph_id: Optional[str],
+    raw_id: Optional[str] = None,
+    latency_ms: Optional[int] = None,
+    failure_reason: Optional[str] = None,
+    detail: Optional[str] = None,
+    level: str = "info",
+) -> None:
+    try:
+        from runtime.feature_flags import get_feature_flags
+
+        if not get_feature_flags().storage_structured_lifecycle_logs:
+            return
+    except Exception:
+        pass
+
+    extra: dict[str, Any] = {
+        "request_id": ctx.request_id,
+        "tenant_id": ctx.tenant_id,
+        "graph_id": graph_id,
+        "raw_id": raw_id,
+        "op": op,
+        "status": status,
+        "failure_reason": failure_reason,
+    }
+    if latency_ms is not None:
+        extra["latency_ms"] = int(latency_ms)
+    payload = {k: v for k, v in extra.items() if v is not None}
+    log_fn = getattr(logger, level, logger.info)
+    log_fn(detail or f"ingest.lifecycle op={op} status={status}", extra=payload)
 
 
 def _persist_raw_upload(
@@ -287,6 +345,13 @@ async def ingest_file(
     Returns packet_hash (idempotency key), graph_version, and events.
     """
     try:
+        _ingest_lifecycle_log(
+            ctx=ctx,
+            op="ingest_json",
+            status="started",
+            graph_id=request.graph_id,
+            detail="json ingest request started",
+        )
         # Decode file bytes
         if not request.bytes_base64:
             raise HTTPException(
@@ -354,6 +419,18 @@ async def ingest_file(
             raw_id=raw_id,
             result=result,
         )
+        _ingest_lifecycle_log(
+            ctx=ctx,
+            op="ingest_json",
+            status=result.status,
+            graph_id=request.graph_id,
+            raw_id=raw_id,
+            latency_ms=result.latency_ms,
+            failure_reason=(
+                _normalize_failure_reason(result.error) if result.error else None
+            ),
+            detail="json ingest completed",
+        )
 
         return IngestResponse(
             status=result.status,
@@ -365,17 +442,36 @@ async def ingest_file(
             vector_count=result.vector_count,
             events_emitted=result.events_emitted,
             latency_ms=result.latency_ms,
+            phase_latency_ms=result.phase_latency_ms,
             error=result.error,
         )
 
     except HTTPException:
         if ctx.session:
             ctx.session.rollback()
+        _ingest_lifecycle_log(
+            ctx=ctx,
+            op="ingest_json",
+            status="failed",
+            graph_id=request.graph_id,
+            failure_reason="http_error",
+            detail="json ingest failed with http exception",
+            level="warning",
+        )
         raise
     except Exception as e:
         if ctx.session:
             ctx.session.rollback()
         logger.error(f"Ingest failed: {e}")
+        _ingest_lifecycle_log(
+            ctx=ctx,
+            op="ingest_json",
+            status="failed",
+            graph_id=request.graph_id,
+            failure_reason=_normalize_failure_reason(str(e)),
+            detail="json ingest failed",
+            level="error",
+        )
         raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
 
 
@@ -397,6 +493,13 @@ async def ingest_upload(
     Alternative to JSON body with bytes_base64.
     """
     try:
+        _ingest_lifecycle_log(
+            ctx=ctx,
+            op="ingest_upload",
+            status="started",
+            graph_id=graph_id,
+            detail="multipart ingest request started",
+        )
         await validate_upload_file(file)
         file_bytes = await file.read()
         validate_upload_size(len(file_bytes))
@@ -454,6 +557,18 @@ async def ingest_upload(
             raw_id=raw_id,
             result=result,
         )
+        _ingest_lifecycle_log(
+            ctx=ctx,
+            op="ingest_upload",
+            status=result.status,
+            graph_id=graph_id,
+            raw_id=raw_id,
+            latency_ms=result.latency_ms,
+            failure_reason=(
+                _normalize_failure_reason(result.error) if result.error else None
+            ),
+            detail="multipart ingest completed",
+        )
 
         return IngestResponse(
             status=result.status,
@@ -465,17 +580,36 @@ async def ingest_upload(
             vector_count=result.vector_count,
             events_emitted=result.events_emitted,
             latency_ms=result.latency_ms,
+            phase_latency_ms=result.phase_latency_ms,
             error=result.error,
         )
 
     except HTTPException:
         if ctx.session:
             ctx.session.rollback()
+        _ingest_lifecycle_log(
+            ctx=ctx,
+            op="ingest_upload",
+            status="failed",
+            graph_id=graph_id,
+            failure_reason="http_error",
+            detail="multipart ingest failed with http exception",
+            level="warning",
+        )
         raise
     except Exception as e:
         if ctx.session:
             ctx.session.rollback()
         logger.error(f"Ingest upload failed: {e}")
+        _ingest_lifecycle_log(
+            ctx=ctx,
+            op="ingest_upload",
+            status="failed",
+            graph_id=graph_id,
+            failure_reason=_normalize_failure_reason(str(e)),
+            detail="multipart ingest failed",
+            level="error",
+        )
         raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
 
 

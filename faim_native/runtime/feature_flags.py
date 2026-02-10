@@ -24,6 +24,8 @@ class FeatureFlags:
     storage_hard_delete_enabled: bool = False
     storage_live_job_stream_enabled: bool = False
     storage_contract_strict: bool = True
+    storage_observability_enabled: bool = True
+    storage_structured_lifecycle_logs: bool = True
 
 
 def get_feature_flags() -> FeatureFlags:
@@ -37,6 +39,12 @@ def get_feature_flags() -> FeatureFlags:
             "FAIM_STORAGE_LIVE_JOB_STREAM_ENABLED", False
         ),
         storage_contract_strict=_parse_bool("FAIM_STORAGE_CONTRACT_STRICT", True),
+        storage_observability_enabled=_parse_bool(
+            "FAIM_STORAGE_OBSERVABILITY_ENABLED", True
+        ),
+        storage_structured_lifecycle_logs=_parse_bool(
+            "FAIM_STORAGE_STRUCTURED_LIFECYCLE_LOGS", True
+        ),
     )
 
 
@@ -71,6 +79,10 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
     if flags.storage_live_job_stream_enabled:
         warnings.append(
             "FAIM_STORAGE_LIVE_JOB_STREAM_ENABLED is enabled but live stream integration must be verified at UI rollout"
+        )
+    if env in {"prod", "production"} and not flags.storage_observability_enabled:
+        warnings.append(
+            "FAIM_STORAGE_OBSERVABILITY_ENABLED=false in production reduces incident visibility"
         )
 
     return errors, warnings

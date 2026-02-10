@@ -210,6 +210,8 @@ Goal: activate tenant DEK workflow in live ingest/storage path.
 | Router/repo API consistency | aligned for node/metrics/admin routes |
 | Frontend SSE proxy path | aligned with backend events stream |
 | Storage API surface | implemented |
+| Storage observability metrics | implemented (Phase E `/storage/ops/metrics`) |
+| Structured lifecycle logging | implemented (Phase E correlation fields) |
 | Redis cache usage in query path | wired for candidate recall cache |
 | Qdrant acceleration in query path | contract-aligned with stable fallback |
 | Security primitives | integrated into runtime path (tenant DEK envelope mode) |
@@ -392,3 +394,47 @@ Validation:
 Implementation evidence:
 
 - `14_PHASE_D_SECURITY_HARDENING_REPORT.md`
+
+## Phase E - Observability + Operations
+
+Status (2026-02-10): implemented.
+
+Completed:
+
+- [x] Observability API surface for storage operations
+  - `GET /api/v1/storage/ops/metrics`
+  - implementation:
+    - `api/routers/storage.py`
+
+- [x] Metrics coverage
+  - upload count and upload bytes
+  - dedup hit ratio
+  - failure reason taxonomy
+  - ingest phase latency aggregates from `INGEST_PHASE_LATENCY`
+  - backend health states (`up`/`degraded`/`down`) and probe latency
+
+- [x] Structured lifecycle logging with correlation
+  - storage and ingest routers emit lifecycle logs with:
+    - `request_id`, `tenant_id`, `graph_id`, `job_id`, `raw_id`, `op`, `status`, `failure_reason`, `latency_ms`
+  - formatter support for added correlated fields:
+    - `runtime/logging.py`
+
+- [x] Observability rollout controls
+  - `FAIM_STORAGE_OBSERVABILITY_ENABLED`
+  - `FAIM_STORAGE_STRUCTURED_LIFECYCLE_LOGS`
+  - implementation:
+    - `runtime/feature_flags.py`
+    - `runtime/config.py`
+
+- [x] Operations documentation
+  - `15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
+  - `16_STORAGE_OPERATIONS_RUNBOOK.md`
+
+Validation:
+
+- `PYTHONPATH=faim_native pytest -q tests/unit/test_phase_e_observability.py tests/acceptance/test_AT_PE_storage_observability_surface.py`
+- regression suites for Phase A/B/C/D storage paths pass
+
+Implementation evidence:
+
+- `15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`

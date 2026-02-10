@@ -125,4 +125,4 @@ Collection dimension is fixed to 256.
 
 - `residual` and `edge.weight` are scaled integer storage in ORM models.
 - `ingest_dedup.raw_id` uses UUID type, while ingest surface often treats raw_id as plain string.
-- `raw_refs` table exists and is robust, but ingest API wiring to it must be completed.
+- ingest/storage API paths are wired to persist immutable raw bytes and `raw_refs` metadata before orchestration.

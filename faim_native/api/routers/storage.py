@@ -8,7 +8,9 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from datetime import datetime, timezone
+import time
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import UUID
@@ -151,6 +153,41 @@ class StorageBackendsHealth(BaseModel):
     redis: bool
     qdrant: bool
     raw_store: bool
+
+
+class StorageBackendState(BaseModel):
+    """Operational backend health state with latency and status."""
+
+    ok: bool
+    status: str  # up | degraded | down
+    latency_ms: int
+    error: Optional[str] = None
+
+
+class StoragePhaseLatencyStats(BaseModel):
+    """Aggregate latency metrics for a pipeline phase."""
+
+    count: int
+    avg_ms: float
+    p95_ms: float
+    max_ms: int
+
+
+class StorageOpsMetricsResponse(BaseModel):
+    """Storage observability and operations metrics."""
+
+    graph_id: Optional[str] = None
+    window_seconds: int
+    generated_at: str
+    upload_count: int
+    upload_bytes: int
+    processed_files: int
+    dedup_hits: int
+    dedup_ratio: float
+    failures_total: int
+    failure_reasons: Dict[str, int]
+    phase_latency_ms: Dict[str, StoragePhaseLatencyStats]
+    backend_states: Dict[str, StorageBackendState]
 
 
 class StorageIngestActionResponse(BaseModel):
@@ -335,6 +372,113 @@ def _emit_storage_audit_event(
         logger.warning("Failed to emit storage audit event %s: %s", kind, exc)
 
 
+def _storage_lifecycle_log(
+    *,
+    ctx: FAIMContext,
+    op: str,
+    status: str,
+    graph_id: Optional[str] = None,
+    job_id: Optional[str] = None,
+    raw_id: Optional[str] = None,
+    failure_reason: Optional[str] = None,
+    latency_ms: Optional[int] = None,
+    detail: Optional[str] = None,
+    level: str = "info",
+) -> None:
+    """Emit correlated structured lifecycle log for storage operations."""
+    try:
+        from runtime.feature_flags import get_feature_flags
+
+        if not get_feature_flags().storage_structured_lifecycle_logs:
+            return
+    except Exception:
+        # Logging should never fail business path.
+        pass
+
+    extra: Dict[str, Any] = {
+        "request_id": ctx.request_id,
+        "tenant_id": ctx.tenant_id,
+        "graph_id": graph_id,
+        "job_id": job_id,
+        "raw_id": raw_id,
+        "op": op,
+        "status": status,
+        "failure_reason": failure_reason,
+    }
+    if latency_ms is not None:
+        extra["latency_ms"] = int(latency_ms)
+
+    payload = {k: v for k, v in extra.items() if v is not None}
+    message = detail or f"storage.lifecycle op={op} status={status}"
+
+    log_fn = getattr(logger, level, logger.info)
+    log_fn(message, extra=payload)
+
+
+def _normalize_failure_reason(error: Optional[str]) -> str:
+    """Map raw storage/ingest errors into a stable failure taxonomy."""
+    text_value = str(error or "").strip().lower()
+    if not text_value:
+        return "unknown"
+    if "cancel" in text_value:
+        return "cancelled"
+    if "mime" in text_value and "extension" in text_value:
+        return "mime_extension_mismatch"
+    if "upload file too large" in text_value or "file size exceeds" in text_value:
+        return "upload_oversize"
+    if "unsupported file extension" in text_value:
+        return "unsupported_extension"
+    if "filename cannot contain path separators" in text_value:
+        return "path_traversal_filename"
+    if "decrypt" in text_value or "encrypt" in text_value:
+        return "encryption_error"
+    if "raw blob not available" in text_value or "raw reference not found" in text_value:
+        return "raw_unavailable"
+    if "extract" in text_value:
+        return "extract_error"
+    if "vector" in text_value or "encode" in text_value:
+        return "encode_error"
+    if "qdrant" in text_value or "index" in text_value:
+        return "index_error"
+    if "uuid" in text_value or "raw_id" in text_value:
+        return "raw_id_contract_error"
+    return "ingest_error"
+
+
+def _percentile(values: List[int], p: float) -> float:
+    """Compute percentile using nearest-rank interpolation for observability."""
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    if len(ordered) == 1:
+        return float(ordered[0])
+    rank = (len(ordered) - 1) * (p / 100.0)
+    lower = int(rank)
+    upper = min(lower + 1, len(ordered) - 1)
+    weight = rank - lower
+    return float(ordered[lower] + (ordered[upper] - ordered[lower]) * weight)
+
+
+def _probe_backend_state(name: str, probe_fn) -> StorageBackendState:
+    """Measure backend availability + latency and derive health state."""
+    started = time.perf_counter()
+    error: Optional[str] = None
+    ok = False
+    try:
+        ok = bool(probe_fn())
+    except Exception as exc:  # nosec B110
+        ok = False
+        error = str(exc)[:240]
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    if not ok:
+        status = "down"
+    elif latency_ms > 750:
+        status = "degraded"
+    else:
+        status = "up"
+    return StorageBackendState(ok=ok, status=status, latency_ms=latency_ms, error=error)
+
+
 def _job_cancel_requested(ctx: FAIMContext, job_id: UUID) -> bool:
     from orchestration.jobs.job_store import JobStore
 
@@ -410,6 +554,38 @@ def _run_ingest_existing_raw(
     return result
 
 
+def _collect_backend_states(ctx: FAIMContext) -> Dict[str, StorageBackendState]:
+    """Collect backend health states with per-check latency."""
+    def _redis_probe() -> bool:
+        from cache.query_cache import is_redis_available
+
+        return bool(is_redis_available())
+
+    def _qdrant_probe() -> bool:
+        from index.qdrant_index import is_qdrant_available
+
+        return bool(is_qdrant_available())
+
+    states: Dict[str, StorageBackendState] = {}
+    states["postgres"] = _probe_backend_state(
+        "postgres",
+        lambda: bool(ctx.session.execute(text("SELECT 1")).scalar() == 1),
+    )
+    states["raw_store"] = _probe_backend_state(
+        "raw_store",
+        lambda: bool(_resolve_raw_store(ctx).get_stats() is not None),
+    )
+    states["redis"] = _probe_backend_state(
+        "redis",
+        _redis_probe,
+    )
+    states["qdrant"] = _probe_backend_state(
+        "qdrant",
+        _qdrant_probe,
+    )
+    return states
+
+
 # =============================================================================
 # Upload + Jobs
 # =============================================================================
@@ -425,6 +601,7 @@ async def create_upload_batch(
 ) -> StorageUploadBatchResponse:
     """Upload and ingest one or many files in a single batch."""
     _require_storage_repos(ctx)
+    batch_started = time.perf_counter()
 
     if not files:
         raise HTTPException(status_code=400, detail="At least one file is required")
@@ -451,6 +628,14 @@ async def create_upload_batch(
     dedup_hits = 0
     cancelled = 0
     cancel_triggered = False
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="upload_batch",
+        status="started",
+        graph_id=graph_id,
+        job_id=str(job_id),
+        detail=f"storage upload batch started ({requested_files} files)",
+    )
 
     try:
         JobStore.append_event(
@@ -466,6 +651,14 @@ async def create_upload_batch(
         for index, upload in enumerate(files):
             if _job_cancel_requested(ctx, job_id):
                 cancel_triggered = True
+                _storage_lifecycle_log(
+                    ctx=ctx,
+                    op="upload_batch",
+                    status="cancelled",
+                    graph_id=graph_id,
+                    job_id=str(job_id),
+                    detail="cancellation acknowledged before processing next file",
+                )
                 JobStore.append_event(
                     ctx.session,
                     job_id,
@@ -550,6 +743,15 @@ async def create_upload_batch(
                     },
                 )
                 ctx.session.commit()
+                _storage_lifecycle_log(
+                    ctx=ctx,
+                    op="raw_store",
+                    status="stored",
+                    graph_id=graph_id,
+                    job_id=str(job_id),
+                    raw_id=str(raw_uuid),
+                    detail=f"raw persisted for {filename}",
+                )
 
                 JobStore.append_event(
                     ctx.session,
@@ -590,6 +792,16 @@ async def create_upload_batch(
                         },
                     )
                     ctx.session.commit()
+                    _storage_lifecycle_log(
+                        ctx=ctx,
+                        op="ingest",
+                        status="cancelled",
+                        graph_id=graph_id,
+                        job_id=str(job_id),
+                        raw_id=str(raw_uuid),
+                        failure_reason="cancelled",
+                        detail="cancellation acknowledged before ingest execution",
+                    )
                     break
 
                 ingest_result = _run_ingest_existing_raw(
@@ -657,6 +869,22 @@ async def create_upload_batch(
                     success += 1
                     result_entry.status = "ingested"
 
+                _storage_lifecycle_log(
+                    ctx=ctx,
+                    op="ingest",
+                    status=result_entry.status,
+                    graph_id=graph_id,
+                    job_id=str(job_id),
+                    raw_id=str(raw_uuid),
+                    failure_reason=(
+                        _normalize_failure_reason(result_entry.error)
+                        if result_entry.error
+                        else None
+                    ),
+                    latency_ms=ingest_result.latency_ms,
+                    detail=f"ingest finished for {filename}",
+                )
+
                 JobStore.append_event(
                     ctx.session,
                     job_id,
@@ -676,6 +904,17 @@ async def create_upload_batch(
                 result_entry.status = "failed"
                 result_entry.error = str(e.detail)
                 ctx.session.rollback()
+                _storage_lifecycle_log(
+                    ctx=ctx,
+                    op="ingest",
+                    status="failed",
+                    graph_id=graph_id,
+                    job_id=str(job_id),
+                    raw_id=result_entry.raw_id,
+                    failure_reason=_normalize_failure_reason(result_entry.error),
+                    detail=f"ingest failed for {filename}",
+                    level="warning",
+                )
                 JobStore.append_event(
                     ctx.session,
                     job_id,
@@ -693,6 +932,17 @@ async def create_upload_batch(
                 result_entry.status = "failed"
                 result_entry.error = str(e)
                 ctx.session.rollback()
+                _storage_lifecycle_log(
+                    ctx=ctx,
+                    op="ingest",
+                    status="failed",
+                    graph_id=graph_id,
+                    job_id=str(job_id),
+                    raw_id=result_entry.raw_id,
+                    failure_reason=_normalize_failure_reason(result_entry.error),
+                    detail=f"ingest failed for {filename}",
+                    level="warning",
+                )
                 JobStore.append_event(
                     ctx.session,
                     job_id,
@@ -775,6 +1025,19 @@ async def create_upload_batch(
                 job.completed_at = datetime.now(timezone.utc)
                 ctx.session.commit()
 
+        _storage_lifecycle_log(
+            ctx=ctx,
+            op="upload_batch",
+            status=final_status,
+            graph_id=graph_id,
+            job_id=str(job_id),
+            latency_ms=int((time.perf_counter() - batch_started) * 1000),
+            detail=(
+                "batch completed "
+                f"(processed={processed}, success={success}, failed={failed}, dedup={dedup_hits}, cancelled={cancelled})"
+            ),
+        )
+
         return StorageUploadBatchResponse(
             job_id=str(job_id),
             graph_id=graph_id,
@@ -793,6 +1056,17 @@ async def create_upload_batch(
     except Exception as e:
         logger.error(f"Storage upload batch failed: {e}")
         ctx.session.rollback()
+        _storage_lifecycle_log(
+            ctx=ctx,
+            op="upload_batch",
+            status="failed",
+            graph_id=graph_id,
+            job_id=str(job_id),
+            failure_reason=_normalize_failure_reason(str(e)),
+            latency_ms=int((time.perf_counter() - batch_started) * 1000),
+            detail="storage upload batch failed",
+            level="error",
+        )
         raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
 
 
@@ -906,6 +1180,14 @@ async def cancel_upload_job(
         raise HTTPException(status_code=404, detail="Upload job not found")
 
     if job.status in {"done", "failed", "cancelled"}:
+        _storage_lifecycle_log(
+            ctx=ctx,
+            op="upload_cancel",
+            status=job.status,
+            graph_id=job.graph_id,
+            job_id=str(job_uuid),
+            detail="cancellation request ignored because job is terminal",
+        )
         return StorageUploadCancelResponse(
             job_id=str(job_uuid),
             status=job.status,
@@ -928,6 +1210,15 @@ async def cancel_upload_job(
         },
     )
     payload = updated.payload_json or {}
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="upload_cancel",
+        status="cancel_requested",
+        graph_id=updated.graph_id,
+        job_id=str(job_uuid),
+        failure_reason="cancel_requested",
+        detail="cancellation requested for upload job",
+    )
     return StorageUploadCancelResponse(
         job_id=str(job_uuid),
         status=updated.status,
@@ -1136,6 +1427,14 @@ async def request_delete_storage_file(
     )
 
     ctx.session.commit()
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="delete_request",
+        status="delete_requested",
+        graph_id=graph_id,
+        raw_id=str(raw_uuid),
+        detail="logical delete request recorded",
+    )
     return _row_to_file_item(row)
 
 
@@ -1222,6 +1521,20 @@ async def reingest_storage_file(
             },
         )
     ctx.session.commit()
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="reingest",
+        status=ingest_result.status,
+        graph_id=row.graph_id,
+        raw_id=str(raw_uuid),
+        failure_reason=(
+            _normalize_failure_reason(ingest_result.error)
+            if ingest_result.error
+            else None
+        ),
+        latency_ms=ingest_result.latency_ms,
+        detail="re-ingest completed",
+    )
 
     return StorageIngestActionResponse(
         status="ok",
@@ -1234,6 +1547,7 @@ async def reingest_storage_file(
             "vector_count": ingest_result.vector_count,
             "events_emitted": ingest_result.events_emitted,
             "latency_ms": ingest_result.latency_ms,
+            "phase_latency_ms": ingest_result.phase_latency_ms,
             "error": ingest_result.error,
         },
     )
@@ -1261,13 +1575,27 @@ async def retry_storage_file(
             detail=f"Retry is only allowed for failed files (current status: {row.ingest_status})",
         )
 
-    return await reingest_storage_file(
+    response = await reingest_storage_file(
         raw_id=raw_id,
         graph_id=graph_id,
         profile=profile,
         persist_mode=persist_mode,
         ctx=ctx,
     )
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="retry",
+        status=response.ingest.get("status", "ok"),
+        graph_id=response.file.graph_id,
+        raw_id=response.file.raw_id,
+        failure_reason=(
+            _normalize_failure_reason(response.ingest.get("error"))
+            if response.ingest.get("error")
+            else None
+        ),
+        detail="retry completed",
+    )
+    return response
 
 
 # =============================================================================
@@ -1287,42 +1615,150 @@ async def get_storage_summary(
     return StorageSummaryResponse(graph_id=graph_id, **summary)
 
 
+@router.get("/ops/metrics", response_model=StorageOpsMetricsResponse)
+async def get_storage_ops_metrics(
+    graph_id: Optional[str] = Query(None),
+    window_seconds: int = Query(3600, ge=60, le=604800),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageOpsMetricsResponse:
+    """Get storage observability metrics for operations and SLO tracking."""
+    _require_storage_repos(ctx)
+    try:
+        from runtime.feature_flags import get_feature_flags
+
+        if not get_feature_flags().storage_observability_enabled:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Storage observability metrics are disabled. "
+                    "Set FAIM_STORAGE_OBSERVABILITY_ENABLED=true"
+                ),
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        # Keep endpoint available if flags cannot be loaded.
+        pass
+
+    from store.pg.models_faim import EventModel, StorageFileModel
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(seconds=int(window_seconds))
+
+    files_q = ctx.session.query(StorageFileModel).filter(
+        and_(
+            StorageFileModel.tenant_id == ctx.tenant_id,
+            StorageFileModel.uploaded_at >= cutoff,
+        )
+    )
+    if graph_id:
+        files_q = files_q.filter(StorageFileModel.graph_id == graph_id)
+    rows = files_q.all()
+
+    upload_count = len(rows)
+    upload_bytes = int(sum(int(r.size_bytes or 0) for r in rows))
+
+    processed_statuses = {"ingested", "dedup_hit", "failed", "cancelled"}
+    processed_files = int(sum(1 for r in rows if r.ingest_status in processed_statuses))
+    dedup_hits = int(sum(1 for r in rows if r.ingest_status == "dedup_hit"))
+    dedup_ratio = float(dedup_hits / processed_files) if processed_files > 0 else 0.0
+
+    failure_rows = [r for r in rows if r.ingest_status == "failed"]
+    failure_reasons: Dict[str, int] = {}
+    for row in failure_rows:
+        reason = _normalize_failure_reason(row.error_message)
+        failure_reasons[reason] = failure_reasons.get(reason, 0) + 1
+    failures_total = int(len(failure_rows))
+
+    phase_values: Dict[str, List[int]] = defaultdict(list)
+    events_q = ctx.session.query(EventModel).filter(
+        and_(
+            EventModel.tenant_id == ctx.tenant_id,
+            EventModel.kind == "INGEST_PHASE_LATENCY",
+            EventModel.ts >= cutoff,
+        )
+    )
+    if graph_id:
+        events_q = events_q.filter(EventModel.graph_id == graph_id)
+
+    for event in events_q.order_by(EventModel.seq.asc()).all():
+        payload = event.payload or {}
+        phase_payload = payload.get("phase_latency_ms")
+        if not isinstance(phase_payload, dict):
+            continue
+        for phase, raw_value in phase_payload.items():
+            try:
+                value_int = int(raw_value)
+            except (TypeError, ValueError):
+                continue
+            if value_int < 0:
+                continue
+            phase_values[str(phase)].append(value_int)
+
+    phase_latency_ms: Dict[str, StoragePhaseLatencyStats] = {}
+    for phase, values in phase_values.items():
+        if not values:
+            continue
+        phase_latency_ms[phase] = StoragePhaseLatencyStats(
+            count=len(values),
+            avg_ms=round(sum(values) / max(1, len(values)), 2),
+            p95_ms=round(_percentile(values, 95.0), 2),
+            max_ms=max(values),
+        )
+
+    backend_states = _collect_backend_states(ctx)
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="ops_metrics",
+        status="ok",
+        graph_id=graph_id,
+        detail=(
+            "storage ops metrics generated "
+            f"(window_seconds={window_seconds}, uploads={upload_count}, failures={failures_total})"
+        ),
+    )
+
+    return StorageOpsMetricsResponse(
+        graph_id=graph_id,
+        window_seconds=int(window_seconds),
+        generated_at=now.isoformat(),
+        upload_count=upload_count,
+        upload_bytes=upload_bytes,
+        processed_files=processed_files,
+        dedup_hits=dedup_hits,
+        dedup_ratio=round(dedup_ratio, 6),
+        failures_total=failures_total,
+        failure_reasons=dict(sorted(failure_reasons.items(), key=lambda item: item[0])),
+        phase_latency_ms=phase_latency_ms,
+        backend_states=backend_states,
+    )
+
+
 @router.get("/backends/health", response_model=StorageBackendsHealth)
 async def get_storage_backends_health(
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StorageBackendsHealth:
     """Check operational storage backend health."""
     _require_storage_repos(ctx)
+    states = _collect_backend_states(ctx)
+    postgres_ok = states["postgres"].ok
+    raw_store_ok = states["raw_store"].ok
+    redis_ok = states["redis"].ok
+    qdrant_ok = states["qdrant"].ok
 
-    postgres_ok = False
-    raw_store_ok = False
-
-    try:
-        ctx.session.execute(text("SELECT 1"))
-        postgres_ok = True
-    except Exception:
-        postgres_ok = False
-
-    try:
-        store = _resolve_raw_store(ctx)
-        _ = store.get_stats()
-        raw_store_ok = True
-    except Exception:
-        raw_store_ok = False
-
-    try:
-        from cache.query_cache import is_redis_available
-
-        redis_ok = bool(is_redis_available())
-    except Exception:
-        redis_ok = False
-
-    try:
-        from index.qdrant_index import is_qdrant_available
-
-        qdrant_ok = bool(is_qdrant_available())
-    except Exception:
-        qdrant_ok = False
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="backend_health",
+        status=(
+            "ok"
+            if all(s.ok for s in states.values())
+            else "degraded"
+            if any(s.ok for s in states.values())
+            else "down"
+        ),
+        detail="backend health snapshot generated",
+    )
 
     return StorageBackendsHealth(
         postgres=postgres_ok,
@@ -1343,6 +1779,7 @@ async def execute_storage_retention(
     enabled hard-delete feature flag.
     """
     _require_storage_repos(ctx)
+    started = time.perf_counter()
 
     if not request.dry_run and not request.irreversible:
         raise HTTPException(
@@ -1380,11 +1817,43 @@ async def execute_storage_retention(
             reason=request.reason,
         )
     except ValueError as exc:
+        _storage_lifecycle_log(
+            ctx=ctx,
+            op="retention_execute",
+            status="failed",
+            graph_id=request.graph_id,
+            failure_reason=_normalize_failure_reason(str(exc)),
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            detail="retention execution rejected",
+            level="warning",
+        )
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
         ctx.session.rollback()
         logger.error("Storage retention execution failed: %s", exc)
+        _storage_lifecycle_log(
+            ctx=ctx,
+            op="retention_execute",
+            status="failed",
+            graph_id=request.graph_id,
+            failure_reason=_normalize_failure_reason(str(exc)),
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            detail="retention execution failed",
+            level="error",
+        )
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="retention_execute",
+        status="ok" if result.failed == 0 else "partial_failed",
+        graph_id=request.graph_id,
+        latency_ms=int((time.perf_counter() - started) * 1000),
+        detail=(
+            "retention execution completed "
+            f"(dry_run={result.dry_run}, scanned={result.scanned}, deleted={result.deleted}, failed={result.failed})"
+        ),
+    )
 
     return StorageRetentionResponse(
         status="ok" if result.failed == 0 else "partial_failed",
@@ -1469,6 +1938,17 @@ async def enqueue_storage_retention_job(
             "irreversible": request.irreversible,
             "limit": request.limit,
         },
+    )
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="retention_enqueue",
+        status="pending",
+        graph_id=graph_for_job,
+        job_id=str(job_id),
+        detail=(
+            "retention job enqueued "
+            f"(dry_run={request.dry_run}, irreversible={request.irreversible}, limit={request.limit})"
+        ),
     )
 
     return StorageRetentionJobResponse(
