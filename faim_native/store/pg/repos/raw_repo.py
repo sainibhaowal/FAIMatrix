@@ -167,3 +167,21 @@ class RawRepo:
             ).first()
             is not None
         )
+
+    def delete_by_id(self, session: Session, id: UUID) -> bool:
+        """Delete RawRef by UUID.
+
+        Returns:
+            True if deleted, False if not found.
+        """
+        model = session.query(RawRefModel).filter(
+            and_(
+                RawRefModel.tenant_id == self.tenant_id,
+                RawRefModel.id == id,
+            )
+        ).first()
+        if model is None:
+            return False
+        session.delete(model)
+        session.flush()
+        return True

@@ -147,6 +147,26 @@ class StorageFileRepo:
         session.flush()
         return row
 
+    def mark_cancelled(
+        self,
+        session: Session,
+        *,
+        raw_id: UUID,
+        graph_id: str,
+        error_message: Optional[str] = None,
+        job_id: Optional[UUID] = None,
+    ) -> Optional[StorageFileModel]:
+        row = self.get_by_raw_id(session, raw_id, graph_id)
+        if row is None:
+            return None
+
+        row.ingest_status = "cancelled"
+        row.last_job_id = job_id
+        row.error_message = (error_message or "Upload cancelled")[:1024]
+        row.updated_at = datetime.now(timezone.utc)
+        session.flush()
+        return row
+
     def mark_delete_requested(
         self,
         session: Session,
@@ -168,6 +188,69 @@ class StorageFileRepo:
         row.updated_at = now
         session.flush()
         return row
+
+    def mark_delete_executed(
+        self,
+        session: Session,
+        *,
+        raw_id: UUID,
+        graph_id: str,
+        note: Optional[str] = None,
+    ) -> Optional[StorageFileModel]:
+        row = self.get_by_raw_id(session, raw_id, graph_id)
+        if row is None:
+            return None
+
+        now = datetime.now(timezone.utc)
+        row.delete_requested = True
+        if row.delete_requested_at is None:
+            row.delete_requested_at = now
+        row.ingest_status = "deleted"
+        row.error_message = (note or "Physical deletion executed")[:1024]
+        row.updated_at = now
+        session.flush()
+        return row
+
+    def list_delete_requested(
+        self,
+        session: Session,
+        *,
+        graph_id: Optional[str] = None,
+        limit: int = 100,
+    ) -> List[StorageFileModel]:
+        q = session.query(StorageFileModel).filter(
+            and_(
+                StorageFileModel.tenant_id == self.tenant_id,
+                StorageFileModel.delete_requested.is_(True),
+                StorageFileModel.ingest_status != "deleted",
+            )
+        )
+        if graph_id:
+            q = q.filter(StorageFileModel.graph_id == graph_id)
+        return (
+            q.order_by(asc(StorageFileModel.delete_requested_at), asc(StorageFileModel.id))
+            .limit(max(1, int(limit)))
+            .all()
+        )
+
+    def count_active_references(
+        self,
+        session: Session,
+        *,
+        raw_id: UUID,
+        exclude_graph_id: Optional[str] = None,
+    ) -> int:
+        q = session.query(StorageFileModel).filter(
+            and_(
+                StorageFileModel.tenant_id == self.tenant_id,
+                StorageFileModel.raw_id == raw_id,
+                StorageFileModel.ingest_status != "deleted",
+                StorageFileModel.delete_requested.is_(False),
+            )
+        )
+        if exclude_graph_id:
+            q = q.filter(StorageFileModel.graph_id != exclude_graph_id)
+        return int(q.count())
 
     def list_files(
         self,
