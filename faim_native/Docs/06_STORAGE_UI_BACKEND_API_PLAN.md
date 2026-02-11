@@ -1,7 +1,7 @@
 # 06 - Storage UI + Backend API Plan
 
 This document started as the no-code implementation plan for storage.
-It is now the design + status record for implemented phases P0/P1/P2 and A-F.
+It is now the design + status record for implemented phases P0/P1/P2 and A-H.
 
 ## Implementation Baseline (2026-02-10)
 
