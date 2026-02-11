@@ -19,7 +19,7 @@ Also reviewed migrations, docker/env wiring, and selected acceptance/security te
 
 ## Executive Summary
 
-Current state is **implemented end-to-end for storage baseline (P0/P1/P2)**:
+Current state is **implemented end-to-end for storage program phases P0/P1/P2 and A-F**:
 
 - Core ingest, vectorization, graph write, and evolution math are active.
 - Storage page supports operational multi-file upload and lifecycle actions.
@@ -94,6 +94,15 @@ Observability + operations baseline is now implemented:
 - backend health state model (`up`/`degraded`/`down`) is exposed with probe latency
 - structured lifecycle logs now include correlation fields (`request_id`, `tenant_id`, `graph_id`, `job_id`, `raw_id`)
 - operations runbook is documented for rollout/rollback and incident handling
+
+## Post-Phase-F Update (2026-02-11)
+
+Validation and non-regression coverage is now implemented:
+
+- backend unit coverage added for error/crypto guard paths
+- storage lifecycle acceptance coverage added (upload/status/events/provenance/retry/delete/retention)
+- frontend Playwright coverage added for queue lifecycle and provenance interactions
+- retry queue polling race fixed and validated in UI path
 
 ## Frontend Storage Page (Current)
 

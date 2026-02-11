@@ -51,7 +51,7 @@ flowchart TD
 
 8. Query and retrieval.
 - query text vectorized with same deterministic encoder
-- candidates recalled (brute-force today)
+- candidates recalled with cache/index acceleration when available, deterministic fallback path always available
 - FAIM score components applied
 - response returns node/evidence metadata
 
@@ -72,7 +72,7 @@ flowchart TD
 
 This link is active and supports runtime provenance via `raw_id` and `raw_refs`.
 
-## C. Target Production Flow (Implemented Baseline)
+## C. Current Production Flow (Implemented)
 
 ```mermaid
 sequenceDiagram
@@ -132,7 +132,7 @@ For storage page and backend API, each file must follow independent status trans
 - `indexed` (optional)
 - `completed` or `failed`
 
-Batch should support partial success without losing successful file writes.
+Batch supports partial success without losing successful file writes.
 
 Current implementation notes:
 

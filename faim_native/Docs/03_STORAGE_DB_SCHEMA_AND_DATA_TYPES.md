@@ -9,6 +9,7 @@ This document explains where FAIM data is stored and in what representation.
 Holds durable metadata and graph state:
 
 - `raw_refs`
+- `storage_files`
 - `nodes`
 - `edges`
 - `events`
@@ -16,6 +17,7 @@ Holds durable metadata and graph state:
 - `snapshots`
 - `ingest_dedup`
 - `jobs` and `job_events`
+- `tenant_crypto_keys`
 - auth tables (`tenant_api_keys`, `admin_api_keys`, `users`)
 
 ## Filesystem Raw Store (truth for raw bytes)
@@ -43,6 +45,11 @@ Immutable content-addressed blobs:
 
 - stores immutable raw blob metadata
 - important columns: `id`, `tenant_id`, `sha256`, `uri`, `mime_type`, `size_bytes`, `graph_id`
+
+## `storage_files`
+
+- storage catalog/lifecycle table used by Storage UI/API
+- important columns: `raw_id`, `tenant_id`, `graph_id`, `filename`, `mime_type`, `size_bytes`, `sha256`, `ingest_status`, `packet_hash`, `node_count`, `vector_count`, `delete_requested`
 
 ## `nodes`
 
@@ -73,6 +80,11 @@ Immutable content-addressed blobs:
 - dedup key: `(tenant_id, graph_id, packet_hash)`
 - tracks successful ingest packet hashes
 
+## `tenant_crypto_keys`
+
+- tenant key-wrapping metadata for envelope encryption-at-rest workflow
+- important columns: `tenant_id`, `dek_wrapped`, `created_at`, `rotated_at` (when rotated)
+
 ## 3) Data Representation Types
 
 | Domain Data | Runtime Type | Storage Type |
@@ -86,6 +98,7 @@ Immutable content-addressed blobs:
 | Edge weights | float in code | scaled integer in DB (`BigInteger` with `*1e9`) |
 | Residual | float in code | scaled integer in DB (`BigInteger` with `*1e9`) |
 | Event payload | dict | `JSONB` |
+| Tenant DEK wrapped key | base64/text blob | `tenant_crypto_keys.dek_wrapped` |
 
 ## 4) Numeric and Matrix Semantics
 

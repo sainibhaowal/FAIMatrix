@@ -66,9 +66,10 @@ Logical dedup key is packet hash (`packet_hash`).
 - packet hash computed from deterministic canonical blocks
 - table `ingest_dedup` exists for replay-safe idempotency
 
-Current caveat:
+Current status:
 
-- API ingest path does not fully activate session-based dedup flow yet.
+- ingest API/runtime path activates session-based dedup flow
+- dedup hits return stable `dedup_hit` status and do not duplicate graph writes
 
 ## 6) Self-Evolving
 

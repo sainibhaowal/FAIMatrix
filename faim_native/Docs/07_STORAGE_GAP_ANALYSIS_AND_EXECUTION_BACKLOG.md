@@ -1,6 +1,6 @@
 # 07 - Storage Gap Analysis and Execution Backlog
 
-This backlog maps work items to concrete modules.
+This backlog now separates completed delivery from true future enhancements.
 
 ## Priority Legend
 
@@ -8,485 +8,161 @@ This backlog maps work items to concrete modules.
 - P1: required for complete storage product
 - P2: optimization/hardening
 
-## P0 - Correctness and Contract Alignment
+## Program Status (as of 2026-02-11)
 
-## Ingest Contract
+## Completed Program Scope
 
-- `api/routers/ingest.py`
-  - enforce non-empty valid `raw_id` generation path
-  - call raw persistence before orchestration
-  - enforce upload validators
+1. P0 - Correctness and Contract Alignment: completed
+2. P1 - Full Storage Feature Delivery: completed
+3. P2 - Security/Performance Hardening: completed
+4. Phase A - Contract Freeze and Guardrails: completed
+5. Phase B - Backend Completion: completed
+6. Phase C - Storage UI Completion: completed
+7. Phase D - Production Security Hardening: completed
+8. Phase E - Observability + Operations: completed
+9. Phase F - Validation and Non-Regression: completed
+10. Phase G - Documentation Reconciliation: completed
 
-- `orchestration/ingest_flow.py`
-  - ensure dedup path works for real runtime session
-  - align raw_id typing with DB model
+## Completed Scope Summary
 
-## Router/Repo API Alignment
+## P0 Completed
 
-- `api/routers/node.py` + `store/pg/repos/node_repo.py` + `store/pg/repos/edge_repo.py`
-- `api/routers/metrics.py` + `store/pg/repos/graph_version_repo.py` + repos count methods
-- `api/routers/admin.py` + repo method contracts
+- ingest contract hardening and validator enforcement
+- raw persistence before orchestration
+- dedup runtime/session correctness and raw_id typing alignment
+- router/repo contract alignment (node/metrics/admin)
+- frontend stream proxy alignment with backend events endpoint
 
-Goal: remove runtime method mismatch failures.
+Evidence:
 
-## Stream Path Alignment
+- `08_P0_IMPLEMENTATION_REPORT.md`
 
-- frontend stream proxy route contract must match backend events stream endpoint.
+## P1 Completed
 
-## P0 Implementation Status (2026-02-10)
+- storage API surface under `/api/v1/storage/*`
+- storage catalog persistence (`storage_files`)
+- multi-file upload lifecycle support
+- storage UI operational baseline
 
-P0 is implemented and validated.
+Evidence:
 
-## Completed Items
+- `09_P1_IMPLEMENTATION_REPORT.md`
 
-- [x] Ingest contract hardening (`api/routers/ingest.py`)
-  - strict upload validators enforced
-  - non-empty valid UUID raw_id path enforced
-  - raw bytes are persisted before orchestration
-  - tenant/session are passed into orchestration for runtime dedup
+## P2 Completed
 
-- [x] Orchestration dedup + typing (`orchestration/ingest_flow.py`)
-  - runtime session path is active
-  - dedup table write now stores UUID-safe `raw_id` (or null fallback)
-  - ingest now rejects empty raw_id
+- envelope encryption-at-rest integration path
+- tenant DEK persistence (`tenant_crypto_keys`)
+- cache/index contract alignment
+- perf namespace isolation decision
 
-- [x] Router/repo contract alignment
-  - `store/pg/repos/node_repo.py`: `get_by_id`, `list_by_graph`, `count`
-  - `store/pg/repos/edge_repo.py`: `get_parents`, `count`
-  - `store/pg/repos/graph_version_repo.py`: `get_or_create`
-  - `store/pg/repos/event_repo.py` + `store/pg/repos/snapshot_repo.py`: fixed runtime query import (`and_`)
+Evidence:
 
-- [x] Stream path alignment
-  - `frontend/src/app/api/v1/stream/route.ts` now proxies to backend `/api/v1/events/stream`
+- `10_P2_IMPLEMENTATION_REPORT.md`
 
-## Validation Evidence
+## Phase A Completed
 
-- `python3 -m compileall` on all changed backend P0 modules: passed.
-- `PYTHONPATH=/home/sephi-asi/FAIM/faim_native pytest` targeted suites:
-  - `tests/acceptance/test_AT_A3_ingest_emits_events.py`
-  - `tests/acceptance/test_AT_A6_node_inspector_no_leak.py`
-  - `tests/acceptance/test_AT_A4_sse_resume_after_seq.py`
-  - `tests/acceptance/test_AT_S9_ingest_idempotency.py`
-  - `tests/unit/test_stage_7_1_hardening.py`
-  - `tests/unit/test_snapshot_repo.py`
-- Result: all selected tests passed.
+- storage contract freeze checks at startup
+- feature-flag guardrail validation
 
-## P1 - Full Storage Feature Delivery
+Evidence:
 
-## P1 Implementation Status (2026-02-10)
+- `11_PHASE_A_CONTRACT_FREEZE_REPORT.md`
 
-P1 is implemented and validated.
+## Phase B Completed
 
-## Completed Items
+- provenance API
+- upload cancellation model
+- lifecycle audit events
+- retention execute/enqueue paths with irreversible guardrails
 
-- [x] Raw truth wiring (`store/raw/raw_store.py`, `store/pg/repos/raw_repo.py`, `runtime/context.py`)
-  - runtime now provides a shared `raw_store`
-  - storage APIs and ingest path persist immutable raw bytes + `raw_refs` metadata before pipeline ingest
-  - ingest endpoints now also write/update storage catalog lifecycle rows
+Evidence:
 
-- [x] Storage API surface (`api/routers/storage.py`)
-  - `POST /api/v1/storage/uploads`
-  - `GET /api/v1/storage/uploads/{job_id}`
-  - `GET /api/v1/storage/uploads/{job_id}/events`
-  - `GET /api/v1/storage/files`
-  - `GET /api/v1/storage/files/{raw_id}`
-  - `DELETE /api/v1/storage/files/{raw_id}`
-  - `POST /api/v1/storage/files/{raw_id}/ingest`
-  - `POST /api/v1/storage/files/{raw_id}/retry`
-  - `GET /api/v1/storage/summary`
-  - `GET /api/v1/storage/backends/health`
+- `12_PHASE_B_BACKEND_COMPLETION_REPORT.md`
 
-- [x] Storage UI (`frontend/src/app/(app)/dashboard/storage/page.tsx`)
-  - multi-file upload with profile/persist selectors
-  - per-batch result queue and progress
-  - searchable/filterable catalog
-  - re-ingest, retry, and delete-request actions
-  - summary cards + backend health badges
+## Phase C Completed
 
-- [x] Additive persistence model for storage catalog
-  - new table/model: `storage_files`
-  - migration: `store/pg/migrations/0005_storage_files.sql`
-  - repo: `store/pg/repos/storage_file_repo.py`
+- drag-drop + multi-file queue UX
+- per-file cancel/retry lifecycle
+- upload status/events polling
+- provenance drawer integration
 
-## Validation Evidence
+Evidence:
 
-- compile checks: changed backend modules compile successfully
-- backend regression suites from P0 still pass
-- new tests:
-  - `tests/acceptance/test_AT_P1_storage_api_surface.py`
-  - `tests/unit/test_storage_file_repo.py`
-- frontend storage page lint check passes:
-  - `npx eslint src/app/(app)/dashboard/storage/page.tsx --max-warnings=0`
+- `13_PHASE_C_STORAGE_UI_COMPLETION_REPORT.md`
 
-## Notes
+## Phase D Completed
 
-- Full frontend project lint still reports pre-existing unrelated errors in other pages.
-- P2 security/performance hardening is implemented (see section below and `10_P2_IMPLEMENTATION_REPORT.md`).
+- production encryption fail-closed enforcement
+- plaintext fallback blocked in production profile
+- upload abuse rejection paths
+- authz/tenant-isolation coverage for storage routes
 
-## Raw Truth Wiring
+Evidence:
 
-- `store/raw/raw_store.py`
-- `store/pg/repos/raw_repo.py`
-- `runtime/context.py`
+- `14_PHASE_D_SECURITY_HARDENING_REPORT.md`
 
-Goal: upload writes immutable blob + raw_ref metadata before ingest.
+## Phase E Completed
 
-## Storage API Surface
+- storage ops metrics endpoint
+- ingest phase latency instrumentation and aggregation
+- structured lifecycle logs with correlation fields
+- operations runbook and observability feature flags
 
-- add dedicated storage routes for:
-  - batch upload jobs
-  - file catalog/list/detail
-  - summary metrics
-  - retry/reprocess/delete operations
+Evidence:
 
-## Storage UI
+- `15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
+- `16_STORAGE_OPERATIONS_RUNBOOK.md`
 
-- `frontend/src/app/(app)/dashboard/storage/page.tsx`
-- supporting frontend lib/types/hooks
+## Phase F Completed
 
-Goal: operational UI with multi-file ingestion lifecycle.
+- backend unit tests for error/crypto/compat paths
+- acceptance lifecycle coverage (upload/retry/cancel/delete/retention/provenance)
+- frontend Playwright coverage (queue + provenance)
+- retry queue stale-poll race fix
 
-## P2 - Security/Performance Hardening
+Evidence:
 
-## P2 Implementation Status (2026-02-10)
-
-P2 is implemented and validated.
-
-## Completed Items
-
-- [x] Encryption-at-rest integration
-  - `runtime/context.py`: env-gated encrypted raw store wiring per tenant
-  - `store/raw/crypto.py`: envelope cipher mode wired to tenant DEK manager
-  - `store/raw/encrypted_payload_store.py`: production parity methods (`get_stats`, `load_by_sha`, `exists_by_sha`)
-  - `store/crypto/envelope.py`: tenant DEK lifecycle manager (`tenant_crypto_keys` backing table)
-  - `store/pg/models_crypto.py`, `store/pg/models_faim.py`, `store/pg/schema.sql`, `store/pg/migrations/0006_tenant_crypto_keys.sql`
-
-- [x] Cache/index integration
-  - `orchestration/query_flow.py`: query candidate recall cache get/set wired
-  - `api/routers/query.py`: query flow now receives cache object from runtime context
-  - `core/query/query_engine.py`: index recall aligned to `top_k` contract with stable fallback to legacy `search`
-  - `index/qdrant_index.py`: added legacy `search(...)` compatibility wrapper
-  - `orchestration/ingest_flow.py`: index upsert now uses canonical `write_result.node_ids` instead of vector hash fallback
-
-- [x] Perf layer evaluation
-  - decision: **isolate** legacy perf namespace from active ingest/query flow until explicit integration program
-  - marker added at `orchestration/perf/__init__.py` with `PERF_LAYER_STATUS = "isolated_legacy"`
-
-## Validation Evidence
-
-- `python3 -m compileall faim_native` for modified modules: passed.
-- targeted tests added and passing:
-  - `tests/unit/test_p2_encryption_at_rest.py`
-  - `tests/unit/test_p2_query_cache_index_alignment.py`
-  - `tests/acceptance/test_AT_P2_security_perf_surface.py`
-
-## Encryption-at-Rest Integration
-
-- `store/crypto/envelope.py`
-- `store/raw/encrypted_payload_store.py`
-- `store/pg/models_crypto.py`
-
-Goal: activate tenant DEK workflow in live ingest/storage path.
-
-## Cache/Index Integration
-
-- `cache/query_cache.py` in query flow
-- Qdrant index method contract alignment in query engine
-
-## Perf Layer Evaluation
-
-- `orchestration/perf/*` currently appears decoupled/legacy namespace-linked
-- decide: integrate, isolate, or archive
+- `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
 
 ## Module Status Snapshot
 
 | Area | Status |
 |---|---|
-| Storage UI | implemented (Phase C complete: drag-drop, queue lifecycle, cancel/retry, provenance drawer) |
-| Core ingest math | implemented |
-| Multi-file workflow | implemented (per-file queue + status/event polling) |
-| Raw immutable persistence in ingest path | wired for ingest endpoints |
-| Dedup runtime correctness | active in API path |
-| Router/repo API consistency | aligned for node/metrics/admin routes |
-| Frontend SSE proxy path | aligned with backend events stream |
+| Storage UI | implemented (queue lifecycle, cancel/retry, provenance drawer) |
 | Storage API surface | implemented |
-| Storage observability metrics | implemented (Phase E `/storage/ops/metrics`) |
-| Structured lifecycle logging | implemented (Phase E correlation fields) |
-| Redis cache usage in query path | wired for candidate recall cache |
-| Qdrant acceleration in query path | contract-aligned with stable fallback |
-| Security primitives | integrated into runtime path (tenant DEK envelope mode) |
+| Raw immutable persistence | implemented |
+| Dedup runtime correctness | implemented |
+| Contract guardrails | implemented |
+| Production security hardening | implemented |
+| Observability metrics/log correlation | implemented |
+| Validation/non-regression suite | implemented |
 
-## Implementation Order (Recommended)
+## Future Enhancements Only
 
-1. P0 contract repairs
-2. raw persistence wiring
-3. storage endpoints
-4. storage UI
-5. security integration and operations hardening
-6. cache/index/perf optimization
+These are the remaining non-blocking roadmap items after P0/P1/P2 and A-F delivery.
 
-## Definition of Done for Storage Program
+## F1 - Security Operations Maturity (P1)
 
-- Uploading single/multi-file works from Storage page.
-- Raw file metadata + provenance are durable and queryable.
-- Ingest pipeline emits consistent status and events.
-- Retrieval/explain path traces results back to immutable raw source.
-- Security baseline enforced (authz, validation, redaction, encryption where required).
-- Deterministic behavior preserved in STRICT mode.
+- historical blob re-encryption program for pre-policy plaintext payloads
+- operator playbooks for key-rotation rehearsal and emergency rollback drills at deployment level
 
-## Phase A - Contract Freeze and Safety Guardrails
+## F2 - Observability Operations Maturity (P1)
 
-Status (2026-02-10): implemented.
+- deployment-specific dashboards and alerting integration (SLO burn alerts, dependency outage paging)
+- environment-level runbook automation hooks
 
-Completed:
+## F3 - Performance Extensions (P2)
 
-- [x] Storage API contract matrix frozen and validated at startup.
-- [x] Required response-model fields checked via contract validator.
-- [x] Feature-flag guardrail validation added for risky rollout paths.
-- [x] New rollout flags defined and parsed in runtime config:
-  - `FAIM_ENCRYPTION_FAIL_CLOSED`
-  - `FAIM_STORAGE_HARD_DELETE_ENABLED`
-  - `FAIM_STORAGE_LIVE_JOB_STREAM_ENABLED`
-  - `FAIM_STORAGE_CONTRACT_STRICT`
+- deeper cache/index optimization tuning beyond current deterministic baseline
+- optional perf namespace reintegration plan (or archive finalization)
 
-Validation:
+## F4 - Expanded Validation Matrix (P2)
 
-- `tests/unit/test_phase_a_storage_contract.py`
-- `tests/unit/test_phase_a_feature_flags.py`
+- broader environment matrix (staging/prod-like load and chaos scenarios)
+- additional long-run endurance checks for retention worker and background job durability
 
-## Phase B - Backend Completion
+## Definition of Done (Current Program)
 
-Status (2026-02-10): implemented.
+Core storage program delivery is complete for P0/P1/P2 and phases A-F.
 
-Completed:
-
-- [x] Provenance inspect API surface
-  - `GET /api/v1/storage/files/{raw_id}/provenance`
-  - implementation: `api/routers/storage.py`
-
-- [x] Upload cancellation model + safe stop points
-  - `POST /api/v1/storage/uploads/{job_id}/cancel`
-  - `orchestration/jobs/job_store.py` cancellation primitives
-  - upload loop cancellation checkpoints in `api/routers/storage.py`
-
-- [x] Full storage lifecycle audit events
-  - wired events:
-    - `STORAGE_RAW_STORED`
-    - `STORAGE_DEDUP_HIT`
-    - `STORAGE_EXTRACT_FAILED`
-    - `STORAGE_ENCRYPT_FAILED`
-    - `STORAGE_DELETE_REQUESTED`
-    - `STORAGE_DELETE_EXECUTED`
-  - implementation:
-    - `api/routers/storage.py`
-    - `api/routers/ingest.py`
-    - `orchestration/jobs/storage_retention.py`
-
-- [x] Retention cleanup worker path (dry-run + irreversible guardrails)
-  - execution APIs:
-    - `POST /api/v1/storage/retention/execute`
-    - `POST /api/v1/storage/retention/jobs`
-  - worker integration:
-    - `orchestration/jobs/worker.py` supports `kind="storage_retention"`
-  - hard-delete guardrails enforced using:
-    - `FAIM_STORAGE_HARD_DELETE_ENABLED`
-    - `irreversible=true` for physical delete
-
-Validation:
-
-- `tests/unit/test_phase_b_job_cancellation.py`
-- `tests/unit/test_phase_b_storage_retention.py`
-- `tests/acceptance/test_AT_PB_storage_phase_b_surface.py`
-
-Implementation evidence:
-
-- `12_PHASE_B_BACKEND_COMPLETION_REPORT.md`
-
-## Phase C - Storage UI Completion
-
-Status (2026-02-10): implemented.
-
-Completed:
-
-- [x] Drag-drop zone with append-style multi-file selection
-  - implementation:
-    - `frontend/src/app/(app)/dashboard/storage/page.tsx`
-
-- [x] Real upload queue state machine (per-file)
-  - lifecycle statuses:
-    - `queued`, `uploading`, `ingesting`, `dedup_hit`, `ingested`, `failed`, `cancelled`
-  - bounded queue memory and per-item state transitions
-
-- [x] Per-file cancel/retry controls
-  - cancel flow:
-    - queued cancel immediate in UI
-    - in-flight upload abort support (client-side)
-    - backend cancellation request when `job_id` exists:
-      - `POST /api/v1/storage/uploads/{job_id}/cancel`
-  - retry flow:
-    - reprocess existing raw source using:
-      - `POST /api/v1/storage/files/{raw_id}/retry`
-    - fallback requeue path when `raw_id` is not available
-
-- [x] Upload job status/event polling wired in UI
-  - `GET /api/v1/storage/uploads/{job_id}`
-  - `GET /api/v1/storage/uploads/{job_id}/events`
-  - per-file timeline rendering and terminal-state refresh
-
-- [x] Provenance inspect drawer integrated
-  - `GET /api/v1/storage/files/{raw_id}/provenance`
-  - file/raw_ref/dedup/nodes/events summary rendered in Storage UI
-
-- [x] Existing storage summary/cards/catalog behavior preserved
-
-Validation:
-
-- `cd frontend && npm run lint -- --file src/app/(app)/dashboard/storage/page.tsx`
-- `PYTHONPATH=faim_native pytest -q tests/acceptance/test_AT_P1_storage_api_surface.py tests/acceptance/test_AT_PB_storage_phase_b_surface.py tests/acceptance/test_AT_PD_storage_auth_tenant_isolation.py`
-
-Implementation evidence:
-
-- `13_PHASE_C_STORAGE_UI_COMPLETION_REPORT.md`
-
-## Phase D - Security Hardening to Production Grade
-
-Status (2026-02-10): implemented.
-
-Completed:
-
-- [x] Production encryption policy mode enforced
-  - `FAIM_ENV=production` now requires:
-    - `FAIM_ENCRYPTION_AT_REST=true`
-    - `FAIM_ENCRYPTION_FAIL_CLOSED=true`
-  - implementation:
-    - `runtime/config.py`
-    - `runtime/feature_flags.py`
-
-- [x] Plaintext fallback removed in production profile
-  - raw-store init fails closed in production when encryption path is unavailable
-  - storage/ingest routers do not fallback to local plaintext raw store in production
-  - implementation:
-    - `runtime/context.py`
-    - `api/routers/storage.py`
-    - `api/routers/ingest.py`
-
-- [x] Upload abuse explicit rejection paths
-  - path-like filename rejection
-  - MIME/extension mismatch rejection
-  - oversize rejection retained
-  - implementation:
-    - `api/validators/input_limits.py`
-    - `api/routers/storage.py`
-    - `api/routers/ingest.py`
-
-- [x] Storage route authz + tenant isolation coverage
-  - all storage routes require tenant auth headers
-  - cross-tenant access to storage job/file/provenance rejected
-  - tests:
-    - `tests/acceptance/test_AT_PD_storage_auth_tenant_isolation.py`
-
-Validation:
-
-- `tests/unit/test_phase_d_production_policy.py`
-- `tests/unit/test_phase_d_upload_abuse_guards.py`
-- `tests/acceptance/test_AT_PD_storage_auth_tenant_isolation.py`
-
-Implementation evidence:
-
-- `14_PHASE_D_SECURITY_HARDENING_REPORT.md`
-
-## Phase E - Observability + Operations
-
-Status (2026-02-10): implemented.
-
-Completed:
-
-- [x] Observability API surface for storage operations
-  - `GET /api/v1/storage/ops/metrics`
-  - implementation:
-    - `api/routers/storage.py`
-
-- [x] Metrics coverage
-  - upload count and upload bytes
-  - dedup hit ratio
-  - failure reason taxonomy
-  - ingest phase latency aggregates from `INGEST_PHASE_LATENCY`
-  - backend health states (`up`/`degraded`/`down`) and probe latency
-
-- [x] Structured lifecycle logging with correlation
-  - storage and ingest routers emit lifecycle logs with:
-    - `request_id`, `tenant_id`, `graph_id`, `job_id`, `raw_id`, `op`, `status`, `failure_reason`, `latency_ms`
-  - formatter support for added correlated fields:
-    - `runtime/logging.py`
-
-- [x] Observability rollout controls
-  - `FAIM_STORAGE_OBSERVABILITY_ENABLED`
-  - `FAIM_STORAGE_STRUCTURED_LIFECYCLE_LOGS`
-  - implementation:
-    - `runtime/feature_flags.py`
-    - `runtime/config.py`
-
-- [x] Operations documentation
-  - `15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
-  - `16_STORAGE_OPERATIONS_RUNBOOK.md`
-
-Validation:
-
-- `PYTHONPATH=faim_native pytest -q tests/unit/test_phase_e_observability.py tests/acceptance/test_AT_PE_storage_observability_surface.py`
-- regression suites for Phase A/B/C/D storage paths pass
-
-Implementation evidence:
-
-- `15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
-
-## Phase F - Validation and Non-Regression
-
-Status (2026-02-11): implemented.
-
-Completed:
-
-- [x] Unit tests for new backend logic and crypto/error paths
-  - `tests/unit/test_phase_f_backend_error_paths.py`
-  - coverage includes:
-    - storage/ingest failure taxonomy mapping
-    - encryption mode detection guard paths
-    - UUID contract parsing failures
-    - job-event seq compatibility in SQLite/Postgres paths
-
-- [x] API/acceptance tests for storage lifecycle and control flows
-  - `tests/acceptance/test_AT_PF_storage_lifecycle_non_regression.py`
-  - coverage includes:
-    - upload -> status/events -> catalog -> provenance
-    - retry idempotency guard behavior
-    - delete request + retention dry-run
-    - cancel-request path visibility
-
-- [x] Frontend non-regression tests for queue + provenance interactions
-  - `frontend/tests/e2e/storage-phase-f.spec.ts`
-  - coverage includes:
-    - per-file retry/cancel queue transitions
-    - provenance inspect panel rendering
-
-- [x] Frontend reliability hardening discovered by Phase F
-  - retry race fixed by clearing stale `job_id` during retry path:
-    - `frontend/src/app/(app)/dashboard/storage/page.tsx`
-  - stable testing hooks added (`data-testid`) in storage page UI
-  - Playwright test-only auth bypass flag + isolated e2e port:
-    - `frontend/src/middleware.ts`
-    - `frontend/playwright.config.ts`
-
-Validation:
-
-- backend compile check:
-  - `python3 -m compileall` on touched storage/orchestration/runtime modules
-- backend regression suite:
-  - `PYTHONPATH=faim_native pytest -q ...` (Phase A/B/D/E/F + P2 + storage acceptance)
-  - result: `62 passed`
-- frontend checks:
-  - `npm run lint -- --file src/app/(app)/dashboard/storage/page.tsx --file src/middleware.ts`
-  - `CI=1 npx playwright test tests/e2e/storage-phase-f.spec.ts --project=chromium --workers=1`
-  - result: `2 passed`
-
-Implementation evidence:
-
-- `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
+Remaining backlog now represents deployment maturity and optional optimization work, not missing core storage functionality.

@@ -21,6 +21,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 15. `15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
 16. `16_STORAGE_OPERATIONS_RUNBOOK.md`
 17. `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
+18. `18_PHASE_G_DOCUMENTATION_RECONCILIATION_REPORT.md`
 
 ## Intent
 
@@ -35,6 +36,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Phase E observability + operations completion is documented in 15.
 - Operational runbook is documented in 16.
 - Phase F validation + non-regression completion is documented in 17.
+- Phase G documentation reconciliation is documented in 18.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome
@@ -42,6 +44,6 @@ This folder documents current storage/ingestion behavior and the implementation 
 After reading this pack, you should know:
 
 - Exactly where uploaded data goes today.
-- What is already working vs what is not wired.
+- What is already working vs what is future enhancement only.
 - How Postgres, Redis, Qdrant, and raw file storage should work together.
 - How to implement secure multi-file ingestion and expose it on UI safely.
