@@ -11,9 +11,9 @@ Actual implemented baseline:
 - frontend: `frontend/src/app/(app)/dashboard/storage/page.tsx`
 - persistence: `storage_files` table + repo + migration
 
-Use this doc as design intent + final status summary. Detailed implementation evidence lives in reports `09` through `17`.
+Use this doc as design intent + final status summary. Detailed implementation evidence lives in reports `09` through `19`.
 
-## Phase A-F Status Summary
+## Phase A-H Status Summary
 
 1. Phase A (Contract Freeze + Guardrails): implemented
 2. Phase B (Backend Completion): implemented
@@ -21,6 +21,8 @@ Use this doc as design intent + final status summary. Detailed implementation ev
 4. Phase D (Security Hardening): implemented
 5. Phase E (Observability + Operations): implemented
 6. Phase F (Validation + Non-Regression): implemented
+7. Phase G (Documentation Reconciliation): implemented
+8. Phase H (Commit and Release Hygiene): implemented
 
 ## Phase G Update (2026-02-11)
 
@@ -31,6 +33,16 @@ Documentation reconciliation completed in this phase:
 - future-only enhancements separated from completed scope
 
 Evidence: `18_PHASE_G_DOCUMENTATION_RECONCILIATION_REPORT.md`
+
+## Phase H Update (2026-02-11)
+
+Commit/release hygiene completed in this phase:
+
+- DoD mapping finalized in this plan doc
+- deferred item ownership/reason records normalized in backlog
+- release verification executed before release tag creation
+
+Evidence: `19_PHASE_H_COMMIT_RELEASE_HYGIENE_REPORT.md`
 
 ## 1) Product Objective
 
@@ -173,3 +185,22 @@ Implemented baseline includes:
 1. historical blob re-encryption program for pre-policy plaintext payloads
 2. environment-level dashboard/alert wiring for storage/security SLOs
 3. optional deeper cache/index/perf optimization beyond current deterministic baseline
+
+## 10) Deferred Items Register (Reason + Owner)
+
+These items are explicitly deferred and are not blockers for the completed core storage program.
+
+| Deferred Item | Reason | Owner | Target |
+|---|---|---|---|
+| Historical blob re-encryption for pre-policy plaintext payloads | Existing data remains readable and policy already fail-closed for new production writes; migration requires controlled tenant-by-tenant rollout window | Storage Security Team | Post-H release stream |
+| Environment-specific dashboards/alerts for storage/security SLOs | Runtime metrics/log contracts are implemented; deployment tooling differs by environment and must be wired by platform ops | SRE / Platform Operations | Post-H operations sprint |
+| Deep cache/index/perf tuning beyond deterministic baseline | Current deterministic fallback is correct and production-safe; higher-risk tuning requires dedicated perf benchmarking cycle | Performance Engineering | Post-H performance program |
+
+## 11) Phase H Release-Hygiene DoD Mapping
+
+| DoD Requirement | Status | Evidence |
+|---|---|---|
+| Every item in this plan is implemented or explicitly deferred with reason and owner | met | sections `2` to `8` (implemented), section `10` (deferred register) |
+| Security/ops requirements are enforced in production mode (not optional defaults) | met | section `6`, `14_PHASE_D_SECURITY_HARDENING_REPORT.md`, `16_STORAGE_OPERATIONS_RUNBOOK.md` |
+| Storage flow works end-to-end with provenance and operational controls | met | sections `2`, `4`, `5`, `7`, `13_PHASE_C_STORAGE_UI_COMPLETION_REPORT.md`, `12_PHASE_B_BACKEND_COMPLETION_REPORT.md` |
+| Tests and docs prove production readiness and non-regression | met | `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`, `18_PHASE_G_DOCUMENTATION_RECONCILIATION_REPORT.md`, `19_PHASE_H_COMMIT_RELEASE_HYGIENE_REPORT.md` |
