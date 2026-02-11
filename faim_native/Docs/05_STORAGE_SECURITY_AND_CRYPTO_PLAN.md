@@ -24,7 +24,7 @@ This is the security baseline and hardening plan for storage + ingestion.
 - request correlation IDs
 - structured logging with sensitive value redaction
 
-## 2) Security Gap Status (Post Phase D/E)
+## 2) Security Gap Status (Post Phase D/E/F)
 
 Implemented:
 
@@ -33,6 +33,7 @@ Implemented:
 3. Upload validators are consistently enforced on ingest/storage upload paths.
 4. Production plaintext fallback is blocked in runtime and routers.
 5. Storage route authz/tenant isolation coverage exists in acceptance tests.
+6. Phase F non-regression suites now cover lifecycle/retry/cancel/delete/retention flows.
 
 Remaining hardening focus:
 
@@ -106,5 +107,6 @@ Required automated gates:
 
 Current status:
 
-- These gate categories are largely implemented in unit/acceptance suites for Phase D and Phase E.
+- These gate categories are implemented in unit/acceptance coverage across Phase D/E/F.
 - Key rotation behavior is documented in runbook (`16_STORAGE_OPERATIONS_RUNBOOK.md`) and supported by tenant DEK manager rotation API.
+- Remaining work is deployment-level operations integration (dashboards/alerts and historical blob re-encryption program).
