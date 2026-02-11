@@ -50,7 +50,9 @@ Validation command results and release pointers are recorded in sections below.
 
 ## Commit and Tag Evidence
 
-- Phase H commit: `docs(storage): phase H commit and release hygiene`
+- Phase H commits:
+  - `docs(storage): phase H commit and release hygiene`
+  - `docs(storage): align phase range wording to A-H`
 - Release tag: `v2.2.0-storage-AH`
 
 ## Final Status
