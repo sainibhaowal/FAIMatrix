@@ -20,6 +20,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 14. `14_PHASE_D_SECURITY_HARDENING_REPORT.md`
 15. `15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
 16. `16_STORAGE_OPERATIONS_RUNBOOK.md`
+17. `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
 
 ## Intent
 
@@ -33,6 +34,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Phase D production security hardening is documented in 14.
 - Phase E observability + operations completion is documented in 15.
 - Operational runbook is documented in 16.
+- Phase F validation + non-regression completion is documented in 17.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

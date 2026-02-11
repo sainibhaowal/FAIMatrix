@@ -438,3 +438,55 @@ Validation:
 Implementation evidence:
 
 - `15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
+
+## Phase F - Validation and Non-Regression
+
+Status (2026-02-11): implemented.
+
+Completed:
+
+- [x] Unit tests for new backend logic and crypto/error paths
+  - `tests/unit/test_phase_f_backend_error_paths.py`
+  - coverage includes:
+    - storage/ingest failure taxonomy mapping
+    - encryption mode detection guard paths
+    - UUID contract parsing failures
+    - job-event seq compatibility in SQLite/Postgres paths
+
+- [x] API/acceptance tests for storage lifecycle and control flows
+  - `tests/acceptance/test_AT_PF_storage_lifecycle_non_regression.py`
+  - coverage includes:
+    - upload -> status/events -> catalog -> provenance
+    - retry idempotency guard behavior
+    - delete request + retention dry-run
+    - cancel-request path visibility
+
+- [x] Frontend non-regression tests for queue + provenance interactions
+  - `frontend/tests/e2e/storage-phase-f.spec.ts`
+  - coverage includes:
+    - per-file retry/cancel queue transitions
+    - provenance inspect panel rendering
+
+- [x] Frontend reliability hardening discovered by Phase F
+  - retry race fixed by clearing stale `job_id` during retry path:
+    - `frontend/src/app/(app)/dashboard/storage/page.tsx`
+  - stable testing hooks added (`data-testid`) in storage page UI
+  - Playwright test-only auth bypass flag + isolated e2e port:
+    - `frontend/src/middleware.ts`
+    - `frontend/playwright.config.ts`
+
+Validation:
+
+- backend compile check:
+  - `python3 -m compileall` on touched storage/orchestration/runtime modules
+- backend regression suite:
+  - `PYTHONPATH=faim_native pytest -q ...` (Phase A/B/D/E/F + P2 + storage acceptance)
+  - result: `62 passed`
+- frontend checks:
+  - `npm run lint -- --file src/app/(app)/dashboard/storage/page.tsx --file src/middleware.ts`
+  - `CI=1 npx playwright test tests/e2e/storage-phase-f.spec.ts --project=chromium --workers=1`
+  - result: `2 passed`
+
+Implementation evidence:
+
+- `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`

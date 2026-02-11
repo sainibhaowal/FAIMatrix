@@ -123,6 +123,33 @@ Implemented in Phase E:
 
 See `15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md` and `16_STORAGE_OPERATIONS_RUNBOOK.md` for implementation evidence.
 
+## Phase F Update (2026-02-11)
+
+Validation and non-regression scope is now implemented.
+
+Implemented in Phase F:
+
+- backend unit validation for new error/crypto path logic:
+  - stable failure taxonomy mapping and UUID contract guard checks
+  - encryption-mode detection guard checks
+  - durable job-event sequence compatibility checks for SQLite/Postgres paths
+- API/acceptance coverage for full storage lifecycle:
+  - upload -> status/events -> catalog -> provenance -> delete request -> retention dry-run
+  - retry idempotency guard behavior for failed-only files
+  - cancellation API behavior and cancel-request state visibility
+- frontend regression coverage (Playwright) for:
+  - queue per-file cancel/retry interactions
+  - provenance inspect drawer rendering from backend contract payload
+- targeted UI hardening for testability/non-regression:
+  - stable `data-testid` hooks in Storage page
+  - retry queue race fix (clear stale `job_id` during retry path to prevent old poll overwrite)
+- Phase F test-run support:
+  - Playwright test-only auth bypass flag in middleware:
+    - `PLAYWRIGHT_BYPASS_AUTH=true`
+  - Playwright config isolated to local e2e port `8011`
+
+See `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md` for implementation evidence.
+
 ## 1) Product Objective
 
 Build a production Storage page that can:
@@ -376,4 +403,3 @@ If you approve, I will start Phase A immediately and execute this in order witho
 
 
   first build a plan-- what you have to do and what  you will to by maintaing all about what we discusss about about security, maintainece, proper gap problem -- so build a proper Phase B and others implememtation technical plan so you can do proper work without any mistake and ẃithout any damage other codes files and data and folder and workflows-- so build first end to end proper production mature and production grade professional plan acurately then with my permission you can start work -- dont forget to ducmenting everything at the end  please. make sure acurate and production matue
-
