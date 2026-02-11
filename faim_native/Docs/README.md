@@ -22,6 +22,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 16. `16_STORAGE_OPERATIONS_RUNBOOK.md`
 17. `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
 18. `18_PHASE_G_DOCUMENTATION_RECONCILIATION_REPORT.md`
+19. `19_PHASE_H_COMMIT_RELEASE_HYGIENE_REPORT.md`
 
 ## Intent
 
@@ -37,6 +38,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Operational runbook is documented in 16.
 - Phase F validation + non-regression completion is documented in 17.
 - Phase G documentation reconciliation is documented in 18.
+- Phase H commit/release hygiene and final verification is documented in 19.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

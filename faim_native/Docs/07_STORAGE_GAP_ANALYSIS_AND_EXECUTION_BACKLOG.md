@@ -22,6 +22,7 @@ This backlog now separates completed delivery from true future enhancements.
 8. Phase E - Observability + Operations: completed
 9. Phase F - Validation and Non-Regression: completed
 10. Phase G - Documentation Reconciliation: completed
+11. Phase H - Commit and Release Hygiene: completed
 
 ## Completed Scope Summary
 
@@ -124,6 +125,16 @@ Evidence:
 
 - `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
 
+## Phase H Completed
+
+- release-hygiene DoD mapping and explicit deferred ownership
+- final verification gate execution before release tagging
+- commit/tag release audit trail finalized
+
+Evidence:
+
+- `19_PHASE_H_COMMIT_RELEASE_HYGIENE_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -145,24 +156,32 @@ These are the remaining non-blocking roadmap items after P0/P1/P2 and A-F delive
 
 - historical blob re-encryption program for pre-policy plaintext payloads
 - operator playbooks for key-rotation rehearsal and emergency rollback drills at deployment level
+Reason: rollout-safe migration and drill scheduling must be coordinated per tenant and environment.
+Owner: Storage Security Team.
 
 ## F2 - Observability Operations Maturity (P1)
 
 - deployment-specific dashboards and alerting integration (SLO burn alerts, dependency outage paging)
 - environment-level runbook automation hooks
+Reason: environment tooling integration is deployment-specific and outside core runtime implementation.
+Owner: SRE / Platform Operations.
 
 ## F3 - Performance Extensions (P2)
 
 - deeper cache/index optimization tuning beyond current deterministic baseline
 - optional perf namespace reintegration plan (or archive finalization)
+Reason: requires dedicated benchmark cycle and controlled tuning acceptance criteria.
+Owner: Performance Engineering.
 
 ## F4 - Expanded Validation Matrix (P2)
 
 - broader environment matrix (staging/prod-like load and chaos scenarios)
 - additional long-run endurance checks for retention worker and background job durability
+Reason: long-run and chaos validation requires separate infra windows and release timing.
+Owner: QA / Release Engineering.
 
 ## Definition of Done (Current Program)
 
-Core storage program delivery is complete for P0/P1/P2 and phases A-F.
+Core storage program delivery is complete for P0/P1/P2 and phases A-H.
 
 Remaining backlog now represents deployment maturity and optional optimization work, not missing core storage functionality.
