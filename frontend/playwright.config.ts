@@ -8,7 +8,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:8010',
+    baseURL: 'http://localhost:8011',
     trace: 'on-first-retry',
   },
   projects: [
@@ -22,8 +22,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:8010',
+    command: 'npx next dev -p 8011',
+    url: 'http://localhost:8011',
+    env: {
+      ...process.env,
+      PLAYWRIGHT_BYPASS_AUTH: 'true',
+    },
     reuseExistingServer: !process.env.CI,
   },
 });

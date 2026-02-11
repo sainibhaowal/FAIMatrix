@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 from store.pg.models_faim import JobEventModel, JobModel
 
@@ -220,11 +220,25 @@ class JobStore:
         payload: Dict[str, Any],
     ):
         """Append a progress event for a job."""
-        event = JobEventModel(
-            job_id=job_id,
-            kind=kind,
-            payload=payload,
-        )
+        seq: Optional[int] = None
+        bind = session.get_bind()
+        dialect_name = (getattr(bind, "dialect", None) and bind.dialect.name) or ""
+
+        # SQLite does not auto-increment BigInteger PK columns reliably.
+        # Assign seq explicitly there to keep local/dev parity with Postgres paths.
+        if dialect_name == "sqlite":
+            next_seq = session.query(func.max(JobEventModel.seq)).scalar()
+            seq = int(next_seq or 0) + 1
+
+        event_kwargs: Dict[str, Any] = {
+            "job_id": job_id,
+            "kind": kind,
+            "payload": payload,
+        }
+        if seq is not None:
+            event_kwargs["seq"] = seq
+
+        event = JobEventModel(**event_kwargs)
         session.add(event)
 
         # Also heartbeat the job

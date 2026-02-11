@@ -6,6 +6,11 @@ import type { NextRequest } from "next/server";
 // 1. Export withAuth to protect dashboard and API routes
 export default withAuth(
   async function middleware(req) {
+    // Test-only bypass for Playwright e2e runs.
+    if (process.env.PLAYWRIGHT_BYPASS_AUTH === "true") {
+      return NextResponse.next();
+    }
+
     const authHeader = req.headers.get("Authorization");
     
     const token = await getToken({ 
@@ -64,6 +69,8 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ token, req }) => {
+        if (process.env.PLAYWRIGHT_BYPASS_AUTH === "true") return true;
+
         // Only require authorized=true for PAGES (dashboard)
         // API routes are handled manually above to return JSON
         if (req.nextUrl.pathname.startsWith("/api/")) return true;

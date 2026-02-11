@@ -821,7 +821,9 @@ export default function StoragePage() {
           ...item,
           status: "ingesting",
           progress: 78,
+          jobId: undefined,
           error: undefined,
+          cancelRequested: false,
           busyAction: "retry",
           updatedAt: safeNow(),
         }));
@@ -837,6 +839,7 @@ export default function StoragePage() {
           ...item,
           status,
           progress: queueProgress(status),
+          jobId: undefined,
           rawId: data.file?.raw_id || item.rawId,
           packetHash: data.ingest?.packet_hash ?? item.packetHash,
           nodeCount: data.file?.node_count ?? item.nodeCount,
@@ -1009,7 +1012,9 @@ export default function StoragePage() {
     <div className="space-y-6 pb-8 text-slate-100">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold">Storage Control Plane</h1>
+          <h1 className="text-xl font-semibold" data-testid="storage-page-title">
+            Storage Control Plane
+          </h1>
           <p className="mt-1 text-sm text-slate-400">
             Multi-file upload queue, ingest lifecycle tracking, and immutable provenance for graph `{graphId}`.
           </p>
@@ -1158,7 +1163,12 @@ export default function StoragePage() {
                 const latest = latestMessage(item);
 
                 return (
-                  <div key={item.id} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+                  <div
+                    key={item.id}
+                    className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"
+                    data-testid="storage-queue-item"
+                    data-filename={item.filename}
+                  >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
@@ -1179,6 +1189,8 @@ export default function StoragePage() {
                           size="xs"
                           variant="outline"
                           className="h-7"
+                          data-testid="storage-queue-cancel"
+                          data-filename={item.filename}
                           disabled={!canCancel}
                           onClick={() => {
                             void requestQueueCancel(item.id);
@@ -1190,6 +1202,8 @@ export default function StoragePage() {
                           size="xs"
                           variant="outline"
                           className="h-7"
+                          data-testid="storage-queue-retry"
+                          data-filename={item.filename}
                           disabled={!canRetry}
                           leftIcon={<RotateCcw size={12} />}
                           onClick={() => {
@@ -1365,6 +1379,8 @@ export default function StoragePage() {
                             size="xs"
                             variant="outline"
                             className="h-7"
+                            data-testid="storage-file-inspect"
+                            data-raw-id={row.raw_id}
                             disabled={busy || row.delete_requested}
                             leftIcon={<FileSearch size={12} />}
                             onClick={() => {
@@ -1454,7 +1470,10 @@ export default function StoragePage() {
             aria-label="Close provenance panel"
           />
 
-          <aside className="absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl">
+          <aside
+            className="absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl"
+            data-testid="storage-provenance-panel"
+          >
             <div className="mb-4 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold">Provenance Inspect</h3>
