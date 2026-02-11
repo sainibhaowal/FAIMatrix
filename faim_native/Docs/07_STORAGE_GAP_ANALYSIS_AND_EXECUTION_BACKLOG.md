@@ -150,7 +150,7 @@ Evidence:
 
 ## Future Enhancements Only
 
-These are the remaining non-blocking roadmap items after P0/P1/P2 and A-F delivery.
+These are the remaining non-blocking roadmap items after P0/P1/P2 and A-H delivery.
 
 ## F1 - Security Operations Maturity (P1)
 
