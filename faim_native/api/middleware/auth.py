@@ -1,16 +1,19 @@
-"""FAIM-Native API: Auth Middleware (Stage-7.1 Hardened).
+"""FAIM-Native API: Auth Middleware (K3 hardened).
 
 Tenant authentication with:
-- Constant-time API key comparison
-- Key rotation support (list of keys per tenant)
+- DB-backed API key validation as primary path
+- Env-key fallback behind explicit compatibility flag
+- Constant-time compare for env fallback path
 - Strict tenant validation (reject empty/missing)
 
 Required headers:
 - X-Tenant-Id: <uuid-or-string>
 - X-Api-Key: <key>
 
-Config via env:
+Config:
 - TENANT_KEYS_JSON='{"tenantA":["keyA1","keyA2"],"tenantB":["keyB"]}'
+- FAIM_AUTH_DB_PRIMARY=true|false
+- FAIM_AUTH_ENV_FALLBACK_ENABLED=true|false
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ import json
 import logging
 import os
 import re
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -30,8 +34,17 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Tenant Key Store (with rotation support)
+# Tenant Key Store (legacy env fallback, with rotation support)
 # =============================================================================
+
+
+def _parse_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return default
 
 
 def _load_tenant_keys() -> Dict[str, List[str]]:
@@ -45,14 +58,14 @@ def _load_tenant_keys() -> Dict[str, List[str]]:
     try:
         data = json.loads(raw)
         # Normalize: convert string values to lists
-        result = {}
+        result: Dict[str, List[str]] = {}
         for tenant, keys in data.items():
             if isinstance(keys, str):
                 result[tenant] = [keys]
             elif isinstance(keys, list):
-                result[tenant] = keys
+                result[tenant] = [str(k) for k in keys if str(k)]
             else:
-                logger.warning(f"Invalid key format for tenant {tenant}")
+                logger.warning("Invalid key format for tenant %s", tenant)
                 result[tenant] = []
         return result
     except json.JSONDecodeError:
@@ -83,57 +96,118 @@ def _constant_time_compare(a: str, b: str) -> bool:
     return hmac.compare_digest(a.encode(), b.encode())
 
 
-def validate_tenant_key(tenant_id: str, api_key: str) -> bool:
-    """Validate tenant API key.
+@dataclass(frozen=True)
+class AuthDecision:
+    """Auth result envelope for middleware context propagation."""
 
-    Stage-11: Supports BOTH legacy (env var) and new (DB hashed) modes.
+    valid: bool
+    auth_method: Optional[str] = None
+    key_id: Optional[str] = None
+    scopes: List[str] = field(default_factory=list)
+    reason: Optional[str] = None
 
-    Verification order:
-    1. Check legacy TENANT_KEYS_JSON (for backward compatibility)
-    2. Check database hashed keys (preferred for production)
 
-    Args:
-        tenant_id: Tenant identifier.
-        api_key: API key provided.
-
-    Returns:
-        True if valid, False otherwise.
-    """
-    # --- Legacy Mode (TENANT_KEYS_JSON env var) ---
-    # Will be deprecated after migration to DB hashes
+def _verify_env_tenant_key(tenant_id: str, api_key: str) -> bool:
+    """Legacy env-key verification path (explicit compatibility mode only)."""
     keys = get_tenant_keys()
-
-    # No keys configured - production safety: REJECT ALL
-    if not keys:
-        logger.error(
-            "CRITICAL: No tenant keys configured. Access denied for all tenants."
-        )
-        return False
-
-    # Check legacy plaintext keys first
     valid_keys = keys.get(tenant_id, [])
     for valid_key in valid_keys:
         if _constant_time_compare(api_key, valid_key):
             return True
-
-    # Legacy key not found, try DB hashed keys
-    try:
-        from store.pg.repos.auth_repo import AuthRepo
-        from store.pg.session import get_session
-
-        session = get_session()
-        try:
-            repo = AuthRepo(session)
-            result = repo.verify_tenant_key(tenant_id, api_key)
-            if result:
-                return True
-        finally:
-            session.close()
-    except Exception as e:
-        logger.debug(f"Hashed key verification failed: {e}")
-        pass
-
     return False
+
+
+def _verify_db_tenant_key(tenant_id: str, api_key: str):
+    """DB-backed key verification returning TenantApiKey or None."""
+    from store.pg.repos.auth_repo import AuthRepo
+    from store.pg.session import get_session
+
+    session = get_session()
+    try:
+        repo = AuthRepo(session)
+        record = repo.verify_tenant_key(tenant_id, api_key)
+        if record:
+            try:
+                repo.append_key_audit(
+                    tenant_id=tenant_id,
+                    key_id=record.key_id,
+                    action="verified",
+                    meta={"method": "db_primary"},
+                )
+            except Exception:  # nosec B110
+                pass
+            session.commit()
+            return record
+        session.rollback()
+        return None
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
+def authenticate_tenant_key(tenant_id: str, api_key: str) -> AuthDecision:
+    """Authenticate tenant API key and return decision/context data.
+
+    K3 ordering policy:
+    - Default: DB primary
+    - Env fallback: optional behind explicit flag
+    """
+    db_primary = _parse_bool("FAIM_AUTH_DB_PRIMARY", True)
+    env_fallback = _parse_bool("FAIM_AUTH_ENV_FALLBACK_ENABLED", False)
+
+    # DB-primary path
+    if db_primary:
+        try:
+            record = _verify_db_tenant_key(tenant_id, api_key)
+            if record:
+                return AuthDecision(
+                    valid=True,
+                    auth_method="api_key_db",
+                    key_id=str(record.key_id),
+                    scopes=list(record.scopes or []),
+                )
+        except Exception as exc:
+            logger.warning("DB key verification failed for tenant=%s: %s", tenant_id, exc)
+
+        if env_fallback and _verify_env_tenant_key(tenant_id, api_key):
+            return AuthDecision(
+                valid=True,
+                auth_method="api_key_env",
+                key_id=None,
+                scopes=[],
+            )
+
+        return AuthDecision(valid=False, reason="invalid_credentials")
+
+    # Legacy compatibility ordering (explicitly opted-in)
+    if _verify_env_tenant_key(tenant_id, api_key):
+        return AuthDecision(
+            valid=True,
+            auth_method="api_key_env",
+            key_id=None,
+            scopes=[],
+        )
+
+    try:
+        record = _verify_db_tenant_key(tenant_id, api_key)
+        if record:
+            return AuthDecision(
+                valid=True,
+                auth_method="api_key_db",
+                key_id=str(record.key_id),
+                scopes=list(record.scopes or []),
+            )
+    except Exception as exc:
+        logger.warning("DB key verification failed for tenant=%s: %s", tenant_id, exc)
+
+    return AuthDecision(valid=False, reason="invalid_credentials")
+
+
+def validate_tenant_key(tenant_id: str, api_key: str) -> bool:
+    """Legacy-compatible bool validator wrapper."""
+    return authenticate_tenant_key(tenant_id, api_key).valid
 
 
 # =============================================================================
@@ -211,12 +285,11 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
     """Middleware for tenant authentication.
 
     Validates X-Tenant-Id and X-Api-Key headers.
-    Attaches tenant_id to request.state.
+    Attaches tenant_id + auth context to request.state.
 
-    Stage-7.1 hardening:
-    - Rejects empty/missing tenant
-    - Constant-time key comparison
-    - Supports key rotation
+    K3 hardening:
+    - DB-primary auth decision with explicit env fallback control
+    - Context propagation: auth_method, auth_key_id, auth_scopes
     """
 
     async def dispatch(self, request: Request, call_next):
@@ -237,7 +310,7 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
         # Normalize and validate tenant ID
         tenant_id = normalize_tenant_id(raw_tenant_id)
 
-        # Stage-7.1: Reject empty/missing tenant
+        # Reject empty/missing tenant
         if not tenant_id:
             return JSONResponse(
                 status_code=401,
@@ -251,15 +324,19 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
                 content={"error": "Missing X-Api-Key header"},
             )
 
-        # Validate key (constant-time)
-        if not validate_tenant_key(tenant_id, api_key):
+        # Authenticate key
+        decision = authenticate_tenant_key(tenant_id, api_key)
+        if not decision.valid:
             return JSONResponse(
                 status_code=401,
                 content={"error": "Invalid tenant credentials"},
             )
 
-        # Attach to request state
+        # Attach auth context to request state
         request.state.tenant_id = tenant_id
+        request.state.auth_method = decision.auth_method or "api_key"
+        request.state.auth_key_id = decision.key_id
+        request.state.auth_scopes = list(decision.scopes or [])
 
         # Continue processing
         response = await call_next(request)

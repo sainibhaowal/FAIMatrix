@@ -6,10 +6,11 @@ Provides FAIMContext, tenant_id, session, etc.
 
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Callable, Optional, Sequence
 
 from fastapi import Depends, Header, HTTPException, Request
 
@@ -152,6 +153,55 @@ def require_admin(
 
 
 # =============================================================================
+# Scope Dependency (K3)
+# =============================================================================
+
+
+def _scope_enforcement_enabled() -> bool:
+    raw = os.getenv("FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED", "").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return False
+
+
+def require_scopes(required_scopes: Sequence[str]) -> Callable[..., Any]:
+    """Require API key scopes for a route.
+
+    Notes:
+    - JWT-authenticated requests are currently allowed by compatibility policy.
+    - Scope checks are active only when FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED=true.
+    """
+    required = [str(scope or "").strip() for scope in required_scopes]
+    required = [scope for scope in required if scope]
+    required = sorted(set(required))
+
+    async def _require(request: Request) -> None:
+        if not required:
+            return
+
+        # Compatibility path: JWT sessions remain allowed until dedicated JWT scopes are introduced.
+        if getattr(request.state, "auth_method", None) == "jwt":
+            return
+
+        if not _scope_enforcement_enabled():
+            return
+
+        granted_raw = getattr(request.state, "auth_scopes", []) or []
+        granted = {str(scope).strip() for scope in granted_raw if str(scope).strip()}
+        missing = [scope for scope in required if scope not in granted]
+
+        if missing:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Missing required scopes: {', '.join(missing)}",
+            )
+
+    return _require
+
+
+# =============================================================================
 # Exports
 # =============================================================================
 
@@ -162,4 +212,5 @@ __all__ = [
     "get_graph_id",
     "get_faim_context",
     "require_admin",
+    "require_scopes",
 ]
