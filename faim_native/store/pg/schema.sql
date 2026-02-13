@@ -288,6 +288,38 @@ CREATE INDEX IF NOT EXISTS idx_storage_files_last_job ON storage_files(last_job_
 COMMENT ON TABLE storage_files IS 'P1 storage catalog metadata and ingest lifecycle state';
 
 -- -----------------------------------------------------------------------------
+-- memory_write_requests: K5 idempotency ledger for memory/write API
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS memory_write_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id TEXT NOT NULL,
+    graph_id TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    request_hash VARCHAR(64) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'in_progress',
+    response_json JSONB,
+    packet_hash VARCHAR(64),
+    raw_id UUID,
+    node_count INTEGER NOT NULL DEFAULT 0,
+    vector_count INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,
+
+    CONSTRAINT uq_memory_write_requests_tenant_graph_key
+        UNIQUE (tenant_id, graph_id, idempotency_key)
+);
+
+CREATE INDEX IF NOT EXISTS ix_memory_write_requests_tenant_graph_status
+    ON memory_write_requests(tenant_id, graph_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_memory_write_requests_request_hash
+    ON memory_write_requests(request_hash);
+
+COMMENT ON TABLE memory_write_requests IS
+    'K5: idempotency ledger for memory write operations';
+
+-- -----------------------------------------------------------------------------
 -- tenant_crypto_keys: Wrapped tenant DEKs for envelope encryption (P2)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS tenant_crypto_keys (

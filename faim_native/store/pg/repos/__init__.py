@@ -9,6 +9,7 @@ __all__ = [
     "SnapshotRepo",
     "GraphVersionRepo",
     "StorageFileRepo",
+    "MemoryWriteIdempotencyRepo",
     "SelfInventionStateRepo",
 ]
 
@@ -39,6 +40,10 @@ def __getattr__(name):
         from .storage_file_repo import StorageFileRepo
 
         return StorageFileRepo
+    elif name == "MemoryWriteIdempotencyRepo":
+        from .memory_write_idempotency_repo import MemoryWriteIdempotencyRepo
+
+        return MemoryWriteIdempotencyRepo
     elif name == "SelfInventionStateRepo":
         from .self_invention_state_repo import SelfInventionStateRepo
 

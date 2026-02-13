@@ -29,6 +29,7 @@ This backlog now separates completed delivery from true future enhancements.
 15. Phase K2 - Auth Data Model Upgrade (migration-first): completed
 16. Phase K3 - Auth Middleware + Authz Enforcement: completed
 17. Phase K4 - API Key Management API + Frontend Page: completed
+18. Phase K5 - Memory Retrieval/Write API Runtime: completed
 
 ## Completed Scope Summary
 
@@ -208,6 +209,18 @@ Evidence:
 
 - `26_PHASE_K4_API_KEYS_MANAGEMENT_API_UI_REPORT.md`
 
+## Phase K5 Completed
+
+- `/api/v1/memory/*` route surface implemented (`search/get/provenance/write/patch`)
+- memory write idempotency ledger added (migration + model + repository)
+- optimistic concurrency guard added for memory patch updates
+- strict tenant+graph scoped memory retrieval/update behavior in router paths
+- K5 validation coverage added (unit + acceptance)
+
+Evidence:
+
+- `27_PHASE_K5_MEMORY_API_IMPLEMENTATION_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -226,6 +239,7 @@ Evidence:
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |
 | API key management runtime API + dashboard UI | implemented (K4) |
+| Agent-facing memory API runtime | implemented (K5) |
 
 ## Future Enhancements Only
 
@@ -259,13 +273,13 @@ Owner: Performance Engineering.
 Reason: long-run and chaos validation requires separate infra windows and release timing.
 Owner: QA / Release Engineering.
 
-## F5 - Memory API Runtime Delivery (P1)
+## F5 - Memory API Operations Maturity (P1)
 
-- implement dedicated agent memory route surface under `/api/v1/memory/*`
-- map route-level scopes (`memory.read`/`memory.write`) end-to-end with acceptance coverage
-- publish operational docs for memory write/update idempotency behavior
-Reason: K1-K4 delivered API key contract, auth runtime baseline, and key management UI; memory route runtime remains.
-Owner: API Platform + Agent Interfaces.
+- complete environment-level auth scope rollout with explicit `memory.read`/`memory.write` policy gates
+- add production SLO dashboards for memory route latency/error buckets
+- run extended load and replay testing for idempotency ledger under concurrency spikes
+Reason: K5 runtime is implemented; remaining work is production operations hardening and rollout governance.
+Owner: API Platform + SRE.
 
 ## Definition of Done (Current Program)
 
