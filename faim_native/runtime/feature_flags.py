@@ -31,6 +31,9 @@ class FeatureFlags:
     self_invent_enabled: bool = False
     self_invent_on_evolve: bool = True
     self_invent_after_upload: bool = False
+    auth_db_primary: bool = True
+    auth_env_fallback_enabled: bool = False
+    auth_scope_enforcement_enabled: bool = False
 
 
 def get_feature_flags() -> FeatureFlags:
@@ -55,6 +58,13 @@ def get_feature_flags() -> FeatureFlags:
         self_invent_enabled=_parse_bool("FAIM_SELF_INVENT_ENABLED", False),
         self_invent_on_evolve=_parse_bool("FAIM_SELF_INVENT_ON_EVOLVE", True),
         self_invent_after_upload=_parse_bool("FAIM_SELF_INVENT_AFTER_UPLOAD", False),
+        auth_db_primary=_parse_bool("FAIM_AUTH_DB_PRIMARY", True),
+        auth_env_fallback_enabled=_parse_bool(
+            "FAIM_AUTH_ENV_FALLBACK_ENABLED", False
+        ),
+        auth_scope_enforcement_enabled=_parse_bool(
+            "FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED", False
+        ),
     )
 
 
@@ -98,6 +108,19 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
         warnings.append(
             "FAIM_OCR_FAIL_CLOSED=true while FAIM_OCR_ENABLED=false (OCR fail-closed is inactive)"
         )
+
+    if not flags.auth_db_primary:
+        warnings.append(
+            "FAIM_AUTH_DB_PRIMARY=false enables legacy auth ordering and should be temporary."
+        )
+
+    if env in {"prod", "production"}:
+        if not flags.auth_db_primary:
+            errors.append("Production mode requires FAIM_AUTH_DB_PRIMARY=true")
+        if flags.auth_env_fallback_enabled:
+            errors.append(
+                "Production mode requires FAIM_AUTH_ENV_FALLBACK_ENABLED=false"
+            )
     return errors, warnings
 
 
