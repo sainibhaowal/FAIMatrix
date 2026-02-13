@@ -52,6 +52,7 @@
     /* Shadow Stacks */
     --os-shadow-deep: 0 30px 120px rgba(0, 0, 0, 0.4);
     --os-shadow-line: 0 0 0 1px var(--os-stroke);
+    --os-card-radius: 1rem;
 
     /* Animation */
     --ease-faim: cubic-bezier(0.16, 1, 0.3, 1);
@@ -76,11 +77,13 @@
     background: var(--os-surface-1);
     box-shadow: var(--os-shadow-deep);
     border: 1px solid var(--os-stroke);
+    border-radius: var(--os-card-radius);
   }
 
   .os-card {
     background: var(--os-surface-2);
     border: 1px solid var(--os-stroke);
+    border-radius: var(--os-card-radius);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
     transition: all 0.2s var(--ease-faim);
   }

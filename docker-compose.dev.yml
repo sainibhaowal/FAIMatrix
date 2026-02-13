@@ -16,7 +16,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U faim -d faim_native"]
+      test: ["CMD-SHELL", "pg_isready -U faim -d faim_native -p 8020"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -56,6 +56,7 @@ services:
 
   # Qdrant (Vector Database)
   qdrant:
+    image: qdrant/qdrant:latest
     ports:
       - "8040:8040"
       - "8050:8050"
@@ -81,14 +82,29 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:8030/0
       - QDRANT_URL=http://qdrant:8040
       - QDRANT_API_KEY=${QDRANT_API_KEY:-qdrant_secret}
+      - FAIM_RAW_STORE_PATH=/var/lib/faim/raw/blobs
       - FAIM_AUTO_MIGRATE=true
       - FAIM_LOG_LEVEL=DEBUG
+      - FAIM_OCR_ENABLED=${FAIM_OCR_ENABLED:-false}
+      - FAIM_OCR_ENGINE=${FAIM_OCR_ENGINE:-tesseract}
+      - FAIM_OCR_FAIL_CLOSED=${FAIM_OCR_FAIL_CLOSED:-false}
+      - FAIM_OCR_LANGS=${FAIM_OCR_LANGS:-eng}
+      - FAIM_SELF_INVENT_ENABLED=${FAIM_SELF_INVENT_ENABLED:-false}
+      - FAIM_SELF_INVENT_ON_EVOLVE=${FAIM_SELF_INVENT_ON_EVOLVE:-true}
+      - FAIM_SELF_INVENT_AFTER_UPLOAD=${FAIM_SELF_INVENT_AFTER_UPLOAD:-false}
+      - FAIM_SELF_INVENT_MAX_MACROS_PER_CYCLE=${FAIM_SELF_INVENT_MAX_MACROS_PER_CYCLE:-3}
+      - FAIM_SELF_INVENT_EVENT_WINDOW=${FAIM_SELF_INVENT_EVENT_WINDOW:-5000}
+      - FAIM_SELF_INVENT_MIN_COACTIVATION_COUNT=${FAIM_SELF_INVENT_MIN_COACTIVATION_COUNT:-3}
+      - FAIM_SELF_INVENT_LAMBDA_THRESHOLD=${FAIM_SELF_INVENT_LAMBDA_THRESHOLD:-0.3}
+      - FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION=${FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION:-0.01}
       - TENANT_KEYS_JSON=${TENANT_KEYS_JSON:-{"default":["test-key"]}}
       - ADMIN_KEYS_JSON=${ADMIN_KEYS_JSON:-{"admin":"admin-key"}}
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:?NEXTAUTH_SECRET required}
     volumes:
       # Hot-reload: mount local faim_native code into container
       - ./faim_native:/app:ro
+      # Writable raw blob persistence path (separate from read-only code mount)
+      - raw_data:/var/lib/faim/raw
     ports:
       - "8000:8000"
     depends_on:
@@ -114,9 +130,23 @@ services:
     environment:
       - DATABASE_URL=postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
       - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_secret}@redis:8030/0
+      - FAIM_RAW_STORE_PATH=/var/lib/faim/raw/blobs
       - FAIM_LOG_LEVEL=DEBUG
+      - FAIM_OCR_ENABLED=${FAIM_OCR_ENABLED:-false}
+      - FAIM_OCR_ENGINE=${FAIM_OCR_ENGINE:-tesseract}
+      - FAIM_OCR_FAIL_CLOSED=${FAIM_OCR_FAIL_CLOSED:-false}
+      - FAIM_OCR_LANGS=${FAIM_OCR_LANGS:-eng}
+      - FAIM_SELF_INVENT_ENABLED=${FAIM_SELF_INVENT_ENABLED:-false}
+      - FAIM_SELF_INVENT_ON_EVOLVE=${FAIM_SELF_INVENT_ON_EVOLVE:-true}
+      - FAIM_SELF_INVENT_AFTER_UPLOAD=${FAIM_SELF_INVENT_AFTER_UPLOAD:-false}
+      - FAIM_SELF_INVENT_MAX_MACROS_PER_CYCLE=${FAIM_SELF_INVENT_MAX_MACROS_PER_CYCLE:-3}
+      - FAIM_SELF_INVENT_EVENT_WINDOW=${FAIM_SELF_INVENT_EVENT_WINDOW:-5000}
+      - FAIM_SELF_INVENT_MIN_COACTIVATION_COUNT=${FAIM_SELF_INVENT_MIN_COACTIVATION_COUNT:-3}
+      - FAIM_SELF_INVENT_LAMBDA_THRESHOLD=${FAIM_SELF_INVENT_LAMBDA_THRESHOLD:-0.3}
+      - FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION=${FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION:-0.01}
     volumes:
       - ./faim_native:/app:ro
+      - raw_data:/var/lib/faim/raw
     depends_on:
       api:
         condition: service_started
@@ -151,6 +181,7 @@ volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+  raw_data:
 
 networks:
   faim-internal:

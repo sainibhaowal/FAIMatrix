@@ -19,6 +19,7 @@ def test_storage_routes_present():
     assert "/storage/uploads" in paths
     assert "/storage/uploads/{job_id}" in paths
     assert "/storage/uploads/{job_id}/events" in paths
+    assert "/storage/supported-types" in paths
     assert "/storage/files" in paths
     assert "/storage/files/{raw_id}" in paths
     assert "/storage/files/{raw_id}/ingest" in paths

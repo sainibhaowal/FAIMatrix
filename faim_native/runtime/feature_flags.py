@@ -26,6 +26,11 @@ class FeatureFlags:
     storage_contract_strict: bool = True
     storage_observability_enabled: bool = True
     storage_structured_lifecycle_logs: bool = True
+    ocr_enabled: bool = False
+    ocr_fail_closed: bool = False
+    self_invent_enabled: bool = False
+    self_invent_on_evolve: bool = True
+    self_invent_after_upload: bool = False
 
 
 def get_feature_flags() -> FeatureFlags:
@@ -45,6 +50,11 @@ def get_feature_flags() -> FeatureFlags:
         storage_structured_lifecycle_logs=_parse_bool(
             "FAIM_STORAGE_STRUCTURED_LIFECYCLE_LOGS", True
         ),
+        ocr_enabled=_parse_bool("FAIM_OCR_ENABLED", False),
+        ocr_fail_closed=_parse_bool("FAIM_OCR_FAIL_CLOSED", False),
+        self_invent_enabled=_parse_bool("FAIM_SELF_INVENT_ENABLED", False),
+        self_invent_on_evolve=_parse_bool("FAIM_SELF_INVENT_ON_EVOLVE", True),
+        self_invent_after_upload=_parse_bool("FAIM_SELF_INVENT_AFTER_UPLOAD", False),
     )
 
 
@@ -84,7 +94,10 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
         warnings.append(
             "FAIM_STORAGE_OBSERVABILITY_ENABLED=false in production reduces incident visibility"
         )
-
+    if flags.ocr_fail_closed and not flags.ocr_enabled:
+        warnings.append(
+            "FAIM_OCR_FAIL_CLOSED=true while FAIM_OCR_ENABLED=false (OCR fail-closed is inactive)"
+        )
     return errors, warnings
 
 

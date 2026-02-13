@@ -24,6 +24,95 @@ from store.pg.session import get_session  # noqa: E402
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
+def split_sql_statements(sql_content: str) -> List[str]:
+    """Split SQL script into statements without breaking on quoted semicolons.
+
+    Handles:
+    - single quoted strings with escaped quotes ('')
+    - double quoted identifiers
+    - line comments (-- ...)
+    - block comments (/* ... */)
+    """
+    statements: List[str] = []
+    buf: List[str] = []
+
+    in_single = False
+    in_double = False
+    in_line_comment = False
+    in_block_comment = False
+
+    i = 0
+    n = len(sql_content)
+    while i < n:
+        ch = sql_content[i]
+        nxt = sql_content[i + 1] if i + 1 < n else ""
+
+        if in_line_comment:
+            buf.append(ch)
+            if ch == "\n":
+                in_line_comment = False
+            i += 1
+            continue
+
+        if in_block_comment:
+            buf.append(ch)
+            if ch == "*" and nxt == "/":
+                buf.append(nxt)
+                in_block_comment = False
+                i += 2
+            else:
+                i += 1
+            continue
+
+        if not in_single and not in_double:
+            if ch == "-" and nxt == "-":
+                buf.append(ch)
+                buf.append(nxt)
+                in_line_comment = True
+                i += 2
+                continue
+            if ch == "/" and nxt == "*":
+                buf.append(ch)
+                buf.append(nxt)
+                in_block_comment = True
+                i += 2
+                continue
+
+        if ch == "'" and not in_double:
+            buf.append(ch)
+            if in_single and nxt == "'":
+                # Escaped single quote inside string literal.
+                buf.append(nxt)
+                i += 2
+                continue
+            in_single = not in_single
+            i += 1
+            continue
+
+        if ch == '"' and not in_single:
+            in_double = not in_double
+            buf.append(ch)
+            i += 1
+            continue
+
+        if ch == ";" and not in_single and not in_double:
+            stmt = "".join(buf).strip()
+            if stmt:
+                statements.append(stmt)
+            buf = []
+            i += 1
+            continue
+
+        buf.append(ch)
+        i += 1
+
+    tail = "".join(buf).strip()
+    if tail:
+        statements.append(tail)
+
+    return statements
+
+
 def get_file_checksum(file_path: Path) -> str:
     """Calculate SHA256 checksum of a file."""
     sha256 = hashlib.sha256()
@@ -229,7 +318,7 @@ def run_up(require_latest: bool = False):
                     "AUTOINCREMENT", ""
                 )  # Remove if present
 
-            statements = sql_content.split(";")
+            statements = split_sql_statements(sql_content)
 
             for stmt in statements:
                 stmt = stmt.strip()

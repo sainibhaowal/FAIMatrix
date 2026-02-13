@@ -17,6 +17,7 @@ Holds durable metadata and graph state:
 - `snapshots`
 - `ingest_dedup`
 - `jobs` and `job_events`
+- `self_invention_state`
 - `tenant_crypto_keys`
 - auth tables (`tenant_api_keys`, `admin_api_keys`, `users`)
 
@@ -84,6 +85,11 @@ Immutable content-addressed blobs:
 
 - tenant key-wrapping metadata for envelope encryption-at-rest workflow
 - important columns: `tenant_id`, `dek_wrapped`, `created_at`, `rotated_at` (when rotated)
+
+## `self_invention_state`
+
+- incremental cursor + bounded coactivation counters for self-inventing runtime
+- important columns: `tenant_id`, `graph_id`, `last_event_seq`, `signature_counts`, `last_cycle_macros`, `last_cycle_at`
 
 ## 3) Data Representation Types
 
