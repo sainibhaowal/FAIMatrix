@@ -176,6 +176,63 @@ class StorageFileModel(Base):
 
 
 # -----------------------------------------------------------------------------
+# MemoryWriteRequestModel - K5 memory write idempotency ledger
+# -----------------------------------------------------------------------------
+
+
+class MemoryWriteRequestModel(Base):
+    """ORM model for memory write idempotency ledger."""
+
+    __tablename__ = "memory_write_requests"
+
+    id = Column(UUIDType, primary_key=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    idempotency_key = Column(Text, nullable=False)
+    request_hash = Column(String(64), nullable=False, index=True)
+    status = Column(String(32), nullable=False, default="in_progress")
+    response_json = Column(JSONBType, nullable=True)
+    packet_hash = Column(String(64), nullable=True)
+    raw_id = Column(UUIDType, nullable=True)
+    node_count = Column(Integer, nullable=False, default=0)
+    vector_count = Column(Integer, nullable=False, default=0)
+    error_message = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to API-safe dictionary."""
+        return {
+            "id": str(self.id),
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "idempotency_key": self.idempotency_key,
+            "request_hash": self.request_hash,
+            "status": self.status,
+            "response_json": self.response_json,
+            "packet_hash": self.packet_hash,
+            "raw_id": str(self.raw_id) if self.raw_id else None,
+            "node_count": self.node_count,
+            "vector_count": self.vector_count,
+            "error_message": self.error_message,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "completed_at": (
+                self.completed_at.isoformat() if self.completed_at else None
+            ),
+        }
+
+
+# -----------------------------------------------------------------------------
 # EventModel - Maps to events table
 # -----------------------------------------------------------------------------
 

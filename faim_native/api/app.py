@@ -160,6 +160,7 @@ def create_app() -> FastAPI:
         evolve_router,
         health_router,
         ingest_router,
+        memory_router,
         metrics_router,
         node_router,
         query_router,
@@ -175,6 +176,7 @@ def create_app() -> FastAPI:
     app.include_router(events_router, prefix=prefix)
     app.include_router(ingest_router, prefix=prefix)
     app.include_router(query_router, prefix=prefix)
+    app.include_router(memory_router, prefix=prefix)
     app.include_router(node_router, prefix=prefix)
     app.include_router(evolve_router, prefix=prefix)
     app.include_router(metrics_router, prefix=prefix)
