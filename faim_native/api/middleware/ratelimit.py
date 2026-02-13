@@ -69,6 +69,7 @@ class InMemoryRateLimiter:
             "query": 120,
             "events": 300,
             "storage": 60,
+            "api_keys": 30,
         }
 
     def set_limits(self, limits: Dict[str, int]) -> None:
@@ -81,6 +82,8 @@ class InMemoryRateLimiter:
             self._limits["events"] = limits["events_per_minute"]
         if "storage_per_minute" in limits:
             self._limits["storage"] = limits["storage_per_minute"]
+        if "api_keys_per_minute" in limits:
+            self._limits["api_keys"] = limits["api_keys_per_minute"]
 
     def _get_bucket_key(self, tenant_id: str, endpoint: str, identity: str) -> str:
         return f"{tenant_id}:{identity}:{endpoint}"
@@ -131,6 +134,7 @@ ENDPOINT_CATEGORIES = {
     "/api/v1/ingest": "ingest",
     "/api/v1/query": "query",
     "/api/v1/events": "events",
+    "/api/v1/api-keys": "api_keys",
     "/api/v1/memory/search": "query",
     "/api/v1/memory/write": "ingest",
     "/api/v1/memory": "query",

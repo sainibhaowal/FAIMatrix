@@ -4,12 +4,14 @@ This document freezes current API behavior and defines additive contracts for AP
 
 ## Implementation Update (2026-02-13)
 
-K2 (auth data model upgrade) and K3 (auth middleware + authz enforcement) are now implemented.
+K2 (auth data model upgrade), K3 (auth middleware + authz enforcement), and K4
+(API key management API + frontend page) are now implemented.
 
 Implementation reports:
 
 - `24_PHASE_K2_AUTH_MODEL_UPGRADE_REPORT.md`
 - `25_PHASE_K3_AUTH_MIDDLEWARE_AUTHZ_ENFORCEMENT_REPORT.md`
+- `26_PHASE_K4_API_KEYS_MANAGEMENT_API_UI_REPORT.md`
 
 ## 1) Scope and Safety Rules
 

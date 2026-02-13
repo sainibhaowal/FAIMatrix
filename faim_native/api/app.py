@@ -154,6 +154,7 @@ def create_app() -> FastAPI:
 
     from api.routers import (
         admin_router,
+        api_keys_router,
         auth_router,
         events_router,
         evolve_router,
@@ -178,6 +179,7 @@ def create_app() -> FastAPI:
     app.include_router(evolve_router, prefix=prefix)
     app.include_router(metrics_router, prefix=prefix)
     app.include_router(admin_router, prefix=prefix)
+    app.include_router(api_keys_router, prefix=prefix)
     app.include_router(storage_router, prefix=prefix)
 
     # ==========================================================================
