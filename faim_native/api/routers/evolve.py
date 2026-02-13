@@ -45,6 +45,7 @@ class EvolveResponse(BaseModel):
     graph_version: int
     merges: int
     prunes: int
+    inventions: int = 0
     diagnostics: Optional[Dict[str, Any]] = None
     events_emitted: List[str]
     latency_ms: int
@@ -74,6 +75,8 @@ async def evolve_graph(
 
         result = run_evolve(
             graph_id=request.graph_id,
+            tenant_id=ctx.tenant_id,
+            session=ctx.session,
             profile=profile,
             persist_mode=persist_mode,
             node_repo=ctx.node_repo,
@@ -87,6 +90,7 @@ async def evolve_graph(
             graph_version=result.graph_version,
             merges=result.merges,
             prunes=result.prunes,
+            inventions=result.inventions,
             diagnostics=result.diagnostics,
             events_emitted=result.events_emitted,
             latency_ms=result.latency_ms,

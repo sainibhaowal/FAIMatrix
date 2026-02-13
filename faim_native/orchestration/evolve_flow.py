@@ -35,6 +35,7 @@ class EvolveResult:
         graph_version: Graph version after evolution
         merges: Number of merge operations
         prunes: Number of prune operations
+        inventions: Number of self-invention macro creations
         diagnostics: MetricsSnapshot in Stage-4.1.1 format
         events_emitted: List of event types emitted
         latency_ms: Total latency in milliseconds
@@ -45,6 +46,7 @@ class EvolveResult:
     graph_version: int
     merges: int
     prunes: int
+    inventions: int
     diagnostics: Optional[Dict[str, Any]]  # MetricsSnapshot.to_dict()
     events_emitted: List[str]
     latency_ms: int
@@ -57,6 +59,7 @@ class EvolveResult:
             "graph_version": self.graph_version,
             "merges": self.merges,
             "prunes": self.prunes,
+            "inventions": self.inventions,
             "diagnostics": self.diagnostics,
             "events_emitted": self.events_emitted,
             "latency_ms": self.latency_ms,
@@ -151,8 +154,16 @@ def run_evolve(
     # If not, we open a new one
     own_session = False
     if session is None:
-        session = get_session()
-        own_session = True
+        # Reuse an existing repo-backed session when caller provided repos.
+        session = (
+            getattr(node_repo, "session", None)
+            or getattr(edge_repo, "session", None)
+            or getattr(event_repo, "session", None)
+            or getattr(gv_repo, "session", None)
+        )
+        if session is None:
+            session = get_session()
+            own_session = True
 
     try:
         if node_repo is None:
@@ -175,6 +186,7 @@ def run_evolve(
                     graph_version=0,
                     merges=0,
                     prunes=0,
+                    inventions=0,
                     diagnostics=None,
                     events_emitted=[],
                     latency_ms=int((time.time() - start_time) * 1000),
@@ -256,6 +268,7 @@ def run_evolve(
                     graph_version=result.graph_version,
                     merges=result.merges,
                     prunes=result.prunes,
+                    inventions=result.inventions,
                     diagnostics=diagnostics_dict,
                     events_emitted=events_emitted,
                     latency_ms=latency_ms,
@@ -282,6 +295,7 @@ def run_evolve(
                     graph_version=0,
                     merges=0,
                     prunes=0,
+                    inventions=0,
                     diagnostics=None,
                     events_emitted=events_emitted,
                     latency_ms=latency_ms,

@@ -317,3 +317,23 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
 COMMENT ON TABLE users IS 'Formal user registry for identity management (Enterprise Hardening)';
+
+-- -----------------------------------------------------------------------------
+-- self_invention_state: Incremental coactivation cursor/counters (Phase J)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS self_invention_state (
+    tenant_id TEXT NOT NULL,
+    graph_id TEXT NOT NULL,
+    last_event_seq BIGINT NOT NULL DEFAULT 0,
+    signature_counts JSONB NOT NULL DEFAULT '{}',
+    last_cycle_macros INTEGER NOT NULL DEFAULT 0,
+    last_cycle_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (tenant_id, graph_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_self_invention_state_updated
+    ON self_invention_state(updated_at DESC);
+
+COMMENT ON TABLE self_invention_state IS
+    'Incremental self-invention runtime state (cursor + bounded coactivation counts)';

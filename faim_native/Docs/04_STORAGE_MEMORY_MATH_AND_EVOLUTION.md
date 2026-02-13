@@ -86,7 +86,7 @@ Cycle behavior:
 
 ## 7) Self-Inventing (Macro Invention)
 
-Implemented in `core/dynamics/invention_native.py`.
+Implemented in `core/dynamics/invention_native.py` and now wired into live evolve runtime.
 
 Logic:
 
@@ -96,7 +96,16 @@ Logic:
 - create macro node as normalized mean of member vectors
 - connect member inheritance edges to macro
 
-This is the current "self inventing" mechanism in code.
+Runtime notes:
+
+- self-inventing runs during evolve cycles when:
+  - `FAIM_SELF_INVENT_ENABLED=true`
+  - `FAIM_SELF_INVENT_ON_EVOLVE=true`
+- processing is incremental and bounded using persisted state (`self_invention_state` table)
+- post-upload evolve enqueue is optional with:
+  - `FAIM_SELF_INVENT_AFTER_UPLOAD=true`
+
+This is the current "self inventing" mechanism in live runtime, not only a library module.
 
 ## 8) Data Forms Used by AI and Agents
 

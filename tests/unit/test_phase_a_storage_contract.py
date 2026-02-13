@@ -43,6 +43,7 @@ def test_storage_response_models_contain_minimum_required_fields():
         "StorageBackendsHealth": storage_router_module.StorageBackendsHealth,
         "StorageOpsMetricsResponse": storage_router_module.StorageOpsMetricsResponse,
         "StorageIngestActionResponse": storage_router_module.StorageIngestActionResponse,
+        "StorageSupportedTypesResponse": storage_router_module.StorageSupportedTypesResponse,
     }
 
     for model_name, required_fields in REQUIRED_MODEL_FIELDS.items():

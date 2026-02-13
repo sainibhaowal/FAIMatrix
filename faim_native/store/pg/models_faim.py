@@ -563,6 +563,33 @@ class JobEventModel(Base):
 
 
 # -----------------------------------------------------------------------------
+# Stage-J: Self-Invention Runtime State
+# -----------------------------------------------------------------------------
+
+
+class SelfInventionStateModel(Base):
+    """Runtime state for self-invention coactivation tracking.
+
+    Stores cursor and bounded signature counts per tenant+graph so evolve
+    can process events incrementally instead of rescanning full history.
+    """
+
+    __tablename__ = "self_invention_state"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    last_event_seq = Column(BigInteger, nullable=False, default=0)
+    signature_counts = Column(JSONBType, nullable=False, default=dict)
+    last_cycle_macros = Column(Integer, nullable=False, default=0)
+    last_cycle_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+# -----------------------------------------------------------------------------
 # Table creation helper
 # -----------------------------------------------------------------------------
 

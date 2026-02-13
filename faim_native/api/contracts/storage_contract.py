@@ -12,13 +12,14 @@ from typing import Dict, Iterable, List, Set, Tuple
 
 from fastapi.routing import APIRoute
 
-CONTRACT_VERSION = "2026-02-10.phaseA"
+CONTRACT_VERSION = "2026-02-11.phaseI"
 
 # Canonical method+path matrix for /api/v1/storage endpoints.
 REQUIRED_STORAGE_ROUTES: Set[Tuple[str, str]] = {
     ("POST", "/storage/uploads"),
     ("GET", "/storage/uploads/{job_id}"),
     ("GET", "/storage/uploads/{job_id}/events"),
+    ("GET", "/storage/supported-types"),
     ("GET", "/storage/files"),
     ("GET", "/storage/files/{raw_id}"),
     ("DELETE", "/storage/files/{raw_id}"),
@@ -98,6 +99,20 @@ REQUIRED_MODEL_FIELDS: Dict[str, Set[str]] = {
         "backend_states",
     },
     "StorageIngestActionResponse": {"status", "file", "ingest"},
+    "StorageSupportedTypesResponse": {
+        "max_upload_size_bytes",
+        "max_upload_size_mb",
+        "total_extensions",
+        "total_content_types",
+        "extensions",
+        "content_types",
+        "categories",
+        "extractor_doc_types",
+        "ocr_enabled",
+        "ocr_engine",
+        "ocr_fail_closed",
+        "ocr_capable_extensions",
+    },
 }
 
 

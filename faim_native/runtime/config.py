@@ -16,6 +16,21 @@ Optional env vars:
 - FAIM_STORAGE_CONTRACT_STRICT
 - FAIM_STORAGE_OBSERVABILITY_ENABLED
 - FAIM_STORAGE_STRUCTURED_LIFECYCLE_LOGS
+- FAIM_SELF_INVENT_ENABLED
+- FAIM_SELF_INVENT_ON_EVOLVE
+- FAIM_SELF_INVENT_AFTER_UPLOAD
+- FAIM_SELF_INVENT_MAX_MACROS_PER_CYCLE
+- FAIM_SELF_INVENT_EVENT_WINDOW
+- FAIM_SELF_INVENT_MIN_COACTIVATION_COUNT
+- FAIM_SELF_INVENT_LAMBDA_THRESHOLD
+- FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION
+- FAIM_OCR_ENABLED
+- FAIM_OCR_ENGINE
+- FAIM_OCR_FAIL_CLOSED
+- FAIM_OCR_LANGS
+- FAIM_OCR_TIMEOUT_SECONDS
+- FAIM_OCR_MAX_IMAGE_PIXELS
+- FAIM_OCR_PDF_RENDER_DPI
 - FAIM_RATE_LIMITS_JSON
 - FAIM_EVENT_PAYLOAD_MAX_BYTES
 - FAIM_EXPLAIN_MAX_ITEMS
@@ -76,6 +91,17 @@ def parse_int_env(name: str, default: int) -> int:
         return default
 
 
+def parse_float_env(name: str, default: float) -> float:
+    """Parse float from environment variable."""
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
 # =============================================================================
 # Config Class
 # =============================================================================
@@ -104,6 +130,21 @@ class FAIMConfig:
     storage_contract_strict: bool = True
     storage_observability_enabled: bool = True
     storage_structured_lifecycle_logs: bool = True
+    self_invent_enabled: bool = False
+    self_invent_on_evolve: bool = True
+    self_invent_after_upload: bool = False
+    self_invent_max_macros_per_cycle: int = 3
+    self_invent_event_window: int = 5000
+    self_invent_min_coactivation_count: int = 3
+    self_invent_lambda_threshold: float = 0.3
+    self_invent_min_redundancy_reduction: float = 0.01
+    ocr_enabled: bool = False
+    ocr_engine: str = "tesseract"
+    ocr_fail_closed: bool = False
+    ocr_languages: str = "eng"
+    ocr_timeout_seconds: int = 20
+    ocr_max_image_pixels: int = 24_000_000
+    ocr_pdf_render_dpi: int = 180
 
     # Optional - rate limits
     rate_limits: Dict[str, int] = field(
@@ -154,6 +195,29 @@ class FAIMConfig:
                 errors.append("Production requires FAIM_ENCRYPTION_AT_REST=true")
             if not self.encryption_fail_closed:
                 errors.append("Production requires FAIM_ENCRYPTION_FAIL_CLOSED=true")
+            if self.ocr_enabled and self.ocr_engine != "tesseract":
+                errors.append("Production OCR currently supports only FAIM_OCR_ENGINE=tesseract")
+
+        if self.ocr_engine not in ("tesseract",):
+            errors.append(f"Unsupported OCR engine: {self.ocr_engine}")
+        if self.ocr_timeout_seconds < 1:
+            errors.append("FAIM_OCR_TIMEOUT_SECONDS must be >= 1")
+        if self.ocr_max_image_pixels < 1:
+            errors.append("FAIM_OCR_MAX_IMAGE_PIXELS must be >= 1")
+        if self.ocr_pdf_render_dpi < 72:
+            errors.append("FAIM_OCR_PDF_RENDER_DPI must be >= 72")
+        if self.self_invent_max_macros_per_cycle < 0:
+            errors.append("FAIM_SELF_INVENT_MAX_MACROS_PER_CYCLE must be >= 0")
+        if self.self_invent_event_window < 100:
+            errors.append("FAIM_SELF_INVENT_EVENT_WINDOW must be >= 100")
+        if self.self_invent_min_coactivation_count < 2:
+            errors.append("FAIM_SELF_INVENT_MIN_COACTIVATION_COUNT must be >= 2")
+        if not (0.0 <= self.self_invent_lambda_threshold <= 1.0):
+            errors.append("FAIM_SELF_INVENT_LAMBDA_THRESHOLD must be in [0, 1]")
+        if not (0.0 <= self.self_invent_min_redundancy_reduction <= 1.0):
+            errors.append(
+                "FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION must be in [0, 1]"
+            )
 
         return errors
 
@@ -221,6 +285,30 @@ def load_config() -> FAIMConfig:
         storage_structured_lifecycle_logs=parse_bool_env(
             "FAIM_STORAGE_STRUCTURED_LIFECYCLE_LOGS", True
         ),
+        self_invent_enabled=parse_bool_env("FAIM_SELF_INVENT_ENABLED", False),
+        self_invent_on_evolve=parse_bool_env("FAIM_SELF_INVENT_ON_EVOLVE", True),
+        self_invent_after_upload=parse_bool_env("FAIM_SELF_INVENT_AFTER_UPLOAD", False),
+        self_invent_max_macros_per_cycle=parse_int_env(
+            "FAIM_SELF_INVENT_MAX_MACROS_PER_CYCLE", 3
+        ),
+        self_invent_event_window=parse_int_env("FAIM_SELF_INVENT_EVENT_WINDOW", 5000),
+        self_invent_min_coactivation_count=parse_int_env(
+            "FAIM_SELF_INVENT_MIN_COACTIVATION_COUNT", 3
+        ),
+        self_invent_lambda_threshold=parse_float_env(
+            "FAIM_SELF_INVENT_LAMBDA_THRESHOLD", 0.3
+        ),
+        self_invent_min_redundancy_reduction=parse_float_env(
+            "FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION", 0.01
+        ),
+        ocr_enabled=parse_bool_env("FAIM_OCR_ENABLED", False),
+        ocr_engine=os.environ.get("FAIM_OCR_ENGINE", "tesseract").strip().lower()
+        or "tesseract",
+        ocr_fail_closed=parse_bool_env("FAIM_OCR_FAIL_CLOSED", False),
+        ocr_languages=os.environ.get("FAIM_OCR_LANGS", "eng").strip() or "eng",
+        ocr_timeout_seconds=parse_int_env("FAIM_OCR_TIMEOUT_SECONDS", 20),
+        ocr_max_image_pixels=parse_int_env("FAIM_OCR_MAX_IMAGE_PIXELS", 24_000_000),
+        ocr_pdf_render_dpi=parse_int_env("FAIM_OCR_PDF_RENDER_DPI", 180),
         rate_limits=default_limits,
         event_payload_max_bytes=parse_int_env("FAIM_EVENT_PAYLOAD_MAX_BYTES", 4096),
         explain_max_items=parse_int_env("FAIM_EXPLAIN_MAX_ITEMS", 25),
