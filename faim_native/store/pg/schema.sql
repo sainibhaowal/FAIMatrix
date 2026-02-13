@@ -319,6 +319,83 @@ CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 COMMENT ON TABLE users IS 'Formal user registry for identity management (Enterprise Hardening)';
 
 -- -----------------------------------------------------------------------------
+-- tenant_api_keys: Hashed tenant API keys with scope/expiry lifecycle (Phase K2)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS tenant_api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id TEXT NOT NULL,
+    key_id TEXT NOT NULL,
+    key_prefix VARCHAR(20) NOT NULL,
+    key_hash TEXT NOT NULL,
+    scopes JSONB NOT NULL DEFAULT '[]'::jsonb,
+    expires_at TIMESTAMPTZ,
+    revoked_at TIMESTAMPTZ,
+    revoked_reason TEXT,
+    created_by TEXT,
+    rotated_from_key_id TEXT,
+    last_used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_tenant_api_keys_tenant_key UNIQUE (tenant_id, key_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_tenant_api_keys_tenant
+    ON tenant_api_keys(tenant_id);
+CREATE INDEX IF NOT EXISTS ix_tenant_api_keys_active
+    ON tenant_api_keys(tenant_id, revoked_at)
+    WHERE revoked_at IS NULL;
+CREATE INDEX IF NOT EXISTS ix_tenant_api_keys_expires_at
+    ON tenant_api_keys(expires_at);
+CREATE INDEX IF NOT EXISTS ix_tenant_api_keys_last_used_at
+    ON tenant_api_keys(last_used_at DESC);
+CREATE INDEX IF NOT EXISTS ix_tenant_api_keys_scopes_gin
+    ON tenant_api_keys USING GIN (scopes);
+
+COMMENT ON TABLE tenant_api_keys IS
+    'Hashed tenant API keys with scope/expiry lifecycle metadata';
+
+-- -----------------------------------------------------------------------------
+-- admin_api_keys: Hashed admin API keys
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS admin_api_keys (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    admin_id TEXT NOT NULL,
+    key_id TEXT NOT NULL,
+    key_prefix VARCHAR(20) NOT NULL,
+    key_hash TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    revoked_at TIMESTAMPTZ,
+    CONSTRAINT uq_admin_api_keys_admin_key UNIQUE (admin_id, key_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_admin_api_keys_admin
+    ON admin_api_keys(admin_id);
+
+COMMENT ON TABLE admin_api_keys IS
+    'Hashed admin API keys for privileged control plane endpoints';
+
+-- -----------------------------------------------------------------------------
+-- auth_key_audit_log: Append-only key lifecycle audit stream (Phase K2)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS auth_key_audit_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id TEXT NOT NULL,
+    key_id TEXT NOT NULL,
+    action TEXT NOT NULL,
+    actor TEXT,
+    request_id TEXT,
+    meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS ix_auth_key_audit_tenant_key_time
+    ON auth_key_audit_log(tenant_id, key_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ix_auth_key_audit_action_time
+    ON auth_key_audit_log(action, created_at DESC);
+
+COMMENT ON TABLE auth_key_audit_log IS
+    'Append-only key lifecycle audit log for create/rotate/revoke/verify actions';
+
+-- -----------------------------------------------------------------------------
 -- self_invention_state: Incremental coactivation cursor/counters (Phase J)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS self_invention_state (
