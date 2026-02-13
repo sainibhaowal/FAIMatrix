@@ -28,6 +28,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 22. `22_PHASE_J_SELF_INVENTING_RUNTIME_INTEGRATION_REPORT.md`
 23. `23_API_KEYS_AUTHZ_AND_MEMORY_CONTRACT_PLAN.md`
 24. `24_PHASE_K2_AUTH_MODEL_UPGRADE_REPORT.md`
+25. `25_PHASE_K3_AUTH_MIDDLEWARE_AUTHZ_ENFORCEMENT_REPORT.md`
 
 ## Intent
 
@@ -49,6 +50,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Phase J self-inventing runtime integration is documented in 22.
 - Phase K1 API keys/authz + memory contract freeze is documented in 23.
 - Phase K2 auth data model upgrade is documented in 24.
+- Phase K3 auth middleware + authz enforcement is documented in 25.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

@@ -34,6 +34,9 @@ Optional env vars:
 - FAIM_RATE_LIMITS_JSON
 - FAIM_EVENT_PAYLOAD_MAX_BYTES
 - FAIM_EXPLAIN_MAX_ITEMS
+- FAIM_AUTH_DB_PRIMARY
+- FAIM_AUTH_ENV_FALLBACK_ENABLED
+- FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED
 - FAIM_LOG_LEVEL
 """
 
@@ -145,6 +148,9 @@ class FAIMConfig:
     ocr_timeout_seconds: int = 20
     ocr_max_image_pixels: int = 24_000_000
     ocr_pdf_render_dpi: int = 180
+    auth_db_primary: bool = True
+    auth_env_fallback_enabled: bool = False
+    auth_scope_enforcement_enabled: bool = False
 
     # Optional - rate limits
     rate_limits: Dict[str, int] = field(
@@ -197,6 +203,12 @@ class FAIMConfig:
                 errors.append("Production requires FAIM_ENCRYPTION_FAIL_CLOSED=true")
             if self.ocr_enabled and self.ocr_engine != "tesseract":
                 errors.append("Production OCR currently supports only FAIM_OCR_ENGINE=tesseract")
+            if not self.auth_db_primary:
+                errors.append("Production requires FAIM_AUTH_DB_PRIMARY=true")
+            if self.auth_env_fallback_enabled:
+                errors.append(
+                    "Production requires FAIM_AUTH_ENV_FALLBACK_ENABLED=false"
+                )
 
         if self.ocr_engine not in ("tesseract",):
             errors.append(f"Unsupported OCR engine: {self.ocr_engine}")
@@ -309,6 +321,13 @@ def load_config() -> FAIMConfig:
         ocr_timeout_seconds=parse_int_env("FAIM_OCR_TIMEOUT_SECONDS", 20),
         ocr_max_image_pixels=parse_int_env("FAIM_OCR_MAX_IMAGE_PIXELS", 24_000_000),
         ocr_pdf_render_dpi=parse_int_env("FAIM_OCR_PDF_RENDER_DPI", 180),
+        auth_db_primary=parse_bool_env("FAIM_AUTH_DB_PRIMARY", True),
+        auth_env_fallback_enabled=parse_bool_env(
+            "FAIM_AUTH_ENV_FALLBACK_ENABLED", False
+        ),
+        auth_scope_enforcement_enabled=parse_bool_env(
+            "FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED", False
+        ),
         rate_limits=default_limits,
         event_payload_max_bytes=parse_int_env("FAIM_EVENT_PAYLOAD_MAX_BYTES", 4096),
         explain_max_items=parse_int_env("FAIM_EXPLAIN_MAX_ITEMS", 25),

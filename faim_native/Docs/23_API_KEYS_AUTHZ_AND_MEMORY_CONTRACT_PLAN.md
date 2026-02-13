@@ -2,6 +2,15 @@
 
 This document freezes current API behavior and defines additive contracts for API key management and agent memory access.
 
+## Implementation Update (2026-02-13)
+
+K2 (auth data model upgrade) and K3 (auth middleware + authz enforcement) are now implemented.
+
+Implementation reports:
+
+- `24_PHASE_K2_AUTH_MODEL_UPGRADE_REPORT.md`
+- `25_PHASE_K3_AUTH_MIDDLEWARE_AUTHZ_ENFORCEMENT_REPORT.md`
+
 ## 1) Scope and Safety Rules
 
 - phase: K1 (contract freeze and design spec only)
@@ -184,4 +193,3 @@ Error payload baseline:
 - this contract plan document (`23`)
 - backlog/status update to include K1/K2 execution stream
 - implementation to begin in K2 with migration-first approach
-

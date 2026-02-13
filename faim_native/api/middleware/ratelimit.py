@@ -68,6 +68,7 @@ class InMemoryRateLimiter:
             "ingest": 60,
             "query": 120,
             "events": 300,
+            "storage": 60,
         }
 
     def set_limits(self, limits: Dict[str, int]) -> None:
@@ -78,12 +79,16 @@ class InMemoryRateLimiter:
             self._limits["query"] = limits["query_per_minute"]
         if "events_per_minute" in limits:
             self._limits["events"] = limits["events_per_minute"]
+        if "storage_per_minute" in limits:
+            self._limits["storage"] = limits["storage_per_minute"]
 
-    def _get_bucket_key(self, tenant_id: str, endpoint: str) -> str:
-        return f"{tenant_id}:{endpoint}"
+    def _get_bucket_key(self, tenant_id: str, endpoint: str, identity: str) -> str:
+        return f"{tenant_id}:{identity}:{endpoint}"
 
-    def _get_or_create_bucket(self, tenant_id: str, endpoint: str) -> TokenBucket:
-        key = self._get_bucket_key(tenant_id, endpoint)
+    def _get_or_create_bucket(
+        self, tenant_id: str, endpoint: str, identity: str
+    ) -> TokenBucket:
+        key = self._get_bucket_key(tenant_id, endpoint, identity)
         if key not in self._buckets:
             limit = self._limits.get(endpoint, 60)
             self._buckets[key] = TokenBucket.create(
@@ -91,9 +96,13 @@ class InMemoryRateLimiter:
             )
         return self._buckets[key]
 
-    def check_rate_limit(self, tenant_id: str, endpoint: str) -> Tuple[bool, int]:
+    def check_rate_limit(
+        self, tenant_id: str, endpoint: str, identity: Optional[str] = None
+    ) -> Tuple[bool, int]:
         """Check if request is allowed. Returns (allowed, remaining)."""
-        bucket = self._get_or_create_bucket(tenant_id, endpoint)
+        bucket = self._get_or_create_bucket(
+            tenant_id, endpoint, identity or f"tenant:{tenant_id}"
+        )
         return bucket.try_consume(1)
 
 
@@ -117,6 +126,15 @@ def get_rate_limiter() -> InMemoryRateLimiter:
 
 # Endpoint to rate limit category mapping
 ENDPOINT_CATEGORIES = {
+    # Current API routes
+    "/api/v1/storage": "storage",
+    "/api/v1/ingest": "ingest",
+    "/api/v1/query": "query",
+    "/api/v1/events": "events",
+    "/api/v1/memory/search": "query",
+    "/api/v1/memory/write": "ingest",
+    "/api/v1/memory": "query",
+    # Legacy compatibility routes
     "/v1/ingest": "ingest",
     "/v1/query": "query",
     "/v1/events": "events",
@@ -127,18 +145,31 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """Rate limiting middleware per tenant."""
 
     async def dispatch(self, request: Request, call_next) -> Response:
-        # Get tenant ID
-        tenant_id = request.headers.get("X-Tenant-Id", "")
+        # Get tenant ID from auth middleware context first, then headers fallback.
+        tenant_id = getattr(request.state, "tenant_id", None) or request.headers.get(
+            "X-Tenant-Id", ""
+        )
         if not tenant_id:
             # Let auth middleware handle missing tenant
             return await call_next(request)
 
+        # Determine identity for per-tenant-and-identity buckets.
+        auth_method = getattr(request.state, "auth_method", None)
+        if auth_method == "jwt":
+            user_id = getattr(request.state, "user_id", None) or "unknown"
+            identity = f"jwt:{user_id}"
+        elif auth_method in {"api_key_db", "api_key_env", "api_key"}:
+            key_id = getattr(request.state, "auth_key_id", None)
+            identity = f"key:{key_id}" if key_id else f"tenant:{tenant_id}"
+        else:
+            identity = f"tenant:{tenant_id}"
+
         # Determine endpoint category
         path = request.url.path
         category = None
-        for prefix, cat in ENDPOINT_CATEGORIES.items():
+        for prefix in sorted(ENDPOINT_CATEGORIES.keys(), key=len, reverse=True):
             if path.startswith(prefix):
-                category = cat
+                category = ENDPOINT_CATEGORIES[prefix]
                 break
 
         if not category:
@@ -147,7 +178,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Check rate limit
         limiter = get_rate_limiter()
-        allowed, remaining = limiter.check_rate_limit(tenant_id, category)
+        allowed, remaining = limiter.check_rate_limit(
+            tenant_id, category, identity=identity
+        )
 
         if not allowed:
             return JSONResponse(
