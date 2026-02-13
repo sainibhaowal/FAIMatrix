@@ -81,6 +81,8 @@ class TestRateLimitResponses(unittest.TestCase):
         self.assertIn("/api/v1/query", ENDPOINT_CATEGORIES)
         self.assertIn("/api/v1/events", ENDPOINT_CATEGORIES)
         self.assertIn("/api/v1/api-keys", ENDPOINT_CATEGORIES)
+        self.assertIn("/api/v1/memory/search", ENDPOINT_CATEGORIES)
+        self.assertIn("/api/v1/memory/write", ENDPOINT_CATEGORIES)
         self.assertIn("/v1/ingest", ENDPOINT_CATEGORIES)
         self.assertIn("/v1/query", ENDPOINT_CATEGORIES)
         self.assertIn("/v1/events", ENDPOINT_CATEGORIES)
