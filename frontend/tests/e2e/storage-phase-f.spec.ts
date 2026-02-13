@@ -71,6 +71,32 @@ test.describe("Storage Phase F Validation", () => {
           }),
         });
       }
+      if (path.endsWith("/supported-types") && req.method() === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            max_upload_size_bytes: 10485760,
+            max_upload_size_mb: 10,
+            total_extensions: 45,
+            total_content_types: 29,
+            extensions: [".txt", ".pdf", ".png"],
+            content_types: ["text/plain", "application/pdf", "image/png"],
+            categories: {
+              documents: [".pdf"],
+              images: [".png"],
+              code: [".py"],
+              text_data: [".txt"],
+              other: [],
+            },
+            extractor_doc_types: { pdf: 1, image: 1, text: 1 },
+            ocr_enabled: false,
+            ocr_engine: "tesseract",
+            ocr_fail_closed: false,
+            ocr_capable_extensions: [".pdf", ".png"],
+          }),
+        });
+      }
 
       if (path.endsWith("/backends/health") && req.method() === "GET") {
         return route.fulfill({
@@ -332,6 +358,12 @@ test.describe("Storage Phase F Validation", () => {
 
     await page.goto("/dashboard/storage");
     await expect(page.getByTestId("storage-page-title")).toBeVisible();
+    await expect(page.getByTestId("storage-supported-types-open")).toContainText(
+      "Supported Files (45)"
+    );
+    await page.getByTestId("storage-supported-types-open").click();
+    await expect(page.getByTestId("storage-supported-types-panel")).toBeVisible();
+    await page.keyboard.press("Escape");
 
     await page.setInputFiles('input[type="file"]', [
       { name: "retry.txt", mimeType: "text/plain", buffer: Buffer.from("retry payload") },
@@ -373,6 +405,32 @@ test.describe("Storage Phase F Validation", () => {
             total_bytes: 128,
             by_status: { ingested: 1 },
             by_type: { "text/plain": 1 },
+          }),
+        });
+      }
+      if (path.endsWith("/supported-types") && req.method() === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            max_upload_size_bytes: 10485760,
+            max_upload_size_mb: 10,
+            total_extensions: 45,
+            total_content_types: 29,
+            extensions: [".txt", ".pdf", ".png"],
+            content_types: ["text/plain", "application/pdf", "image/png"],
+            categories: {
+              documents: [".pdf"],
+              images: [".png"],
+              code: [".py"],
+              text_data: [".txt"],
+              other: [],
+            },
+            extractor_doc_types: { pdf: 1, image: 1, text: 1 },
+            ocr_enabled: false,
+            ocr_engine: "tesseract",
+            ocr_fail_closed: false,
+            ocr_capable_extensions: [".pdf", ".png"],
           }),
         });
       }

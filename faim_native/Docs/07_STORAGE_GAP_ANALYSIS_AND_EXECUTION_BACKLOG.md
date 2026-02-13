@@ -23,6 +23,8 @@ This backlog now separates completed delivery from true future enhancements.
 9. Phase F - Validation and Non-Regression: completed
 10. Phase G - Documentation Reconciliation: completed
 11. Phase H - Commit and Release Hygiene: completed
+12. Phase I - OCR Integration + UI Polish + Supported-Types Surface: completed
+13. Phase J - Self-Inventing Runtime Integration: completed
 
 ## Completed Scope Summary
 
@@ -135,11 +137,35 @@ Evidence:
 
 - `19_PHASE_H_COMMIT_RELEASE_HYGIENE_REPORT.md`
 
+## Phase I Completed
+
+- OCR service integrated for image uploads and scanned PDF pages (feature-flag controlled)
+- storage supported-types API implemented for UI capability visibility
+- storage UI includes supported-files panel and rounded corner polish
+- OCR dependencies and runtime flags wired into docker/runtime config
+- Phase I regression coverage added (unit + acceptance + frontend e2e updates)
+
+Evidence:
+
+- `21_PHASE_I_OCR_UI_POLISH_REPORT.md`
+
+## Phase J Completed
+
+- self-inventing logic wired into live evolve runtime (flag-gated)
+- incremental invention cursor/counter state added (`self_invention_state`)
+- evolve responses include invention counts
+- optional post-upload evolve enqueue path added for storage-triggered invention flow
+- Phase J regression coverage added (unit + acceptance)
+
+Evidence:
+
+- `22_PHASE_J_SELF_INVENTING_RUNTIME_INTEGRATION_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
 |---|---|
-| Storage UI | implemented (queue lifecycle, cancel/retry, provenance drawer) |
+| Storage UI | implemented (queue lifecycle, cancel/retry, provenance drawer, supported-files panel) |
 | Storage API surface | implemented |
 | Raw immutable persistence | implemented |
 | Dedup runtime correctness | implemented |
@@ -147,6 +173,8 @@ Evidence:
 | Production security hardening | implemented |
 | Observability metrics/log correlation | implemented |
 | Validation/non-regression suite | implemented |
+| OCR extraction path (image + scanned PDF) | implemented (feature-flag controlled, fail-closed capable) |
+| Self-inventing runtime path | implemented (flag-gated evolve integration + incremental state) |
 
 ## Future Enhancements Only
 

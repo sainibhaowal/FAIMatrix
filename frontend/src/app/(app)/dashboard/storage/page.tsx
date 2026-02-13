@@ -125,6 +125,21 @@ type StorageIngestActionResponse = {
   };
 };
 
+type StorageSupportedTypesResponse = {
+  max_upload_size_bytes: number;
+  max_upload_size_mb: number;
+  total_extensions: number;
+  total_content_types: number;
+  extensions: string[];
+  content_types: string[];
+  categories: Record<string, string[]>;
+  extractor_doc_types: Record<string, number>;
+  ocr_enabled: boolean;
+  ocr_engine: string;
+  ocr_fail_closed: boolean;
+  ocr_capable_extensions: string[];
+};
+
 type StorageProvenanceRawRef = {
   raw_id: string;
   sha256: string;
@@ -347,6 +362,7 @@ export default function StoragePage() {
   const [files, setFiles] = useState<StorageFileItem[]>([]);
   const [summary, setSummary] = useState<StorageSummary | null>(null);
   const [backends, setBackends] = useState<StorageBackends | null>(null);
+  const [supportedTypes, setSupportedTypes] = useState<StorageSupportedTypesResponse | null>(null);
   const [total, setTotal] = useState(0);
 
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
@@ -366,6 +382,8 @@ export default function StoragePage() {
   const [provenanceLoading, setProvenanceLoading] = useState(false);
   const [provenanceRawId, setProvenanceRawId] = useState<string | null>(null);
   const [provenanceData, setProvenanceData] = useState<StorageProvenanceResponse | null>(null);
+  const [supportedTypesOpen, setSupportedTypesOpen] = useState(false);
+  const [supportedTypesLoading, setSupportedTypesLoading] = useState(false);
 
   const queueRef = useRef<QueueItem[]>([]);
   const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
@@ -459,6 +477,26 @@ export default function StoragePage() {
       setLoadingSummary(false);
     }
   }, [graphId, toast]);
+
+  const fetchSupportedTypesInternal = useCallback(async () => {
+    setSupportedTypesLoading(true);
+    try {
+      const data = await fetchJson<StorageSupportedTypesResponse>(`/api/v1/storage/supported-types`);
+      setSupportedTypes(data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast.warning("Supported file coverage unavailable", message);
+    } finally {
+      setSupportedTypesLoading(false);
+    }
+  }, [toast]);
+
+  const openSupportedTypes = useCallback(() => {
+    setSupportedTypesOpen(true);
+    if (!supportedTypes && !supportedTypesLoading) {
+      void fetchSupportedTypesInternal();
+    }
+  }, [fetchSupportedTypesInternal, supportedTypes, supportedTypesLoading]);
 
   const refreshViews = useCallback(async () => {
     if (refreshLockRef.current) return;
@@ -941,6 +979,10 @@ export default function StoragePage() {
   }, [fetchSummaryInternal]);
 
   useEffect(() => {
+    void fetchSupportedTypesInternal();
+  }, [fetchSupportedTypesInternal]);
+
+  useEffect(() => {
     const interval = window.setInterval(() => {
       fetchSummaryInternal();
     }, 15000);
@@ -984,6 +1026,15 @@ export default function StoragePage() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [provenanceOpen]);
+
+  useEffect(() => {
+    if (!supportedTypesOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setSupportedTypesOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [supportedTypesOpen]);
 
   const onInputFiles = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1032,7 +1083,7 @@ export default function StoragePage() {
       </header>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="os-card">
+        <Card className="os-card rounded-2xl">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400">Total Files</p>
@@ -1041,7 +1092,7 @@ export default function StoragePage() {
             <FileText className="text-cyan-400" size={20} />
           </div>
         </Card>
-        <Card className="os-card">
+        <Card className="os-card rounded-2xl">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400">Stored Bytes</p>
@@ -1050,7 +1101,7 @@ export default function StoragePage() {
             <HardDrive className="text-violet-400" size={20} />
           </div>
         </Card>
-        <Card className="os-card">
+        <Card className="os-card rounded-2xl">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400">Ingested</p>
@@ -1060,7 +1111,7 @@ export default function StoragePage() {
             <CheckCircle2 className="text-emerald-400" size={20} />
           </div>
         </Card>
-        <Card className="os-card">
+        <Card className="os-card rounded-2xl">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-slate-400">Failures</p>
@@ -1072,7 +1123,7 @@ export default function StoragePage() {
         </Card>
       </div>
 
-      <Card className="os-card space-y-4">
+      <Card className="os-card rounded-2xl space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">Upload Panel</h2>
@@ -1084,6 +1135,16 @@ export default function StoragePage() {
               Add Files
               <input type="file" multiple className="hidden" onChange={onInputFiles} />
             </label>
+            <Button
+              size="sm"
+              variant="outline"
+              leftIcon={<FileText size={14} />}
+              data-testid="storage-supported-types-open"
+              onClick={openSupportedTypes}
+            >
+              Supported Files
+              {supportedTypes ? ` (${supportedTypes.total_extensions})` : ""}
+            </Button>
             <Button size="sm" variant="outline" onClick={clearTerminalQueueItems}>
               Clear Completed
             </Button>
@@ -1264,7 +1325,7 @@ export default function StoragePage() {
         </div>
       </Card>
 
-      <Card className="os-card space-y-4">
+      <Card className="os-card rounded-2xl space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold">File Catalog</h2>
@@ -1461,6 +1522,107 @@ export default function StoragePage() {
         </div>
       </Card>
 
+      {supportedTypesOpen && (
+        <div className="fixed inset-0 z-40">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+            onClick={() => setSupportedTypesOpen(false)}
+            aria-label="Close supported types panel"
+          />
+
+          <aside
+            className="absolute right-0 top-0 h-full w-full max-w-[680px] overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl"
+            data-testid="storage-supported-types-panel"
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold">Supported Files Coverage</h3>
+                <p className="text-xs text-slate-400">Backend validator and extractor capability matrix</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => {
+                    void fetchSupportedTypesInternal();
+                  }}
+                >
+                  Refresh
+                </Button>
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  onClick={() => setSupportedTypesOpen(false)}
+                  aria-label="Close"
+                >
+                  <X size={14} />
+                </Button>
+              </div>
+            </div>
+
+            {supportedTypesLoading && !supportedTypes ? (
+              <div className="rounded-lg border border-slate-800 px-4 py-8 text-center text-sm text-slate-400">
+                Loading supported type coverage...
+              </div>
+            ) : !supportedTypes ? (
+              <div className="rounded-lg border border-slate-800 px-4 py-8 text-center text-sm text-slate-500">
+                Supported coverage data is unavailable.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Card className="os-card rounded-2xl space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-300">Limits and OCR Policy</h4>
+                  <div className="grid grid-cols-1 gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                    <p><span className="text-slate-500">max upload:</span> {supportedTypes.max_upload_size_mb} MB</p>
+                    <p><span className="text-slate-500">extensions:</span> {supportedTypes.total_extensions}</p>
+                    <p><span className="text-slate-500">MIME types:</span> {supportedTypes.total_content_types}</p>
+                    <p><span className="text-slate-500">OCR enabled:</span> {String(supportedTypes.ocr_enabled)}</p>
+                    <p><span className="text-slate-500">OCR engine:</span> {supportedTypes.ocr_engine}</p>
+                    <p><span className="text-slate-500">OCR fail-closed:</span> {String(supportedTypes.ocr_fail_closed)}</p>
+                  </div>
+                </Card>
+
+                <Card className="os-card rounded-2xl space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-300">Category Coverage</h4>
+                  <div className="space-y-2 text-xs">
+                    {Object.entries(supportedTypes.categories).map(([category, extensions]) => (
+                      <div key={category} className="rounded-lg border border-slate-800 px-2 py-2">
+                        <p className="text-slate-300">
+                          <span className="font-semibold">{category}</span>
+                          <span className="ml-2 text-slate-500">({extensions.length})</span>
+                        </p>
+                        <p className="mt-1 font-mono text-[11px] text-slate-400">
+                          {extensions.join(", ") || "-"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card className="os-card rounded-2xl space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-300">Extractor Mapping</h4>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                    {Object.entries(supportedTypes.extractor_doc_types).map(([docType, count]) => (
+                      <div key={docType} className="rounded-md border border-slate-800 px-2 py-1">
+                        <span className="font-mono">{docType}</span>: {count}
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+
+                <Card className="os-card rounded-2xl space-y-2">
+                  <h4 className="text-xs font-semibold text-slate-300">OCR-Capable Extensions</h4>
+                  <p className="font-mono text-[11px] text-slate-400">
+                    {supportedTypes.ocr_capable_extensions.join(", ") || "-"}
+                  </p>
+                </Card>
+              </div>
+            )}
+          </aside>
+        </div>
+      )}
+
       {provenanceOpen && (
         <div className="fixed inset-0 z-50">
           <button
@@ -1499,7 +1661,7 @@ export default function StoragePage() {
               </div>
             ) : (
               <div className="space-y-4">
-                <Card className="os-card space-y-2">
+                <Card className="os-card rounded-2xl space-y-2">
                   <h4 className="text-xs font-semibold text-slate-300">File</h4>
                   <div className="text-xs text-slate-300">
                     <p><span className="text-slate-500">filename:</span> {provenanceData.file.filename}</p>
@@ -1510,7 +1672,7 @@ export default function StoragePage() {
                   </div>
                 </Card>
 
-                <Card className="os-card space-y-2">
+                <Card className="os-card rounded-2xl space-y-2">
                   <h4 className="text-xs font-semibold text-slate-300">Raw Ref</h4>
                   {provenanceData.raw_ref ? (
                     <div className="text-xs text-slate-300">
@@ -1523,7 +1685,7 @@ export default function StoragePage() {
                   )}
                 </Card>
 
-                <Card className="os-card space-y-2">
+                <Card className="os-card rounded-2xl space-y-2">
                   <h4 className="text-xs font-semibold text-slate-300">Dedup</h4>
                   <div className="text-xs text-slate-300">
                     <p><span className="text-slate-500">packet_hash:</span> <span className="font-mono">{provenanceData.dedup.packet_hash || "-"}</span></p>
@@ -1533,7 +1695,7 @@ export default function StoragePage() {
                   </div>
                 </Card>
 
-                <Card className="os-card space-y-2">
+                <Card className="os-card rounded-2xl space-y-2">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-semibold text-slate-300">Nodes</h4>
                     <span className="text-[11px] text-slate-500">{provenanceData.node_count} total</span>
@@ -1552,7 +1714,7 @@ export default function StoragePage() {
                   )}
                 </Card>
 
-                <Card className="os-card space-y-2">
+                <Card className="os-card rounded-2xl space-y-2">
                   <div className="flex items-center justify-between">
                     <h4 className="text-xs font-semibold text-slate-300">Events</h4>
                     <span className="text-[11px] text-slate-500">{provenanceData.event_count} shown</span>

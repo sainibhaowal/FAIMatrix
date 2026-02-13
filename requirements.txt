@@ -10,3 +10,11 @@ httpx
 orjson
 pyjwt
 email-validator
+Pillow
+pytesseract
+pymupdf
+pdfplumber
+pypdf
+python-docx
+openpyxl
+python-pptx

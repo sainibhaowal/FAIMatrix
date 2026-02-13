@@ -1,7 +1,7 @@
 # 06 - Storage UI + Backend API Plan
 
 This document started as the no-code implementation plan for storage.
-It is now the design + status record for implemented phases P0/P1/P2 and A-H.
+It is now the design + status record for implemented phases P0/P1/P2, A-H, Phase I, and Phase J.
 
 ## Implementation Baseline (2026-02-10)
 
@@ -11,7 +11,7 @@ Actual implemented baseline:
 - frontend: `frontend/src/app/(app)/dashboard/storage/page.tsx`
 - persistence: `storage_files` table + repo + migration
 
-Use this doc as design intent + final status summary. Detailed implementation evidence lives in reports `09` through `19`.
+Use this doc as design intent + final status summary. Detailed implementation evidence lives in reports `09` through `22`.
 
 ## Phase A-H Status Summary
 
@@ -44,6 +44,28 @@ Commit/release hygiene completed in this phase:
 
 Evidence: `19_PHASE_H_COMMIT_RELEASE_HYGIENE_REPORT.md`
 
+## Phase I Update (2026-02-11)
+
+OCR + UI polish + file coverage visibility completed:
+
+- backend OCR service integrated for image uploads and scanned PDF pages (feature-flag controlled)
+- storage API now exposes supported-file coverage endpoint
+- storage UI now includes supported-files panel and rounded card polish
+- docker/runtime configuration updated for OCR dependencies and flags
+
+Evidence: `21_PHASE_I_OCR_UI_POLISH_REPORT.md`
+
+## Phase J Update (2026-02-11)
+
+Self-inventing runtime wiring completed:
+
+- evolve path now executes bounded, flag-gated self-invention cycle
+- invention runtime state persists incrementally in `self_invention_state`
+- optional post-upload evolve enqueue supports storage-triggered invention flow
+- evolve API surface now includes invention count (`inventions`)
+
+Evidence: `22_PHASE_J_SELF_INVENTING_RUNTIME_INTEGRATION_REPORT.md`
+
 ## 1) Product Objective
 
 Build and operate a production Storage page that can:
@@ -65,6 +87,12 @@ All routes under `/api/v1/storage`.
 | `GET` | `/api/v1/storage/uploads/{job_id}` | Batch status and per-file progress |
 | `GET` | `/api/v1/storage/uploads/{job_id}/events` | Upload job timeline |
 | `POST` | `/api/v1/storage/uploads/{job_id}/cancel` | Request safe job cancellation |
+
+## Supported File Coverage
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/storage/supported-types` | Validator/extractor/OCR capability matrix for UI |
 
 ## File Catalog and Provenance
 
@@ -141,6 +169,11 @@ Every file item should include:
 - dedup linkage
 - node and event summaries
 
+7. Supported Files Panel
+- endpoint-backed supported extension/MIME list
+- OCR capability status and policy flags
+- upload size limit visibility
+
 ## 5) Multi-file Workflow (Implemented)
 
 1. user selects N files
@@ -151,6 +184,7 @@ Every file item should include:
 6. frontend polls `/uploads/{job_id}` and `/uploads/{job_id}/events`
 7. frontend updates queue and catalog incrementally
 8. retry/cancel can be executed per file/job without restarting whole batch
+9. optional follow-up evolve job can be enqueued for self-inventing when enabled
 
 ## 6) Data Consistency Rules (Enforced)
 
@@ -168,6 +202,7 @@ Every file item should include:
 4. strict deterministic behavior remains stable: met
 5. provenance is explainable from `raw_id` to graph artifacts: met
 6. storage endpoints enforce auth and tenant isolation: met
+7. supported file coverage and OCR policy visibility are available in UI: met
 
 ## 8) Observability Status
 

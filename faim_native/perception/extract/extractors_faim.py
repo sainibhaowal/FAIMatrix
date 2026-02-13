@@ -75,22 +75,36 @@ def extract_pdf_blocks(
                     )
                 )
 
-            # Check for image-only pages (OCR stub)
+            # Check for image-only pages (OCR fallback)
             if not page_text.strip() and page.get_images():
-                anchor = BlockAnchor(
-                    doc_type="pdf",
-                    page=page_num + 1,
+                ocr_block = _extract_pdf_page_ocr_block(
+                    page=page,
+                    raw_id=raw_id,
+                    page_number=page_num + 1,
+                    page_count=len(doc),
+                    image_count=len(page.get_images()),
                 )
-                blocks.append(
-                    EvidenceBlock.create(
-                        raw_id=raw_id,
-                        anchor=anchor,
-                        content="[IMAGE_STUB: Page contains image content requiring OCR]",
-                        block_type="image_stub",
-                        confidence=0.2,  # Low confidence for OCR stub
-                        metadata={"image_count": len(page.get_images())},
+                if ocr_block is not None:
+                    blocks.append(ocr_block)
+                else:
+                    anchor = BlockAnchor(
+                        doc_type="pdf",
+                        page=page_num + 1,
                     )
-                )
+                    blocks.append(
+                        _image_stub_block(
+                            raw_id=raw_id,
+                            anchor=anchor,
+                            message="[IMAGE_STUB: Page contains image content requiring OCR]",
+                            filename="",
+                            size_bytes=len(file_bytes),
+                            metadata={
+                                "page_count": len(doc),
+                                "image_count": len(page.get_images()),
+                                "ocr_pending": True,
+                            },
+                        )
+                    )
 
         doc.close()
         return blocks
@@ -708,7 +722,7 @@ def extract_image_stub(
     *,
     filename: str = "",
 ) -> list[EvidenceBlock]:
-    """Create stub block for image files (OCR placeholder).
+    """Extract image content with OCR when enabled, otherwise return stub block.
 
     Args:
         file_bytes: Image content.
@@ -716,23 +730,71 @@ def extract_image_stub(
         filename: Original filename.
 
     Returns:
-        Single IMAGE_STUB block with low confidence.
+        One OCR text block or one IMAGE_STUB fallback block.
     """
     anchor = BlockAnchor(
         doc_type="image",
         page=1,
     )
 
+    ocr_error: Optional[str] = None
+    try:
+        try:
+            from perception.extract.ocr_service import (
+                OCRProcessingError,
+                OCRUnavailableError,
+                extract_text_from_image_bytes,
+                get_ocr_settings,
+            )
+        except ImportError:
+            from .ocr_service import (
+                OCRProcessingError,
+                OCRUnavailableError,
+                extract_text_from_image_bytes,
+                get_ocr_settings,
+            )
+
+        settings = get_ocr_settings()
+        ocr_result = extract_text_from_image_bytes(
+            file_bytes,
+            source="image_upload",
+            filename=filename,
+            settings=settings,
+        )
+        if ocr_result is not None:
+            metadata = dict(ocr_result.metadata or {})
+            metadata.setdefault("size_bytes", len(file_bytes))
+            return [
+                EvidenceBlock.create(
+                    raw_id=raw_id,
+                    anchor=anchor,
+                    content=ocr_result.text,
+                    block_type="text",
+                    confidence=max(0.2, min(1.0, float(ocr_result.confidence))),
+                    metadata=metadata,
+                )
+            ]
+    except (OCRUnavailableError, OCRProcessingError) as exc:
+        ocr_error = str(exc)
+        try:
+            settings = get_ocr_settings()
+            if settings.fail_closed:
+                raise
+        except Exception:
+            raise
+    except Exception as exc:
+        ocr_error = str(exc)
+
     return [
-        EvidenceBlock.create(
+        _image_stub_block(
             raw_id=raw_id,
             anchor=anchor,
-            content=f"[IMAGE_STUB: {filename or 'image'} requires OCR processing]",
-            block_type="image_stub",
-            confidence=0.2,  # Low confidence for OCR stub
+            message=f"[IMAGE_STUB: {filename or 'image'} requires OCR processing]",
+            filename=filename,
+            size_bytes=len(file_bytes),
             metadata={
-                "filename": filename,
-                "size_bytes": len(file_bytes),
+                "ocr_pending": True,
+                "ocr_error": ocr_error,
             },
         )
     ]
@@ -756,4 +818,93 @@ def _fallback_block(raw_id: str, doc_type: str) -> EvidenceBlock:
         content="[EXTRACTION_FAILED: Could not extract content]",
         block_type="text",
         confidence=0.0,
+    )
+
+
+def _extract_pdf_page_ocr_block(
+    *,
+    page: object,
+    raw_id: str,
+    page_number: int,
+    page_count: int,
+    image_count: int,
+) -> Optional[EvidenceBlock]:
+    """Attempt OCR extraction for image-only PDF pages."""
+    settings = None
+    try:
+        try:
+            from perception.extract.ocr_service import (
+                OCRProcessingError,
+                OCRUnavailableError,
+                extract_text_from_pdf_page,
+                get_ocr_settings,
+            )
+        except ImportError:
+            from .ocr_service import (
+                OCRProcessingError,
+                OCRUnavailableError,
+                extract_text_from_pdf_page,
+                get_ocr_settings,
+            )
+
+        settings = get_ocr_settings()
+        ocr_result = extract_text_from_pdf_page(
+            page,
+            page_number=page_number,
+            settings=settings,
+        )
+        if ocr_result is None:
+            return None
+
+        anchor = BlockAnchor(
+            doc_type="pdf",
+            page=page_number,
+        )
+        metadata = {
+            "page_count": page_count,
+            "image_count": image_count,
+            "ocr_pending": False,
+        }
+        metadata.update(ocr_result.metadata or {})
+        return EvidenceBlock.create(
+            raw_id=raw_id,
+            anchor=anchor,
+            content=ocr_result.text,
+            block_type="text",
+            confidence=max(0.2, min(1.0, float(ocr_result.confidence))),
+            metadata=metadata,
+        )
+    except (OCRUnavailableError, OCRProcessingError):
+        try:
+            if settings is not None and settings.fail_closed:
+                raise
+        except Exception:
+            raise
+        return None
+    except Exception:
+        return None
+
+
+def _image_stub_block(
+    *,
+    raw_id: str,
+    anchor: BlockAnchor,
+    message: str,
+    filename: str,
+    size_bytes: int,
+    metadata: Optional[dict] = None,
+) -> EvidenceBlock:
+    payload = {
+        "filename": filename,
+        "size_bytes": int(size_bytes),
+    }
+    if metadata:
+        payload.update(metadata)
+    return EvidenceBlock.create(
+        raw_id=raw_id,
+        anchor=anchor,
+        content=message,
+        block_type="image_stub",
+        confidence=0.2,
+        metadata=payload,
     )

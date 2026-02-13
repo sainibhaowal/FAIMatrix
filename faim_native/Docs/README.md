@@ -23,6 +23,9 @@ This folder documents current storage/ingestion behavior and the implementation 
 17. `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
 18. `18_PHASE_G_DOCUMENTATION_RECONCILIATION_REPORT.md`
 19. `19_PHASE_H_COMMIT_RELEASE_HYGIENE_REPORT.md`
+20. `20_STORAGE_UI_RUNTIME_WORKFLOW_AND_MODES.md`
+21. `21_PHASE_I_OCR_UI_POLISH_REPORT.md`
+22. `22_PHASE_J_SELF_INVENTING_RUNTIME_INTEGRATION_REPORT.md`
 
 ## Intent
 
@@ -39,6 +42,9 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Phase F validation + non-regression completion is documented in 17.
 - Phase G documentation reconciliation is documented in 18.
 - Phase H commit/release hygiene and final verification is documented in 19.
+- Human workflow and mode explanation is documented in 20.
+- Phase I OCR integration + UI polish + supported-types surface is documented in 21.
+- Phase J self-inventing runtime integration is documented in 22.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

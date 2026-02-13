@@ -13,6 +13,8 @@ Actions:
 
 from __future__ import annotations
 
+import logging
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -55,6 +57,9 @@ except (ImportError, RuntimeError):
     from store.pg.repos.node_repo import NodeRepo
 
 
+logger = logging.getLogger(__name__)
+
+
 def _cosine(a, b):
     """Cosine similarity."""
     dot = sum(x * y for x, y in zip(a, b, strict=False))
@@ -82,9 +87,19 @@ class EvolutionResult:
     graph_version: int = 0
     merges: int = 0
     prunes: int = 0
+    inventions: int = 0
     events_emitted: int = 0
     actions: List[Dict[str, Any]] = field(default_factory=list)
     diagnostics: Optional[FractalDiagnostics] = None
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    raw = str(os.environ.get(name, "")).strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return default
 
 
 def compute_graph_diagnostics(
@@ -380,12 +395,77 @@ def evolve_once(
             )
             action_count += 1
 
+    # 7. Optional self-invention pass (feature-flag controlled)
+    invention_enabled = _bool_env("FAIM_SELF_INVENT_ENABLED", False)
+    invention_on_evolve = _bool_env("FAIM_SELF_INVENT_ON_EVOLVE", True)
+    if invention_enabled and invention_on_evolve and _sess is not None:
+        try:
+            from core.dynamics.invention_native import run_invention_cycle
+            from runtime.config import get_config
+            from store.pg.repos.self_invention_state_repo import SelfInventionStateRepo
+
+            cfg = get_config()
+            invention_result = run_invention_cycle(
+                graph_id=graph_id,
+                session=_sess,
+                node_repo=node_repo,
+                edge_repo=edge_repo,
+                event_repo=event_repo,
+                state_repo=SelfInventionStateRepo(
+                    session=_sess,
+                    tenant_id=node_repo.tenant_id,
+                ),
+                lambda_hat=diagnostics.lambda_hat,
+                min_coactivation_count=cfg.self_invent_min_coactivation_count,
+                lambda_threshold=cfg.self_invent_lambda_threshold,
+                min_redundancy_reduction=cfg.self_invent_min_redundancy_reduction,
+                max_macros_per_cycle=cfg.self_invent_max_macros_per_cycle,
+                event_window=cfg.self_invent_event_window,
+            )
+            result.inventions = invention_result.macros_created
+            if invention_result.macros_created > 0:
+                action_count += invention_result.macros_created
+                result.actions.append(
+                    {
+                        "type": "invention",
+                        "count": invention_result.macros_created,
+                        "macro_ids": [str(mid) for mid in invention_result.macro_ids],
+                    }
+                )
+                event_repo.emit(
+                    session=_sess,
+                    graph_id=graph_id,
+                    kind="EVOLUTION_INVENTION_SUMMARY",
+                    payload={
+                        "inventions": invention_result.macros_created,
+                        "signatures_tracked": invention_result.signatures_tracked,
+                        "processed_events": invention_result.processed_events,
+                        "last_event_seq": invention_result.last_event_seq,
+                    },
+                )
+                result.events_emitted += 1
+            result.events_emitted += invention_result.events_emitted
+        except Exception as exc:
+            logger.warning("Self-invention pass failed: %s", exc)
+            if _sess:
+                event_repo.emit(
+                    session=_sess,
+                    graph_id=graph_id,
+                    kind="EVOLUTION_INVENTION_ERROR",
+                    payload={"error": str(exc)[:300]},
+                )
+                result.events_emitted += 1
+
     # 8. Bump graph version if any actions
     if action_count > 0:
         new_version = graph_version_repo.bump(
             _sess,
             graph_id=graph_id,
-            reason=f"evolution: {result.merges} merges, {result.prunes} prunes",
+            reason=(
+                "evolution: "
+                f"{result.merges} merges, {result.prunes} prunes, "
+                f"{result.inventions} inventions"
+            ),
         )
 
         if _sess:
@@ -397,6 +477,7 @@ def evolve_once(
                     "version": new_version,
                     "merges": result.merges,
                     "prunes": result.prunes,
+                    "inventions": result.inventions,
                     "D_hat": diagnostics.D_hat,
                     "H_hat": diagnostics.H_hat,
                     "lambda_hat": diagnostics.lambda_hat,

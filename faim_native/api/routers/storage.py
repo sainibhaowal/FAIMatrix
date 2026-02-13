@@ -155,6 +155,23 @@ class StorageBackendsHealth(BaseModel):
     raw_store: bool
 
 
+class StorageSupportedTypesResponse(BaseModel):
+    """Supported upload and extraction file coverage for Storage UI."""
+
+    max_upload_size_bytes: int
+    max_upload_size_mb: float
+    total_extensions: int
+    total_content_types: int
+    extensions: List[str]
+    content_types: List[str]
+    categories: Dict[str, List[str]]
+    extractor_doc_types: Dict[str, int]
+    ocr_enabled: bool
+    ocr_engine: str
+    ocr_fail_closed: bool
+    ocr_capable_extensions: List[str]
+
+
 class StorageBackendState(BaseModel):
     """Operational backend health state with latency and status."""
 
@@ -485,6 +502,78 @@ def _job_cancel_requested(ctx: FAIMContext, job_id: UUID) -> bool:
     return bool(JobStore.is_cancel_requested(ctx.session, job_id))
 
 
+def _self_invent_after_upload_enabled() -> bool:
+    try:
+        from runtime.feature_flags import get_feature_flags
+
+        flags = get_feature_flags()
+        return bool(flags.self_invent_enabled and flags.self_invent_after_upload)
+    except Exception:
+        return False
+
+
+def _enqueue_post_upload_evolve_job(
+    *,
+    ctx: FAIMContext,
+    graph_id: str,
+    upload_job_id: UUID,
+) -> Optional[UUID]:
+    """Optionally enqueue evolve job after successful upload ingestion."""
+    if not _self_invent_after_upload_enabled():
+        return None
+
+    try:
+        from runtime.config import get_config
+
+        if not get_config().enable_jobs:
+            return None
+    except Exception:
+        return None
+
+    from orchestration.jobs.job_store import JobStore
+    from store.pg.models_faim import JobModel
+
+    existing = (
+        ctx.session.query(JobModel)
+        .filter(
+            and_(
+                JobModel.tenant_id == ctx.tenant_id,
+                JobModel.graph_id == graph_id,
+                JobModel.kind == "evolve",
+                JobModel.status.in_(["pending", "running"]),
+            )
+        )
+        .order_by(JobModel.created_at.asc())
+        .first()
+    )
+    if existing is not None:
+        return existing.job_id
+
+    evolve_job_id = JobStore.enqueue(
+        session=ctx.session,
+        tenant_id=ctx.tenant_id,
+        graph_id=graph_id,
+        kind="evolve",
+        payload={
+            "profile": "strict",
+            "persist_mode": "relaxed",
+            "source": "storage_upload",
+            "source_job_id": str(upload_job_id),
+            "self_invent_requested": True,
+        },
+    )
+    JobStore.append_event(
+        ctx.session,
+        evolve_job_id,
+        "step_start",
+        {
+            "message": "Evolve job enqueued from storage upload completion",
+            "source_job_id": str(upload_job_id),
+        },
+    )
+    return evolve_job_id
+
+
 def _row_to_file_item(row: Any) -> StorageFileItem:
     return StorageFileItem(
         raw_id=str(row.raw_id),
@@ -628,6 +717,7 @@ async def create_upload_batch(
     dedup_hits = 0
     cancelled = 0
     cancel_triggered = False
+    followup_evolve_job_id: Optional[str] = None
     _storage_lifecycle_log(
         ctx=ctx,
         op="upload_batch",
@@ -1024,6 +1114,46 @@ async def create_upload_batch(
                 job.status = "done"
                 job.completed_at = datetime.now(timezone.utc)
                 ctx.session.commit()
+
+        if final_status in {"completed", "partial_failed"} and success > 0:
+            try:
+                evolve_job_id = _enqueue_post_upload_evolve_job(
+                    ctx=ctx,
+                    graph_id=graph_id,
+                    upload_job_id=job_id,
+                )
+                if evolve_job_id is not None:
+                    followup_evolve_job_id = str(evolve_job_id)
+                    job = JobStore.get_job(ctx.session, job_id)
+                    if job and job.tenant_id == ctx.tenant_id:
+                        payload = dict(job.payload_json or {})
+                        payload["followup_evolve_job_id"] = followup_evolve_job_id
+                        job.payload_json = payload
+                        job.updated_at = datetime.now(timezone.utc)
+                        ctx.session.commit()
+                    _storage_lifecycle_log(
+                        ctx=ctx,
+                        op="upload_batch",
+                        status="evolve_enqueued",
+                        graph_id=graph_id,
+                        job_id=str(job_id),
+                        detail=(
+                            "post-upload evolve job enqueued "
+                            f"(evolve_job_id={followup_evolve_job_id})"
+                        ),
+                    )
+                    JobStore.append_event(
+                        ctx.session,
+                        job_id,
+                        "step_progress",
+                        {
+                            "status": "followup_evolve_enqueued",
+                            "evolve_job_id": followup_evolve_job_id,
+                            "message": "Post-upload evolve job enqueued",
+                        },
+                    )
+            except Exception as exc:  # nosec B110
+                logger.warning("Failed to enqueue post-upload evolve job: %s", exc)
 
         _storage_lifecycle_log(
             ctx=ctx,
@@ -1601,6 +1731,110 @@ async def retry_storage_file(
 # =============================================================================
 # Summary + Health
 # =============================================================================
+
+
+@router.get("/supported-types", response_model=StorageSupportedTypesResponse)
+async def get_storage_supported_types(
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageSupportedTypesResponse:
+    """Get supported upload/extraction types and OCR runtime capability."""
+    _require_storage_repos(ctx)
+
+    from api.validators.input_limits import (
+        ALLOWED_CONTENT_TYPES,
+        ALLOWED_EXTENSIONS,
+        MAX_UPLOAD_SIZE,
+    )
+    from perception.router import EXTENSION_DOC_TYPE
+
+    try:
+        from perception.extract.ocr_service import get_ocr_settings
+    except Exception:
+        get_ocr_settings = None  # type: ignore[assignment]
+
+    if get_ocr_settings is not None:
+        ocr_settings = get_ocr_settings()
+        ocr_enabled = bool(ocr_settings.enabled)
+        ocr_engine = str(ocr_settings.engine)
+        ocr_fail_closed = bool(ocr_settings.fail_closed)
+    else:
+        ocr_enabled = False
+        ocr_engine = "unavailable"
+        ocr_fail_closed = False
+
+    categories: Dict[str, List[str]] = {
+        "documents": [],
+        "images": [],
+        "code": [],
+        "text_data": [],
+        "other": [],
+    }
+    for ext in sorted(ALLOWED_EXTENSIONS):
+        if ext in {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"}:
+            categories["documents"].append(ext)
+        elif ext in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".tiff"}:
+            categories["images"].append(ext)
+        elif ext in {
+            ".py",
+            ".js",
+            ".ts",
+            ".java",
+            ".go",
+            ".rs",
+            ".c",
+            ".cpp",
+            ".h",
+            ".hpp",
+            ".cs",
+            ".rb",
+            ".php",
+            ".swift",
+            ".kt",
+            ".scala",
+            ".sh",
+            ".sql",
+        }:
+            categories["code"].append(ext)
+        elif ext in {
+            ".txt",
+            ".md",
+            ".markdown",
+            ".rst",
+            ".csv",
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            ".xml",
+            ".html",
+            ".htm",
+        }:
+            categories["text_data"].append(ext)
+        else:
+            categories["other"].append(ext)
+
+    extractor_doc_types: Dict[str, int] = {}
+    for doc_type in EXTENSION_DOC_TYPE.values():
+        extractor_doc_types[doc_type] = extractor_doc_types.get(doc_type, 0) + 1
+
+    ocr_capable_extensions = sorted(
+        [ext for ext, doc_type in EXTENSION_DOC_TYPE.items() if doc_type in {"image", "pdf"}]
+    )
+
+    return StorageSupportedTypesResponse(
+        max_upload_size_bytes=int(MAX_UPLOAD_SIZE),
+        max_upload_size_mb=round(float(MAX_UPLOAD_SIZE) / (1024 * 1024), 2),
+        total_extensions=len(ALLOWED_EXTENSIONS),
+        total_content_types=len(ALLOWED_CONTENT_TYPES),
+        extensions=sorted(ALLOWED_EXTENSIONS),
+        content_types=sorted(ALLOWED_CONTENT_TYPES),
+        categories=categories,
+        extractor_doc_types=dict(sorted(extractor_doc_types.items(), key=lambda item: item[0])),
+        ocr_enabled=ocr_enabled,
+        ocr_engine=ocr_engine,
+        ocr_fail_closed=ocr_fail_closed,
+        ocr_capable_extensions=ocr_capable_extensions,
+    )
 
 
 @router.get("/summary", response_model=StorageSummaryResponse)

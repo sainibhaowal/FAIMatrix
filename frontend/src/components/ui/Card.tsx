@@ -60,7 +60,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
         className={[
           /* Base styles */
           "relative overflow-hidden transition-all duration-300",
-          !surfaceClass.includes("os-") && "rounded-3xl border border-white/10", // Fallback for custom elevations
+          !surfaceClass.includes("os-") && "rounded-2xl border border-white/10", // Fallback for custom elevations
           surfaceClass,
           
           /* Glow effect (when enabled) */
@@ -98,7 +98,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
         {...props}
       >
         {/* Inner glow border */}
-        <div className="pointer-events-none absolute inset-0 rounded-3xl border border-white/5" />
+        <div className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/5" />
         
         {/* Content */}
         <div className="relative">{children}</div>

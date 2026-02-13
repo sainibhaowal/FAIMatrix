@@ -347,10 +347,27 @@ def vectorize_block(
     Returns:
         FAIMVector with computed v_native and hash.
     """
-    # Vectorize text content
-    v_res = vectorize_text(block.content)
-    v_native = v_res.v_native
-    opp_signature = v_res.opp_signature
+    v_native: List[float]
+    opp_signature: Dict[str, float]
+
+    # Route IMAGE_STUB blocks through explicit OCR-stub feature schema.
+    try:
+        from encoding.OCR.ocr_features import (
+            extract_ocr_stub_signature,
+            extract_ocr_stub_vector,
+            is_image_stub,
+        )
+    except Exception:  # pragma: no cover - optional wiring fallback
+        is_image_stub = None  # type: ignore[assignment]
+
+    if is_image_stub is not None and is_image_stub(block):
+        v_native = extract_ocr_stub_vector(block.anchor, block.content)
+        opp_signature = extract_ocr_stub_signature(block.anchor)
+    else:
+        # Vectorize textual content (default path).
+        v_res = vectorize_text(block.content)
+        v_native = v_res.v_native
+        opp_signature = v_res.opp_signature
 
     return FAIMVector.create(
         raw_id=block.raw_id,
