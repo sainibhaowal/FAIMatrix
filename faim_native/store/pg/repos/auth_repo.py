@@ -266,6 +266,23 @@ class AuthRepo:
 
         return query.order_by(TenantApiKey.created_at.desc()).all()
 
+    def get_tenant_key(
+        self,
+        tenant_id: str,
+        key_id: str,
+    ) -> Optional[TenantApiKey]:
+        """Get one tenant key by id (including revoked keys)."""
+        return (
+            self.session.query(TenantApiKey)
+            .filter(
+                and_(
+                    TenantApiKey.tenant_id == tenant_id,
+                    TenantApiKey.key_id == key_id,
+                )
+            )
+            .first()
+        )
+
     def revoke_tenant_key(
         self,
         tenant_id: str,

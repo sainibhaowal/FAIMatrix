@@ -27,6 +27,8 @@ This backlog now separates completed delivery from true future enhancements.
 13. Phase J - Self-Inventing Runtime Integration: completed
 14. Phase K1 - API Keys/Authz + Memory Contract Freeze: completed
 15. Phase K2 - Auth Data Model Upgrade (migration-first): completed
+16. Phase K3 - Auth Middleware + Authz Enforcement: completed
+17. Phase K4 - API Key Management API + Frontend Page: completed
 
 ## Completed Scope Summary
 
@@ -184,6 +186,28 @@ Evidence:
 
 - `24_PHASE_K2_AUTH_MODEL_UPGRADE_REPORT.md`
 
+## Phase K3 Completed
+
+- DB-primary API key auth flow with explicit env fallback control
+- scope enforcement dependency (`require_scopes`) integrated
+- auth context propagation (`auth_method`, `auth_key_id`, `auth_scopes`)
+- `/api/v1/*` rate-limit category alignment with tenant+identity bucket keys
+
+Evidence:
+
+- `25_PHASE_K3_AUTH_MIDDLEWARE_AUTHZ_ENFORCEMENT_REPORT.md`
+
+## Phase K4 Completed
+
+- `/api/v1/api-keys/*` management routes implemented (create/list/rotate/revoke/audit)
+- API keys router registered in app
+- API Keys dashboard page implemented with lifecycle actions and one-time reveal flow
+- K4 validation coverage added (unit + acceptance + frontend lint)
+
+Evidence:
+
+- `26_PHASE_K4_API_KEYS_MANAGEMENT_API_UI_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -200,6 +224,8 @@ Evidence:
 | Self-inventing runtime path | implemented (flag-gated evolve integration + incremental state) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
+| Auth middleware + route scope enforcement baseline | implemented (K3) |
+| API key management runtime API + dashboard UI | implemented (K4) |
 
 ## Future Enhancements Only
 
@@ -233,13 +259,13 @@ Owner: Performance Engineering.
 Reason: long-run and chaos validation requires separate infra windows and release timing.
 Owner: QA / Release Engineering.
 
-## F5 - API Keys/Authz Runtime and UI Delivery (P1)
+## F5 - Memory API Runtime Delivery (P1)
 
-- implement `/api/v1/api-keys/*` management routes and scope enforcement middleware path
-- implement memory API route surface under `/api/v1/memory/*`
-- implement API Keys dashboard page from placeholder to operational UI
-Reason: K1/K2 delivered contract and data foundations only; runtime endpoints/UI delivery is next stream.
-Owner: API Platform + Frontend.
+- implement dedicated agent memory route surface under `/api/v1/memory/*`
+- map route-level scopes (`memory.read`/`memory.write`) end-to-end with acceptance coverage
+- publish operational docs for memory write/update idempotency behavior
+Reason: K1-K4 delivered API key contract, auth runtime baseline, and key management UI; memory route runtime remains.
+Owner: API Platform + Agent Interfaces.
 
 ## Definition of Done (Current Program)
 
