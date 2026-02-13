@@ -24,7 +24,7 @@ This is the security baseline and hardening plan for storage + ingestion.
 - request correlation IDs
 - structured logging with sensitive value redaction
 
-## 2) Security Gap Status (Post Phase D/E/F)
+## 2) Security Gap Status (Post Phase D/E/F + K1/K2)
 
 Implemented:
 
@@ -34,11 +34,14 @@ Implemented:
 4. Production plaintext fallback is blocked in runtime and routers.
 5. Storage route authz/tenant isolation coverage exists in acceptance tests.
 6. Phase F non-regression suites now cover lifecycle/retry/cancel/delete/retention flows.
+7. API keys/authz + memory API additive contract freeze is defined (Phase K1).
+8. Auth key data model now supports scopes/expiry/lifecycle metadata and append-only key audit table (Phase K2 foundation).
 
 Remaining hardening focus:
 
 1. Historical payload re-encryption program for pre-rollout plaintext blobs.
 2. Environment-level alerting/dashboard integration for security observability signals.
+3. Runtime key-management API endpoints and scope-enforcement wiring (Phase K3+) remain pending.
 
 ## 3) Required Security Model for Storage Setup
 

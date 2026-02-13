@@ -19,7 +19,7 @@ Holds durable metadata and graph state:
 - `jobs` and `job_events`
 - `self_invention_state`
 - `tenant_crypto_keys`
-- auth tables (`tenant_api_keys`, `admin_api_keys`, `users`)
+- auth tables (`tenant_api_keys`, `admin_api_keys`, `auth_key_audit_log`, `users`)
 
 ## Filesystem Raw Store (truth for raw bytes)
 
@@ -86,6 +86,24 @@ Immutable content-addressed blobs:
 - tenant key-wrapping metadata for envelope encryption-at-rest workflow
 - important columns: `tenant_id`, `dek_wrapped`, `created_at`, `rotated_at` (when rotated)
 
+## `tenant_api_keys`
+
+- hashed tenant API keys (Argon2id hash, no plaintext storage)
+- important columns:
+  - identity: `tenant_id`, `key_id`, `key_prefix`, `key_hash`
+  - authz/lifecycle: `scopes`, `expires_at`, `revoked_at`, `revoked_reason`
+  - operations: `created_by`, `rotated_from_key_id`, `last_used_at`, `created_at`
+
+## `admin_api_keys`
+
+- hashed admin keys for control-plane endpoints
+- important columns: `admin_id`, `key_id`, `key_prefix`, `key_hash`, `revoked_at`
+
+## `auth_key_audit_log`
+
+- append-only key lifecycle audit stream
+- important columns: `tenant_id`, `key_id`, `action`, `actor`, `request_id`, `meta`, `created_at`
+
 ## `self_invention_state`
 
 - incremental cursor + bounded coactivation counters for self-inventing runtime
@@ -105,6 +123,7 @@ Immutable content-addressed blobs:
 | Residual | float in code | scaled integer in DB (`BigInteger` with `*1e9`) |
 | Event payload | dict | `JSONB` |
 | Tenant DEK wrapped key | base64/text blob | `tenant_crypto_keys.dek_wrapped` |
+| API key scopes | list of strings | `tenant_api_keys.scopes` (`JSONB`) |
 
 ## 4) Numeric and Matrix Semantics
 

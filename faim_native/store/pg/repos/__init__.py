@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 __all__ = [
+    "AuthRepo",
     "RawRepo",
     "EventRepo",
     "SnapshotRepo",
@@ -14,7 +15,11 @@ __all__ = [
 
 def __getattr__(name):
     """Lazy import to avoid circular dependencies."""
-    if name == "RawRepo":
+    if name == "AuthRepo":
+        from .auth_repo import AuthRepo
+
+        return AuthRepo
+    elif name == "RawRepo":
         from .raw_repo import RawRepo
 
         return RawRepo

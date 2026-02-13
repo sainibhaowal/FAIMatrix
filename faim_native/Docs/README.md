@@ -26,6 +26,8 @@ This folder documents current storage/ingestion behavior and the implementation 
 20. `20_STORAGE_UI_RUNTIME_WORKFLOW_AND_MODES.md`
 21. `21_PHASE_I_OCR_UI_POLISH_REPORT.md`
 22. `22_PHASE_J_SELF_INVENTING_RUNTIME_INTEGRATION_REPORT.md`
+23. `23_API_KEYS_AUTHZ_AND_MEMORY_CONTRACT_PLAN.md`
+24. `24_PHASE_K2_AUTH_MODEL_UPGRADE_REPORT.md`
 
 ## Intent
 
@@ -45,6 +47,8 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Human workflow and mode explanation is documented in 20.
 - Phase I OCR integration + UI polish + supported-types surface is documented in 21.
 - Phase J self-inventing runtime integration is documented in 22.
+- Phase K1 API keys/authz + memory contract freeze is documented in 23.
+- Phase K2 auth data model upgrade is documented in 24.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

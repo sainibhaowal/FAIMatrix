@@ -8,7 +8,7 @@ This backlog now separates completed delivery from true future enhancements.
 - P1: required for complete storage product
 - P2: optimization/hardening
 
-## Program Status (as of 2026-02-11)
+## Program Status (as of 2026-02-13)
 
 ## Completed Program Scope
 
@@ -25,6 +25,8 @@ This backlog now separates completed delivery from true future enhancements.
 11. Phase H - Commit and Release Hygiene: completed
 12. Phase I - OCR Integration + UI Polish + Supported-Types Surface: completed
 13. Phase J - Self-Inventing Runtime Integration: completed
+14. Phase K1 - API Keys/Authz + Memory Contract Freeze: completed
+15. Phase K2 - Auth Data Model Upgrade (migration-first): completed
 
 ## Completed Scope Summary
 
@@ -161,6 +163,27 @@ Evidence:
 
 - `22_PHASE_J_SELF_INVENTING_RUNTIME_INTEGRATION_REPORT.md`
 
+## Phase K1 Completed
+
+- additive contract freeze for existing API routes
+- formal API key management contract defined (`create/list/rotate/revoke/audit`)
+- formal agent memory contract defined (`search/fetch/provenance/write/update`)
+
+Evidence:
+
+- `23_API_KEYS_AUTHZ_AND_MEMORY_CONTRACT_PLAN.md`
+
+## Phase K2 Completed
+
+- additive DB migration for tenant key scopes/expiry/lifecycle metadata
+- new append-only auth key audit table
+- ORM and auth repository upgraded for scope/expiry/revoke/rotate metadata paths
+- unit coverage added for model/repo/migration markers
+
+Evidence:
+
+- `24_PHASE_K2_AUTH_MODEL_UPGRADE_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -175,6 +198,8 @@ Evidence:
 | Validation/non-regression suite | implemented |
 | OCR extraction path (image + scanned PDF) | implemented (feature-flag controlled, fail-closed capable) |
 | Self-inventing runtime path | implemented (flag-gated evolve integration + incremental state) |
+| API keys/authz and memory API contract freeze | implemented (K1) |
+| Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 
 ## Future Enhancements Only
 
@@ -207,6 +232,14 @@ Owner: Performance Engineering.
 - additional long-run endurance checks for retention worker and background job durability
 Reason: long-run and chaos validation requires separate infra windows and release timing.
 Owner: QA / Release Engineering.
+
+## F5 - API Keys/Authz Runtime and UI Delivery (P1)
+
+- implement `/api/v1/api-keys/*` management routes and scope enforcement middleware path
+- implement memory API route surface under `/api/v1/memory/*`
+- implement API Keys dashboard page from placeholder to operational UI
+Reason: K1/K2 delivered contract and data foundations only; runtime endpoints/UI delivery is next stream.
+Owner: API Platform + Frontend.
 
 ## Definition of Done (Current Program)
 

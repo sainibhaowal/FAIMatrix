@@ -1,7 +1,7 @@
 # 06 - Storage UI + Backend API Plan
 
 This document started as the no-code implementation plan for storage.
-It is now the design + status record for implemented phases P0/P1/P2, A-H, Phase I, and Phase J.
+It is now the design + status record for implemented phases P0/P1/P2, A-H, Phase I, and Phase J, with Phase K1/K2 security-contract foundations tracked for next-stream API work.
 
 ## Implementation Baseline (2026-02-10)
 
@@ -65,6 +65,25 @@ Self-inventing runtime wiring completed:
 - evolve API surface now includes invention count (`inventions`)
 
 Evidence: `22_PHASE_J_SELF_INVENTING_RUNTIME_INTEGRATION_REPORT.md`
+
+## Phase K1 Update (2026-02-13)
+
+API keys/authz + memory API contract freeze completed as an additive next-stream design step:
+
+- existing storage/query/ingest/node routes frozen for compatibility
+- new additive contract defined for `/api/v1/api-keys/*` and `/api/v1/memory/*`
+
+Evidence: `23_API_KEYS_AUTHZ_AND_MEMORY_CONTRACT_PLAN.md`
+
+## Phase K2 Update (2026-02-13)
+
+Auth schema/model foundation upgrade completed:
+
+- `tenant_api_keys` supports scope/expiry/lifecycle metadata
+- append-only `auth_key_audit_log` table added
+- ORM/repo support added for create/revoke/rotate audit metadata handling
+
+Evidence: `24_PHASE_K2_AUTH_MODEL_UPGRADE_REPORT.md`
 
 ## 1) Product Objective
 
