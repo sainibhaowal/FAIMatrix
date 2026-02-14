@@ -158,6 +158,18 @@ class FAIMConfig:
             "ingest_per_minute": 60,
             "query_per_minute": 120,
             "events_per_minute": 300,
+            "storage_per_minute": 60,
+            "api_keys_per_minute": 30,
+            "ingest_write_per_minute": 60,
+            "query_read_per_minute": 120,
+            "events_stream_per_minute": 300,
+            "storage_read_per_minute": 120,
+            "storage_write_per_minute": 60,
+            "api_keys_read_per_minute": 60,
+            "api_keys_write_per_minute": 20,
+            "memory_search_per_minute": 120,
+            "memory_read_per_minute": 120,
+            "memory_write_per_minute": 60,
         }
     )
 
@@ -208,6 +220,10 @@ class FAIMConfig:
             if self.auth_env_fallback_enabled:
                 errors.append(
                     "Production requires FAIM_AUTH_ENV_FALLBACK_ENABLED=false"
+                )
+            if not self.auth_scope_enforcement_enabled:
+                errors.append(
+                    "Production requires FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED=true"
                 )
 
         if self.ocr_engine not in ("tesseract",):
@@ -271,6 +287,18 @@ def load_config() -> FAIMConfig:
         "ingest_per_minute": 60,
         "query_per_minute": 120,
         "events_per_minute": 300,
+        "storage_per_minute": 60,
+        "api_keys_per_minute": 30,
+        "ingest_write_per_minute": 60,
+        "query_read_per_minute": 120,
+        "events_stream_per_minute": 300,
+        "storage_read_per_minute": 120,
+        "storage_write_per_minute": 60,
+        "api_keys_read_per_minute": 60,
+        "api_keys_write_per_minute": 20,
+        "memory_search_per_minute": 120,
+        "memory_read_per_minute": 120,
+        "memory_write_per_minute": 60,
     }
     default_limits.update(rate_limits)
 

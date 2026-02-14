@@ -10,6 +10,7 @@ All keys are hashed with Argon2id before storage.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -23,6 +24,16 @@ from runtime.secrets import (
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 from store.pg.models_auth import AdminApiKey, AuthKeyAuditLog, TenantApiKey
+
+
+@dataclass(frozen=True)
+class TenantKeyVerificationResult:
+    """Verification result with explicit denial reason semantics."""
+
+    valid: bool
+    record: Optional[TenantApiKey] = None
+    reason: Optional[str] = None
+    matched_key_id: Optional[str] = None
 
 
 class AuthRepo:
@@ -185,31 +196,69 @@ class AuthRepo:
         Returns:
             The key record if valid, None if invalid/revoked/expired.
         """
+        result = self.verify_tenant_key_with_reason(tenant_id, key)
+        if result.valid:
+            return result.record
+        return None
+
+    def verify_tenant_key_with_reason(
+        self,
+        tenant_id: str,
+        key: str,
+    ) -> TenantKeyVerificationResult:
+        """Verify tenant key and return explicit denial reason when matched.
+
+        Reason values:
+        - "expired": key matched but exceeded expiry
+        - "revoked": key matched but revoked
+        - "invalid_credentials": no key match
+        """
         now = self._utcnow()
 
         records = (
             self.session.query(TenantApiKey)
             .filter(TenantApiKey.tenant_id == tenant_id)
-            .filter(TenantApiKey.revoked_at.is_(None))
-            .filter(
-                or_(
-                    TenantApiKey.expires_at.is_(None),
-                    TenantApiKey.expires_at > now,
-                )
-            )
             .all()
         )
 
         for record in records:
-            if verify_api_key(key, record.key_hash):
-                # Rehash and usage tracking are non-breaking metadata upgrades.
-                if needs_rehash(record.key_hash):
-                    record.key_hash = hash_api_key(key)
-                record.touch_last_used()
-                self.session.flush()
-                return record
+            if not verify_api_key(key, record.key_hash):
+                continue
 
-        return None
+            if record.revoked_at is not None:
+                return TenantKeyVerificationResult(
+                    valid=False,
+                    record=None,
+                    reason="revoked",
+                    matched_key_id=record.key_id,
+                )
+
+            if record.is_expired(now):
+                return TenantKeyVerificationResult(
+                    valid=False,
+                    record=None,
+                    reason="expired",
+                    matched_key_id=record.key_id,
+                )
+
+            # Rehash and usage tracking are non-breaking metadata upgrades.
+            if needs_rehash(record.key_hash):
+                record.key_hash = hash_api_key(key)
+            record.touch_last_used()
+            self.session.flush()
+            return TenantKeyVerificationResult(
+                valid=True,
+                record=record,
+                reason=None,
+                matched_key_id=record.key_id,
+            )
+
+        return TenantKeyVerificationResult(
+            valid=False,
+            record=None,
+            reason="invalid_credentials",
+            matched_key_id=None,
+        )
 
     def find_tenant_key_by_any_key(
         self,

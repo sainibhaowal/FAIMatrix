@@ -8,12 +8,23 @@ K2 (auth data model upgrade), K3 (auth middleware + authz enforcement), K4
 (API key management API + frontend page), and K5 (agent-facing memory API
 runtime) are now implemented.
 
+K6 (security hardening + audit + rate limits) is now implemented:
+
+- auth key usage/denial audit taxonomy completed (`used`, `denied(scope)`,
+  `denied(expired)`, `denied(revoked)`)
+- middleware policy hardened for revoked/expired rejection paths
+- scope-denied 403 path now emits audit events
+- endpoint-level rate-limit policy categories added (method + route aware)
+- production guardrail tightened: scope enforcement required in production
+- no-plaintext-key log/audit safety coverage expanded with tests
+
 Implementation reports:
 
 - `24_PHASE_K2_AUTH_MODEL_UPGRADE_REPORT.md`
 - `25_PHASE_K3_AUTH_MIDDLEWARE_AUTHZ_ENFORCEMENT_REPORT.md`
 - `26_PHASE_K4_API_KEYS_MANAGEMENT_API_UI_REPORT.md`
 - `27_PHASE_K5_MEMORY_API_IMPLEMENTATION_REPORT.md`
+- `28_PHASE_K6_SECURITY_HARDENING_AUDIT_RATELIMIT_REPORT.md`
 
 ## 1) Scope and Safety Rules
 
