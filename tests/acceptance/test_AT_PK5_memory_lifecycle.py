@@ -65,6 +65,22 @@ def test_phase_k5_memory_write_search_get_provenance_patch(monkeypatch):
     assert replay_body["replayed"] is True
     assert replay_body["packet_hash"] == write_body["packet_hash"]
 
+    search = client.post(
+        "/api/v1/memory/search",
+        headers=headers,
+        json={
+            "graph_id": graph_id,
+            "query_text": "lifecycle test content",
+            "k": 5,
+            "profile": "strict",
+            "return_explain": True,
+        },
+    )
+    assert search.status_code == 200
+    search_body = search.json()
+    assert isinstance(search_body.get("results"), list)
+    assert len(search_body["results"]) >= 1
+
     conflict = client.post(
         "/api/v1/memory/write",
         headers={**headers, "Idempotency-Key": "idem-k5-1"},

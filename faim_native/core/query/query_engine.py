@@ -191,6 +191,17 @@ def recency_boost(
         return 0.0
 
     now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    else:
+        now = now.astimezone(timezone.utc)
+
+    # SQLite may return naive datetimes; treat them as UTC to keep scoring stable.
+    if last_access.tzinfo is None:
+        last_access = last_access.replace(tzinfo=timezone.utc)
+    else:
+        last_access = last_access.astimezone(timezone.utc)
+
     age = (now - last_access).total_seconds()
 
     # Decay over 7 days

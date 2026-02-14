@@ -121,6 +121,10 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
             errors.append(
                 "Production mode requires FAIM_AUTH_ENV_FALLBACK_ENABLED=false"
             )
+        if not flags.auth_scope_enforcement_enabled:
+            errors.append(
+                "Production mode requires FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED=true"
+            )
     return errors, warnings
 
 

@@ -166,6 +166,46 @@ def _scope_enforcement_enabled() -> bool:
     return False
 
 
+def _audit_scope_denied(request: Request, missing: Sequence[str]) -> None:
+    """Emit key audit event for scope-denied decisions."""
+    try:
+        from api.middleware.auth import (
+            AUDIT_ACTION_DENIED_SCOPE,
+            append_key_audit_best_effort,
+        )
+    except Exception:  # nosec B110
+        return
+
+    tenant_id = getattr(request.state, "tenant_id", None)
+    if not tenant_id:
+        return
+
+    route_path = getattr(getattr(request, "url", None), "path", None) or "unknown"
+    route_obj = getattr(getattr(request, "scope", {}), "get", lambda _k, _d=None: None)(
+        "route"
+    )
+    if route_obj is not None:
+        route_path = getattr(route_obj, "path", route_path)
+
+    append_key_audit_best_effort(
+        tenant_id=str(tenant_id),
+        key_id=getattr(request.state, "auth_key_id", None) or "env-fallback",
+        action=AUDIT_ACTION_DENIED_SCOPE,
+        actor=f"{getattr(request.state, 'auth_method', 'unknown')}:scope_guard",
+        request_id=(
+            getattr(request.state, "request_id", None)
+            or getattr(getattr(request, "headers", {}), "get", lambda _k, _d=None: None)(
+                "X-Request-Id"
+            )
+        ),
+        meta={
+            "missing_scopes": sorted({str(scope) for scope in missing if str(scope)}),
+            "route": route_path,
+            "method": getattr(request, "method", "UNKNOWN"),
+        },
+    )
+
+
 def require_scopes(required_scopes: Sequence[str]) -> Callable[..., Any]:
     """Require API key scopes for a route.
 
@@ -193,6 +233,7 @@ def require_scopes(required_scopes: Sequence[str]) -> Callable[..., Any]:
         missing = [scope for scope in required if scope not in granted]
 
         if missing:
+            _audit_scope_denied(request, missing)
             raise HTTPException(
                 status_code=403,
                 detail=f"Missing required scopes: {', '.join(missing)}",
