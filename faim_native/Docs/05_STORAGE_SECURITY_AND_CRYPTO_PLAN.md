@@ -24,7 +24,7 @@ This is the security baseline and hardening plan for storage + ingestion.
 - request correlation IDs
 - structured logging with sensitive value redaction
 
-## 2) Security Gap Status (Post Phase D/E/F + K1/K2)
+## 2) Security Gap Status (Post Phase D/E/F + K1-K8)
 
 Implemented:
 
@@ -33,15 +33,20 @@ Implemented:
 3. Upload validators are consistently enforced on ingest/storage upload paths.
 4. Production plaintext fallback is blocked in runtime and routers.
 5. Storage route authz/tenant isolation coverage exists in acceptance tests.
-6. Phase F non-regression suites now cover lifecycle/retry/cancel/delete/retention flows.
-7. API keys/authz + memory API additive contract freeze is defined (Phase K1).
-8. Auth key data model now supports scopes/expiry/lifecycle metadata and append-only key audit table (Phase K2 foundation).
+6. Phase F non-regression suites cover lifecycle/retry/cancel/delete/retention flows.
+7. API keys/authz + memory API additive contract freeze is defined and documented (K1).
+8. Auth key data model supports scopes/expiry/lifecycle metadata and append-only key audit table (K2).
+9. DB-primary API key auth + scope enforcement dependency + tenant/key-aware rate-limit alignment are implemented (K3).
+10. API key management runtime surface (`/api/v1/api-keys/*`) is implemented with tenant-scoped lifecycle operations (K4).
+11. Agent-facing memory API routes (`/api/v1/memory/*`) are implemented with idempotency and optimistic update guards (K5).
+12. Key lifecycle audit taxonomy and denial policy paths are enforced (`denied(scope|expired|revoked)`) with sanitized metadata (K6).
+13. K7 validation confirms authz lifecycle, memory lifecycle, and frontend/API key UI non-regression coverage.
 
 Remaining hardening focus:
 
 1. Historical payload re-encryption program for pre-rollout plaintext blobs.
-2. Environment-level alerting/dashboard integration for security observability signals.
-3. Runtime key-management API endpoints and scope-enforcement wiring (Phase K3+) remain pending.
+2. Environment-level dashboard/alert wiring for security observability signals.
+3. Extended multi-environment soak/chaos security validation (staging/prod-like load windows).
 
 ## 3) Required Security Model for Storage Setup
 
@@ -77,17 +82,19 @@ Remaining hardening focus:
 
 ## 4) Production Hardening Checklist
 
-1. Make raw-store write mandatory before extraction (no bypass in production mode).
-2. Enforce upload content-type, extension, filename, and size limits in ingest router.
-3. Require valid `raw_id` format contract and canonical UUID handling where needed.
-4. Ensure no plaintext secrets/tokens are logged (keep redaction filters active).
-5. Turn off insecure fallback paths in production (env-guarded).
-6. Add storage action audit events:
+1. Make raw-store write mandatory before extraction (no bypass in production mode): implemented.
+2. Enforce upload content-type, extension, filename, and size limits in ingest router: implemented.
+3. Require valid `raw_id` format contract and canonical UUID handling where needed: implemented.
+4. Ensure no plaintext secrets/tokens are logged (keep redaction filters active): implemented.
+5. Turn off insecure fallback paths in production (env-guarded): implemented.
+6. Add storage action audit events: implemented.
 - raw stored
 - dedup hit
 - extraction failed
 - encryption failure
 - deletion requests
+7. Enforce DB-primary API key validation with explicit production-safe fallback policy: implemented.
+8. Enforce route-level scope checks for memory/key-management surfaces: implemented and validated.
 
 ## 5) Deletion and Retention Security
 
@@ -110,6 +117,7 @@ Required automated gates:
 
 Current status:
 
-- These gate categories are implemented in unit/acceptance coverage across Phase D/E/F.
+- These gate categories are implemented in unit/acceptance coverage across Phases D/E/F/K6/K7.
+- Key lifecycle events (`created`, `rotated`, `revoked`, `used`, `denied(scope|expired|revoked)`) are implemented with append-only audit persistence.
 - Key rotation behavior is documented in runbook (`16_STORAGE_OPERATIONS_RUNBOOK.md`) and supported by tenant DEK manager rotation API.
-- Remaining work is deployment-level operations integration (dashboards/alerts and historical blob re-encryption program).
+- Remaining work is deployment-level operations integration (dashboards/alerts, historical blob re-encryption, and extended soak windows).
