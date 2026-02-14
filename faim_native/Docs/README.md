@@ -33,6 +33,8 @@ This folder documents current storage/ingestion behavior and the implementation 
 27. `27_PHASE_K5_MEMORY_API_IMPLEMENTATION_REPORT.md`
 28. `28_PHASE_K6_SECURITY_HARDENING_AUDIT_RATELIMIT_REPORT.md`
 29. `29_PHASE_K7_VALIDATION_NON_REGRESSION_REPORT.md`
+30. `24_PHASE_K_API_KEYS_AUTHZ_REPORT.md`
+31. `25_PHASE_K_MEMORY_API_CONTRACT_REPORT.md`
 
 ## Intent
 
@@ -59,6 +61,8 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Phase K5 agent-facing memory API runtime is documented in 27.
 - Phase K6 security hardening + key audit + endpoint rate-limits is documented in 28.
 - Phase K7 validation + non-regression completion is documented in 29.
+- K8 consolidated API keys/authz implementation summary is documented in 30.
+- K8 consolidated memory contract/runtime summary is documented in 31.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome
