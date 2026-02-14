@@ -8,7 +8,7 @@ This backlog now separates completed delivery from true future enhancements.
 - P1: required for complete storage product
 - P2: optimization/hardening
 
-## Program Status (as of 2026-02-13)
+## Program Status (as of 2026-02-14)
 
 ## Completed Program Scope
 
@@ -30,6 +30,9 @@ This backlog now separates completed delivery from true future enhancements.
 16. Phase K3 - Auth Middleware + Authz Enforcement: completed
 17. Phase K4 - API Key Management API + Frontend Page: completed
 18. Phase K5 - Memory Retrieval/Write API Runtime: completed
+19. Phase K6 - Security Hardening + Audit + Rate Limits: completed
+20. Phase K7 - Validation and Non-Regression: completed
+21. Phase K8 - Documentation + Commits Reconciliation: completed
 
 ## Completed Scope Summary
 
@@ -221,6 +224,39 @@ Evidence:
 
 - `27_PHASE_K5_MEMORY_API_IMPLEMENTATION_REPORT.md`
 
+## Phase K6 Completed
+
+- lifecycle audit events for key runtime paths (`used`, `denied(scope|expired|revoked)`)
+- policy hardening for revoked/expired key rejection codes
+- route-level scope denied audit metadata emission
+- endpoint-level read/write/search rate-limit category policies
+
+Evidence:
+
+- `28_PHASE_K6_SECURITY_HARDENING_AUDIT_RATELIMIT_REPORT.md`
+
+## Phase K7 Completed
+
+- expanded unit and acceptance coverage for key lifecycle and scope matrix
+- memory write/search/get/provenance non-regression coverage
+- frontend API keys e2e flow and failure-state coverage
+- runtime query recency timezone normalization fix validated
+
+Evidence:
+
+- `29_PHASE_K7_VALIDATION_NON_REGRESSION_REPORT.md`
+
+## Phase K8 Completed
+
+- storage/security/backlog/index documentation reconciled to implemented K1-K7 state
+- consolidated summary reports added for API keys/authz and memory contract runtime
+- commit flow executed in scoped documentation commits
+
+Evidence:
+
+- `24_PHASE_K_API_KEYS_AUTHZ_REPORT.md`
+- `25_PHASE_K_MEMORY_API_CONTRACT_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -240,10 +276,13 @@ Evidence:
 | Auth middleware + route scope enforcement baseline | implemented (K3) |
 | API key management runtime API + dashboard UI | implemented (K4) |
 | Agent-facing memory API runtime | implemented (K5) |
+| API key lifecycle audit and policy hardening | implemented (K6) |
+| K-series validation and non-regression matrix | implemented (K7) |
+| K-series documentation and commit reconciliation | implemented (K8) |
 
 ## Future Enhancements Only
 
-These are the remaining non-blocking roadmap items after P0/P1/P2 and A-H delivery.
+These are the remaining non-blocking roadmap items after P0/P1/P2, A-H, and K1-K8 completion.
 
 ## F1 - Security Operations Maturity (P1)
 

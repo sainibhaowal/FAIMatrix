@@ -1,7 +1,7 @@
 # 06 - Storage UI + Backend API Plan
 
 This document started as the no-code implementation plan for storage.
-It is now the design + status record for implemented phases P0/P1/P2, A-H, Phase I, and Phase J, with Phase K1/K2 security-contract foundations tracked for next-stream API work.
+It is now the design + status record for implemented phases P0/P1/P2, A-H, I, J, and K1-K8 documentation/validation reconciliation for authz + memory API stream alignment.
 
 ## Implementation Baseline (2026-02-10)
 
@@ -11,7 +11,7 @@ Actual implemented baseline:
 - frontend: `frontend/src/app/(app)/dashboard/storage/page.tsx`
 - persistence: `storage_files` table + repo + migration
 
-Use this doc as design intent + final status summary. Detailed implementation evidence lives in reports `09` through `22`.
+Use this doc as design intent + final status summary. Detailed implementation evidence lives in reports `09` through `29` plus K8 summary reports.
 
 ## Phase A-H Status Summary
 
@@ -84,6 +84,71 @@ Auth schema/model foundation upgrade completed:
 - ORM/repo support added for create/revoke/rotate audit metadata handling
 
 Evidence: `24_PHASE_K2_AUTH_MODEL_UPGRADE_REPORT.md`
+
+## Phase K3 Update (2026-02-13)
+
+Auth middleware + scope enforcement baseline completed:
+
+- DB-primary tenant key validation with compatibility-gated env fallback
+- request context propagation (`auth_method`, `auth_key_id`, `auth_scopes`)
+- scope dependency wired for protected API surfaces
+- rate-limit category alignment under `/api/v1/*`
+
+Evidence: `25_PHASE_K3_AUTH_MIDDLEWARE_AUTHZ_ENFORCEMENT_REPORT.md`
+
+## Phase K4 Update (2026-02-13)
+
+API key management runtime and UI completed:
+
+- `/api/v1/api-keys/*` create/list/rotate/revoke/audit routes
+- tenant-scoped lifecycle operations and one-time key reveal semantics
+- dashboard API Keys page with scope/expiry controls and audit timeline
+
+Evidence: `26_PHASE_K4_API_KEYS_MANAGEMENT_API_UI_REPORT.md`
+
+## Phase K5 Update (2026-02-13)
+
+Agent-facing memory API runtime completed:
+
+- `/api/v1/memory/search|get|provenance|write|patch`
+- idempotency ledger and optimistic update guard
+- strict tenant and graph isolation semantics
+
+Evidence: `27_PHASE_K5_MEMORY_API_IMPLEMENTATION_REPORT.md`
+
+## Phase K6 Update (2026-02-13)
+
+Security hardening completed for API key and memory surfaces:
+
+- key lifecycle audit taxonomy (`used`, `denied(scope|expired|revoked)`)
+- explicit revoked/expired denial policy paths
+- sanitized audit metadata and redaction-safe logging expectations
+- endpoint-level read/write/search rate-limit categories
+
+Evidence: `28_PHASE_K6_SECURITY_HARDENING_AUDIT_RATELIMIT_REPORT.md`
+
+## Phase K7 Update (2026-02-14)
+
+Validation and non-regression completion:
+
+- expanded unit + acceptance coverage for key lifecycle/scope matrix/memory lifecycle
+- frontend e2e coverage for API key actions and error states
+- runtime recency timestamp normalization fix validated in query path
+
+Evidence: `29_PHASE_K7_VALIDATION_NON_REGRESSION_REPORT.md`
+
+## Phase K8 Update (2026-02-14)
+
+Documentation + commit hygiene reconciliation:
+
+- storage/security/backlog docs aligned with K1-K7 implemented state
+- consolidated API key/authz and memory contract summary reports added
+- commit stream split into scoped doc/report integration steps
+
+Evidence:
+
+- `24_PHASE_K_API_KEYS_AUTHZ_REPORT.md`
+- `25_PHASE_K_MEMORY_API_CONTRACT_REPORT.md`
 
 ## 1) Product Objective
 
@@ -234,7 +299,7 @@ Implemented baseline includes:
 - backend dependency state (`up`/`degraded`/`down`)
 - structured lifecycle logs with correlation IDs
 
-## 9) Future Enhancements Only (Post-Phase G)
+## 9) Future Enhancements Only (Post-Phase K8)
 
 1. historical blob re-encryption program for pre-policy plaintext payloads
 2. environment-level dashboard/alert wiring for storage/security SLOs
