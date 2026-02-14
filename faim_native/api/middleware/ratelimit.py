@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Sequence, Tuple
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -70,6 +70,17 @@ class InMemoryRateLimiter:
             "events": 300,
             "storage": 60,
             "api_keys": 30,
+            # K6 endpoint policy categories
+            "ingest_write": 60,
+            "query_read": 120,
+            "events_stream": 300,
+            "storage_read": 120,
+            "storage_write": 60,
+            "api_keys_read": 60,
+            "api_keys_write": 20,
+            "memory_search": 120,
+            "memory_read": 120,
+            "memory_write": 60,
         }
 
     def set_limits(self, limits: Dict[str, int]) -> None:
@@ -84,6 +95,26 @@ class InMemoryRateLimiter:
             self._limits["storage"] = limits["storage_per_minute"]
         if "api_keys_per_minute" in limits:
             self._limits["api_keys"] = limits["api_keys_per_minute"]
+        if "ingest_write_per_minute" in limits:
+            self._limits["ingest_write"] = limits["ingest_write_per_minute"]
+        if "query_read_per_minute" in limits:
+            self._limits["query_read"] = limits["query_read_per_minute"]
+        if "events_stream_per_minute" in limits:
+            self._limits["events_stream"] = limits["events_stream_per_minute"]
+        if "storage_read_per_minute" in limits:
+            self._limits["storage_read"] = limits["storage_read_per_minute"]
+        if "storage_write_per_minute" in limits:
+            self._limits["storage_write"] = limits["storage_write_per_minute"]
+        if "api_keys_read_per_minute" in limits:
+            self._limits["api_keys_read"] = limits["api_keys_read_per_minute"]
+        if "api_keys_write_per_minute" in limits:
+            self._limits["api_keys_write"] = limits["api_keys_write_per_minute"]
+        if "memory_search_per_minute" in limits:
+            self._limits["memory_search"] = limits["memory_search_per_minute"]
+        if "memory_read_per_minute" in limits:
+            self._limits["memory_read"] = limits["memory_read_per_minute"]
+        if "memory_write_per_minute" in limits:
+            self._limits["memory_write"] = limits["memory_write_per_minute"]
 
     def _get_bucket_key(self, tenant_id: str, endpoint: str, identity: str) -> str:
         return f"{tenant_id}:{identity}:{endpoint}"
@@ -127,7 +158,7 @@ def get_rate_limiter() -> InMemoryRateLimiter:
 # Middleware
 # =============================================================================
 
-# Endpoint to rate limit category mapping
+# Endpoint to rate limit category mapping (legacy compatibility)
 ENDPOINT_CATEGORIES = {
     # Current API routes
     "/api/v1/storage": "storage",
@@ -143,6 +174,56 @@ ENDPOINT_CATEGORIES = {
     "/v1/query": "query",
     "/v1/events": "events",
 }
+
+
+@dataclass(frozen=True)
+class EndpointRateRule:
+    method: str
+    prefix: str
+    category: str
+
+
+ENDPOINT_METHOD_CATEGORIES: Sequence[EndpointRateRule] = (
+    EndpointRateRule("POST", "/api/v1/ingest/upload", "ingest_write"),
+    EndpointRateRule("POST", "/api/v1/ingest", "ingest_write"),
+    EndpointRateRule("POST", "/api/v1/query", "query_read"),
+    EndpointRateRule("GET", "/api/v1/events", "events_stream"),
+    EndpointRateRule("POST", "/api/v1/storage", "storage_write"),
+    EndpointRateRule("DELETE", "/api/v1/storage", "storage_write"),
+    EndpointRateRule("GET", "/api/v1/storage", "storage_read"),
+    EndpointRateRule("POST", "/api/v1/api-keys", "api_keys_write"),
+    EndpointRateRule("GET", "/api/v1/api-keys", "api_keys_read"),
+    EndpointRateRule("POST", "/api/v1/memory/search", "memory_search"),
+    EndpointRateRule("GET", "/api/v1/memory", "memory_read"),
+    EndpointRateRule("POST", "/api/v1/memory/write", "memory_write"),
+    EndpointRateRule("PATCH", "/api/v1/memory", "memory_write"),
+    # Legacy compatibility routes
+    EndpointRateRule("POST", "/v1/ingest", "ingest_write"),
+    EndpointRateRule("POST", "/v1/query", "query_read"),
+    EndpointRateRule("GET", "/v1/events", "events_stream"),
+)
+
+
+def _path_matches(path: str, prefix: str) -> bool:
+    normalized = prefix.rstrip("/")
+    if path == normalized:
+        return True
+    return path.startswith(normalized + "/")
+
+
+def classify_endpoint_category(method: str, path: str) -> Optional[str]:
+    """Classify endpoint into rate-limit category (method-aware first)."""
+    upper_method = method.upper()
+    for rule in ENDPOINT_METHOD_CATEGORIES:
+        if rule.method != upper_method:
+            continue
+        if _path_matches(path, rule.prefix):
+            return rule.category
+
+    for prefix in sorted(ENDPOINT_CATEGORIES.keys(), key=len, reverse=True):
+        if _path_matches(path, prefix):
+            return ENDPOINT_CATEGORIES[prefix]
+    return None
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -170,11 +251,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Determine endpoint category
         path = request.url.path
-        category = None
-        for prefix in sorted(ENDPOINT_CATEGORIES.keys(), key=len, reverse=True):
-            if path.startswith(prefix):
-                category = ENDPOINT_CATEGORIES[prefix]
-                break
+        category = classify_endpoint_category(request.method, path)
 
         if not category:
             # Not a rate-limited endpoint

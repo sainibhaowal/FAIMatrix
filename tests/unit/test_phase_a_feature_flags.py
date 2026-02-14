@@ -53,6 +53,22 @@ def test_validate_feature_flags_requires_encryption_in_prod(monkeypatch):
     assert any("requires FAIM_ENCRYPTION_AT_REST=true" in e for e in errors)
 
 
+def test_validate_feature_flags_requires_scope_enforcement_in_prod(monkeypatch):
+    from runtime.feature_flags import FeatureFlags, validate_feature_flags
+
+    monkeypatch.setenv("FAIM_ENV", "production")
+    monkeypatch.setenv("FAIM_ENCRYPTION_AT_REST", "true")
+    flags = FeatureFlags(
+        encryption_fail_closed=True,
+        auth_db_primary=True,
+        auth_env_fallback_enabled=False,
+        auth_scope_enforcement_enabled=False,
+    )
+    errors, _warnings = validate_feature_flags(flags)
+
+    assert any("FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED=true" in e for e in errors)
+
+
 def test_runtime_config_parses_phase_a_flags(monkeypatch):
     from runtime.config import load_config, reset_config
 

@@ -21,6 +21,7 @@ def test_runtime_config_requires_encryption_and_fail_closed_in_production(monkey
             message = str(exc)
             assert "Production requires FAIM_ENCRYPTION_AT_REST=true" in message
             assert "Production requires FAIM_ENCRYPTION_FAIL_CLOSED=true" in message
+            assert "Production requires FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED=true" in message
     finally:
         reset_config()
 

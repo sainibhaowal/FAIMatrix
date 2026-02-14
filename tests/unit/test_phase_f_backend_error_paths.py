@@ -114,3 +114,37 @@ def test_job_store_append_event_assigns_monotonic_seq(session_factory):
         assert len(events) == 2
         assert int(events[0].seq) >= 1
         assert int(events[1].seq) == int(events[0].seq) + 1
+
+
+def test_k6_redact_sensitive_masks_api_key_and_bearer():
+    from runtime.logging import redact_sensitive
+
+    message = (
+        "request headers X-Api-Key: faim_a1b2c3_superSecretValue "
+        "Authorization: Bearer verySensitiveBearerToken"
+    )
+    redacted = redact_sensitive(message)
+
+    assert "superSecretValue" not in redacted
+    assert "verySensitiveBearerToken" not in redacted
+    assert "[REDACTED]" in redacted
+
+
+def test_k6_sanitize_audit_meta_drops_secret_fields():
+    from api.middleware.auth import _sanitize_audit_meta
+
+    cleaned = _sanitize_audit_meta(
+        {
+            "api_key": "faim_a1b2c3_secret",
+            "authorization": "Bearer token",
+            "plaintext_key": "plain",
+            "route": "/api/v1/memory/write",
+            "missing_scopes": ["memory.write"],
+        }
+    )
+
+    assert "api_key" not in cleaned
+    assert "authorization" not in cleaned
+    assert "plaintext_key" not in cleaned
+    assert cleaned["route"] == "/api/v1/memory/write"
+    assert cleaned["missing_scopes"] == ["memory.write"]

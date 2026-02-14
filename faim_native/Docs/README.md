@@ -31,6 +31,8 @@ This folder documents current storage/ingestion behavior and the implementation 
 25. `25_PHASE_K3_AUTH_MIDDLEWARE_AUTHZ_ENFORCEMENT_REPORT.md`
 26. `26_PHASE_K4_API_KEYS_MANAGEMENT_API_UI_REPORT.md`
 27. `27_PHASE_K5_MEMORY_API_IMPLEMENTATION_REPORT.md`
+28. `28_PHASE_K6_SECURITY_HARDENING_AUDIT_RATELIMIT_REPORT.md`
+29. `29_PHASE_K7_VALIDATION_NON_REGRESSION_REPORT.md`
 
 ## Intent
 
@@ -55,6 +57,8 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Phase K3 auth middleware + authz enforcement is documented in 25.
 - Phase K4 API key management API + dashboard UI is documented in 26.
 - Phase K5 agent-facing memory API runtime is documented in 27.
+- Phase K6 security hardening + key audit + endpoint rate-limits is documented in 28.
+- Phase K7 validation + non-regression completion is documented in 29.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

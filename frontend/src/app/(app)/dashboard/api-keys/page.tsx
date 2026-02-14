@@ -181,7 +181,7 @@ function computeExpiryIso(selection: string): string | undefined {
 
 export default function ApiKeysPage() {
   const { data: session } = useSession();
-  const { notifySuccess, notifyError, notifyInfo } = useToast();
+  const { toast } = useToast();
 
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
   const [auditItems, setAuditItems] = useState<ApiKeyAuditItem[]>([]);
@@ -217,11 +217,11 @@ export default function ApiKeysPage() {
       setKeys(data.items || []);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load API keys";
-      notifyError(msg);
+      toast.error(msg);
     } finally {
       setLoadingKeys(false);
     }
-  }, [includeRevoked, notifyError]);
+  }, [includeRevoked, toast]);
 
   const loadAudit = useCallback(async () => {
     setLoadingAudit(true);
@@ -235,11 +235,11 @@ export default function ApiKeysPage() {
       setAuditItems(data.items || []);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to load API key audit";
-      notifyError(msg);
+      toast.error(msg);
     } finally {
       setLoadingAudit(false);
     }
-  }, [auditKeyFilter, notifyError]);
+  }, [auditKeyFilter, toast]);
 
   useEffect(() => {
     void loadKeys();
@@ -273,7 +273,7 @@ export default function ApiKeysPage() {
 
   const createKey = async () => {
     if (selectedScopes.length === 0) {
-      notifyInfo("Select at least one scope before creating a key.");
+      toast.info("Select at least one scope before creating a key.");
       return;
     }
 
@@ -298,11 +298,11 @@ export default function ApiKeysPage() {
       });
       setLabel("");
 
-      notifySuccess("API key created. Copy it now; it is shown only once.");
+      toast.success("API key created. Copy it now; it is shown only once.");
       await Promise.all([loadKeys(), loadAudit()]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to create key";
-      notifyError(msg);
+      toast.error(msg);
     } finally {
       setCreating(false);
     }
@@ -330,11 +330,11 @@ export default function ApiKeysPage() {
         plaintext: response.plaintext_key,
         mode: "rotated",
       });
-      notifySuccess("API key rotated. Copy the new key now.");
+      toast.success("API key rotated. Copy the new key now.");
       await Promise.all([loadKeys(), loadAudit()]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to rotate key";
-      notifyError(msg);
+      toast.error(msg);
     } finally {
       setBusyKeyId(null);
     }
@@ -356,11 +356,11 @@ export default function ApiKeysPage() {
           }),
         },
       );
-      notifySuccess("API key revoked.");
+      toast.success("API key revoked.");
       await Promise.all([loadKeys(), loadAudit()]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to revoke key";
-      notifyError(msg);
+      toast.error(msg);
     } finally {
       setBusyKeyId(null);
     }
@@ -370,9 +370,9 @@ export default function ApiKeysPage() {
     if (!reveal?.plaintext) return;
     try {
       await navigator.clipboard.writeText(reveal.plaintext);
-      notifySuccess("API key copied to clipboard.");
+      toast.success("API key copied to clipboard.");
     } catch {
-      notifyError("Clipboard access failed. Copy manually.");
+      toast.error("Clipboard access failed. Copy manually.");
     }
   };
 

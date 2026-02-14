@@ -20,6 +20,8 @@ from typing import Any, Dict, List, Pattern
 
 # Patterns that will be redacted from log messages
 REDACT_PATTERNS: List[Pattern] = [
+    # Authorization header with full value (must run before generic header patterns)
+    re.compile(r"(?i)Authorization:\s+\S+.*", re.IGNORECASE),
     # API keys and authorization headers
     re.compile(
         r'(?i)(x-api-key|x-admin-key|authorization)[=:\s"\']+[^\s"\']+', re.IGNORECASE
@@ -32,8 +34,6 @@ REDACT_PATTERNS: List[Pattern] = [
     re.compile(r"(?i)redis://[^@]+@", re.IGNORECASE),
     # Bearer tokens (redact entire line portion after Bearer)
     re.compile(r"Bearer\s+\S+", re.IGNORECASE),
-    # Authorization header with full value
-    re.compile(r"(?i)Authorization:\s+\S+.*", re.IGNORECASE),
     # FAIM-specific key patterns
     re.compile(r"faim_[a-f0-9]{6}_[a-zA-Z0-9_-]+"),  # Generated API keys
     re.compile(r"admin_[a-f0-9]{6}_[a-zA-Z0-9_-]+"),  # Admin keys

@@ -326,6 +326,10 @@ def test_k4_rotate_and_revoke_idempotency_guards(monkeypatch):
     rotated_body = rotated.json()
     new_key_id = rotated_body["new_key"]["key_id"]
     assert new_key_id != original_key_id
+    assert rotated_body["new_key"]["rotated_from_key_id"] == original_key_id
+    assert sorted(rotated_body["new_key"]["scopes"]) == ["keys.read", "keys.write"]
+    assert rotated_body["old_key"]["revoked_at"] is not None
+    assert rotated_body["old_key"]["is_active"] is False
 
     # Old key is already revoked by rotate path.
     old_revoke = client.post(
