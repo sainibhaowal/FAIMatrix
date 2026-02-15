@@ -235,7 +235,7 @@ export const Select: React.FC<SelectProps> = ({
             className={[
               "z-[var(--z-dropdown)]",
               "py-1 rounded-xl",
-              "bg-[var(--surface-2)]",
+              "bg-[var(--os-bg)]",
               "border border-[var(--border-default)]",
               "shadow-[var(--shadow-xl)]",
               "overflow-hidden",
@@ -440,7 +440,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
             className={[
               "z-[var(--z-dropdown)]",
               "py-1 rounded-xl",
-              "bg-[var(--surface-2)]",
+              "bg-[var(--os-bg)]",
               "border border-[var(--border-default)]",
               "shadow-[var(--shadow-xl)]",
               "overflow-hidden max-h-60 overflow-y-auto",

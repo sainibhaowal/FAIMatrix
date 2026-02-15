@@ -56,6 +56,62 @@
 
     /* Animation */
     --ease-faim: cubic-bezier(0.16, 1, 0.3, 1);
+
+    /* -----------------------------------------------------------------------
+       Compatibility Tokens (legacy UI primitives mapped to current OS theme)
+       ----------------------------------------------------------------------- */
+    --surface-0: var(--os-bg);
+    --surface-1: var(--os-surface-1);
+    --surface-2: var(--os-surface-2);
+    --surface-3: var(--os-surface-3);
+
+    --text-primary: var(--os-text-1);
+    --text-secondary: var(--os-text-2);
+    --text-tertiary: var(--os-text-3);
+    --text-muted: var(--os-text-3);
+
+    --border-default: var(--os-stroke);
+    --border-primary: rgba(255, 255, 255, 0.18);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+
+    --glass-bg: rgba(255, 255, 255, 0.04);
+    --glass-hover: rgba(255, 255, 255, 0.06);
+
+    --faim-primary: #22d3ee;
+    --faim-primary-hover: #67e8f9;
+    --faim-primary-muted: rgba(34, 211, 238, 0.14);
+    --faim-secondary: #a78bfa;
+    --faim-secondary-muted: rgba(167, 139, 250, 0.14);
+    --faim-accent: #f472b6;
+    --faim-success: #34d399;
+    --faim-success-muted: rgba(52, 211, 153, 0.14);
+    --faim-success-text: #6ee7b7;
+    --faim-warning: #fbbf24;
+    --faim-warning-muted: rgba(251, 191, 36, 0.14);
+    --faim-warning-text: #fcd34d;
+    --faim-error: #f87171;
+    --faim-error-muted: rgba(248, 113, 113, 0.14);
+    --faim-error-text: #fca5a5;
+    --faim-info: #60a5fa;
+    --faim-info-muted: rgba(96, 165, 250, 0.14);
+    --faim-info-text: #93c5fd;
+
+    --glow-cyan: 0 8px 20px rgba(34, 211, 238, 0.16);
+    --glow-error: 0 8px 20px rgba(248, 113, 113, 0.16);
+
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-full: 9999px;
+
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.28);
+    --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.36);
+
+    --z-toast: 80;
+    --z-dropdown: 90;
+    --z-modal: 70;
+    --z-tooltip: 90;
   }
 
   * {

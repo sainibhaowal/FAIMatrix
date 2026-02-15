@@ -2,6 +2,8 @@
 
 import {
   Copy,
+  Eye,
+  EyeOff,
   KeyRound,
   RefreshCw,
   RotateCcw,
@@ -128,6 +130,11 @@ function formatTs(value?: string | null): string {
   return ts.toLocaleString();
 }
 
+function maskSecret(value: string): string {
+  const len = Math.max(24, Math.min(96, value.length));
+  return "•".repeat(len);
+}
+
 async function authHeaders(extra?: HeadersInit): Promise<HeadersInit> {
   const session = await getSession();
   const token = (session as { accessToken?: string } | null)?.accessToken;
@@ -202,6 +209,7 @@ export default function ApiKeysPage() {
   const [creating, setCreating] = useState(false);
   const [busyKeyId, setBusyKeyId] = useState<string | null>(null);
   const [reveal, setReveal] = useState<RevealState | null>(null);
+  const [isRevealVisible, setIsRevealVisible] = useState(false);
 
   const userName = useMemo(() => {
     const typed = session as { user?: { email?: string; name?: string } } | null;
@@ -296,6 +304,7 @@ export default function ApiKeysPage() {
         plaintext: response.plaintext_key,
         mode: "created",
       });
+      setIsRevealVisible(false);
       setLabel("");
 
       toast.success("API key created. Copy it now; it is shown only once.");
@@ -330,6 +339,7 @@ export default function ApiKeysPage() {
         plaintext: response.plaintext_key,
         mode: "rotated",
       });
+      setIsRevealVisible(false);
       toast.success("API key rotated. Copy the new key now.");
       await Promise.all([loadKeys(), loadAudit()]);
     } catch (err) {
@@ -377,11 +387,11 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div className="space-y-6 pb-8 text-[var(--text-primary)]">
+    <div className="space-y-6 pb-8 text-slate-100">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">API Keys</h1>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">
+          <h1 className="text-xl font-semibold">API Keys</h1>
+          <p className="mt-1 text-sm text-slate-400">
             Tenant-scoped key lifecycle, scope control, rotation, revocation, and audit history.
           </p>
         </div>
@@ -399,19 +409,27 @@ export default function ApiKeysPage() {
       </header>
 
       {reveal && (
-        <Card className="rounded-2xl border border-[var(--faim-warning)]/30 bg-[var(--faim-warning-muted)]">
+        <Card className="os-card rounded-2xl border-amber-500/20 bg-amber-500/5">
           <CardHeader
             title="One-time key reveal"
             description={`${reveal.mode === "created" ? "New" : "Rotated"} key: ${reveal.keyId}`}
           />
           <CardContent className="space-y-3 pt-3">
-            <p className="text-xs text-[var(--text-secondary)]">
+            <p className="text-xs text-slate-300">
               Save this key now. It will not be shown again.
             </p>
-            <div className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-2)] p-3 font-mono text-xs break-all">
-              {reveal.plaintext}
+            <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 font-mono text-xs break-all text-slate-100">
+              {isRevealVisible ? reveal.plaintext : maskSecret(reveal.plaintext)}
             </div>
             <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                leftIcon={isRevealVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                onClick={() => setIsRevealVisible((prev) => !prev)}
+              >
+                {isRevealVisible ? "Hide key" : "Show key"}
+              </Button>
               <Button size="sm" variant="primary" leftIcon={<Copy size={14} />} onClick={copyReveal}>
                 Copy key
               </Button>
@@ -423,8 +441,8 @@ export default function ApiKeysPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="rounded-2xl">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+        <Card className="os-card rounded-2xl">
           <CardHeader title="Create API key" description={`Actor: ${userName}`} />
           <CardContent className="space-y-4 pt-4">
             <Input
@@ -435,7 +453,7 @@ export default function ApiKeysPage() {
             />
 
             <div className="space-y-2">
-              <p className="text-xs text-[var(--text-secondary)]">Scopes</p>
+              <p className="text-xs text-slate-400">Scopes</p>
               <div className="flex flex-wrap gap-2">
                 {AVAILABLE_SCOPES.map((scope) => {
                   const selected = selectedScopes.includes(scope);
@@ -446,8 +464,8 @@ export default function ApiKeysPage() {
                       className={[
                         "rounded-lg border px-2 py-1 text-xs transition-colors",
                         selected
-                          ? "border-[var(--faim-primary)] bg-[var(--faim-primary-muted)] text-[var(--faim-primary)]"
-                          : "border-[var(--border-default)] bg-[var(--surface-2)] text-[var(--text-secondary)] hover:border-[var(--border-primary)]",
+                          ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
+                          : "border-slate-700 bg-slate-950/50 text-slate-300 hover:border-slate-500 hover:bg-slate-900/60",
                       ].join(" ")}
                       onClick={() => toggleScope(scope)}
                     >
@@ -477,7 +495,7 @@ export default function ApiKeysPage() {
           </CardContent>
         </Card>
 
-        <Card className="rounded-2xl lg:col-span-2">
+        <Card className="os-card rounded-2xl lg:col-span-2">
           <CardHeader
             title="Key inventory"
             description={`Total ${summary.total} | Active ${summary.active} | Revoked ${summary.revoked} | Expired ${summary.expired}`}
@@ -491,88 +509,91 @@ export default function ApiKeysPage() {
               </Button>
             }
           />
-          <CardContent className="space-y-3 pt-4">
-            {loadingKeys && <p className="text-sm text-[var(--text-secondary)]">Loading keys...</p>}
+          <CardContent className="pt-4">
+            {loadingKeys && <p className="text-sm text-slate-400">Loading keys...</p>}
             {!loadingKeys && keys.length === 0 && (
-              <p className="text-sm text-[var(--text-secondary)]">No API keys found for this tenant.</p>
+              <p className="text-sm text-slate-400">No API keys found for this tenant.</p>
             )}
 
-            {!loadingKeys &&
-              keys.map((item) => {
-                const status = statusForKey(item);
-                const isBusy = busyKeyId === item.key_id;
-                return (
-                  <div
-                    key={item.key_id}
-                    className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-2)] p-3"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="space-y-1">
-                        <p className="font-mono text-sm">{item.key_prefix}</p>
-                        <p className="text-xs text-[var(--text-secondary)]">
-                          key_id: {shortId(item.key_id)} | created: {formatTs(item.created_at)}
-                        </p>
-                        <p className="text-xs text-[var(--text-secondary)]">
-                          expires: {formatTs(item.expires_at)} | last used: {formatTs(item.last_used_at)}
-                        </p>
+            {!loadingKeys && keys.length > 0 && (
+              <div className="mt-3 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+                {keys.map((item) => {
+                  const status = statusForKey(item);
+                  const isBusy = busyKeyId === item.key_id;
+                  return (
+                    <div
+                      key={item.key_id}
+                      className="rounded-xl border border-slate-800 bg-slate-950/45 p-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <p className="font-mono text-sm">{item.key_prefix}</p>
+                          <p className="text-xs text-slate-400">
+                            key_id: {shortId(item.key_id)} | created: {formatTs(item.created_at)}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            expires: {formatTs(item.expires_at)} | last used: {formatTs(item.last_used_at)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {status === "active" && (
+                            <Badge variant="success" icon={<ShieldCheck size={12} />}>
+                              active
+                            </Badge>
+                          )}
+                          {status === "revoked" && (
+                            <Badge variant="error" icon={<ShieldOff size={12} />}>
+                              revoked
+                            </Badge>
+                          )}
+                          {status === "expired" && (
+                            <Badge variant="warning" icon={<Shield size={12} />}>
+                              expired
+                            </Badge>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            leftIcon={<RotateCcw size={14} />}
+                            onClick={() => rotateKey(item.key_id)}
+                            disabled={Boolean(item.revoked_at) || isBusy}
+                            loading={isBusy}
+                          >
+                            Rotate
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            leftIcon={<Trash2 size={14} />}
+                            onClick={() => revokeKey(item.key_id)}
+                            disabled={Boolean(item.revoked_at) || isBusy}
+                            loading={isBusy}
+                          >
+                            Revoke
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        {status === "active" && (
-                          <Badge variant="success" icon={<ShieldCheck size={12} />}>
-                            active
-                          </Badge>
+                      <div className="mt-3 flex flex-wrap gap-1.5">
+                        {item.scopes.length === 0 ? (
+                          <Badge variant="default">no scopes</Badge>
+                        ) : (
+                          item.scopes.map((scope) => (
+                            <Badge key={`${item.key_id}:${scope}`} size="xs" variant="info">
+                              {scope}
+                            </Badge>
+                          ))
                         )}
-                        {status === "revoked" && (
-                          <Badge variant="error" icon={<ShieldOff size={12} />}>
-                            revoked
-                          </Badge>
-                        )}
-                        {status === "expired" && (
-                          <Badge variant="warning" icon={<Shield size={12} />}>
-                            expired
-                          </Badge>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          leftIcon={<RotateCcw size={14} />}
-                          onClick={() => rotateKey(item.key_id)}
-                          disabled={Boolean(item.revoked_at) || isBusy}
-                          loading={isBusy}
-                        >
-                          Rotate
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          leftIcon={<Trash2 size={14} />}
-                          onClick={() => revokeKey(item.key_id)}
-                          disabled={Boolean(item.revoked_at) || isBusy}
-                          loading={isBusy}
-                        >
-                          Revoke
-                        </Button>
                       </div>
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {item.scopes.length === 0 ? (
-                        <Badge variant="default">no scopes</Badge>
-                      ) : (
-                        item.scopes.map((scope) => (
-                          <Badge key={`${item.key_id}:${scope}`} size="xs" variant="info">
-                            {scope}
-                          </Badge>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      <Card className="rounded-2xl">
+      <Card className="os-card rounded-2xl">
         <CardHeader
           title="Key audit timeline"
           description="Lifecycle events for key creation, rotation, revocation, and verification."
@@ -594,30 +615,33 @@ export default function ApiKeysPage() {
           }
         />
         <CardContent className="space-y-2 pt-4">
-          {loadingAudit && <p className="text-sm text-[var(--text-secondary)]">Loading audit timeline...</p>}
+          {loadingAudit && <p className="text-sm text-slate-400">Loading audit timeline...</p>}
           {!loadingAudit && auditItems.length === 0 && (
-            <p className="text-sm text-[var(--text-secondary)]">No audit events available.</p>
+            <p className="text-sm text-slate-400">No audit events available.</p>
           )}
-          {!loadingAudit &&
-            auditItems.map((event) => (
-              <div
-                key={event.id}
-                className="rounded-xl border border-[var(--border-default)] bg-[var(--surface-2)] p-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">{event.action}</Badge>
-                    <span className="font-mono text-xs text-[var(--text-secondary)]">
-                      {shortId(event.key_id)}
-                    </span>
+          {!loadingAudit && auditItems.length > 0 && (
+            <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
+              {auditItems.map((event) => (
+                <div
+                  key={event.id}
+                  className="rounded-xl border border-slate-800 bg-slate-950/45 p-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline">{event.action}</Badge>
+                      <span className="font-mono text-xs text-slate-400">
+                        {shortId(event.key_id)}
+                      </span>
+                    </div>
+                    <span className="text-xs text-slate-400">{formatTs(event.created_at)}</span>
                   </div>
-                  <span className="text-xs text-[var(--text-secondary)]">{formatTs(event.created_at)}</span>
+                  <p className="mt-2 text-xs text-slate-400">
+                    actor: {event.actor || "-"} | request: {event.request_id || "-"}
+                  </p>
                 </div>
-                <p className="mt-2 text-xs text-[var(--text-secondary)]">
-                  actor: {event.actor || "-"} | request: {event.request_id || "-"}
-                </p>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
