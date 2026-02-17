@@ -24,6 +24,11 @@ Optional env vars:
 - FAIM_SELF_INVENT_MIN_COACTIVATION_COUNT
 - FAIM_SELF_INVENT_LAMBDA_THRESHOLD
 - FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION
+- FAIM_SELF_EVOLVE_ENABLED
+- FAIM_SELF_EVOLVE_TRIGGER_MODE
+- FAIM_SELF_EVOLVE_MIN_INTERVAL_SECONDS
+- FAIM_SELF_EVOLVE_MIN_VERSION_DELTA
+- FAIM_SELF_EVOLVE_MAX_ACTIONS
 - FAIM_OCR_ENABLED
 - FAIM_OCR_ENGINE
 - FAIM_OCR_FAIL_CLOSED
@@ -141,6 +146,11 @@ class FAIMConfig:
     self_invent_min_coactivation_count: int = 3
     self_invent_lambda_threshold: float = 0.3
     self_invent_min_redundancy_reduction: float = 0.01
+    self_evolve_enabled: bool = False
+    self_evolve_trigger_mode: str = "manual"
+    self_evolve_min_interval_seconds: int = 300
+    self_evolve_min_version_delta: int = 1
+    self_evolve_max_actions: int = 25
     ocr_enabled: bool = False
     ocr_engine: str = "tesseract"
     ocr_fail_closed: bool = False
@@ -246,6 +256,28 @@ class FAIMConfig:
             errors.append(
                 "FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION must be in [0, 1]"
             )
+        trigger_mode = str(self.self_evolve_trigger_mode or "").strip().lower()
+        allowed_modes = {"manual", "post_upload", "periodic", "hybrid"}
+        if trigger_mode not in allowed_modes:
+            errors.append(
+                "FAIM_SELF_EVOLVE_TRIGGER_MODE must be one of: "
+                "manual, post_upload, periodic, hybrid"
+            )
+        if (
+            self.self_evolve_enabled
+            and trigger_mode in {"post_upload", "periodic", "hybrid"}
+            and not self.enable_jobs
+        ):
+            errors.append(
+                "FAIM_SELF_EVOLVE_ENABLED with trigger mode "
+                f"'{trigger_mode}' requires FAIM_ENABLE_JOBS=true"
+            )
+        if self.self_evolve_min_interval_seconds < 30:
+            errors.append("FAIM_SELF_EVOLVE_MIN_INTERVAL_SECONDS must be >= 30")
+        if self.self_evolve_min_version_delta < 1:
+            errors.append("FAIM_SELF_EVOLVE_MIN_VERSION_DELTA must be >= 1")
+        if self.self_evolve_max_actions < 1:
+            errors.append("FAIM_SELF_EVOLVE_MAX_ACTIONS must be >= 1")
 
         return errors
 
@@ -341,6 +373,18 @@ def load_config() -> FAIMConfig:
         self_invent_min_redundancy_reduction=parse_float_env(
             "FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION", 0.01
         ),
+        self_evolve_enabled=parse_bool_env("FAIM_SELF_EVOLVE_ENABLED", False),
+        self_evolve_trigger_mode=(
+            os.environ.get("FAIM_SELF_EVOLVE_TRIGGER_MODE", "manual").strip().lower()
+            or "manual"
+        ),
+        self_evolve_min_interval_seconds=parse_int_env(
+            "FAIM_SELF_EVOLVE_MIN_INTERVAL_SECONDS", 300
+        ),
+        self_evolve_min_version_delta=parse_int_env(
+            "FAIM_SELF_EVOLVE_MIN_VERSION_DELTA", 1
+        ),
+        self_evolve_max_actions=parse_int_env("FAIM_SELF_EVOLVE_MAX_ACTIONS", 25),
         ocr_enabled=parse_bool_env("FAIM_OCR_ENABLED", False),
         ocr_engine=os.environ.get("FAIM_OCR_ENGINE", "tesseract").strip().lower()
         or "tesseract",
