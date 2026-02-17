@@ -198,6 +198,7 @@ class Worker:
             tenant_id=tenant_id,
             session=session,
             profile=payload.get("profile", "strict"),
+            self_invent_requested=payload.get("self_invent_requested"),
         )
 
         if result.status == "error":

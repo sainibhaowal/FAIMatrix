@@ -39,6 +39,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 33. `31_PHASE_S2_SELF_EVOLUTION_STATE_REPORT.md`
 34. `32_PHASE_S3_CENTRALIZED_SELF_EVOLVE_TRIGGER_REPORT.md`
 35. `33_PHASE_S4_WORKER_AUTONOMOUS_SCHEDULER_REPORT.md`
+36. `34_PHASE_S5_EVOLVE_INVENTION_CORE_HARDENING_REPORT.md`
 
 ## Intent
 
@@ -71,6 +72,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Phase S2 durable self-evolution scheduler state is documented in 33.
 - Phase S3 centralized self-evolve trigger routing is documented in 34.
 - Phase S4 worker autonomous self-evolve scheduling fallback is documented in 35.
+- Phase S5 evolve/invention core hardening is documented in 36.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

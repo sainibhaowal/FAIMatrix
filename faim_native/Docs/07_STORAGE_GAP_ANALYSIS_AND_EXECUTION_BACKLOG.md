@@ -35,6 +35,9 @@ This backlog now separates completed delivery from true future enhancements.
 21. Phase K8 - Documentation + Commits Reconciliation: completed
 22. Phase S1 - Self-by-Default Contract + Guardrails: completed
 23. Phase S2 - Durable Self-Evolution Scheduler State (migration-first): completed
+24. Phase S3 - Centralized Self-Evolve Trigger (single source-of-truth): completed
+25. Phase S4 - Worker Autonomous Scheduling Fallback: completed
+26. Phase S5 - Evolve/Invention Core Hardening: completed
 
 ## Completed Scope Summary
 
@@ -309,6 +312,21 @@ Evidence:
 
 - `33_PHASE_S4_WORKER_AUTONOMOUS_SCHEDULER_REPORT.md`
 
+## Phase S5 Completed
+
+- evolve core invention decision moved to config/orchestration settings (no direct env reads)
+- explicit `EVOLUTION_SKIPPED` observability reasons added:
+  - `insufficient_nodes`
+  - `no_actions_after_evaluation`
+- prune defaults made practically effective with real touch-count behavior
+  - default `PrunePolicy.max_touch_count = 1`
+- orchestration/worker now pass invention request intent through run-time evolve wiring
+- deterministic ordering and strict-mode invariants preserved
+
+Evidence:
+
+- `34_PHASE_S5_EVOLVE_INVENTION_CORE_HARDENING_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -326,6 +344,7 @@ Evidence:
 | Self-evolution durable scheduler state | implemented (state + due-selection repo, no behavior switch yet) |
 | Self-evolution trigger source-of-truth | implemented (shared helper wired for storage + ingest + memory writes) |
 | Self-evolution autonomous worker fallback | implemented (periodic due-scan enqueue for periodic/hybrid modes) |
+| Self-evolution core hardening (config-driven invention, skip observability, practical prune defaults) | implemented (S5) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |
