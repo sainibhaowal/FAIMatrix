@@ -13,6 +13,8 @@ def _mk_client(monkeypatch, tenant_id: str, api_key: str):
 
     monkeypatch.setenv("FAIM_ENV", "development")
     monkeypatch.setenv("FAIM_ENABLE_JOBS", "true")
+    monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "false")
+    monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
     monkeypatch.setenv("TENANT_KEYS_JSON", f'{{"{tenant_id}":["{api_key}"]}}')
     reset_config()
     reload_tenant_keys()
