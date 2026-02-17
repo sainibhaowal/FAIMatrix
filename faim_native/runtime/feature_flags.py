@@ -46,6 +46,7 @@ class FeatureFlags:
     self_evolve_min_interval_seconds: int = 300
     self_evolve_min_version_delta: int = 1
     self_evolve_max_actions: int = 25
+    self_evolve_scan_interval_seconds: int = 60
     auth_db_primary: bool = True
     auth_env_fallback_enabled: bool = False
     auth_scope_enforcement_enabled: bool = False
@@ -85,6 +86,9 @@ def get_feature_flags() -> FeatureFlags:
             "FAIM_SELF_EVOLVE_MIN_VERSION_DELTA", 1
         ),
         self_evolve_max_actions=_parse_int("FAIM_SELF_EVOLVE_MAX_ACTIONS", 25),
+        self_evolve_scan_interval_seconds=_parse_int(
+            "FAIM_SELF_EVOLVE_SCAN_INTERVAL_SECONDS", 60
+        ),
         auth_db_primary=_parse_bool("FAIM_AUTH_DB_PRIMARY", True),
         auth_env_fallback_enabled=_parse_bool(
             "FAIM_AUTH_ENV_FALLBACK_ENABLED", False
@@ -135,6 +139,8 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
         errors.append("FAIM_SELF_EVOLVE_MIN_VERSION_DELTA must be >= 1")
     if flags.self_evolve_max_actions < 1:
         errors.append("FAIM_SELF_EVOLVE_MAX_ACTIONS must be >= 1")
+    if flags.self_evolve_scan_interval_seconds < 30:
+        errors.append("FAIM_SELF_EVOLVE_SCAN_INTERVAL_SECONDS must be >= 30")
 
     if env in {"prod", "production"}:
         if not encryption_enabled:

@@ -38,6 +38,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 32. `30_PHASE_S1_SELF_BY_DEFAULT_GUARDRAILS_REPORT.md`
 33. `31_PHASE_S2_SELF_EVOLUTION_STATE_REPORT.md`
 34. `32_PHASE_S3_CENTRALIZED_SELF_EVOLVE_TRIGGER_REPORT.md`
+35. `33_PHASE_S4_WORKER_AUTONOMOUS_SCHEDULER_REPORT.md`
 
 ## Intent
 
@@ -69,6 +70,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Phase S1 self-by-default contract + guardrails are documented in 32.
 - Phase S2 durable self-evolution scheduler state is documented in 33.
 - Phase S3 centralized self-evolve trigger routing is documented in 34.
+- Phase S4 worker autonomous self-evolve scheduling fallback is documented in 35.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

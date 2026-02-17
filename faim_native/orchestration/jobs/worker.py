@@ -12,6 +12,7 @@ import time
 
 from orchestration.evolve_flow import run_evolve
 from orchestration.jobs.job_store import JobStore
+from runtime.feature_flags import get_feature_flags
 from store.pg.session import get_session
 
 logger = logging.getLogger(__name__)
@@ -20,9 +21,24 @@ logger = logging.getLogger(__name__)
 class Worker:
     """Background worker for durable jobs."""
 
-    def __init__(self, poll_interval: float = 1.0):
+    def __init__(
+        self,
+        poll_interval: float = 1.0,
+        self_evolve_scan_interval_seconds: float | None = None,
+    ):
         self.poll_interval = poll_interval
         self.running = True
+        flags = get_feature_flags()
+        default_scan_interval = max(
+            30,
+            int(getattr(flags, "self_evolve_scan_interval_seconds", 60)),
+        )
+        self.self_evolve_scan_interval_seconds = float(
+            self_evolve_scan_interval_seconds
+            if self_evolve_scan_interval_seconds is not None
+            else default_scan_interval
+        )
+        self._last_self_evolve_scan_monotonic = 0.0
 
         # Setup signals
         signal.signal(signal.SIGINT, self._handle_exit)
@@ -39,6 +55,7 @@ class Worker:
         while self.running:
             try:
                 self._poll_and_execute()
+                self._maybe_run_self_evolve_scan()
             except Exception as e:
                 logger.error(f"Worker iteration error: {e}")
 
@@ -117,6 +134,55 @@ class Worker:
 
             session.commit()
 
+        finally:
+            session.close()
+
+    def _maybe_run_self_evolve_scan(self):
+        """Run periodic autonomous self-evolve scan (tenant-scoped)."""
+        now_mono = time.monotonic()
+        if (
+            now_mono - self._last_self_evolve_scan_monotonic
+            < self.self_evolve_scan_interval_seconds
+        ):
+            return
+        self._last_self_evolve_scan_monotonic = now_mono
+
+        session = get_session()
+        try:
+            from orchestration.self_evolve_scheduler import (
+                list_self_evolve_tenants,
+                scan_and_enqueue_due_self_evolve_jobs,
+            )
+
+            tenants = list_self_evolve_tenants(session=session)
+            if not tenants:
+                return
+
+            for tenant_id in tenants:
+                summary = scan_and_enqueue_due_self_evolve_jobs(
+                    session=session,
+                    tenant_id=tenant_id,
+                    source="periodic_worker",
+                )
+                if (
+                    summary.enqueued > 0
+                    or summary.existing > 0
+                    or summary.errors > 0
+                    or summary.reason is not None
+                ):
+                    logger.info(
+                        "self-evolve periodic scan tenant=%s mode=%s scanned=%d enqueued=%d existing=%d skipped=%d errors=%d reason=%s",
+                        tenant_id,
+                        summary.trigger_mode,
+                        summary.scanned_graphs,
+                        summary.enqueued,
+                        summary.existing,
+                        summary.skipped,
+                        summary.errors,
+                        summary.reason,
+                    )
+        except Exception as e:  # nosec B110
+            logger.error("Self-evolve periodic scan failed: %s", e)
         finally:
             session.close()
 
