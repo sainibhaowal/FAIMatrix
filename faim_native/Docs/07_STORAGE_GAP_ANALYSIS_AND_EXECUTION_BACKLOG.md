@@ -296,6 +296,19 @@ Evidence:
 
 - `32_PHASE_S3_CENTRALIZED_SELF_EVOLVE_TRIGGER_REPORT.md`
 
+## Phase S4 Completed
+
+- worker periodic autonomous scheduler fallback added
+- worker now performs due-graph scans on interval and enqueues evolve jobs for periodic/hybrid modes
+- centralized S3 helper remains single source-of-truth for enqueue/dedupe decisions
+- one pending/running evolve job per tenant+graph dedupe preserved
+- per-scan action cap enforced via `FAIM_SELF_EVOLVE_MAX_ACTIONS`
+- new runtime knob added: `FAIM_SELF_EVOLVE_SCAN_INTERVAL_SECONDS`
+
+Evidence:
+
+- `33_PHASE_S4_WORKER_AUTONOMOUS_SCHEDULER_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -312,6 +325,7 @@ Evidence:
 | Self-inventing runtime path | implemented (flag-gated evolve integration + incremental state) |
 | Self-evolution durable scheduler state | implemented (state + due-selection repo, no behavior switch yet) |
 | Self-evolution trigger source-of-truth | implemented (shared helper wired for storage + ingest + memory writes) |
+| Self-evolution autonomous worker fallback | implemented (periodic due-scan enqueue for periodic/hybrid modes) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |

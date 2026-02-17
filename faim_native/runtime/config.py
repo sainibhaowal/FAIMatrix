@@ -29,6 +29,7 @@ Optional env vars:
 - FAIM_SELF_EVOLVE_MIN_INTERVAL_SECONDS
 - FAIM_SELF_EVOLVE_MIN_VERSION_DELTA
 - FAIM_SELF_EVOLVE_MAX_ACTIONS
+- FAIM_SELF_EVOLVE_SCAN_INTERVAL_SECONDS
 - FAIM_OCR_ENABLED
 - FAIM_OCR_ENGINE
 - FAIM_OCR_FAIL_CLOSED
@@ -151,6 +152,7 @@ class FAIMConfig:
     self_evolve_min_interval_seconds: int = 300
     self_evolve_min_version_delta: int = 1
     self_evolve_max_actions: int = 25
+    self_evolve_scan_interval_seconds: int = 60
     ocr_enabled: bool = False
     ocr_engine: str = "tesseract"
     ocr_fail_closed: bool = False
@@ -278,6 +280,8 @@ class FAIMConfig:
             errors.append("FAIM_SELF_EVOLVE_MIN_VERSION_DELTA must be >= 1")
         if self.self_evolve_max_actions < 1:
             errors.append("FAIM_SELF_EVOLVE_MAX_ACTIONS must be >= 1")
+        if self.self_evolve_scan_interval_seconds < 30:
+            errors.append("FAIM_SELF_EVOLVE_SCAN_INTERVAL_SECONDS must be >= 30")
 
         return errors
 
@@ -385,6 +389,9 @@ def load_config() -> FAIMConfig:
             "FAIM_SELF_EVOLVE_MIN_VERSION_DELTA", 1
         ),
         self_evolve_max_actions=parse_int_env("FAIM_SELF_EVOLVE_MAX_ACTIONS", 25),
+        self_evolve_scan_interval_seconds=parse_int_env(
+            "FAIM_SELF_EVOLVE_SCAN_INTERVAL_SECONDS", 60
+        ),
         ocr_enabled=parse_bool_env("FAIM_OCR_ENABLED", False),
         ocr_engine=os.environ.get("FAIM_OCR_ENGINE", "tesseract").strip().lower()
         or "tesseract",
