@@ -647,6 +647,29 @@ class SelfInventionStateModel(Base):
 
 
 # -----------------------------------------------------------------------------
+# Phase-S2: Self-Evolution Scheduler State
+# -----------------------------------------------------------------------------
+
+
+class SelfEvolutionStateModel(Base):
+    """Durable scheduler state for self-evolution coordination."""
+
+    __tablename__ = "self_evolution_state"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    last_seen_version = Column(BigInteger, nullable=False, default=0)
+    last_evolved_version = Column(BigInteger, nullable=False, default=0)
+    last_evolved_at = Column(DateTime(timezone=True), nullable=True)
+    last_enqueued_job_id = Column(UUIDType, nullable=True)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+# -----------------------------------------------------------------------------
 # Table creation helper
 # -----------------------------------------------------------------------------
 
