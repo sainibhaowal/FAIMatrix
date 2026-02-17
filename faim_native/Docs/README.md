@@ -37,6 +37,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 31. `25_PHASE_K_MEMORY_API_CONTRACT_REPORT.md`
 32. `30_PHASE_S1_SELF_BY_DEFAULT_GUARDRAILS_REPORT.md`
 33. `31_PHASE_S2_SELF_EVOLUTION_STATE_REPORT.md`
+34. `32_PHASE_S3_CENTRALIZED_SELF_EVOLVE_TRIGGER_REPORT.md`
 
 ## Intent
 
@@ -67,6 +68,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - K8 consolidated memory contract/runtime summary is documented in 31.
 - Phase S1 self-by-default contract + guardrails are documented in 32.
 - Phase S2 durable self-evolution scheduler state is documented in 33.
+- Phase S3 centralized self-evolve trigger routing is documented in 34.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

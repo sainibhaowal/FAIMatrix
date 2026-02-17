@@ -327,6 +327,40 @@ def _run_memory_write(
     return raw_id, ingest_result
 
 
+def _maybe_enqueue_self_evolve(
+    *,
+    ctx: FAIMContext,
+    graph_id: str,
+    profile: str,
+    persist_mode: str,
+) -> None:
+    """Best-effort shared self-evolve enqueue for memory write success path."""
+    try:
+        from orchestration.self_evolve_scheduler import enqueue_self_evolve_if_due
+
+        result = enqueue_self_evolve_if_due(
+            session=ctx.session,
+            tenant_id=ctx.tenant_id,
+            graph_id=graph_id,
+            source="memory_write",
+            request_id=ctx.request_id,
+            profile=profile,
+            persist_mode=persist_mode,
+            self_invent_requested=None,
+        )
+        if result.job_id is None:
+            return
+        logger.info(
+            "self-evolve scheduler decision source=memory_write status=%s reason=%s graph=%s job=%s",
+            result.status,
+            result.reason,
+            graph_id,
+            result.job_id,
+        )
+    except Exception as exc:  # nosec B110
+        logger.warning("Shared self-evolve enqueue skipped due to error: %s", exc)
+
+
 # =============================================================================
 # Routes
 # =============================================================================
@@ -618,6 +652,13 @@ async def write_memory(
             profile=profile,
             persist_mode=persist_mode,
         )
+        if ingest_result.status in {"completed", "dedup_hit"}:
+            _maybe_enqueue_self_evolve(
+                ctx=ctx,
+                graph_id=body.graph_id,
+                profile=profile.value,
+                persist_mode=persist_mode.value,
+            )
 
         response_payload = {
             "status": ingest_result.status,
