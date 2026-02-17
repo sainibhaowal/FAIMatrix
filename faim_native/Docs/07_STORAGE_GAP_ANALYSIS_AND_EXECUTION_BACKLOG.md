@@ -38,6 +38,7 @@ This backlog now separates completed delivery from true future enhancements.
 24. Phase S3 - Centralized Self-Evolve Trigger (single source-of-truth): completed
 25. Phase S4 - Worker Autonomous Scheduling Fallback: completed
 26. Phase S5 - Evolve/Invention Core Hardening: completed
+27. Phase S6 - End-to-End Validation + Non-Regression: completed
 
 ## Completed Scope Summary
 
@@ -327,6 +328,29 @@ Evidence:
 
 - `34_PHASE_S5_EVOLVE_INVENTION_CORE_HARDENING_REPORT.md`
 
+## Phase S6 Completed
+
+- unit validation gate completed for:
+  - self-evolve flags and due-logic (S1/S2/S3/S4)
+  - evolve/invention hardening (S5)
+  - prune policy behavior
+  - invention flag wiring and idempotence
+  - production security/auth hardening regression units
+- acceptance validation gate completed for full self-evolve chain:
+  - write -> due enqueue -> worker execution -> evolve diagnostics/events
+  - invention runtime + diagnostics acceptance paths
+- storage/memory/query/auth regression gate completed and healthy
+- targeted frontend validation completed:
+  - typecheck pass
+  - API keys Playwright e2e pass after aligning test to current one-time reveal UX
+- development-only acceptance fixtures hardened:
+  - explicit auth fallback mode for sqlite/dev acceptance suites
+  - isolated sqlite DB for memory lifecycle acceptance to remove lock flakiness
+
+Evidence:
+
+- `35_PHASE_S6_END_TO_END_VALIDATION_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -345,6 +369,7 @@ Evidence:
 | Self-evolution trigger source-of-truth | implemented (shared helper wired for storage + ingest + memory writes) |
 | Self-evolution autonomous worker fallback | implemented (periodic due-scan enqueue for periodic/hybrid modes) |
 | Self-evolution core hardening (config-driven invention, skip observability, practical prune defaults) | implemented (S5) |
+| Self-evolution validation and non-regression matrix | implemented (S6) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |

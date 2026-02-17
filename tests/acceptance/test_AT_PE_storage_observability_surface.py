@@ -23,6 +23,8 @@ def test_storage_ops_metrics_returns_expected_contract(monkeypatch):
 
     monkeypatch.setenv("TENANT_KEYS_JSON", '{"tenant_obs":["obs_key"]}')
     monkeypatch.setenv("FAIM_ENV", "development")
+    monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "false")
+    monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
     monkeypatch.setenv("FAIM_STORAGE_OBSERVABILITY_ENABLED", "true")
     reload_tenant_keys()
 
@@ -142,6 +144,8 @@ def test_storage_ops_metrics_flag_can_disable_endpoint(monkeypatch):
 
     monkeypatch.setenv("TENANT_KEYS_JSON", '{"tenant_obs":["obs_key"]}')
     monkeypatch.setenv("FAIM_ENV", "development")
+    monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "false")
+    monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
     monkeypatch.setenv("FAIM_STORAGE_OBSERVABILITY_ENABLED", "false")
     reload_tenant_keys()
 
