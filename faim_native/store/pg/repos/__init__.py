@@ -11,6 +11,7 @@ __all__ = [
     "StorageFileRepo",
     "MemoryWriteIdempotencyRepo",
     "SelfInventionStateRepo",
+    "SelfEvolutionStateRepo",
 ]
 
 
@@ -48,4 +49,8 @@ def __getattr__(name):
         from .self_invention_state_repo import SelfInventionStateRepo
 
         return SelfInventionStateRepo
+    elif name == "SelfEvolutionStateRepo":
+        from .self_evolution_state_repo import SelfEvolutionStateRepo
+
+        return SelfEvolutionStateRepo
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
