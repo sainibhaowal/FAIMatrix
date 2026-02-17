@@ -12,12 +12,22 @@ def test_feature_flags_default_values(monkeypatch):
     monkeypatch.delenv("FAIM_STORAGE_HARD_DELETE_ENABLED", raising=False)
     monkeypatch.delenv("FAIM_STORAGE_LIVE_JOB_STREAM_ENABLED", raising=False)
     monkeypatch.delenv("FAIM_STORAGE_CONTRACT_STRICT", raising=False)
+    monkeypatch.delenv("FAIM_SELF_EVOLVE_ENABLED", raising=False)
+    monkeypatch.delenv("FAIM_SELF_EVOLVE_TRIGGER_MODE", raising=False)
+    monkeypatch.delenv("FAIM_SELF_EVOLVE_MIN_INTERVAL_SECONDS", raising=False)
+    monkeypatch.delenv("FAIM_SELF_EVOLVE_MIN_VERSION_DELTA", raising=False)
+    monkeypatch.delenv("FAIM_SELF_EVOLVE_MAX_ACTIONS", raising=False)
 
     flags = get_feature_flags()
     assert flags.encryption_fail_closed is False
     assert flags.storage_hard_delete_enabled is False
     assert flags.storage_live_job_stream_enabled is False
     assert flags.storage_contract_strict is True
+    assert flags.self_evolve_enabled is False
+    assert flags.self_evolve_trigger_mode == "manual"
+    assert flags.self_evolve_min_interval_seconds == 300
+    assert flags.self_evolve_min_version_delta == 1
+    assert flags.self_evolve_max_actions == 25
 
 
 def test_validate_feature_flags_requires_jobs_for_hard_delete(monkeypatch):
