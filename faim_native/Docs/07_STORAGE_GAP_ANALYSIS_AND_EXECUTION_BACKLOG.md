@@ -8,7 +8,7 @@ This backlog now separates completed delivery from true future enhancements.
 - P1: required for complete storage product
 - P2: optimization/hardening
 
-## Program Status (as of 2026-02-14)
+## Program Status (as of 2026-02-17)
 
 ## Completed Program Scope
 
@@ -33,6 +33,7 @@ This backlog now separates completed delivery from true future enhancements.
 19. Phase K6 - Security Hardening + Audit + Rate Limits: completed
 20. Phase K7 - Validation and Non-Regression: completed
 21. Phase K8 - Documentation + Commits Reconciliation: completed
+22. Phase S1 - Self-by-Default Contract + Guardrails: completed
 
 ## Completed Scope Summary
 
@@ -256,6 +257,18 @@ Evidence:
 
 - `24_PHASE_K_API_KEYS_AUTHZ_REPORT.md`
 - `25_PHASE_K_MEMORY_API_CONTRACT_REPORT.md`
+
+## Phase S1 Completed
+
+- additive self-evolve configuration contract added with safe defaults
+- self-evolve trigger mode contract validated at startup (`manual|post_upload|periodic|hybrid`)
+- guardrails enforce job dependency for async self-evolve modes
+- bounds validation added for interval/version-delta/max-actions knobs
+- no runtime behavior change by default (contract/guardrail phase only)
+
+Evidence:
+
+- `30_PHASE_S1_SELF_BY_DEFAULT_GUARDRAILS_REPORT.md`
 
 ## Module Status Snapshot
 
