@@ -39,6 +39,7 @@ This backlog now separates completed delivery from true future enhancements.
 25. Phase S4 - Worker Autonomous Scheduling Fallback: completed
 26. Phase S5 - Evolve/Invention Core Hardening: completed
 27. Phase S6 - End-to-End Validation + Non-Regression: completed
+28. Phase S7 - Docs + Release Hygiene: completed
 
 ## Completed Scope Summary
 
@@ -351,6 +352,17 @@ Evidence:
 
 - `35_PHASE_S6_END_TO_END_VALIDATION_REPORT.md`
 
+## Phase S7 Completed
+
+- reconciled memory/evolution design doc with final self-default runtime status notes
+- updated backlog completion ledger to include S7 close-out
+- updated Docs index with S7 report reference and intent mapping
+- finalized release-hygiene trace with scoped docs-only completion report
+
+Evidence:
+
+- `36_PHASE_S7_DOCS_RELEASE_HYGIENE_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -370,6 +382,7 @@ Evidence:
 | Self-evolution autonomous worker fallback | implemented (periodic due-scan enqueue for periodic/hybrid modes) |
 | Self-evolution core hardening (config-driven invention, skip observability, practical prune defaults) | implemented (S5) |
 | Self-evolution validation and non-regression matrix | implemented (S6) |
+| Self-default docs and release-hygiene reconciliation | implemented (S7) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |

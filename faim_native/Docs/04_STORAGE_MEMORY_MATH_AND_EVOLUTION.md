@@ -144,3 +144,15 @@ When implementing full Storage page/backend:
 - keep raw immutable truth separate from derived graph/index data
 - treat Qdrant and Redis as accelerators only
 - keep provenance (`raw_id`, `block_id`, `anchor`) first-class in all API responses
+
+## 11) Self-Default Runtime Status (S7 Reconciliation)
+
+As of 2026-02-17, self-evolution is production-routed by default contract when enabled via runtime flags and jobs:
+
+- shared due-enqueue trigger is wired for storage upload, ingest, and memory write paths
+- worker autonomous due-scan fallback is available for periodic/hybrid trigger modes
+- evolve/invention decisioning is config/orchestration driven (no direct env reads in evolve core)
+- practical prune default is aligned with real node touch lifecycle (`max_touch_count <= 1`)
+- explicit skip observability exists through `EVOLUTION_SKIPPED` reasons
+
+This means self behavior is now runtime-governed and deterministic, while keeping write-path latency non-blocking via async scheduling.

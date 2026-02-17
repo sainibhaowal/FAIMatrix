@@ -41,6 +41,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 35. `33_PHASE_S4_WORKER_AUTONOMOUS_SCHEDULER_REPORT.md`
 36. `34_PHASE_S5_EVOLVE_INVENTION_CORE_HARDENING_REPORT.md`
 37. `35_PHASE_S6_END_TO_END_VALIDATION_REPORT.md`
+38. `36_PHASE_S7_DOCS_RELEASE_HYGIENE_REPORT.md`
 
 ## Intent
 
@@ -75,6 +76,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Phase S4 worker autonomous self-evolve scheduling fallback is documented in 35.
 - Phase S5 evolve/invention core hardening is documented in 36.
 - Phase S6 end-to-end validation and non-regression outcomes are documented in 37.
+- Phase S7 docs + release hygiene reconciliation is documented in 38.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome
