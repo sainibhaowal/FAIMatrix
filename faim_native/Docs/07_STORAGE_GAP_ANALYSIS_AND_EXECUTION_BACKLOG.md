@@ -283,6 +283,19 @@ Evidence:
 
 - `31_PHASE_S2_SELF_EVOLUTION_STATE_REPORT.md`
 
+## Phase S3 Completed
+
+- centralized shared enqueue helper added: `enqueue_self_evolve_if_due(...)`
+- storage follow-up evolve path now routes through shared helper (legacy behavior preserved)
+- ingest JSON + multipart success paths now route through shared helper
+- memory write success path now routes through shared helper
+- one pending/running evolve job per tenant+graph dedupe enforced in shared scheduler path
+- due evaluation now uses durable scheduler state (`self_evolution_state`) for version delta + interval checks
+
+Evidence:
+
+- `32_PHASE_S3_CENTRALIZED_SELF_EVOLVE_TRIGGER_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -298,6 +311,7 @@ Evidence:
 | OCR extraction path (image + scanned PDF) | implemented (feature-flag controlled, fail-closed capable) |
 | Self-inventing runtime path | implemented (flag-gated evolve integration + incremental state) |
 | Self-evolution durable scheduler state | implemented (state + due-selection repo, no behavior switch yet) |
+| Self-evolution trigger source-of-truth | implemented (shared helper wired for storage + ingest + memory writes) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |
