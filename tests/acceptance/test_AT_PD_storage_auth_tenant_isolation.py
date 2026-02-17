@@ -19,6 +19,8 @@ def test_all_storage_routes_require_auth_headers(monkeypatch):
     from fastapi.testclient import TestClient
 
     monkeypatch.setenv("FAIM_ENV", "development")
+    monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "false")
+    monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
     app = create_app()
     client = TestClient(app)
 
@@ -46,6 +48,8 @@ def test_storage_route_tenant_isolation(monkeypatch):
         '{"tenant_a":["key_a"],"tenant_b":["key_b"]}',
     )
     monkeypatch.setenv("FAIM_ENV", "development")
+    monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "false")
+    monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
     reload_tenant_keys()
 
     app = create_app()

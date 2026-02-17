@@ -262,10 +262,14 @@ test.describe("API Keys Page", () => {
 
     await page.getByRole("button", { name: "Create key" }).click();
     await expect(page.getByText("One-time key reveal")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show key" })).toBeVisible();
+    await page.getByRole("button", { name: "Show key" }).click();
     await expect(page.getByText("faim_k0002_plaintext")).toBeVisible();
 
     await page.locator("button", { hasText: "Dismiss" }).first().click();
     await page.getByRole("button", { name: "Rotate" }).first().click();
+    await expect(page.getByRole("button", { name: "Show key" })).toBeVisible();
+    await page.getByRole("button", { name: "Show key" }).click();
     await expect(page.getByText("faim_k0003_plaintext")).toBeVisible();
 
     await page.getByRole("button", { name: "Revoke" }).first().click();
