@@ -34,6 +34,7 @@ This backlog now separates completed delivery from true future enhancements.
 20. Phase K7 - Validation and Non-Regression: completed
 21. Phase K8 - Documentation + Commits Reconciliation: completed
 22. Phase S1 - Self-by-Default Contract + Guardrails: completed
+23. Phase S2 - Durable Self-Evolution Scheduler State (migration-first): completed
 
 ## Completed Scope Summary
 
@@ -270,6 +271,18 @@ Evidence:
 
 - `30_PHASE_S1_SELF_BY_DEFAULT_GUARDRAILS_REPORT.md`
 
+## Phase S2 Completed
+
+- additive `self_evolution_state` schema/model/migration delivered
+- scheduler state repository added with idempotent update primitives
+- due-graph selection logic added (version delta + interval + active evolve job exclusion)
+- tenant isolation validated in repository query paths
+- no runtime trigger behavior change in S2 (state foundation only)
+
+Evidence:
+
+- `31_PHASE_S2_SELF_EVOLUTION_STATE_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -284,6 +297,7 @@ Evidence:
 | Validation/non-regression suite | implemented |
 | OCR extraction path (image + scanned PDF) | implemented (feature-flag controlled, fail-closed capable) |
 | Self-inventing runtime path | implemented (flag-gated evolve integration + incremental state) |
+| Self-evolution durable scheduler state | implemented (state + due-selection repo, no behavior switch yet) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |
