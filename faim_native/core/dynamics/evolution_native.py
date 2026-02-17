@@ -14,7 +14,6 @@ Actions:
 from __future__ import annotations
 
 import logging
-import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -91,15 +90,99 @@ class EvolutionResult:
     events_emitted: int = 0
     actions: List[Dict[str, Any]] = field(default_factory=list)
     diagnostics: Optional[FractalDiagnostics] = None
+    skip_reason: Optional[str] = None
 
 
-def _bool_env(name: str, default: bool) -> bool:
-    raw = str(os.environ.get(name, "")).strip().lower()
-    if raw in {"1", "true", "yes", "on"}:
-        return True
-    if raw in {"0", "false", "no", "off"}:
-        return False
-    return default
+def _emit_graph_event(
+    *,
+    session: Any,
+    event_repo: Any,
+    graph_id: str,
+    kind: str,
+    payload: Dict[str, Any],
+    result: EvolutionResult,
+) -> None:
+    """Emit graph event and keep EvolutionResult counters in sync."""
+    if session is None:
+        return
+    event_repo.emit(
+        session=session,
+        graph_id=graph_id,
+        kind=kind,
+        payload=payload,
+    )
+    result.events_emitted += 1
+
+
+def _resolve_invention_settings(runtime_config: Optional[Any]) -> Dict[str, Any]:
+    """Resolve self-invention settings from runtime config with safe defaults.
+
+    This keeps evolve core free from direct environment reads while preserving
+    testability when runtime config is unavailable.
+    """
+    defaults: Dict[str, Any] = {
+        "enabled": False,
+        "on_evolve": True,
+        "min_coactivation_count": 3,
+        "lambda_threshold": 0.3,
+        "min_redundancy_reduction": 0.01,
+        "max_macros_per_cycle": 3,
+        "event_window": 5000,
+    }
+
+    cfg = runtime_config
+    if cfg is None:
+        try:
+            from runtime.config import get_config
+
+            cfg = get_config()
+        except Exception:  # nosec B110 - keep core callable without runtime env
+            cfg = None
+
+    if cfg is None:
+        return defaults
+
+    return {
+        "enabled": bool(getattr(cfg, "self_invent_enabled", defaults["enabled"])),
+        "on_evolve": bool(
+            getattr(cfg, "self_invent_on_evolve", defaults["on_evolve"])
+        ),
+        "min_coactivation_count": int(
+            getattr(
+                cfg,
+                "self_invent_min_coactivation_count",
+                defaults["min_coactivation_count"],
+            )
+        ),
+        "lambda_threshold": float(
+            getattr(
+                cfg,
+                "self_invent_lambda_threshold",
+                defaults["lambda_threshold"],
+            )
+        ),
+        "min_redundancy_reduction": float(
+            getattr(
+                cfg,
+                "self_invent_min_redundancy_reduction",
+                defaults["min_redundancy_reduction"],
+            )
+        ),
+        "max_macros_per_cycle": int(
+            getattr(
+                cfg,
+                "self_invent_max_macros_per_cycle",
+                defaults["max_macros_per_cycle"],
+            )
+        ),
+        "event_window": int(
+            getattr(
+                cfg,
+                "self_invent_event_window",
+                defaults["event_window"],
+            )
+        ),
+    }
 
 
 def compute_graph_diagnostics(
@@ -219,6 +302,8 @@ def evolve_once(
     merge_threshold: float = 0.95,
     prune_policy: Optional[PrunePolicy] = None,
     fractal_config: FractalConfig = DEFAULT_CONFIG,
+    self_invent_requested: Optional[bool] = None,
+    runtime_config: Optional[Any] = None,
 ) -> EvolutionResult:
     """Run one evolution cycle with D/H/λ diagnostics.
 
@@ -258,6 +343,7 @@ def evolve_once(
         current_version = gv.version
     else:
         current_version = int(gv)
+    result.graph_version = current_version
 
     # Get all nodes and edges
     nodes = node_repo.list_nodes(graph_id, limit=1000)
@@ -273,19 +359,36 @@ def evolve_once(
     )
     result.diagnostics = diagnostics
 
-    if len(nodes) < 2:
-        return result
-
     # 2. Emit DIAGNOSTICS_SNAPSHOT event
     _sess = getattr(node_repo, "session", None)
-    if _sess:
-        event_repo.emit(
+    _emit_graph_event(
+        session=_sess,
+        event_repo=event_repo,
+        graph_id=graph_id,
+        kind="DIAGNOSTICS_SNAPSHOT",
+        payload=diagnostics.to_event_payload(),
+        result=result,
+    )
+
+    if len(nodes) < 2:
+        result.skip_reason = "insufficient_nodes"
+        _emit_graph_event(
             session=_sess,
+            event_repo=event_repo,
             graph_id=graph_id,
-            kind="DIAGNOSTICS_SNAPSHOT",
-            payload=diagnostics.to_event_payload(),
+            kind="EVOLUTION_SKIPPED",
+            payload={
+                "reason": result.skip_reason,
+                "graph_version": current_version,
+                "node_count": len(nodes),
+                "edge_count": len(edges),
+                "D_hat": diagnostics.D_hat,
+                "H_hat": diagnostics.H_hat,
+                "lambda_hat": diagnostics.lambda_hat,
+            },
+            result=result,
         )
-    result.events_emitted += 1
+        return result
 
     # 3. Adapt thresholds based on diagnostics
     adapted_merge_threshold = adapt_merge_threshold(merge_threshold, diagnostics)
@@ -330,21 +433,21 @@ def evolve_once(
                 )
 
                 # Emit event
-                if _sess:
-                    event_repo.emit(
-                        session=_sess,
-                        graph_id=graph_id,
-                        kind="EVOLUTION_MERGE",
-                        payload={
-                            "winner_id": str(merge_result.winner_id),
-                            "loser_id": str(merge_result.loser_id),
-                            "score": score,
-                            "adapted_threshold": adapted_merge_threshold,
-                        },
-                    )
+                _emit_graph_event(
+                    session=_sess,
+                    event_repo=event_repo,
+                    graph_id=graph_id,
+                    kind="EVOLUTION_MERGE",
+                    payload={
+                        "winner_id": str(merge_result.winner_id),
+                        "loser_id": str(merge_result.loser_id),
+                        "score": score,
+                        "adapted_threshold": adapted_merge_threshold,
+                    },
+                    result=result,
+                )
 
                 result.merges += 1
-                result.events_emitted += 1
                 result.actions.append(
                     {
                         "type": "merge",
@@ -372,21 +475,21 @@ def evolve_once(
             node_repo.delete_node(graph_id, node.node_id)
 
             # Emit event
-            if _sess:
-                event_repo.emit(
-                    session=_sess,
-                    graph_id=graph_id,
-                    kind="PRUNE_NODE",
-                    payload={
-                        "node_id": str(node.node_id),
-                        "reason": "low_usage_high_redundancy",
-                        "max_similarity": max_sim,
-                        "adapted_sim_threshold": adapted_prune_policy.min_similarity_for_redundancy,
-                    },
-                )
+            _emit_graph_event(
+                session=_sess,
+                event_repo=event_repo,
+                graph_id=graph_id,
+                kind="PRUNE_NODE",
+                payload={
+                    "node_id": str(node.node_id),
+                    "reason": "low_usage_high_redundancy",
+                    "max_similarity": max_sim,
+                    "adapted_sim_threshold": adapted_prune_policy.min_similarity_for_redundancy,
+                },
+                result=result,
+            )
 
             result.prunes += 1
-            result.events_emitted += 1
             result.actions.append(
                 {
                     "type": "prune",
@@ -395,16 +498,19 @@ def evolve_once(
             )
             action_count += 1
 
-    # 7. Optional self-invention pass (feature-flag controlled)
-    invention_enabled = _bool_env("FAIM_SELF_INVENT_ENABLED", False)
-    invention_on_evolve = _bool_env("FAIM_SELF_INVENT_ON_EVOLVE", True)
-    if invention_enabled and invention_on_evolve and _sess is not None:
+    # 7. Optional self-invention pass (config + orchestration controlled)
+    invention_settings = _resolve_invention_settings(runtime_config)
+    invention_allowed = bool(
+        invention_settings["enabled"] and invention_settings["on_evolve"]
+    )
+    if self_invent_requested is not None:
+        invention_allowed = invention_allowed and bool(self_invent_requested)
+
+    if invention_allowed and _sess is not None:
         try:
             from core.dynamics.invention_native import run_invention_cycle
-            from runtime.config import get_config
             from store.pg.repos.self_invention_state_repo import SelfInventionStateRepo
 
-            cfg = get_config()
             invention_result = run_invention_cycle(
                 graph_id=graph_id,
                 session=_sess,
@@ -416,11 +522,11 @@ def evolve_once(
                     tenant_id=node_repo.tenant_id,
                 ),
                 lambda_hat=diagnostics.lambda_hat,
-                min_coactivation_count=cfg.self_invent_min_coactivation_count,
-                lambda_threshold=cfg.self_invent_lambda_threshold,
-                min_redundancy_reduction=cfg.self_invent_min_redundancy_reduction,
-                max_macros_per_cycle=cfg.self_invent_max_macros_per_cycle,
-                event_window=cfg.self_invent_event_window,
+                min_coactivation_count=invention_settings["min_coactivation_count"],
+                lambda_threshold=invention_settings["lambda_threshold"],
+                min_redundancy_reduction=invention_settings["min_redundancy_reduction"],
+                max_macros_per_cycle=invention_settings["max_macros_per_cycle"],
+                event_window=invention_settings["event_window"],
             )
             result.inventions = invention_result.macros_created
             if invention_result.macros_created > 0:
@@ -432,8 +538,9 @@ def evolve_once(
                         "macro_ids": [str(mid) for mid in invention_result.macro_ids],
                     }
                 )
-                event_repo.emit(
+                _emit_graph_event(
                     session=_sess,
+                    event_repo=event_repo,
                     graph_id=graph_id,
                     kind="EVOLUTION_INVENTION_SUMMARY",
                     payload={
@@ -442,19 +549,19 @@ def evolve_once(
                         "processed_events": invention_result.processed_events,
                         "last_event_seq": invention_result.last_event_seq,
                     },
+                    result=result,
                 )
-                result.events_emitted += 1
             result.events_emitted += invention_result.events_emitted
         except Exception as exc:
             logger.warning("Self-invention pass failed: %s", exc)
-            if _sess:
-                event_repo.emit(
-                    session=_sess,
-                    graph_id=graph_id,
-                    kind="EVOLUTION_INVENTION_ERROR",
-                    payload={"error": str(exc)[:300]},
-                )
-                result.events_emitted += 1
+            _emit_graph_event(
+                session=_sess,
+                event_repo=event_repo,
+                graph_id=graph_id,
+                kind="EVOLUTION_INVENTION_ERROR",
+                payload={"error": str(exc)[:300]},
+                result=result,
+            )
 
     # 8. Bump graph version if any actions
     if action_count > 0:
@@ -468,24 +575,45 @@ def evolve_once(
             ),
         )
 
-        if _sess:
-            event_repo.emit(
-                session=_sess,
-                graph_id=graph_id,
-                kind="EVOLUTION_COMPLETE",
-                payload={
-                    "version": new_version,
-                    "merges": result.merges,
-                    "prunes": result.prunes,
-                    "inventions": result.inventions,
-                    "D_hat": diagnostics.D_hat,
-                    "H_hat": diagnostics.H_hat,
-                    "lambda_hat": diagnostics.lambda_hat,
-                    "diagnostics_hash": diagnostics.diagnostics_hash,
-                },
-            )
+        _emit_graph_event(
+            session=_sess,
+            event_repo=event_repo,
+            graph_id=graph_id,
+            kind="EVOLUTION_COMPLETE",
+            payload={
+                "version": new_version,
+                "merges": result.merges,
+                "prunes": result.prunes,
+                "inventions": result.inventions,
+                "D_hat": diagnostics.D_hat,
+                "H_hat": diagnostics.H_hat,
+                "lambda_hat": diagnostics.lambda_hat,
+                "diagnostics_hash": diagnostics.diagnostics_hash,
+            },
+            result=result,
+        )
         result.graph_version = new_version
-        result.events_emitted += 1
+    else:
+        result.skip_reason = "no_actions_after_evaluation"
+        _emit_graph_event(
+            session=_sess,
+            event_repo=event_repo,
+            graph_id=graph_id,
+            kind="EVOLUTION_SKIPPED",
+            payload={
+                "reason": result.skip_reason,
+                "graph_version": current_version,
+                "node_count": len(nodes),
+                "edge_count": len(edges),
+                "merge_threshold": adapted_merge_threshold,
+                "prune_similarity_threshold": adapted_prune_policy.min_similarity_for_redundancy,
+                "invention_allowed": invention_allowed,
+                "D_hat": diagnostics.D_hat,
+                "H_hat": diagnostics.H_hat,
+                "lambda_hat": diagnostics.lambda_hat,
+            },
+            result=result,
+        )
 
     return result
 
