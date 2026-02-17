@@ -16,6 +16,16 @@ def _parse_bool(name: str, default: bool = False) -> bool:
     return default
 
 
+def _parse_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
 @dataclass(frozen=True)
 class FeatureFlags:
     """Operational feature flags that gate risky behavior."""
@@ -31,6 +41,11 @@ class FeatureFlags:
     self_invent_enabled: bool = False
     self_invent_on_evolve: bool = True
     self_invent_after_upload: bool = False
+    self_evolve_enabled: bool = False
+    self_evolve_trigger_mode: str = "manual"
+    self_evolve_min_interval_seconds: int = 300
+    self_evolve_min_version_delta: int = 1
+    self_evolve_max_actions: int = 25
     auth_db_primary: bool = True
     auth_env_fallback_enabled: bool = False
     auth_scope_enforcement_enabled: bool = False
@@ -58,6 +73,18 @@ def get_feature_flags() -> FeatureFlags:
         self_invent_enabled=_parse_bool("FAIM_SELF_INVENT_ENABLED", False),
         self_invent_on_evolve=_parse_bool("FAIM_SELF_INVENT_ON_EVOLVE", True),
         self_invent_after_upload=_parse_bool("FAIM_SELF_INVENT_AFTER_UPLOAD", False),
+        self_evolve_enabled=_parse_bool("FAIM_SELF_EVOLVE_ENABLED", False),
+        self_evolve_trigger_mode=(
+            os.getenv("FAIM_SELF_EVOLVE_TRIGGER_MODE", "manual").strip().lower()
+            or "manual"
+        ),
+        self_evolve_min_interval_seconds=_parse_int(
+            "FAIM_SELF_EVOLVE_MIN_INTERVAL_SECONDS", 300
+        ),
+        self_evolve_min_version_delta=_parse_int(
+            "FAIM_SELF_EVOLVE_MIN_VERSION_DELTA", 1
+        ),
+        self_evolve_max_actions=_parse_int("FAIM_SELF_EVOLVE_MAX_ACTIONS", 25),
         auth_db_primary=_parse_bool("FAIM_AUTH_DB_PRIMARY", True),
         auth_env_fallback_enabled=_parse_bool(
             "FAIM_AUTH_ENV_FALLBACK_ENABLED", False
@@ -85,6 +112,29 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
         errors.append(
             "FAIM_STORAGE_HARD_DELETE_ENABLED requires FAIM_ENABLE_JOBS=true"
         )
+
+    allowed_trigger_modes = {"manual", "post_upload", "periodic", "hybrid"}
+    trigger_mode = str(flags.self_evolve_trigger_mode or "").strip().lower()
+    if trigger_mode not in allowed_trigger_modes:
+        errors.append(
+            "FAIM_SELF_EVOLVE_TRIGGER_MODE must be one of: "
+            "manual, post_upload, periodic, hybrid"
+        )
+    if (
+        flags.self_evolve_enabled
+        and trigger_mode in {"post_upload", "periodic", "hybrid"}
+        and not jobs_enabled
+    ):
+        errors.append(
+            "FAIM_SELF_EVOLVE_ENABLED with trigger mode "
+            f"'{trigger_mode}' requires FAIM_ENABLE_JOBS=true"
+        )
+    if flags.self_evolve_min_interval_seconds < 30:
+        errors.append("FAIM_SELF_EVOLVE_MIN_INTERVAL_SECONDS must be >= 30")
+    if flags.self_evolve_min_version_delta < 1:
+        errors.append("FAIM_SELF_EVOLVE_MIN_VERSION_DELTA must be >= 1")
+    if flags.self_evolve_max_actions < 1:
+        errors.append("FAIM_SELF_EVOLVE_MAX_ACTIONS must be >= 1")
 
     if env in {"prod", "production"}:
         if not encryption_enabled:
