@@ -60,7 +60,7 @@ class PrunePolicy:
     """
 
     min_age_days: float = 7.0
-    max_touch_count: int = 0
+    max_touch_count: int = 1
     min_similarity_for_redundancy: float = 0.98
     protect_macros: bool = True
 

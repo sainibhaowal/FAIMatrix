@@ -53,7 +53,7 @@ Implemented in `core/operators/prune.py`, used by evolution.
 A node can be pruned only if all are true:
 
 - old enough
-- low usage (`touch_count`)
+- low usage (`touch_count`, default policy now allows pruning at `touch_count <= 1`)
 - high redundancy similarity
 - optional macro protection policy
 
@@ -84,6 +84,14 @@ Cycle behavior:
 5. bump graph version
 6. emit evolution events
 
+Observability behavior:
+
+- emits `DIAGNOSTICS_SNAPSHOT` for each evolve cycle
+- emits `EVOLUTION_COMPLETE` when actions are applied
+- emits `EVOLUTION_SKIPPED` with explicit reason when no action is applied
+  - `insufficient_nodes`
+  - `no_actions_after_evaluation`
+
 ## 7) Self-Inventing (Macro Invention)
 
 Implemented in `core/dynamics/invention_native.py` and now wired into live evolve runtime.
@@ -101,6 +109,7 @@ Runtime notes:
 - self-inventing runs during evolve cycles when:
   - `FAIM_SELF_INVENT_ENABLED=true`
   - `FAIM_SELF_INVENT_ON_EVOLVE=true`
+- evolve core invention gating is config/orchestration driven (no direct env reads inside evolve core)
 - processing is incremental and bounded using persisted state (`self_invention_state` table)
 - post-upload evolve enqueue is optional with:
   - `FAIM_SELF_INVENT_AFTER_UPLOAD=true`

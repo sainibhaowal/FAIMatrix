@@ -107,6 +107,7 @@ def run_evolve(
     edge_repo: Optional[Any] = None,
     event_repo: Optional[Any] = None,
     gv_repo: Optional[Any] = None,
+    self_invent_requested: Optional[bool] = None,
 ) -> EvolveResult:
     """Run one evolution cycle on graph.
 
@@ -115,7 +116,7 @@ def run_evolve(
     2. Emits DIAGNOSTICS_SNAPSHOT event
     3. Performs merge operations (based on redundancy)
     4. Performs prune operations (based on policy)
-    5. Emits EVOLUTION_COMPLETE event
+    5. Emits EVOLUTION_COMPLETE on action or EVOLUTION_SKIPPED with reason
 
     Uses lock manager to prevent concurrent evolution on the same graph.
 
@@ -214,6 +215,24 @@ def run_evolve(
                 # STEP 1: Call evolution_native.evolve_once
                 # =====================================================================
                 from core.dynamics.evolution_native import evolve_once
+                from runtime.feature_flags import get_feature_flags
+
+                runtime_cfg = None
+                try:
+                    from runtime.config import get_config
+
+                    runtime_cfg = get_config()
+                except Exception:  # nosec B110 - fallback for isolated tests
+                    runtime_cfg = None
+
+                flags = get_feature_flags()
+                max_actions = int(
+                    getattr(
+                        runtime_cfg,
+                        "self_evolve_max_actions",
+                        getattr(flags, "self_evolve_max_actions", 25),
+                    )
+                )
 
                 result = evolve_once(
                     graph_id=graph_id,
@@ -221,11 +240,18 @@ def run_evolve(
                     edge_repo=edge_repo,
                     event_repo=event_repo,
                     graph_version_repo=gv_repo,
+                    max_actions=max_actions,
+                    self_invent_requested=self_invent_requested,
+                    runtime_config=runtime_cfg,
                 )
 
-                # evolve_once already emits DIAGNOSTICS_SNAPSHOT and EVOLUTION_COMPLETE
+                # evolve_once emits DIAGNOSTICS_SNAPSHOT and either
+                # EVOLUTION_COMPLETE or EVOLUTION_SKIPPED.
                 events_emitted.append("DIAGNOSTICS_SNAPSHOT")
-                events_emitted.append("EVOLUTION_COMPLETE")
+                if result.skip_reason:
+                    events_emitted.append("EVOLUTION_SKIPPED")
+                else:
+                    events_emitted.append("EVOLUTION_COMPLETE")
 
                 logger.info(
                     f"[Evolve] Complete: {result.merges} merges, "
