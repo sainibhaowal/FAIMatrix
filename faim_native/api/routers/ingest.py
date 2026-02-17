@@ -328,6 +328,42 @@ def _track_storage_ingest_result(
     ctx.session.commit()
 
 
+def _maybe_enqueue_self_evolve(
+    *,
+    ctx: FAIMContext,
+    graph_id: str,
+    source: str,
+    profile: str,
+    persist_mode: str,
+) -> None:
+    """Best-effort shared self-evolve enqueue after successful ingest writes."""
+    try:
+        from orchestration.self_evolve_scheduler import enqueue_self_evolve_if_due
+
+        result = enqueue_self_evolve_if_due(
+            session=ctx.session,
+            tenant_id=ctx.tenant_id,
+            graph_id=graph_id,
+            source=source,
+            request_id=ctx.request_id,
+            profile=profile,
+            persist_mode=persist_mode,
+            self_invent_requested=None,
+        )
+        if result.job_id is None:
+            return
+        logger.info(
+            "self-evolve scheduler decision source=%s status=%s reason=%s graph=%s job=%s",
+            source,
+            result.status,
+            result.reason,
+            graph_id,
+            result.job_id,
+        )
+    except Exception as exc:  # nosec B110
+        logger.warning("Shared self-evolve enqueue skipped due to error: %s", exc)
+
+
 # =============================================================================
 # Ingest Endpoint
 # =============================================================================
@@ -419,6 +455,14 @@ async def ingest_file(
             raw_id=raw_id,
             result=result,
         )
+        if result.status in {"completed", "dedup_hit"}:
+            _maybe_enqueue_self_evolve(
+                ctx=ctx,
+                graph_id=request.graph_id,
+                source="ingest_json",
+                profile=profile.value,
+                persist_mode=persist_mode.value,
+            )
         _ingest_lifecycle_log(
             ctx=ctx,
             op="ingest_json",
@@ -557,6 +601,14 @@ async def ingest_upload(
             raw_id=raw_id,
             result=result,
         )
+        if result.status in {"completed", "dedup_hit"}:
+            _maybe_enqueue_self_evolve(
+                ctx=ctx,
+                graph_id=graph_id,
+                source="ingest_upload",
+                profile=profile_enum.value,
+                persist_mode=persist_mode_enum.value,
+            )
         _ingest_lifecycle_log(
             ctx=ctx,
             op="ingest_upload",

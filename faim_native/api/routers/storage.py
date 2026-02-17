@@ -523,55 +523,23 @@ def _enqueue_post_upload_evolve_job(
         return None
 
     try:
-        from runtime.config import get_config
+        from orchestration.self_evolve_scheduler import enqueue_self_evolve_if_due
 
-        if not get_config().enable_jobs:
-            return None
-    except Exception:
-        return None
-
-    from orchestration.jobs.job_store import JobStore
-    from store.pg.models_faim import JobModel
-
-    existing = (
-        ctx.session.query(JobModel)
-        .filter(
-            and_(
-                JobModel.tenant_id == ctx.tenant_id,
-                JobModel.graph_id == graph_id,
-                JobModel.kind == "evolve",
-                JobModel.status.in_(["pending", "running"]),
-            )
+        result = enqueue_self_evolve_if_due(
+            session=ctx.session,
+            tenant_id=ctx.tenant_id,
+            graph_id=graph_id,
+            source="storage_upload",
+            source_job_id=upload_job_id,
+            request_id=ctx.request_id,
+            profile="strict",
+            persist_mode="relaxed",
+            self_invent_requested=True,
         )
-        .order_by(JobModel.created_at.asc())
-        .first()
-    )
-    if existing is not None:
-        return existing.job_id
-
-    evolve_job_id = JobStore.enqueue(
-        session=ctx.session,
-        tenant_id=ctx.tenant_id,
-        graph_id=graph_id,
-        kind="evolve",
-        payload={
-            "profile": "strict",
-            "persist_mode": "relaxed",
-            "source": "storage_upload",
-            "source_job_id": str(upload_job_id),
-            "self_invent_requested": True,
-        },
-    )
-    JobStore.append_event(
-        ctx.session,
-        evolve_job_id,
-        "step_start",
-        {
-            "message": "Evolve job enqueued from storage upload completion",
-            "source_job_id": str(upload_job_id),
-        },
-    )
-    return evolve_job_id
+        return result.job_id
+    except Exception as exc:  # nosec B110
+        logger.warning("Failed shared self-evolve enqueue after upload: %s", exc)
+        return None
 
 
 def _row_to_file_item(row: Any) -> StorageFileItem:
