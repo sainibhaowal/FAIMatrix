@@ -163,7 +163,7 @@ def append_key_audit_best_effort(
 ) -> None:
     """Append auth-key audit event without breaking request flow."""
     from store.pg.repos.auth_repo import AuthRepo
-    from store.pg.session import get_session
+    from runtime.context import close_session, get_session
 
     normalized_key_id = str(key_id or "").strip() or "unknown"
     if not tenant_id:
@@ -184,7 +184,7 @@ def append_key_audit_best_effort(
     except Exception:  # nosec B110
         session.rollback()
     finally:
-        session.close()
+        close_session(session)
 
 
 def _verify_db_tenant_key(
@@ -195,7 +195,7 @@ def _verify_db_tenant_key(
 ) -> AuthDecision:
     """DB-backed key verification returning AuthDecision with denial reason."""
     from store.pg.repos.auth_repo import AuthRepo
-    from store.pg.session import get_session
+    from runtime.context import close_session, get_session
 
     session = get_session()
     try:
@@ -257,7 +257,7 @@ def _verify_db_tenant_key(
         session.rollback()
         raise
     finally:
-        session.close()
+        close_session(session)
 
 
 def authenticate_tenant_key(

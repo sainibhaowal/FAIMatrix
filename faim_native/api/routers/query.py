@@ -176,6 +176,8 @@ async def query_graph(
             index=ctx.index if profile != FAIMProfile.STRICT else None,
             cache=ctx.cache,
         )
+        # Query flow updates touch_count / query events, so persist changes.
+        ctx.session.commit()
 
         # Build response
         results = []
@@ -215,8 +217,12 @@ async def query_graph(
         )
 
     except HTTPException:
+        if ctx.session is not None:
+            ctx.session.rollback()
         raise
     except Exception as e:
+        if ctx.session is not None:
+            ctx.session.rollback()
         logger.error(f"Query failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
 

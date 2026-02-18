@@ -11,7 +11,8 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import and_
+from sqlalchemy import and_, text
+from sqlalchemy.exc import OperationalError
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -270,6 +271,31 @@ def _resolve_write_payload(body: MemoryWriteRequest) -> tuple[str, str, bytes]:
     return filename, base_type, payload_bytes
 
 
+def _configure_mutation_lock_timeout(ctx: FAIMContext) -> None:
+    """Bound lock waits so concurrent writes fail fast instead of hanging."""
+    if ctx.session is None:
+        return
+    bind = ctx.session.get_bind()
+    dialect = getattr(getattr(bind, "dialect", None), "name", "")
+    if dialect == "postgresql":
+        # Transaction-local lock timeout for this request only.
+        ctx.session.execute(text("SET LOCAL lock_timeout = '3s'"))
+    elif dialect == "sqlite":
+        # Keep SQLite lock wait bounded for local acceptance runs.
+        ctx.session.execute(text("PRAGMA busy_timeout = 3000"))
+
+
+def _is_lock_conflict(exc: OperationalError) -> bool:
+    message = str(exc).lower()
+    markers = (
+        "database is locked",
+        "lock timeout",
+        "could not obtain lock",
+        "deadlock detected",
+    )
+    return any(marker in message for marker in markers)
+
+
 def _run_memory_write(
     *,
     ctx: FAIMContext,
@@ -391,6 +417,8 @@ async def memory_search(
             index=ctx.index if profile != FAIMProfile.STRICT else None,
             cache=ctx.cache,
         )
+        # Query flow mutates usage metrics/events (touch_count), so persist it.
+        ctx.session.commit()
         return MemorySearchResponse(
             tenant_id=ctx.tenant_id,
             graph_id=result.graph_id,
@@ -416,8 +444,12 @@ async def memory_search(
             duration_ms=result.duration_ms,
         )
     except HTTPException:
+        if ctx.session is not None:
+            ctx.session.rollback()
         raise
     except Exception as exc:
+        if ctx.session is not None:
+            ctx.session.rollback()
         logger.error("memory search failed: %s", exc)
         raise HTTPException(status_code=500, detail="Memory search failed") from exc
 
@@ -743,6 +775,8 @@ async def patch_memory_item(
     body: MemoryPatchRequest,
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> MemoryItemResponse:
+    _configure_mutation_lock_timeout(ctx)
+
     node = ctx.node_repo.get_by_id(body.graph_id, node_id)
     if node is None:
         raise HTTPException(status_code=404, detail="Memory item not found")
@@ -786,26 +820,44 @@ async def patch_memory_item(
     if not changed:
         raise HTTPException(status_code=400, detail="No mutable fields provided for update")
 
-    node.updated_at = datetime.now(timezone.utc)
-    ctx.session.flush()
-    if ctx.event_repo:
-        ctx.event_repo.emit(
-            ctx.session,
-            body.graph_id,
-            "MEMORY_ITEM_UPDATED",
-            {
-                "node_id": str(node.node_id),
-                "raw_id": node.raw_id,
-                "updated_fields": sorted(
-                    [
-                        field
-                        for field in ("kind", "level", "residual", "anchor", "opp_signature")
-                        if getattr(body, field) is not None
-                    ]
+    try:
+        node.updated_at = datetime.now(timezone.utc)
+        ctx.session.flush()
+        if ctx.event_repo:
+            ctx.event_repo.emit(
+                ctx.session,
+                body.graph_id,
+                "MEMORY_ITEM_UPDATED",
+                {
+                    "node_id": str(node.node_id),
+                    "raw_id": node.raw_id,
+                    "updated_fields": sorted(
+                        [
+                            field
+                            for field in (
+                                "kind",
+                                "level",
+                                "residual",
+                                "anchor",
+                                "opp_signature",
+                            )
+                            if getattr(body, field) is not None
+                        ]
+                    ),
+                },
+            )
+        ctx.session.commit()
+    except OperationalError as exc:
+        ctx.session.rollback()
+        if _is_lock_conflict(exc):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Memory item update is temporarily locked by another operation. "
+                    "Retry the request."
                 ),
-            },
-        )
-    ctx.session.commit()
+            ) from exc
+        raise
 
     reloaded = (
         ctx.session.query(NodeModel)
