@@ -45,6 +45,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 39. `37_PHASE_EVOLUTION_STEP_A_UI_INTEGRATION_REPORT.md`
 40. `38_PHASE_EVOLUTION_STEP_B_RUNTIME_STATUS_REPORT.md`
 41. `41_PRODUCTION_API_TIMEOUT_LOCK_HOTFIX_REPORT.md`
+42. `42_EVOLUTION_PAGE_INTERNAL_SERVER_ERROR_HOTFIX_REPORT.md`
 
 ## Intent
 
@@ -83,6 +84,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Evolution dashboard Step A UI integration is documented in 39.
 - Evolution dashboard Step B runtime status integration is documented in 40.
 - Production API timeout + lock hotfix verification is documented in 41.
+- Evolution page internal-server-error hotfix is documented in 42.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome
