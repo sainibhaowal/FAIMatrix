@@ -40,6 +40,7 @@ This backlog now separates completed delivery from true future enhancements.
 26. Phase S5 - Evolve/Invention Core Hardening: completed
 27. Phase S6 - End-to-End Validation + Non-Regression: completed
 28. Phase S7 - Docs + Release Hygiene: completed
+29. Phase EV-A - Evolution Dashboard Step A (UI Integration on Existing APIs): completed
 
 ## Completed Scope Summary
 
@@ -363,6 +364,19 @@ Evidence:
 
 - `36_PHASE_S7_DOCS_RELEASE_HYGIENE_REPORT.md`
 
+## Phase EV-A Completed
+
+- replaced evolution dashboard placeholder with production UI wired to existing contracts
+- integrated control panel for graph/profile/persist mode + manual evolve execution
+- integrated diagnostics scorecard cards from `/api/v1/metrics/scorecard`
+- integrated graph event timeline from `/api/v1/events` + `/api/v1/events/latest`
+- added polling/live status, evolution-only filtering, and run outcome observability cards
+- no backend schema or route changes in Step A (frontend-only safe integration)
+
+Evidence:
+
+- `37_PHASE_EVOLUTION_STEP_A_UI_INTEGRATION_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -383,6 +397,7 @@ Evidence:
 | Self-evolution core hardening (config-driven invention, skip observability, practical prune defaults) | implemented (S5) |
 | Self-evolution validation and non-regression matrix | implemented (S6) |
 | Self-default docs and release-hygiene reconciliation | implemented (S7) |
+| Evolution dashboard integration (existing APIs only) | implemented (EV-A) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |
