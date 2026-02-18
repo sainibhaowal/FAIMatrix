@@ -76,7 +76,7 @@ def _get_fresh_session():
 async def list_events(
     graph_id: str,
     after_seq: int = Query(0, ge=0),
-    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> Dict[str, Any]:
     """List events for a graph with pagination.
@@ -89,7 +89,9 @@ async def list_events(
     Returns:
         {"events": [...], "has_more": bool, "next_seq": int}
     """
-    # Bound limit
+    # Bound limit defensively instead of hard-rejecting larger client values.
+    # This keeps API behavior backward-compatible for older UIs that may send
+    # larger limits (for example 120) while preserving server-side cap.
     limit = min(limit, MAX_PAGE_SIZE)
 
     events = ctx.event_repo.get_by_seq(
