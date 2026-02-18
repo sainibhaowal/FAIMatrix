@@ -33,6 +33,20 @@ DEFAULT_DATABASE_URL = (
     or os.getenv("FAIM_DATABASE_URL")
     or os.getenv("DATABASE_URL", "sqlite:///:memory:")
 )
+_SESSION_FACTORY_CACHE: dict[str, "SessionFactory"] = {}
+
+
+def _get_cached_factory(db_url: str) -> "SessionFactory":
+    """Return a cached SessionFactory for the URL.
+
+    Creating a new engine/session factory per request can exhaust DB
+    connections and degrade API responsiveness under load.
+    """
+    factory = _SESSION_FACTORY_CACHE.get(db_url)
+    if factory is None:
+        factory = SessionFactory(db_url)
+        _SESSION_FACTORY_CACHE[db_url] = factory
+    return factory
 
 
 def get_session(url: Optional[str] = None) -> Session:
@@ -44,7 +58,7 @@ def get_session(url: Optional[str] = None) -> Session:
     Returns:
         SQLAlchemy Session (caller must close).
     """
-    factory = SessionFactory(url or DEFAULT_DATABASE_URL)
+    factory = _get_cached_factory(url or DEFAULT_DATABASE_URL)
     return factory.create()
 
 

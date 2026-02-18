@@ -108,14 +108,15 @@ async def get_faim_context(
 
     This is the main dependency for all FAIM operations.
     """
-    from runtime.context import get_repos
+    from runtime.context import close_session, get_repos
 
     repos = get_repos(tenant_id)
+    session = repos.get("session")
 
-    return FAIMContext(
+    ctx = FAIMContext(
         tenant_id=tenant_id,
         request_id=request_id,
-        session=repos.get("session"),
+        session=session,
         node_repo=repos.get("node_repo"),
         edge_repo=repos.get("edge_repo"),
         event_repo=repos.get("event_repo"),
@@ -127,6 +128,18 @@ async def get_faim_context(
         index=repos.get("index"),
         cache=repos.get("cache"),
     )
+
+    try:
+        yield ctx
+    finally:
+        # Always release request-scoped DB resources to avoid stale
+        # open transactions/locks across requests.
+        if session is not None:
+            try:
+                session.rollback()
+            except Exception:  # nosec B110
+                pass
+            close_session(session)
 
 
 # =============================================================================

@@ -75,14 +75,16 @@ async def readiness_check():
     """
     from fastapi.responses import JSONResponse
 
+    session = None
+    close_session_fn = None
     try:
         # Try to get a session and check tables
         from sqlalchemy import text
+        from runtime.context import close_session as close_session_fn, get_session
         from store.pg.migrate import (
             get_latest_applied_version,
             get_latest_local_version,
         )
-        from store.pg.session import get_session
 
         session = get_session()
 
@@ -116,8 +118,6 @@ async def readiness_check():
 
         missing = [t for t in REQUIRED_TABLES if t not in existing_tables]
         tables_ok = len(missing) == 0
-
-        session.close()
 
         # Build common response data (No sensitive info)
         resp_data = {
@@ -155,6 +155,12 @@ async def readiness_check():
                 "applied_migration": 0,
             },
         )
+    finally:
+        if session is not None and close_session_fn is not None:
+            try:
+                close_session_fn(session)
+            except Exception:  # nosec B110
+                pass
 
 
 # =============================================================================
