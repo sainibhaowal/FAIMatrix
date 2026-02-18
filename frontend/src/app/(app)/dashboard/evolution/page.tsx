@@ -159,7 +159,7 @@ class ApiError extends Error {
   }
 }
 
-const INITIAL_EVENT_LIMIT = 120;
+const INITIAL_EVENT_LIMIT = 100;
 const POLL_EVENT_LIMIT = 60;
 const MAX_TIMELINE_EVENTS = 260;
 const POLL_INTERVAL_MS = 2500;
