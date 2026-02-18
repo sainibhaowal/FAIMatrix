@@ -41,6 +41,7 @@ This backlog now separates completed delivery from true future enhancements.
 27. Phase S6 - End-to-End Validation + Non-Regression: completed
 28. Phase S7 - Docs + Release Hygiene: completed
 29. Phase EV-A - Evolution Dashboard Step A (UI Integration on Existing APIs): completed
+30. Phase EV-B - Evolution Dashboard Step B (Runtime Status + Shared Due Evaluation): completed
 
 ## Completed Scope Summary
 
@@ -377,6 +378,28 @@ Evidence:
 
 - `37_PHASE_EVOLUTION_STEP_A_UI_INTEGRATION_REPORT.md`
 
+## Phase EV-B Completed
+
+- added read-only evolve runtime status route: `GET /api/v1/evolve/status`
+- exposed scheduler/runtime observability in one additive contract:
+  - self-evolve/self-invent runtime flags
+  - durable scheduler state (`last_seen`, `last_evolved`, `last_enqueued_job`)
+  - due-evaluation reason and thresholds
+  - active evolve job + last enqueued evolve job summaries
+  - last event summary (`last event`, `snapshot hash`, `last skip reason`)
+- centralized due decision logic into shared read-only helper and reused it for:
+  - enqueue path (`enqueue_self_evolve_if_due`)
+  - status path (`/api/v1/evolve/status`)
+- added evolve endpoint rate-limit classification coverage for:
+  - `GET /api/v1/evolve/*` -> read category
+  - `POST /api/v1/evolve` -> write category
+- integrated Evolution page Step B UI with status endpoint for live runtime/scheduler visibility
+- validated with new unit + acceptance coverage and non-regression checks
+
+Evidence:
+
+- `38_PHASE_EVOLUTION_STEP_B_RUNTIME_STATUS_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -398,6 +421,7 @@ Evidence:
 | Self-evolution validation and non-regression matrix | implemented (S6) |
 | Self-default docs and release-hygiene reconciliation | implemented (S7) |
 | Evolution dashboard integration (existing APIs only) | implemented (EV-A) |
+| Evolution dashboard runtime status integration (shared due helper + status contract) | implemented (EV-B) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |

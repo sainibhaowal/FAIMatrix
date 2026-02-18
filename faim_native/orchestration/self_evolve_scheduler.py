@@ -49,6 +49,29 @@ class SelfEvolveScanSummary:
     reason: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class SelfEvolveDueEvaluation:
+    """Read-only self-evolve due evaluation result."""
+
+    is_due: bool
+    reason: str
+    source: str
+    trigger_mode: str
+    self_evolve_enabled: bool
+    jobs_enabled: bool
+    source_allowed: bool
+    graph_version: int = 0
+    last_seen_version: int = 0
+    last_evolved_version: int = 0
+    version_delta: int = 0
+    min_version_delta: int = 0
+    min_interval_seconds: int = 0
+    elapsed_since_last_evolved_seconds: Optional[int] = None
+    last_evolved_at: Optional[datetime] = None
+    active_job_id: Optional[UUID] = None
+    last_enqueued_job_id: Optional[UUID] = None
+
+
 def _jobs_enabled() -> bool:
     raw = os.getenv("FAIM_ENABLE_JOBS", "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
@@ -126,6 +149,207 @@ def list_self_evolve_tenants(
     return tenants
 
 
+def evaluate_self_evolve_due(
+    *,
+    session: Session,
+    tenant_id: str,
+    graph_id: str,
+    source: str,
+    now: Optional[datetime] = None,
+    update_seen_version: bool = False,
+) -> SelfEvolveDueEvaluation:
+    """Evaluate self-evolve due decision without enqueue side effects."""
+    flags = get_feature_flags()
+
+    source_key = str(source or "").strip().lower() or "unknown"
+    trigger_mode = str(flags.self_evolve_trigger_mode or "").strip().lower()
+    legacy_storage_compat = (
+        source_key == "storage_upload"
+        and flags.self_invent_enabled
+        and flags.self_invent_after_upload
+    )
+
+    if not flags.self_evolve_enabled and not legacy_storage_compat:
+        return SelfEvolveDueEvaluation(
+            is_due=False,
+            reason="self_evolve_disabled",
+            source=source_key,
+            trigger_mode=trigger_mode,
+            self_evolve_enabled=bool(flags.self_evolve_enabled),
+            jobs_enabled=_jobs_enabled(),
+            source_allowed=False,
+        )
+
+    if flags.self_evolve_enabled:
+        if _is_write_trigger_source(source_key) and trigger_mode not in {
+            "post_upload",
+            "hybrid",
+        }:
+            return SelfEvolveDueEvaluation(
+                is_due=False,
+                reason=f"trigger_mode_not_write_triggered:{trigger_mode or 'unknown'}",
+                source=source_key,
+                trigger_mode=trigger_mode,
+                self_evolve_enabled=bool(flags.self_evolve_enabled),
+                jobs_enabled=_jobs_enabled(),
+                source_allowed=False,
+            )
+        if _is_periodic_source(source_key) and trigger_mode not in {
+            "periodic",
+            "hybrid",
+        }:
+            return SelfEvolveDueEvaluation(
+                is_due=False,
+                reason=f"trigger_mode_not_periodic:{trigger_mode or 'unknown'}",
+                source=source_key,
+                trigger_mode=trigger_mode,
+                self_evolve_enabled=bool(flags.self_evolve_enabled),
+                jobs_enabled=_jobs_enabled(),
+                source_allowed=False,
+            )
+        source_allowed = _source_allowed_for_mode(
+            source_key=source_key,
+            trigger_mode=trigger_mode,
+        )
+        if not source_allowed:
+            return SelfEvolveDueEvaluation(
+                is_due=False,
+                reason=f"unsupported_source:{source_key}",
+                source=source_key,
+                trigger_mode=trigger_mode,
+                self_evolve_enabled=bool(flags.self_evolve_enabled),
+                jobs_enabled=_jobs_enabled(),
+                source_allowed=False,
+            )
+    else:
+        source_allowed = True
+
+    jobs_enabled = _jobs_enabled()
+    if not jobs_enabled:
+        return SelfEvolveDueEvaluation(
+            is_due=False,
+            reason="jobs_disabled",
+            source=source_key,
+            trigger_mode=trigger_mode,
+            self_evolve_enabled=bool(flags.self_evolve_enabled),
+            jobs_enabled=False,
+            source_allowed=source_allowed,
+        )
+
+    ts_now = _normalize_dt(now) or datetime.now(timezone.utc)
+    gv_repo = GraphVersionRepo(session=session, tenant_id=tenant_id)
+    state_repo = SelfEvolutionStateRepo(session=session, tenant_id=tenant_id)
+
+    current_version = int(gv_repo.get_version(session, graph_id) or 0)
+    if update_seen_version:
+        state = state_repo.mark_seen_version(
+            graph_id=graph_id,
+            seen_version=current_version,
+            session=session,
+        )
+    else:
+        state = state_repo.get(graph_id=graph_id, session=session)
+
+    last_seen_version = int(getattr(state, "last_seen_version", 0) or 0)
+    last_evolved_version = int(getattr(state, "last_evolved_version", 0) or 0)
+    last_enqueued_job_id = getattr(state, "last_enqueued_job_id", None)
+    if last_enqueued_job_id is not None and not isinstance(last_enqueued_job_id, UUID):
+        try:
+            last_enqueued_job_id = UUID(str(last_enqueued_job_id))
+        except (TypeError, ValueError):
+            last_enqueued_job_id = None
+
+    version_delta = current_version - last_evolved_version
+    min_version_delta = int(flags.self_evolve_min_version_delta)
+    if version_delta < min_version_delta:
+        return SelfEvolveDueEvaluation(
+            is_due=False,
+            reason=f"not_due_version_delta:{version_delta}<{min_version_delta}",
+            source=source_key,
+            trigger_mode=trigger_mode,
+            self_evolve_enabled=bool(flags.self_evolve_enabled),
+            jobs_enabled=jobs_enabled,
+            source_allowed=source_allowed,
+            graph_version=current_version,
+            last_seen_version=last_seen_version,
+            last_evolved_version=last_evolved_version,
+            version_delta=version_delta,
+            min_version_delta=min_version_delta,
+            min_interval_seconds=int(flags.self_evolve_min_interval_seconds),
+            last_enqueued_job_id=last_enqueued_job_id,
+        )
+
+    min_interval_seconds = int(flags.self_evolve_min_interval_seconds)
+    last_evolved_at = _normalize_dt(getattr(state, "last_evolved_at", None))
+    elapsed_seconds: Optional[int] = None
+    if last_evolved_at is not None:
+        elapsed_seconds = int((ts_now - last_evolved_at).total_seconds())
+        if elapsed_seconds < min_interval_seconds:
+            return SelfEvolveDueEvaluation(
+                is_due=False,
+                reason=f"not_due_interval:{elapsed_seconds}<{min_interval_seconds}",
+                source=source_key,
+                trigger_mode=trigger_mode,
+                self_evolve_enabled=bool(flags.self_evolve_enabled),
+                jobs_enabled=jobs_enabled,
+                source_allowed=source_allowed,
+                graph_version=current_version,
+                last_seen_version=last_seen_version,
+                last_evolved_version=last_evolved_version,
+                version_delta=version_delta,
+                min_version_delta=min_version_delta,
+                min_interval_seconds=min_interval_seconds,
+                elapsed_since_last_evolved_seconds=elapsed_seconds,
+                last_evolved_at=last_evolved_at,
+                last_enqueued_job_id=last_enqueued_job_id,
+            )
+
+    active_job = _active_evolve_job(
+        session=session,
+        tenant_id=tenant_id,
+        graph_id=graph_id,
+    )
+    if active_job is not None:
+        return SelfEvolveDueEvaluation(
+            is_due=False,
+            reason="active_evolve_job_exists",
+            source=source_key,
+            trigger_mode=trigger_mode,
+            self_evolve_enabled=bool(flags.self_evolve_enabled),
+            jobs_enabled=jobs_enabled,
+            source_allowed=source_allowed,
+            graph_version=current_version,
+            last_seen_version=last_seen_version,
+            last_evolved_version=last_evolved_version,
+            version_delta=version_delta,
+            min_version_delta=min_version_delta,
+            min_interval_seconds=min_interval_seconds,
+            elapsed_since_last_evolved_seconds=elapsed_seconds,
+            last_evolved_at=last_evolved_at,
+            active_job_id=active_job.job_id,
+            last_enqueued_job_id=last_enqueued_job_id,
+        )
+
+    return SelfEvolveDueEvaluation(
+        is_due=True,
+        reason="due_enqueued",
+        source=source_key,
+        trigger_mode=trigger_mode,
+        self_evolve_enabled=bool(flags.self_evolve_enabled),
+        jobs_enabled=jobs_enabled,
+        source_allowed=source_allowed,
+        graph_version=current_version,
+        last_seen_version=last_seen_version,
+        last_evolved_version=last_evolved_version,
+        version_delta=version_delta,
+        min_version_delta=min_version_delta,
+        min_interval_seconds=min_interval_seconds,
+        elapsed_since_last_evolved_seconds=elapsed_seconds,
+        last_evolved_at=last_evolved_at,
+        last_enqueued_job_id=last_enqueued_job_id,
+    )
+
+
 def enqueue_self_evolve_if_due(
     *,
     session: Session,
@@ -145,110 +369,41 @@ def enqueue_self_evolve_if_due(
     - At most one pending/running evolve job per tenant+graph.
     """
     flags = get_feature_flags()
-
-    source_key = str(source or "").strip().lower() or "unknown"
-    legacy_storage_compat = (
-        source_key == "storage_upload"
-        and flags.self_invent_enabled
-        and flags.self_invent_after_upload
-    )
-
-    if not flags.self_evolve_enabled and not legacy_storage_compat:
-        return SelfEvolveEnqueueResult(
-            status="skipped",
-            reason="self_evolve_disabled",
-        )
-
-    # For write-triggered enqueue we only allow post_upload/hybrid modes.
-    if flags.self_evolve_enabled:
-        trigger_mode = str(flags.self_evolve_trigger_mode or "").strip().lower()
-        if _is_write_trigger_source(source_key) and trigger_mode not in {
-            "post_upload",
-            "hybrid",
-        }:
-            return SelfEvolveEnqueueResult(
-                status="skipped",
-                reason=f"trigger_mode_not_write_triggered:{trigger_mode or 'unknown'}",
-            )
-        if _is_periodic_source(source_key) and trigger_mode not in {
-            "periodic",
-            "hybrid",
-        }:
-            return SelfEvolveEnqueueResult(
-                status="skipped",
-                reason=f"trigger_mode_not_periodic:{trigger_mode or 'unknown'}",
-            )
-        if not _source_allowed_for_mode(
-            source_key=source_key,
-            trigger_mode=trigger_mode,
-        ):
-            return SelfEvolveEnqueueResult(
-                status="skipped",
-                reason=f"unsupported_source:{source_key}",
-            )
-
-    if not _jobs_enabled():
-        return SelfEvolveEnqueueResult(
-            status="skipped",
-            reason="jobs_disabled",
-        )
-
-    ts_now = _normalize_dt(now) or datetime.now(timezone.utc)
-
-    gv_repo = GraphVersionRepo(session=session, tenant_id=tenant_id)
-    state_repo = SelfEvolutionStateRepo(session=session, tenant_id=tenant_id)
-
-    current_version = int(gv_repo.get_version(session, graph_id) or 0)
-    state = state_repo.mark_seen_version(
-        graph_id=graph_id,
-        seen_version=current_version,
-        session=session,
-    )
-
-    last_evolved_version = int(state.last_evolved_version or 0)
-    version_delta = current_version - last_evolved_version
-    if version_delta < int(flags.self_evolve_min_version_delta):
-        return SelfEvolveEnqueueResult(
-            status="skipped",
-            reason=(
-                "not_due_version_delta"
-                f":{version_delta}<{int(flags.self_evolve_min_version_delta)}"
-            ),
-            graph_version=current_version,
-            version_delta=version_delta,
-        )
-
-    last_evolved_at = _normalize_dt(state.last_evolved_at)
-    if last_evolved_at is not None:
-        elapsed_seconds = int((ts_now - last_evolved_at).total_seconds())
-        if elapsed_seconds < int(flags.self_evolve_min_interval_seconds):
-            return SelfEvolveEnqueueResult(
-                status="skipped",
-                reason=(
-                    "not_due_interval"
-                    f":{elapsed_seconds}<{int(flags.self_evolve_min_interval_seconds)}"
-                ),
-                graph_version=current_version,
-                version_delta=version_delta,
-            )
-
-    existing = _active_evolve_job(
+    evaluation = evaluate_self_evolve_due(
         session=session,
         tenant_id=tenant_id,
         graph_id=graph_id,
+        source=source,
+        now=now,
+        update_seen_version=True,
     )
-    if existing is not None:
-        state_repo.mark_enqueued(
-            graph_id=graph_id,
-            job_id=existing.job_id,
-            seen_version=current_version,
-            session=session,
-        )
-        session.commit()
+    source_key = evaluation.source
+    current_version = int(evaluation.graph_version or 0)
+    version_delta = int(evaluation.version_delta or 0)
+
+    if not evaluation.is_due:
+        if (
+            evaluation.reason == "active_evolve_job_exists"
+            and evaluation.active_job_id is not None
+        ):
+            state_repo = SelfEvolutionStateRepo(session=session, tenant_id=tenant_id)
+            state_repo.mark_enqueued(
+                graph_id=graph_id,
+                job_id=evaluation.active_job_id,
+                seen_version=current_version,
+                session=session,
+            )
+            session.commit()
+            return SelfEvolveEnqueueResult(
+                status="existing",
+                reason=evaluation.reason,
+                job_id=evaluation.active_job_id,
+                graph_version=current_version,
+                version_delta=version_delta,
+            )
         return SelfEvolveEnqueueResult(
-            status="existing",
-            reason="active_evolve_job_exists",
-            job_id=existing.job_id,
+            status="skipped",
+            reason=evaluation.reason,
             graph_version=current_version,
             version_delta=version_delta,
         )
@@ -278,6 +433,7 @@ def enqueue_self_evolve_if_due(
         kind="evolve",
         payload=payload,
     )
+    state_repo = SelfEvolutionStateRepo(session=session, tenant_id=tenant_id)
     state_repo.mark_enqueued(
         graph_id=graph_id,
         job_id=evolve_job_id,
@@ -415,8 +571,10 @@ def scan_and_enqueue_due_self_evolve_jobs(
 
 
 __all__ = [
+    "SelfEvolveDueEvaluation",
     "SelfEvolveEnqueueResult",
     "SelfEvolveScanSummary",
+    "evaluate_self_evolve_due",
     "enqueue_self_evolve_if_due",
     "list_self_evolve_tenants",
     "scan_and_enqueue_due_self_evolve_jobs",

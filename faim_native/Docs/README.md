@@ -43,6 +43,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 37. `35_PHASE_S6_END_TO_END_VALIDATION_REPORT.md`
 38. `36_PHASE_S7_DOCS_RELEASE_HYGIENE_REPORT.md`
 39. `37_PHASE_EVOLUTION_STEP_A_UI_INTEGRATION_REPORT.md`
+40. `38_PHASE_EVOLUTION_STEP_B_RUNTIME_STATUS_REPORT.md`
 
 ## Intent
 
@@ -79,6 +80,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Phase S6 end-to-end validation and non-regression outcomes are documented in 37.
 - Phase S7 docs + release hygiene reconciliation is documented in 38.
 - Evolution dashboard Step A UI integration is documented in 39.
+- Evolution dashboard Step B runtime status integration is documented in 40.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome
