@@ -104,6 +104,15 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: faim-api
+    command:
+      [
+        "uvicorn",
+        "api.app:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
     env_file: .env
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
