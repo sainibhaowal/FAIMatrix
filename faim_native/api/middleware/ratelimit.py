@@ -166,6 +166,7 @@ ENDPOINT_CATEGORIES = {
     "/api/v1/query": "query",
     "/api/v1/events": "events",
     "/api/v1/api-keys": "api_keys",
+    "/api/v1/evolve": "query",
     "/api/v1/memory/search": "query",
     "/api/v1/memory/write": "ingest",
     "/api/v1/memory": "query",
@@ -193,6 +194,8 @@ ENDPOINT_METHOD_CATEGORIES: Sequence[EndpointRateRule] = (
     EndpointRateRule("GET", "/api/v1/storage", "storage_read"),
     EndpointRateRule("POST", "/api/v1/api-keys", "api_keys_write"),
     EndpointRateRule("GET", "/api/v1/api-keys", "api_keys_read"),
+    EndpointRateRule("POST", "/api/v1/evolve", "ingest_write"),
+    EndpointRateRule("GET", "/api/v1/evolve", "query_read"),
     EndpointRateRule("POST", "/api/v1/memory/search", "memory_search"),
     EndpointRateRule("GET", "/api/v1/memory", "memory_read"),
     EndpointRateRule("POST", "/api/v1/memory/write", "memory_write"),
@@ -201,6 +204,8 @@ ENDPOINT_METHOD_CATEGORIES: Sequence[EndpointRateRule] = (
     EndpointRateRule("POST", "/v1/ingest", "ingest_write"),
     EndpointRateRule("POST", "/v1/query", "query_read"),
     EndpointRateRule("GET", "/v1/events", "events_stream"),
+    EndpointRateRule("POST", "/v1/evolve", "ingest_write"),
+    EndpointRateRule("GET", "/v1/evolve", "query_read"),
 )
 
 

@@ -81,6 +81,73 @@ type LatestEventResponse = {
   event_count: number;
 };
 
+type EvolveStatusRuntime = {
+  self_evolve_enabled: boolean;
+  self_evolve_trigger_mode: string;
+  self_evolve_min_interval_seconds: number;
+  self_evolve_min_version_delta: number;
+  self_evolve_max_actions: number;
+  self_evolve_scan_interval_seconds: number;
+  self_invent_enabled: boolean;
+  self_invent_on_evolve: boolean;
+  jobs_enabled: boolean;
+};
+
+type EvolveStatusState = {
+  graph_id: string;
+  graph_version: number;
+  last_seen_version: number;
+  last_evolved_version: number;
+  last_evolved_at?: string | null;
+  last_enqueued_job_id?: string | null;
+};
+
+type EvolveStatusDue = {
+  source: string;
+  is_due: boolean;
+  reason: string;
+  graph_version: number;
+  last_seen_version: number;
+  last_evolved_version: number;
+  version_delta: number;
+  min_version_delta: number;
+  min_interval_seconds: number;
+  elapsed_since_last_evolved_seconds?: number | null;
+};
+
+type EvolveStatusJobSummary = {
+  job_id: string;
+  status: string;
+  created_at?: string | null;
+  updated_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+  error_message?: string | null;
+  source?: string | null;
+  trigger_graph_version?: number | null;
+  trigger_version_delta?: number | null;
+  self_invent_requested?: boolean | null;
+};
+
+type EvolveStatusLastEvent = {
+  last_event_seq: number;
+  last_event_kind?: string | null;
+  last_event_ts?: string | null;
+  last_snapshot_hash?: string | null;
+  last_skip_reason?: string | null;
+};
+
+type EvolveStatusResponse = {
+  graph_id: string;
+  tenant_id: string;
+  runtime: EvolveStatusRuntime;
+  state: EvolveStatusState;
+  due: EvolveStatusDue;
+  active_job?: EvolveStatusJobSummary | null;
+  last_enqueued_job?: EvolveStatusJobSummary | null;
+  last_event: EvolveStatusLastEvent;
+};
+
 type LiveStatus = "idle" | "refreshing" | "live" | "error";
 
 class ApiError extends Error {
@@ -308,6 +375,7 @@ export default function EvolutionPage() {
 
   const [metrics, setMetrics] = useState<MetricsScorecard | null>(null);
   const [latest, setLatest] = useState<LatestEventResponse | null>(null);
+  const [evolveStatus, setEvolveStatus] = useState<EvolveStatusResponse | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<GraphEvent[]>([]);
   const [lastRun, setLastRun] = useState<EvolveResponse | null>(null);
   const [lastSeq, setLastSeq] = useState(0);
@@ -349,6 +417,14 @@ export default function EvolutionPage() {
     return apiRequest<LatestEventResponse>(`/api/v1/events/latest?${params.toString()}`);
   }, []);
 
+  const fetchEvolveStatus = useCallback(async (targetGraphId: string): Promise<EvolveStatusResponse> => {
+    const params = new URLSearchParams({
+      graph_id: targetGraphId,
+      source: "memory_write",
+    });
+    return apiRequest<EvolveStatusResponse>(`/api/v1/evolve/status?${params.toString()}`);
+  }, []);
+
   const fetchEvents = useCallback(
     async (targetGraphId: string, afterSeq: number, limit: number): Promise<GraphEventsResponse> => {
       const params = new URLSearchParams({
@@ -369,10 +445,11 @@ export default function EvolutionPage() {
       setLoadingTimeline(true);
 
       try {
-        const [scorecardData, latestData, eventsData] = await Promise.all([
+        const [scorecardData, latestData, eventsData, statusData] = await Promise.all([
           fetchScorecard(targetGraphId),
           fetchLatest(targetGraphId),
           fetchEvents(targetGraphId, 0, INITIAL_EVENT_LIMIT),
+          fetchEvolveStatus(targetGraphId),
         ]);
 
         const normalized = dedupeAndSortEvents(eventsData.events || []);
@@ -383,6 +460,7 @@ export default function EvolutionPage() {
 
         setMetrics(scorecardData);
         setLatest(latestData);
+        setEvolveStatus(statusData);
         setTimelineEvents(normalized.slice(-MAX_TIMELINE_EVENTS));
         setLastSeq(lastSeqValue);
         setLiveStatus("live");
@@ -396,7 +474,7 @@ export default function EvolutionPage() {
         setLoadingTimeline(false);
       }
     },
-    [fetchEvents, fetchLatest, fetchScorecard, toast]
+    [fetchEvents, fetchEvolveStatus, fetchLatest, fetchScorecard, toast]
   );
 
   const pollOnce = useCallback(
@@ -414,6 +492,9 @@ export default function EvolutionPage() {
         } else if (eventsData.next_seq > 0) {
           setLastSeq((prev) => Math.max(prev, eventsData.next_seq));
         }
+
+        const statusData = await fetchEvolveStatus(targetGraphId);
+        setEvolveStatus(statusData);
 
         const containsEvolutionEvent = incoming.some((event) => EVOLUTION_EVENT_KINDS.has(event.kind));
         pollTickRef.current += 1;
@@ -434,7 +515,7 @@ export default function EvolutionPage() {
         setPollError(message);
       }
     },
-    [fetchEvents, fetchLatest, fetchScorecard]
+    [fetchEvents, fetchEvolveStatus, fetchLatest, fetchScorecard]
   );
 
   const runEvolve = useCallback(async () => {
@@ -490,6 +571,7 @@ export default function EvolutionPage() {
     setTimelineEvents([]);
     setLastSeq(0);
     setLastRun(null);
+    setEvolveStatus(null);
     pollTickRef.current = 0;
     void refreshAll(targetGraph);
   }, [graphId, refreshAll]);
@@ -773,7 +855,8 @@ export default function EvolutionPage() {
                   Last seq / kind
                 </span>
                 <span className="text-xs text-slate-300">
-                  {latest?.last_seq ?? 0} / {latest?.last_kind || "-"}
+                  {evolveStatus?.last_event?.last_event_seq ?? latest?.last_seq ?? 0} /{" "}
+                  {evolveStatus?.last_event?.last_event_kind || latest?.last_kind || "-"}
                 </span>
               </div>
 
@@ -827,6 +910,83 @@ export default function EvolutionPage() {
                   invention
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl">
+            <CardHeader
+              title="Scheduler State"
+              description="Step B runtime flags, due reason, and evolve job state."
+            />
+            <CardContent className="space-y-3 pt-4 text-sm">
+              {!evolveStatus ? (
+                <p className="text-sm text-slate-400">Loading scheduler state...</p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Trigger mode</span>
+                    <span className="font-mono text-xs text-slate-200">
+                      {evolveStatus.runtime.self_evolve_trigger_mode}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Jobs enabled</span>
+                    <Badge variant={evolveStatus.runtime.jobs_enabled ? "success" : "warning"} size="xs">
+                      {evolveStatus.runtime.jobs_enabled ? "enabled" : "disabled"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Self evolve / invent</span>
+                    <span className="text-xs text-slate-200">
+                      {evolveStatus.runtime.self_evolve_enabled ? "on" : "off"} /{" "}
+                      {evolveStatus.runtime.self_invent_enabled ? "on" : "off"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Due now</span>
+                    <Badge variant={evolveStatus.due.is_due ? "success" : "outline"} size="xs">
+                      {evolveStatus.due.is_due ? "yes" : "no"}
+                    </Badge>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                    <p className="text-xs text-slate-400">Due reason</p>
+                    <p className="mt-1 font-mono text-xs text-slate-200">{evolveStatus.due.reason}</p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Version delta</span>
+                    <span className="text-xs text-slate-200">
+                      {evolveStatus.due.version_delta} / {evolveStatus.due.min_version_delta}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Last evolved</span>
+                    <span className="text-xs text-slate-200">
+                      {formatTimestamp(evolveStatus.state.last_evolved_at)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Active job</span>
+                    <span className="text-xs text-slate-200">
+                      {evolveStatus.active_job
+                        ? `${evolveStatus.active_job.status} (${shortHash(evolveStatus.active_job.job_id)})`
+                        : "-"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Last enqueued</span>
+                    <span className="text-xs text-slate-200">
+                      {evolveStatus.last_enqueued_job
+                        ? `${evolveStatus.last_enqueued_job.status} (${shortHash(evolveStatus.last_enqueued_job.job_id)})`
+                        : "-"}
+                    </span>
+                  </div>
+                  {evolveStatus.last_event.last_skip_reason && (
+                    <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-xs text-amber-200">
+                      Last skip reason: {evolveStatus.last_event.last_skip_reason}
+                    </div>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
 

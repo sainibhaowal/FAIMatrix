@@ -7,8 +7,11 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import and_, create_engine
 from sqlalchemy.orm import sessionmaker
 
-from orchestration.self_evolve_scheduler import enqueue_self_evolve_if_due
-from store.pg.models_faim import JobModel, create_all_tables
+from orchestration.self_evolve_scheduler import (
+    enqueue_self_evolve_if_due,
+    evaluate_self_evolve_due,
+)
+from store.pg.models_faim import JobModel, SelfEvolutionStateModel, create_all_tables
 from store.pg.repos.graph_version_repo import GraphVersionRepo
 from store.pg.repos.self_evolution_state_repo import SelfEvolutionStateRepo
 
@@ -260,5 +263,69 @@ def test_s3_respects_due_interval(monkeypatch):
         )
         assert result.status == "skipped"
         assert result.reason.startswith("not_due_interval:")
+    finally:
+        session.close()
+
+
+def test_s3_due_evaluation_is_read_only_when_requested(monkeypatch):
+    _set_defaults(monkeypatch)
+    session = _new_session()
+    try:
+        tenant_id = "tenant_s3"
+        graph_id = "graph_s3_read_only_status"
+        _seed_graph_version(
+            session,
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+            version=4,
+        )
+
+        before = int(session.query(SelfEvolutionStateModel).count())
+        evaluation = evaluate_self_evolve_due(
+            session=session,
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+            source="memory_write",
+            update_seen_version=False,
+        )
+        after = int(session.query(SelfEvolutionStateModel).count())
+
+        assert evaluation.reason == "due_enqueued"
+        assert evaluation.is_due is True
+        assert before == after == 0
+    finally:
+        session.close()
+
+
+def test_s3_due_evaluation_reports_active_job_reason(monkeypatch):
+    _set_defaults(monkeypatch)
+    session = _new_session()
+    try:
+        tenant_id = "tenant_s3"
+        graph_id = "graph_s3_due_active"
+        _seed_graph_version(
+            session,
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+            version=8,
+        )
+        first = enqueue_self_evolve_if_due(
+            session=session,
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+            source="memory_write",
+        )
+        assert first.status == "enqueued"
+
+        evaluation = evaluate_self_evolve_due(
+            session=session,
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+            source="memory_write",
+            update_seen_version=False,
+        )
+        assert evaluation.is_due is False
+        assert evaluation.reason == "active_evolve_job_exists"
+        assert str(evaluation.active_job_id) == str(first.job_id)
     finally:
         session.close()
