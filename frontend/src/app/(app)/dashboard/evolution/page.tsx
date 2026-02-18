@@ -1,23 +1,856 @@
 "use client";
 
-import { Dna } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  Clock3,
+  Dna,
+  GitMerge,
+  Hash,
+  Play,
+  RefreshCw,
+  Scissors,
+  Sparkles,
+} from "lucide-react";
+import { getSession, useSession } from "next-auth/react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  Input,
+  Select,
+  useToast,
+} from "@/components/ui";
+
+type EvolveResponse = {
+  status: string;
+  graph_version: number;
+  merges: number;
+  prunes: number;
+  inventions: number;
+  diagnostics?: Record<string, unknown> | null;
+  events_emitted: string[];
+  latency_ms: number;
+  error?: string | null;
+};
+
+type MetricsScorecard = {
+  graph_id: string;
+  graph_version: number;
+  graph_hash: string;
+  dimension_D?: number | null;
+  entropy_H?: number | null;
+  pressure_lambda?: number | null;
+  node_count: number;
+  edge_count: number;
+  redundancy?: number | null;
+  novelty?: number | null;
+  energy?: number | null;
+  computed_at?: string | null;
+};
+
+type GraphEvent = {
+  seq: number;
+  id: string;
+  kind: string;
+  ts?: string | null;
+  payload: Record<string, unknown>;
+  checksum?: string | null;
+};
+
+type GraphEventsResponse = {
+  graph_id: string;
+  tenant_id: string;
+  events: GraphEvent[];
+  has_more: boolean;
+  next_seq: number;
+  count: number;
+};
+
+type LatestEventResponse = {
+  graph_id: string;
+  last_seq: number;
+  last_kind?: string | null;
+  last_ts?: string | null;
+  snapshot_hash?: string | null;
+  event_count: number;
+};
+
+type LiveStatus = "idle" | "refreshing" | "live" | "error";
+
+class ApiError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
+
+const INITIAL_EVENT_LIMIT = 120;
+const POLL_EVENT_LIMIT = 60;
+const MAX_TIMELINE_EVENTS = 260;
+const POLL_INTERVAL_MS = 2500;
+const METRICS_REFRESH_EVERY_POLLS = 3;
+
+const EVOLUTION_EVENT_KINDS = new Set([
+  "DIAGNOSTICS_SNAPSHOT",
+  "EVOLUTION_COMPLETE",
+  "EVOLUTION_SKIPPED",
+  "EVOLUTION_MERGE",
+  "PRUNE_NODE",
+  "EVOLUTION_INVENTION_SUMMARY",
+  "EVOLUTION_INVENTION_ERROR",
+]);
+
+function normalizeApiError(payload: unknown, fallback: string): string {
+  if (!payload) return fallback;
+  if (typeof payload === "string") return payload;
+  if (typeof payload === "object") {
+    const detail = (payload as { detail?: unknown }).detail;
+    if (typeof detail === "string" && detail.trim()) return detail;
+    const error = (payload as { error?: unknown }).error;
+    if (typeof error === "string" && error.trim()) return error;
+  }
+  return fallback;
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function shortHash(value?: string | null): string {
+  if (!value) return "-";
+  if (value.length <= 16) return value;
+  return `${value.slice(0, 8)}...${value.slice(-6)}`;
+}
+
+function formatTimestamp(value?: string | null): string {
+  if (!value) return "-";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleString();
+}
+
+function formatMetric(value: number | null | undefined, digits = 3): string {
+  if (value == null || !Number.isFinite(value)) return "-";
+  return value.toFixed(digits);
+}
+
+function formatCount(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "-";
+  return Intl.NumberFormat().format(value);
+}
+
+function dedupeAndSortEvents(events: GraphEvent[]): GraphEvent[] {
+  const bySeq = new Map<number, GraphEvent>();
+  for (const event of events) {
+    if (typeof event.seq !== "number") continue;
+    bySeq.set(event.seq, event);
+  }
+  return Array.from(bySeq.values()).sort((a, b) => a.seq - b.seq);
+}
+
+function mergeEvents(current: GraphEvent[], incoming: GraphEvent[]): GraphEvent[] {
+  const merged = dedupeAndSortEvents([...current, ...incoming]);
+  if (merged.length <= MAX_TIMELINE_EVENTS) return merged;
+  return merged.slice(-MAX_TIMELINE_EVENTS);
+}
+
+function resolveInitialGraphId(sessionGraphId?: string): string {
+  if (typeof window !== "undefined") {
+    const universe = window.localStorage.getItem("faim.universe_graph_id");
+    if (universe && universe.trim()) return universe.trim();
+  }
+  if (sessionGraphId && sessionGraphId.trim()) return sessionGraphId.trim();
+  return "default";
+}
+
+function liveStatusVariant(
+  status: LiveStatus
+): "default" | "success" | "warning" | "error" | "info" {
+  if (status === "live") return "success";
+  if (status === "refreshing") return "info";
+  if (status === "error") return "error";
+  return "default";
+}
+
+function eventBadgeVariant(
+  kind: string
+): "default" | "primary" | "secondary" | "success" | "warning" | "error" | "info" | "outline" {
+  if (kind === "EVOLUTION_COMPLETE") return "success";
+  if (kind === "EVOLUTION_SKIPPED") return "warning";
+  if (kind === "EVOLUTION_INVENTION_ERROR") return "error";
+  if (kind === "EVOLUTION_INVENTION_SUMMARY") return "secondary";
+  if (kind === "DIAGNOSTICS_SNAPSHOT") return "info";
+  return "default";
+}
+
+function eventSummary(event: GraphEvent): string {
+  const payload = event.payload || {};
+
+  if (event.kind === "EVOLUTION_COMPLETE") {
+    const merges = asNumber(payload.merges);
+    const prunes = asNumber(payload.prunes);
+    const inventions = asNumber(payload.inventions);
+    return `Completed: merges=${merges ?? 0}, prunes=${prunes ?? 0}, inventions=${inventions ?? 0}`;
+  }
+
+  if (event.kind === "EVOLUTION_SKIPPED") {
+    const reason = typeof payload.reason === "string" ? payload.reason : "unknown";
+    return `Skipped: ${reason}`;
+  }
+
+  if (event.kind === "EVOLUTION_MERGE") {
+    const winner = typeof payload.winner_id === "string" ? shortHash(payload.winner_id) : "-";
+    const loser = typeof payload.loser_id === "string" ? shortHash(payload.loser_id) : "-";
+    return `Merge: ${winner} <- ${loser}`;
+  }
+
+  if (event.kind === "PRUNE_NODE") {
+    const nodeId = typeof payload.node_id === "string" ? shortHash(payload.node_id) : "-";
+    const reason = typeof payload.reason === "string" ? payload.reason : "prune";
+    return `Prune: ${nodeId} (${reason})`;
+  }
+
+  if (event.kind === "EVOLUTION_INVENTION_SUMMARY") {
+    const count = asNumber(payload.inventions) ?? 0;
+    const signatures = asNumber(payload.signatures_tracked) ?? 0;
+    return `Invention: macros=${count}, signatures=${signatures}`;
+  }
+
+  if (event.kind === "EVOLUTION_INVENTION_ERROR") {
+    const text = typeof payload.error === "string" ? payload.error : "Invention failed";
+    return text;
+  }
+
+  if (event.kind === "DIAGNOSTICS_SNAPSHOT") {
+    const metrics =
+      payload.metrics && typeof payload.metrics === "object"
+        ? (payload.metrics as Record<string, unknown>)
+        : {};
+    const d = asNumber(metrics.D);
+    const h = asNumber(metrics.H);
+    const lambda = asNumber(metrics.lambda);
+    return `Diagnostics: D=${d?.toFixed(3) ?? "-"}, H=${h?.toFixed(3) ?? "-"}, λ=${lambda?.toFixed(3) ?? "-"}`;
+  }
+
+  if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+  return event.kind;
+}
+
+async function authHeaders(extra?: HeadersInit): Promise<HeadersInit> {
+  const session = await getSession();
+  const token = (session as { accessToken?: string } | null)?.accessToken;
+  const base: Record<string, string> = {};
+  if (token) base.Authorization = `Bearer ${token}`;
+
+  if (!extra) return base;
+
+  if (extra instanceof Headers) {
+    const merged = new Headers(base);
+    extra.forEach((value, key) => merged.set(key, value));
+    return merged;
+  }
+
+  if (Array.isArray(extra)) {
+    const merged = new Headers(base);
+    for (const [key, value] of extra) merged.set(key, value);
+    return merged;
+  }
+
+  return { ...base, ...(extra as Record<string, string>) };
+}
+
+async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = await authHeaders(init?.headers);
+  const response = await fetch(path, {
+    ...init,
+    headers,
+    cache: "no-store",
+  });
+
+  let payload: unknown = null;
+  const text = await response.text();
+  if (text) {
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      payload = text;
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, normalizeApiError(payload, `Request failed (${response.status})`));
+  }
+
+  return ((payload as T) ?? ({} as T));
+}
 
 export default function EvolutionPage() {
+  const { data: session } = useSession();
+  const { toast } = useToast();
+
+  const [graphId, setGraphId] = useState("default");
+  const [graphDraft, setGraphDraft] = useState("default");
+  const [profile, setProfile] = useState("strict");
+  const [persistMode, setPersistMode] = useState("relaxed");
+
+  const [metrics, setMetrics] = useState<MetricsScorecard | null>(null);
+  const [latest, setLatest] = useState<LatestEventResponse | null>(null);
+  const [timelineEvents, setTimelineEvents] = useState<GraphEvent[]>([]);
+  const [lastRun, setLastRun] = useState<EvolveResponse | null>(null);
+  const [lastSeq, setLastSeq] = useState(0);
+
+  const [loadingSnapshot, setLoadingSnapshot] = useState(true);
+  const [loadingTimeline, setLoadingTimeline] = useState(true);
+  const [runLoading, setRunLoading] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<LiveStatus>("idle");
+
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showEvolutionOnly, setShowEvolutionOnly] = useState(true);
+  const [pollError, setPollError] = useState<string | null>(null);
+
+  const initializedRef = useRef(false);
+  const pollBusyRef = useRef(false);
+  const lastSeqRef = useRef(0);
+  const pollTickRef = useRef(0);
+
+  useEffect(() => {
+    lastSeqRef.current = lastSeq;
+  }, [lastSeq]);
+
+  useEffect(() => {
+    if (initializedRef.current) return;
+    const sessionGraphId = (session as { graphId?: string } | null)?.graphId;
+    const initialGraph = resolveInitialGraphId(sessionGraphId);
+    setGraphId(initialGraph);
+    setGraphDraft(initialGraph);
+    initializedRef.current = true;
+  }, [session]);
+
+  const fetchScorecard = useCallback(async (targetGraphId: string): Promise<MetricsScorecard> => {
+    const params = new URLSearchParams({ graph_id: targetGraphId });
+    return apiRequest<MetricsScorecard>(`/api/v1/metrics/scorecard?${params.toString()}`);
+  }, []);
+
+  const fetchLatest = useCallback(async (targetGraphId: string): Promise<LatestEventResponse> => {
+    const params = new URLSearchParams({ graph_id: targetGraphId });
+    return apiRequest<LatestEventResponse>(`/api/v1/events/latest?${params.toString()}`);
+  }, []);
+
+  const fetchEvents = useCallback(
+    async (targetGraphId: string, afterSeq: number, limit: number): Promise<GraphEventsResponse> => {
+      const params = new URLSearchParams({
+        graph_id: targetGraphId,
+        after_seq: String(Math.max(0, afterSeq)),
+        limit: String(limit),
+      });
+      return apiRequest<GraphEventsResponse>(`/api/v1/events?${params.toString()}`);
+    },
+    []
+  );
+
+  const refreshAll = useCallback(
+    async (targetGraphId: string) => {
+      setLiveStatus("refreshing");
+      setPollError(null);
+      setLoadingSnapshot(true);
+      setLoadingTimeline(true);
+
+      try {
+        const [scorecardData, latestData, eventsData] = await Promise.all([
+          fetchScorecard(targetGraphId),
+          fetchLatest(targetGraphId),
+          fetchEvents(targetGraphId, 0, INITIAL_EVENT_LIMIT),
+        ]);
+
+        const normalized = dedupeAndSortEvents(eventsData.events || []);
+        const lastSeqValue =
+          normalized.length > 0
+            ? normalized[normalized.length - 1].seq
+            : Math.max(0, Number(latestData.last_seq || 0));
+
+        setMetrics(scorecardData);
+        setLatest(latestData);
+        setTimelineEvents(normalized.slice(-MAX_TIMELINE_EVENTS));
+        setLastSeq(lastSeqValue);
+        setLiveStatus("live");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to load evolution data";
+        setLiveStatus("error");
+        setPollError(message);
+        toast.error("Evolution page failed to load", message);
+      } finally {
+        setLoadingSnapshot(false);
+        setLoadingTimeline(false);
+      }
+    },
+    [fetchEvents, fetchLatest, fetchScorecard, toast]
+  );
+
+  const pollOnce = useCallback(
+    async (targetGraphId: string) => {
+      try {
+        const eventsData = await fetchEvents(targetGraphId, lastSeqRef.current, POLL_EVENT_LIMIT);
+        const incoming = eventsData.events || [];
+
+        if (incoming.length) {
+          setTimelineEvents((current) => mergeEvents(current, incoming));
+          const maxIncomingSeq = incoming.reduce((max, event) => Math.max(max, event.seq || 0), 0);
+          if (maxIncomingSeq > 0) {
+            setLastSeq((prev) => Math.max(prev, maxIncomingSeq));
+          }
+        } else if (eventsData.next_seq > 0) {
+          setLastSeq((prev) => Math.max(prev, eventsData.next_seq));
+        }
+
+        const containsEvolutionEvent = incoming.some((event) => EVOLUTION_EVENT_KINDS.has(event.kind));
+        pollTickRef.current += 1;
+        if (containsEvolutionEvent || pollTickRef.current % METRICS_REFRESH_EVERY_POLLS === 0) {
+          const [scorecardData, latestData] = await Promise.all([
+            fetchScorecard(targetGraphId),
+            fetchLatest(targetGraphId),
+          ]);
+          setMetrics(scorecardData);
+          setLatest(latestData);
+        }
+
+        setLiveStatus("live");
+        setPollError(null);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Evolution polling failed";
+        setLiveStatus("error");
+        setPollError(message);
+      }
+    },
+    [fetchEvents, fetchLatest, fetchScorecard]
+  );
+
+  const runEvolve = useCallback(async () => {
+    const targetGraph = graphId.trim();
+    if (!targetGraph) {
+      toast.info("Graph id is required.");
+      return;
+    }
+
+    setRunLoading(true);
+    try {
+      const payload = {
+        graph_id: targetGraph,
+        profile,
+        persist_mode: persistMode,
+      };
+
+      const result = await apiRequest<EvolveResponse>("/api/v1/evolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      setLastRun(result);
+      const summary = `Status=${result.status}, merges=${result.merges}, prunes=${result.prunes}, inventions=${result.inventions}`;
+      toast.success("Evolution cycle finished", summary);
+      await refreshAll(targetGraph);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Evolution request failed";
+      toast.error("Failed to run evolution", message);
+    } finally {
+      setRunLoading(false);
+    }
+  }, [graphId, persistMode, profile, refreshAll, toast]);
+
+  const applyGraphId = useCallback(() => {
+    const next = graphDraft.trim();
+    if (!next) {
+      toast.info("Please enter a graph id.");
+      return;
+    }
+    if (next === graphId) return;
+    setGraphId(next);
+  }, [graphDraft, graphId, toast]);
+
+  const manualRefresh = useCallback(async () => {
+    await refreshAll(graphId);
+  }, [graphId, refreshAll]);
+
+  useEffect(() => {
+    const targetGraph = graphId.trim();
+    if (!targetGraph) return;
+    setTimelineEvents([]);
+    setLastSeq(0);
+    setLastRun(null);
+    pollTickRef.current = 0;
+    void refreshAll(targetGraph);
+  }, [graphId, refreshAll]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const targetGraph = graphId.trim();
+    if (!targetGraph) return;
+
+    const timer = window.setInterval(() => {
+      if (pollBusyRef.current) return;
+      pollBusyRef.current = true;
+      void pollOnce(targetGraph).finally(() => {
+        pollBusyRef.current = false;
+      });
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [autoRefresh, graphId, pollOnce]);
+
+  const evolutionEvents = useMemo(
+    () => timelineEvents.filter((event) => EVOLUTION_EVENT_KINDS.has(event.kind)),
+    [timelineEvents]
+  );
+
+  const visibleTimeline = useMemo(() => {
+    const base = showEvolutionOnly ? evolutionEvents : timelineEvents;
+    return [...base].sort((a, b) => b.seq - a.seq);
+  }, [evolutionEvents, showEvolutionOnly, timelineEvents]);
+
+  const eventStats = useMemo(() => {
+    let completed = 0;
+    let skipped = 0;
+    let inventionSummary = 0;
+    for (const event of evolutionEvents) {
+      if (event.kind === "EVOLUTION_COMPLETE") completed += 1;
+      if (event.kind === "EVOLUTION_SKIPPED") skipped += 1;
+      if (event.kind === "EVOLUTION_INVENTION_SUMMARY") inventionSummary += 1;
+    }
+    return { completed, skipped, inventionSummary };
+  }, [evolutionEvents]);
+
+  const latestEvolutionEvent = useMemo(() => {
+    return [...evolutionEvents]
+      .reverse()
+      .find((event) => event.kind === "EVOLUTION_COMPLETE" || event.kind === "EVOLUTION_SKIPPED");
+  }, [evolutionEvents]);
+
+  const profileOptions = [
+    { value: "strict", label: "Strict" },
+    { value: "fast", label: "Fast" },
+    { value: "relaxed", label: "Relaxed" },
+  ];
+
+  const persistModeOptions = [
+    { value: "relaxed", label: "Relaxed" },
+    { value: "strict", label: "Strict" },
+  ];
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto text-slate-100">
-      <header className="flex items-center gap-2">
-        <Dna className="w-6 h-6 text-purple-400" />
-        <h1 className="text-xl font-semibold">Evolution Lineage</h1>
+    <div className="space-y-6 pb-8 text-slate-100">
+      <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Dna className="h-5 w-5 text-cyan-300" />
+            <h1 className="text-xl font-semibold text-slate-100">Evolution Control Plane</h1>
+          </div>
+          <p className="text-sm text-slate-400">
+            Observe diagnostics, run evolve cycles, and inspect self-invention/prune activity for graph{" "}
+            <span className="font-mono text-cyan-200">{graphId}</span>.
+          </p>
+        </div>
+        <Badge variant={liveStatusVariant(liveStatus)} size="md">
+          {liveStatus === "refreshing" ? "Refreshing" : liveStatus === "live" ? "Live" : liveStatus === "error" ? "Error" : "Idle"}
+        </Badge>
       </header>
 
-      {/* 
-          CLEAN SLATE: REBUILD YOUR EVOLUTION UI HERE 
-          ------------------------------------------
-      */}
-      <div className="min-h-[400px] border-2 border-dashed border-slate-800 rounded-3xl flex items-center justify-center">
-        <p className="text-slate-500 font-mono text-sm">
-          // Evolution purified. Ready for FAIM-native lineage.
-        </p>
+      <Card className="rounded-2xl">
+        <CardHeader
+          title="Run Controls"
+          description="Manual evolve action plus runtime view controls. Existing backend contracts only."
+        />
+        <CardContent className="grid gap-4 pt-4 md:grid-cols-5">
+          <Input
+            label="Graph id"
+            value={graphDraft}
+            onChange={(event) => setGraphDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                applyGraphId();
+              }
+            }}
+            containerClassName="md:col-span-2"
+            helperText="Universe graph id (for example U:...)."
+          />
+
+          <Select
+            label="Profile"
+            options={profileOptions}
+            value={profile}
+            onChange={setProfile}
+            fullWidth
+          />
+
+          <Select
+            label="Persist mode"
+            options={persistModeOptions}
+            value={persistMode}
+            onChange={setPersistMode}
+            fullWidth
+          />
+
+          <div className="flex flex-col justify-end gap-2">
+            <Button variant="outline" onClick={applyGraphId}>
+              Apply graph
+            </Button>
+          </div>
+
+          <div className="md:col-span-5 flex flex-wrap items-center gap-2">
+            <Button
+              variant="primary"
+              leftIcon={<Play size={14} />}
+              loading={runLoading}
+              onClick={runEvolve}
+            >
+              Run evolve now
+            </Button>
+            <Button
+              variant="outline"
+              leftIcon={<RefreshCw size={14} />}
+              loading={loadingSnapshot || loadingTimeline}
+              onClick={manualRefresh}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant={autoRefresh ? "secondary" : "ghost"}
+              onClick={() => setAutoRefresh((prev) => !prev)}
+            >
+              Auto refresh: {autoRefresh ? "On" : "Off"}
+            </Button>
+            <Button
+              variant={showEvolutionOnly ? "secondary" : "ghost"}
+              onClick={() => setShowEvolutionOnly((prev) => !prev)}
+            >
+              {showEvolutionOnly ? "Evolution events only" : "All graph events"}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Card className="rounded-2xl">
+          <CardHeader title="Fractal D" description="Dimension estimate" />
+          <CardContent className="pt-4">
+            <p className="text-2xl font-semibold text-cyan-200">{formatMetric(metrics?.dimension_D)}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardHeader title="Entropy H" description="Distribution entropy" />
+          <CardContent className="pt-4">
+            <p className="text-2xl font-semibold text-cyan-200">{formatMetric(metrics?.entropy_H)}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardHeader title="Pressure λ" description="Evolution pressure" />
+          <CardContent className="pt-4">
+            <p className="text-2xl font-semibold text-cyan-200">{formatMetric(metrics?.pressure_lambda)}</p>
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl">
+          <CardHeader title="Node / Edge" description="Current graph footprint" />
+          <CardContent className="pt-4">
+            <p className="text-2xl font-semibold text-cyan-200">
+              {formatCount(metrics?.node_count)} / {formatCount(metrics?.edge_count)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-5">
+        <Card className="rounded-2xl lg:col-span-3">
+          <CardHeader
+            title="Evolution Timeline"
+            description="Latest graph events and evolve/invention actions."
+            action={
+              <Badge variant="outline" size="sm">
+                {visibleTimeline.length} items
+              </Badge>
+            }
+          />
+          <CardContent className="pt-4">
+            {loadingTimeline ? (
+              <p className="text-sm text-slate-400">Loading timeline...</p>
+            ) : visibleTimeline.length === 0 ? (
+              <p className="text-sm text-slate-400">No events available for this graph yet.</p>
+            ) : (
+              <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
+                {visibleTimeline.map((event) => (
+                  <div
+                    key={event.seq}
+                    className="rounded-xl border border-white/10 bg-white/[0.02] p-3"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={eventBadgeVariant(event.kind)} size="sm">
+                        {event.kind}
+                      </Badge>
+                      <Badge variant="outline" size="xs">
+                        seq {event.seq}
+                      </Badge>
+                      <span className="text-xs text-slate-400">{formatTimestamp(event.ts)}</span>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-200">{eventSummary(event)}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4 lg:col-span-2">
+          <Card className="rounded-2xl">
+            <CardHeader title="Latest Run Outcome" description="Result from manual evolve action." />
+            <CardContent className="space-y-3 pt-4">
+              {!lastRun ? (
+                <p className="text-sm text-slate-400">No manual evolve run in this session yet.</p>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={lastRun.status === "completed" ? "success" : "warning"} size="sm">
+                      {lastRun.status}
+                    </Badge>
+                    <span className="text-xs text-slate-400">v{lastRun.graph_version}</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="rounded-lg border border-white/10 p-2">
+                      <p className="text-slate-400">Merges</p>
+                      <p className="font-semibold text-cyan-200">{lastRun.merges}</p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 p-2">
+                      <p className="text-slate-400">Prunes</p>
+                      <p className="font-semibold text-cyan-200">{lastRun.prunes}</p>
+                    </div>
+                    <div className="rounded-lg border border-white/10 p-2">
+                      <p className="text-slate-400">Inventions</p>
+                      <p className="font-semibold text-cyan-200">{lastRun.inventions}</p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400">Latency: {lastRun.latency_ms} ms</p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl">
+            <CardHeader title="Runtime Snapshot" description="Live diagnostics and event stream health." />
+            <CardContent className="space-y-3 pt-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-slate-300">
+                  <Hash size={14} className="text-cyan-300" />
+                  Graph hash
+                </span>
+                <span className="font-mono text-xs text-slate-300">{shortHash(metrics?.graph_hash)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-slate-300">
+                  <Clock3 size={14} className="text-cyan-300" />
+                  Last diagnostics
+                </span>
+                <span className="text-xs text-slate-300">{formatTimestamp(metrics?.computed_at)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-slate-300">
+                  <Activity size={14} className="text-cyan-300" />
+                  Last seq / kind
+                </span>
+                <span className="text-xs text-slate-300">
+                  {latest?.last_seq ?? 0} / {latest?.last_kind || "-"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 pt-1">
+                <div className="rounded-lg border border-white/10 p-2">
+                  <p className="text-[11px] text-slate-400">Complete</p>
+                  <p className="font-semibold text-emerald-300">{eventStats.completed}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 p-2">
+                  <p className="text-[11px] text-slate-400">Skipped</p>
+                  <p className="font-semibold text-amber-300">{eventStats.skipped}</p>
+                </div>
+                <div className="rounded-lg border border-white/10 p-2">
+                  <p className="text-[11px] text-slate-400">Invention</p>
+                  <p className="font-semibold text-violet-300">{eventStats.inventionSummary}</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                <p className="text-xs text-slate-400">Latest evolve event</p>
+                {latestEvolutionEvent ? (
+                  <>
+                    <p className="mt-1 text-sm text-slate-200">{eventSummary(latestEvolutionEvent)}</p>
+                    <p className="mt-1 text-[11px] text-slate-400">{formatTimestamp(latestEvolutionEvent.ts)}</p>
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-slate-400">No evolve completion/skip event yet.</p>
+                )}
+              </div>
+
+              {pollError && (
+                <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-xs text-amber-200">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={14} className="mt-0.5" />
+                    <span>{pollError}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-2 pt-1 text-xs text-slate-400">
+                <div className="inline-flex items-center gap-1">
+                  <CheckCircle2 size={12} className="text-emerald-300" />
+                  complete
+                </div>
+                <div className="inline-flex items-center gap-1">
+                  <GitMerge size={12} className="text-cyan-300" />
+                  merge/prune
+                </div>
+                <div className="inline-flex items-center gap-1">
+                  <Sparkles size={12} className="text-violet-300" />
+                  invention
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl">
+            <CardHeader title="Metric Details" description="Additional scorecard fields." />
+            <CardContent className="space-y-2 pt-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Redundancy</span>
+                <span className="text-slate-200">{formatMetric(metrics?.redundancy)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">Novelty</span>
+                <span className="text-slate-200">{formatMetric(metrics?.novelty)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-slate-400">
+                  <Scissors size={13} className="text-cyan-300" />
+                  Energy
+                </span>
+                <span className="text-slate-200">{formatMetric(metrics?.energy)}</span>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
