@@ -304,6 +304,7 @@ def evolve_once(
     fractal_config: FractalConfig = DEFAULT_CONFIG,
     self_invent_requested: Optional[bool] = None,
     runtime_config: Optional[Any] = None,
+    invention_overrides: Optional[Dict[str, Any]] = None,
 ) -> EvolutionResult:
     """Run one evolution cycle with D/H/λ diagnostics.
 
@@ -500,6 +501,31 @@ def evolve_once(
 
     # 7. Optional self-invention pass (config + orchestration controlled)
     invention_settings = _resolve_invention_settings(runtime_config)
+    if invention_overrides:
+        if "enabled" in invention_overrides:
+            invention_settings["enabled"] = bool(invention_overrides["enabled"])
+        if "on_evolve" in invention_overrides:
+            invention_settings["on_evolve"] = bool(invention_overrides["on_evolve"])
+        if "min_coactivation_count" in invention_overrides:
+            invention_settings["min_coactivation_count"] = max(
+                2, int(invention_overrides["min_coactivation_count"])
+            )
+        if "lambda_threshold" in invention_overrides:
+            invention_settings["lambda_threshold"] = max(
+                0.0, min(1.0, float(invention_overrides["lambda_threshold"]))
+            )
+        if "min_redundancy_reduction" in invention_overrides:
+            invention_settings["min_redundancy_reduction"] = max(
+                0.0, min(1.0, float(invention_overrides["min_redundancy_reduction"]))
+            )
+        if "max_macros_per_cycle" in invention_overrides:
+            invention_settings["max_macros_per_cycle"] = max(
+                0, int(invention_overrides["max_macros_per_cycle"])
+            )
+        if "event_window" in invention_overrides:
+            invention_settings["event_window"] = max(
+                100, int(invention_overrides["event_window"])
+            )
     invention_allowed = bool(
         invention_settings["enabled"] and invention_settings["on_evolve"]
     )

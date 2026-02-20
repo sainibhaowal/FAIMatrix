@@ -36,6 +36,7 @@ class EvolveRequest(BaseModel):
     graph_id: str
     profile: str = "strict"
     persist_mode: str = "relaxed"
+    self_invent_requested: Optional[bool] = None
 
 
 class EvolveResponse(BaseModel):
@@ -49,6 +50,15 @@ class EvolveResponse(BaseModel):
     diagnostics: Optional[Dict[str, Any]] = None
     events_emitted: List[str]
     latency_ms: int
+    requested_profile: Optional[str] = None
+    requested_persist_mode: Optional[str] = None
+    effective_profile: Optional[str] = None
+    effective_persist_mode: Optional[str] = None
+    durability_path: Optional[str] = None
+    evolve_aggressiveness: Optional[str] = None
+    completion_mode: Optional[str] = None
+    state_update_status: Optional[str] = None
+    state_update_error: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -186,6 +196,7 @@ async def evolve_graph(
             session=ctx.session,
             profile=profile,
             persist_mode=persist_mode,
+            self_invent_requested=request.self_invent_requested,
             node_repo=ctx.node_repo,
             edge_repo=ctx.edge_repo,
             event_repo=ctx.event_repo,
@@ -201,6 +212,15 @@ async def evolve_graph(
             diagnostics=result.diagnostics,
             events_emitted=result.events_emitted,
             latency_ms=result.latency_ms,
+            requested_profile=result.requested_profile,
+            requested_persist_mode=result.requested_persist_mode,
+            effective_profile=result.effective_profile,
+            effective_persist_mode=result.effective_persist_mode,
+            durability_path=result.durability_path,
+            evolve_aggressiveness=result.evolve_aggressiveness,
+            completion_mode=result.completion_mode,
+            state_update_status=result.state_update_status,
+            state_update_error=result.state_update_error,
             error=result.error,
         )
 

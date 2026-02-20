@@ -10,7 +10,9 @@ from fastapi.testclient import TestClient
 def _mk_client(monkeypatch, *, tenant_keys_json: str, database_url: str) -> TestClient:
     from api.app import create_app
     from api.middleware.auth import reload_tenant_keys
+    from runtime import context as runtime_context
     from runtime.config import reset_config
+    from store.pg import session as pg_session
 
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("TENANT_KEYS_JSON", tenant_keys_json)
@@ -26,6 +28,10 @@ def _mk_client(monkeypatch, *, tenant_keys_json: str, database_url: str) -> Test
     monkeypatch.setenv("FAIM_SELF_INVENT_ENABLED", "true")
     monkeypatch.setenv("FAIM_SELF_INVENT_ON_EVOLVE", "true")
     monkeypatch.setenv("FAIM_ENABLE_JOBS", "true")
+    monkeypatch.setattr(pg_session, "_SESSION_FACTORY_CACHE", {}, raising=False)
+    monkeypatch.setattr(runtime_context, "_engine", None, raising=False)
+    monkeypatch.setattr(runtime_context, "_engine_db_url", None, raising=False)
+    monkeypatch.setattr(runtime_context, "_SessionLocal", None, raising=False)
     reset_config()
     reload_tenant_keys()
     return TestClient(create_app())
