@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tempfile
 from uuid import uuid4
 
 from fastapi.routing import APIRoute
@@ -13,14 +14,41 @@ def _route_path_with_ids(path: str) -> str:
     return value
 
 
-def test_all_storage_routes_require_auth_headers(monkeypatch):
-    from api.app import create_app
-    from api.routers.storage import router as storage_router
-    from fastapi.testclient import TestClient
+def _configure_isolated_runtime(monkeypatch, tenant_keys_json: str) -> None:
+    db_path = tempfile.gettempdir() + f"/faim_pd_{uuid4().hex}.db"
+    db_url = f"sqlite:///{db_path}"
 
+    monkeypatch.setenv("DATABASE_URL", db_url)
+    monkeypatch.setenv("TENANT_KEYS_JSON", tenant_keys_json)
     monkeypatch.setenv("FAIM_ENV", "development")
     monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "false")
     monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
+
+    from runtime import context as runtime_context
+    from runtime.config import reset_config
+    from store.pg import session as pg_session
+
+    monkeypatch.setattr(pg_session, "DEFAULT_DATABASE_URL", db_url, raising=False)
+    monkeypatch.setattr(pg_session, "_SESSION_FACTORY_CACHE", {}, raising=False)
+    monkeypatch.setattr(runtime_context, "_engine", None, raising=False)
+    monkeypatch.setattr(runtime_context, "_engine_db_url", None, raising=False)
+    monkeypatch.setattr(runtime_context, "_SessionLocal", None, raising=False)
+    monkeypatch.setattr(runtime_context, "_raw_store_plain", None, raising=False)
+    monkeypatch.setattr(runtime_context, "_raw_store_by_tenant", {}, raising=False)
+    reset_config()
+
+
+def test_all_storage_routes_require_auth_headers(monkeypatch):
+    from api.app import create_app
+    from api.middleware.auth import reload_tenant_keys
+    from api.routers.storage import router as storage_router
+    from fastapi.testclient import TestClient
+
+    _configure_isolated_runtime(
+        monkeypatch,
+        '{"tenant_auth":["key_auth"]}',
+    )
+    reload_tenant_keys()
     app = create_app()
     client = TestClient(app)
 
@@ -43,13 +71,10 @@ def test_storage_route_tenant_isolation(monkeypatch):
     from runtime.context import close_session, get_repos
 
     graph_id = f"phase-d-tenant-{uuid4().hex[:8]}"
-    monkeypatch.setenv(
-        "TENANT_KEYS_JSON",
+    _configure_isolated_runtime(
+        monkeypatch,
         '{"tenant_a":["key_a"],"tenant_b":["key_b"]}',
     )
-    monkeypatch.setenv("FAIM_ENV", "development")
-    monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "false")
-    monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
     reload_tenant_keys()
 
     app = create_app()
