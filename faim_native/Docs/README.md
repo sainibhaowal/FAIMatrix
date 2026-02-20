@@ -95,6 +95,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Central profile/persist runtime policy resolver implementation (Phase R2) is documented in 45.
 - Storage/ingest runtime realization for profile/persist semantics (Phase R3) is documented in 46.
 - Evolution runtime realization for profile/persist semantics (Phase R4) is documented in 47.
+- API response/event clarity and remaining R4 payload-gap closure (Phase R5) is documented in 48.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

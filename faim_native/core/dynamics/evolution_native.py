@@ -114,6 +114,29 @@ def _emit_graph_event(
     result.events_emitted += 1
 
 
+def _with_event_context(
+    payload: Dict[str, Any],
+    event_context: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Add optional runtime policy metadata to emitted evolve events."""
+    if not event_context:
+        return payload
+    merged = dict(payload)
+    for key in (
+        "requested_profile",
+        "requested_persist_mode",
+        "effective_profile",
+        "effective_persist_mode",
+        "durability_path",
+        "completion_mode",
+        "evolve_aggressiveness",
+    ):
+        value = event_context.get(key)
+        if value is not None and key not in merged:
+            merged[key] = value
+    return merged
+
+
 def _resolve_invention_settings(runtime_config: Optional[Any]) -> Dict[str, Any]:
     """Resolve self-invention settings from runtime config with safe defaults.
 
@@ -305,6 +328,7 @@ def evolve_once(
     self_invent_requested: Optional[bool] = None,
     runtime_config: Optional[Any] = None,
     invention_overrides: Optional[Dict[str, Any]] = None,
+    event_context: Optional[Dict[str, Any]] = None,
 ) -> EvolutionResult:
     """Run one evolution cycle with D/H/λ diagnostics.
 
@@ -378,15 +402,18 @@ def evolve_once(
             event_repo=event_repo,
             graph_id=graph_id,
             kind="EVOLUTION_SKIPPED",
-            payload={
-                "reason": result.skip_reason,
-                "graph_version": current_version,
-                "node_count": len(nodes),
-                "edge_count": len(edges),
-                "D_hat": diagnostics.D_hat,
-                "H_hat": diagnostics.H_hat,
-                "lambda_hat": diagnostics.lambda_hat,
-            },
+            payload=_with_event_context(
+                {
+                    "reason": result.skip_reason,
+                    "graph_version": current_version,
+                    "node_count": len(nodes),
+                    "edge_count": len(edges),
+                    "D_hat": diagnostics.D_hat,
+                    "H_hat": diagnostics.H_hat,
+                    "lambda_hat": diagnostics.lambda_hat,
+                },
+                event_context,
+            ),
             result=result,
         )
         return result
@@ -606,16 +633,19 @@ def evolve_once(
             event_repo=event_repo,
             graph_id=graph_id,
             kind="EVOLUTION_COMPLETE",
-            payload={
-                "version": new_version,
-                "merges": result.merges,
-                "prunes": result.prunes,
-                "inventions": result.inventions,
-                "D_hat": diagnostics.D_hat,
-                "H_hat": diagnostics.H_hat,
-                "lambda_hat": diagnostics.lambda_hat,
-                "diagnostics_hash": diagnostics.diagnostics_hash,
-            },
+            payload=_with_event_context(
+                {
+                    "version": new_version,
+                    "merges": result.merges,
+                    "prunes": result.prunes,
+                    "inventions": result.inventions,
+                    "D_hat": diagnostics.D_hat,
+                    "H_hat": diagnostics.H_hat,
+                    "lambda_hat": diagnostics.lambda_hat,
+                    "diagnostics_hash": diagnostics.diagnostics_hash,
+                },
+                event_context,
+            ),
             result=result,
         )
         result.graph_version = new_version
@@ -626,18 +656,21 @@ def evolve_once(
             event_repo=event_repo,
             graph_id=graph_id,
             kind="EVOLUTION_SKIPPED",
-            payload={
-                "reason": result.skip_reason,
-                "graph_version": current_version,
-                "node_count": len(nodes),
-                "edge_count": len(edges),
-                "merge_threshold": adapted_merge_threshold,
-                "prune_similarity_threshold": adapted_prune_policy.min_similarity_for_redundancy,
-                "invention_allowed": invention_allowed,
-                "D_hat": diagnostics.D_hat,
-                "H_hat": diagnostics.H_hat,
-                "lambda_hat": diagnostics.lambda_hat,
-            },
+            payload=_with_event_context(
+                {
+                    "reason": result.skip_reason,
+                    "graph_version": current_version,
+                    "node_count": len(nodes),
+                    "edge_count": len(edges),
+                    "merge_threshold": adapted_merge_threshold,
+                    "prune_similarity_threshold": adapted_prune_policy.min_similarity_for_redundancy,
+                    "invention_allowed": invention_allowed,
+                    "D_hat": diagnostics.D_hat,
+                    "H_hat": diagnostics.H_hat,
+                    "lambda_hat": diagnostics.lambda_hat,
+                },
+                event_context,
+            ),
             result=result,
         )
 
