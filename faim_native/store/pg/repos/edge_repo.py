@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 from sqlalchemy import and_, asc, desc
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 # Flexible imports
@@ -122,6 +123,48 @@ class EdgeRepo:
             a_id, b_id = b_id, a_id
 
         now = datetime.now(timezone.utc)
+        scaled_weight = int(weight * 1e9)
+        bind = self.session.get_bind()
+        dialect_name = (getattr(bind, "dialect", None) and bind.dialect.name) or ""
+
+        # Postgres path: avoid duplicate-key races by using a conflict-safe upsert.
+        if dialect_name == "postgresql":
+            statement = (
+                pg_insert(EdgeModel)
+                .values(
+                    edge_id=uuid7(),
+                    tenant_id=self.tenant_id,
+                    graph_id=graph_id,
+                    src_node_id=a_id,
+                    dst_node_id=b_id,
+                    kind="opposition",
+                    weight=scaled_weight,
+                    meta=meta,
+                    created_at=now,
+                )
+                .on_conflict_do_update(
+                    constraint="uq_edges_tenant_graph_src_dst_kind",
+                    set_={
+                        "weight": scaled_weight,
+                        "meta": meta,
+                        "created_at": now,
+                    },
+                )
+                .returning(EdgeModel.edge_id)
+            )
+            edge_id = self.session.execute(statement).scalar_one()
+            self.session.flush()
+            return edge_id
+
+        # Non-Postgres fallback (e.g. SQLite tests): update existing edge if present.
+        existing = self.get_opposition_edge(graph_id=graph_id, a_id=a_id, b_id=b_id)
+        if existing is not None:
+            existing.weight = scaled_weight
+            existing.meta = meta
+            existing.created_at = now
+            self.session.flush()
+            return existing.edge_id
+
         edge = EdgeModel(
             edge_id=uuid7(),
             tenant_id=self.tenant_id,
@@ -129,7 +172,7 @@ class EdgeRepo:
             src_node_id=a_id,
             dst_node_id=b_id,
             kind="opposition",
-            weight=int(weight * 1e9),
+            weight=scaled_weight,
             meta=meta,
             created_at=now,
         )
