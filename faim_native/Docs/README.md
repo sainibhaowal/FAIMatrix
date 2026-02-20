@@ -48,6 +48,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 42. `42_EVOLUTION_PAGE_INTERNAL_SERVER_ERROR_HOTFIX_REPORT.md`
 43. `43_EVOLUTION_PAGE_OPERATIONS_GUIDE.md`
 44. `44_PROFILE_PERSIST_RUNTIME_SEMANTICS_PLAN.md`
+45. `45_PHASE_R2_CENTRAL_POLICY_RESOLVER_REPORT.md`
 
 ## Intent
 
@@ -89,6 +90,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Evolution page internal-server-error hotfix is documented in 42.
 - Evolution page controls/operations/troubleshooting guide is documented in 43.
 - Profile/persist runtime contract freeze (Phase R1) is documented in 44.
+- Central profile/persist runtime policy resolver implementation (Phase R2) is documented in 45.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

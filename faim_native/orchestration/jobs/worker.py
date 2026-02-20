@@ -188,8 +188,31 @@ class Worker:
 
     def _run_evolve_job(self, session, tenant_id, graph_id, payload, job_id):
         """Execute evolution job."""
+        from orchestration.profile_persist_policy import (
+            PolicyOperation,
+            resolve_profile_persist_policy,
+        )
+
+        requested_profile = str(payload.get("profile", "strict"))
+        requested_persist_mode = str(payload.get("persist_mode", "relaxed"))
+        policy = resolve_profile_persist_policy(
+            operation=PolicyOperation.EVOLVE,
+            requested_profile=requested_profile,
+            requested_persist_mode=requested_persist_mode,
+        )
+
         JobStore.append_event(
-            session, job_id, "step_progress", {"message": "Running evolution cycle"}
+            session,
+            job_id,
+            "step_progress",
+            {
+                "message": "Running evolution cycle",
+                "requested_profile": requested_profile,
+                "requested_persist_mode": requested_persist_mode,
+                "effective_profile": policy.effective_profile,
+                "effective_persist_mode": policy.effective_persist_mode,
+                "profile_persist_compat_mode": policy.compatibility_mode,
+            },
         )
 
         # run_evolve handles its own lock internally
@@ -197,7 +220,8 @@ class Worker:
             graph_id=graph_id,
             tenant_id=tenant_id,
             session=session,
-            profile=payload.get("profile", "strict"),
+            profile=policy.effective_profile,
+            persist_mode=policy.effective_persist_mode,
             self_invent_requested=payload.get("self_invent_requested"),
         )
 

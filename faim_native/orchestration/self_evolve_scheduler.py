@@ -413,9 +413,27 @@ def enqueue_self_evolve_if_due(
             flags.self_invent_enabled and flags.self_invent_on_evolve
         )
 
+    from orchestration.profile_persist_policy import (
+        PolicyOperation,
+        resolve_profile_persist_policy,
+    )
+
+    policy = resolve_profile_persist_policy(
+        operation=PolicyOperation.EVOLVE,
+        requested_profile=str(profile or "strict"),
+        requested_persist_mode=str(persist_mode or "relaxed"),
+    )
+
     payload = {
-        "profile": str(profile or "strict"),
-        "persist_mode": str(persist_mode or "relaxed"),
+        "profile": policy.effective_profile,
+        "persist_mode": policy.effective_persist_mode,
+        "requested_profile": str(profile or "strict"),
+        "requested_persist_mode": str(persist_mode or "relaxed"),
+        "effective_profile": policy.effective_profile,
+        "effective_persist_mode": policy.effective_persist_mode,
+        "durability_path": policy.durability_path,
+        "profile_persist_compat_mode": policy.compatibility_mode,
+        "profile_persist_coercion_reason": policy.coercion_reason,
         "source": source_key,
         "self_invent_requested": bool(self_invent_requested),
         "trigger_graph_version": current_version,
