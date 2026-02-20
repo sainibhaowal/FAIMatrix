@@ -9,6 +9,7 @@ python-multipart
 httpx
 orjson
 pyjwt
+argon2-cffi
 email-validator
 Pillow
 pytesseract

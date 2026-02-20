@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import sys
 from pathlib import Path
 from typing import List, Tuple
@@ -120,6 +121,82 @@ def get_file_checksum(file_path: Path) -> str:
         while chunk := f.read(8192):
             sha256.update(chunk)
     return sha256.hexdigest()
+
+
+def _sqlite_rewrite_sql_content(sql_content: str) -> str:
+    """Rewrite Postgres-oriented migration SQL into SQLite-compatible SQL."""
+    rewritten = sql_content
+    rewritten = re.sub(
+        r"(?i)\bSERIAL\s+PRIMARY\s+KEY\b", "INTEGER PRIMARY KEY", rewritten
+    )
+    rewritten = rewritten.replace("AUTOINCREMENT", "")
+    rewritten = re.sub(r"(?i)\bTIMESTAMPTZ\b", "TIMESTAMP", rewritten)
+    rewritten = re.sub(r"(?i)\bJSONB\b", "JSON", rewritten)
+    rewritten = re.sub(r"(?i)::jsonb", "", rewritten)
+    rewritten = re.sub(r"::[A-Za-z_][A-Za-z0-9_]*", "", rewritten)
+    rewritten = re.sub(r"(?i)\bNOW\(\)", "CURRENT_TIMESTAMP", rewritten)
+    rewritten = re.sub(
+        r"(?i)\s+DEFAULT\s+gen_random_uuid\(\)", "", rewritten
+    )
+    rewritten = re.sub(r"(?i)\bUSING\s+GIN\s*\(", "(", rewritten)
+    return rewritten
+
+
+def _sqlite_expand_alter_add_column(statement: str) -> List[str]:
+    """Expand Postgres multi-add ALTER TABLE into SQLite one-column statements."""
+    match = re.match(
+        r"(?is)^ALTER\s+TABLE\s+([A-Za-z0-9_\".]+)\s+(.*)$", statement.strip()
+    )
+    if not match:
+        return [statement]
+
+    table_name = match.group(1)
+    body = match.group(2).strip()
+    if "ADD COLUMN" not in body.upper():
+        return [statement]
+
+    chunks = re.split(r"(?is),\s*ADD\s+COLUMN\s+", body)
+    expanded: List[str] = []
+    for idx, chunk in enumerate(chunks):
+        part = chunk.strip()
+        if not part:
+            continue
+        if idx == 0:
+            part = re.sub(r"(?is)^ADD\s+COLUMN\s+", "", part).strip()
+        part = re.sub(r"(?is)^IF\s+NOT\s+EXISTS\s+", "", part).strip()
+        if not part:
+            continue
+        expanded.append(f"ALTER TABLE {table_name} ADD COLUMN {part}")
+    return expanded or [statement]
+
+
+def _sqlite_compatible_statements(statement: str) -> List[str]:
+    """Return zero or more SQLite-compatible statements for a migration statement."""
+    stmt = statement.strip()
+    if not stmt:
+        return []
+
+    non_comment_lines = [
+        line for line in stmt.splitlines() if not line.strip().startswith("--")
+    ]
+    content = "\n".join(non_comment_lines).strip()
+    if not content:
+        return []
+
+    if re.match(r"(?is)^COMMENT\s+ON\s+", content):
+        return []
+    return _sqlite_expand_alter_add_column(content)
+
+
+def _sqlite_should_ignore_error(exc: Exception, statement: str) -> bool:
+    """Best-effort filter for benign SQLite migration idempotency errors."""
+    msg = str(exc).lower()
+    stmt = statement.lower()
+    if "duplicate column name" in msg and "alter table" in stmt:
+        return True
+    if "already exists" in msg and ("create index" in stmt or "create table" in stmt):
+        return True
+    return False
 
 
 def ensure_migrations_table(session: Session):
@@ -307,34 +384,41 @@ def run_up(require_latest: bool = False):
             with open(f, "r") as sql_file:
                 sql_content = sql_file.read()
 
-            # Dialect Polyfill:
-            # Postgres (Production) uses SERIAL for auto-increment.
-            # SQLite (Test) uses INTEGER PRIMARY KEY for the same behavior.
-            if session.bind.dialect.name == "sqlite":
-                sql_content = sql_content.replace(
-                    "SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY"
-                )
-                sql_content = sql_content.replace(
-                    "AUTOINCREMENT", ""
-                )  # Remove if present
+            is_sqlite = session.bind.dialect.name == "sqlite"
+            if is_sqlite:
+                sql_content = _sqlite_rewrite_sql_content(sql_content)
 
             statements = split_sql_statements(sql_content)
 
-            for stmt in statements:
-                stmt = stmt.strip()
-                if not stmt:
-                    continue
+            for raw_stmt in statements:
+                stmt_candidates = (
+                    _sqlite_compatible_statements(raw_stmt)
+                    if is_sqlite
+                    else [raw_stmt]
+                )
+                for stmt in stmt_candidates:
+                    stmt = stmt.strip()
+                    if not stmt:
+                        continue
 
-                # Verify statement has actual content (not just comments)
-                lines = [
-                    line
-                    for line in stmt.split("\n")
-                    if not line.strip().startswith("--")
-                ]
-                if not "".join(lines).strip():
-                    continue
+                    # Verify statement has actual content (not just comments)
+                    lines = [
+                        line
+                        for line in stmt.split("\n")
+                        if not line.strip().startswith("--")
+                    ]
+                    if not "".join(lines).strip():
+                        continue
 
-                session.execute(text(stmt))
+                    try:
+                        # Use savepoint so ignorable SQLite statement errors
+                        # (e.g., duplicate column/index) do not abort migration tx.
+                        with session.begin_nested():
+                            session.execute(text(stmt))
+                    except Exception as exc:
+                        if is_sqlite and _sqlite_should_ignore_error(exc, stmt):
+                            continue
+                        raise
 
             session.execute(
                 text(

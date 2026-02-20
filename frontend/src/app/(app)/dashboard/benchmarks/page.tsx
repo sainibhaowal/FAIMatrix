@@ -16,7 +16,7 @@ export default function BenchmarksPage() {
       */}
       <div className="min-h-[400px] border-2 border-dashed border-slate-800 rounded-3xl flex items-center justify-center">
         <p className="text-slate-500 font-mono text-sm">
-          // Benchmarks purified. Ready for FAIM-native maturity metrics.
+          Benchmarks purified. Ready for FAIM-native maturity metrics.
         </p>
       </div>
     </div>
