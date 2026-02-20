@@ -156,3 +156,44 @@ As of 2026-02-17, self-evolution is production-routed by default contract when e
 - explicit skip observability exists through `EVOLUTION_SKIPPED` reasons
 
 This means self behavior is now runtime-governed and deterministic, while keeping write-path latency non-blocking via async scheduling.
+
+## 12) Profile/Persist Runtime Semantics (R8 Reconciliation)
+
+As of 2026-02-20, profile/persist behavior is implemented end-to-end for storage ingest and evolve orchestration through a shared resolver:
+
+- resolver: `orchestration/profile_persist_policy.py`
+- ingest/runtime application: `orchestration/ingest_flow.py`
+- evolve/runtime application: `orchestration/evolve_flow.py`
+
+Operational model:
+
+1. Client sends requested values (`profile`, `persist_mode`).
+2. Backend resolves authoritative effective values.
+3. Runtime executes using effective policy knobs.
+4. API responses/events expose both requested and effective values plus `durability_path`.
+
+Additive observability fields:
+
+- `requested_profile`
+- `requested_persist_mode`
+- `effective_profile`
+- `effective_persist_mode`
+- `durability_path`
+
+Compatibility control:
+
+- `FAIM_PROFILE_PERSIST_COMPAT_MODE=true` keeps legacy-safe behavior envelope during rollout.
+- `FAIM_PROFILE_PERSIST_COMPAT_MODE=false` enables fully differentiated profile/persist runtime semantics.
+
+Evolution-specific notes:
+
+- profile controls action-budget and aggressiveness knobs (merge/prune/invention settings).
+- persist mode controls completion semantics:
+  - `strict`: state durability update is required before successful completion.
+  - `relaxed`: core evolve completion is committed first; state update is best-effort.
+
+Storage/ingest-specific notes:
+
+- `strict` profile keeps deterministic/conservative ingest behavior and may skip acceleration paths.
+- `persist_mode=strict` enforces synchronous secondary durability where required.
+- `persist_mode=relaxed` allows secondary work to complete asynchronously (with safe fallback when jobs are unavailable).

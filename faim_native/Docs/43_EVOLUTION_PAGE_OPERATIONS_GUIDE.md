@@ -1,6 +1,6 @@
 # 43 - Evolution Page Operations Guide (Controls, Meaning, Troubleshooting)
 
-Date: 2026-02-18  
+Date: 2026-02-20  
 Owner: FAIM Native Runtime  
 Status: Active
 
@@ -39,22 +39,25 @@ It does not bypass tenant isolation and does not auto-populate data for a graph 
 
 4. `Profile` (`strict`, `fast`, `relaxed`)
 - Sent in evolve request payload.
-- Runtime meaning:
-  - `strict`: deterministic/default-safe.
-  - `fast`: may favor speed/approximations where supported.
-  - `relaxed`: most permissive behavior.
-- Current implementation note:
-  - values are accepted and recorded in evolve events/contracts.
-  - as of this report date, evolve core does not yet branch to materially different algorithm paths per profile.
+- Backend resolves requested mode into effective mode (policy resolver is authoritative).
+- Runtime meaning (evolution path):
+  - `strict`: conservative action budget and thresholds, deterministic-first posture.
+  - `fast`: balanced throughput with bounded heuristics.
+  - `relaxed`: most aggressive action budget/invention/prune posture.
+- Operational note:
+  - if `FAIM_PROFILE_PERSIST_COMPAT_MODE=true`, evolve knobs stay inside legacy-safe envelope.
+  - requested/effective values are still normalized and returned for observability.
 
 5. `Persist mode` (`relaxed`, `strict`)
 - Sent in evolve request payload.
-- Runtime meaning:
-  - `strict`: prefer strongest durability/commit guarantees.
-  - `relaxed`: faster/less strict durability path.
-- Current implementation note:
-  - value is accepted and recorded in evolve events/contracts.
-  - as of this report date, evolve flow does not yet expose a materially different commit strategy branch by persist mode.
+- Backend resolves requested mode into effective mode (policy resolver is authoritative).
+- Runtime meaning (evolution completion path):
+  - `strict`: evolve completion requires synchronous scheduler-state durability update.
+  - `relaxed`: core evolve completion commits first; scheduler-state update is best-effort/non-fatal.
+- Response/event fields expose the applied path:
+  - `requested_profile`, `requested_persist_mode`
+  - `effective_profile`, `effective_persist_mode`
+  - `durability_path`
 
 6. `Refresh`
 - Forces immediate re-fetch of all cards/panels for active graph.
@@ -89,6 +92,7 @@ It does not bypass tenant isolation and does not auto-populate data for a graph 
 3. `Latest Run Outcome`
 - Result of manual `Run evolve now` from this UI session.
 - Not a historical global log; session-local latest manual run summary.
+- Includes requested/effective mode and durability/completion metadata from backend.
 
 4. `Runtime Snapshot`
 - Shows graph hash, last diagnostics timestamp, last event seq/kind, and quick event counters.
@@ -135,3 +139,6 @@ So the page showing empty timeline/cards for that graph is expected behavior, no
   - `FAIM_SELF_INVENT_ENABLED=true` (if invention desired)
   - Trigger mode compatible with your source (`post_upload`, `periodic`, or `hybrid`).
 5. Use scheduler `Due reason` to understand why runs are/are not enqueued.
+6. If mode behavior appears unchanged, confirm compatibility flag state:
+  - `FAIM_PROFILE_PERSIST_COMPAT_MODE=true` keeps legacy-safe runtime envelope.
+  - set `FAIM_PROFILE_PERSIST_COMPAT_MODE=false` to apply full differentiated profile/persist semantics.
