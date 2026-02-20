@@ -51,6 +51,8 @@ This folder documents current storage/ingestion behavior and the implementation 
 45. `45_PHASE_R2_CENTRAL_POLICY_RESOLVER_REPORT.md`
 46. `46_PHASE_R3_STORAGE_INGEST_RUNTIME_REALIZATION_REPORT.md`
 47. `47_PHASE_R4_EVOLUTION_RUNTIME_REALIZATION_REPORT.md`
+48. `48_PHASE_R5_API_RESPONSE_CLARITY_REPORT.md`
+49. `49_PHASE_R6_UI_BEHAVIOR_ALIGNMENT_REPORT.md`
 
 ## Intent
 
@@ -96,6 +98,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Storage/ingest runtime realization for profile/persist semantics (Phase R3) is documented in 46.
 - Evolution runtime realization for profile/persist semantics (Phase R4) is documented in 47.
 - API response/event clarity and remaining R4 payload-gap closure (Phase R5) is documented in 48.
+- Storage + Evolution UI behavior alignment for requested/effective mode clarity (Phase R6) is documented in 49.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

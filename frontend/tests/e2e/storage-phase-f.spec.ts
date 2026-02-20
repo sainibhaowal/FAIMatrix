@@ -134,6 +134,11 @@ test.describe("Storage Phase F Validation", () => {
               job_id: "job-retry",
               graph_id: "phase-f-queue",
               status: "failed",
+              requested_profile: "strict",
+              requested_persist_mode: "relaxed",
+              effective_profile: "strict",
+              effective_persist_mode: "relaxed",
+              durability_path: "core_sync_secondary_async",
               requested_files: 1,
               processed_files: 1,
               success_files: 0,
@@ -149,6 +154,11 @@ test.describe("Storage Phase F Validation", () => {
                   node_count: 0,
                   vector_count: 0,
                   error: "extract parser failed",
+                  requested_profile: "strict",
+                  requested_persist_mode: "relaxed",
+                  effective_profile: "strict",
+                  effective_persist_mode: "relaxed",
+                  durability_path: "core_sync_secondary_async",
                 },
               ],
             }),
@@ -158,13 +168,18 @@ test.describe("Storage Phase F Validation", () => {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({
-            job_id: "job-cancel",
-            graph_id: "phase-f-queue",
-            status: "running",
-            requested_files: 1,
-            processed_files: 0,
-            success_files: 0,
+            body: JSON.stringify({
+              job_id: "job-cancel",
+              graph_id: "phase-f-queue",
+              status: "running",
+              requested_profile: "strict",
+              requested_persist_mode: "relaxed",
+              effective_profile: "strict",
+              effective_persist_mode: "relaxed",
+              durability_path: "core_sync_secondary_async",
+              requested_files: 1,
+              processed_files: 0,
+              success_files: 0,
             failed_files: 0,
             dedup_hits: 0,
             cancelled_files: 0,
@@ -173,27 +188,37 @@ test.describe("Storage Phase F Validation", () => {
                 filename: "cancel.txt",
                 status: "ingesting",
                 raw_id: "22222222-2222-2222-2222-222222222222",
-                packet_hash: null,
-                node_count: 0,
-                vector_count: 0,
-                error: null,
-              },
-            ],
-          }),
-        });
+                  packet_hash: null,
+                  node_count: 0,
+                  vector_count: 0,
+                  error: null,
+                  requested_profile: "strict",
+                  requested_persist_mode: "relaxed",
+                  effective_profile: "strict",
+                  effective_persist_mode: "relaxed",
+                  durability_path: "core_sync_secondary_async",
+                },
+              ],
+            }),
+          });
       }
 
       if (path.endsWith("/uploads/job-retry") && req.method() === "GET") {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({
-            job_id: "job-retry",
-            graph_id: "phase-f-queue",
-            status: "failed",
-            requested_files: 1,
-            processed_files: 1,
-            success_files: 0,
+            body: JSON.stringify({
+              job_id: "job-retry",
+              graph_id: "phase-f-queue",
+              status: "failed",
+              requested_profile: "strict",
+              requested_persist_mode: "relaxed",
+              effective_profile: "strict",
+              effective_persist_mode: "relaxed",
+              durability_path: "core_sync_secondary_async",
+              requested_files: 1,
+              processed_files: 1,
+              success_files: 0,
             failed_files: 1,
             dedup_hits: 0,
             cancelled_files: 0,
@@ -225,13 +250,18 @@ test.describe("Storage Phase F Validation", () => {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({
-            job_id: "job-cancel",
-            graph_id: "phase-f-queue",
-            status: cancelRequestedForJob ? "cancelled" : "running",
-            requested_files: 1,
-            processed_files: cancelRequestedForJob ? 1 : 0,
-            success_files: 0,
+            body: JSON.stringify({
+              job_id: "job-cancel",
+              graph_id: "phase-f-queue",
+              status: cancelRequestedForJob ? "cancelled" : "running",
+              requested_profile: "strict",
+              requested_persist_mode: "relaxed",
+              effective_profile: "strict",
+              effective_persist_mode: "relaxed",
+              durability_path: "core_sync_secondary_async",
+              requested_files: 1,
+              processed_files: cancelRequestedForJob ? 1 : 0,
+              success_files: 0,
             failed_files: 0,
             dedup_hits: 0,
             cancelled_files: cancelRequestedForJob ? 1 : 0,
@@ -344,6 +374,11 @@ test.describe("Storage Phase F Validation", () => {
               nodes_written: 2,
               vector_count: 2,
               error: null,
+              requested_profile: "strict",
+              requested_persist_mode: "relaxed",
+              effective_profile: "strict",
+              effective_persist_mode: "relaxed",
+              durability_path: "core_sync_secondary_async",
             },
           }),
         });
@@ -375,6 +410,9 @@ test.describe("Storage Phase F Validation", () => {
       .first();
     await expect(retryRow).toBeVisible();
     await expect(retryRow).toContainText("failed");
+    await expect(retryRow.getByTestId("storage-queue-mode")).toContainText(
+      "Requested strict/relaxed -> Effective strict/relaxed"
+    );
 
     await retryRow.getByTestId("storage-queue-retry").click();
     await expect(retryRow).toContainText("ingested");
@@ -383,6 +421,9 @@ test.describe("Storage Phase F Validation", () => {
       .locator('[data-testid="storage-queue-item"][data-filename="cancel.txt"]')
       .first();
     await expect(cancelRow).toBeVisible();
+    await expect(cancelRow.getByTestId("storage-queue-mode")).toContainText(
+      "Requested strict/relaxed -> Effective strict/relaxed"
+    );
     await cancelRow.getByTestId("storage-queue-cancel").click();
     await expect(cancelRow).toContainText("cancelled");
   });

@@ -26,6 +26,13 @@ import {
   Select,
   useToast,
 } from "@/components/ui";
+import {
+  buildEffectiveModeText,
+  formatModePair,
+  getPersistHelper,
+  getProfileHelper,
+  resolveUiModePolicy,
+} from "@/lib/profilePersistModes";
 
 type EvolveResponse = {
   status: string;
@@ -36,6 +43,15 @@ type EvolveResponse = {
   diagnostics?: Record<string, unknown> | null;
   events_emitted: string[];
   latency_ms: number;
+  requested_profile?: string | null;
+  requested_persist_mode?: string | null;
+  effective_profile?: string | null;
+  effective_persist_mode?: string | null;
+  durability_path?: string | null;
+  evolve_aggressiveness?: string | null;
+  completion_mode?: string | null;
+  state_update_status?: string | null;
+  state_update_error?: string | null;
   error?: string | null;
 };
 
@@ -196,6 +212,26 @@ function asNumber(value: unknown): number | null {
   return null;
 }
 
+function asString(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  return null;
+}
+
+function resolveEventModeText(payload: Record<string, unknown>): string {
+  const requested = formatModePair(
+    asString(payload.requested_profile),
+    asString(payload.requested_persist_mode)
+  );
+  const effective = formatModePair(
+    asString(payload.effective_profile),
+    asString(payload.effective_persist_mode)
+  );
+  const durability = asString(payload.durability_path);
+  if (requested === "-" && effective === "-" && !durability) return "";
+  const durabilitySuffix = durability ? ` (${durability})` : "";
+  return ` | mode ${requested} -> ${effective}${durabilitySuffix}`;
+}
+
 function shortHash(value?: string | null): string {
   if (!value) return "-";
   if (value.length <= 16) return value;
@@ -270,12 +306,12 @@ function eventSummary(event: GraphEvent): string {
     const merges = asNumber(payload.merges);
     const prunes = asNumber(payload.prunes);
     const inventions = asNumber(payload.inventions);
-    return `Completed: merges=${merges ?? 0}, prunes=${prunes ?? 0}, inventions=${inventions ?? 0}`;
+    return `Completed: merges=${merges ?? 0}, prunes=${prunes ?? 0}, inventions=${inventions ?? 0}${resolveEventModeText(payload)}`;
   }
 
   if (event.kind === "EVOLUTION_SKIPPED") {
     const reason = typeof payload.reason === "string" ? payload.reason : "unknown";
-    return `Skipped: ${reason}`;
+    return `Skipped: ${reason}${resolveEventModeText(payload)}`;
   }
 
   if (event.kind === "EVOLUTION_MERGE") {
@@ -372,6 +408,14 @@ export default function EvolutionPage() {
   const [graphDraft, setGraphDraft] = useState("default");
   const [profile, setProfile] = useState("strict");
   const [persistMode, setPersistMode] = useState("relaxed");
+  const evolveModePolicy = useMemo(
+    () => resolveUiModePolicy("evolve", profile, persistMode),
+    [persistMode, profile]
+  );
+  const selectedModeLabel = useMemo(
+    () => formatModePair(profile, persistMode),
+    [persistMode, profile]
+  );
 
   const [metrics, setMetrics] = useState<MetricsScorecard | null>(null);
   const [latest, setLatest] = useState<LatestEventResponse | null>(null);
@@ -524,6 +568,14 @@ export default function EvolutionPage() {
       toast.info("Graph id is required.");
       return;
     }
+    const modePolicy = resolveUiModePolicy("evolve", profile, persistMode);
+    if (!modePolicy.supported) {
+      toast.warning(
+        "Unsupported mode combination",
+        modePolicy.reason || "Choose a supported profile/persist mode."
+      );
+      return;
+    }
 
     setRunLoading(true);
     try {
@@ -541,7 +593,14 @@ export default function EvolutionPage() {
 
       setLastRun(result);
       const summary = `Status=${result.status}, merges=${result.merges}, prunes=${result.prunes}, inventions=${result.inventions}`;
-      toast.success("Evolution cycle finished", summary);
+      const modeText = buildEffectiveModeText(
+        result.requested_profile,
+        result.requested_persist_mode,
+        result.effective_profile,
+        result.effective_persist_mode,
+        result.durability_path
+      );
+      toast.success("Evolution cycle finished", `${summary} | ${modeText}`);
       await refreshAll(targetGraph);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Evolution request failed";
@@ -676,6 +735,7 @@ export default function EvolutionPage() {
             options={profileOptions}
             value={profile}
             onChange={setProfile}
+            helperText={getProfileHelper(profile)}
             fullWidth
           />
 
@@ -684,6 +744,7 @@ export default function EvolutionPage() {
             options={persistModeOptions}
             value={persistMode}
             onChange={setPersistMode}
+            helperText={getPersistHelper(persistMode)}
             fullWidth
           />
 
@@ -698,6 +759,7 @@ export default function EvolutionPage() {
               variant="primary"
               leftIcon={<Play size={14} />}
               loading={runLoading}
+              disabled={!evolveModePolicy.supported}
               onClick={runEvolve}
             >
               Run evolve now
@@ -722,6 +784,30 @@ export default function EvolutionPage() {
             >
               {showEvolutionOnly ? "Evolution events only" : "All graph events"}
             </Button>
+          </div>
+
+          <div className="md:col-span-5">
+            <div
+              className={`rounded-xl border p-3 text-xs ${
+                evolveModePolicy.supported
+                  ? "border-white/10 bg-white/[0.02] text-slate-300"
+                  : "border-rose-400/35 bg-rose-500/10 text-rose-200"
+              }`}
+            >
+              <p className="font-medium text-slate-200">
+                Requested mode: <span className="font-mono">{selectedModeLabel}</span>
+              </p>
+              {evolveModePolicy.supported && (
+                <p className="mt-1">Backend will return effective mode and durability for each run.</p>
+              )}
+              <p>{getProfileHelper(profile)}</p>
+              <p>{getPersistHelper(persistMode)}</p>
+              {!evolveModePolicy.supported && (
+                <p className="mt-1">
+                  {evolveModePolicy.reason || "Selected profile/persist combination is not supported."}
+                </p>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -827,6 +913,20 @@ export default function EvolutionPage() {
                     </div>
                   </div>
                   <p className="text-xs text-slate-400">Latency: {lastRun.latency_ms} ms</p>
+                  <p className="text-xs text-cyan-200">
+                    {buildEffectiveModeText(
+                      lastRun.requested_profile,
+                      lastRun.requested_persist_mode,
+                      lastRun.effective_profile,
+                      lastRun.effective_persist_mode,
+                      lastRun.durability_path
+                    )}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    completion: {lastRun.completion_mode || "-"} | aggressiveness:{" "}
+                    {lastRun.evolve_aggressiveness || "-"} | state update:{" "}
+                    {lastRun.state_update_status || "-"}
+                  </p>
                 </>
               )}
             </CardContent>
