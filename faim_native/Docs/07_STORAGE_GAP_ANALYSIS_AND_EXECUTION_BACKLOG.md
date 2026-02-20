@@ -8,7 +8,7 @@ This backlog now separates completed delivery from true future enhancements.
 - P1: required for complete storage product
 - P2: optimization/hardening
 
-## Program Status (as of 2026-02-17)
+## Program Status (as of 2026-02-20)
 
 ## Completed Program Scope
 
@@ -42,6 +42,14 @@ This backlog now separates completed delivery from true future enhancements.
 28. Phase S7 - Docs + Release Hygiene: completed
 29. Phase EV-A - Evolution Dashboard Step A (UI Integration on Existing APIs): completed
 30. Phase EV-B - Evolution Dashboard Step B (Runtime Status + Shared Due Evaluation): completed
+31. Phase R1 - Profile/Persist Contract Freeze + Semantics Spec: completed
+32. Phase R2 - Central Policy Resolver (Single Source of Truth): completed
+33. Phase R3 - Storage/Ingest Runtime Realization: completed
+34. Phase R4 - Evolution Runtime Realization: completed
+35. Phase R5 - API Response Clarity (Requested vs Effective): completed
+36. Phase R6 - UI Behavior Alignment (Storage + Evolution): completed
+37. Phase R7 - Production-Grade Test Matrix + Regression Gates: completed
+38. Phase R8 - Docs + Release Hygiene Reconciliation: completed
 
 ## Completed Scope Summary
 
@@ -400,6 +408,19 @@ Evidence:
 
 - `38_PHASE_EVOLUTION_STEP_B_RUNTIME_STATUS_REPORT.md`
 
+## Phase R1 Completed
+
+- froze profile/persist semantics contract for all 6 combinations (`strict|fast|relaxed` x `strict|relaxed`)
+- defined backend-authoritative requested vs effective mode contract
+- defined additive API/event clarity requirements:
+  - requested/effective profile + persist mode
+  - durability path
+- documented rollout guardrails and compatibility-first posture (no runtime changes in R1)
+
+Evidence:
+
+- `44_PROFILE_PERSIST_RUNTIME_SEMANTICS_PLAN.md`
+
 ## Phase R2 Completed
 
 - implemented centralized runtime resolver for `profile` + `persist_mode`:
@@ -443,6 +464,72 @@ Evidence:
 
 - `46_PHASE_R3_STORAGE_INGEST_RUNTIME_REALIZATION_REPORT.md`
 
+## Phase R4 Completed
+
+- realized evolve runtime profile semantics through policy-resolved knobs:
+  - action budget scaling
+  - merge threshold
+  - prune policy controls
+  - invention gating/aggressiveness controls
+- realized evolve persist semantics:
+  - strict completion requires durable scheduler-state update
+  - relaxed completion commits core evolve outcome first with best-effort state update
+- extended evolve response/event observability with completion metadata
+- preserved strict deterministic invariants and additive contract compatibility
+
+Evidence:
+
+- `47_PHASE_R4_EVOLUTION_RUNTIME_REALIZATION_REPORT.md`
+
+## Phase R5 Completed
+
+- completed additive requested vs effective response clarity across:
+  - storage
+  - ingest
+  - memory write
+  - evolve
+- enriched `EVOLUTION_COMPLETE` and `EVOLUTION_SKIPPED` payloads with mode/durability context
+- closed remaining R4 event observability gap without API breaks
+
+Evidence:
+
+- `48_PHASE_R5_API_RESPONSE_CLARITY_REPORT.md`
+
+## Phase R6 Completed
+
+- aligned Storage + Evolution UI behavior with backend semantics:
+  - visible requested/effective mode and durability path
+  - helper text for mode impact
+  - invalid/unsupported combination guards in action paths
+- extended timeline/run-outcome summaries with backend mode metadata
+
+Evidence:
+
+- `49_PHASE_R6_UI_BEHAVIOR_ALIGNMENT_REPORT.md`
+
+## Phase R7 Completed
+
+- delivered production-grade unit + acceptance matrix for all profile/persist combinations
+- validated ingest strict/relaxed durability behavior and evolve profile branches
+- validated requested vs effective correctness and response/event clarity
+- executed storage/query/auth/rate-limit/tenant-isolation regression gates
+- executed frontend typecheck + targeted lint/type gates for storage/evolution pages
+
+Evidence:
+
+- `50_PHASE_R7_TEST_PLAN_AND_VALIDATION_REPORT.md`
+
+## Phase R8 Completed
+
+- reconciled storage/evolution docs with final R1-R7 runtime reality
+- removed stale operations guidance that contradicted real profile/persist behavior
+- finalized release-hygiene trace for profile/persist feature set
+- updated docs index and implementation report chain
+
+Evidence:
+
+- `51_PHASE_R8_PROFILE_PERSIST_DOCS_RELEASE_HYGIENE_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -465,8 +552,14 @@ Evidence:
 | Self-default docs and release-hygiene reconciliation | implemented (S7) |
 | Evolution dashboard integration (existing APIs only) | implemented (EV-A) |
 | Evolution dashboard runtime status integration (shared due helper + status contract) | implemented (EV-B) |
+| Profile/persist contract freeze and semantics matrix | implemented (R1) |
 | Central profile/persist policy resolver with compatibility guard | implemented (R2) |
 | Storage/ingest runtime realization for profile/persist durability semantics | implemented (R3) |
+| Evolution runtime realization for profile/persist semantics | implemented (R4) |
+| API response/event requested-vs-effective clarity | implemented (R5) |
+| Storage + Evolution UI requested-vs-effective behavior alignment | implemented (R6) |
+| Profile/persist production validation matrix and regression gates | implemented (R7) |
+| Profile/persist docs + release hygiene reconciliation | implemented (R8) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |
@@ -518,6 +611,13 @@ Owner: API Platform + SRE.
 
 ## Definition of Done (Current Program)
 
-Core storage program delivery is complete for P0/P1/P2 and phases A-H.
+Core storage/evolution/profile-persist delivery is complete for:
 
-Remaining backlog now represents deployment maturity and optional optimization work, not missing core storage functionality.
+- P0/P1/P2
+- phases A-H
+- phases K1-K8
+- phases S1-S7
+- phases EV-A/EV-B
+- phases R1-R8
+
+Remaining backlog now represents deployment maturity and optional optimization work, not missing core runtime functionality for storage, evolution, and profile/persist semantics.
