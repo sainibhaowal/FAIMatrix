@@ -39,6 +39,14 @@ class ProfilePersistPolicy:
     durability_path: str
     index_enabled: bool
     evolve_aggressiveness: str
+    evolve_action_budget_scale: float
+    evolve_merge_threshold: float
+    evolve_prune_min_age_days: float
+    evolve_prune_max_touch_count: int
+    evolve_prune_similarity_threshold: float
+    evolve_invention_mode: str
+    evolve_invention_requested_default: bool
+    evolve_invention_max_macros_cap: int
 
 
 def _normalize_profile(value: Optional[str]) -> tuple[str, Optional[str]]:
@@ -67,6 +75,58 @@ def _evolve_aggressiveness_for_profile(profile: str) -> str:
     if profile == "fast":
         return "performance"
     return "adaptive"
+
+
+def _evolve_runtime_knobs(
+    *,
+    profile: str,
+    compatibility_mode: bool,
+) -> dict[str, float | int | str | bool]:
+    # Compatibility mode keeps prior runtime envelope.
+    if compatibility_mode:
+        return {
+            "evolve_action_budget_scale": 1.0,
+            "evolve_merge_threshold": 0.95,
+            "evolve_prune_min_age_days": 7.0,
+            "evolve_prune_max_touch_count": 1,
+            "evolve_prune_similarity_threshold": 0.98,
+            "evolve_invention_mode": "runtime_default",
+            "evolve_invention_requested_default": True,
+            "evolve_invention_max_macros_cap": 3,
+        }
+
+    if profile == "strict":
+        return {
+            "evolve_action_budget_scale": 0.6,
+            "evolve_merge_threshold": 0.97,
+            "evolve_prune_min_age_days": 14.0,
+            "evolve_prune_max_touch_count": 1,
+            "evolve_prune_similarity_threshold": 0.99,
+            "evolve_invention_mode": "conservative",
+            "evolve_invention_requested_default": False,
+            "evolve_invention_max_macros_cap": 1,
+        }
+    if profile == "fast":
+        return {
+            "evolve_action_budget_scale": 0.8,
+            "evolve_merge_threshold": 0.95,
+            "evolve_prune_min_age_days": 7.0,
+            "evolve_prune_max_touch_count": 1,
+            "evolve_prune_similarity_threshold": 0.98,
+            "evolve_invention_mode": "balanced",
+            "evolve_invention_requested_default": True,
+            "evolve_invention_max_macros_cap": 2,
+        }
+    return {
+        "evolve_action_budget_scale": 1.0,
+        "evolve_merge_threshold": 0.92,
+        "evolve_prune_min_age_days": 3.0,
+        "evolve_prune_max_touch_count": 2,
+        "evolve_prune_similarity_threshold": 0.95,
+        "evolve_invention_mode": "aggressive",
+        "evolve_invention_requested_default": True,
+        "evolve_invention_max_macros_cap": 6,
+    }
 
 
 def resolve_profile_persist_policy(
@@ -104,6 +164,10 @@ def resolve_profile_persist_policy(
     index_enabled = (
         op == PolicyOperation.INGEST.value and effective_profile != "strict"
     )
+    evolve_knobs = _evolve_runtime_knobs(
+        profile=effective_profile,
+        compatibility_mode=bool(compatibility_mode),
+    )
 
     return ProfilePersistPolicy(
         operation=op,
@@ -117,6 +181,20 @@ def resolve_profile_persist_policy(
         durability_path=_durability_path_for_mode(effective_persist_mode),
         index_enabled=index_enabled,
         evolve_aggressiveness=_evolve_aggressiveness_for_profile(effective_profile),
+        evolve_action_budget_scale=float(evolve_knobs["evolve_action_budget_scale"]),
+        evolve_merge_threshold=float(evolve_knobs["evolve_merge_threshold"]),
+        evolve_prune_min_age_days=float(evolve_knobs["evolve_prune_min_age_days"]),
+        evolve_prune_max_touch_count=int(evolve_knobs["evolve_prune_max_touch_count"]),
+        evolve_prune_similarity_threshold=float(
+            evolve_knobs["evolve_prune_similarity_threshold"]
+        ),
+        evolve_invention_mode=str(evolve_knobs["evolve_invention_mode"]),
+        evolve_invention_requested_default=bool(
+            evolve_knobs["evolve_invention_requested_default"]
+        ),
+        evolve_invention_max_macros_cap=int(
+            evolve_knobs["evolve_invention_max_macros_cap"]
+        ),
     )
 
 
