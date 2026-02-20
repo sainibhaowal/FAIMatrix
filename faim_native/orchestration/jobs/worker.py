@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import signal
 import time
+from uuid import UUID
 
 from orchestration.evolve_flow import run_evolve
 from orchestration.jobs.job_store import JobStore
@@ -99,6 +100,10 @@ class Worker:
             try:
                 if kind == "evolve":
                     self._run_evolve_job(session, tenant_id, graph_id, payload, job_id)
+                elif kind == "ingest_secondary_index":
+                    self._run_ingest_secondary_index_job(
+                        session, tenant_id, graph_id, payload, job_id
+                    )
                 elif kind == "storage_retention":
                     self._run_storage_retention_job(
                         session, tenant_id, graph_id, payload, job_id
@@ -280,6 +285,148 @@ class Worker:
                 "deleted": result.deleted,
                 "skipped": result.skipped,
                 "failed": result.failed,
+            },
+        )
+
+    def _run_ingest_secondary_index_job(
+        self,
+        session,
+        tenant_id,
+        graph_id,
+        payload,
+        job_id,
+    ):
+        """Execute async secondary index upsert for relaxed ingest durability."""
+        from sqlalchemy import and_
+
+        from index.qdrant_index import FAIMIndex
+        from store.pg.models_faim import NodeModel
+
+        requested_profile = str(payload.get("requested_profile") or "")
+        requested_persist_mode = str(payload.get("requested_persist_mode") or "")
+        effective_profile = str(payload.get("effective_profile") or "")
+        effective_persist_mode = str(payload.get("effective_persist_mode") or "")
+        durability_path = str(payload.get("durability_path") or "")
+        packet_hash = str(payload.get("packet_hash") or "")
+        raw_id = str(payload.get("raw_id") or "")
+
+        node_ids_raw = payload.get("node_ids") or []
+        node_ids: list[UUID] = []
+        for item in node_ids_raw:
+            try:
+                node_ids.append(UUID(str(item)))
+            except (ValueError, TypeError, AttributeError):
+                continue
+
+        if not node_ids:
+            JobStore.append_event(
+                session,
+                job_id,
+                "step_progress",
+                {
+                    "message": "No valid node_ids provided for async index upsert",
+                    "requested_profile": requested_profile,
+                    "requested_persist_mode": requested_persist_mode,
+                    "effective_profile": effective_profile,
+                    "effective_persist_mode": effective_persist_mode,
+                    "durability_path": durability_path,
+                },
+            )
+            return
+
+        # Keep deterministic ordering for repeatable upsert behavior.
+        nodes = (
+            session.query(
+                NodeModel.node_id,
+                NodeModel.v_native,
+                NodeModel.level,
+                NodeModel.kind,
+            )
+            .filter(
+                and_(
+                    NodeModel.tenant_id == tenant_id,
+                    NodeModel.graph_id == graph_id,
+                    NodeModel.node_id.in_(node_ids),
+                )
+            )
+            .order_by(NodeModel.created_at.asc(), NodeModel.node_id.asc())
+            .all()
+        )
+
+        project_id_raw = payload.get("project_id")
+        try:
+            project_id = UUID(str(project_id_raw))
+        except (ValueError, TypeError, AttributeError):
+            try:
+                project_id = UUID(str(graph_id))
+            except (ValueError, TypeError, AttributeError):
+                project_id = UUID("00000000-0000-0000-0000-000000000000")
+
+        index = FAIMIndex(project_id)
+        indexed = 0
+        failed = 0
+
+        for node in nodes:
+            try:
+                vector = list(node.v_native or [])
+                if not vector:
+                    failed += 1
+                    continue
+                index.add(
+                    graph_id=graph_id,
+                    node_id=str(node.node_id),
+                    vector=vector,
+                    level=int(node.level or 0),
+                    kind=str(node.kind or "atom"),
+                )
+                indexed += 1
+            except Exception as exc:  # nosec B110
+                failed += 1
+                logger.warning(
+                    "Async index upsert failed for node=%s graph=%s: %s",
+                    getattr(node, "node_id", "unknown"),
+                    graph_id,
+                    exc,
+                )
+
+        missing = max(0, len(node_ids) - len(nodes))
+
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {
+                "message": "Async ingest secondary index upsert complete",
+                "requested_profile": requested_profile,
+                "requested_persist_mode": requested_persist_mode,
+                "effective_profile": effective_profile,
+                "effective_persist_mode": effective_persist_mode,
+                "durability_path": durability_path,
+                "indexed": indexed,
+                "failed": failed,
+                "missing": missing,
+                "raw_id": raw_id,
+                "packet_hash": packet_hash,
+            },
+        )
+
+        self._emit_journal_event(
+            session,
+            tenant_id,
+            graph_id,
+            "INDEX_UPSERTED_ASYNC",
+            {
+                "job_id": str(job_id),
+                "indexed": indexed,
+                "failed": failed,
+                "missing": missing,
+                "raw_id": raw_id,
+                "packet_hash": packet_hash,
+                "requested_profile": requested_profile,
+                "requested_persist_mode": requested_persist_mode,
+                "effective_profile": effective_profile,
+                "effective_persist_mode": effective_persist_mode,
+                "durability_path": durability_path,
             },
         )
 

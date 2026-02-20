@@ -28,14 +28,16 @@ class TestOrchestrationIndex(unittest.TestCase):
         """Non-STRICT mode must have index upsert code."""
         import inspect
 
+        import orchestration.ingest_flow as ingest_flow
         from orchestration.ingest_flow import run_ingest
 
         source = inspect.getsource(run_ingest)
+        module_source = inspect.getsource(ingest_flow)
 
         # Check index upsert code exists
         self.assertIn("INDEX_UPSERTED", source)
-        self.assertIn("FAIMIndex", source)
-        self.assertIn("index.add", source)
+        self.assertIn("FAIMIndex", module_source)
+        self.assertIn("index.add", module_source)
 
     def test_index_failure_is_non_fatal(self):
         """Index failures must be non-fatal (logged but not raised)."""
