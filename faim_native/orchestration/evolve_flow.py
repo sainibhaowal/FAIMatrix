@@ -51,6 +51,15 @@ class EvolveResult:
     diagnostics: Optional[Dict[str, Any]]  # MetricsSnapshot.to_dict()
     events_emitted: List[str]
     latency_ms: int
+    requested_profile: str = "strict"
+    requested_persist_mode: str = "relaxed"
+    effective_profile: str = "strict"
+    effective_persist_mode: str = "relaxed"
+    durability_path: str = "core_sync_secondary_async"
+    evolve_aggressiveness: str = "conservative"
+    completion_mode: str = "core_sync_state_best_effort"
+    state_update_status: str = "not_required"
+    state_update_error: Optional[str] = None
     error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -64,6 +73,15 @@ class EvolveResult:
             "diagnostics": self.diagnostics,
             "events_emitted": self.events_emitted,
             "latency_ms": self.latency_ms,
+            "requested_profile": self.requested_profile,
+            "requested_persist_mode": self.requested_persist_mode,
+            "effective_profile": self.effective_profile,
+            "effective_persist_mode": self.effective_persist_mode,
+            "durability_path": self.durability_path,
+            "evolve_aggressiveness": self.evolve_aggressiveness,
+            "completion_mode": self.completion_mode,
+            "state_update_status": self.state_update_status,
+            "state_update_error": self.state_update_error,
             "error": self.error,
         }
 
@@ -90,6 +108,68 @@ def _emit_event(
             event_repo.emit(session, graph_id, event_type, payload)
         except Exception as e:
             logger.warning(f"Failed to persist event: {e}")
+
+
+def _resolve_max_actions(
+    *,
+    runtime_cfg: Optional[Any],
+    flags: Any,
+    budget_scale: float,
+) -> int:
+    base_actions = int(
+        getattr(
+            runtime_cfg,
+            "self_evolve_max_actions",
+            getattr(flags, "self_evolve_max_actions", 25),
+        )
+    )
+    scaled = int(round(base_actions * max(0.1, float(budget_scale))))
+    return max(1, min(base_actions, scaled))
+
+
+def _resolve_invention_overrides(
+    *,
+    runtime_cfg: Optional[Any],
+    policy: Any,
+) -> Dict[str, Any]:
+    base_lambda = float(getattr(runtime_cfg, "self_invent_lambda_threshold", 0.3))
+    base_reduction = float(
+        getattr(runtime_cfg, "self_invent_min_redundancy_reduction", 0.01)
+    )
+    base_macros = int(getattr(runtime_cfg, "self_invent_max_macros_per_cycle", 3))
+    cap = max(0, int(getattr(policy, "evolve_invention_max_macros_cap", base_macros)))
+    macros = min(base_macros, cap) if cap > 0 else 0
+
+    mode = str(getattr(policy, "evolve_invention_mode", "runtime_default"))
+    if mode == "conservative":
+        base_lambda = min(1.0, base_lambda + 0.10)
+        base_reduction = min(1.0, base_reduction + 0.02)
+    elif mode == "aggressive":
+        base_lambda = max(0.0, base_lambda - 0.05)
+        base_reduction = max(0.0, base_reduction - 0.005)
+
+    return {
+        "max_macros_per_cycle": max(0, macros),
+        "lambda_threshold": base_lambda,
+        "min_redundancy_reduction": base_reduction,
+    }
+
+
+def _mark_self_evolved_state(
+    *,
+    session: Session,
+    tenant_id: str,
+    graph_id: str,
+    evolved_version: int,
+) -> None:
+    from store.pg.repos.self_evolution_state_repo import SelfEvolutionStateRepo
+
+    state_repo = SelfEvolutionStateRepo(session=session, tenant_id=tenant_id)
+    state_repo.mark_evolved(
+        graph_id=graph_id,
+        evolved_version=max(0, int(evolved_version)),
+        session=session,
+    )
 
 
 # =============================================================================
@@ -209,6 +289,18 @@ def run_evolve(
                     diagnostics=None,
                     events_emitted=[],
                     latency_ms=int((time.time() - start_time) * 1000),
+                    requested_profile=requested_profile.value,
+                    requested_persist_mode=requested_persist_mode.value,
+                    effective_profile=effective_profile.value,
+                    effective_persist_mode=effective_persist_mode.value,
+                    durability_path=policy.durability_path,
+                    evolve_aggressiveness=policy.evolve_aggressiveness,
+                    completion_mode=(
+                        "sync_strict"
+                        if effective_persist_mode == PersistMode.STRICT
+                        else "core_sync_state_best_effort"
+                    ),
+                    state_update_status="not_started",
                     error="Could not acquire evolution lock (another evolution in progress)",
                 )
 
@@ -230,6 +322,20 @@ def run_evolve(
                         "profile_persist_compat_mode": policy.compatibility_mode,
                         "profile_persist_coercion_reason": policy.coercion_reason,
                         "evolve_aggressiveness": policy.evolve_aggressiveness,
+                        "evolve_action_budget_scale": policy.evolve_action_budget_scale,
+                        "evolve_merge_threshold": policy.evolve_merge_threshold,
+                        "evolve_prune_min_age_days": policy.evolve_prune_min_age_days,
+                        "evolve_prune_max_touch_count": policy.evolve_prune_max_touch_count,
+                        "evolve_prune_similarity_threshold": (
+                            policy.evolve_prune_similarity_threshold
+                        ),
+                        "evolve_invention_mode": policy.evolve_invention_mode,
+                        "evolve_invention_requested_default": (
+                            policy.evolve_invention_requested_default
+                        ),
+                        "evolve_invention_max_macros_cap": (
+                            policy.evolve_invention_max_macros_cap
+                        ),
                         "tenant_id": tenant_id,
                     },
                     event_repo,
@@ -241,6 +347,7 @@ def run_evolve(
                 # STEP 1: Call evolution_native.evolve_once
                 # =====================================================================
                 from core.dynamics.evolution_native import evolve_once
+                from core.operators.prune import PrunePolicy
                 from runtime.feature_flags import get_feature_flags
 
                 runtime_cfg = None
@@ -252,12 +359,27 @@ def run_evolve(
                     runtime_cfg = None
 
                 flags = get_feature_flags()
-                max_actions = int(
-                    getattr(
-                        runtime_cfg,
-                        "self_evolve_max_actions",
-                        getattr(flags, "self_evolve_max_actions", 25),
-                    )
+                max_actions = _resolve_max_actions(
+                    runtime_cfg=runtime_cfg,
+                    flags=flags,
+                    budget_scale=policy.evolve_action_budget_scale,
+                )
+                prune_policy = PrunePolicy(
+                    min_age_days=policy.evolve_prune_min_age_days,
+                    max_touch_count=policy.evolve_prune_max_touch_count,
+                    min_similarity_for_redundancy=(
+                        policy.evolve_prune_similarity_threshold
+                    ),
+                    protect_macros=True,
+                )
+                resolved_self_invent_requested = (
+                    bool(policy.evolve_invention_requested_default)
+                    if self_invent_requested is None
+                    else bool(self_invent_requested)
+                )
+                invention_overrides = _resolve_invention_overrides(
+                    runtime_cfg=runtime_cfg,
+                    policy=policy,
                 )
 
                 result = evolve_once(
@@ -267,8 +389,11 @@ def run_evolve(
                     event_repo=event_repo,
                     graph_version_repo=gv_repo,
                     max_actions=max_actions,
-                    self_invent_requested=self_invent_requested,
+                    merge_threshold=policy.evolve_merge_threshold,
+                    prune_policy=prune_policy,
+                    self_invent_requested=resolved_self_invent_requested,
                     runtime_config=runtime_cfg,
+                    invention_overrides=invention_overrides,
                 )
 
                 # evolve_once emits DIAGNOSTICS_SNAPSHOT and either
@@ -306,9 +431,93 @@ def run_evolve(
                     except Exception as e:
                         logger.warning(f"Failed to convert diagnostics: {e}")
 
-                # Commit if we own the session
-                if own_session:
+                completion_mode = (
+                    "sync_strict"
+                    if effective_persist_mode == PersistMode.STRICT
+                    else "core_sync_state_best_effort"
+                )
+                state_update_status = "not_required"
+                state_update_error: Optional[str] = None
+
+                if effective_persist_mode == PersistMode.STRICT:
+                    _mark_self_evolved_state(
+                        session=session,
+                        tenant_id=tenant_id,
+                        graph_id=graph_id,
+                        evolved_version=result.graph_version,
+                    )
+                    state_update_status = "completed_sync"
+                    _emit_event(
+                        "EVOLUTION_PERSISTENCE_APPLIED",
+                        graph_id,
+                        {
+                            "requested_profile": requested_profile.value,
+                            "requested_persist_mode": requested_persist_mode.value,
+                            "effective_profile": effective_profile.value,
+                            "effective_persist_mode": effective_persist_mode.value,
+                            "durability_path": policy.durability_path,
+                            "completion_mode": completion_mode,
+                            "state_update_status": state_update_status,
+                            "graph_version": result.graph_version,
+                        },
+                        event_repo,
+                        session=session,
+                    )
+                    events_emitted.append("EVOLUTION_PERSISTENCE_APPLIED")
                     session.commit()
+                else:
+                    # Relaxed mode commits core evolution first, then applies
+                    # scheduler-state durability as non-fatal best effort.
+                    session.commit()
+                    state_update_status = "core_committed"
+                    try:
+                        _mark_self_evolved_state(
+                            session=session,
+                            tenant_id=tenant_id,
+                            graph_id=graph_id,
+                            evolved_version=result.graph_version,
+                        )
+                        state_update_status = "completed_best_effort"
+                    except Exception as e:  # nosec B110
+                        session.rollback()
+                        state_update_status = "best_effort_failed_nonfatal"
+                        state_update_error = str(e)[:300]
+                        logger.warning(
+                            "[Evolve] Relaxed state update failed graph=%s: %s",
+                            graph_id,
+                            e,
+                        )
+
+                    try:
+                        _emit_event(
+                            "EVOLUTION_PERSISTENCE_APPLIED",
+                            graph_id,
+                            {
+                                "requested_profile": requested_profile.value,
+                                "requested_persist_mode": requested_persist_mode.value,
+                                "effective_profile": effective_profile.value,
+                                "effective_persist_mode": effective_persist_mode.value,
+                                "durability_path": policy.durability_path,
+                                "completion_mode": completion_mode,
+                                "state_update_status": state_update_status,
+                                "state_update_error": state_update_error,
+                                "graph_version": result.graph_version,
+                            },
+                            event_repo,
+                            session=session,
+                        )
+                        events_emitted.append("EVOLUTION_PERSISTENCE_APPLIED")
+                        session.commit()
+                    except Exception as e:  # nosec B110
+                        session.rollback()
+                        logger.warning(
+                            "[Evolve] Failed to persist relaxed completion metadata graph=%s: %s",
+                            graph_id,
+                            e,
+                        )
+                        if state_update_error is None:
+                            state_update_error = str(e)[:300]
+                        state_update_status = "best_effort_failed_nonfatal"
 
                 # =====================================================================
                 # STEP 3: Build result
@@ -324,11 +533,23 @@ def run_evolve(
                     diagnostics=diagnostics_dict,
                     events_emitted=events_emitted,
                     latency_ms=latency_ms,
+                    requested_profile=requested_profile.value,
+                    requested_persist_mode=requested_persist_mode.value,
+                    effective_profile=effective_profile.value,
+                    effective_persist_mode=effective_persist_mode.value,
+                    durability_path=policy.durability_path,
+                    evolve_aggressiveness=policy.evolve_aggressiveness,
+                    completion_mode=completion_mode,
+                    state_update_status=state_update_status,
+                    state_update_error=state_update_error,
                 )
 
             except Exception as e:
-                if own_session:
-                    session.rollback()
+                if session is not None:
+                    try:
+                        session.rollback()
+                    except Exception:  # nosec B110
+                        pass
                 logger.error(f"[Evolve] Error: {e}")
                 latency_ms = int((time.time() - start_time) * 1000)
 
@@ -337,10 +558,24 @@ def run_evolve(
                     graph_id,
                     {
                         "error": str(e),
+                        "requested_profile": requested_profile.value,
+                        "requested_persist_mode": requested_persist_mode.value,
+                        "effective_profile": effective_profile.value,
+                        "effective_persist_mode": effective_persist_mode.value,
+                        "durability_path": policy.durability_path,
                     },
                     event_repo,
+                    session=session,
                 )
                 events_emitted.append("EVOLUTION_ERROR")
+                if session is not None:
+                    try:
+                        session.commit()
+                    except Exception:  # nosec B110
+                        try:
+                            session.rollback()
+                        except Exception:  # nosec B110
+                            pass
 
                 return EvolveResult(
                     status="error",
@@ -351,6 +586,18 @@ def run_evolve(
                     diagnostics=None,
                     events_emitted=events_emitted,
                     latency_ms=latency_ms,
+                    requested_profile=requested_profile.value,
+                    requested_persist_mode=requested_persist_mode.value,
+                    effective_profile=effective_profile.value,
+                    effective_persist_mode=effective_persist_mode.value,
+                    durability_path=policy.durability_path,
+                    evolve_aggressiveness=policy.evolve_aggressiveness,
+                    completion_mode=(
+                        "sync_strict"
+                        if effective_persist_mode == PersistMode.STRICT
+                        else "core_sync_state_best_effort"
+                    ),
+                    state_update_status="error",
                     error=str(e),
                 )
     finally:

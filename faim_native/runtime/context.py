@@ -23,6 +23,7 @@ if str(_parent) not in sys.path:
 # =============================================================================
 
 _engine = None
+_engine_db_url = None
 _SessionLocal = None
 _raw_store_plain = None
 _raw_store_by_tenant: Dict[str, Any] = {}
@@ -45,12 +46,19 @@ def _is_production_env() -> bool:
 
 def _get_engine():
     """Get or create SQLAlchemy engine."""
-    global _engine
-    if _engine is None:
+    global _engine, _engine_db_url, _SessionLocal
+    db_url = os.getenv("DATABASE_URL", "sqlite:///./faim_test.db")
+    if _engine is None or _engine_db_url != db_url:
+        if _engine is not None:
+            try:
+                _engine.dispose()
+            except Exception:  # nosec B110
+                pass
         from sqlalchemy import create_engine
 
-        db_url = os.getenv("DATABASE_URL", "sqlite:///./faim_test.db")
         _engine = create_engine(db_url, echo=False)
+        _engine_db_url = db_url
+        _SessionLocal = None
 
         # Create tables if needed
         from store.pg.models_faim import create_all_tables

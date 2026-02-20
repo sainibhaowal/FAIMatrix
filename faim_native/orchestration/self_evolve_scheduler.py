@@ -432,6 +432,17 @@ def enqueue_self_evolve_if_due(
         "effective_profile": policy.effective_profile,
         "effective_persist_mode": policy.effective_persist_mode,
         "durability_path": policy.durability_path,
+        "evolve_aggressiveness": policy.evolve_aggressiveness,
+        "evolve_action_budget_scale": policy.evolve_action_budget_scale,
+        "evolve_merge_threshold": policy.evolve_merge_threshold,
+        "evolve_prune_min_age_days": policy.evolve_prune_min_age_days,
+        "evolve_prune_max_touch_count": policy.evolve_prune_max_touch_count,
+        "evolve_prune_similarity_threshold": policy.evolve_prune_similarity_threshold,
+        "evolve_invention_mode": policy.evolve_invention_mode,
+        "evolve_invention_requested_default": (
+            policy.evolve_invention_requested_default
+        ),
+        "evolve_invention_max_macros_cap": policy.evolve_invention_max_macros_cap,
         "profile_persist_compat_mode": policy.compatibility_mode,
         "profile_persist_coercion_reason": policy.coercion_reason,
         "source": source_key,
@@ -542,6 +553,16 @@ def scan_and_enqueue_due_self_evolve_jobs(
         now=ts_now,
         session=session,
     )
+    default_profile = "strict"
+    try:
+        from runtime.config import get_config
+
+        cfg = get_config()
+        candidate = str(getattr(cfg, "profile_default", "STRICT")).strip().lower()
+        if candidate in {"strict", "fast", "relaxed"}:
+            default_profile = candidate
+    except Exception:  # nosec B110
+        default_profile = "strict"
 
     enqueued = 0
     existing = 0
@@ -556,7 +577,7 @@ def scan_and_enqueue_due_self_evolve_jobs(
                 graph_id=candidate.graph_id,
                 source=source,
                 request_id=request_id,
-                profile="strict",
+                profile=default_profile,
                 persist_mode="relaxed",
                 self_invent_requested=None,
                 now=ts_now,

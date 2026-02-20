@@ -242,6 +242,15 @@ class Worker:
                 "merges": result.merges,
                 "prunes": result.prunes,
                 "version": result.graph_version,
+                "requested_profile": result.requested_profile,
+                "requested_persist_mode": result.requested_persist_mode,
+                "effective_profile": result.effective_profile,
+                "effective_persist_mode": result.effective_persist_mode,
+                "durability_path": result.durability_path,
+                "evolve_aggressiveness": result.evolve_aggressiveness,
+                "completion_mode": result.completion_mode,
+                "state_update_status": result.state_update_status,
+                "state_update_error": result.state_update_error,
             },
         )
 

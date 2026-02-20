@@ -26,13 +26,21 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-# Default database URL for development
-# Prioritize TEST_DATABASE_URL if set (for running tests against Postgres)
-DEFAULT_DATABASE_URL = (
-    os.getenv("TEST_DATABASE_URL")
-    or os.getenv("FAIM_DATABASE_URL")
-    or os.getenv("DATABASE_URL", "sqlite:///:memory:")
-)
+def get_default_database_url() -> str:
+    """Resolve DB URL from environment at call-time.
+
+    Call-time resolution avoids stale process-level defaults when tests or
+    runtime reload flows update DATABASE_URL dynamically.
+    """
+    return (
+        os.getenv("TEST_DATABASE_URL")
+        or os.getenv("FAIM_DATABASE_URL")
+        or os.getenv("DATABASE_URL", "sqlite:///:memory:")
+    )
+
+
+# Backward-compatible module constant (runtime uses call-time resolver).
+DEFAULT_DATABASE_URL = get_default_database_url()
 _SESSION_FACTORY_CACHE: dict[str, "SessionFactory"] = {}
 
 
@@ -58,7 +66,7 @@ def get_session(url: Optional[str] = None) -> Session:
     Returns:
         SQLAlchemy Session (caller must close).
     """
-    factory = _get_cached_factory(url or DEFAULT_DATABASE_URL)
+    factory = _get_cached_factory(url or get_default_database_url())
     return factory.create()
 
 
@@ -80,7 +88,7 @@ def get_engine(
     Returns:
         SQLAlchemy Engine instance.
     """
-    db_url = url or DEFAULT_DATABASE_URL
+    db_url = url or get_default_database_url()
 
     # SQLite-specific configuration
     if db_url.startswith("sqlite"):
