@@ -54,6 +54,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 48. `48_PHASE_R5_API_RESPONSE_CLARITY_REPORT.md`
 49. `49_PHASE_R6_UI_BEHAVIOR_ALIGNMENT_REPORT.md`
 50. `50_PHASE_R7_TEST_PLAN_AND_VALIDATION_REPORT.md`
+51. `51_PHASE_R8_PROFILE_PERSIST_DOCS_RELEASE_HYGIENE_REPORT.md`
 
 ## Intent
 
@@ -101,6 +102,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - API response/event clarity and remaining R4 payload-gap closure (Phase R5) is documented in 48.
 - Storage + Evolution UI behavior alignment for requested/effective mode clarity (Phase R6) is documented in 49.
 - Production-grade profile/persist test matrix + validation gates (Phase R7) is documented in 50.
+- Profile/persist final docs reconciliation + release hygiene closeout (Phase R8) is documented in 51.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome
