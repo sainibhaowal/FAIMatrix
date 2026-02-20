@@ -400,6 +400,29 @@ Evidence:
 
 - `38_PHASE_EVOLUTION_STEP_B_RUNTIME_STATUS_REPORT.md`
 
+## Phase R2 Completed
+
+- implemented centralized runtime resolver for `profile` + `persist_mode`:
+  - single mapping contract for ingest/evolve operations
+  - requested/effective mode normalization and coercion handling
+- added compatibility guard (`FAIM_PROFILE_PERSIST_COMPAT_MODE`) with safe default `true`
+- integrated resolver into:
+  - ingest flow
+  - evolve flow
+  - self-evolve enqueue path
+  - worker evolve execution path
+- added additive observability fields on evolve/ingest start events:
+  - requested/effective profile and persist mode
+  - durability path
+  - compat mode
+  - coercion reason when applicable
+- fixed worker evolve execution to pass `persist_mode` (previously dropped)
+- validated with new R2 unit/acceptance coverage and regression suites
+
+Evidence:
+
+- `45_PHASE_R2_CENTRAL_POLICY_RESOLVER_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -422,6 +445,7 @@ Evidence:
 | Self-default docs and release-hygiene reconciliation | implemented (S7) |
 | Evolution dashboard integration (existing APIs only) | implemented (EV-A) |
 | Evolution dashboard runtime status integration (shared due helper + status contract) | implemented (EV-B) |
+| Central profile/persist policy resolver with compatibility guard | implemented (R2) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |

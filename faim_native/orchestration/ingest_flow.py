@@ -24,6 +24,11 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
+from orchestration.profile_persist_policy import (
+    PolicyOperation,
+    resolve_profile_persist_policy,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -203,14 +208,30 @@ def run_ingest(
     def _finish_phase(phase: str, started_at: float) -> None:
         phase_latency_ms[phase] = int((time.perf_counter() - started_at) * 1000)
 
-    # Normalize profile
+    # Normalize requested values
     if isinstance(profile, str):
         profile = FAIMProfile(profile.lower())
     if isinstance(persist_mode, str):
         persist_mode = PersistMode(persist_mode.lower())
+    requested_profile = profile
+    requested_persist_mode = persist_mode
+    policy = resolve_profile_persist_policy(
+        operation=PolicyOperation.INGEST,
+        requested_profile=requested_profile.value,
+        requested_persist_mode=requested_persist_mode.value,
+    )
+    effective_profile = FAIMProfile(policy.effective_profile)
+    effective_persist_mode = PersistMode(policy.effective_persist_mode)
 
     logger.info(
-        f"[Ingest] Starting: {filename} → graph={graph_id}, profile={profile.value}"
+        "[Ingest] Starting: %s → graph=%s, requested=%s/%s effective=%s/%s compat=%s",
+        filename,
+        graph_id,
+        requested_profile.value,
+        requested_persist_mode.value,
+        effective_profile.value,
+        effective_persist_mode.value,
+        policy.compatibility_mode,
     )
 
     try:
@@ -227,8 +248,15 @@ def run_ingest(
                 "raw_id": raw_id,
                 "filename": filename,
                 "file_size": len(file_bytes),
-                "profile": profile.value,
-                "persist_mode": persist_mode.value,
+                "profile": requested_profile.value,
+                "persist_mode": requested_persist_mode.value,
+                "requested_profile": requested_profile.value,
+                "requested_persist_mode": requested_persist_mode.value,
+                "effective_profile": effective_profile.value,
+                "effective_persist_mode": effective_persist_mode.value,
+                "durability_path": policy.durability_path,
+                "profile_persist_compat_mode": policy.compatibility_mode,
+                "profile_persist_coercion_reason": policy.coercion_reason,
             },
             event_repo,
             session=session,
@@ -441,7 +469,7 @@ def run_ingest(
         # =====================================================================
         # Index is acceleration only, never affects truth
         # STRICT mode = deterministic, so skip index writes
-        index_enabled = profile != FAIMProfile.STRICT
+        index_enabled = bool(policy.index_enabled)
 
         if index_enabled and vectors:
             try:
@@ -482,7 +510,9 @@ def run_ingest(
                     graph_id,
                     {
                         "vector_count": len(vectors),
-                        "profile": profile.value,
+                        "profile": requested_profile.value,
+                        "effective_profile": effective_profile.value,
+                        "effective_persist_mode": effective_persist_mode.value,
                     },
                     event_repo,
                 )
@@ -493,7 +523,7 @@ def run_ingest(
             except Exception as e:
                 # Index failures are non-fatal (acceleration only)
                 logger.warning(f"[Ingest] Index upsert failed (non-fatal): {e}")
-        elif profile == FAIMProfile.STRICT:
+        elif effective_profile == FAIMProfile.STRICT:
             logger.info("[Ingest] STRICT mode: skipping index writes")
 
         # =====================================================================
