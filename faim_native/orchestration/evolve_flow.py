@@ -364,6 +364,20 @@ def run_evolve(
                     flags=flags,
                     budget_scale=policy.evolve_action_budget_scale,
                 )
+                completion_mode = (
+                    "sync_strict"
+                    if effective_persist_mode == PersistMode.STRICT
+                    else "core_sync_state_best_effort"
+                )
+                event_context = {
+                    "requested_profile": requested_profile.value,
+                    "requested_persist_mode": requested_persist_mode.value,
+                    "effective_profile": effective_profile.value,
+                    "effective_persist_mode": effective_persist_mode.value,
+                    "durability_path": policy.durability_path,
+                    "completion_mode": completion_mode,
+                    "evolve_aggressiveness": policy.evolve_aggressiveness,
+                }
                 prune_policy = PrunePolicy(
                     min_age_days=policy.evolve_prune_min_age_days,
                     max_touch_count=policy.evolve_prune_max_touch_count,
@@ -394,6 +408,7 @@ def run_evolve(
                     self_invent_requested=resolved_self_invent_requested,
                     runtime_config=runtime_cfg,
                     invention_overrides=invention_overrides,
+                    event_context=event_context,
                 )
 
                 # evolve_once emits DIAGNOSTICS_SNAPSHOT and either
@@ -431,11 +446,6 @@ def run_evolve(
                     except Exception as e:
                         logger.warning(f"Failed to convert diagnostics: {e}")
 
-                completion_mode = (
-                    "sync_strict"
-                    if effective_persist_mode == PersistMode.STRICT
-                    else "core_sync_state_best_effort"
-                )
                 state_update_status = "not_required"
                 state_update_error: Optional[str] = None
 

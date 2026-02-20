@@ -74,6 +74,11 @@ class UploadFileResult(BaseModel):
     node_count: int = 0
     vector_count: int = 0
     error: Optional[str] = None
+    requested_profile: Optional[str] = None
+    requested_persist_mode: Optional[str] = None
+    effective_profile: Optional[str] = None
+    effective_persist_mode: Optional[str] = None
+    durability_path: Optional[str] = None
 
 
 class StorageUploadBatchResponse(BaseModel):
@@ -89,6 +94,11 @@ class StorageUploadBatchResponse(BaseModel):
     dedup_hits: int
     cancelled_files: int = 0
     files: List[UploadFileResult]
+    requested_profile: Optional[str] = None
+    requested_persist_mode: Optional[str] = None
+    effective_profile: Optional[str] = None
+    effective_persist_mode: Optional[str] = None
+    durability_path: Optional[str] = None
 
 
 class StorageUploadStatusResponse(BaseModel):
@@ -109,6 +119,11 @@ class StorageUploadStatusResponse(BaseModel):
     updated_at: Optional[str] = None
     completed_at: Optional[str] = None
     files: List[StorageFileItem]
+    requested_profile: Optional[str] = None
+    requested_persist_mode: Optional[str] = None
+    effective_profile: Optional[str] = None
+    effective_persist_mode: Optional[str] = None
+    durability_path: Optional[str] = None
 
 
 class StorageJobEvent(BaseModel):
@@ -664,6 +679,18 @@ async def create_upload_batch(
         raise HTTPException(status_code=400, detail="At least one file is required")
 
     from orchestration.jobs.job_store import JobStore
+    from orchestration.profile_persist_policy import (
+        PolicyOperation,
+        resolve_profile_persist_policy,
+    )
+
+    requested_profile = str(profile or "").strip().lower()
+    requested_persist_mode = str(persist_mode or "").strip().lower()
+    policy = resolve_profile_persist_policy(
+        operation=PolicyOperation.INGEST,
+        requested_profile=requested_profile,
+        requested_persist_mode=requested_persist_mode,
+    )
 
     requested_files = len(files)
     job_id = JobStore.enqueue(
@@ -675,6 +702,11 @@ async def create_upload_batch(
             "requested_files": requested_files,
             "profile": profile,
             "persist_mode": persist_mode,
+            "requested_profile": requested_profile,
+            "requested_persist_mode": requested_persist_mode,
+            "effective_profile": policy.effective_profile,
+            "effective_persist_mode": policy.effective_persist_mode,
+            "durability_path": policy.durability_path,
         },
     )
 
@@ -730,7 +762,15 @@ async def create_upload_batch(
                 break
 
             filename = sanitize_filename(upload.filename or f"upload-{index + 1}")
-            result_entry = UploadFileResult(filename=filename, status="pending")
+            result_entry = UploadFileResult(
+                filename=filename,
+                status="pending",
+                requested_profile=requested_profile,
+                requested_persist_mode=requested_persist_mode,
+                effective_profile=policy.effective_profile,
+                effective_persist_mode=policy.effective_persist_mode,
+                durability_path=policy.durability_path,
+            )
             file_results.append(result_entry)
 
             try:
@@ -893,6 +933,11 @@ async def create_upload_batch(
                             "raw_id": str(raw_uuid),
                             "filename": filename,
                             "packet_hash": ingest_result.packet_hash,
+                            "requested_profile": ingest_result.requested_profile,
+                            "requested_persist_mode": ingest_result.requested_persist_mode,
+                            "effective_profile": ingest_result.effective_profile,
+                            "effective_persist_mode": ingest_result.effective_persist_mode,
+                            "durability_path": ingest_result.durability_path,
                         },
                     )
                 elif ingest_result.status == "error":
@@ -905,6 +950,11 @@ async def create_upload_batch(
                             "raw_id": str(raw_uuid),
                             "filename": filename,
                             "error": ingest_result.error,
+                            "requested_profile": ingest_result.requested_profile,
+                            "requested_persist_mode": ingest_result.requested_persist_mode,
+                            "effective_profile": ingest_result.effective_profile,
+                            "effective_persist_mode": ingest_result.effective_persist_mode,
+                            "durability_path": ingest_result.durability_path,
                         },
                     )
                 ctx.session.commit()
@@ -914,6 +964,11 @@ async def create_upload_batch(
                 result_entry.packet_hash = ingest_result.packet_hash or None
                 result_entry.node_count = ingest_result.nodes_written
                 result_entry.vector_count = ingest_result.vector_count
+                result_entry.requested_profile = ingest_result.requested_profile
+                result_entry.requested_persist_mode = ingest_result.requested_persist_mode
+                result_entry.effective_profile = ingest_result.effective_profile
+                result_entry.effective_persist_mode = ingest_result.effective_persist_mode
+                result_entry.durability_path = ingest_result.durability_path
 
                 if ingest_result.status == "error":
                     failed += 1
@@ -953,6 +1008,11 @@ async def create_upload_batch(
                         "raw_id": str(raw_uuid),
                         "status": result_entry.status,
                         "packet_hash": ingest_result.packet_hash,
+                        "requested_profile": ingest_result.requested_profile,
+                        "requested_persist_mode": ingest_result.requested_persist_mode,
+                        "effective_profile": ingest_result.effective_profile,
+                        "effective_persist_mode": ingest_result.effective_persist_mode,
+                        "durability_path": ingest_result.durability_path,
                         "message": "Ingest finished",
                     },
                 )
@@ -982,6 +1042,11 @@ async def create_upload_batch(
                         "filename": filename,
                         "status": "failed",
                         "error": result_entry.error,
+                        "requested_profile": result_entry.requested_profile,
+                        "requested_persist_mode": result_entry.requested_persist_mode,
+                        "effective_profile": result_entry.effective_profile,
+                        "effective_persist_mode": result_entry.effective_persist_mode,
+                        "durability_path": result_entry.durability_path,
                     },
                 )
             except Exception as e:
@@ -1010,6 +1075,11 @@ async def create_upload_batch(
                         "filename": filename,
                         "status": "failed",
                         "error": str(e),
+                        "requested_profile": result_entry.requested_profile,
+                        "requested_persist_mode": result_entry.requested_persist_mode,
+                        "effective_profile": result_entry.effective_profile,
+                        "effective_persist_mode": result_entry.effective_persist_mode,
+                        "durability_path": result_entry.durability_path,
                     },
                 )
 
@@ -1147,6 +1217,11 @@ async def create_upload_batch(
             dedup_hits=dedup_hits,
             cancelled_files=cancelled,
             files=file_results,
+            requested_profile=requested_profile,
+            requested_persist_mode=requested_persist_mode,
+            effective_profile=policy.effective_profile,
+            effective_persist_mode=policy.effective_persist_mode,
+            durability_path=policy.durability_path,
         )
     except HTTPException:
         ctx.session.rollback()
@@ -1211,6 +1286,11 @@ async def get_upload_status(
     requested_files = int(payload.get("requested_files", processed_files))
     cancel_requested = bool(payload.get("cancel_requested", False))
     cancel_reason = payload.get("cancel_reason")
+    requested_profile = payload.get("requested_profile")
+    requested_persist_mode = payload.get("requested_persist_mode")
+    effective_profile = payload.get("effective_profile")
+    effective_persist_mode = payload.get("effective_persist_mode")
+    durability_path = payload.get("durability_path")
 
     return StorageUploadStatusResponse(
         job_id=str(job.job_id),
@@ -1228,6 +1308,19 @@ async def get_upload_status(
         updated_at=job.updated_at.isoformat() if job.updated_at else None,
         completed_at=job.completed_at.isoformat() if job.completed_at else None,
         files=file_items,
+        requested_profile=(
+            str(requested_profile) if requested_profile is not None else None
+        ),
+        requested_persist_mode=(
+            str(requested_persist_mode) if requested_persist_mode is not None else None
+        ),
+        effective_profile=(
+            str(effective_profile) if effective_profile is not None else None
+        ),
+        effective_persist_mode=(
+            str(effective_persist_mode) if effective_persist_mode is not None else None
+        ),
+        durability_path=str(durability_path) if durability_path is not None else None,
     )
 
 
@@ -1605,6 +1698,11 @@ async def reingest_storage_file(
                 "raw_id": str(raw_uuid),
                 "filename": row.filename,
                 "packet_hash": ingest_result.packet_hash,
+                "requested_profile": ingest_result.requested_profile,
+                "requested_persist_mode": ingest_result.requested_persist_mode,
+                "effective_profile": ingest_result.effective_profile,
+                "effective_persist_mode": ingest_result.effective_persist_mode,
+                "durability_path": ingest_result.durability_path,
             },
         )
     elif ingest_result.status == "error":
@@ -1616,6 +1714,11 @@ async def reingest_storage_file(
                 "raw_id": str(raw_uuid),
                 "filename": row.filename,
                 "error": ingest_result.error,
+                "requested_profile": ingest_result.requested_profile,
+                "requested_persist_mode": ingest_result.requested_persist_mode,
+                "effective_profile": ingest_result.effective_profile,
+                "effective_persist_mode": ingest_result.effective_persist_mode,
+                "durability_path": ingest_result.durability_path,
             },
         )
     ctx.session.commit()

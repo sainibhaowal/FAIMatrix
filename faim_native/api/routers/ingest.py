@@ -321,6 +321,11 @@ def _track_storage_ingest_result(
             payload={
                 "raw_id": raw_id,
                 "packet_hash": result.packet_hash,
+                "requested_profile": getattr(result, "requested_profile", None),
+                "requested_persist_mode": getattr(result, "requested_persist_mode", None),
+                "effective_profile": getattr(result, "effective_profile", None),
+                "effective_persist_mode": getattr(result, "effective_persist_mode", None),
+                "durability_path": getattr(result, "durability_path", None),
             },
         )
     elif result.status == "error":
@@ -331,6 +336,11 @@ def _track_storage_ingest_result(
             payload={
                 "raw_id": raw_id,
                 "error": result.error,
+                "requested_profile": getattr(result, "requested_profile", None),
+                "requested_persist_mode": getattr(result, "requested_persist_mode", None),
+                "effective_profile": getattr(result, "effective_profile", None),
+                "effective_persist_mode": getattr(result, "effective_persist_mode", None),
+                "durability_path": getattr(result, "durability_path", None),
             },
         )
     ctx.session.commit()
