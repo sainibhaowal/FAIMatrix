@@ -31,7 +31,7 @@ export default function DashboardPage() {
       */}
       <div className="min-h-[400px] border-2 border-dashed border-slate-800 rounded-3xl flex items-center justify-center">
         <p className="text-slate-500 font-mono text-sm">
-          // Dashboard purified. Ready for FAIM-native reconstruction.
+          Dashboard purified. Ready for FAIM-native reconstruction.
         </p>
       </div>
     </div>

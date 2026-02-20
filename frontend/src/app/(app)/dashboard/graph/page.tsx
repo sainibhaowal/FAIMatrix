@@ -10,7 +10,7 @@ export default function GraphPage() {
 
       <div className="min-h-[500px] border-2 border-dashed border-slate-800 rounded-3xl flex items-center justify-center">
         <p className="text-slate-500 font-mono text-sm">
-          // Graph view purified. Ready for FAIM-native visualization.
+          Graph view purified. Ready for FAIM-native visualization.
         </p>
       </div>
     </div>

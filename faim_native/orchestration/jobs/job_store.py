@@ -62,8 +62,12 @@ class JobStore:
         return job_id
 
     @staticmethod
-    def claim_next(session: Session, timeout_seconds: int = 300) -> Optional[JobModel]:
-        """Claim the next available job (pending or stale running)."""
+    def _claim_next_internal(
+        session: Session,
+        timeout_seconds: int = 300,
+        executable_kinds: Optional[List[str]] = None,
+    ) -> Optional[JobModel]:
+        """Claim the next available job, optionally filtered by job kind."""
         # A job is claimable if:
         # 1. status is 'pending'
         # 2. status is 'running' but updated_at is more than timeout_seconds ago
@@ -73,19 +77,26 @@ class JobStore:
         from datetime import timedelta
 
         stale_time = datetime.now(timezone.utc) - timedelta(seconds=timeout_seconds)
+        allowed_kinds = [
+            str(kind).strip()
+            for kind in (executable_kinds or [])
+            if str(kind).strip()
+        ]
 
         while True:
-            job = (
-                session.query(JobModel)
-                .filter(
-                    or_(
-                        JobModel.status == "pending",
-                        and_(
-                            JobModel.status == "running", JobModel.updated_at < stale_time
-                        ),
-                    )
+            query = session.query(JobModel).filter(
+                or_(
+                    JobModel.status == "pending",
+                    and_(
+                        JobModel.status == "running", JobModel.updated_at < stale_time
+                    ),
                 )
-                .order_by(JobModel.created_at.asc(), JobModel.job_id.asc())
+            )
+            if allowed_kinds:
+                query = query.filter(JobModel.kind.in_(allowed_kinds))
+
+            job = (
+                query.order_by(JobModel.created_at.asc(), JobModel.job_id.asc())
                 .with_for_update(skip_locked=True)
                 .first()
             )
@@ -113,6 +124,30 @@ class JobStore:
             return job
 
         return None
+
+    @staticmethod
+    def claim_next(session: Session, timeout_seconds: int = 300) -> Optional[JobModel]:
+        """Claim the next available job (pending or stale running)."""
+        return JobStore._claim_next_internal(
+            session=session,
+            timeout_seconds=timeout_seconds,
+            executable_kinds=None,
+        )
+
+    @staticmethod
+    def claim_next_of_kinds(
+        session: Session,
+        executable_kinds: List[str],
+        timeout_seconds: int = 300,
+    ) -> Optional[JobModel]:
+        """Claim the next available job limited to specific executable kinds."""
+        if not executable_kinds:
+            return None
+        return JobStore._claim_next_internal(
+            session=session,
+            timeout_seconds=timeout_seconds,
+            executable_kinds=executable_kinds,
+        )
 
     @staticmethod
     def heartbeat(session: Session, job_id: UUID):

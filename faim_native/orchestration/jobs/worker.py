@@ -29,6 +29,11 @@ class Worker:
     ):
         self.poll_interval = poll_interval
         self.running = True
+        self.executable_job_kinds = (
+            "evolve",
+            "ingest_secondary_index",
+            "storage_retention",
+        )
         flags = get_feature_flags()
         default_scan_interval = max(
             30,
@@ -69,7 +74,10 @@ class Worker:
         """Poll for next job and execute it."""
         session = get_session()
         try:
-            job = JobStore.claim_next(session)
+            job = JobStore.claim_next_of_kinds(
+                session=session,
+                executable_kinds=list(self.executable_job_kinds),
+            )
             if not job:
                 return
 

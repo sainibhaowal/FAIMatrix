@@ -55,6 +55,9 @@ This folder documents current storage/ingestion behavior and the implementation 
 49. `49_PHASE_R6_UI_BEHAVIOR_ALIGNMENT_REPORT.md`
 50. `50_PHASE_R7_TEST_PLAN_AND_VALIDATION_REPORT.md`
 51. `51_PHASE_R8_PROFILE_PERSIST_DOCS_RELEASE_HYGIENE_REPORT.md`
+52. `52_PHASE_RUNTIME_BLOCKERS_HOTFIX_REPORT.md`
+53. `53_FULL_REPO_ENDPOINT_VALIDATION_REPORT.md`
+54. `54_FULL_REPO_PRODUCTION_READINESS_REVALIDATION_REPORT.md`
 
 ## Intent
 
@@ -103,6 +106,9 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Storage + Evolution UI behavior alignment for requested/effective mode clarity (Phase R6) is documented in 49.
 - Production-grade profile/persist test matrix + validation gates (Phase R7) is documented in 50.
 - Profile/persist final docs reconciliation + release hygiene closeout (Phase R8) is documented in 51.
+- Runtime blocker hotfix for evolve duplicate-edge conflicts and worker claim filtering is documented in 52.
+- Full-repo endpoint-level exhaustive validation status and remaining gaps is documented in 53.
+- Full-repo production-readiness revalidation after final fixes is documented in 54.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

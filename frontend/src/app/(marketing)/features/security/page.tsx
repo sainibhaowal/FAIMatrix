@@ -36,7 +36,7 @@ export default function SecurityPage() {
       <h2 className="text-2xl font-bold text-white mb-4">Privacy by Design</h2>
       <p className="text-slate-400 mb-6">
         FAIM-Native is built from the ground up with the philosophy that security 
-        shouldn't just be an add-on - it should be a mathematical certainty. Our 
+        shouldn&apos;t just be an add-on - it should be a mathematical certainty. Our 
         deterministic identity architecture ensures that your presence in the 
         system is uniquely yours, anchored by your verified email.
       </p>
@@ -55,7 +55,7 @@ export default function SecurityPage() {
         The Absolute Hard Purge
       </h3>
       <p className="text-slate-400 mb-6">
-        When you decide to delete your account, we don't just "flag" it as deleted. 
+        When you decide to delete your account, we don&apos;t just &quot;flag&quot; it as deleted. 
         We execute a transactional hard purge of the entire database. Every node, 
         edge, event, and snapshot associated with your Identity is wiped across 
         PostgreSQL and our Vector Indices. Zero residue remains.
@@ -68,7 +68,7 @@ export default function SecurityPage() {
         Our backend middleware never trusts user-provided IDs. Access to any piece 
         of data requires a cryptographically signed JWT. The backend calculates your 
         Identity ID itself from the verified session, making it impossible to spoof 
-        another user's data even if their ID is known.
+        another user&apos;s data even if their ID is known.
       </p>
     </FeaturePageLayout>
   );

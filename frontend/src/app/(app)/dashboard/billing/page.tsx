@@ -10,7 +10,7 @@ export default function BillingPage() {
 
       <div className="min-h-[400px] border-2 border-dashed border-slate-800 rounded-3xl flex items-center justify-center">
         <p className="text-slate-500 font-mono text-sm">
-          // Billing purified. Ready for FAIM-native plans.
+          Billing purified. Ready for FAIM-native plans.
         </p>
       </div>
     </div>
