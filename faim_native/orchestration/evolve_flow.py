@@ -17,6 +17,7 @@ from typing import Any, Dict, List, Optional, Union
 from sqlalchemy.orm import Session
 
 from .ingest_flow import FAIMProfile, PersistMode
+from .profile_persist_policy import PolicyOperation, resolve_profile_persist_policy
 
 logger = logging.getLogger(__name__)
 
@@ -135,13 +136,30 @@ def run_evolve(
     start_time = time.time()
     events_emitted: List[str] = []
 
-    # Normalize profile
+    # Normalize requested values
     if isinstance(profile, str):
         profile = FAIMProfile(profile.lower())
     if isinstance(persist_mode, str):
         persist_mode = PersistMode(persist_mode.lower())
+    requested_profile = profile
+    requested_persist_mode = persist_mode
+    policy = resolve_profile_persist_policy(
+        operation=PolicyOperation.EVOLVE,
+        requested_profile=requested_profile.value,
+        requested_persist_mode=requested_persist_mode.value,
+    )
+    effective_profile = FAIMProfile(policy.effective_profile)
+    effective_persist_mode = PersistMode(policy.effective_persist_mode)
 
-    logger.info(f"[Evolve] Starting: graph={graph_id}, profile={profile.value}")
+    logger.info(
+        "[Evolve] Starting: graph=%s requested=%s/%s effective=%s/%s compat=%s",
+        graph_id,
+        requested_profile.value,
+        requested_persist_mode.value,
+        effective_profile.value,
+        effective_persist_mode.value,
+        policy.compatibility_mode,
+    )
     # =========================================================================
     # Initialize repositories if not provided
     # =========================================================================
@@ -202,8 +220,16 @@ def run_evolve(
                     "EVOLUTION_START",
                     graph_id,
                     {
-                        "profile": profile.value,
-                        "persist_mode": persist_mode.value,
+                        "profile": requested_profile.value,
+                        "persist_mode": requested_persist_mode.value,
+                        "requested_profile": requested_profile.value,
+                        "requested_persist_mode": requested_persist_mode.value,
+                        "effective_profile": effective_profile.value,
+                        "effective_persist_mode": effective_persist_mode.value,
+                        "durability_path": policy.durability_path,
+                        "profile_persist_compat_mode": policy.compatibility_mode,
+                        "profile_persist_coercion_reason": policy.coercion_reason,
+                        "evolve_aggressiveness": policy.evolve_aggressiveness,
                         "tenant_id": tenant_id,
                     },
                     event_repo,
