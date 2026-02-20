@@ -17,12 +17,13 @@ Events emitted: INGEST_START, PACKET_CREATED, ENCODED, WRITE_ATOMS_DONE
 from __future__ import annotations
 
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from orchestration.profile_persist_policy import (
     PolicyOperation,
@@ -87,6 +88,14 @@ class IngestResult:
     raw_id: Optional[str] = None
     error: Optional[str] = None
     phase_latency_ms: Dict[str, int] = field(default_factory=dict)
+    requested_profile: str = "strict"
+    requested_persist_mode: str = "relaxed"
+    effective_profile: str = "strict"
+    effective_persist_mode: str = "relaxed"
+    durability_path: str = "core_sync_secondary_async"
+    index_write_mode: str = "skipped"
+    secondary_task_status: str = "not_required"
+    secondary_task_job_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for API response."""
@@ -105,6 +114,14 @@ class IngestResult:
             "raw_id": self.raw_id,
             "error": self.error,
             "phase_latency_ms": self.phase_latency_ms,
+            "requested_profile": self.requested_profile,
+            "requested_persist_mode": self.requested_persist_mode,
+            "effective_profile": self.effective_profile,
+            "effective_persist_mode": self.effective_persist_mode,
+            "durability_path": self.durability_path,
+            "index_write_mode": self.index_write_mode,
+            "secondary_task_status": self.secondary_task_status,
+            "secondary_task_job_id": self.secondary_task_job_id,
         }
 
 
@@ -146,6 +163,99 @@ def _emit_event(
             event_repo.emit(session, graph_id, event_type, payload)
         except Exception as e:
             logger.warning(f"Failed to persist event: {e}")
+
+
+def _jobs_enabled() -> bool:
+    """Read FAIM_ENABLE_JOBS in a runtime-safe way."""
+    raw = os.getenv("FAIM_ENABLE_JOBS", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _project_id_from_graph_or_default(graph_id: str, fallback: Optional[Any] = None) -> UUID:
+    """Resolve project UUID for index partitioning."""
+    if fallback is not None:
+        try:
+            return UUID(str(fallback))
+        except (ValueError, TypeError, AttributeError):
+            pass
+    try:
+        return UUID(str(graph_id))
+    except (ValueError, TypeError, AttributeError):
+        return UUID("00000000-0000-0000-0000-000000000000")
+
+
+def _upsert_index_sync(
+    *,
+    graph_id: str,
+    vectors: List[Any],
+    write_result: Any,
+    node_repo: Optional[Any],
+) -> int:
+    """Synchronous index upsert path used by strict durability mode."""
+    from index.qdrant_index import FAIMIndex
+
+    project_id = _project_id_from_graph_or_default(
+        graph_id=graph_id,
+        fallback=getattr(node_repo, "project_id", None),
+    )
+    index = FAIMIndex(project_id)
+
+    node_ids = [str(nid) for nid in (write_result.node_ids or [])]
+    for idx, vector in enumerate(vectors):
+        if idx < len(node_ids):
+            node_id = node_ids[idx]
+        else:
+            # Defensive fallback if engine contract changes.
+            node_id = str(getattr(vector, "node_id", "") or vector.vector_hash)
+        index.add(
+            graph_id=graph_id,
+            node_id=node_id,
+            vector=vector.v_native,
+            level=0,
+            kind="atom",
+        )
+    return len(vectors)
+
+
+def _enqueue_async_index_upsert_job(
+    *,
+    session: Any,
+    tenant_id: str,
+    graph_id: str,
+    raw_id: str,
+    packet_hash: str,
+    node_ids: List[str],
+    requested_profile: str,
+    requested_persist_mode: str,
+    effective_profile: str,
+    effective_persist_mode: str,
+    durability_path: str,
+) -> str:
+    """Queue index upsert for worker execution (relaxed persist mode)."""
+    from store.pg.models_faim import JobModel
+
+    job_id = uuid4()
+    job = JobModel(
+        job_id=job_id,
+        tenant_id=tenant_id,
+        graph_id=graph_id,
+        kind="ingest_secondary_index",
+        payload_json={
+            "raw_id": raw_id,
+            "packet_hash": packet_hash,
+            "node_ids": node_ids,
+            "requested_profile": requested_profile,
+            "requested_persist_mode": requested_persist_mode,
+            "effective_profile": effective_profile,
+            "effective_persist_mode": effective_persist_mode,
+            "durability_path": durability_path,
+            "source": "ingest_secondary_index",
+        },
+        status="pending",
+    )
+    session.add(job)
+    session.flush()
+    return str(job_id)
 
 
 # =============================================================================
@@ -377,6 +487,13 @@ def run_ingest(
                         dedup_hit=True,
                         raw_id=str(existing.raw_id) if existing.raw_id else raw_id,
                         phase_latency_ms=phase_latency_ms,
+                        requested_profile=requested_profile.value,
+                        requested_persist_mode=requested_persist_mode.value,
+                        effective_profile=effective_profile.value,
+                        effective_persist_mode=effective_persist_mode.value,
+                        durability_path=policy.durability_path,
+                        index_write_mode="dedup_hit",
+                        secondary_task_status="dedup_hit",
                     )
             except Exception as e:
                 logger.warning(f"[Ingest] Dedup check failed (continuing): {e}")
@@ -465,66 +582,181 @@ def run_ingest(
         )
 
         # =====================================================================
-        # STEP 5b: Index upsert (STRICT mode disabled)
+        # STEP 5b: Secondary durability path (index acceleration)
         # =====================================================================
-        # Index is acceleration only, never affects truth
-        # STRICT mode = deterministic, so skip index writes
+        # Index is acceleration only, never affects canonical graph truth.
+        # Phase R3:
+        # - compat_mode=True keeps legacy behavior
+        # - compat_mode=False applies strict/relaxed durability path
         index_enabled = bool(policy.index_enabled)
+        index_write_mode = "skipped"
+        secondary_task_status = "not_required"
+        secondary_task_job_id: Optional[str] = None
 
         if index_enabled and vectors:
-            try:
-                from uuid import UUID
-
-                from index.qdrant_index import FAIMIndex
-
-                # Get project_id from node_repo or use a default
-                project_id = getattr(node_repo, "project_id", None)
-                if project_id is None:
-                    # Use graph_id as project_id fallback
-                    try:
-                        project_id = UUID(graph_id)
-                    except (ValueError, TypeError):
-                        project_id = UUID("00000000-0000-0000-0000-000000000000")
-
-                index = FAIMIndex(project_id)
-
-                # WriteResult carries canonical node UUIDs in the same order as vectors.
-                phase_started = time.perf_counter()
-                node_ids = [str(nid) for nid in (write_result.node_ids or [])]
-                for idx, vector in enumerate(vectors):
-                    if idx < len(node_ids):
-                        node_id = node_ids[idx]
-                    else:
-                        # Defensive fallback if engine contract changes.
-                        node_id = str(getattr(vector, "node_id", "") or vector.vector_hash)
-                    index.add(
+            if policy.compatibility_mode:
+                # Legacy behavior for compatibility rollout safety.
+                try:
+                    phase_started = time.perf_counter()
+                    indexed_count = _upsert_index_sync(
                         graph_id=graph_id,
-                        node_id=node_id,
-                        vector=vector.v_native,
-                        level=0,
-                        kind="atom",
+                        vectors=vectors,
+                        write_result=write_result,
+                        node_repo=node_repo,
                     )
-
+                    _emit_event(
+                        "INDEX_UPSERTED",
+                        graph_id,
+                        {
+                            "vector_count": indexed_count,
+                            "profile": requested_profile.value,
+                            "effective_profile": effective_profile.value,
+                            "effective_persist_mode": effective_persist_mode.value,
+                            "durability_path": policy.durability_path,
+                            "index_write_mode": "sync_inline_compat",
+                            "profile_persist_compat_mode": True,
+                        },
+                        event_repo,
+                        session=session,
+                    )
+                    events_emitted.append("INDEX_UPSERTED")
+                    _finish_phase("index_sync", phase_started)
+                    index_write_mode = "sync_inline_compat"
+                    secondary_task_status = "completed_sync"
+                    logger.info("[Ingest] Indexed %d vectors (compat mode)", indexed_count)
+                except Exception as e:
+                    # Index failures are non-fatal in compatibility mode.
+                    logger.warning(f"[Ingest] Index upsert failed (compat, non-fatal): {e}")
+                    index_write_mode = "sync_inline_compat_failed_nonfatal"
+                    secondary_task_status = "sync_failed_nonfatal"
+            elif effective_persist_mode == PersistMode.STRICT:
+                # Strict durability path: synchronous secondary completion.
+                phase_started = time.perf_counter()
+                indexed_count = _upsert_index_sync(
+                    graph_id=graph_id,
+                    vectors=vectors,
+                    write_result=write_result,
+                    node_repo=node_repo,
+                )
+                _finish_phase("index_sync", phase_started)
                 _emit_event(
                     "INDEX_UPSERTED",
                     graph_id,
                     {
-                        "vector_count": len(vectors),
+                        "vector_count": indexed_count,
                         "profile": requested_profile.value,
                         "effective_profile": effective_profile.value,
                         "effective_persist_mode": effective_persist_mode.value,
+                        "durability_path": policy.durability_path,
+                        "index_write_mode": "sync_inline",
+                        "profile_persist_compat_mode": False,
                     },
                     event_repo,
+                    session=session,
                 )
                 events_emitted.append("INDEX_UPSERTED")
-                logger.info(f"[Ingest] Indexed {len(vectors)} vectors")
-                _finish_phase("index", phase_started)
-
-            except Exception as e:
-                # Index failures are non-fatal (acceleration only)
-                logger.warning(f"[Ingest] Index upsert failed (non-fatal): {e}")
+                index_write_mode = "sync_inline"
+                secondary_task_status = "completed_sync"
+                logger.info("[Ingest] Indexed %d vectors (strict durability)", indexed_count)
+            else:
+                # Relaxed durability path: queue secondary index work when jobs are enabled.
+                if _jobs_enabled() and session is not None:
+                    phase_started = time.perf_counter()
+                    node_ids = [str(nid) for nid in (write_result.node_ids or [])]
+                    secondary_task_job_id = _enqueue_async_index_upsert_job(
+                        session=session,
+                        tenant_id=tenant_id,
+                        graph_id=graph_id,
+                        raw_id=raw_id,
+                        packet_hash=packet_hash,
+                        node_ids=node_ids,
+                        requested_profile=requested_profile.value,
+                        requested_persist_mode=requested_persist_mode.value,
+                        effective_profile=effective_profile.value,
+                        effective_persist_mode=effective_persist_mode.value,
+                        durability_path=policy.durability_path,
+                    )
+                    _finish_phase("index_queue", phase_started)
+                    _emit_event(
+                        "INDEX_UPSERT_QUEUED",
+                        graph_id,
+                        {
+                            "vector_count": len(vectors),
+                            "node_count": len(node_ids),
+                            "profile": requested_profile.value,
+                            "effective_profile": effective_profile.value,
+                            "effective_persist_mode": effective_persist_mode.value,
+                            "durability_path": policy.durability_path,
+                            "index_write_mode": "async_queued",
+                            "secondary_task_job_id": secondary_task_job_id,
+                            "profile_persist_compat_mode": False,
+                        },
+                        event_repo,
+                        session=session,
+                    )
+                    events_emitted.append("INDEX_UPSERT_QUEUED")
+                    index_write_mode = "async_queued"
+                    secondary_task_status = "queued"
+                    logger.info(
+                        "[Ingest] Queued async index upsert job=%s vectors=%d",
+                        secondary_task_job_id,
+                        len(vectors),
+                    )
+                else:
+                    # Jobs unavailable: safe fallback to synchronous completion.
+                    phase_started = time.perf_counter()
+                    indexed_count = _upsert_index_sync(
+                        graph_id=graph_id,
+                        vectors=vectors,
+                        write_result=write_result,
+                        node_repo=node_repo,
+                    )
+                    _finish_phase("index_sync_fallback", phase_started)
+                    _emit_event(
+                        "INDEX_UPSERTED",
+                        graph_id,
+                        {
+                            "vector_count": indexed_count,
+                            "profile": requested_profile.value,
+                            "effective_profile": effective_profile.value,
+                            "effective_persist_mode": effective_persist_mode.value,
+                            "durability_path": policy.durability_path,
+                            "index_write_mode": "sync_fallback_no_jobs",
+                            "fallback_reason": "jobs_disabled_or_session_missing",
+                            "profile_persist_compat_mode": False,
+                        },
+                        event_repo,
+                        session=session,
+                    )
+                    events_emitted.append("INDEX_UPSERTED")
+                    index_write_mode = "sync_fallback_no_jobs"
+                    secondary_task_status = "completed_sync_fallback"
+                    logger.info(
+                        "[Ingest] Jobs unavailable; indexed %d vectors synchronously",
+                        indexed_count,
+                    )
         elif effective_profile == FAIMProfile.STRICT:
             logger.info("[Ingest] STRICT mode: skipping index writes")
+            index_write_mode = "skipped_profile_strict"
+            secondary_task_status = "skipped_profile_strict"
+            _emit_event(
+                "INDEX_UPSERT_SKIPPED",
+                graph_id,
+                {
+                    "reason": "profile_strict",
+                    "profile": requested_profile.value,
+                    "effective_profile": effective_profile.value,
+                    "effective_persist_mode": effective_persist_mode.value,
+                    "durability_path": policy.durability_path,
+                    "index_write_mode": index_write_mode,
+                },
+                event_repo,
+                session=session,
+            )
+            events_emitted.append("INDEX_UPSERT_SKIPPED")
+        else:
+            index_write_mode = "skipped_no_vectors"
+            secondary_task_status = "skipped_no_vectors"
 
         # =====================================================================
         # STEP 6: Build result
@@ -580,6 +812,14 @@ def run_ingest(
             dedup_hit=False,
             raw_id=raw_id,
             phase_latency_ms=phase_latency_ms,
+            requested_profile=requested_profile.value,
+            requested_persist_mode=requested_persist_mode.value,
+            effective_profile=effective_profile.value,
+            effective_persist_mode=effective_persist_mode.value,
+            durability_path=policy.durability_path,
+            index_write_mode=index_write_mode,
+            secondary_task_status=secondary_task_status,
+            secondary_task_job_id=secondary_task_job_id,
         )
 
     except Exception as e:
@@ -627,6 +867,13 @@ def run_ingest(
             latency_ms=latency_ms,
             error=str(e),
             phase_latency_ms=phase_latency_ms,
+            requested_profile=requested_profile.value,
+            requested_persist_mode=requested_persist_mode.value,
+            effective_profile=effective_profile.value,
+            effective_persist_mode=effective_persist_mode.value,
+            durability_path=policy.durability_path,
+            index_write_mode="error",
+            secondary_task_status="error",
         )
 
 

@@ -68,6 +68,14 @@ class IngestResponse(BaseModel):
     latency_ms: int
     phase_latency_ms: dict[str, int] = Field(default_factory=dict)
     error: Optional[str] = None
+    requested_profile: Optional[str] = None
+    requested_persist_mode: Optional[str] = None
+    effective_profile: Optional[str] = None
+    effective_persist_mode: Optional[str] = None
+    durability_path: Optional[str] = None
+    index_write_mode: Optional[str] = None
+    secondary_task_status: Optional[str] = None
+    secondary_task_job_id: Optional[str] = None
 
 
 # =============================================================================
@@ -488,6 +496,14 @@ async def ingest_file(
             latency_ms=result.latency_ms,
             phase_latency_ms=result.phase_latency_ms,
             error=result.error,
+            requested_profile=result.requested_profile,
+            requested_persist_mode=result.requested_persist_mode,
+            effective_profile=result.effective_profile,
+            effective_persist_mode=result.effective_persist_mode,
+            durability_path=result.durability_path,
+            index_write_mode=result.index_write_mode,
+            secondary_task_status=result.secondary_task_status,
+            secondary_task_job_id=result.secondary_task_job_id,
         )
 
     except HTTPException:
@@ -634,6 +650,14 @@ async def ingest_upload(
             latency_ms=result.latency_ms,
             phase_latency_ms=result.phase_latency_ms,
             error=result.error,
+            requested_profile=result.requested_profile,
+            requested_persist_mode=result.requested_persist_mode,
+            effective_profile=result.effective_profile,
+            effective_persist_mode=result.effective_persist_mode,
+            durability_path=result.durability_path,
+            index_write_mode=result.index_write_mode,
+            secondary_task_status=result.secondary_task_status,
+            secondary_task_job_id=result.secondary_task_job_id,
         )
 
     except HTTPException:

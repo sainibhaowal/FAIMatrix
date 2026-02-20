@@ -160,6 +160,14 @@ class MemoryWriteResponse(BaseModel):
     latency_ms: int
     phase_latency_ms: Dict[str, int]
     error: Optional[str] = None
+    requested_profile: Optional[str] = None
+    requested_persist_mode: Optional[str] = None
+    effective_profile: Optional[str] = None
+    effective_persist_mode: Optional[str] = None
+    durability_path: Optional[str] = None
+    index_write_mode: Optional[str] = None
+    secondary_task_status: Optional[str] = None
+    secondary_task_job_id: Optional[str] = None
     idempotency_key: Optional[str] = None
     replayed: bool = False
 
@@ -705,6 +713,14 @@ async def write_memory(
             "latency_ms": ingest_result.latency_ms,
             "phase_latency_ms": ingest_result.phase_latency_ms,
             "error": ingest_result.error,
+            "requested_profile": ingest_result.requested_profile,
+            "requested_persist_mode": ingest_result.requested_persist_mode,
+            "effective_profile": ingest_result.effective_profile,
+            "effective_persist_mode": ingest_result.effective_persist_mode,
+            "durability_path": ingest_result.durability_path,
+            "index_write_mode": ingest_result.index_write_mode,
+            "secondary_task_status": ingest_result.secondary_task_status,
+            "secondary_task_job_id": ingest_result.secondary_task_job_id,
             "idempotency_key": idempotency_key,
             "replayed": False,
         }

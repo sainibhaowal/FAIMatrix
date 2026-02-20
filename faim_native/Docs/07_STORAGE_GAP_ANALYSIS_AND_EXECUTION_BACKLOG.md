@@ -423,6 +423,26 @@ Evidence:
 
 - `45_PHASE_R2_CENTRAL_POLICY_RESOLVER_REPORT.md`
 
+## Phase R3 Completed
+
+- realized profile/persist runtime behavior in ingest/storage/memory execution paths
+- `persist_mode` now materially affects ingest secondary durability behavior:
+  - strict path (compat off): synchronous secondary index completion
+  - relaxed path (compat off): async queued secondary index job when jobs are enabled
+  - fallback sync path when jobs are unavailable
+- preserved compatibility guard behavior when `FAIM_PROFILE_PERSIST_COMPAT_MODE=true`
+- added additive response/event mode metadata surfacing:
+  - requested/effective profile and persist mode
+  - durability path
+  - index write mode
+  - secondary task status + job ID
+- extended worker to execute `ingest_secondary_index` jobs and emit async completion observability
+- validated with new R3 unit/acceptance coverage plus storage/memory regression suites
+
+Evidence:
+
+- `46_PHASE_R3_STORAGE_INGEST_RUNTIME_REALIZATION_REPORT.md`
+
 ## Module Status Snapshot
 
 | Area | Status |
@@ -446,6 +466,7 @@ Evidence:
 | Evolution dashboard integration (existing APIs only) | implemented (EV-A) |
 | Evolution dashboard runtime status integration (shared due helper + status contract) | implemented (EV-B) |
 | Central profile/persist policy resolver with compatibility guard | implemented (R2) |
+| Storage/ingest runtime realization for profile/persist durability semantics | implemented (R3) |
 | API keys/authz and memory API contract freeze | implemented (K1) |
 | Auth key schema foundation for scopes/expiry/audit | implemented (K2 migration + ORM/repo) |
 | Auth middleware + route scope enforcement baseline | implemented (K3) |
