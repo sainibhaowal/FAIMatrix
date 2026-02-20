@@ -736,6 +736,14 @@ async def write_memory(
                     "status": ingest_result.status,
                     "idempotency_key": idempotency_key,
                     "request_id": getattr(request.state, "request_id", None),
+                    "requested_profile": ingest_result.requested_profile,
+                    "requested_persist_mode": ingest_result.requested_persist_mode,
+                    "effective_profile": ingest_result.effective_profile,
+                    "effective_persist_mode": ingest_result.effective_persist_mode,
+                    "durability_path": ingest_result.durability_path,
+                    "index_write_mode": ingest_result.index_write_mode,
+                    "secondary_task_status": ingest_result.secondary_task_status,
+                    "secondary_task_job_id": ingest_result.secondary_task_job_id,
                 },
             )
 
