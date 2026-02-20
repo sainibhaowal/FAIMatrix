@@ -49,6 +49,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 43. `43_EVOLUTION_PAGE_OPERATIONS_GUIDE.md`
 44. `44_PROFILE_PERSIST_RUNTIME_SEMANTICS_PLAN.md`
 45. `45_PHASE_R2_CENTRAL_POLICY_RESOLVER_REPORT.md`
+46. `46_PHASE_R3_STORAGE_INGEST_RUNTIME_REALIZATION_REPORT.md`
 
 ## Intent
 
@@ -91,6 +92,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Evolution page controls/operations/troubleshooting guide is documented in 43.
 - Profile/persist runtime contract freeze (Phase R1) is documented in 44.
 - Central profile/persist runtime policy resolver implementation (Phase R2) is documented in 45.
+- Storage/ingest runtime realization for profile/persist semantics (Phase R3) is documented in 46.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome
