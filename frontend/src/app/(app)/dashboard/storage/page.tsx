@@ -19,6 +19,13 @@ import { getSession, useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge, Button, Card, Input, Progress, useToast } from "@/components/ui";
+import {
+  buildEffectiveModeText,
+  formatModePair,
+  getPersistHelper,
+  getProfileHelper,
+  resolveUiModePolicy,
+} from "@/lib/profilePersistModes";
 
 type StorageFileItem = {
   raw_id: string;
@@ -61,6 +68,11 @@ type UploadResult = {
   node_count: number;
   vector_count: number;
   error?: string | null;
+  requested_profile?: string | null;
+  requested_persist_mode?: string | null;
+  effective_profile?: string | null;
+  effective_persist_mode?: string | null;
+  durability_path?: string | null;
 };
 
 type UploadBatchResponse = {
@@ -74,6 +86,11 @@ type UploadBatchResponse = {
   dedup_hits: number;
   cancelled_files: number;
   files: UploadResult[];
+  requested_profile?: string | null;
+  requested_persist_mode?: string | null;
+  effective_profile?: string | null;
+  effective_persist_mode?: string | null;
+  durability_path?: string | null;
 };
 
 type UploadStatusResponse = {
@@ -92,6 +109,11 @@ type UploadStatusResponse = {
   updated_at?: string | null;
   completed_at?: string | null;
   files: StorageFileItem[];
+  requested_profile?: string | null;
+  requested_persist_mode?: string | null;
+  effective_profile?: string | null;
+  effective_persist_mode?: string | null;
+  durability_path?: string | null;
 };
 
 type StorageJobEvent = {
@@ -122,6 +144,11 @@ type StorageIngestActionResponse = {
     nodes_written?: number;
     vector_count?: number;
     error?: string | null;
+    requested_profile?: string | null;
+    requested_persist_mode?: string | null;
+    effective_profile?: string | null;
+    effective_persist_mode?: string | null;
+    durability_path?: string | null;
   };
 };
 
@@ -218,6 +245,11 @@ type QueueItem = {
   createdAt: number;
   updatedAt: number;
   busyAction?: "cancel" | "retry";
+  requestedProfile?: string | null;
+  requestedPersistMode?: string | null;
+  effectiveProfile?: string | null;
+  effectivePersistMode?: string | null;
+  durabilityPath?: string | null;
 };
 
 const PAGE_SIZE = 20;
@@ -309,6 +341,23 @@ function latestMessage(item: QueueItem): string {
   return last.kind;
 }
 
+function modeSummary(item: QueueItem): string | null {
+  const hasMode =
+    item.requestedProfile ||
+    item.requestedPersistMode ||
+    item.effectiveProfile ||
+    item.effectivePersistMode ||
+    item.durabilityPath;
+  if (!hasMode) return null;
+  return buildEffectiveModeText(
+    item.requestedProfile,
+    item.requestedPersistMode,
+    item.effectiveProfile,
+    item.effectivePersistMode,
+    item.durabilityPath
+  );
+}
+
 async function authHeaders(extra?: HeadersInit): Promise<HeadersInit> {
   const session = await getSession();
   const token = (session as { accessToken?: string } | null)?.accessToken;
@@ -377,6 +426,15 @@ export default function StoragePage() {
   const [page, setPage] = useState(0);
   const [profile, setProfile] = useState("strict");
   const [persistMode, setPersistMode] = useState("relaxed");
+
+  const ingestModePolicy = useMemo(
+    () => resolveUiModePolicy("ingest", profile, persistMode),
+    [persistMode, profile]
+  );
+  const selectedModeLabel = useMemo(
+    () => formatModePair(profile, persistMode),
+    [persistMode, profile]
+  );
 
   const [provenanceOpen, setProvenanceOpen] = useState(false);
   const [provenanceLoading, setProvenanceLoading] = useState(false);
@@ -580,6 +638,13 @@ export default function StoragePage() {
           packetHash: fileMatch?.packet_hash ?? item.packetHash,
           nodeCount: fileMatch?.node_count ?? item.nodeCount,
           vectorCount: fileMatch?.vector_count ?? item.vectorCount,
+          requestedProfile: statusData.requested_profile ?? item.requestedProfile,
+          requestedPersistMode:
+            statusData.requested_persist_mode ?? item.requestedPersistMode,
+          effectiveProfile: statusData.effective_profile ?? item.effectiveProfile,
+          effectivePersistMode:
+            statusData.effective_persist_mode ?? item.effectivePersistMode,
+          durabilityPath: statusData.durability_path ?? item.durabilityPath,
           error: fileMatch?.error || item.error,
           cancelRequested: statusData.cancel_requested || item.cancelRequested,
           updatedAt: safeNow(),
@@ -613,6 +678,14 @@ export default function StoragePage() {
 
   const enqueueFiles = useCallback(
     (incomingFiles: File[]) => {
+      const modePolicy = resolveUiModePolicy("ingest", profile, persistMode);
+      if (!modePolicy.supported) {
+        toast.warning(
+          "Unsupported mode combination",
+          modePolicy.reason || "Choose a supported profile/persist mode."
+        );
+        return;
+      }
       const accepted: QueueItem[] = [];
       const rejected: string[] = [];
 
@@ -661,13 +734,24 @@ export default function StoragePage() {
 
       setQueueItems((prev) => trimQueue([...prev, ...accepted]));
     },
-    [toast]
+    [persistMode, profile, toast]
   );
 
   const startQueueUpload = useCallback(
     async (itemId: string) => {
       const current = queueRef.current.find((item) => item.id === itemId);
       if (!current || current.status !== "queued") return;
+      const modePolicy = resolveUiModePolicy("ingest", profile, persistMode);
+      if (!modePolicy.supported) {
+        patchQueueItem(itemId, (item) => ({
+          ...item,
+          status: "failed",
+          progress: 100,
+          error: modePolicy.reason || "Selected profile/persist mode is not allowed.",
+          updatedAt: safeNow(),
+        }));
+        return;
+      }
 
       const controller = new AbortController();
       uploadControllersRef.current.set(itemId, controller);
@@ -723,6 +807,26 @@ export default function StoragePage() {
           packetHash: result?.packet_hash ?? item.packetHash,
           nodeCount: result?.node_count ?? item.nodeCount,
           vectorCount: result?.vector_count ?? item.vectorCount,
+          requestedProfile:
+            result?.requested_profile ??
+            batch.requested_profile ??
+            item.requestedProfile,
+          requestedPersistMode:
+            result?.requested_persist_mode ??
+            batch.requested_persist_mode ??
+            item.requestedPersistMode,
+          effectiveProfile:
+            result?.effective_profile ??
+            batch.effective_profile ??
+            item.effectiveProfile,
+          effectivePersistMode:
+            result?.effective_persist_mode ??
+            batch.effective_persist_mode ??
+            item.effectivePersistMode,
+          durabilityPath:
+            result?.durability_path ??
+            batch.durability_path ??
+            item.durabilityPath,
           error: result?.error || item.error,
           updatedAt: safeNow(),
         }));
@@ -832,6 +936,11 @@ export default function StoragePage() {
       const current = queueRef.current.find((item) => item.id === itemId);
       if (!current || current.busyAction) return;
       if (!(current.status === "failed" || current.status === "cancelled")) return;
+      const modePolicy = resolveUiModePolicy("ingest", profile, persistMode);
+      if (!modePolicy.supported) {
+        toast.warning("Unsupported mode combination", modePolicy.reason || "Choose a supported profile/persist mode.");
+        return;
+      }
 
       patchQueueItem(itemId, (item) => ({ ...item, busyAction: "retry", updatedAt: safeNow() }));
 
@@ -845,6 +954,11 @@ export default function StoragePage() {
             packetHash: undefined,
             nodeCount: 0,
             vectorCount: 0,
+            requestedProfile: undefined,
+            requestedPersistMode: undefined,
+            effectiveProfile: undefined,
+            effectivePersistMode: undefined,
+            durabilityPath: undefined,
             error: undefined,
             cancelRequested: false,
             busyAction: undefined,
@@ -882,6 +996,15 @@ export default function StoragePage() {
           packetHash: data.ingest?.packet_hash ?? item.packetHash,
           nodeCount: data.file?.node_count ?? item.nodeCount,
           vectorCount: data.file?.vector_count ?? item.vectorCount,
+          requestedProfile:
+            data.ingest?.requested_profile ?? item.requestedProfile,
+          requestedPersistMode:
+            data.ingest?.requested_persist_mode ?? item.requestedPersistMode,
+          effectiveProfile:
+            data.ingest?.effective_profile ?? item.effectiveProfile,
+          effectivePersistMode:
+            data.ingest?.effective_persist_mode ?? item.effectivePersistMode,
+          durabilityPath: data.ingest?.durability_path ?? item.durabilityPath,
           error: data.ingest?.error || data.file?.error || undefined,
           busyAction: undefined,
           updatedAt: safeNow(),
@@ -900,7 +1023,7 @@ export default function StoragePage() {
         }));
       }
     },
-    [graphId, patchQueueItem, persistMode, profile, refreshViews]
+    [graphId, patchQueueItem, persistMode, profile, refreshViews, toast]
   );
 
   const clearTerminalQueueItems = useCallback(() => {
@@ -913,6 +1036,16 @@ export default function StoragePage() {
 
   const runFileAction = useCallback(
     async (rawId: string, action: "ingest" | "retry" | "delete") => {
+      if (action !== "delete") {
+        const modePolicy = resolveUiModePolicy("ingest", profile, persistMode);
+        if (!modePolicy.supported) {
+          toast.warning(
+            "Unsupported mode combination",
+            modePolicy.reason || "Choose a supported profile/persist mode."
+          );
+          return;
+        }
+      }
       setActionRawId(rawId);
       try {
         let url = `/api/v1/storage/files/${encodeURIComponent(rawId)}`;
@@ -927,14 +1060,27 @@ export default function StoragePage() {
           url += `?graph_id=${encodeURIComponent(graphId)}&reason=${encodeURIComponent("Requested from storage UI")}`;
         }
 
-        await fetchJson<unknown>(url, { method });
+        const data = await fetchJson<StorageIngestActionResponse | unknown>(url, { method });
+        const ingestData =
+          action === "delete"
+            ? null
+            : (data as StorageIngestActionResponse | null)?.ingest || null;
+        const modeText = ingestData
+          ? buildEffectiveModeText(
+              ingestData.requested_profile,
+              ingestData.requested_persist_mode,
+              ingestData.effective_profile,
+              ingestData.effective_persist_mode,
+              ingestData.durability_path
+            )
+          : null;
 
         if (action === "delete") {
           toast.info("Delete request submitted", "File marked as delete_requested");
         } else if (action === "retry") {
-          toast.success("Retry completed", "File reprocessed");
+          toast.success("Retry completed", modeText || "File reprocessed");
         } else {
-          toast.success("Re-ingest completed", "File reprocessed");
+          toast.success("Re-ingest completed", modeText || "File reprocessed");
         }
 
         await refreshViews();
@@ -1130,10 +1276,22 @@ export default function StoragePage() {
             <p className="text-xs text-slate-400">Drag-drop or select files. Each file runs as its own upload job for per-file control.</p>
           </div>
           <div className="flex items-center gap-2">
-            <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs hover:bg-slate-900/40">
+            <label
+              className={`inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs ${
+                ingestModePolicy.supported
+                  ? "cursor-pointer hover:bg-slate-900/40"
+                  : "cursor-not-allowed opacity-50"
+              }`}
+            >
               <UploadCloud size={14} />
               Add Files
-              <input type="file" multiple className="hidden" onChange={onInputFiles} />
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={onInputFiles}
+                disabled={!ingestModePolicy.supported}
+              />
             </label>
             <Button
               size="sm"
@@ -1203,6 +1361,25 @@ export default function StoragePage() {
           </div>
         </div>
 
+        <div
+          className={`rounded-lg border p-3 text-xs ${
+            ingestModePolicy.supported
+              ? "border-slate-800 bg-slate-950/40 text-slate-400"
+              : "border-rose-400/35 bg-rose-500/10 text-rose-200"
+          }`}
+        >
+          <p className="font-medium text-slate-300">
+            Requested mode: <span className="font-mono">{selectedModeLabel}</span>
+          </p>
+          <p className="mt-1">{getProfileHelper(profile)}</p>
+          <p>{getPersistHelper(persistMode)}</p>
+          <p className="mt-1">
+            {ingestModePolicy.supported
+              ? "All profile/persist combinations are currently supported by policy."
+              : ingestModePolicy.reason || "Selected profile/persist combination is not supported."}
+          </p>
+        </div>
+
         <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
           <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
             <Badge size="xs" variant="default">queued: {queueCounts.queued}</Badge>
@@ -1222,6 +1399,7 @@ export default function StoragePage() {
                 const canCancel = !TERMINAL_QUEUE_STATUS.has(item.status) && !item.busyAction;
                 const canRetry = (item.status === "failed" || item.status === "cancelled") && !item.busyAction;
                 const latest = latestMessage(item);
+                const mode = modeSummary(item);
 
                 return (
                   <div
@@ -1265,7 +1443,7 @@ export default function StoragePage() {
                           className="h-7"
                           data-testid="storage-queue-retry"
                           data-filename={item.filename}
-                          disabled={!canRetry}
+                          disabled={!canRetry || !ingestModePolicy.supported}
                           leftIcon={<RotateCcw size={12} />}
                           onClick={() => {
                             void retryQueueItem(item.id);
@@ -1291,6 +1469,11 @@ export default function StoragePage() {
                         label="Lifecycle"
                         variant={item.status === "failed" || item.status === "cancelled" ? "error" : "gradient"}
                       />
+                      {mode && (
+                        <p className="mt-1 text-[11px] text-cyan-300/90" data-testid="storage-queue-mode">
+                          {mode}
+                        </p>
+                      )}
                       <p className="mt-1 text-[11px] text-slate-400">{latest}</p>
                     </div>
 
@@ -1454,7 +1637,9 @@ export default function StoragePage() {
                             size="xs"
                             variant="outline"
                             className="h-7"
-                            disabled={busy || row.delete_requested}
+                            disabled={
+                              busy || row.delete_requested || !ingestModePolicy.supported
+                            }
                             onClick={() => {
                               void runFileAction(row.raw_id, "ingest");
                             }}
@@ -1465,7 +1650,11 @@ export default function StoragePage() {
                             size="xs"
                             variant="outline"
                             className="h-7"
-                            disabled={busy || row.ingest_status !== "failed"}
+                            disabled={
+                              busy ||
+                              row.ingest_status !== "failed" ||
+                              !ingestModePolicy.supported
+                            }
                             leftIcon={<RotateCcw size={12} />}
                             onClick={() => {
                               void runFileAction(row.raw_id, "retry");
