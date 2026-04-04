@@ -58,6 +58,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 52. `52_PHASE_RUNTIME_BLOCKERS_HOTFIX_REPORT.md`
 53. `53_FULL_REPO_ENDPOINT_VALIDATION_REPORT.md`
 54. `54_FULL_REPO_PRODUCTION_READINESS_REVALIDATION_REPORT.md`
+55. `55_PHASE_EVOLUTION_PAGE_RUNTIME_ALIGNMENT_REPORT.md`
 
 ## Intent
 
@@ -109,6 +110,7 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Runtime blocker hotfix for evolve duplicate-edge conflicts and worker claim filtering is documented in 52.
 - Full-repo endpoint-level exhaustive validation status and remaining gaps is documented in 53.
 - Full-repo production-readiness revalidation after final fixes is documented in 54.
+- Evolution page runtime alignment for metrics/scheduler/timeline/source-coverage UX is documented in 55.
 - Use these docs as the source of truth before building Storage page and related APIs.
 
 ## Key Outcome

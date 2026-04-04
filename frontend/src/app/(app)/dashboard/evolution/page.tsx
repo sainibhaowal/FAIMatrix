@@ -164,6 +164,39 @@ type EvolveStatusResponse = {
   last_event: EvolveStatusLastEvent;
 };
 
+type StorageSummaryResponse = {
+  graph_id?: string | null;
+  total_files: number;
+  total_bytes: number;
+  by_status: Record<string, number>;
+  by_type: Record<string, number>;
+};
+
+type StorageFileItem = {
+  raw_id: string;
+  graph_id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  sha256: string;
+  ingest_status: string;
+  packet_hash?: string | null;
+  node_count: number;
+  vector_count: number;
+  error?: string | null;
+  uploaded_at?: string | null;
+  ingested_at?: string | null;
+  updated_at?: string | null;
+  delete_requested: boolean;
+};
+
+type StorageFileListResponse = {
+  items: StorageFileItem[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 type LiveStatus = "idle" | "refreshing" | "live" | "error";
 
 class ApiError extends Error {
@@ -180,10 +213,14 @@ const POLL_EVENT_LIMIT = 60;
 const MAX_TIMELINE_EVENTS = 260;
 const POLL_INTERVAL_MS = 2500;
 const METRICS_REFRESH_EVERY_POLLS = 3;
+const ENABLE_GRAPH_SWITCH =
+  (process.env.NEXT_PUBLIC_FAIM_ENABLE_GRAPH_SWITCH || "").toLowerCase() === "true";
 
 const EVOLUTION_EVENT_KINDS = new Set([
   "DIAGNOSTICS_SNAPSHOT",
+  "EVOLUTION_START",
   "EVOLUTION_COMPLETE",
+  "EVOLUTION_PERSISTENCE_APPLIED",
   "EVOLUTION_SKIPPED",
   "EVOLUTION_MERGE",
   "PRUNE_NODE",
@@ -253,6 +290,38 @@ function formatMetric(value: number | null | undefined, digits = 3): string {
 function formatCount(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "-";
   return Intl.NumberFormat().format(value);
+}
+
+function formatBytes(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "-";
+  if (value < 1024) return `${value} B`;
+  const kb = value / 1024;
+  if (kb < 1024) return `${kb.toFixed(1)} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1)} MB`;
+  const gb = mb / 1024;
+  return `${gb.toFixed(2)} GB`;
+}
+
+function humanizeDueReason(reason?: string | null): string {
+  const text = (reason || "").trim();
+  if (!text) return "-";
+  if (text.startsWith("not_due_version_delta:")) {
+    return text.replace(
+      "not_due_version_delta:",
+      "Not due: graph version delta below threshold ("
+    ) + ")";
+  }
+  if (text.startsWith("not_due_interval:")) {
+    return text.replace(
+      "not_due_interval:",
+      "Not due: minimum interval not reached ("
+    ) + ")";
+  }
+  if (text === "active_evolve_job_exists") return "An evolve job is already pending/running.";
+  if (text === "due_enqueued") return "Due and enqueued.";
+  if (text.startsWith("unsupported_source:")) return `Unsupported source trigger (${text.split(":")[1] || "unknown"}).`;
+  return text;
 }
 
 function dedupeAndSortEvents(events: GraphEvent[]): GraphEvent[] {
@@ -420,6 +489,8 @@ export default function EvolutionPage() {
   const [metrics, setMetrics] = useState<MetricsScorecard | null>(null);
   const [latest, setLatest] = useState<LatestEventResponse | null>(null);
   const [evolveStatus, setEvolveStatus] = useState<EvolveStatusResponse | null>(null);
+  const [storageSummary, setStorageSummary] = useState<StorageSummaryResponse | null>(null);
+  const [storageFiles, setStorageFiles] = useState<StorageFileItem[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<GraphEvent[]>([]);
   const [lastRun, setLastRun] = useState<EvolveResponse | null>(null);
   const [lastSeq, setLastSeq] = useState(0);
@@ -469,6 +540,20 @@ export default function EvolutionPage() {
     return apiRequest<EvolveStatusResponse>(`/api/v1/evolve/status?${params.toString()}`);
   }, []);
 
+  const fetchStorageSummary = useCallback(async (targetGraphId: string): Promise<StorageSummaryResponse> => {
+    const params = new URLSearchParams({ graph_id: targetGraphId });
+    return apiRequest<StorageSummaryResponse>(`/api/v1/storage/summary?${params.toString()}`);
+  }, []);
+
+  const fetchStorageFiles = useCallback(async (targetGraphId: string): Promise<StorageFileListResponse> => {
+    const params = new URLSearchParams({
+      graph_id: targetGraphId,
+      limit: "5",
+      offset: "0",
+    });
+    return apiRequest<StorageFileListResponse>(`/api/v1/storage/files?${params.toString()}`);
+  }, []);
+
   const fetchEvents = useCallback(
     async (targetGraphId: string, afterSeq: number, limit: number): Promise<GraphEventsResponse> => {
       const params = new URLSearchParams({
@@ -489,22 +574,27 @@ export default function EvolutionPage() {
       setLoadingTimeline(true);
 
       try {
-        const [scorecardData, latestData, eventsData, statusData] = await Promise.all([
+        const [scorecardData, latestData, statusData, summaryData, filesData] = await Promise.all([
           fetchScorecard(targetGraphId),
           fetchLatest(targetGraphId),
-          fetchEvents(targetGraphId, 0, INITIAL_EVENT_LIMIT),
           fetchEvolveStatus(targetGraphId),
+          fetchStorageSummary(targetGraphId),
+          fetchStorageFiles(targetGraphId),
         ]);
 
+        setMetrics(scorecardData);
+        setLatest(latestData);
+        setEvolveStatus(statusData);
+        setStorageSummary(summaryData);
+        setStorageFiles(filesData.items || []);
+        setLoadingSnapshot(false);
+
+        const eventsData = await fetchEvents(targetGraphId, 0, INITIAL_EVENT_LIMIT);
         const normalized = dedupeAndSortEvents(eventsData.events || []);
         const lastSeqValue =
           normalized.length > 0
             ? normalized[normalized.length - 1].seq
             : Math.max(0, Number(latestData.last_seq || 0));
-
-        setMetrics(scorecardData);
-        setLatest(latestData);
-        setEvolveStatus(statusData);
         setTimelineEvents(normalized.slice(-MAX_TIMELINE_EVENTS));
         setLastSeq(lastSeqValue);
         setLiveStatus("live");
@@ -518,7 +608,7 @@ export default function EvolutionPage() {
         setLoadingTimeline(false);
       }
     },
-    [fetchEvents, fetchEvolveStatus, fetchLatest, fetchScorecard, toast]
+    [fetchEvents, fetchEvolveStatus, fetchLatest, fetchScorecard, fetchStorageFiles, fetchStorageSummary, toast]
   );
 
   const pollOnce = useCallback(
@@ -543,12 +633,16 @@ export default function EvolutionPage() {
         const containsEvolutionEvent = incoming.some((event) => EVOLUTION_EVENT_KINDS.has(event.kind));
         pollTickRef.current += 1;
         if (containsEvolutionEvent || pollTickRef.current % METRICS_REFRESH_EVERY_POLLS === 0) {
-          const [scorecardData, latestData] = await Promise.all([
+          const [scorecardData, latestData, summaryData, filesData] = await Promise.all([
             fetchScorecard(targetGraphId),
             fetchLatest(targetGraphId),
+            fetchStorageSummary(targetGraphId),
+            fetchStorageFiles(targetGraphId),
           ]);
           setMetrics(scorecardData);
           setLatest(latestData);
+          setStorageSummary(summaryData);
+          setStorageFiles(filesData.items || []);
         }
 
         setLiveStatus("live");
@@ -559,7 +653,7 @@ export default function EvolutionPage() {
         setPollError(message);
       }
     },
-    [fetchEvents, fetchEvolveStatus, fetchLatest, fetchScorecard]
+    [fetchEvents, fetchEvolveStatus, fetchLatest, fetchScorecard, fetchStorageFiles, fetchStorageSummary]
   );
 
   const runEvolve = useCallback(async () => {
@@ -616,7 +710,10 @@ export default function EvolutionPage() {
       toast.info("Please enter a graph id.");
       return;
     }
-    if (next === graphId) return;
+    if (next === graphId) {
+      toast.info("Graph already applied.");
+      return;
+    }
     setGraphId(next);
   }, [graphDraft, graphId, toast]);
 
@@ -631,6 +728,8 @@ export default function EvolutionPage() {
     setLastSeq(0);
     setLastRun(null);
     setEvolveStatus(null);
+    setStorageSummary(null);
+    setStorageFiles([]);
     pollTickRef.current = 0;
     void refreshAll(targetGraph);
   }, [graphId, refreshAll]);
@@ -716,19 +815,37 @@ export default function EvolutionPage() {
           description="Manual evolve action plus runtime view controls. Existing backend contracts only."
         />
         <CardContent className="grid gap-4 pt-4 md:grid-cols-5">
-          <Input
-            label="Graph id"
-            value={graphDraft}
-            onChange={(event) => setGraphDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                applyGraphId();
-              }
-            }}
-            containerClassName="md:col-span-2"
-            helperText="Universe graph id (for example U:...)."
-          />
+          {ENABLE_GRAPH_SWITCH ? (
+            <>
+              <Input
+                label="Graph id"
+                value={graphDraft}
+                onChange={(event) => setGraphDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    applyGraphId();
+                  }
+                }}
+                containerClassName="md:col-span-2"
+                helperText="Universe graph id (for example U:...)."
+              />
+
+              <div className="flex flex-col justify-end gap-2">
+                <Button variant="outline" onClick={applyGraphId}>
+                  Apply graph
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="md:col-span-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <p className="text-xs text-slate-400">Graph</p>
+              <p className="mt-1 font-mono text-sm text-cyan-200">{graphId}</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Graph context is auto-bound to your signed-in session.
+              </p>
+            </div>
+          )}
 
           <Select
             label="Profile"
@@ -747,12 +864,6 @@ export default function EvolutionPage() {
             helperText={getPersistHelper(persistMode)}
             fullWidth
           />
-
-          <div className="flex flex-col justify-end gap-2">
-            <Button variant="outline" onClick={applyGraphId}>
-              Apply graph
-            </Button>
-          </div>
 
           <div className="md:col-span-5 flex flex-wrap items-center gap-2">
             <Button
@@ -844,8 +955,8 @@ export default function EvolutionPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-5">
-        <Card className="rounded-2xl lg:col-span-3">
+      <div className="grid items-start gap-4 lg:grid-cols-5">
+        <Card className="self-start rounded-2xl lg:col-span-3">
           <CardHeader
             title="Evolution Timeline"
             description="Latest graph events and evolve/invention actions."
@@ -856,12 +967,18 @@ export default function EvolutionPage() {
             }
           />
           <CardContent className="pt-4">
-            {loadingTimeline ? (
-              <p className="text-sm text-slate-400">Loading timeline...</p>
-            ) : visibleTimeline.length === 0 ? (
+            {visibleTimeline.length === 0 ? (
+              loadingTimeline ? (
+                <p className="text-sm text-slate-400">Loading timeline...</p>
+              ) : (
               <p className="text-sm text-slate-400">No events available for this graph yet.</p>
+              )
             ) : (
-              <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
+              <div>
+                {loadingTimeline && (
+                  <p className="mb-2 text-xs text-slate-400">Refreshing timeline...</p>
+                )}
+                <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
                 {visibleTimeline.map((event) => (
                   <div
                     key={event.seq}
@@ -879,6 +996,7 @@ export default function EvolutionPage() {
                     <p className="mt-2 text-sm text-slate-200">{eventSummary(event)}</p>
                   </div>
                 ))}
+                </div>
               </div>
             )}
           </CardContent>
@@ -1050,7 +1168,8 @@ export default function EvolutionPage() {
                   </div>
                   <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
                     <p className="text-xs text-slate-400">Due reason</p>
-                    <p className="mt-1 font-mono text-xs text-slate-200">{evolveStatus.due.reason}</p>
+                    <p className="mt-1 text-xs text-slate-200">{humanizeDueReason(evolveStatus.due.reason)}</p>
+                    <p className="mt-1 font-mono text-[11px] text-slate-500">{evolveStatus.due.reason}</p>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Version delta</span>
@@ -1069,7 +1188,7 @@ export default function EvolutionPage() {
                     <span className="text-xs text-slate-200">
                       {evolveStatus.active_job
                         ? `${evolveStatus.active_job.status} (${shortHash(evolveStatus.active_job.job_id)})`
-                        : "-"}
+                        : "none (idle)"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1077,7 +1196,7 @@ export default function EvolutionPage() {
                     <span className="text-xs text-slate-200">
                       {evolveStatus.last_enqueued_job
                         ? `${evolveStatus.last_enqueued_job.status} (${shortHash(evolveStatus.last_enqueued_job.job_id)})`
-                        : "-"}
+                        : "none"}
                     </span>
                   </div>
                   {evolveStatus.last_event.last_skip_reason && (
@@ -1107,6 +1226,57 @@ export default function EvolutionPage() {
                   Energy
                 </span>
                 <span className="text-slate-200">{formatMetric(metrics?.energy)}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl">
+            <CardHeader title="Source Coverage" description="Latest ingested files for this graph." />
+            <CardContent className="space-y-3 pt-4 text-sm">
+              {!storageSummary ? (
+                <p className="text-sm text-slate-400">Loading source coverage...</p>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Files</span>
+                    <span className="text-slate-200">{formatCount(storageSummary.total_files)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Total bytes</span>
+                    <span className="text-slate-200">{formatBytes(storageSummary.total_bytes)}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Ingested</span>
+                    <span className="text-slate-200">
+                      {formatCount(storageSummary.by_status?.ingested ?? 0)}
+                    </span>
+                  </div>
+                </>
+              )}
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                <p className="text-xs text-slate-400">Latest files</p>
+                {storageFiles.length === 0 ? (
+                  <p className="mt-1 text-xs text-slate-400">No files indexed for this graph.</p>
+                ) : (
+                  <div className="mt-2 max-h-40 space-y-2 overflow-y-auto pr-1">
+                    {storageFiles.map((file) => (
+                      <div
+                        key={file.raw_id}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-white/10 px-2 py-1"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-xs text-slate-200">{file.filename}</p>
+                          <p className="text-[11px] text-slate-400">
+                            nodes {file.node_count} | vectors {file.vector_count}
+                          </p>
+                        </div>
+                        <Badge variant={file.ingest_status === "ingested" ? "success" : "outline"} size="xs">
+                          {file.ingest_status}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>

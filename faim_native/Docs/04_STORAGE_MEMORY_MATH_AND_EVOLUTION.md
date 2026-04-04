@@ -197,3 +197,22 @@ Storage/ingest-specific notes:
 - `strict` profile keeps deterministic/conservative ingest behavior and may skip acceleration paths.
 - `persist_mode=strict` enforces synchronous secondary durability where required.
 - `persist_mode=relaxed` allows secondary work to complete asynchronously (with safe fallback when jobs are unavailable).
+
+## 13) Evolution Dashboard Runtime Alignment (2026-02-20)
+
+Observed runtime mismatch that affected dashboard visibility (not core graph truth):
+
+1. `DIAGNOSTICS_SNAPSHOT` events are emitted with flat fields (`D_hat`, `H_hat`, `lambda_hat`, `redundancy_R`, `novelty_N`, `energy_E`).
+2. `/api/v1/metrics/scorecard` previously read nested-only keys (`payload.metrics.*`), which produced `-` in dashboard metric cards.
+
+Resolution applied:
+
+1. Metrics router now supports both payload shapes (nested + flat) with backward-compatible fallback mapping.
+2. `graph_hash` now falls back to `diagnostics_hash` when `graph_hash` is absent in event payload.
+
+Operational UX alignment:
+
+1. Evolution page graph switching is now feature-flagged for operator mode (`NEXT_PUBLIC_FAIM_ENABLE_GRAPH_SWITCH=true`).
+2. Default user mode is session-bound single-graph behavior (no manual graph switching control required).
+3. Timeline layout and scheduler reason presentation were adjusted for clearer runtime interpretation.
+4. Source coverage section now surfaces ingested file evidence (count/status/node/vector) for the active graph.
