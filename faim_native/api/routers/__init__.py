@@ -5,6 +5,7 @@ from .api_keys import router as api_keys_router
 from .auth import router as auth_router
 from .events import router as events_router
 from .evolve import router as evolve_router
+from .graph import router as graph_router
 from .health import router as health_router
 from .ingest import router as ingest_router
 from .metrics import router as metrics_router
@@ -23,6 +24,7 @@ __all__ = [
     "memory_router",
     "node_router",
     "evolve_router",
+    "graph_router",
     "metrics_router",
     "admin_router",
     "storage_router",
