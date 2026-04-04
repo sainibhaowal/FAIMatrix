@@ -230,8 +230,13 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
         />
 
         {/* Page body */}
-        <main className="flex-1 overflow-y-auto px-4 py-6 md:px-6">
-           <div className="mx-auto max-w-[1400px]">
+        <main className={[
+          "flex-1",
+          pathname === "/dashboard/graph"
+            ? "overflow-hidden p-0"
+            : "overflow-y-auto px-4 py-6 md:px-6",
+        ].join(" ")}>
+           <div className={pathname === "/dashboard/graph" ? "h-full" : "mx-auto max-w-[1400px]"}>
               {children}
            </div>
         </main>

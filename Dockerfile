@@ -33,6 +33,10 @@ ENV PYTHONPATH=/app/faim_native:/app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+# Pre-create raw file store directory so Docker volume inherits correct owner.
+# Must be done as root BEFORE USER switch; volume will mount with uid 1000 owner.
+RUN mkdir -p /var/lib/faim/raw/blobs && chown -R 1000:1000 /var/lib/faim
+
 # Copy application context with CORRECT OWNERSHIP in one step (Zero Duplicate Layers)
 COPY --chown=faim:faim . /app
 USER faim

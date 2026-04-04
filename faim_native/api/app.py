@@ -185,6 +185,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_router, prefix=prefix)
     app.include_router(api_keys_router, prefix=prefix)
     app.include_router(storage_router, prefix=prefix)
+    app.include_router(health_router, prefix=prefix)
 
     # ==========================================================================
     # Startup/Shutdown Events

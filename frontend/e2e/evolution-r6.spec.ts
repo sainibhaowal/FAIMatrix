@@ -89,6 +89,53 @@ test.describe("Evolution R6", () => {
           }),
         });
       }
+      if (path.endsWith("/storage/summary") && req.method() === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            graph_id: "r6-evolution-graph",
+            total_files: 4,
+            total_bytes: 123456,
+            by_status: {
+              ingested: 4,
+            },
+            by_type: {
+              "application/pdf": 4,
+            },
+          }),
+        });
+      }
+      if (path.endsWith("/storage/files") && req.method() === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            items: [
+              {
+                raw_id: "raw-r6-1",
+                graph_id: "r6-evolution-graph",
+                filename: "doc1.pdf",
+                mime_type: "application/pdf",
+                size_bytes: 12345,
+                sha256: "sha-r6-1",
+                ingest_status: "ingested",
+                packet_hash: "packet-r6-1",
+                node_count: 10,
+                vector_count: 10,
+                error: null,
+                uploaded_at: "2026-02-20T09:00:00Z",
+                ingested_at: "2026-02-20T09:00:05Z",
+                updated_at: "2026-02-20T09:00:05Z",
+                delete_requested: false,
+              },
+            ],
+            total: 1,
+            limit: 5,
+            offset: 0,
+          }),
+        });
+      }
       if (path.endsWith("/events") && req.method() === "GET") {
         const afterSeq = Number(url.searchParams.get("after_seq") || "0");
         if (afterSeq > 0) {
@@ -226,7 +273,9 @@ test.describe("Evolution R6", () => {
     await page.getByRole("button", { name: "Run evolve now" }).click();
 
     await expect(
-      page.locator("text=Requested strict/relaxed -> Effective fast/strict | durability: sync_strict")
+      page
+        .locator("text=Requested strict/relaxed -> Effective fast/strict | durability: sync_strict")
+        .first()
     ).toBeVisible();
     await expect(
       page

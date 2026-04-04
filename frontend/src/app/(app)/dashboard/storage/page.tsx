@@ -385,8 +385,13 @@ function normalizeApiError(payload: unknown, fallback: string): string {
   if (!payload) return fallback;
   if (typeof payload === "string") return payload;
   if (typeof payload === "object") {
-    const detail = (payload as { detail?: unknown }).detail;
+    const data = payload as { detail?: unknown; error?: unknown; message?: unknown };
+    const detail = data.detail;
     if (typeof detail === "string" && detail.trim()) return detail;
+    const error = data.error;
+    if (typeof error === "string" && error.trim()) return error;
+    const message = data.message;
+    if (typeof message === "string" && message.trim()) return message;
   }
   return fallback;
 }
@@ -446,10 +451,33 @@ export default function StoragePage() {
   const queueRef = useRef<QueueItem[]>([]);
   const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
   const refreshLockRef = useRef(false);
+  const toastRef = useRef(toast);
+  const toastDedupRef = useRef<Record<string, number>>({});
 
   useEffect(() => {
     queueRef.current = queueItems;
   }, [queueItems]);
+
+  useEffect(() => {
+    toastRef.current = toast;
+  }, [toast]);
+
+  const throttledToast = useCallback(
+    (
+      kind: "error" | "warning" | "info" | "success",
+      title: string,
+      description: string,
+      dedupKey: string,
+      windowMs = 30000
+    ) => {
+      const now = safeNow();
+      const last = toastDedupRef.current[dedupKey] || 0;
+      if (now - last < windowMs) return;
+      toastDedupRef.current[dedupKey] = now;
+      toastRef.current[kind](title, description);
+    },
+    []
+  );
 
   const totalPages = useMemo(() => {
     if (!total) return 1;
@@ -513,11 +541,26 @@ export default function StoragePage() {
       setTotal(data.total || 0);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      toast.error("Failed to load storage files", message);
+      if (error instanceof ApiError && error.status === 429) {
+        throttledToast(
+          "warning",
+          "Storage list rate-limited",
+          message,
+          "storage-files-429"
+        );
+      } else {
+        throttledToast(
+          "error",
+          "Failed to load storage files",
+          message,
+          "storage-files-error",
+          15000
+        );
+      }
     } finally {
       setLoadingFiles(false);
     }
-  }, [graphId, page, query, statusFilter, toast]);
+  }, [graphId, page, query, statusFilter, throttledToast]);
 
   const fetchSummaryInternal = useCallback(async () => {
     setLoadingSummary(true);
@@ -530,11 +573,26 @@ export default function StoragePage() {
       setBackends(backendData);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      toast.warning("Storage summary unavailable", message);
+      if (error instanceof ApiError && error.status === 429) {
+        throttledToast(
+          "warning",
+          "Storage summary rate-limited",
+          message,
+          "storage-summary-429"
+        );
+      } else {
+        throttledToast(
+          "warning",
+          "Storage summary unavailable",
+          message,
+          "storage-summary-error",
+          20000
+        );
+      }
     } finally {
       setLoadingSummary(false);
     }
-  }, [graphId, toast]);
+  }, [graphId, throttledToast]);
 
   const fetchSupportedTypesInternal = useCallback(async () => {
     setSupportedTypesLoading(true);
@@ -543,11 +601,26 @@ export default function StoragePage() {
       setSupportedTypes(data);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
-      toast.warning("Supported file coverage unavailable", message);
+      if (error instanceof ApiError && error.status === 429) {
+        throttledToast(
+          "warning",
+          "Supported files rate-limited",
+          message,
+          "storage-supported-429"
+        );
+      } else {
+        throttledToast(
+          "warning",
+          "Supported file coverage unavailable",
+          message,
+          "storage-supported-error",
+          20000
+        );
+      }
     } finally {
       setSupportedTypesLoading(false);
     }
-  }, [toast]);
+  }, [throttledToast]);
 
   const openSupportedTypes = useCallback(() => {
     setSupportedTypesOpen(true);

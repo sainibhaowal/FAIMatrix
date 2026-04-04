@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
@@ -23,6 +23,46 @@ from api.deps import FAIMContext, get_faim_context  # noqa: E402
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/metrics", tags=["metrics"])
+
+
+def _payload_dict(payload: Any) -> Dict[str, Any]:
+    if isinstance(payload, dict):
+        return payload
+    return {}
+
+
+def _metric_value(
+    payload: Dict[str, Any],
+    metrics_obj: Dict[str, Any],
+    *,
+    metric_keys: tuple[str, ...],
+    payload_keys: tuple[str, ...],
+) -> Optional[float]:
+    for key in metric_keys:
+        if key in metrics_obj and metrics_obj[key] is not None:
+            try:
+                return float(metrics_obj[key])
+            except (TypeError, ValueError):
+                pass
+    for key in payload_keys:
+        if key in payload and payload[key] is not None:
+            try:
+                return float(payload[key])
+            except (TypeError, ValueError):
+                pass
+    return None
+
+
+def _metric_text_value(
+    payload: Dict[str, Any],
+    *,
+    payload_keys: tuple[str, ...],
+) -> str:
+    for key in payload_keys:
+        value = payload.get(key)
+        if value:
+            return str(value)
+    return ""
 
 
 # =============================================================================
@@ -91,21 +131,54 @@ async def get_scorecard(
         edge_count = ctx.edge_repo.count(graph_id)
 
         if diagnostics_event:
-            payload = diagnostics_event.payload or {}
-            metrics = payload.get("metrics", {})
+            payload = _payload_dict(diagnostics_event.payload)
+            metrics = _payload_dict(payload.get("metrics"))
 
             return MetricsScorecard(
                 graph_id=graph_id,
                 graph_version=gv.version,
-                graph_hash=payload.get("graph_hash", ""),
-                dimension_D=metrics.get("D"),
-                entropy_H=metrics.get("H"),
-                pressure_lambda=metrics.get("lambda"),
+                graph_hash=_metric_text_value(
+                    payload,
+                    payload_keys=("graph_hash", "diagnostics_hash"),
+                ),
+                dimension_D=_metric_value(
+                    payload,
+                    metrics,
+                    metric_keys=("D", "d", "D_hat", "d_hat"),
+                    payload_keys=("D_hat", "D", "d_hat", "d"),
+                ),
+                entropy_H=_metric_value(
+                    payload,
+                    metrics,
+                    metric_keys=("H", "h", "H_hat", "h_hat"),
+                    payload_keys=("H_hat", "H", "h_hat", "h"),
+                ),
+                pressure_lambda=_metric_value(
+                    payload,
+                    metrics,
+                    metric_keys=("lambda", "lambda_hat"),
+                    payload_keys=("lambda_hat", "lambda"),
+                ),
                 node_count=node_count,
                 edge_count=edge_count,
-                redundancy=metrics.get("redundancy"),
-                novelty=metrics.get("novelty"),
-                energy=metrics.get("energy"),
+                redundancy=_metric_value(
+                    payload,
+                    metrics,
+                    metric_keys=("redundancy", "R", "redundancy_R"),
+                    payload_keys=("redundancy_R", "redundancy", "R"),
+                ),
+                novelty=_metric_value(
+                    payload,
+                    metrics,
+                    metric_keys=("novelty", "N", "novelty_N"),
+                    payload_keys=("novelty_N", "novelty", "N"),
+                ),
+                energy=_metric_value(
+                    payload,
+                    metrics,
+                    metric_keys=("energy", "E", "energy_E"),
+                    payload_keys=("energy_E", "energy", "E"),
+                ),
                 computed_at=(
                     diagnostics_event.ts.isoformat() if diagnostics_event.ts else None
                 ),

@@ -2,11 +2,17 @@
 
 import {
   AlertTriangle,
+  BarChart2,
   Box,
+  Filter,
+  GitBranch,
   GitFork,
   Hash,
   Layers,
+  Move,
+  Network,
   RefreshCw,
+  Share2,
   Zap,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -14,10 +20,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
   EmptyState,
   ErrorState,
   Spinner,
@@ -73,115 +75,114 @@ const STATE_COLORS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// Floating Drawer
 // ---------------------------------------------------------------------------
 
-function SnapshotBanner({ data }: { data: FigSurfaceResponse }) {
-  const snap = data.snapshot;
+function FloatingDrawer({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  if (!open) return null;
   return (
-    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-      <span className="flex items-center gap-1">
-        <Hash className="h-3 w-3" />
-        v{snap.graph_version}
-      </span>
-      {snap.graph_hash && (
-        <span className="font-mono" title="Graph hash">
-          {snap.graph_hash.slice(0, 12)}…
-        </span>
-      )}
-      <span title="Snapshot time">{formatTimestamp(snap.as_of)}</span>
-      {!snap.consistent_read && (
-        <Badge variant="warning" size="sm">eventual</Badge>
-      )}
+    <div className="absolute right-14 top-14 bottom-4 z-30 w-[360px] max-w-[90vw]">
+      <div className="relative h-full overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/85 shadow-[0_10px_40px_rgba(0,0,0,0.55)] backdrop-blur-md">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/60">
+          <span className="text-xs font-semibold text-slate-300 uppercase tracking-widest">{title}</span>
+          <button
+            onClick={onClose}
+            className="rounded-md px-2 py-1 text-[10px] text-slate-400 hover:text-cyan-200 border border-slate-700/60 hover:border-cyan-400/30 transition-colors"
+          >
+            Close
+          </button>
+        </div>
+        <div className="h-full overflow-auto p-3 pb-10">{children}</div>
+      </div>
     </div>
   );
 }
 
-function TopologyStrip({ data }: { data: FigSurfaceResponse }) {
-  const topo = data.topology;
+// ---------------------------------------------------------------------------
+// Stats pill row
+// ---------------------------------------------------------------------------
+
+function StatsPill({ data }: { data?: FigSurfaceResponse | null }) {
+  const topo = data?.topology;
   const edgeKinds = topo?.edge_counts_by_kind ?? {};
+  const nodeCount = topo?.node_count ?? (data?.nodes?.length || 0);
+  const edgeCount = topo?.edge_count ?? (data?.edges?.length || 0);
+  const oppCount = edgeKinds["opposition"] ?? edgeKinds["OPPOSITION"] ?? 0;
+  const inhCount = edgeKinds["inheritance"] ?? edgeKinds["INHERITANCE"] ?? 0;
+
+  const stats = [
+    { icon: <Network size={12} className="text-cyan-400" />, label: "Nodes", value: nodeCount, color: "text-cyan-200" },
+    { icon: <Share2 size={12} className="text-violet-400" />, label: "Edges", value: edgeCount, color: "text-violet-200" },
+    { icon: <Layers size={12} className="text-amber-400" />, label: "Opposition", value: oppCount, color: "text-amber-200" },
+    { icon: <GitBranch size={12} className="text-emerald-400" />, label: "Inheritance", value: inhCount, color: "text-emerald-200" },
+  ];
+
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <StatCard
-        icon={<Box className="h-4 w-4 text-cyan-400" />}
-        label="Nodes"
-        value={topo?.node_count ?? data.nodes.length}
-      />
-      <StatCard
-        icon={<GitFork className="h-4 w-4 text-violet-400" />}
-        label="Edges"
-        value={topo?.edge_count ?? data.edges.length}
-      />
-      {Object.entries(edgeKinds).map(([kind, count]) => (
-        <StatCard
-          key={kind}
-          icon={<Layers className="h-4 w-4 text-slate-400" />}
-          label={kind}
-          value={count}
-        />
+    <div className="flex items-center gap-0 rounded-xl border border-slate-700/60 bg-slate-950/80 backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.4)] overflow-hidden divide-x divide-slate-700/40">
+      {stats.map((s) => (
+        <div key={s.label} className="flex items-center gap-2 px-4 py-2">
+          {s.icon}
+          <span className={`font-mono text-[13px] font-semibold ${s.color}`}>
+            {s.value > 0 ? s.value : s.value === 0 ? "0" : "—"}
+          </span>
+          <span className="text-[9px] uppercase tracking-widest text-slate-500">{s.label}</span>
+        </div>
       ))}
     </div>
   );
 }
 
-function StatCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-}) {
+// ---------------------------------------------------------------------------
+// Node & Edge Panels (same as before)
+// ---------------------------------------------------------------------------
+
+function NodePanel({ nodes }: { nodes: FigNode[] }) {
+  if (nodes.length === 0) return <p className="text-xs text-slate-500 text-center py-4">No nodes found</p>;
   return (
-    <div className="flex items-center gap-2 rounded-xl bg-slate-900/60 border border-slate-800 px-3 py-2">
-      {icon}
-      <div>
-        <p className="text-xs text-slate-500">{label}</p>
-        <p className="text-sm font-semibold text-slate-200">{value.toLocaleString()}</p>
-      </div>
+    <div className="flex flex-col gap-1.5">
+      {nodes.map((node) => {
+        const title = safeNodeTitle(node);
+        const stateClass = nodeStateClass(node);
+        const color = STATE_COLORS[stateClass] ?? STATE_COLORS.unknown;
+        return (
+          <div key={node.node_id} className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-3 py-2 text-sm">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className={`inline-block h-2 w-2 rounded-full ${stateClass === "active" ? "bg-emerald-400" : stateClass === "cold" ? "bg-slate-500" : "bg-slate-600"}`} />
+              <span className="truncate font-medium text-slate-200" title={title}>{title}</span>
+              <Badge size="sm" variant="outline">{node.kind}</Badge>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-slate-500 shrink-0">
+              <span className={color}>{stateClass}</span>
+              <span className="font-mono">{node.node_id.slice(0, 6)}</span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function NodeRow({ node }: { node: FigNode }) {
-  const title = safeNodeTitle(node);
-  const stateClass = nodeStateClass(node);
-  const color = STATE_COLORS[stateClass] ?? STATE_COLORS.unknown;
+function EdgePanel({ edges }: { edges: FigSurfaceResponse["edges"] }) {
+  if (edges.length === 0) return <p className="text-xs text-slate-500 text-center py-4">No edges found</p>;
+  const kindCounts = edges.reduce<Record<string, number>>((acc, e) => { acc[e.kind] = (acc[e.kind] || 0) + 1; return acc; }, {});
   return (
-    <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-3 py-2 text-sm">
-      <div className="flex items-center gap-2 min-w-0">
-        <span className={`inline-block h-2 w-2 rounded-full ${stateClass === "active" ? "bg-emerald-400" : stateClass === "cold" ? "bg-slate-500" : "bg-slate-600"}`} />
-        <span className="truncate font-medium text-slate-200" title={title}>
-          {title}
-        </span>
-        <Badge size="sm" variant="outline">{node.kind}</Badge>
-        {node.level > 0 && (
-          <span className="text-xs text-slate-500">L{node.level}</span>
-        )}
-      </div>
-      <div className="flex items-center gap-3 text-xs text-slate-500 shrink-0">
-        <span className={color}>{stateClass}</span>
-        {node.metrics?.touch_count != null && (
-          <span title="Touch count">×{node.metrics.touch_count}</span>
-        )}
-        <span className="font-mono" title={node.node_id}>
-          {node.node_id.slice(0, 8)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function TruncationBanner({ warnings }: { warnings: string[] }) {
-  return (
-    <div className="rounded-xl border border-amber-800/60 bg-amber-950/30 px-4 py-3 text-sm text-amber-300 flex items-start gap-2">
-      <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-      <div>
-        {warnings.map((w, i) => (
-          <p key={i}>{w}</p>
-        ))}
-      </div>
+    <div className="grid grid-cols-2 gap-2">
+      {Object.entries(kindCounts).map(([kind, count]) => (
+        <div key={kind} className="rounded-lg bg-slate-900/40 border border-slate-800/60 px-3 py-2 text-sm">
+          <p className="text-xs text-slate-500">{kind}</p>
+          <p className="font-semibold text-slate-200">{count}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -189,6 +190,9 @@ function TruncationBanner({ warnings }: { warnings: string[] }) {
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
+
+type DrawerPanel = "nodes" | "edges" | "snapshot" | "timeline" | "controls" | null;
+type TopMode = "explore" | "analyze" | "lineage";
 
 export default function FigViewPage() {
   const { data: session } = useSession();
@@ -199,257 +203,164 @@ export default function FigViewPage() {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>("explore");
   const [locked, setLocked] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [timelineVisible, setTimelineVisible] = useState(false);
+  const [topMode, setTopMode] = useState<TopMode>("explore");
+  const [activeDrawer, setActiveDrawer] = useState<DrawerPanel>(null);
   const canvasRef = useRef<FigCanvasHandle>(null);
   const initializedRef = useRef(false);
 
-  // Resolve graphId from session (same pattern as evolution page).
   useEffect(() => {
     if (initializedRef.current) return;
     const sessionGraphId = (session as { graphId?: string } | null)?.graphId;
-    if (sessionGraphId) {
-      setGraphId(sessionGraphId);
-      initializedRef.current = true;
-    }
+    if (sessionGraphId) { setGraphId(sessionGraphId); initializedRef.current = true; }
   }, [session]);
 
-  const loadSurface = useCallback(
-    async (targetGraphId: string) => {
-      if (!targetGraphId) return;
-      setState({ status: "loading" });
-      try {
-        const data = await fetchGraphSurface(targetGraphId, {
-          timelineLimit: 20,
-          includeTopology: true,
-        });
-        clearStaleGraphState(targetGraphId);
-        setState(classifyResponse(data));
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to load graph";
-        setState({ status: "error", message });
-        toast.error("Graph load failed", message);
-      }
-    },
-    [toast],
-  );
-
-  // Load on graphId change.
-  useEffect(() => {
-    if (graphId) {
-      loadSurface(graphId);
+  const loadSurface = useCallback(async (targetGraphId: string) => {
+    if (!targetGraphId) return;
+    setState({ status: "loading" });
+    try {
+      const data = await fetchGraphSurface(targetGraphId, { timelineLimit: 20, includeTopology: true });
+      clearStaleGraphState(targetGraphId);
+      setState(classifyResponse(data));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load graph";
+      setState({ status: "error", message });
+      toast.error("Graph load failed", message);
     }
-  }, [graphId, loadSurface]);
+  }, [toast]);
 
-  // -------------------------------------------------------------------------
-  // Render states
-  // -------------------------------------------------------------------------
+  useEffect(() => { if (graphId) loadSurface(graphId); }, [graphId, loadSurface]);
 
-  // Waiting for session
-  if (!graphId) {
-    return (
-      <div className="space-y-6 pb-8 text-slate-100">
-        <Header graphId="" />
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Spinner size="lg" />
-        </div>
-      </div>
-    );
-  }
+  const toggleDrawer = (panel: DrawerPanel) => setActiveDrawer((prev) => prev === panel ? null : panel);
+  const handleTopMode = (mode: TopMode) => {
+    setTopMode(mode);
+    if (mode === "explore") setActiveDrawer("nodes");
+    if (mode === "analyze") setActiveDrawer("snapshot");
+    if (mode === "lineage") setActiveDrawer("edges");
+  };
 
-  // Loading
-  if (state.status === "idle" || state.status === "loading") {
-    return (
-      <div className="space-y-6 pb-8 text-slate-100">
-        <Header graphId={graphId} />
-        <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
-          <Spinner size="lg" />
-          <p className="text-sm text-slate-400">Loading graph surface…</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error
-  if (state.status === "error") {
-    return (
-      <div className="space-y-6 pb-8 text-slate-100">
-        <Header graphId={graphId} />
-        <ErrorState
-          title="Failed to load graph"
-          message={state.message}
-          onRetry={() => loadSurface(graphId)}
-        />
-      </div>
-    );
-  }
-
-  // Empty
-  if (state.status === "empty") {
-    return (
-      <div className="space-y-6 pb-8 text-slate-100">
-        <Header graphId={graphId} />
-        <EmptyState
-          title="No nodes in this graph"
-          description="Ingest data via Storage or Memory to populate the graph."
-        />
-      </div>
-    );
-  }
-
-  // Loaded or Degraded
-  const data = state.data;
-  const warnings = state.status === "degraded" ? state.warnings : [];
+  const graphLabel = graphId ? graphId.slice(0, 12) + (graphId.length > 12 ? "…" : "") : "—";
+  const data = state.status === "loaded" || state.status === "degraded" ? state.data : null;
 
   return (
-    <div className="space-y-5 pb-8 text-slate-100">
-      <Header graphId={graphId}>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => loadSurface(graphId)}
-          title="Refresh graph"
-        >
-          <RefreshCw className="h-3.5 w-3.5" />
-        </Button>
-      </Header>
+    <div className="relative h-full w-full overflow-hidden bg-transparent">
 
-      <SnapshotBanner data={data} />
-
-      {warnings.length > 0 && <TruncationBanner warnings={warnings} />}
-
-      <TopologyStrip data={data} />
-
-      {/* Controls */}
-      <FigControls
-        layoutMode={layoutMode}
-        onLayoutChange={setLayoutMode}
-        locked={locked}
-        onLockToggle={() => setLocked((v) => !v)}
-        selectedNodeId={selectedNodeId}
-        onFit={() => canvasRef.current?.fitGraph()}
-        onCenter={() => selectedNodeId && canvasRef.current?.centerOnNode(selectedNodeId)}
-        onResetCamera={() => canvasRef.current?.resetCamera()}
-        onZoomIn={() => canvasRef.current?.zoomIn()}
-        onZoomOut={() => canvasRef.current?.zoomOut()}
-        timelineVisible={timelineVisible}
-        onTimelineToggle={() => setTimelineVisible((v) => !v)}
-        similarityMode={data.controls?.similarity?.mode ?? "none"}
-      />
-
-      {/* 3D Graph Canvas */}
-      <FigCanvas
-        ref={canvasRef}
-        data={data}
-        layoutMode={layoutMode}
-        locked={locked}
-        selectedNodeId={selectedNodeId}
-        onNodeSelect={setSelectedNodeId}
-      />
-
-      {/* Timeline (toggled via controls) */}
-      {timelineVisible && data.timeline && data.timeline.events.length > 0 && (
-        <Card>
-          <CardHeader>
-            <h3 className="text-sm font-semibold text-slate-200">
-              Recent Events ({data.timeline.events.length})
-              {data.timeline.has_more && (
-                <span className="ml-1 text-xs text-slate-500">+ more</span>
-              )}
-            </h3>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-1 max-h-[240px] overflow-y-auto text-xs">
-              {data.timeline.events.map((ev) => (
-                <div
-                  key={ev.seq}
-                  className="flex items-center justify-between rounded bg-slate-900/30 px-2 py-1"
-                >
-                  <span className="font-mono text-slate-500">#{ev.seq}</span>
-                  <Badge size="sm" variant="outline">{ev.kind}</Badge>
-                  {ev.ts && (
-                    <span className="text-slate-500">{formatTimestamp(ev.ts)}</span>
-                  )}
-                </div>
-              ))}
+      {/* ===================================================================
+          GRAPH CANVAS OR STATUS OVERLAY
+      =================================================================== */}
+      {data ? (
+        <FigCanvas
+          ref={canvasRef}
+          data={data}
+          layoutMode={layoutMode}
+          locked={locked}
+          selectedNodeId={selectedNodeId}
+          onNodeSelect={setSelectedNodeId}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center p-8 bg-slate-950">
+          {state.status === "loading" && (
+            <div className="flex flex-col items-center gap-4">
+              <Spinner size="lg" />
+              <p className="text-sm text-slate-500">Loading graph surface…</p>
             </div>
-          </CardContent>
-        </Card>
+          )}
+          {state.status === "error" && <ErrorState title="Failed to load graph" message={state.message} onRetry={() => loadSurface(graphId)} />}
+          {state.status === "empty" && <EmptyState title="No nodes in this graph" description="Ingest data via Storage or Memory to populate the graph." />}
+        </div>
       )}
 
-      {/* Node list */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Zap className="h-4 w-4 text-cyan-400" />
-            <h3 className="text-sm font-semibold text-slate-200">
-              Nodes ({data.nodes.length})
-            </h3>
+      {/* ===================================================================
+          TOP FRAME BAR
+      =================================================================== */}
+      <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between gap-2 px-6 py-4 pointer-events-none">
+        <div className="flex items-center gap-3 min-w-0 pointer-events-auto">
+          <div className="flex flex-col leading-tight">
+            <span className="text-[13px] font-semibold text-slate-100 tracking-wide flex items-center gap-1.5">
+              FIG View
+              {state.status === "degraded" && <span className="text-[9px] text-amber-400 border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 rounded-full">degraded</span>}
+            </span>
+            <span className="text-[10px] text-slate-500 font-mono">{graphLabel}</span>
           </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-1.5 max-h-[480px] overflow-y-auto pr-1">
-            {data.nodes.map((node) => (
-              <NodeRow key={node.node_id} node={node} />
+          <div className="h-6 w-px bg-slate-700/60" />
+          <div className="flex items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-950/70 p-0.5 backdrop-blur">
+            {([{ id: "explore", label: "Explore", icon: <Network size={11} /> }, { id: "analyze", label: "Analyze", icon: <BarChart2 size={11} /> }, { id: "lineage", label: "Lineage", icon: <GitBranch size={11} /> }]).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => handleTopMode(tab.id as TopMode)}
+                className={[ "flex items-center gap-1 px-3 py-1 rounded-md text-[11px] font-medium transition-all duration-150", topMode === tab.id ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/25" : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60" ].join(" ")}
+              >
+                {tab.icon} {tab.label}
+              </button>
             ))}
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Edge summary */}
-      {data.edges.length > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <GitFork className="h-4 w-4 text-violet-400" />
-              <h3 className="text-sm font-semibold text-slate-200">
-                Edges ({data.edges.length})
-              </h3>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {Object.entries(
-                data.edges.reduce<Record<string, number>>((acc, e) => {
-                  acc[e.kind] = (acc[e.kind] || 0) + 1;
-                  return acc;
-                }, {}),
-              ).map(([kind, count]) => (
-                <div
-                  key={kind}
-                  className="rounded-lg bg-slate-900/40 border border-slate-800/60 px-3 py-2 text-sm"
-                >
-                  <p className="text-xs text-slate-500">{kind}</p>
-                  <p className="font-semibold text-slate-200">{count}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Header
-// ---------------------------------------------------------------------------
-
-function Header({
-  graphId,
-  children,
-}: {
-  graphId: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <header className="flex items-center justify-between">
-      <div>
-        <h1 className="text-xl font-semibold">FIG View</h1>
-        {graphId && (
-          <p className="mt-0.5 text-xs text-slate-500 font-mono">{graphId}</p>
-        )}
+        </div>
+        <button onClick={() => loadSurface(graphId)} className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/60 bg-slate-950/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/30 transition-all backdrop-blur"><RefreshCw size={13} /></button>
       </div>
-      {children}
-    </header>
+
+      {/* ===================================================================
+          RIGHT FLOATING ICON RAIL
+      =================================================================== */}
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1.5">
+        {[
+          { id: "nodes", icon: <Zap size={14} />, label: "Nodes" },
+          { id: "edges", icon: <GitFork size={14} />, label: "Edges" },
+          { id: "snapshot", icon: <BarChart2 size={14} />, label: "Snapshot" },
+          { id: "timeline", icon: <Hash size={14} />, label: "Timeline" },
+          { id: "controls", icon: <Filter size={14} />, label: "Controls" },
+        ].map((btn) => (
+          <button key={btn.id} onClick={() => toggleDrawer(btn.id as DrawerPanel)} className={[ "flex h-8 w-8 items-center justify-center rounded-lg border transition-all duration-150 backdrop-blur-sm", activeDrawer === btn.id ? "border-cyan-400/50 bg-cyan-500/20 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.2)]" : "border-slate-700/60 bg-slate-950/70 text-slate-400 hover:border-cyan-400/30 hover:bg-slate-900/80 hover:text-slate-200" ].join(" ")}>
+            {btn.icon}
+          </button>
+        ))}
+        <div className="my-1 h-px w-8 bg-slate-700/50" />
+        <button onClick={() => setLocked((v) => !v)} className={[ "flex h-8 w-8 items-center justify-center rounded-lg border transition-all duration-150 backdrop-blur-sm", locked ? "border-violet-400/40 bg-violet-500/15 text-violet-300" : "border-slate-700/60 bg-slate-950/70 text-slate-400 hover:text-violet-300" ].join(" ")}><Move size={14} /></button>
+      </div>
+
+      {/* ===================================================================
+          BOTTOM CENTER — Stats pill bar
+      =================================================================== */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30"><StatsPill data={data} /></div>
+
+      {/* ===================================================================
+          BOTTOM RIGHT — Zoom controls
+      =================================================================== */}
+      <div className="absolute right-3 bottom-4 z-20 flex flex-col gap-1">
+        {[
+          { label: "Fit", action: () => canvasRef.current?.fitGraph(), icon: <Box size={12} /> },
+          { label: "Zoom In", action: () => canvasRef.current?.zoomIn(), icon: <span className="text-[13px] font-bold leading-none">+</span> },
+          { label: "Zoom Out", action: () => canvasRef.current?.zoomOut(), icon: <span className="text-[13px] font-bold leading-none">−</span> }
+        ].map((btn) => (
+          <button key={btn.label} onClick={btn.action} className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-950/70 text-slate-400 hover:text-cyan-200 hover:border-cyan-400/30 transition-all backdrop-blur-sm">{btn.icon}</button>
+        ))}
+      </div>
+
+      {/* ===================================================================
+          DRAWERS
+      =================================================================== */}
+      <FloatingDrawer open={activeDrawer === "nodes"} onClose={() => setActiveDrawer(null)} title={`Nodes (${data?.nodes?.length || 0})`}><NodePanel nodes={data?.nodes || []} /></FloatingDrawer>
+      <FloatingDrawer open={activeDrawer === "edges"} onClose={() => setActiveDrawer(null)} title={`Edges (${data?.edges?.length || 0})`}><EdgePanel edges={data?.edges || []} /></FloatingDrawer>
+      <FloatingDrawer open={activeDrawer === "snapshot"} onClose={() => setActiveDrawer(null)} title="Graph Snapshot">
+        {data ? (
+          <div className="space-y-3 text-xs">
+            <div className="flex items-center gap-2 text-slate-400"><Hash className="h-3 w-3" /><span>Version {data.snapshot.graph_version}</span></div>
+            <div className="font-mono text-slate-500 break-all">{data.snapshot.graph_hash}</div>
+            <div className="text-slate-400">{formatTimestamp(data.snapshot.as_of)}</div>
+          </div>
+        ) : <p className="text-xs text-slate-500">No snapshot data</p>}
+      </FloatingDrawer>
+      <FloatingDrawer open={activeDrawer === "timeline"} onClose={() => setActiveDrawer(null)} title="Timeline">
+        {data?.timeline?.events?.length ? (
+          <div className="flex flex-col gap-1 text-xs">
+            {data.timeline.events.map((ev) => (
+              <div key={ev.seq} className="flex items-center justify-between rounded bg-slate-900/30 px-2 py-1.5"><span className="font-mono text-slate-500">#{ev.seq}</span><Badge size="sm" variant="outline">{ev.kind}</Badge></div>
+            ))}
+          </div>
+        ) : <p className="text-xs text-slate-500">No events</p>}
+      </FloatingDrawer>
+      <FloatingDrawer open={activeDrawer === "controls"} onClose={() => setActiveDrawer(null)} title="Graph Controls">
+        <FigControls layoutMode={layoutMode} onLayoutChange={setLayoutMode} locked={locked} onLockToggle={() => setLocked((v) => !v)} selectedNodeId={selectedNodeId} onFit={() => canvasRef.current?.fitGraph()} onCenter={() => selectedNodeId && canvasRef.current?.centerOnNode(selectedNodeId)} onResetCamera={() => canvasRef.current?.resetCamera()} onZoomIn={() => canvasRef.current?.zoomIn()} onZoomOut={() => canvasRef.current?.zoomOut()} timelineVisible={false} onTimelineToggle={() => {}} similarityMode={data?.controls?.similarity?.mode ?? "none"} />
+      </FloatingDrawer>
+
+    </div>
   );
 }

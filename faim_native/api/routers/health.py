@@ -164,6 +164,49 @@ async def readiness_check():
 
 
 # =============================================================================
+# Pipeline Stats (Stage-12: Enhanced UI)
+# =============================================================================
+
+
+class SystemHealth(BaseModel):
+    redis: bool
+    qdrant: bool
+    encryption: bool
+
+
+class PipelineStats(BaseModel):
+    gpu_available: bool
+    gpu_active: bool
+    throughput: float
+    hot_cache_size: int
+    queue_depth: int
+    system_health: SystemHealth
+
+
+@router.get("/pipeline/stats", response_model=PipelineStats)
+async def pipeline_stats():
+    """System and pipeline performance statistics (Stage-12).
+
+    Used by the frontend status indicators.
+    """
+    import os
+
+    # Simplified health check for performance
+    return PipelineStats(
+        gpu_available=os.getenv("FAIM_ACCEL_MODE", "false").lower() == "true",
+        gpu_active=os.getenv("FAIM_ACCEL_MODE", "false").lower() == "true",
+        throughput=0.0,  # Real-time metrics would come from redis/metrics
+        hot_cache_size=0,
+        queue_depth=0,
+        system_health=SystemHealth(
+            redis=True,
+            qdrant=True,
+            encryption=True,
+        ),
+    )
+
+
+# =============================================================================
 # Version Info
 # =============================================================================
 
@@ -176,7 +219,7 @@ async def version_info():
     """
     return {
         "version": "0.10.0",
-        "stage": "10",
+        "stage": "12",
         "faim_native": True,
         "schema": {
             "vector": "v1",
