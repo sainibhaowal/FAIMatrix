@@ -23,7 +23,11 @@ import {
   Spinner,
   useToast,
 } from "@/components/ui";
+import FigCanvas from "@/components/graph/FigCanvas";
+import type { FigCanvasHandle } from "@/components/graph/FigCanvas";
+import FigControls from "@/components/graph/FigControls";
 import { fetchGraphSurface } from "@/lib/figViewApi";
+import type { LayoutMode } from "@/lib/figViewLayout";
 import { clearStaleGraphState, nodeStateClass, safeNodeTitle } from "@/lib/figViewSafety";
 import type { FigLoadState, FigNode, FigSurfaceResponse } from "@/types/figView";
 
@@ -192,6 +196,11 @@ export default function FigViewPage() {
 
   const [graphId, setGraphId] = useState<string>("");
   const [state, setState] = useState<FigLoadState>({ status: "idle" });
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>("explore");
+  const [locked, setLocked] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [timelineVisible, setTimelineVisible] = useState(false);
+  const canvasRef = useRef<FigCanvasHandle>(null);
   const initializedRef = useRef(false);
 
   // Resolve graphId from session (same pattern as evolution page).
@@ -310,6 +319,63 @@ export default function FigViewPage() {
 
       <TopologyStrip data={data} />
 
+      {/* Controls */}
+      <FigControls
+        layoutMode={layoutMode}
+        onLayoutChange={setLayoutMode}
+        locked={locked}
+        onLockToggle={() => setLocked((v) => !v)}
+        selectedNodeId={selectedNodeId}
+        onFit={() => canvasRef.current?.fitGraph()}
+        onCenter={() => selectedNodeId && canvasRef.current?.centerOnNode(selectedNodeId)}
+        onResetCamera={() => canvasRef.current?.resetCamera()}
+        onZoomIn={() => canvasRef.current?.zoomIn()}
+        onZoomOut={() => canvasRef.current?.zoomOut()}
+        timelineVisible={timelineVisible}
+        onTimelineToggle={() => setTimelineVisible((v) => !v)}
+        similarityMode={data.controls?.similarity?.mode ?? "none"}
+      />
+
+      {/* 3D Graph Canvas */}
+      <FigCanvas
+        ref={canvasRef}
+        data={data}
+        layoutMode={layoutMode}
+        locked={locked}
+        selectedNodeId={selectedNodeId}
+        onNodeSelect={setSelectedNodeId}
+      />
+
+      {/* Timeline (toggled via controls) */}
+      {timelineVisible && data.timeline && data.timeline.events.length > 0 && (
+        <Card>
+          <CardHeader>
+            <h3 className="text-sm font-semibold text-slate-200">
+              Recent Events ({data.timeline.events.length})
+              {data.timeline.has_more && (
+                <span className="ml-1 text-xs text-slate-500">+ more</span>
+              )}
+            </h3>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-1 max-h-[240px] overflow-y-auto text-xs">
+              {data.timeline.events.map((ev) => (
+                <div
+                  key={ev.seq}
+                  className="flex items-center justify-between rounded bg-slate-900/30 px-2 py-1"
+                >
+                  <span className="font-mono text-slate-500">#{ev.seq}</span>
+                  <Badge size="sm" variant="outline">{ev.kind}</Badge>
+                  {ev.ts && (
+                    <span className="text-slate-500">{formatTimestamp(ev.ts)}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Node list */}
       <Card>
         <CardHeader>
@@ -360,43 +426,6 @@ export default function FigViewPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* Timeline preview */}
-      {data.timeline && data.timeline.events.length > 0 && (
-        <Card>
-          <CardHeader>
-            <h3 className="text-sm font-semibold text-slate-200">
-              Recent Events ({data.timeline.events.length})
-              {data.timeline.has_more && (
-                <span className="ml-1 text-xs text-slate-500">+ more</span>
-              )}
-            </h3>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-1 max-h-[240px] overflow-y-auto text-xs">
-              {data.timeline.events.map((ev) => (
-                <div
-                  key={ev.seq}
-                  className="flex items-center justify-between rounded bg-slate-900/30 px-2 py-1"
-                >
-                  <span className="font-mono text-slate-500">#{ev.seq}</span>
-                  <Badge size="sm" variant="outline">{ev.kind}</Badge>
-                  {ev.ts && (
-                    <span className="text-slate-500">{formatTimestamp(ev.ts)}</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Canvas placeholder for Phase 5 */}
-      <div className="min-h-[300px] border-2 border-dashed border-slate-800 rounded-2xl flex items-center justify-center">
-        <p className="text-slate-600 font-mono text-xs">
-          3D graph canvas — Phase 5
-        </p>
-      </div>
     </div>
   );
 }
