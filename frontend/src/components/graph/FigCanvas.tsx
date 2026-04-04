@@ -299,15 +299,14 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   return (
     <div
       ref={containerRef}
-      className="relative w-full rounded-2xl overflow-hidden border border-slate-800 bg-[#0a0a14]"
-      style={{ height: "clamp(350px, 50vh, 700px)" }}
+      className="relative h-full w-full overflow-hidden bg-transparent"
     >
       <ForceGraph3D
         ref={fgRef}
         graphData={graphData}
         width={dimensions.width}
         height={dimensions.height}
-        backgroundColor="#0a0a14"
+        backgroundColor="rgba(0,0,0,0)"
         nodeId="id"
         nodeLabel={nodeLabel}
         nodeColor={nodeColor}

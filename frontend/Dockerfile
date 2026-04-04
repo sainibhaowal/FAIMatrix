@@ -1,26 +1,45 @@
-# ==========================================
-# FAIMATRIX: Monolithic Intelligence Build
-# ==========================================
-
-FROM node:20-alpine
+# FAIM Frontend Production Dockerfile
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# 1. Ingest Dependencies
+# Install dependencies (legacy-peer-deps for safety)
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
-# 2. Absorb Codebase (The entire fractal)
+# Copy code (env files included so NEXTAUTH_SECRET is available at build time)
 COPY . .
 
-# 3. Generate Intelligence (Production Build)
-ARG API_HOST=api:8000
-ENV API_HOST=${API_HOST}
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
+# Build — Next.js needs NEXTAUTH_SECRET during page data collection
+# The .env file is already copied above; override only if passed as build-arg.
+ARG NEXTAUTH_SECRET
+ARG NEXTAUTH_URL=http://localhost:8010
+
+# Only write to .env if ARG was supplied (leave file-based secret in place otherwise)
+RUN if [ -n "$NEXTAUTH_SECRET" ]; then \
+      printf "\nNEXTAUTH_SECRET=%s\nNEXTAUTH_URL=%s\n" "$NEXTAUTH_SECRET" "$NEXTAUTH_URL" >> .env; \
+    fi
+
 RUN npm run build
 
-# 4. Ignite
-# Using 'npm start' handles all serving logic automatically
+# Runner stage
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+# Next.js listens on PORT env var; defaults to 3000, we override to 8010
+ENV PORT=8010
+
+# Copy build artifacts
+COPY --from=builder /app/next.config.mjs ./
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/.env ./
+
 EXPOSE 8010
-CMD ["npm", "start"]
+
+# Start Next.js serving.
+CMD ["node_modules/.bin/next", "start", "-p", "8010"]

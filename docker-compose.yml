@@ -83,10 +83,12 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: faim-migrate
-    command: ["python", "-m", "store.pg.migrate", "up"]
+    entrypoint: ["python"]
+    command: ["-m", "store.pg.migrate", "up"]
     env_file: .env
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
+      FAIM_AUTO_MIGRATE: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -116,9 +118,15 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
+      FAIM_RAW_STORE_PATH: /var/lib/faim/raw/blobs
 
       # IMPORTANT: Production default is FALSE (safer)
       FAIM_AUTO_MIGRATE: ${FAIM_AUTO_MIGRATE:-false}
+
+      # Authentication
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET required}
+      TENANT_KEYS_JSON: ${TENANT_KEYS_JSON:-{}}
+      ADMIN_KEYS_JSON: ${ADMIN_KEYS_JSON:-{}}
 
       # Acceleration (enabled only with --profile accel)
       FAIM_ENABLE_CACHE: ${FAIM_ENABLE_CACHE:-false}
@@ -140,6 +148,8 @@ services:
       QDRANT_URL: ${QDRANT_URL:-}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
 
+    volumes:
+      - raw_data:/var/lib/faim/raw
     ports:
       - "8000:8000"
     depends_on:
@@ -185,6 +195,8 @@ services:
     env_file: .env
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
+      REDIS_URL: ${REDIS_URL:-}
+      FAIM_RAW_STORE_PATH: /var/lib/faim/raw/blobs
       FAIM_AUTO_MIGRATE: "false"
       FAIM_OCR_ENABLED: ${FAIM_OCR_ENABLED:-false}
       FAIM_OCR_ENGINE: ${FAIM_OCR_ENGINE:-tesseract}
@@ -199,6 +211,8 @@ services:
       FAIM_SELF_INVENT_LAMBDA_THRESHOLD: ${FAIM_SELF_INVENT_LAMBDA_THRESHOLD:-0.3}
       FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION: ${FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION:-0.01}
       FAIM_PROFILE_PERSIST_COMPAT_MODE: ${FAIM_PROFILE_PERSIST_COMPAT_MODE:-true}
+    volumes:
+      - raw_data:/var/lib/faim/raw
     depends_on:
       api:
         condition: service_started
@@ -240,6 +254,7 @@ volumes:
   postgres_data:
   redis_data:
   qdrant_data:
+  raw_data:
 
 networks:
   faim-net:
