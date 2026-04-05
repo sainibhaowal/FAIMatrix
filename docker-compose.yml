@@ -236,6 +236,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - API_HOST=api:8000
     container_name: faim-frontend
     env_file: ./frontend/.env
     ports:

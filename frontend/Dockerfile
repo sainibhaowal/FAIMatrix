@@ -14,11 +14,12 @@ COPY . .
 # The .env file is already copied above; override only if passed as build-arg.
 ARG NEXTAUTH_SECRET
 ARG NEXTAUTH_URL=http://localhost:8010
+ARG API_HOST=api:8000
 
 # Only write to .env if ARG was supplied (leave file-based secret in place otherwise)
 RUN if [ -n "$NEXTAUTH_SECRET" ]; then \
-      printf "\nNEXTAUTH_SECRET=%s\nNEXTAUTH_URL=%s\n" "$NEXTAUTH_SECRET" "$NEXTAUTH_URL" >> .env; \
-    fi
+  printf "\nNEXTAUTH_SECRET=%s\nNEXTAUTH_URL=%s\n" "$NEXTAUTH_SECRET" "$NEXTAUTH_URL" >> .env; \
+  fi
 
 RUN npm run build
 
@@ -37,7 +38,8 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/.env ./
+
+
 
 EXPOSE 8010
 
