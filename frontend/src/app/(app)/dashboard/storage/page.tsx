@@ -1,20 +1,20 @@
 "use client";
 
 import {
-  AlertCircle,
-  CheckCircle2,
-  Database,
   FileSearch,
   FileText,
-  HardDrive,
   RefreshCw,
   RotateCcw,
   Search,
-  Shield,
   UploadCloud,
   X,
   XCircle,
+  ChevronDown,
+  HardDrive,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { getSession, useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -44,6 +44,83 @@ type StorageFileItem = {
   updated_at?: string | null;
   delete_requested: boolean;
 };
+
+// --- Custom Themed Select Component ---
+function ThemedSelect<T extends string>({
+  value,
+  onChange,
+  options,
+  className = "",
+  placeholder = "Select...",
+}: {
+  value: T;
+  onChange: (val: T) => void;
+  options: { value: T; label: string }[];
+  className?: string;
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === value);
+
+  return (
+    <div className={`relative ${className}`}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex h-8 w-full items-center justify-between gap-2 rounded-lg border px-2.5 text-xs outline-none transition-all hover:bg-white/5 active:scale-[0.98]"
+        style={{
+          background: "var(--os-surface-2)",
+          borderColor: "var(--os-stroke)",
+          color: "var(--text-primary)",
+        }}
+      >
+        <span className="truncate">{current?.label || placeholder}</span>
+        <ChevronDown
+          size={14}
+          className={`shrink-0 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+          style={{ color: "var(--text-tertiary)" }}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-[var(--z-modal)]" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              className="absolute left-0 top-9 z-[var(--z-dropdown)] w-full min-w-[120px] overflow-hidden rounded-xl border p-1 shadow-2xl backdrop-blur-xl"
+              style={{
+                background: "rgba(10, 15, 25, 0.95)",
+                borderColor: "var(--os-stroke)",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
+              }}
+            >
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  className={`flex h-8 w-full items-center rounded-lg px-2.5 text-xs transition-colors ${
+                    opt.value === value
+                      ? "bg-indigo-500/10 font-medium text-indigo-400"
+                      : "text-[var(--text-secondary)] hover:bg-white/5"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 type StorageSummary = {
   graph_id?: string | null;
@@ -532,8 +609,9 @@ export default function StoragePage() {
         graph_id: graphId,
         limit: String(PAGE_SIZE),
         offset: String(page * PAGE_SIZE),
+        include_delete_requested: "true",
       });
-      if (statusFilter) params.set("status", statusFilter);
+      if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
       if (query.trim()) params.set("q", query.trim());
 
       const data = await fetchJson<FileListResponse>(`/api/v1/storage/files?${params.toString()}`);
@@ -1278,196 +1356,243 @@ export default function StoragePage() {
   const failedCount = summary?.by_status?.failed || 0;
   const dedupCount = summary?.by_status?.dedup_hit || 0;
 
+  // ─── status helpers ───────────────────────────────────────
+  function rowAccent(status: string, deleteReq: boolean) {
+    if (deleteReq) return "border-l-[3px] border-l-[var(--faim-warning)]";
+    if (status === "ingested" || status === "dedup_hit") return "border-l-[3px] border-l-[var(--faim-success)]";
+    if (status === "failed")   return "border-l-[3px] border-l-[var(--faim-error)]";
+    if (["ingesting","uploading","queued"].includes(status)) return "border-l-[3px] border-l-[var(--faim-info)]";
+    return "border-l-[3px] border-l-transparent";
+  }
+
   return (
-    <div className="space-y-6 pb-8 text-slate-100">
+    <div className="space-y-5 pb-10" style={{ color: "var(--text-primary)" }}>
+      {/* ── Page Header ──────────────────────────────────────── */}
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold" data-testid="storage-page-title">
+          <h1 className="text-lg font-semibold tracking-tight" data-testid="storage-page-title">
             Storage Control Plane
           </h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Multi-file upload queue, ingest lifecycle tracking, and immutable provenance for graph `{graphId}`.
+          <p className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
+            Multi-file upload queue · ingest lifecycle tracking · immutable provenance ·{" "}
+            <code className="rounded bg-white/5 px-1 py-px font-mono text-[11px]" style={{ color: "var(--text-secondary)" }}>
+              {graphId}
+            </code>
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          leftIcon={<RefreshCw size={14} />}
-          onClick={() => {
-            void refreshViews();
-          }}
+        <label
+          className="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:bg-white/5"
+          style={{ borderColor: "var(--os-stroke)", color: "var(--text-secondary)" }}
         >
-          Refresh
-        </Button>
+          <UploadCloud size={13} />
+          Upload Files
+          <input type="file" multiple className="hidden" onChange={onInputFiles} disabled={!ingestModePolicy.supported} />
+        </label>
       </header>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="os-card rounded-2xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-400">Total Files</p>
-              <p className="mt-1 text-2xl font-semibold">{summary?.total_files ?? 0}</p>
+      {/* ── Metric Strip ─────────────────────────────────────── */}
+      <div
+        className="grid grid-cols-2 overflow-hidden rounded-xl border xl:grid-cols-4"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+      >
+        {[
+          {
+            label: "Total Files",
+            value: summary?.total_files ?? 0,
+            sub: "in graph",
+            icon: <FileText size={18} />,
+            accent: "var(--faim-info)",
+            color: undefined,
+          },
+          {
+            label: "Stored",
+            value: formatBytes(summary?.total_bytes ?? 0),
+            sub: "raw bytes",
+            icon: <HardDrive size={18} />,
+            accent: "var(--faim-secondary)",
+            color: undefined,
+          },
+          {
+            label: "Ingested",
+            value: ingestedCount,
+            sub: `Dedup hits: ${dedupCount}`,
+            icon: <CheckCircle2 size={18} />,
+            accent: "var(--faim-success)",
+            color: "var(--faim-success-text)",
+          },
+          {
+            label: "Failures",
+            value: failedCount,
+            sub: "needs retry",
+            icon: <AlertCircle size={18} />,
+            accent: failedCount > 0 ? "var(--faim-error)" : "var(--os-stroke)",
+            color: failedCount > 0 ? "var(--faim-error-text)" : "var(--text-tertiary)",
+          },
+        ].map((m, i) => (
+          <div
+            key={m.label}
+            className="relative flex flex-col justify-center px-6 py-5"
+            style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+                {m.label}
+              </p>
+              <div 
+                className="flex h-8 w-8 items-center justify-center rounded-lg border transition-all"
+                style={{ 
+                  background: `rgba(${m.accent === 'var(--os-stroke)' ? '255,255,255' : '129,140,248'}, 0.03)`, 
+                  borderColor: m.accent,
+                  color: m.accent
+                }}
+              >
+                {m.icon}
+              </div>
             </div>
-            <FileText className="text-cyan-400" size={20} />
+            <p className="font-semibold tabular-nums leading-none" style={{ fontSize: 26, color: m.color ?? "var(--text-primary)" }}>
+              {m.value}
+            </p>
+            <p className="mt-2 text-[11px]" style={{ color: "var(--text-tertiary)" }}>{m.sub}</p>
           </div>
-        </Card>
-        <Card className="os-card rounded-2xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-400">Stored Bytes</p>
-              <p className="mt-1 text-2xl font-semibold">{formatBytes(summary?.total_bytes ?? 0)}</p>
-            </div>
-            <HardDrive className="text-violet-400" size={20} />
-          </div>
-        </Card>
-        <Card className="os-card rounded-2xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-400">Ingested</p>
-              <p className="mt-1 text-2xl font-semibold">{ingestedCount}</p>
-              <p className="text-xs text-slate-500">Dedup hits: {dedupCount}</p>
-            </div>
-            <CheckCircle2 className="text-emerald-400" size={20} />
-          </div>
-        </Card>
-        <Card className="os-card rounded-2xl">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-slate-400">Failures</p>
-              <p className="mt-1 text-2xl font-semibold">{failedCount}</p>
-              <p className="text-xs text-slate-500">Needs retry</p>
-            </div>
-            <AlertCircle className="text-rose-400" size={20} />
-          </div>
-        </Card>
+        ))}
       </div>
 
-      <Card className="os-card rounded-2xl space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold">Upload Panel</h2>
-            <p className="text-xs text-slate-400">Drag-drop or select files. Each file runs as its own upload job for per-file control.</p>
-          </div>
+
+      {/* ── Upload Panel ─────────────────────────────────────── */}
+      <div
+        className="overflow-hidden rounded-xl border"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+      >
+        {/* Section header */}
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3"
+          style={{ borderColor: "var(--os-stroke)" }}
+        >
+          <p className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+            Upload Panel
+          </p>
           <div className="flex items-center gap-2">
-            <label
-              className={`inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs ${
-                ingestModePolicy.supported
-                  ? "cursor-pointer hover:bg-slate-900/40"
-                  : "cursor-not-allowed opacity-50"
-              }`}
-            >
-              <UploadCloud size={14} />
-              Add Files
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                onChange={onInputFiles}
-                disabled={!ingestModePolicy.supported}
-              />
-            </label>
-            <Button
-              size="sm"
-              variant="outline"
-              leftIcon={<FileText size={14} />}
-              data-testid="storage-supported-types-open"
-              onClick={openSupportedTypes}
-            >
-              Supported Files
-              {supportedTypes ? ` (${supportedTypes.total_extensions})` : ""}
+            <Button size="sm" variant="ghost" leftIcon={<FileText size={12} />} data-testid="storage-supported-types-open" onClick={openSupportedTypes}>
+              Supported Files{supportedTypes ? ` (${supportedTypes.total_extensions})` : ""}
             </Button>
-            <Button size="sm" variant="outline" onClick={clearTerminalQueueItems}>
-              Clear Completed
-            </Button>
+            <Button size="sm" variant="ghost" onClick={clearTerminalQueueItems}>Clear Completed</Button>
           </div>
         </div>
 
-        <div
-          className={`rounded-xl border border-dashed p-5 transition ${
-            isDragOver
-              ? "border-cyan-400 bg-cyan-500/10"
-              : "border-slate-700 bg-slate-950/40"
-          }`}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setIsDragOver(true);
-          }}
+        {/* Hero Drop Zone */}
+        <motion.div
+          whileHover={{ backgroundColor: "rgba(99,102,241,0.04)" }}
+          animate={isDragOver ? { borderColor: "rgba(99,102,241,0.9)", backgroundColor: "rgba(99,102,241,0.06)" } : { borderColor: "rgba(255,255,255,0.1)" }}
+          transition={{ duration: 0.2 }}
+          className="mx-5 mt-5 flex h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed"
+          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
           onDragLeave={() => setIsDragOver(false)}
           onDrop={onDropFiles}
+          onClick={() => document.getElementById("storage-file-input")?.click()}
         >
-          <div className="flex flex-col items-center justify-center gap-1 text-center">
-            <UploadCloud className="text-cyan-400" size={20} />
-            <p className="text-sm text-slate-200">Drop files here</p>
-            <p className="text-xs text-slate-400">Multi-file add is append-only. Queue keeps current in-flight work.</p>
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: "rgba(99,102,241,0.12)", color: "#818cf8" }}>
+            <UploadCloud size={18} />
           </div>
-        </div>
+          <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+            Drop files here or click to browse
+          </p>
+          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+            Multi-file append-only · Queue keeps in-flight work
+          </p>
+          <input id="storage-file-input" type="file" multiple className="hidden" onChange={onInputFiles} disabled={!ingestModePolicy.supported} />
+        </motion.div>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div>
-            <label className="mb-1 block text-xs text-slate-400">Profile</label>
-            <select
-              value={profile}
-              onChange={(e) => setProfile(e.target.value)}
-              className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm"
-            >
-              <option value="strict">strict</option>
-              <option value="fast">fast</option>
-              <option value="relaxed">relaxed</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-400">Persist Mode</label>
-            <select
-              value={persistMode}
-              onChange={(e) => setPersistMode(e.target.value)}
-              className="h-9 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm"
-            >
-              <option value="relaxed">relaxed</option>
-              <option value="strict">strict</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-400">Queue Depth</label>
-            <div className="h-9 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm leading-9 text-slate-300">
-              {queueItems.length} item(s)
+        {/* Controls row */}
+        <div className="grid grid-cols-3 gap-3 px-5 pb-4 pt-4">
+          {[
+            {
+              label: "Profile",
+              node: (
+                <ThemedSelect
+                  value={profile}
+                  onChange={setProfile}
+                  options={[
+                    { value: "strict", label: "strict" },
+                    { value: "fast", label: "fast" },
+                    { value: "relaxed", label: "relaxed" },
+                  ]}
+                />
+              ),
+            },
+            {
+              label: "Persist Mode",
+              node: (
+                <ThemedSelect
+                  value={persistMode}
+                  onChange={setPersistMode}
+                  options={[
+                    { value: "relaxed", label: "relaxed" },
+                    { value: "strict", label: "strict" },
+                  ]}
+                />
+              ),
+            },
+            {
+              label: "Queue Depth",
+              node: (
+                <div className="flex h-8 items-center rounded-lg border px-2.5 text-xs tabular-nums"
+                  style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)", color: "var(--text-secondary)" }}>
+                  {queueItems.length} item(s)
+                </div>
+              ),
+            },
+          ].map((c) => (
+            <div key={c.label}>
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>{c.label}</p>
+              {c.node}
             </div>
-          </div>
+          ))}
         </div>
 
+        {/* Mode info */}
         <div
-          className={`rounded-lg border p-3 text-xs ${
-            ingestModePolicy.supported
-              ? "border-slate-800 bg-slate-950/40 text-slate-400"
-              : "border-rose-400/35 bg-rose-500/10 text-rose-200"
+          className={`mx-5 mb-4 rounded-lg border px-3.5 py-2.5 text-[11px] leading-relaxed ${
+            ingestModePolicy.supported ? "" : "border-[var(--faim-error)]/30 bg-[var(--faim-error-muted)]"
           }`}
+          style={ingestModePolicy.supported ? { borderColor: "rgba(99,102,241,0.18)", background: "rgba(99,102,241,0.05)", color: "var(--text-secondary)" } : { color: "var(--faim-error-text)" }}
         >
-          <p className="font-medium text-slate-300">
-            Requested mode: <span className="font-mono">{selectedModeLabel}</span>
-          </p>
-          <p className="mt-1">{getProfileHelper(profile)}</p>
-          <p>{getPersistHelper(persistMode)}</p>
-          <p className="mt-1">
-            {ingestModePolicy.supported
-              ? "All profile/persist combinations are currently supported by policy."
-              : ingestModePolicy.reason || "Selected profile/persist combination is not supported."}
-          </p>
+          <span style={{ color: "#818cf8", fontWeight: 500 }}>Requested mode: {selectedModeLabel}</span>
+          {" · "}{getProfileHelper(profile)} {getPersistHelper(persistMode)}
+          {" "}{ingestModePolicy.supported ? "All profile/persist combinations supported by policy." : ingestModePolicy.reason}
         </div>
 
-        <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
-          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-            <Badge size="xs" variant="default">queued: {queueCounts.queued}</Badge>
-            <Badge size="xs" variant="info">running: {queueCounts.uploading + queueCounts.ingesting}</Badge>
-            <Badge size="xs" variant="success">done: {queueCounts.ingested + queueCounts.dedup_hit}</Badge>
-            <Badge size="xs" variant="error">failed: {queueCounts.failed}</Badge>
-            <Badge size="xs" variant="warning">cancelled: {queueCounts.cancelled}</Badge>
-          </div>
+        {/* Pipeline bar */}
+        <div
+          className="flex items-center gap-0 border-t px-5 py-3"
+          style={{ borderColor: "var(--os-stroke)" }}
+        >
+          {[
+            { label: "queued", count: queueCounts.queued, active: queueCounts.queued > 0, color: "var(--text-tertiary)" },
+            { label: "running", count: queueCounts.uploading + queueCounts.ingesting, active: true, color: "var(--faim-info-text)" },
+            { label: "done", count: queueCounts.ingested + queueCounts.dedup_hit, active: true, color: "var(--faim-success-text)" },
+          ].map((step, i) => (
+            <span key={step.label} className="flex items-center gap-1.5 text-[11px]">
+              {i > 0 && <span className="mx-2 text-[10px]" style={{ color: "var(--text-tertiary)" }}>→</span>}
+              <span className="h-1.5 w-1.5 rounded-full" style={{ background: step.count > 0 ? step.color : "var(--os-stroke)" }} />
+              <span className="tabular-nums font-semibold" style={{ color: "var(--text-primary)" }}>{step.count}</span>
+              <span style={{ color: "var(--text-tertiary)" }}>{step.label}</span>
+            </span>
+          ))}
+          <span className="mx-3 h-3 w-px" style={{ background: "var(--os-stroke)" }} />
+          <span className="flex items-center gap-1.5 text-[11px]">
+            <span className="h-1.5 w-1.5 rounded-full" style={{ background: queueCounts.failed > 0 ? "var(--faim-error)" : "var(--os-stroke)" }} />
+            <span className="tabular-nums font-semibold" style={{ color: queueCounts.failed > 0 ? "var(--faim-error-text)" : "var(--text-primary)" }}>{queueCounts.failed}</span>
+            <span style={{ color: "var(--text-tertiary)" }}>failed</span>
+          </span>
+        </div>
 
-          <div className="max-h-[420px] space-y-2 overflow-auto pr-1">
-            {queueItems.length === 0 ? (
-              <div className="rounded-md border border-slate-800 px-3 py-5 text-center text-xs text-slate-500">
-                No queued files yet.
-              </div>
-            ) : (
+        {/* Queue items */}
+        <div className="border-t" style={{ borderColor: "var(--os-stroke)" }}>
+          {queueItems.length === 0 ? (
+            <div className="px-5 py-6 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>
+              No queued files yet. Drop files above to begin.
+            </div>
+          ) : (
               queueItems.map((item) => {
                 const canCancel = !TERMINAL_QUEUE_STATUS.has(item.status) && !item.busyAction;
                 const canRetry = (item.status === "failed" || item.status === "cancelled") && !item.busyAction;
@@ -1477,14 +1602,19 @@ export default function StoragePage() {
                 return (
                   <div
                     key={item.id}
-                    className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"
+                    className="overflow-hidden rounded-xl border p-4 transition-all"
+                    style={{
+                      borderColor: "var(--os-stroke)",
+                      background: "var(--os-surface-2)",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                    }}
                     data-testid="storage-queue-item"
                     data-filename={item.filename}
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="max-w-[320px] truncate text-sm text-slate-200">{item.filename}</p>
+                          <p className="max-w-[320px] truncate text-sm font-medium" style={{ color: "var(--text-primary)" }}>{item.filename}</p>
                           <Badge size="xs" variant={statusVariant(item.status)}>
                             {item.status}
                           </Badge>
@@ -1492,7 +1622,7 @@ export default function StoragePage() {
                             <Badge size="xs" variant="warning">cancel requested</Badge>
                           )}
                         </div>
-                        <p className="mt-0.5 text-[11px] text-slate-500">
+                        <p className="mt-1 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
                           {formatBytes(item.sizeBytes)} | {item.mimeType || "application/octet-stream"} | job: {shortId(item.jobId)} | raw: {shortId(item.rawId)}
                         </p>
                       </div>
@@ -1551,15 +1681,18 @@ export default function StoragePage() {
                     </div>
 
                     {!!item.events.length && (
-                      <details className="mt-2 rounded-md border border-slate-800 bg-slate-950/30 px-2 py-1">
-                        <summary className="cursor-pointer text-[11px] text-slate-400">
+                      <details
+                        className="mt-3 rounded-lg border px-3 py-2 transition-all"
+                        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+                      >
+                        <summary className="cursor-pointer text-[11px] font-medium transition-colors hover:text-white" style={{ color: "var(--text-tertiary)" }}>
                           Timeline events ({item.events.length})
                         </summary>
-                        <div className="mt-1 max-h-28 space-y-1 overflow-auto text-[11px]">
-                          {item.events.slice(-8).map((event) => (
-                            <div key={`${item.id}-${event.seq}`} className="flex items-start justify-between gap-2 text-slate-300">
-                              <span className="min-w-0 flex-1 truncate">#{event.seq} {event.kind}</span>
-                              <span className="whitespace-nowrap text-slate-500">
+                        <div className="mt-2 max-h-32 space-y-1.5 overflow-auto pr-1 text-[11px]">
+                          {item.events.slice(-10).map((event) => (
+                            <div key={`${item.id}-${event.seq}`} className="flex items-start justify-between gap-3" style={{ color: "var(--text-secondary)" }}>
+                              <span className="min-w-0 flex-1 truncate opacity-90">#{event.seq} {event.kind}</span>
+                              <span className="whitespace-nowrap opacity-50 font-mono">
                                 {event.ts ? new Date(event.ts).toLocaleTimeString() : "-"}
                               </span>
                             </div>
@@ -1576,176 +1709,137 @@ export default function StoragePage() {
                   </div>
                 );
               })
-            )}
+          )}
+        </div>
+      </div>
+
+      {/* ── File Catalog ─────────────────────────────────────── */}
+      <div
+        className="overflow-hidden rounded-xl border"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+      >
+        {/* Header */}
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3"
+          style={{ borderColor: "var(--os-stroke)" }}
+        >
+          <p className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>File Catalog</p>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {[
+                { key: "postgres", label: "Postgres", ok: backends?.postgres },
+                { key: "raw_store", label: "RawStore", ok: backends?.raw_store },
+                { key: "redis", label: "Redis", ok: backends?.redis },
+                { key: "qdrant", label: "Qdrant", ok: backends?.qdrant },
+              ].map((b) => (
+                <span
+                  key={b.key}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-medium"
+                  style={{
+                    borderColor: b.ok ? "rgba(52,211,153,0.25)" : "rgba(248,113,113,0.25)",
+                    background: b.ok ? "rgba(52,211,153,0.08)" : "rgba(248,113,113,0.08)",
+                    color: b.ok ? "var(--faim-success-text)" : "var(--faim-error-text)",
+                  }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "currentColor" }} />
+                  {b.label}
+                </span>
+              ))}
+            </div>
+            <Button variant="ghost" size="sm" leftIcon={<RefreshCw size={12} />} onClick={() => { void refreshViews(); }}>
+              Refresh Catalog
+            </Button>
           </div>
         </div>
-      </Card>
 
-      <Card className="os-card rounded-2xl space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold">File Catalog</h2>
-            <p className="text-xs text-slate-400">Immutable raw files and ingest lifecycle status.</p>
+        {/* Search + filter toolbar */}
+        <div className="flex flex-wrap items-center gap-3 px-5 py-3">
+          <div className="relative flex-1" style={{ maxWidth: 280 }}>
+            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-tertiary)" }} />
+            <input
+              value={query}
+              onChange={(e) => { setPage(0); setQuery(e.target.value); }}
+              placeholder="Search filename or hash"
+              className="h-8 w-full rounded-lg border pl-8 pr-3 text-xs outline-none transition-colors focus:border-indigo-500"
+              style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)", color: "var(--text-primary)" }}
+            />
           </div>
-          <div className="flex items-center gap-2 text-xs">
-            <Badge size="xs" variant={backends?.postgres ? "success" : "error"}>
-              <Database size={12} /> Postgres
-            </Badge>
-            <Badge size="xs" variant={backends?.raw_store ? "success" : "error"}>
-              <HardDrive size={12} /> RawStore
-            </Badge>
-            <Badge size="xs" variant={backends?.redis ? "success" : "warning"}>
-              <Shield size={12} /> Redis
-            </Badge>
-            <Badge size="xs" variant={backends?.qdrant ? "success" : "warning"}>
-              <Shield size={12} /> Qdrant
-            </Badge>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <Input
-            value={query}
-            onChange={(event) => {
-              setPage(0);
-              setQuery(event.target.value);
-            }}
-            placeholder="Search filename or hash"
-            leftIcon={<Search size={14} />}
-          />
-          <select
+          <ThemedSelect
+            className="w-40"
             value={statusFilter}
-            onChange={(event) => {
-              setPage(0);
-              setStatusFilter(event.target.value);
-            }}
-            className="h-9 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm"
-          >
-            <option value="">All statuses</option>
-            <option value="uploaded">uploaded</option>
-            <option value="ingesting">ingesting</option>
-            <option value="ingested">ingested</option>
-            <option value="dedup_hit">dedup_hit</option>
-            <option value="failed">failed</option>
-            <option value="cancelled">cancelled</option>
-            <option value="delete_requested">delete_requested</option>
-          </select>
-          <Button
-            variant="outline"
-            size="sm"
-            leftIcon={<RefreshCw size={14} />}
-            onClick={() => {
-              void refreshViews();
-            }}
-          >
-            Refresh Catalog
-          </Button>
+            onChange={(val) => { setPage(0); setStatusFilter(val); }}
+            options={[
+              { value: "", label: "All statuses" },
+              { value: "uploaded", label: "uploaded" },
+              { value: "ingesting", label: "ingesting" },
+              { value: "ingested", label: "ingested" },
+              { value: "dedup_hit", label: "dedup_hit" },
+              { value: "failed", label: "failed" },
+              { value: "cancelled", label: "cancelled" },
+              { value: "delete_requested", label: "delete_requested" },
+            ]}
+          />
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-slate-800">
-          <table className="w-full min-w-[1040px] text-left text-xs">
-            <thead className="bg-slate-900/50 text-slate-400">
-              <tr>
-                <th className="px-3 py-2 font-medium">Filename</th>
-                <th className="px-3 py-2 font-medium">Status</th>
-                <th className="px-3 py-2 font-medium">Size</th>
-                <th className="px-3 py-2 font-medium">Raw ID</th>
-                <th className="px-3 py-2 font-medium">Updated</th>
-                <th className="px-3 py-2 font-medium">Actions</th>
+        {/* Table */}
+        <div className="overflow-x-auto border-t" style={{ borderColor: "var(--os-stroke)" }}>
+          <table className="w-full min-w-[960px] text-left">
+            <thead>
+              <tr style={{ borderBottom: "1px solid var(--os-stroke)" }}>
+                {["Filename","Status","Size","Raw ID","Updated","Actions"].map((h) => (
+                  <th key={h} className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider whitespace-nowrap" style={{ color: "var(--text-tertiary)" }}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {loadingFiles ? (
-                <tr>
-                  <td colSpan={6} className="px-3 py-10 text-center text-slate-500">
-                    Loading storage catalog...
-                  </td>
-                </tr>
+                <tr><td colSpan={6} className="px-4 py-10 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>Loading storage catalog...</td></tr>
               ) : files.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-3 py-10 text-center text-slate-500">
-                    No files found for current filters.
-                  </td>
-                </tr>
+                <tr><td colSpan={6} className="px-4 py-10 text-center text-xs" style={{ color: "var(--text-tertiary)" }}>No files found for current filters.</td></tr>
               ) : (
                 files.map((row) => {
                   const busy = actionRawId === row.raw_id;
                   return (
-                    <tr key={row.raw_id} className="border-t border-slate-800/80">
-                      <td className="px-3 py-2">
-                        <div className="max-w-[280px] truncate text-slate-200">{row.filename}</div>
+                    <tr
+                      key={row.raw_id}
+                      className={`group transition-colors hover:bg-white/[0.02] ${rowAccent(row.ingest_status, row.delete_requested)}`}
+                      style={{ borderBottom: "1px solid var(--os-stroke)" }}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="max-w-[240px] truncate text-sm font-medium" style={{ color: "var(--text-primary)" }} title={row.filename}>
+                          {row.filename}
+                        </div>
                         {row.error && (
-                          <div className="mt-0.5 flex items-center gap-1 text-[11px] text-rose-400">
-                            <XCircle size={12} /> {row.error}
+                          <div className="mt-0.5 flex items-center gap-1 text-[11px]" style={{ color: "var(--faim-error-text)" }}>
+                            <XCircle size={11} /> {row.error}
                           </div>
                         )}
                       </td>
-                      <td className="px-3 py-2">
-                        <Badge size="xs" variant={statusVariant(row.ingest_status)}>
-                          {row.ingest_status}
-                        </Badge>
+                      <td className="px-4 py-3">
+                        <Badge size="xs" variant={statusVariant(row.ingest_status)}>{row.ingest_status}</Badge>
                       </td>
-                      <td className="px-3 py-2 text-slate-300">{formatBytes(row.size_bytes)}</td>
-                      <td className="px-3 py-2 font-mono text-[11px] text-slate-400">{shortId(row.raw_id)}</td>
-                      <td className="px-3 py-2 text-slate-400">
+                      <td className="px-4 py-3 text-xs tabular-nums" style={{ color: "var(--text-secondary)" }}>{formatBytes(row.size_bytes)}</td>
+                      <td className="px-4 py-3 font-mono text-[11px]" style={{ color: "var(--text-tertiary)" }}>{shortId(row.raw_id)}</td>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--text-tertiary)" }}>
                         {row.updated_at ? new Date(row.updated_at).toLocaleString() : "-"}
                       </td>
-                      <td className="px-3 py-2">
-                        <div className="flex items-center gap-1">
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            className="h-7"
-                            data-testid="storage-file-inspect"
-                            data-raw-id={row.raw_id}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          <Button size="xs" variant="ghost" className="h-6 text-[11px]"
+                            data-testid="storage-file-inspect" data-raw-id={row.raw_id}
                             disabled={busy || row.delete_requested}
-                            leftIcon={<FileSearch size={12} />}
-                            onClick={() => {
-                              void openProvenance(row.raw_id);
-                            }}
-                          >
-                            Inspect
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            className="h-7"
-                            disabled={
-                              busy || row.delete_requested || !ingestModePolicy.supported
-                            }
-                            onClick={() => {
-                              void runFileAction(row.raw_id, "ingest");
-                            }}
-                          >
-                            Re-ingest
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="outline"
-                            className="h-7"
-                            disabled={
-                              busy ||
-                              row.ingest_status !== "failed" ||
-                              !ingestModePolicy.supported
-                            }
-                            leftIcon={<RotateCcw size={12} />}
-                            onClick={() => {
-                              void runFileAction(row.raw_id, "retry");
-                            }}
-                          >
-                            Retry
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="danger"
-                            className="h-7"
+                            leftIcon={<FileSearch size={11} />}
+                            onClick={() => { void openProvenance(row.raw_id); }}>Inspect</Button>
+                          <Button size="xs" variant="ghost" className="h-6 text-[11px]"
+                            disabled={busy || row.delete_requested || !ingestModePolicy.supported}
+                            onClick={() => { void runFileAction(row.raw_id, "ingest"); }}>Re-ingest</Button>
+                          <Button size="xs" variant="ghost" className="h-6 text-[11px]"
+                            disabled={busy || row.ingest_status !== "failed" || !ingestModePolicy.supported}
+                            leftIcon={<RotateCcw size={11} />}
+                            onClick={() => { void runFileAction(row.raw_id, "retry"); }}>Retry</Button>
+                          <Button size="xs" variant="danger" className="h-6 text-[11px]"
                             disabled={busy || row.delete_requested}
-                            onClick={() => {
-                              void runFileAction(row.raw_id, "delete");
-                            }}
-                          >
-                            Delete Req
-                          </Button>
+                            onClick={() => { void runFileAction(row.raw_id, "delete"); }}>Delete Req</Button>
                         </div>
                       </td>
                     </tr>
@@ -1756,33 +1850,24 @@ export default function StoragePage() {
           </table>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <span>{loadingSummary ? "Loading summary..." : `Total ${total} file(s)`}</span>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="xs"
-              className="h-7"
-              disabled={page <= 0}
-              onClick={() => setPage((prev) => Math.max(0, prev - 1))}
-            >
-              Prev
-            </Button>
-            <span>
-              Page {Math.min(page + 1, totalPages)} / {totalPages}
+        {/* Footer / Pagination */}
+        <div
+          className="flex items-center justify-between border-t px-5 py-3 text-xs"
+          style={{ borderColor: "var(--os-stroke)", color: "var(--text-tertiary)" }}
+        >
+          <span>{loadingSummary ? "Loading..." : `Total ${total} file(s)`}</span>
+          <div className="flex items-center gap-1.5">
+            <Button variant="ghost" size="xs" className="h-6" disabled={page <= 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Prev</Button>
+            <span className="px-2 tabular-nums" style={{ color: "var(--text-secondary)" }}>
+              {Math.min(page + 1, totalPages)} / {totalPages}
             </span>
-            <Button
-              variant="outline"
-              size="xs"
-              className="h-7"
-              disabled={page + 1 >= totalPages}
-              onClick={() => setPage((prev) => prev + 1)}
-            >
-              Next
-            </Button>
+            <Button variant="ghost" size="xs" className="h-6" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
           </div>
         </div>
-      </Card>
+      </div>
+
+
+
 
       {supportedTypesOpen && (
         <div className="fixed inset-0 z-40">
