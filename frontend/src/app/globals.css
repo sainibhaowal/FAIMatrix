@@ -8,8 +8,13 @@
 
 @layer base {
   :root {
+    /* Font Bindings (Next.js Native) */
+    --font-heading: var(--font-inter), sans-serif;
+    --font-body: var(--font-inter), sans-serif;
+
     /* Base HSL Colors (Compatible with shadcn/ui) */
-    --background: 223.6 44% 4.9%; /* #070A12 */
+    --background: 223.6 44% 4.9%;
+    /* #070A12 */
     --foreground: 210 40% 98%;
 
     --card: 223.6 44% 6.5%;
@@ -18,10 +23,12 @@
     --popover: 223.6 44% 7%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 189 94% 55%; /* #22D3EE */
+    --primary: 189 94% 55%;
+    /* #22D3EE */
     --primary-foreground: 223.6 44% 6%;
 
-    --secondary: 258 90% 66%; /* #8B5CF6 */
+    --secondary: 258 90% 66%;
+    /* #8B5CF6 */
     --secondary-foreground: 210 40% 98%;
 
     --muted: 223.6 20% 12%;
@@ -116,18 +123,21 @@
 
   * {
     border-color: hsl(var(--border));
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11"; /* Inter features */
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /* Inter features */
   }
 
   body {
     background: var(--os-bg);
     color: hsl(var(--foreground));
-    font-size: 14px; /* Enterprise default density */
+    font-size: 14px;
+    /* Enterprise default density */
     letter-spacing: -0.011em;
   }
 }
 
 @layer utilities {
+
   /* Surface System */
   .os-surface {
     background: var(--os-surface-1);
@@ -193,10 +203,12 @@
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(100%);
   }
 }
+
 /* =============================================================================
    ACCESSIBILITY UTILITIES
    ============================================================================= */
@@ -240,6 +252,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -250,17 +263,20 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
 }
 
 @keyframes pulse-glow {
+
   0%,
   100% {
     opacity: 1;
     filter: brightness(1);
   }
+
   50% {
     opacity: 0.8;
     filter: brightness(1.3);

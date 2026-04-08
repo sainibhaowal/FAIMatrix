@@ -4,6 +4,18 @@ import React, { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
+import { 
+  User, 
+  Settings, 
+  ShieldAlert, 
+  Fingerprint, 
+  Database, 
+  Clock, 
+  ShieldCheck,
+  LogOut
+} from "lucide-react";
+import { GlassHeader } from "@/components/layout/GlassHeader";
+import { Button } from "@/components/ui/Button";
 
 // Real Identity Avatars (clean, no dev prefixes)
 const AVATARS = [
@@ -66,7 +78,6 @@ export default function ProfilePage() {
       });
 
       if (res.ok) {
-        // Purge success - log out
         signOut({ callbackUrl: "/auth/login" });
       } else {
         const errData = await res.json().catch(() => ({ detail: "Unknown error" }));
@@ -86,56 +97,99 @@ export default function ProfilePage() {
   const tenantId = userId ? `user:${userId}` : "N/A";
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 pb-12 text-slate-100">
-      {/* Header */}
-      <header className="flex items-center justify-between border-b border-white/10 pb-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-white">
-            Identity Hub
-          </h1>
-          <p className="mt-1 text-slate-400 text-sm">Real-time profile and data sovereignty management.</p>
-        </div>
-        <button
-          onClick={() => signOut({ callbackUrl: "/auth/login" })}
-          className="px-5 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-xs font-semibold uppercase tracking-wider transition-all"
-        >
-          Sign Out
-        </button>
-      </header>
+    <div className="relative space-y-4 pb-8 text-slate-100 px-1">
+      <div className="faim-grid" />
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-        {/* Left: Avatar Card */}
-        <div className="md:col-span-1">
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-6 flex flex-col items-center">
-            <div className="relative h-32 w-32 rounded-full overflow-hidden border border-white/10 bg-slate-900 shadow-xl">
-               {avatarId || user?.image ? (
-                 // eslint-disable-next-line @next/next/no-img-element
-                 <img 
-                   src={avatarId ? getAvatarUrl(avatarId) : user!.image!} 
-                   alt={user?.name || "User"} 
-                   className="h-full w-full object-cover"
-                 />
-               ) : (
-                 <div className="h-full w-full flex items-center justify-center bg-slate-800 text-3xl font-bold text-slate-500">
-                    {user?.name?.[0]?.toUpperCase() || "?"}
-                 </div>
-               )}
+      <GlassHeader 
+        title="Identity Hub"
+        subtitle="Real-time profile and data sovereignty management"
+        icon={User}
+        actions={
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => signOut({ callbackUrl: "/auth/login" })}
+            leftIcon={<LogOut size={14} />}
+          >
+            Sign Out
+          </Button>
+        }
+      />
+
+      {/* --- Profile Metric Strip --- */}
+      <div
+        className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+      >
+        {[
+          { label: "Access Level", value: "Root Admin", icon: <ShieldCheck size={18} />, color: "text-cyan-200" },
+          { label: "Session Age", value: "2.4h", icon: <Clock size={18} />, color: "text-emerald-400" },
+          { label: "Graph Context", value: "Active", icon: <Database size={18} />, color: "text-amber-400" },
+          { label: "Identity Hash", value: "U:621b", icon: <Fingerprint size={18} />, color: "text-slate-400" },
+        ].map((stat, i) => (
+          <div
+            key={stat.label}
+            className="relative flex flex-col justify-center px-6 py-3"
+            style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                {stat.label}
+              </p>
+              <div className="opacity-20">{stat.icon}</div>
             </div>
-            <div className="mt-4 text-center">
-              <h2 className="text-lg font-bold text-white leading-tight">{user?.name || "Authenticated User"}</h2>
-              <div className="mt-1 text-[10px] text-slate-500 font-mono uppercase tracking-widest">
-                Active Session
+            <p className="font-semibold tabular-nums leading-none" style={{ fontSize: 26 }}>
+              <span className={stat.color}>{stat.value}</span>
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
+        {/* Left: Avatar Panel */}
+        <div className="lg:col-span-1">
+          <div 
+            className="rounded-xl border overflow-hidden"
+            style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+          >
+            <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Neural Avatar</p>
+            </div>
+            <div className="p-8 flex flex-col items-center">
+              <div className="relative h-32 w-32 rounded-full overflow-hidden border p-1" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
+                 {avatarId || user?.image ? (
+                   // eslint-disable-next-line @next/next/no-img-element
+                   <img 
+                     src={avatarId ? getAvatarUrl(avatarId) : user!.image!} 
+                     alt={user?.name || "User"} 
+                     className="h-full w-full rounded-full object-cover"
+                   />
+                 ) : (
+                   <div className="h-full w-full rounded-full flex items-center justify-center bg-slate-800 text-3xl font-bold text-slate-500">
+                      {user?.name?.[0]?.toUpperCase() || "?"}
+                   </div>
+                 )}
+              </div>
+              <div className="mt-4 text-center">
+                <h2 className="text-lg font-bold text-white leading-tight">{user?.name || "Authenticated User"}</h2>
+                <div className="mt-1 text-[10px] text-slate-500 font-mono uppercase tracking-widest">
+                  Identity Validated
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right: Technical Details */}
-        <div className="md:col-span-3 space-y-6">
-          <section className="rounded-2xl border border-white/10 bg-black/20 p-8">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-[0.2em] mb-8">Technical Parameters</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+        {/* Right: Technical Details Panel */}
+        <div className="lg:col-span-3 space-y-6">
+          <div 
+            className="rounded-xl border overflow-hidden"
+            style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+          >
+            <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Technical Parameters</p>
+            </div>
+            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">Name</label>
                 <div className="text-sm font-medium text-slate-200">{user?.name || "N/A"}</div>
@@ -163,25 +217,34 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-          </section>
+          </div>
 
           {/* Danger Zone */}
-          <section className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-8">
-            <h3 className="text-xs font-bold text-rose-500 uppercase tracking-[0.2em] mb-2">Danger Zone</h3>
-            <p className="text-xs text-slate-500 mb-6">
-              Account deletion is an irreversible operation that transactionally purges all associated graph data, memories, and access keys from the system.
-            </p>
-            <button
-              onClick={() => setDeleteConfirmStep(1)}
-              className="px-6 py-3 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white text-xs font-bold uppercase tracking-widest transition-all"
-            >
-              Delete Account
-            </button>
-          </section>
+          <div 
+            className="rounded-xl border border-rose-500/20 bg-rose-500/5 overflow-hidden"
+          >
+            <div className="border-b border-rose-500/10 px-5 py-3 flex items-center gap-2">
+              <ShieldAlert size={14} className="text-rose-500" />
+              <p className="text-[10px] font-medium uppercase tracking-widest text-rose-500">Danger Zone</p>
+            </div>
+            <div className="p-8">
+              <p className="text-xs text-slate-500 mb-6 max-w-2xl">
+                Account deletion is an irreversible operation that transactionally purges all associated graph data, memories, and access keys from the system.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-rose-500/30 text-rose-500 hover:bg-rose-500 hover:text-white"
+                onClick={() => setDeleteConfirmStep(1)}
+              >
+                Delete Account
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Account Deletion Modal */}
+      {/* Account Deletion Modal (Unchanged logical flow) */}
       {deleteConfirmStep > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="max-w-md w-full bg-slate-900 border border-white/10 rounded-2xl p-8 shadow-2xl">
@@ -230,7 +293,7 @@ export default function ProfilePage() {
                       if (error) setError(null);
                     }}
                     placeholder="Type DELETE"
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-center font-mono text-lg tracking-widest focus:outline-none focus:border-rose-500/50 transition-all"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-center font-mono text-lg tracking-widest focus:outline-none focus:border-rose-500/50 transition-all font-bold"
                     autoFocus
                   />
                   {error && (

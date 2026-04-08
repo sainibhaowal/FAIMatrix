@@ -112,11 +112,11 @@ export function nodeColorByState(state: FigNodeDisplayState, selected: boolean):
 // ---------------------------------------------------------------------------
 
 const EDGE_COLORS: Record<string, string> = {
-  inheritance: "#22d3ee80", // cyan-400 with alpha
-  opposition: "#f8717180",  // red-400 with alpha
+  inheritance: "#22d3ee", // cyan-400
+  opposition: "#f87171",  // red-400
 };
 
-const EDGE_DEFAULT_COLOR = "#47556980"; // slate-600 with alpha
+const EDGE_DEFAULT_COLOR = "#475569"; // slate-600
 
 export function edgeColorByKind(kind: string): string {
   return EDGE_COLORS[kind] ?? EDGE_DEFAULT_COLOR;

@@ -232,11 +232,11 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
         {/* Page body */}
         <main className={[
           "flex-1",
-          pathname === "/dashboard/graph"
+          pathname === "/dashboard/graph" || pathname === "/dashboard/memory-query"
             ? "overflow-hidden p-0"
             : "overflow-y-auto px-4 py-6 md:px-6",
         ].join(" ")}>
-           <div className={pathname === "/dashboard/graph" ? "h-full" : "mx-auto max-w-[1400px]"}>
+           <div className={pathname === "/dashboard/graph" || pathname === "/dashboard/memory-query" ? "h-full" : "mx-auto max-w-[1400px]"}>
               {children}
            </div>
         </main>

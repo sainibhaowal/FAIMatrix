@@ -1,8 +1,15 @@
 // src/app/layout.tsx
 import type { Metadata } from "next";
+import { Inter, Oswald } from "next/font/google";
 import "./globals.css";
 
 import { Providers } from "@/components";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: {
@@ -88,14 +95,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${inter.variable}`}>
       <head>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body className="min-h-screen bg-slate-950 text-slate-100 antialiased overflow-x-hidden">
+      <body className="font-sans min-h-screen bg-slate-950 text-slate-100 antialiased overflow-x-hidden">
         <a href="#main-content" className="skip-link">
           Skip to main content
         </a>

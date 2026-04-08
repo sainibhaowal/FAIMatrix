@@ -252,6 +252,7 @@ export default function FigViewPage() {
           ref={canvasRef}
           data={data}
           layoutMode={layoutMode}
+          topMode={topMode}
           locked={locked}
           selectedNodeId={selectedNodeId}
           onNodeSelect={setSelectedNodeId}
