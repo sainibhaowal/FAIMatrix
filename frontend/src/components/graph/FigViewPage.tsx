@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  AlertTriangle,
   BarChart2,
   Box,
   Filter,
@@ -12,11 +11,12 @@ import {
   Move,
   Network,
   RefreshCw,
+  Search,
   Share2,
   Zap,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   Badge,
@@ -28,10 +28,22 @@ import {
 import FigCanvas from "@/components/graph/FigCanvas";
 import type { FigCanvasHandle } from "@/components/graph/FigCanvas";
 import FigControls from "@/components/graph/FigControls";
-import { fetchGraphSurface } from "@/lib/figViewApi";
+import FigFloatingCard from "@/components/graph/FigFloatingCard";
+import FigInspector from "@/components/graph/FigInspector";
+import FigLegend from "@/components/graph/FigLegend";
+import FigMetricsBar from "@/components/graph/FigMetricsBar";
+import FigRelationPanel from "@/components/graph/FigRelationPanel";
+import FigSearch from "@/components/graph/FigSearch";
+import { fetchGraphExplain, fetchGraphSurface } from "@/lib/figViewApi";
+import { buildAdjacency, buildNodeIndex } from "@/lib/figViewGraphTransform";
 import type { LayoutMode } from "@/lib/figViewLayout";
 import { clearStaleGraphState, nodeStateClass, safeNodeTitle } from "@/lib/figViewSafety";
-import type { FigLoadState, FigNode, FigSurfaceResponse } from "@/types/figView";
+import type {
+  FigExplainResponse,
+  FigLoadState,
+  FigNode,
+  FigSurfaceResponse,
+} from "@/types/figView";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -191,7 +203,7 @@ function EdgePanel({ edges }: { edges: FigSurfaceResponse["edges"] }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-type DrawerPanel = "nodes" | "edges" | "snapshot" | "timeline" | "controls" | null;
+type DrawerPanel = "nodes" | "edges" | "snapshot" | "timeline" | "controls" | "inspector" | "relation" | "legend" | null;
 type TopMode = "explore" | "analyze" | "lineage";
 
 export default function FigViewPage() {
@@ -208,11 +220,92 @@ export default function FigViewPage() {
   const canvasRef = useRef<FigCanvasHandle>(null);
   const initializedRef = useRef(false);
 
+  // --- Phase 6-7 state ---
+  // Pinned node for relation/explain comparisons
+  const [pinnedNodeId, setPinnedNodeId] = useState<string | null>(null);
+  // Hover card
+  const [hoverNode, setHoverNode] = useState<FigNode | null>(null);
+  const [hoverPos, setHoverPos] = useState({ x: 0, y: 0 });
+  // Explain result
+  const [explainResult, setExplainResult] = useState<FigExplainResponse | null>(null);
+  const [explainLoading, setExplainLoading] = useState(false);
+  // Search overlay
+  const [searchOpen, setSearchOpen] = useState(false);
+  // Client-side kind filters (never mutate backend data)
+  const [hiddenNodeKinds, setHiddenNodeKinds] = useState<Set<string>>(new Set());
+  const [hiddenEdgeKinds, setHiddenEdgeKinds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     if (initializedRef.current) return;
     const sessionGraphId = (session as { graphId?: string } | null)?.graphId;
     if (sessionGraphId) { setGraphId(sessionGraphId); initializedRef.current = true; }
   }, [session]);
+
+  // Derived graph structures (stable between renders)
+  const graphData = state.status === "loaded" || state.status === "degraded" ? state.data : null;
+  const nodeIndex = useMemo(() => buildNodeIndex(graphData?.nodes ?? []), [graphData?.nodes]);
+  const adj = useMemo(() => buildAdjacency(graphData?.edges ?? []), [graphData?.edges]);
+  const nodeKinds = useMemo(
+    () => Array.from(new Set((graphData?.nodes ?? []).map((n) => n.kind))).sort(),
+    [graphData?.nodes],
+  );
+  const edgeKinds = useMemo(
+    () => Array.from(new Set((graphData?.edges ?? []).map((e) => e.kind))).sort(),
+    [graphData?.edges],
+  );
+
+  // --- Phase 6-7 handlers ---
+
+  const handlePinToggle = useCallback((nodeId: string) => {
+    setPinnedNodeId((prev) => (prev === nodeId ? null : nodeId));
+  }, []);
+
+  const handleNavigateToNode = useCallback(
+    (nodeId: string) => {
+      setSelectedNodeId(nodeId);
+      canvasRef.current?.centerOnNode(nodeId);
+    },
+    [],
+  );
+
+  const handleRequestExplain = useCallback(
+    async (fromNodeId: string, toNodeId: string) => {
+      if (!graphId) return;
+      setExplainLoading(true);
+      setExplainResult(null);
+      try {
+        const result = await fetchGraphExplain(graphId, fromNodeId, toNodeId);
+        setExplainResult(result);
+      } catch (err) {
+        toast.error("Explain failed", err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        setExplainLoading(false);
+      }
+    },
+    [graphId, toast],
+  );
+
+  const handleNodeHover = useCallback(
+    (node: FigNode | null, x: number, y: number) => {
+      setHoverNode(node);
+      if (node) setHoverPos({ x, y });
+    },
+    [],
+  );
+
+  // "/" key opens search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
 
   const loadSurface = useCallback(async (targetGraphId: string) => {
     if (!targetGraphId) return;
@@ -238,8 +331,16 @@ export default function FigViewPage() {
     if (mode === "lineage") setActiveDrawer("edges");
   };
 
+  // Auto-open inspector when a node is selected (Phase 6)
+  const handleNodeSelect = useCallback((nodeId: string | null) => {
+    setSelectedNodeId(nodeId);
+    if (nodeId) {
+      setActiveDrawer("inspector");
+    }
+  }, []);
+
   const graphLabel = graphId ? graphId.slice(0, 12) + (graphId.length > 12 ? "…" : "") : "—";
-  const data = state.status === "loaded" || state.status === "degraded" ? state.data : null;
+  const data = graphData;
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-transparent">
@@ -255,7 +356,10 @@ export default function FigViewPage() {
           topMode={topMode}
           locked={locked}
           selectedNodeId={selectedNodeId}
-          onNodeSelect={setSelectedNodeId}
+          hiddenNodeKinds={hiddenNodeKinds}
+          hiddenEdgeKinds={hiddenEdgeKinds}
+          onNodeSelect={handleNodeSelect}
+          onNodeHover={handleNodeHover}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center p-8 bg-slate-950">
@@ -295,7 +399,18 @@ export default function FigViewPage() {
             ))}
           </div>
         </div>
-        <button onClick={() => loadSurface(graphId)} className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/60 bg-slate-950/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/30 transition-all backdrop-blur"><RefreshCw size={13} /></button>
+        <div className="flex items-center gap-1 pointer-events-auto">
+          <button
+            onClick={() => setSearchOpen(true)}
+            title="Search nodes (press /)"
+            className="flex h-7 items-center gap-1.5 rounded-md border border-slate-700/60 bg-slate-950/60 px-2.5 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/30 transition-all backdrop-blur text-[10px]"
+          >
+            <Search size={11} />
+            <span className="hidden sm:inline">Search</span>
+            <span className="text-[9px] text-slate-600 border border-slate-700/60 rounded px-1">/</span>
+          </button>
+          <button onClick={() => loadSurface(graphId)} className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/60 bg-slate-950/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/30 transition-all backdrop-blur"><RefreshCw size={13} /></button>
+        </div>
       </div>
 
       {/* ===================================================================
@@ -303,14 +418,31 @@ export default function FigViewPage() {
       =================================================================== */}
       <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1.5">
         {[
-          { id: "nodes", icon: <Zap size={14} />, label: "Nodes" },
+          { id: "inspector", icon: <Zap size={14} />, label: "Inspector", dot: !!selectedNodeId },
+          { id: "nodes", icon: <Network size={14} />, label: "Nodes" },
           { id: "edges", icon: <GitFork size={14} />, label: "Edges" },
+          { id: "relation", icon: <Share2 size={14} />, label: "Relation" },
+          { id: "legend", icon: <Layers size={14} />, label: "Legend" },
           { id: "snapshot", icon: <BarChart2 size={14} />, label: "Snapshot" },
           { id: "timeline", icon: <Hash size={14} />, label: "Timeline" },
           { id: "controls", icon: <Filter size={14} />, label: "Controls" },
         ].map((btn) => (
-          <button key={btn.id} onClick={() => toggleDrawer(btn.id as DrawerPanel)} className={[ "flex h-8 w-8 items-center justify-center rounded-lg border transition-all duration-150 backdrop-blur-sm", activeDrawer === btn.id ? "border-cyan-400/50 bg-cyan-500/20 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.2)]" : "border-slate-700/60 bg-slate-950/70 text-slate-400 hover:border-cyan-400/30 hover:bg-slate-900/80 hover:text-slate-200" ].join(" ")}>
+          <button
+            key={btn.id}
+            onClick={() => toggleDrawer(btn.id as DrawerPanel)}
+            title={btn.label}
+            className={[
+              "relative flex h-8 w-8 items-center justify-center rounded-lg border transition-all duration-150 backdrop-blur-sm",
+              activeDrawer === btn.id
+                ? "border-cyan-400/50 bg-cyan-500/20 text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
+                : "border-slate-700/60 bg-slate-950/70 text-slate-400 hover:border-cyan-400/30 hover:bg-slate-900/80 hover:text-slate-200",
+            ].join(" ")}
+          >
             {btn.icon}
+            {/* Activity dot — shows when inspector has a selected node */}
+            {"dot" in btn && btn.dot && activeDrawer !== btn.id && (
+              <span className="absolute top-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-cyan-400" />
+            )}
           </button>
         ))}
         <div className="my-1 h-px w-8 bg-slate-700/50" />
@@ -318,9 +450,33 @@ export default function FigViewPage() {
       </div>
 
       {/* ===================================================================
-          BOTTOM CENTER — Stats pill bar
+          HOVER CARD (portal — renders over canvas)
       =================================================================== */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30"><StatsPill data={data} /></div>
+      <FigFloatingCard node={hoverNode} x={hoverPos.x} y={hoverPos.y} />
+
+      {/* ===================================================================
+          SEARCH OVERLAY
+      =================================================================== */}
+      {searchOpen && data && (
+        <FigSearch
+          nodes={data.nodes}
+          nodeIndex={nodeIndex}
+          onSelectNode={handleNavigateToNode}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
+
+      {/* ===================================================================
+          BOTTOM CENTER — Metrics bar (replaces legacy stats pill)
+      =================================================================== */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30">
+        <FigMetricsBar
+          topology={data?.topology ?? null}
+          snapshot={data?.snapshot ?? null}
+          nodeCount={data?.nodes?.length ?? 0}
+          edgeCount={data?.edges?.length ?? 0}
+        />
+      </div>
 
       {/* ===================================================================
           BOTTOM RIGHT — Zoom controls
@@ -338,6 +494,84 @@ export default function FigViewPage() {
       {/* ===================================================================
           DRAWERS
       =================================================================== */}
+      {/* Inspector — auto-opens on node select */}
+      <FloatingDrawer
+        open={activeDrawer === "inspector"}
+        onClose={() => setActiveDrawer(null)}
+        title={selectedNodeId ? `Node — ${selectedNodeId.slice(0, 8)}…` : "Inspector"}
+      >
+        {selectedNodeId && nodeIndex.get(selectedNodeId) && data ? (
+          <FigInspector
+            node={nodeIndex.get(selectedNodeId)!}
+            graphId={graphId}
+            allEdges={data.edges}
+            nodeIndex={nodeIndex}
+            adj={adj}
+            pinnedNodeId={pinnedNodeId}
+            onPinToggle={handlePinToggle}
+            onNavigateToNode={handleNavigateToNode}
+            onRequestExplain={handleRequestExplain}
+            explainResult={explainResult}
+            explainLoading={explainLoading}
+          />
+        ) : (
+          <p className="text-xs text-slate-500 text-center py-6">
+            Click a node in the graph to inspect it.
+          </p>
+        )}
+      </FloatingDrawer>
+
+      {/* Relation Explorer */}
+      <FloatingDrawer
+        open={activeDrawer === "relation"}
+        onClose={() => setActiveDrawer(null)}
+        title="Explore Relation"
+      >
+        {data ? (
+          <FigRelationPanel
+            graphId={graphId}
+            nodes={data.nodes}
+            nodeIndex={nodeIndex}
+            initialFromId={pinnedNodeId}
+            initialToId={selectedNodeId}
+            onNavigateToNode={handleNavigateToNode}
+            onRequestExplain={handleRequestExplain}
+            explainResult={explainResult}
+            explainLoading={explainLoading}
+          />
+        ) : (
+          <p className="text-xs text-slate-500 text-center py-6">No graph data loaded.</p>
+        )}
+      </FloatingDrawer>
+
+      {/* Legend + Filters */}
+      <FloatingDrawer
+        open={activeDrawer === "legend"}
+        onClose={() => setActiveDrawer(null)}
+        title="Legend & Filters"
+      >
+        <FigLegend
+          nodeKinds={nodeKinds}
+          edgeKinds={edgeKinds}
+          hiddenNodeKinds={hiddenNodeKinds}
+          hiddenEdgeKinds={hiddenEdgeKinds}
+          onToggleNodeKind={(kind) =>
+            setHiddenNodeKinds((prev) => {
+              const next = new Set(prev);
+              next.has(kind) ? next.delete(kind) : next.add(kind);
+              return next;
+            })
+          }
+          onToggleEdgeKind={(kind) =>
+            setHiddenEdgeKinds((prev) => {
+              const next = new Set(prev);
+              next.has(kind) ? next.delete(kind) : next.add(kind);
+              return next;
+            })
+          }
+        />
+      </FloatingDrawer>
+
       <FloatingDrawer open={activeDrawer === "nodes"} onClose={() => setActiveDrawer(null)} title={`Nodes (${data?.nodes?.length || 0})`}><NodePanel nodes={data?.nodes || []} /></FloatingDrawer>
       <FloatingDrawer open={activeDrawer === "edges"} onClose={() => setActiveDrawer(null)} title={`Edges (${data?.edges?.length || 0})`}><EdgePanel edges={data?.edges || []} /></FloatingDrawer>
       <FloatingDrawer open={activeDrawer === "snapshot"} onClose={() => setActiveDrawer(null)} title="Graph Snapshot">
