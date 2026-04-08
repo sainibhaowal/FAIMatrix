@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  ChevronDown,
   Copy,
   Eye,
   EyeOff,
@@ -12,6 +13,7 @@ import {
   ShieldOff,
   Trash2,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { getSession, useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -25,6 +27,7 @@ import {
   Select,
   useToast,
 } from "@/components/ui";
+import { GlassHeader } from "@/components/layout/GlassHeader";
 
 type ApiKeyItem = {
   tenant_id: string;
@@ -78,6 +81,86 @@ type ApiKeyAuditResponse = {
   total: number;
   limit: number;
 };
+
+// --- Custom Themed Select Component (Storage Parity) ---
+function ThemedSelect<T extends string>({
+  value,
+  onChange,
+  options,
+  className = "",
+  placeholder = "Select...",
+  label = "",
+}: {
+  value: T;
+  onChange: (val: T) => void;
+  options: { value: T; label: string }[];
+  className?: string;
+  placeholder?: string;
+  label?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === value);
+
+  return (
+    <div className={`relative ${className}`}>
+      {label && <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>{label}</p>}
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex h-8 w-full items-center justify-between gap-2 rounded-lg border px-2.5 text-xs outline-none transition-all hover:bg-white/5 active:scale-[0.98]"
+        style={{
+          background: "var(--os-surface-2)",
+          borderColor: "var(--os-stroke)",
+          color: "var(--text-primary)",
+        }}
+      >
+        <span className="truncate">{current?.label || placeholder}</span>
+        <ChevronDown
+          size={14}
+          className={`shrink-0 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+          style={{ color: "var(--text-tertiary)" }}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-[var(--z-modal)]" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              className="absolute left-0 top-full z-[var(--z-dropdown)] w-full min-w-[120px] mt-1 overflow-hidden rounded-xl border p-1 shadow-2xl backdrop-blur-xl"
+              style={{
+                background: "rgba(10, 15, 25, 0.95)",
+                borderColor: "var(--os-stroke)",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
+              }}
+            >
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  className={`flex h-8 w-full items-center rounded-lg px-2.5 text-xs transition-colors ${
+                    opt.value === value
+                      ? "bg-indigo-500/10 font-medium text-indigo-400"
+                      : "text-[var(--text-secondary)] hover:bg-white/5"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 class ApiError extends Error {
   status: number;
@@ -387,73 +470,154 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div className="space-y-6 pb-8 text-slate-100">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold">API Keys</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Tenant-scoped key lifecycle, scope control, rotation, revocation, and audit history.
+    <div className="relative min-h-screen space-y-4 pb-8 text-slate-100 px-1">
+      <div className="faim-grid" />
+      
+      <GlassHeader
+        title="API Keys"
+        subtitle="Manage Secure Access Matrix and Tenant-Scoped Lifecycle"
+        icon={KeyRound}
+        actions={
+          <Button
+            variant="outline"
+            leftIcon={<RefreshCw size={14} />}
+            onClick={() => {
+              void loadKeys();
+              void loadAudit();
+            }}
+            className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 backdrop-blur-md h-10 px-5 text-[11px] font-bold uppercase tracking-[0.2em]"
+            disabled={loadingKeys || loadingAudit}
+          >
+            Refresh Matrix
+          </Button>
+        }
+      />
+
+      {/* --- Metrics Scorecard (Storage Parity) --- */}
+      <div
+        className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+      >
+        {[
+          { label: "Total Keys", value: summary.total, icon: KeyRound, color: "text-cyan-200" },
+          { label: "Active Keys", value: summary.active, icon: ShieldCheck, color: "text-emerald-400" },
+          { label: "Revoked", value: summary.revoked, icon: ShieldOff, color: "text-rose-400" },
+          { label: "Expired", value: summary.expired, icon: RotateCcw, color: "text-amber-400" },
+        ].map((stat, i) => (
+          <div
+            key={stat.label}
+            className="relative flex flex-col justify-center px-6 py-3"
+            style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                {stat.label}
+              </p>
+              <stat.icon size={18} className="opacity-20" />
+            </div>
+            <p className="font-semibold tabular-nums leading-none" style={{ fontSize: 26 }}>
+              <span className={stat.color}>{stat.value}</span>
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <div 
+        className="overflow-hidden rounded-xl border transition-all duration-500"
+        style={{
+          borderColor: reveal ? "var(--faim-warning)" : "var(--os-stroke)",
+          background: reveal ? "var(--faim-warning-muted)" : "var(--os-surface-1)",
+        }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+            One-time key reveal
+          </p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+            {reveal ? `${reveal.mode === "created" ? "New" : "Rotated"} key: ${reveal.keyId}` : "Awaiting key generation"}
           </p>
         </div>
-        <Button
-          variant="outline"
-          leftIcon={<RefreshCw size={15} />}
-          onClick={() => {
-            void loadKeys();
-            void loadAudit();
-          }}
-          disabled={loadingKeys || loadingAudit}
-        >
-          Refresh
-        </Button>
-      </header>
-
-      {reveal && (
-        <Card className="os-card rounded-2xl border-amber-500/20 bg-amber-500/5">
-          <CardHeader
-            title="One-time key reveal"
-            description={`${reveal.mode === "created" ? "New" : "Rotated"} key: ${reveal.keyId}`}
-          />
-          <CardContent className="space-y-3 pt-3">
-            <p className="text-xs text-slate-300">
-              Save this key now. It will not be shown again.
-            </p>
-            <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 font-mono text-xs break-all text-slate-100">
-              {isRevealVisible ? reveal.plaintext : maskSecret(reveal.plaintext)}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                leftIcon={isRevealVisible ? <EyeOff size={14} /> : <Eye size={14} />}
-                onClick={() => setIsRevealVisible((prev) => !prev)}
+        <div className={reveal ? "pt-5" : "pt-0 pb-6 opacity-40 transition-all duration-500"}>
+          <AnimatePresence mode="wait">
+            {reveal ? (
+              <motion.div
+                key="revealed"
+                initial={{ opacity: 0, height: 0, y: -10, filter: "blur(4px)" }}
+                animate={{ opacity: 1, height: "auto", y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, height: 0, y: -10, filter: "blur(4px)" }}
+                transition={{ duration: 0.4, ease: "easeOut" }}
+                className="space-y-4 overflow-hidden"
               >
-                {isRevealVisible ? "Hide key" : "Show key"}
-              </Button>
-              <Button size="sm" variant="primary" leftIcon={<Copy size={14} />} onClick={copyReveal}>
-                Copy key
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setReveal(null)}>
-                Dismiss
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faim-warning-text)]">
+                  Save this key now. It will not be shown again.
+                </p>
+                <div className="rounded-xl border p-4 font-mono text-xs break-all text-white shadow-inner" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+                  {isRevealVisible ? reveal.plaintext : maskSecret(reveal.plaintext)}
+                </div>
+                <div className="flex gap-3 pb-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    leftIcon={isRevealVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                    onClick={() => setIsRevealVisible((prev) => !prev)}
+                    className="bg-black/20 border-white/10"
+                  >
+                    {isRevealVisible ? "Hide key" : "Show key"}
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="primary" 
+                    leftIcon={<Copy size={14} />} 
+                    onClick={copyReveal}
+                    className="shadow-sm"
+                  >
+                    Copy key
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setReveal(null)} className="text-slate-400">
+                    Dismiss
+                  </Button>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center justify-center gap-2 overflow-hidden"
+              >
+                <KeyRound size={24} className="text-slate-500" />
+                <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">No unrevealed keys</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
-        <Card className="os-card rounded-2xl">
-          <CardHeader title="Create API key" description={`Actor: ${userName}`} />
-          <CardContent className="space-y-4 pt-4">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
+        <div 
+          className="overflow-hidden rounded-xl border flex flex-col h-[520px]"
+          style={{
+            borderColor: "var(--os-stroke)",
+            background: "var(--os-surface-1)",
+          }}
+        >
+          <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Create API key</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Actor: {userName}</p>
+          </div>
+          <div className="space-y-5 pt-5 px-5 flex-1">
             <Input
               label="Label (optional)"
               placeholder="billing-bot / retrieval-agent"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
+              style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}
             />
 
-            <div className="space-y-2">
-              <p className="text-xs text-slate-400">Scopes</p>
+            <div className="space-y-3">
+              <p className="text-[10px] uppercase font-bold tracking-[0.15em] text-slate-500">Scopes</p>
               <div className="flex flex-wrap gap-2">
                 {AVAILABLE_SCOPES.map((scope) => {
                   const selected = selectedScopes.includes(scope);
@@ -462,10 +626,10 @@ export default function ApiKeysPage() {
                       key={scope}
                       type="button"
                       className={[
-                        "rounded-lg border px-2 py-1 text-xs transition-colors",
+                        "rounded-xl border px-3 py-1.5 text-[11px] font-bold transition-all duration-300",
                         selected
-                          ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
-                          : "border-slate-700 bg-slate-950/50 text-slate-300 hover:border-slate-500 hover:bg-slate-900/60",
+                          ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.15)]"
+                          : "border-white/5 bg-white/5 text-slate-400 hover:border-white/20 hover:bg-white/10",
                       ].join(" ")}
                       onClick={() => toggleScope(scope)}
                     >
@@ -476,12 +640,11 @@ export default function ApiKeysPage() {
               </div>
             </div>
 
-            <Select
+            <ThemedSelect
               label="Expiry"
               options={EXPIRY_OPTIONS}
               value={expiryPreset}
               onChange={setExpiryPreset}
-              fullWidth
             />
 
             <Button
@@ -489,96 +652,114 @@ export default function ApiKeysPage() {
               onClick={createKey}
               loading={creating}
               fullWidth
+              className="mt-2"
             >
               Create key
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card className="os-card rounded-2xl lg:col-span-2">
-          <CardHeader
-            title="Key inventory"
-            description={`Total ${summary.total} | Active ${summary.active} | Revoked ${summary.revoked} | Expired ${summary.expired}`}
-            action={
-              <Button
-                size="sm"
-                variant={includeRevoked ? "secondary" : "outline"}
-                onClick={() => setIncludeRevoked((prev) => !prev)}
-              >
-                {includeRevoked ? "Hide revoked" : "Show revoked"}
-              </Button>
-            }
-          />
-          <CardContent className="pt-4">
-            {loadingKeys && <p className="text-sm text-slate-400">Loading keys...</p>}
+        <div 
+          className="lg:col-span-2 overflow-hidden rounded-xl border flex flex-col h-[520px]"
+          style={{
+            borderColor: "var(--os-stroke)",
+            background: "var(--os-surface-1)",
+          }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Key Inventory</p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Displaying {summary.total} persistent access identifiers</p>
+            </div>
+            <Button
+              size="sm"
+              variant={includeRevoked ? "secondary" : "outline"}
+              onClick={() => setIncludeRevoked((prev) => !prev)}
+              className="rounded-xl border-white/5 h-8 px-3 text-[11px]"
+            >
+              {includeRevoked ? "Hide revoked" : "Show revoked"}
+            </Button>
+          </div>
+          <div className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
+            {loadingKeys && <p className="text-sm text-slate-500 animate-pulse px-5">Loading secure keys...</p>}
             {!loadingKeys && keys.length === 0 && (
-              <p className="text-sm text-slate-400">No API keys found for this tenant.</p>
+              <p className="py-8 text-center text-sm text-slate-500 italic px-5">No API keys found for this tenant.</p>
             )}
 
             {!loadingKeys && keys.length > 0 && (
-              <div className="mt-3 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {keys.map((item) => {
                   const status = statusForKey(item);
                   const isBusy = busyKeyId === item.key_id;
                   return (
                     <div
                       key={item.key_id}
-                      className="rounded-xl border border-slate-800 bg-slate-950/45 p-3"
+                      className="group px-5 py-4 transition-all duration-300 hover:bg-white/[0.02]"
+                      style={{ borderBottom: "1px solid var(--os-stroke)" }}
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                          <p className="font-mono text-sm">{item.key_prefix}</p>
-                          <p className="text-xs text-slate-400">
-                            key_id: {shortId(item.key_id)} | created: {formatTs(item.created_at)}
-                          </p>
-                          <p className="text-xs text-slate-400">
-                            expires: {formatTs(item.expires_at)} | last used: {formatTs(item.last_used_at)}
-                          </p>
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="space-y-1.5 flex-1 min-w-[200px]">
+                          <p className="font-mono text-sm font-bold text-white tracking-tight">{item.key_prefix}</p>
+                          <div className="space-y-0.5">
+                            <p className="text-[10px] text-slate-500 font-mono break-all leading-relaxed">
+                              KEY_ID: <span className="text-slate-400">{item.key_id}</span>
+                            </p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                              CREATED: <span className="text-slate-400">{formatTs(item.created_at)}</span>
+                            </p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                              EXPIRES: <span className="text-slate-400">{formatTs(item.expires_at)}</span> | USED: <span className="text-slate-400">{formatTs(item.last_used_at)}</span>
+                            </p>
+                          </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           {status === "active" && (
-                            <Badge variant="success" icon={<ShieldCheck size={12} />}>
+                            <Badge variant="success" className="h-5 px-3 uppercase text-[9px] font-black tracking-widest shadow-[0_0_10px_rgba(16,185,129,0.15)]">
                               active
                             </Badge>
                           )}
                           {status === "revoked" && (
-                            <Badge variant="error" icon={<ShieldOff size={12} />}>
+                            <Badge variant="error" className="h-5 px-3 uppercase text-[9px] font-black tracking-widest opacity-60">
                               revoked
                             </Badge>
                           )}
                           {status === "expired" && (
-                            <Badge variant="warning" icon={<Shield size={12} />}>
+                            <Badge variant="warning" className="h-5 px-3 uppercase text-[9px] font-black tracking-widest opacity-70">
                               expired
                             </Badge>
                           )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            leftIcon={<RotateCcw size={14} />}
-                            onClick={() => rotateKey(item.key_id)}
-                            disabled={Boolean(item.revoked_at) || isBusy}
-                            loading={isBusy}
-                          >
-                            Rotate
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="danger"
-                            leftIcon={<Trash2 size={14} />}
-                            onClick={() => revokeKey(item.key_id)}
-                            disabled={Boolean(item.revoked_at) || isBusy}
-                            loading={isBusy}
-                          >
-                            Revoke
-                          </Button>
+                          <div className="flex items-center gap-1.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              size="xs"
+                              variant="outline"
+                              leftIcon={<RotateCcw size={12} />}
+                              onClick={() => rotateKey(item.key_id)}
+                              disabled={Boolean(item.revoked_at) || isBusy}
+                              loading={isBusy}
+                              className="h-7 rounded-lg"
+                            >
+                              Rotate
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="danger"
+                              leftIcon={<Trash2 size={12} />}
+                              onClick={() => revokeKey(item.key_id)}
+                              disabled={Boolean(item.revoked_at) || isBusy}
+                              loading={isBusy}
+                              className="h-7 rounded-lg"
+                            >
+                              Revoke
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
+                      <div className="mt-4 flex flex-wrap gap-2">
                         {item.scopes.length === 0 ? (
-                          <Badge variant="default">no scopes</Badge>
+                          <Badge variant="default" className="text-[8px] h-4">no scopes</Badge>
                         ) : (
                           item.scopes.map((scope) => (
-                            <Badge key={`${item.key_id}:${scope}`} size="xs" variant="info">
+                            <Badge key={`${item.key_id}:${scope}`} variant="secondary" className="text-[10px] px-2 py-0 h-5 border-white/5 bg-white/5 text-slate-300">
                               {scope}
                             </Badge>
                           ))
@@ -589,61 +770,72 @@ export default function ApiKeysPage() {
                 })}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
-
-      <Card className="os-card rounded-2xl">
-        <CardHeader
-          title="Key audit timeline"
-          description="Lifecycle events for key creation, rotation, revocation, and verification."
-          action={
-            <div className="w-56">
-              <Select
-                options={[
-                  { value: "all", label: "All keys" },
-                  ...keys.map((key) => ({
-                    value: key.key_id,
-                    label: `${key.key_prefix} (${shortId(key.key_id)})`,
-                  })),
-                ]}
-                value={auditKeyFilter}
-                onChange={setAuditKeyFilter}
-                fullWidth
-              />
-            </div>
-          }
-        />
-        <CardContent className="space-y-2 pt-4">
-          {loadingAudit && <p className="text-sm text-slate-400">Loading audit timeline...</p>}
+      
+      <div 
+        className="overflow-hidden rounded-xl border flex flex-col h-[400px]"
+        style={{
+          borderColor: "var(--os-stroke)",
+          background: "var(--os-surface-1)",
+        }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3" style={{ borderColor: "var(--os-stroke)" }}>
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Key audit timeline</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Lifecycle events and security signals</p>
+          </div>
+          <div className="w-64">
+            <ThemedSelect
+              options={[
+                { value: "all", label: "All keys" },
+                ...keys.map((key) => ({
+                  value: key.key_id,
+                  label: `${key.key_prefix} (${key.key_id.slice(0, 8)})`,
+                })),
+              ]}
+              value={auditKeyFilter}
+              onChange={setAuditKeyFilter}
+            />
+          </div>
+        </div>
+        <div className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
+          {loadingAudit && <p className="text-sm text-slate-500 animate-pulse px-5">Synchronizing audit signals...</p>}
           {!loadingAudit && auditItems.length === 0 && (
-            <p className="text-sm text-slate-400">No audit events available.</p>
+            <p className="py-8 text-center text-sm text-slate-500 italic px-5">No security signals recorded.</p>
           )}
           {!loadingAudit && auditItems.length > 0 && (
-            <div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
               {auditItems.map((event) => (
                 <div
                   key={event.id}
-                  className="rounded-xl border border-slate-800 bg-slate-950/45 p-3"
+                  className="group px-5 py-4 flex flex-wrap items-center justify-between gap-4 transition-all hover:bg-[var(--glass-hover)]"
+                  style={{ borderBottom: "1px solid var(--os-stroke)" }}
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{event.action}</Badge>
-                      <span className="font-mono text-xs text-slate-400">
+                  <div className="flex items-center gap-4">
+                    <Badge variant="outline" className="uppercase text-[9px] font-black tracking-widest px-2.5 h-5 text-slate-300" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+                      {event.action}
+                    </Badge>
+                    <div className="flex flex-col gap-0.5">
+                      <span className="font-mono text-xs font-bold text-white tracking-tight">
                         {shortId(event.key_id)}
                       </span>
+                      <span className="text-[10px] text-slate-500 tracking-widest font-black uppercase">
+                        ACTOR: <span className="text-slate-400">{event.actor || "system-node"}</span>
+                      </span>
                     </div>
-                    <span className="text-xs text-slate-400">{formatTs(event.created_at)}</span>
                   </div>
-                  <p className="mt-2 text-xs text-slate-400">
-                    actor: {event.actor || "-"} | request: {event.request_id || "-"}
-                  </p>
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-500 font-mono block mb-0.5">{formatTs(event.created_at)}</span>
+                    <span className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">REQ_ID: {shortId(event.request_id) || "direct_op"}</span>
+                  </div>
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }

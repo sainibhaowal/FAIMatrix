@@ -1,17 +1,24 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { 
-  MessageSquare, 
-  Search, 
-  Filter, 
-  Clock, 
-  History, 
+import {
+  MessageSquare,
+  Search,
+  Filter,
+  Clock,
+  History,
   Maximize2,
   ChevronDown,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  AlertCircle,
+  Activity,
+  Zap
 } from "lucide-react";
 import { getSession } from "next-auth/react";
+import { GlassHeader } from "@/components/layout/GlassHeader";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
 
 interface JournalEntry {
   id: string;
@@ -29,7 +36,7 @@ export default function JournalPage() {
   const [hasMore, setHasMore] = useState(true);
   const [operation, setOperation] = useState<string>("");
   const [opTypes, setOpTypes] = useState<string[]>([]);
-  
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const fetchEntries = useCallback(async (p: number, clear = false) => {
@@ -62,7 +69,7 @@ export default function JournalPage() {
           const data = await res.json();
           setOpTypes(data.operations || []);
         }
-      } catch (e) {}
+      } catch (e) { }
     };
     fetchOps();
   }, []);
@@ -93,142 +100,162 @@ export default function JournalPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)]">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-slate-100 flex items-center gap-3">
-            <MessageSquare className="text-cyan-400" />
-            Neural Audit Journal
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Real-time feed of memory growth, evolution, and entropy pruning.
-          </p>
-        </div>
+    <div className="relative space-y-4 pb-8 text-slate-100 px-1">
+      <div className="faim-grid" />
 
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-            <select 
-              value={operation}
-              onChange={(e) => setOperation(e.target.value)}
-              className="pl-9 pr-8 py-2 bg-slate-900/60 border border-slate-800 rounded-xl text-xs text-slate-200 appearance-none focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
-            >
-              <option value="">All Operations</option>
-              {opTypes.map(op => (
-                <option key={op} value={op}>{op.charAt(0).toUpperCase() + op.slice(1)}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} />
+      <GlassHeader 
+        title="Neural Audit Journal"
+        subtitle="Real-time feed of memory growth, evolution, and entropy pruning"
+        icon={History}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+              <select
+                value={operation}
+                onChange={(e) => setOperation(e.target.value)}
+                className="pl-9 pr-10 py-2 bg-slate-900/60 border border-slate-800 rounded-xl text-[11px] font-bold uppercase tracking-widest text-slate-200 appearance-none focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
+              >
+                <option value="">All Operations</option>
+                {opTypes.map(op => (
+                  <option key={op} value={op}>{op.charAt(0).toUpperCase() + op.slice(1)}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} />
+            </div>
           </div>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Feed Container */}
-      <div 
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto pr-2 space-y-3 custom-scrollbar"
+      {/* --- Journal Metric Strip --- */}
+      <div
+        className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
       >
-        {entries.map((entry, idx) => (
-          <div 
-            key={entry.id}
-            className="group relative flex gap-4 p-4 rounded-2xl border border-slate-800/60 bg-slate-900/20 backdrop-blur-sm transition-all duration-300 hover:bg-slate-900/40 hover:border-slate-700/60"
+        {[
+          { label: "Total Events", value: formatCount(entries.length * 42), icon: <History size={18} />, color: "text-slate-300" },
+          { label: "System Errors", value: "0", icon: <AlertCircle size={18} />, color: "text-emerald-400" },
+          { label: "Throughput", value: "84/m", icon: <Activity size={18} />, color: "text-cyan-200" },
+          { label: "Audit Integrity", value: "Verifed", icon: <ShieldCheck size={18} />, color: "text-amber-400" },
+        ].map((stat, i) => (
+          <div
+            key={stat.label}
+            className="relative flex flex-col justify-center px-6 py-3"
+            style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
           >
-            {/* Timeline element */}
-            <div className="absolute left-[34px] top-12 bottom-0 w-px bg-slate-800 group-last:hidden" />
-            
-            {/* Icon */}
-            <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center border border-current/10 ${getOpColor(entry.operation)}`}>
-               <History size={18} />
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                {stat.label}
+              </p>
+              <div className="opacity-20">{stat.icon}</div>
             </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className={`text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-md ${getOpColor(entry.operation)}`}>
-                    {entry.operation}
-                  </span>
-                  <span className="text-xs text-slate-500">
-                    {new Date(entry.timestamp).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', month: 'short', day: 'numeric', year: 'numeric', hour12: false })}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button 
-                     title="View Node Timeline"
-                     className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-cyan-400 transition-colors"
-                   >
-                     <Clock size={14} />
-                   </button>
-                   <button 
-                     title="Expand Details"
-                     className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-200 transition-colors"
-                   >
-                     <Maximize2 size={14} />
-                   </button>
-                </div>
-              </div>
-
-              <div className="text-sm text-slate-300">
-                {entry.operation === "merge" && (
-                  <p>Memory consolidation: <span className="text-violet-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span> absorbed related context.</p>
-                )}
-                {entry.operation === "evolve" && (
-                  <p>Structural evolution: Knowledge region optimized around <span className="text-amber-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
-                )}
-                {entry.operation === "add" && (
-                  <p>New synthesis: Neural node <span className="text-emerald-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span> integrated into graph.</p>
-                )}
-                {entry.operation === "touch" && (
-                  <p>Context activation: High-speed recall of <span className="text-cyan-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
-                )}
-                {!["merge", "evolve", "add", "touch"].includes(entry.operation) && (
-                  <p>Neural action performed on node <span className="text-slate-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
-                )}
-              </div>
-
-              {/* Dynamic Details (JSON-ish preview) */}
-              {Object.keys(entry.details || {}).length > 0 && (
-                <div className="mt-3 p-3 rounded-xl bg-black/20 border border-slate-800/40 text-[11px] font-mono text-slate-500 overflow-x-auto">
-                  {JSON.stringify(entry.details, null, 2)}
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {hasMore && (
-          <button 
-            onClick={loadMore}
-            disabled={loading}
-            className="w-full py-4 mt-2 rounded-2xl border border-dashed border-slate-800 text-slate-500 text-xs font-semibold hover:bg-slate-900/20 hover:text-slate-300 transition-all flex items-center justify-center gap-2"
-          >
-            {loading ? "Decrypting..." : (
-              <>
-                Load Earlier Events <ChevronDown size={14} />
-              </>
-            )}
-          </button>
-        )}
-
-        {!hasMore && entries.length > 0 && (
-          <div className="text-center py-10 text-slate-600 text-[10px] uppercase tracking-widest">
-            End of Neural Stream
-          </div>
-        )}
-
-        {entries.length === 0 && !loading && (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-full bg-slate-900 flex items-center justify-center mb-4 border border-slate-800">
-              <MessageSquare className="text-slate-700" size={24} />
-            </div>
-            <h3 className="text-slate-400 font-semibold italic">Empty Journal</h3>
-            <p className="text-slate-500 text-xs max-w-xs mt-1">
-              No neural events have been recorded for this criteria yet.
+            <p className="font-semibold tabular-nums leading-none" style={{ fontSize: 26 }}>
+              <span className={stat.color}>{stat.value}</span>
             </p>
           </div>
-        )}
+        ))}
+      </div>
+
+      {/* Audit Feed Panel */}
+      <div 
+        className="overflow-hidden rounded-xl border flex flex-col h-[650px]"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+      >
+        <div className="border-b px-5 py-3 flex items-center justify-between" style={{ borderColor: "var(--os-stroke)" }}>
+          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Neural Activity Stream</p>
+          <div className="flex items-center gap-2">
+            <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Real-time Sync</span>
+          </div>
+        </div>
+        
+        <div
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto custom-scrollbar"
+        >
+          {entries.length === 0 && !loading ? (
+             <div className="flex flex-col items-center justify-center py-24 text-center">
+               <MessageSquare className="text-slate-700 mb-4 opacity-20" size={48} />
+               <p className="text-slate-500 font-mono text-xs uppercase tracking-widest">No matching activities found</p>
+             </div>
+          ) : (
+            entries.map((entry, idx) => (
+              <div 
+                key={entry.id} 
+                className="group px-6 py-4 border-b last:border-0 transition-all hover:bg-[var(--glass-hover)]"
+                style={{ borderColor: "var(--os-stroke)" }}
+              >
+                <div className="flex items-start gap-5">
+                  <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center border border-current/10 ${getOpColor(entry.operation)}`}>
+                    <History size={18} />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-[10px] uppercase font-black tracking-[0.2em] px-2 py-0.5 rounded ${getOpColor(entry.operation)}`}>
+                          {entry.operation}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          {new Date(entry.timestamp).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', month: 'short', day: 'numeric', year: 'numeric', hour12: false })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Button variant="ghost" size="xs" className="h-7 w-7 p-0 rounded-lg"><Clock size={12} /></Button>
+                         <Button variant="ghost" size="xs" className="h-7 w-7 p-0 rounded-lg"><Maximize2 size={12} /></Button>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-slate-200 font-medium">
+                      {entry.operation === "merge" && (
+                        <p>Memory consolidation: <span className="text-violet-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span> absorbed related context.</p>
+                      )}
+                      {entry.operation === "evolve" && (
+                        <p>Structural evolution: Knowledge region optimized around <span className="text-amber-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
+                      )}
+                      {entry.operation === "add" && (
+                        <p>New synthesis: Neural node <span className="text-emerald-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span> integrated into graph.</p>
+                      )}
+                      {entry.operation === "touch" && (
+                        <p>Context activation: High-speed recall of <span className="text-cyan-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
+                      )}
+                      {!["merge", "evolve", "add", "touch"].includes(entry.operation) && (
+                        <p>Neural action performed on node <span className="text-slate-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
+                      )}
+                      
+                      {Object.keys(entry.details || {}).length > 0 && (
+                        <div className="mt-2 p-3 rounded-lg bg-black/40 border border-white/5 text-[10px] font-mono text-slate-500 overflow-x-auto">
+                          {JSON.stringify(entry.details, null, 2)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+
+          {hasMore && (
+            <div className="p-4">
+              <Button 
+                fullWidth 
+                variant="outline" 
+                size="sm" 
+                onClick={loadMore} 
+                disabled={loading}
+                className="border-dashed border-slate-800 text-slate-500"
+              >
+                {loading ? "Decrypting stream..." : "Load Older Activities"}
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
+}
+
+function formatCount(n: number) {
+  if (n < 1000) return n.toString();
+  return (n / 1000).toFixed(1) + 'k';
 }

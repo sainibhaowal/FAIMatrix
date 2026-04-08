@@ -62,16 +62,16 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
           "relative overflow-hidden transition-all duration-300",
           !surfaceClass.includes("os-") && "rounded-2xl border border-white/10", // Fallback for custom elevations
           surfaceClass,
-          
+
           /* Glow effect (when enabled) */
           glow && [
-            "before:absolute before:inset-0 before:pointer-events-none",
+            "before:absolute before:inset-0 before:pointer-events-none before:rounded-[inherit]",
             "before:bg-gradient-to-b before:from-cyan-500/5 before:to-transparent",
-            "after:absolute after:inset-0 after:pointer-events-none",
+            "after:absolute after:inset-0 after:pointer-events-none after:rounded-[inherit]",
             `after:bg-[radial-gradient(400px_circle_at_var(--gx,50%)_var(--gy,50%),rgba(34,211,238,${glowIntensity}),transparent_60%)]`,
             "after:opacity-0 hover:after:opacity-100 after:transition-opacity after:duration-300",
           ].join(" "),
-          
+
           /* Interactive styles */
           interactive && [
             "cursor-pointer",
@@ -80,10 +80,10 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
             "hover:shadow-[0_0_30px_rgba(34,211,238,0.1)]",
             "active:scale-[0.99]",
           ].join(" "),
-          
+
           /* Padding */
           !noPadding && "p-5",
-          
+
           className,
         ]
           .filter(Boolean)
@@ -99,7 +99,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       >
         {/* Inner glow border */}
         <div className="pointer-events-none absolute inset-0 rounded-[inherit] border border-white/5" />
-        
+
         {/* Content */}
         <div className="relative">{children}</div>
       </div>
@@ -137,7 +137,7 @@ export const CardHeader: React.FC<CardHeaderProps> = ({
     >
       <div className="flex-1 min-w-0">
         {title && (
-          <h3 className="text-sm font-semibold text-[var(--text-primary)]">
+          <h3 className="text-sm font-bold text-white uppercase tracking-tight">
             {title}
           </h3>
         )}

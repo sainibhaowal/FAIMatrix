@@ -1,11 +1,17 @@
 # FAIM Frontend Production Dockerfile
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Install system dependencies (libc6-compat needed for Next.js binary compatibility on Alpine)
+RUN apk add --no-cache libc6-compat
+ENV NEXT_TELEMETRY_DISABLED=1
+
 # Install dependencies (legacy-peer-deps for safety)
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm config set fetch-retry-maxtimeout 120000 && \
+  npm config set fetch-retries 5 && \
+  npm install --legacy-peer-deps
 
 # Copy code (env files included so NEXTAUTH_SECRET is available at build time)
 COPY . .
@@ -24,7 +30,7 @@ RUN if [ -n "$NEXTAUTH_SECRET" ]; then \
 RUN npm run build
 
 # Runner stage
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
