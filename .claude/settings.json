@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(PYTHONPATH=.:faim_native pytest tests/acceptance/test_AT_profile_persist_storage_matrix.py -v)",
+      "Bash(PYTHONPATH=.:faim_native pytest tests/acceptance/test_AT_profile_persist_evolve_matrix.py -v)",
+      "Read(//tmp/**)",
+      "Bash(wc -l /home/sephi-asi/FAIM/frontend/src/components/graph/*.tsx /home/sephi-asi/FAIM/frontend/src/lib/figView*.ts)",
+      "Bash(ls -lah /home/sephi-asi/FAIM/frontend/src/lib/figView*)",
+      "Bash(find /home/sephi-asi/FAIM/frontend/src -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"fetchGraphNeighborhood\\\\|fetchGraphExplain\" {} \\\\;)"
+    ]
+  }
+}
