@@ -11,6 +11,8 @@ import {
   useState,
 } from "react";
 
+import type { FigNode } from "@/types/figView";
+
 import {
   applyLayout,
   DEFAULT_CAMERA,
@@ -21,7 +23,7 @@ import {
 } from "@/lib/figViewLayout";
 import type { LayoutMode } from "@/lib/figViewLayout";
 import { safeNodeTitle } from "@/lib/figViewSafety";
-import type { FigEdge, FigNode, FigSurfaceResponse } from "@/types/figView";
+import type { FigEdge, FigSurfaceResponse } from "@/types/figView";
 
 // ---------------------------------------------------------------------------
 // Dynamic import — ForceGraph3D requires window/WebGL (no SSR)
@@ -76,7 +78,10 @@ type FigCanvasProps = {
   topMode: TopMode;
   locked: boolean;
   selectedNodeId: string | null;
+  hiddenNodeKinds?: Set<string>;
+  hiddenEdgeKinds?: Set<string>;
   onNodeSelect: (nodeId: string | null) => void;
+  onNodeHover?: (node: FigNode | null, x: number, y: number) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -118,12 +123,14 @@ function getShardColor(blockId?: string): string {
 // ---------------------------------------------------------------------------
 
 const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas(
-  { data, layoutMode, topMode, locked, selectedNodeId, onNodeSelect },
+  { data, layoutMode, topMode, locked, selectedNodeId, hiddenNodeKinds, hiddenEdgeKinds, onNodeSelect, onNodeHover },
   ref,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Track cursor position separately — ForceGraph3D's onNodeHover doesn't pass a MouseEvent
+  const cursorPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
   const prevLayoutRef = useRef<LayoutMode>(layoutMode);
 
@@ -215,10 +222,15 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   // Graph data
   // -------------------------------------------------------------------------
 
-  const graphData = useMemo(
-    () => toGraphData(data.nodes, data.edges),
-    [data.nodes, data.edges],
-  );
+  const graphData = useMemo(() => {
+    const filteredNodes = hiddenNodeKinds?.size
+      ? data.nodes.filter((n) => !hiddenNodeKinds.has(n.kind))
+      : data.nodes;
+    const filteredEdges = hiddenEdgeKinds?.size
+      ? data.edges.filter((e) => !hiddenEdgeKinds.has(e.kind))
+      : data.edges;
+    return toGraphData(filteredNodes, filteredEdges);
+  }, [data.nodes, data.edges, hiddenNodeKinds, hiddenEdgeKinds]);
 
   // -------------------------------------------------------------------------
   // Layout mode changes
@@ -310,6 +322,22 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   // -------------------------------------------------------------------------
   // Interaction callbacks
   // -------------------------------------------------------------------------
+
+  // Track cursor position for hover card placement
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    cursorPosRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+
+  // ForceGraph3D onNodeHover — use stored cursor position for card coords
+  const handleNodeHover = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (node: any) => {
+      if (!onNodeHover) return;
+      const { x, y } = cursorPosRef.current;
+      onNodeHover(node ?? null, x, y);
+    },
+    [onNodeHover],
+  );
 
   const handleNodeClick = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -422,6 +450,7 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
     <div
       ref={containerRef}
       className="relative h-full w-full overflow-hidden bg-transparent"
+      onMouseMove={handleMouseMove}
     >
       <ForceGraph3D
         ref={fgRef}
@@ -449,6 +478,7 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
         enableNavigationControls={true}
         showNavInfo={false}
         onNodeClick={handleNodeClick}
+        onNodeHover={handleNodeHover}
         onBackgroundClick={handleBackgroundClick}
         onEngineStop={handleEngineStop}
       />
