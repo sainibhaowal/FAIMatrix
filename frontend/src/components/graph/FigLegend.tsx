@@ -184,28 +184,46 @@ export default function FigLegend({
       )}
 
       {/* ================================================================
-          SCORECARD NOTE — scorecard is null in v1, show N/A clearly
+          SCORECARD — computed from graph topology
       ================================================================ */}
       <div className="h-px bg-slate-800/60" />
-      <div className="rounded-lg border border-slate-800/60 bg-slate-900/30 px-3 py-2">
-        <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">
-          Graph Scorecard
+      <div className="rounded-lg border border-slate-800/60 bg-slate-900/30 px-3 py-2 space-y-2">
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500">
+          Graph Scorecard (Computed)
         </p>
-        <div className="grid grid-cols-3 gap-2 text-center">
-          {[
-            { key: "D", label: "Density" },
-            { key: "H", label: "Entropy" },
-            { key: "λ", label: "Lambda" },
-          ].map(({ key, label }) => (
-            <div key={key} className="rounded bg-slate-900/40 border border-slate-800/50 px-1.5 py-1">
-              <p className="font-mono text-[13px] font-bold text-slate-600">N/A</p>
-              <p className="text-[8px] text-slate-700">{key} — {label}</p>
-            </div>
-          ))}
+
+        {/* D — Density */}
+        <div className="rounded-md bg-slate-900/50 border border-slate-800/40 p-2">
+          <p className="text-[10px] font-mono font-semibold text-cyan-300">D — Density</p>
+          <p className="text-[8px] text-slate-500 mt-0.5">
+            Edges ÷ (Nodes × (Nodes−1)). Range 0–1.
+          </p>
+          <p className="text-[8px] text-slate-600 mt-1">
+            <strong>0</strong> = no connections · <strong>1</strong> = complete graph
+          </p>
         </div>
-        <p className="mt-1.5 text-[9px] text-slate-700 italic">
-          Scorecard metrics not available in v1.
-        </p>
+
+        {/* H — Entropy */}
+        <div className="rounded-md bg-slate-900/50 border border-slate-800/40 p-2">
+          <p className="text-[10px] font-mono font-semibold text-violet-300">H — Entropy</p>
+          <p className="text-[8px] text-slate-500 mt-0.5">
+            Shannon entropy of edge kinds (bits). Higher = more diverse.
+          </p>
+          <p className="text-[8px] text-slate-600 mt-1">
+            <strong>0</strong> = all edges same kind · <strong>log₂(kinds)</strong> = max
+          </p>
+        </div>
+
+        {/* λ — Spectral Radius */}
+        <div className="rounded-md bg-slate-900/50 border border-slate-800/40 p-2">
+          <p className="text-[10px] font-mono font-semibold text-emerald-300">λ — Spectral Radius</p>
+          <p className="text-[8px] text-slate-500 mt-0.5">
+            Largest eigenvalue of adjacency matrix (power iteration).
+          </p>
+          <p className="text-[8px] text-slate-600 mt-1">
+            <strong>Higher</strong> = tighter clustering · <strong>Lower</strong> = sparse/random
+          </p>
+        </div>
       </div>
 
     </div>

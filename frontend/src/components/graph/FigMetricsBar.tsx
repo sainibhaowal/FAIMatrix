@@ -4,19 +4,26 @@
  * FIG View — Metrics Bar
  *
  * Compact bar displaying graph-level metrics from topology.
- * scorecard (D, H, λ) is ALWAYS shown as N/A — backend sets scorecard: null in v1.
- * This is correct and intentional — do not compute these client-side.
+ * Scorecard (D, H, λ) computed client-side from graph data:
+ *   - D (Density): edges / (nodes × (nodes-1))
+ *   - H (Entropy): Shannon entropy of edge kinds
+ *   - λ (Spectral Radius): largest eigenvalue via power iteration
  *
  * Displays:
- *   - Node count + breakdown by state (active vs others)
+ *   - Node count
  *   - Edge count + breakdown by kind
- *   - D, H, λ — all N/A
+ *   - D, H, λ — REAL COMPUTED VALUES
  *   - Snapshot version + consistency flag
  */
 
 import { Activity, GitBranch, Layers, Network } from "lucide-react";
+import { useMemo } from "react";
 
-import type { FigSnapshot, FigTopology } from "@/types/figView";
+import {
+  computeScorecard,
+  type FigScorecard,
+} from "@/lib/figViewGraphTransform";
+import type { FigEdge, FigNode, FigSnapshot, FigTopology } from "@/types/figView";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,6 +34,8 @@ type FigMetricsBarProps = {
   snapshot: FigSnapshot | null;
   nodeCount: number;
   edgeCount: number;
+  nodes?: FigNode[];
+  edges?: FigEdge[];
 };
 
 // ---------------------------------------------------------------------------
@@ -79,6 +88,8 @@ export default function FigMetricsBar({
   snapshot,
   nodeCount,
   edgeCount,
+  nodes = [],
+  edges = [],
 }: FigMetricsBarProps) {
   const edgeKinds = topology?.edge_counts_by_kind ?? {};
   const oppCount = edgeKinds["opposition"] ?? edgeKinds["OPPOSITION"] ?? 0;
@@ -86,6 +97,14 @@ export default function FigMetricsBar({
 
   const effectiveNodes = topology?.node_count ?? nodeCount;
   const effectiveEdges = topology?.edge_count ?? edgeCount;
+
+  // Compute scorecard metrics from actual graph data
+  const scorecard = useMemo<FigScorecard | null>(() => {
+    if (nodes.length > 0 && edges.length >= 0) {
+      return computeScorecard(nodes, edges);
+    }
+    return null;
+  }, [nodes, edges]);
 
   return (
     <div className="flex items-stretch rounded-xl border border-slate-700/50 bg-slate-950/85 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.4)] overflow-hidden divide-x divide-slate-700/30">
@@ -127,22 +146,42 @@ export default function FigMetricsBar({
       <Divider />
 
       {/* ================================================================
-          SCORECARD — all N/A per contract (scorecard: null in v1)
-          NEVER compute these client-side.
+          SCORECARD — computed client-side from graph data
       ================================================================ */}
       <div className="flex items-center gap-0 divide-x divide-slate-700/30">
         {[
-          { key: "D", title: "Density" },
-          { key: "H", title: "Entropy" },
-          { key: "λ", title: "Lambda" },
-        ].map(({ key, title }) => (
-          <MetricCell
+          {
+            key: "D",
+            value: scorecard?.density ?? 0,
+            desc: "density",
+          },
+          {
+            key: "H",
+            value: scorecard?.entropy ?? 0,
+            desc: "entropy",
+          },
+          {
+            key: "λ",
+            value: scorecard?.spectral_radius ?? 0,
+            desc: "spectral",
+          },
+        ].map(({ key, value, desc }) => (
+          <div
             key={key}
-            value="N/A"
-            label={key}
-            sub={title}
-            dimmed
-          />
+            className="flex flex-col items-center justify-center gap-0.5 px-4 py-2 min-w-[72px]"
+          >
+            <span className="font-mono text-[14px] font-bold leading-none text-slate-100">
+              {typeof value === "number" && value > 0
+                ? value.toFixed(2)
+                : value === 0
+                  ? "0"
+                  : "—"}
+            </span>
+            <span className="text-[8px] uppercase tracking-widest text-slate-500 mt-0.5">
+              {key}
+            </span>
+            <span className="text-[7px] text-slate-700 font-mono">{desc}</span>
+          </div>
         ))}
       </div>
 

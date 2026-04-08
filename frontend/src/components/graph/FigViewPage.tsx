@@ -475,6 +475,8 @@ export default function FigViewPage() {
           snapshot={data?.snapshot ?? null}
           nodeCount={data?.nodes?.length ?? 0}
           edgeCount={data?.edges?.length ?? 0}
+          nodes={data?.nodes}
+          edges={data?.edges}
         />
       </div>
 
