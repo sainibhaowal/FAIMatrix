@@ -14,7 +14,7 @@ const buttonVariants = cva(
   /* Base styles */
   [
     "inline-flex items-center justify-center gap-2",
-    "font-medium transition-all",
+    "font-medium transition-all relative overflow-hidden group",
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-0)]",
     "disabled:cursor-not-allowed disabled:opacity-50",
     "active:scale-[0.98]",
@@ -119,6 +119,8 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         )}
         {children}
         {!loading && rightIcon}
+        {/* Animated Underline */}
+        <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-white/20 transition-all duration-300 group-hover:w-full" />
       </button>
     );
   }

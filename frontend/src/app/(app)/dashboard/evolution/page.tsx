@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock3,
+  ChevronDown,
   Dna,
   GitMerge,
   Hash,
@@ -13,8 +14,10 @@ import {
   Scissors,
   Sparkles,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { getSession, useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GlassHeader } from "@/components/layout/GlassHeader";
 
 import {
   Badge,
@@ -164,6 +167,86 @@ type EvolveStatusResponse = {
   last_event: EvolveStatusLastEvent;
 };
 
+// --- Custom Themed Select Component (Storage Parity) ---
+function ThemedSelect<T extends string>({
+  value,
+  onChange,
+  options,
+  className = "",
+  placeholder = "Select...",
+  label = "",
+}: {
+  value: T;
+  onChange: (val: T) => void;
+  options: { value: T; label: string }[];
+  className?: string;
+  placeholder?: string;
+  label?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = options.find((o) => o.value === value);
+
+  return (
+    <div className={`relative ${className}`}>
+      {label && <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>{label}</p>}
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex h-8 w-full items-center justify-between gap-2 rounded-lg border px-2.5 text-xs outline-none transition-all hover:bg-white/5 active:scale-[0.98]"
+        style={{
+          background: "var(--os-surface-2)",
+          borderColor: "var(--os-stroke)",
+          color: "var(--text-primary)",
+        }}
+      >
+        <span className="truncate">{current?.label || placeholder}</span>
+        <ChevronDown
+          size={14}
+          className={`shrink-0 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
+          style={{ color: "var(--text-tertiary)" }}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <>
+            <div className="fixed inset-0 z-[var(--z-modal)]" onClick={() => setOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              className="absolute left-0 top-full z-[var(--z-dropdown)] w-full min-w-[120px] mt-1 overflow-hidden rounded-xl border p-1 shadow-2xl backdrop-blur-xl"
+              style={{
+                background: "rgba(10, 15, 25, 0.95)",
+                borderColor: "var(--os-stroke)",
+                boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
+              }}
+            >
+              {options.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setOpen(false);
+                  }}
+                  className={`flex h-8 w-full items-center rounded-lg px-2.5 text-xs transition-colors ${
+                    opt.value === value
+                      ? "bg-indigo-500/10 font-medium text-indigo-400"
+                      : "text-[var(--text-secondary)] hover:bg-white/5"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 type StorageSummaryResponse = {
   graph_id?: string | null;
   total_files: number;
@@ -211,7 +294,7 @@ class ApiError extends Error {
 const INITIAL_EVENT_LIMIT = 100;
 const POLL_EVENT_LIMIT = 60;
 const MAX_TIMELINE_EVENTS = 260;
-const POLL_INTERVAL_MS = 2500;
+const POLL_INTERVAL_MS = 5000;
 const METRICS_REFRESH_EVERY_POLLS = 3;
 const ENABLE_GRAPH_SWITCH =
   (process.env.NEXT_PUBLIC_FAIM_ENABLE_GRAPH_SWITCH || "").toLowerCase() === "true";
@@ -792,29 +875,29 @@ export default function EvolutionPage() {
   ];
 
   return (
-    <div className="space-y-6 pb-8 text-slate-100">
-      <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Dna className="h-5 w-5 text-cyan-300" />
-            <h1 className="text-xl font-semibold text-slate-100">Evolution Control Plane</h1>
-          </div>
-          <p className="text-sm text-slate-400">
-            Observe diagnostics, run evolve cycles, and inspect self-invention/prune activity for graph{" "}
-            <span className="font-mono text-cyan-200">{graphId}</span>.
-          </p>
-        </div>
-        <Badge variant={liveStatusVariant(liveStatus)} size="md">
-          {liveStatus === "refreshing" ? "Refreshing" : liveStatus === "live" ? "Live" : liveStatus === "error" ? "Error" : "Idle"}
-        </Badge>
-      </header>
+    <div className="relative space-y-4 pb-8 text-slate-100 px-1">
+      <div className="faim-grid" />
 
-      <Card className="rounded-2xl">
-        <CardHeader
-          title="Run Controls"
-          description="Manual evolve action plus runtime view controls. Existing backend contracts only."
-        />
-        <CardContent className="grid gap-4 pt-4 md:grid-cols-5">
+      <GlassHeader
+        title="Evolution Control Plane"
+        subtitle={`Observe diagnostics, run evolve cycles, and inspect self-invention for graph ${graphId}`}
+        icon={Dna}
+        actions={
+          <Badge variant={liveStatusVariant(liveStatus)} size="md">
+            {liveStatus === "refreshing" ? "Refreshing" : liveStatus === "live" ? "Live" : liveStatus === "error" ? "Error" : "Idle"}
+          </Badge>
+        }
+      />
+
+      <div 
+        className="overflow-hidden rounded-xl border !overflow-visible"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+      >
+        <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Run Controls</p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Manual evolve action plus runtime view controls</p>
+        </div>
+        <div className="grid gap-4 pt-5 px-5 pb-5 md:grid-cols-5">
           {ENABLE_GRAPH_SWITCH ? (
             <>
               <Input
@@ -828,6 +911,7 @@ export default function EvolutionPage() {
                   }
                 }}
                 containerClassName="md:col-span-2"
+                style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}
                 helperText="Universe graph id (for example U:...)."
               />
 
@@ -838,34 +922,30 @@ export default function EvolutionPage() {
               </div>
             </>
           ) : (
-            <div className="md:col-span-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-              <p className="text-xs text-slate-400">Graph</p>
+            <div className="md:col-span-3 rounded-xl border p-3" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Graph Context</p>
               <p className="mt-1 font-mono text-sm text-cyan-200">{graphId}</p>
-              <p className="mt-1 text-xs text-slate-400">
-                Graph context is auto-bound to your signed-in session.
+              <p className="mt-1 text-[11px] text-slate-400">
+                Auto-bound to your signed-in session.
               </p>
             </div>
           )}
 
-          <Select
+          <ThemedSelect
             label="Profile"
             options={profileOptions}
             value={profile}
             onChange={setProfile}
-            helperText={getProfileHelper(profile)}
-            fullWidth
           />
 
-          <Select
+          <ThemedSelect
             label="Persist mode"
             options={persistModeOptions}
             value={persistMode}
             onChange={setPersistMode}
-            helperText={getPersistHelper(persistMode)}
-            fullWidth
           />
 
-          <div className="md:col-span-5 flex flex-wrap items-center gap-2">
+          <div className="md:col-span-5 flex flex-wrap items-center gap-2 mt-1">
             <Button
               variant="primary"
               leftIcon={<Play size={14} />}
@@ -899,90 +979,72 @@ export default function EvolutionPage() {
 
           <div className="md:col-span-5">
             <div
-              className={`rounded-xl border p-3 text-xs ${
-                evolveModePolicy.supported
-                  ? "border-white/10 bg-white/[0.02] text-slate-300"
-                  : "border-rose-400/35 bg-rose-500/10 text-rose-200"
+              className={`rounded-lg border px-3.5 py-2.5 text-[11px] leading-relaxed ${
+                evolveModePolicy.supported ? "" : "border-[var(--faim-error)]/30 bg-[var(--faim-error-muted)]"
               }`}
+              style={evolveModePolicy.supported ? { borderColor: "rgba(99,102,241,0.18)", background: "rgba(99,102,241,0.05)", color: "var(--text-secondary)" } : { color: "var(--faim-error-text)" }}
             >
-              <p className="font-medium text-slate-200">
-                Requested mode: <span className="font-mono">{selectedModeLabel}</span>
-              </p>
-              {evolveModePolicy.supported && (
-                <p className="mt-1">Backend will return effective mode and durability for each run.</p>
-              )}
-              <p>{getProfileHelper(profile)}</p>
-              <p>{getPersistHelper(persistMode)}</p>
-              {!evolveModePolicy.supported && (
-                <p className="mt-1">
-                  {evolveModePolicy.reason || "Selected profile/persist combination is not supported."}
-                </p>
-              )}
+              <span style={{ color: "#818cf8", fontWeight: 500 }}>Requested mode: {selectedModeLabel}</span>
+              {" · "}{getProfileHelper(profile)} {getPersistHelper(persistMode)}
+              {" "}{evolveModePolicy.supported ? "Backend will return effective mode and durability for each run." : evolveModePolicy.reason}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="rounded-2xl">
-          <CardHeader title="Fractal D" description="Dimension estimate" />
-          <CardContent className="pt-4">
-            <p className="text-2xl font-semibold text-cyan-200">{formatMetric(metrics?.dimension_D)}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl">
-          <CardHeader title="Entropy H" description="Distribution entropy" />
-          <CardContent className="pt-4">
-            <p className="text-2xl font-semibold text-cyan-200">{formatMetric(metrics?.entropy_H)}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl">
-          <CardHeader title="Pressure λ" description="Evolution pressure" />
-          <CardContent className="pt-4">
-            <p className="text-2xl font-semibold text-cyan-200">{formatMetric(metrics?.pressure_lambda)}</p>
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl">
-          <CardHeader title="Node / Edge" description="Current graph footprint" />
-          <CardContent className="pt-4">
-            <p className="text-2xl font-semibold text-cyan-200">
-              {formatCount(metrics?.node_count)} / {formatCount(metrics?.edge_count)}
+      {/* --- Metrics Scorecard (Storage Parity) --- */}
+      <div
+        className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+      >
+        {[
+          { label: "Fractal D", value: formatMetric(metrics?.dimension_D), icon: Activity },
+          { label: "Entropy H", value: formatMetric(metrics?.entropy_H), icon: GitMerge },
+          { label: "Pressure λ", value: formatMetric(metrics?.pressure_lambda), icon: RefreshCw },
+          { label: "Node / Edge", value: `${formatCount(metrics?.node_count)} / ${formatCount(metrics?.edge_count)}`, icon: Hash },
+        ].map((stat, i) => (
+          <div
+            key={stat.label}
+            className="relative flex flex-col justify-center px-6 py-3"
+            style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                {stat.label}
+              </p>
+              <stat.icon size={18} className="opacity-20" />
+            </div>
+            <p className="font-semibold tabular-nums leading-none text-cyan-200" style={{ fontSize: 26 }}>
+              {stat.value}
             </p>
-          </CardContent>
-        </Card>
+          </div>
+        ))}
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-5">
-        <Card className="self-start rounded-2xl lg:col-span-3">
-          <CardHeader
-            title="Evolution Timeline"
-            description="Latest graph events and evolve/invention actions."
-            action={
-              <Badge variant="outline" size="sm">
-                {visibleTimeline.length} items
-              </Badge>
-            }
-          />
-          <CardContent className="pt-4">
+        <div 
+          className="lg:col-span-3 flex flex-col h-[600px] lg:h-[850px] overflow-hidden rounded-xl border !overflow-visible" 
+          style={{ background: "var(--os-surface-1)", borderColor: "var(--os-stroke)" }}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Evolution Timeline</p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Latest graph events and evolve/invention actions</p>
+            </div>
+            <Badge variant="outline" size="sm">
+              {visibleTimeline.length} items
+            </Badge>
+          </div>
+          <div className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
             {visibleTimeline.length === 0 ? (
-              loadingTimeline ? (
-                <p className="text-sm text-slate-400">Loading timeline...</p>
-              ) : (
-              <p className="text-sm text-slate-400">No events available for this graph yet.</p>
-              )
+              <p className="text-sm text-slate-500 italic px-5 py-4">No events available yet.</p>
             ) : (
-              <div>
-                {loadingTimeline && (
-                  <p className="mb-2 text-xs text-slate-400">Refreshing timeline...</p>
-                )}
-                <div className="max-h-[520px] space-y-2 overflow-y-auto pr-1">
+              <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {visibleTimeline.map((event) => (
                   <div
                     key={event.seq}
-                    className="rounded-xl border border-white/10 bg-white/[0.02] p-3"
+                    className="group px-5 py-4 transition-all hover:bg-[var(--glass-hover)]"
+                    style={{ borderBottom: "1px solid var(--os-stroke)" }}
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant={eventBadgeVariant(event.kind)} size="sm">
@@ -991,23 +1053,25 @@ export default function EvolutionPage() {
                       <Badge variant="outline" size="xs">
                         seq {event.seq}
                       </Badge>
-                      <span className="text-xs text-slate-400">{formatTimestamp(event.ts)}</span>
+                      <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{formatTimestamp(event.ts)}</span>
                     </div>
                     <p className="mt-2 text-sm text-slate-200">{eventSummary(event)}</p>
                   </div>
                 ))}
-                </div>
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <div className="space-y-4 lg:col-span-2">
-          <Card className="rounded-2xl">
-            <CardHeader title="Latest Run Outcome" description="Result from manual evolve action." />
-            <CardContent className="space-y-3 pt-4">
+        <div className="space-y-4 lg:col-span-2 flex flex-col h-[600px] lg:h-[850px] overflow-y-auto custom-scrollbar pr-1 pb-4">
+          <div className="overflow-hidden rounded-xl border shrink-0" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
+            <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Latest Run Outcome</p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Result from manual evolve action</p>
+            </div>
+            <div className="space-y-3 pt-4 px-5 pb-5">
               {!lastRun ? (
-                <p className="text-sm text-slate-400">No manual evolve run in this session yet.</p>
+                <p className="text-sm text-slate-400 font-medium">No manual evolve run in this session yet.</p>
               ) : (
                 <>
                   <div className="flex items-center gap-2">
@@ -1017,15 +1081,15 @@ export default function EvolutionPage() {
                     <span className="text-xs text-slate-400">v{lastRun.graph_version}</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div className="rounded-lg border border-white/10 p-2">
+                    <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
                       <p className="text-slate-400">Merges</p>
                       <p className="font-semibold text-cyan-200">{lastRun.merges}</p>
                     </div>
-                    <div className="rounded-lg border border-white/10 p-2">
+                    <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
                       <p className="text-slate-400">Prunes</p>
                       <p className="font-semibold text-cyan-200">{lastRun.prunes}</p>
                     </div>
-                    <div className="rounded-lg border border-white/10 p-2">
+                    <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
                       <p className="text-slate-400">Inventions</p>
                       <p className="font-semibold text-cyan-200">{lastRun.inventions}</p>
                     </div>
@@ -1047,12 +1111,15 @@ export default function EvolutionPage() {
                   </p>
                 </>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="rounded-2xl">
-            <CardHeader title="Runtime Snapshot" description="Live diagnostics and event stream health." />
-            <CardContent className="space-y-3 pt-4 text-sm">
+          <div className="overflow-hidden rounded-xl border shrink-0" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
+            <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Runtime Snapshot</p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Live diagnostics and event stream health</p>
+            </div>
+            <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-2 text-slate-300">
                   <Hash size={14} className="text-cyan-300" />
@@ -1079,21 +1146,21 @@ export default function EvolutionPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-2 pt-1">
-                <div className="rounded-lg border border-white/10 p-2">
+                <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
                   <p className="text-[11px] text-slate-400">Complete</p>
-                  <p className="font-semibold text-emerald-300">{eventStats.completed}</p>
+                  <p className="font-semibold text-emerald-400">{eventStats.completed}</p>
                 </div>
-                <div className="rounded-lg border border-white/10 p-2">
+                <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
                   <p className="text-[11px] text-slate-400">Skipped</p>
-                  <p className="font-semibold text-amber-300">{eventStats.skipped}</p>
+                  <p className="font-semibold text-amber-400">{eventStats.skipped}</p>
                 </div>
-                <div className="rounded-lg border border-white/10 p-2">
+                <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
                   <p className="text-[11px] text-slate-400">Invention</p>
-                  <p className="font-semibold text-violet-300">{eventStats.inventionSummary}</p>
+                  <p className="font-semibold text-violet-400">{eventStats.inventionSummary}</p>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <div className="rounded-xl border p-3" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
                 <p className="text-xs text-slate-400">Latest evolve event</p>
                 {latestEvolutionEvent ? (
                   <>
@@ -1128,15 +1195,15 @@ export default function EvolutionPage() {
                   invention
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="rounded-2xl">
-            <CardHeader
-              title="Scheduler State"
-              description="Step B runtime flags, due reason, and evolve job state."
-            />
-            <CardContent className="space-y-3 pt-4 text-sm">
+          <div className="overflow-hidden rounded-xl border shrink-0" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
+            <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Scheduler State</p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Step B runtime flags, due reason, and evolve job state</p>
+            </div>
+            <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
               {!evolveStatus ? (
                 <p className="text-sm text-slate-400">Loading scheduler state...</p>
               ) : (
@@ -1166,7 +1233,7 @@ export default function EvolutionPage() {
                       {evolveStatus.due.is_due ? "yes" : "no"}
                     </Badge>
                   </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+                  <div className="rounded-xl border p-3" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
                     <p className="text-xs text-slate-400">Due reason</p>
                     <p className="mt-1 text-xs text-slate-200">{humanizeDueReason(evolveStatus.due.reason)}</p>
                     <p className="mt-1 font-mono text-[11px] text-slate-500">{evolveStatus.due.reason}</p>
@@ -1206,12 +1273,15 @@ export default function EvolutionPage() {
                   )}
                 </>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="rounded-2xl">
-            <CardHeader title="Metric Details" description="Additional scorecard fields." />
-            <CardContent className="space-y-2 pt-4 text-sm">
+          <div className="overflow-hidden rounded-xl border shrink-0" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
+            <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Metric Details</p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Additional scorecard fields</p>
+            </div>
+            <div className="space-y-2 pt-4 px-5 pb-5 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Redundancy</span>
                 <span className="text-slate-200">{formatMetric(metrics?.redundancy)}</span>
@@ -1227,12 +1297,15 @@ export default function EvolutionPage() {
                 </span>
                 <span className="text-slate-200">{formatMetric(metrics?.energy)}</span>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          <Card className="rounded-2xl">
-            <CardHeader title="Source Coverage" description="Latest ingested files for this graph." />
-            <CardContent className="space-y-3 pt-4 text-sm">
+          <div className="overflow-hidden rounded-xl border shrink-0" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
+            <div className="border-b px-5 py-3" style={{ borderColor: "var(--os-stroke)" }}>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Source Coverage</p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Latest ingested files for this graph</p>
+            </div>
+            <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
               {!storageSummary ? (
                 <p className="text-sm text-slate-400">Loading source coverage...</p>
               ) : (
@@ -1253,7 +1326,7 @@ export default function EvolutionPage() {
                   </div>
                 </>
               )}
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
+              <div className="rounded-xl border p-3" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
                 <p className="text-xs text-slate-400">Latest files</p>
                 {storageFiles.length === 0 ? (
                   <p className="mt-1 text-xs text-slate-400">No files indexed for this graph.</p>
@@ -1262,7 +1335,8 @@ export default function EvolutionPage() {
                     {storageFiles.map((file) => (
                       <div
                         key={file.raw_id}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-white/10 px-2 py-1"
+                        className="flex items-center justify-between gap-2 rounded-lg border px-2 py-1"
+                        style={{ background: "var(--os-surface-3)", borderColor: "var(--os-stroke)" }}
                       >
                         <div className="min-w-0">
                           <p className="truncate text-xs text-slate-200">{file.filename}</p>
@@ -1278,8 +1352,8 @@ export default function EvolutionPage() {
                   </div>
                 )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </div>

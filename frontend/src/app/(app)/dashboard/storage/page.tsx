@@ -13,10 +13,16 @@ import {
   HardDrive,
   CheckCircle2,
   AlertCircle,
+  ShieldCheck,
+  Database,
+  Activity,
+  Key,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getSession, useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GlassHeader } from "@/components/layout/GlassHeader";
 
 import { Badge, Button, Card, Input, Progress, useToast } from "@/components/ui";
 import {
@@ -333,7 +339,7 @@ const PAGE_SIZE = 20;
 const MAX_UPLOAD_CONCURRENCY = 3;
 const MAX_QUEUE_ITEMS = 120;
 const MAX_QUEUE_EVENTS = 60;
-const JOB_POLL_INTERVAL_MS = 1800;
+const JOB_POLL_INTERVAL_MS = 5000;
 const TERMINAL_QUEUE_STATUS = new Set<QueueStatus>([
   "ingested",
   "dedup_hit",
@@ -520,6 +526,7 @@ export default function StoragePage() {
 
   const [provenanceOpen, setProvenanceOpen] = useState(false);
   const [provenanceLoading, setProvenanceLoading] = useState(false);
+  const [provenanceView, setProvenanceView] = useState<"faim" | "technical">("faim");
   const [provenanceRawId, setProvenanceRawId] = useState<string | null>(null);
   const [provenanceData, setProvenanceData] = useState<StorageProvenanceResponse | null>(null);
   const [supportedTypesOpen, setSupportedTypesOpen] = useState(false);
@@ -1246,8 +1253,9 @@ export default function StoragePage() {
   );
 
   const openProvenance = useCallback(
-    async (rawId: string) => {
+    async (rawId: string, view: "faim" | "technical" = "faim") => {
       setProvenanceOpen(true);
+      setProvenanceView(view);
       setProvenanceRawId(rawId);
       setProvenanceLoading(true);
       setProvenanceData(null);
@@ -1366,29 +1374,24 @@ export default function StoragePage() {
   }
 
   return (
-    <div className="space-y-5 pb-10" style={{ color: "var(--text-primary)" }}>
-      {/* ── Page Header ──────────────────────────────────────── */}
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight" data-testid="storage-page-title">
-            Storage Control Plane
-          </h1>
-          <p className="mt-0.5 text-xs" style={{ color: "var(--text-tertiary)" }}>
-            Multi-file upload queue · ingest lifecycle tracking · immutable provenance ·{" "}
-            <code className="rounded bg-white/5 px-1 py-px font-mono text-[11px]" style={{ color: "var(--text-secondary)" }}>
-              {graphId}
-            </code>
-          </p>
-        </div>
-        <label
-          className="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-all hover:bg-white/5"
-          style={{ borderColor: "var(--os-stroke)", color: "var(--text-secondary)" }}
-        >
-          <UploadCloud size={13} />
-          Upload Files
-          <input type="file" multiple className="hidden" onChange={onInputFiles} disabled={!ingestModePolicy.supported} />
-        </label>
-      </header>
+    <div className="relative space-y-4 pb-8 text-slate-100 px-1">
+      <div className="faim-grid" />
+      
+      <GlassHeader
+        title="Storage Control"
+        subtitle={`Immutable Provenance & Ingest Lifecycle · Graph: ${graphId}`}
+        icon={Database}
+        actions={
+          <label
+            className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/5 px-5 h-10 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
+            style={{ color: "var(--text-primary)" }}
+          >
+            <UploadCloud size={14} className="opacity-80" />
+            Upload Matrix
+            <input type="file" multiple className="hidden" onChange={onInputFiles} disabled={!ingestModePolicy.supported} />
+          </label>
+        }
+      />
 
       {/* ── Metric Strip ─────────────────────────────────────── */}
       <div
@@ -1431,7 +1434,7 @@ export default function StoragePage() {
         ].map((m, i) => (
           <div
             key={m.label}
-            className="relative flex flex-col justify-center px-6 py-5"
+            className="relative flex flex-col justify-center px-6 py-3"
             style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
           >
             <div className="flex items-center justify-between mb-2">
@@ -1465,7 +1468,7 @@ export default function StoragePage() {
       >
         {/* Section header */}
         <div
-          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3"
+          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
           style={{ borderColor: "var(--os-stroke)" }}
         >
           <p className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
@@ -1720,7 +1723,7 @@ export default function StoragePage() {
       >
         {/* Header */}
         <div
-          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3"
+          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
           style={{ borderColor: "var(--os-stroke)" }}
         >
           <p className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>File Catalog</p>
@@ -1823,13 +1826,18 @@ export default function StoragePage() {
                       <td className="px-4 py-3 text-xs whitespace-nowrap" style={{ color: "var(--text-tertiary)" }}>
                         {row.updated_at ? new Date(row.updated_at).toLocaleString() : "-"}
                       </td>
-                      <td className="px-4 py-3">
+                          <td className="px-4 py-3">
                         <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                           <Button size="xs" variant="ghost" className="h-6 text-[11px]"
                             data-testid="storage-file-inspect" data-raw-id={row.raw_id}
                             disabled={busy || row.delete_requested}
-                            leftIcon={<FileSearch size={11} />}
-                            onClick={() => { void openProvenance(row.raw_id); }}>Inspect</Button>
+                               leftIcon={<FileSearch size={11} />}
+                               onClick={() => { void openProvenance(row.raw_id, "faim"); }}>Inspect</Button>
+                             <Button size="xs" variant="ghost" className="h-6 text-[11px]"
+                               data-testid="storage-file-technical" data-raw-id={row.raw_id}
+                               disabled={busy || row.delete_requested}
+                               leftIcon={<Activity size={11} />}
+                               onClick={() => { void openProvenance(row.raw_id, "technical"); }}>Technical Trace</Button>
                           <Button size="xs" variant="ghost" className="h-6 text-[11px]"
                             disabled={busy || row.delete_requested || !ingestModePolicy.supported}
                             onClick={() => { void runFileAction(row.raw_id, "ingest"); }}>Re-ingest</Button>
@@ -1970,125 +1978,286 @@ export default function StoragePage() {
         </div>
       )}
 
-      {provenanceOpen && (
-        <div className="fixed inset-0 z-50">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-            onClick={() => setProvenanceOpen(false)}
-            aria-label="Close provenance panel"
-          />
+      <AnimatePresence>
+        {provenanceOpen && (
+          <div className="fixed inset-0 z-50 overflow-hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-black/5"
+              onClick={() => setProvenanceOpen(false)}
+              aria-label="Close provenance panel"
+            />
 
-          <aside
-            className="absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl"
-            data-testid="storage-provenance-panel"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold">Provenance Inspect</h3>
-                <p className="text-xs text-slate-400">Raw source to node/event lineage</p>
-              </div>
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                onClick={() => setProvenanceOpen(false)}
-                aria-label="Close"
-              >
-                <X size={14} />
-              </Button>
-            </div>
-
-            {provenanceLoading ? (
-              <div className="rounded-lg border border-slate-800 px-4 py-8 text-center text-sm text-slate-400">
-                Loading provenance...
-              </div>
-            ) : !provenanceData ? (
-              <div className="rounded-lg border border-slate-800 px-4 py-8 text-center text-sm text-slate-500">
-                No provenance loaded for {shortId(provenanceRawId)}.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <Card className="os-card rounded-2xl space-y-2">
-                  <h4 className="text-xs font-semibold text-slate-300">File</h4>
-                  <div className="text-xs text-slate-300">
-                    <p><span className="text-slate-500">filename:</span> {provenanceData.file.filename}</p>
-                    <p><span className="text-slate-500">raw_id:</span> <span className="font-mono">{provenanceData.file.raw_id}</span></p>
-                    <p><span className="text-slate-500">sha256:</span> <span className="font-mono">{provenanceData.file.sha256}</span></p>
-                    <p><span className="text-slate-500">status:</span> {provenanceData.file.ingest_status}</p>
-                    <p><span className="text-slate-500">size:</span> {formatBytes(provenanceData.file.size_bytes)}</p>
+            <motion.aside
+              initial={{ x: "100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "100%", opacity: 0 }}
+              transition={{ type: "spring", damping: 32, stiffness: 210, mass: 0.8 }}
+              className="absolute right-4 top-4 bottom-4 w-full max-w-[720px] overflow-hidden border shadow-[0_30px_100px_rgba(0,0,0,0.7)] backdrop-blur-3xl"
+              style={{ 
+                borderColor: "rgba(255,255,255,0.12)", 
+                background: "rgba(10, 15, 25, 0.78)",
+                borderRadius: "24px",
+                boxShadow: "0 25px 80px -20px rgba(0,0,0,0.9), inset 0 1px 1px rgba(255,255,255,0.08)"
+              }}
+              data-testid="storage-provenance-panel"
+            >
+              <div className="h-full w-full overflow-y-auto px-8 py-7 custom-scrollbar">
+                <div className="mb-6 flex items-center justify-between border-b pb-4" style={{ borderColor: "var(--os-stroke)" }}>
+                  <div>
+                    <h3 className="text-base font-bold tracking-tight" style={{ color: "var(--text-primary)" }}>
+                      {provenanceView === "faim" ? "FAIM Ingestion Dashboard" : "Technical Audit Trace"}
+                    </h3>
+                    <p className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                      {provenanceView === "faim" 
+                        ? "Deterministic pipeline & fractal diagnostics" 
+                        : "Raw reference & node integration audit"}
+                    </p>
                   </div>
-                </Card>
+                  <Button
+                    size="icon-sm"
+                    variant="ghost"
+                    onClick={() => setProvenanceOpen(false)}
+                    aria-label="Close"
+                    className="hover:rotate-90 transition-transform duration-300"
+                  >
+                    <X size={16} />
+                  </Button>
+                </div>
 
-                <Card className="os-card rounded-2xl space-y-2">
-                  <h4 className="text-xs font-semibold text-slate-300">Raw Ref</h4>
-                  {provenanceData.raw_ref ? (
-                    <div className="text-xs text-slate-300">
-                      <p><span className="text-slate-500">mime:</span> {provenanceData.raw_ref.mime_type}</p>
-                      <p><span className="text-slate-500">uri:</span> <span className="font-mono">{redactUri(provenanceData.raw_ref.uri)}</span></p>
-                      <p><span className="text-slate-500">created:</span> {provenanceData.raw_ref.created_at ? new Date(provenanceData.raw_ref.created_at).toLocaleString() : "-"}</p>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-slate-500">No raw_ref record available.</p>
-                  )}
-                </Card>
+                {(() => {
+                  const data = provenanceData;
+                  if (provenanceLoading) {
+                    return (
+                      <div className="rounded-2xl border px-4 py-12 text-center text-xs" style={{ borderColor: "var(--os-stroke)", color: "var(--text-tertiary)", background: "rgba(255,255,255,0.02)" }}>
+                        <RefreshCw className="inline-block animate-spin mr-2" size={14} />
+                        Synchronizing provenance matrix...
+                      </div>
+                    );
+                  }
+                  if (!data) {
+                    return (
+                      <div className="rounded-2xl border px-4 py-12 text-center text-xs" style={{ borderColor: "var(--os-stroke)", color: "var(--text-tertiary)", background: "rgba(255,255,255,0.02)" }}>
+                        No provenance sequence found for <span className="font-mono break-all" style={{ color: "var(--faim-primary)" }}>{provenanceRawId}</span>.
+                      </div>
+                    );
+                  }
 
-                <Card className="os-card rounded-2xl space-y-2">
-                  <h4 className="text-xs font-semibold text-slate-300">Dedup</h4>
-                  <div className="text-xs text-slate-300">
-                    <p><span className="text-slate-500">packet_hash:</span> <span className="font-mono">{provenanceData.dedup.packet_hash || "-"}</span></p>
-                    <p><span className="text-slate-500">dedup_record_found:</span> {String(provenanceData.dedup.dedup_record_found)}</p>
-                    <p><span className="text-slate-500">dedup_raw_id:</span> <span className="font-mono">{provenanceData.dedup.dedup_raw_id || "-"}</span></p>
-                    <p><span className="text-slate-500">dedup_node_count:</span> {provenanceData.dedup.dedup_node_count}</p>
-                  </div>
-                </Card>
+                  return (
+                    <div className="space-y-5">
+                      {provenanceView === "faim" ? (
+                        <>
+                          <div
+                            className="rounded-2xl border px-6 py-5"
+                            style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--os-stroke)" }}
+                          >
+                            <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>
+                              Ingestion Pipeline Sequence
+                            </p>
+                            <div className="flex items-center gap-0">
+                              {(() => {
+                                const kinds = new Set(data.events.map((e) => e.kind));
+                                let curr = 1;
+                                if (kinds.has("WRITE_ATOMS_DONE") || kinds.has("INGEST_DEDUP_HIT") || data.file.ingest_status === "ingested" || data.file.ingest_status === "dedup_hit") curr = 5;
+                                else if (kinds.has("ENCODED")) curr = 4;
+                                else if (kinds.has("PACKET_CREATED")) curr = 3;
+                                else if (kinds.has("INGEST_START")) curr = 2;
 
-                <Card className="os-card rounded-2xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold text-slate-300">Nodes</h4>
-                    <span className="text-[11px] text-slate-500">{provenanceData.node_count} total</span>
-                  </div>
-                  {provenanceData.nodes.length === 0 ? (
-                    <p className="text-xs text-slate-500">No linked nodes.</p>
-                  ) : (
-                    <div className="max-h-44 space-y-1 overflow-auto text-[11px] text-slate-300">
-                      {provenanceData.nodes.map((node) => (
-                        <div key={node.node_id} className="rounded-md border border-slate-800 px-2 py-1">
-                          <p className="font-mono">{shortId(node.node_id)} | {node.kind}</p>
-                          <p className="text-slate-500">vector: {shortId(node.vector_hash)} | block: {node.block_id || "-"}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Card>
-
-                <Card className="os-card rounded-2xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-semibold text-slate-300">Events</h4>
-                    <span className="text-[11px] text-slate-500">{provenanceData.event_count} shown</span>
-                  </div>
-                  {provenanceData.events.length === 0 ? (
-                    <p className="text-xs text-slate-500">No matching provenance events.</p>
-                  ) : (
-                    <div className="max-h-52 space-y-1 overflow-auto text-[11px] text-slate-300">
-                      {provenanceData.events.map((event) => (
-                        <div key={`${event.seq}-${event.kind}`} className="rounded-md border border-slate-800 px-2 py-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span>#{event.seq} {event.kind}</span>
-                            <span className="text-slate-500">
-                              {event.ts ? new Date(event.ts).toLocaleString() : "-"}
-                            </span>
+                                return ["Stored", "Perceived", "Packetized", "Encoded", "Integrated"].map((label, i) => {
+                                  const step = i + 1;
+                                  const isDone = curr >= step;
+                                  const isCurrent = curr === step;
+                                  const color = isDone ? "var(--faim-success-text)" : "var(--os-stroke)";
+                                  
+                                  return (
+                                    <span key={label} className="flex items-center gap-1.5 text-[11px]">
+                                      {i > 0 && <span className="mx-2 text-[10px]" style={{ color: "var(--text-tertiary)" }}>→</span>}
+                                      <span className="h-2 w-2 rounded-full" style={{ 
+                                        background: isDone ? "currentColor" : "var(--os-stroke)",
+                                        color: color,
+                                        boxShadow: isCurrent ? "0 0 10px currentColor" : "none"
+                                      }} />
+                                      <span className="font-semibold" style={{ color: isDone ? "var(--text-primary)" : "var(--text-tertiary)" }}>
+                                        {label}
+                                      </span>
+                                    </span>
+                                  );
+                                });
+                              })()}
+                            </div>
                           </div>
-                          <p className="mt-0.5 text-slate-500">keys: {event.payload_keys.join(", ") || "-"}</p>
+
+                          <div
+                            className="rounded-2xl border px-6 py-5"
+                            style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--os-stroke)" }}
+                          >
+                            <div className="mb-5 flex items-center justify-between">
+                              <p className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Fractal Diagnostics</p>
+                              <Badge variant="outline" className="text-[10px] px-2.5 py-0.5 h-5 uppercase font-black tracking-tighter" style={{ borderColor: "rgba(52,211,153,0.3)", color: "var(--faim-success-text)", background: "rgba(52,211,153,0.05)" }}>DETERMINISTIC</Badge>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-6 text-xs">
+                              <div>
+                                <p className="mb-1.5 text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--text-tertiary)" }}>Nodes / Dimension</p>
+                                <p className="font-mono text-sm font-bold" style={{ color: "var(--text-primary)" }}>
+                                  {data.node_count} <span style={{ color: "var(--text-tertiary)", fontSize: "11px", fontWeight: "normal" }}>/ {data.events.find(e => e.kind === "ENCODED")?.payload_keys?.includes("vector_dim") ? "256" : "FAIM Standard"}</span>
+                                </p>
+                              </div>
+                              <div>
+                                <p className="mb-1.5 text-[10px] uppercase tracking-wider font-medium" style={{ color: "var(--text-tertiary)" }}>Method / Extractor</p>
+                                <p className="font-bold" style={{ color: "var(--text-primary)" }}>EvidenceBlocks (Native)</p>
+                                <p className="text-[10px] font-medium" style={{ color: "var(--text-tertiary)" }}>Non-LLM atomic extraction</p>
+                              </div>
+                              
+                              {data.dedup.dedup_record_found && (
+                                <div className="col-span-2 mt-2 rounded-xl border p-4" style={{ background: "rgba(99,102,241,0.05)", borderColor: "rgba(99,102,241,0.15)" }}>
+                                  <p className="mb-2 text-[9px] font-black uppercase tracking-[0.2em]" style={{ color: "#818cf8" }}>Idempotency Match</p>
+                                  <p className="break-all font-mono text-[11px]" style={{ color: "var(--text-secondary)" }}>{data.dedup.packet_hash}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div
+                            className="rounded-2xl border px-6 py-5"
+                            style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--os-stroke)" }}
+                          >
+                             <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Security & Sovereign Integrity</p>
+                            
+                            <div className="space-y-5">
+                              <div>
+                                <p className="mb-2 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>SHA256 Fingerprint</p>
+                                <div className="flex items-center justify-between rounded-xl border p-3" style={{ background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.06)" }}>
+                                  <p className="break-all font-mono text-[11px] font-medium" style={{ color: "var(--faim-primary)" }}>{data.file.sha256}</p>
+                                  <Button variant="ghost" size="xs" className="h-7 w-7 p-0 ml-3" onClick={() => { void navigator.clipboard.writeText(data.file.sha256 || ""); }}>
+                                    <FileText size={13} />
+                                  </Button>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                  <p className="mb-1 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Raw Reference</p>
+                                  <p className="font-mono text-[11px] font-bold break-all" style={{ color: "var(--text-secondary)" }}>{data.file.raw_id}</p>
+                                </div>
+                                <div>
+                                  <p className="mb-1 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Tenant Isolation</p>
+                                  <div className="flex h-5 w-max items-center gap-1.5 rounded-full border px-3 text-[9px] font-black tracking-tight"
+                                    style={{ borderColor: "rgba(52,211,153,0.2)", background: "rgba(52,211,153,0.05)", color: "var(--faim-success-text)" }}>
+                                    <ShieldCheck size={12} /> SECURE
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-5">
+                          <div
+                            className="rounded-2xl border px-6 py-5"
+                            style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--os-stroke)" }}
+                          >
+                            <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Core Reference Metadata</p>
+                            <div className="grid grid-cols-2 gap-x-10 gap-y-5">
+                              <div>
+                                <p className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Filename</p>
+                                <p className="font-bold truncate text-sm" style={{ color: "var(--text-primary)" }}>{data.file.filename}</p>
+                              </div>
+                              <div className="col-span-2">
+                                 <p className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Raw ID</p>
+                                 <p className="font-mono text-[11px] font-medium break-all" style={{ color: "var(--text-secondary)" }}>{data.file.raw_id}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            className="rounded-2xl border px-6 py-5"
+                            style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--os-stroke)" }}
+                          >
+                            <p className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Raw Persistence Layer</p>
+                            <div className="grid grid-cols-2 gap-6">
+                              <div>
+                                <p className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Mime Type</p>
+                                <p className="text-[11px] font-mono font-bold" style={{ color: "var(--text-secondary)" }}>{data.file.mime_type || "unknown"}</p>
+                              </div>
+                              <div className="col-span-2">
+                                <p className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Backend URI</p>
+                                <div className="rounded-xl border px-4 py-2 font-mono text-[11px] break-all shadow-inner" style={{ background: "rgba(0,0,0,0.2)", borderColor: "rgba(255,255,255,0.06)", color: "var(--text-tertiary)" }}>
+                                  {data.raw_ref?.uri || "no_uri_recorded"}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            className="rounded-2xl border overflow-hidden"
+                            style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--os-stroke)" }}
+                          >
+                            <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Atomic Node Integration</p>
+                              <span className="text-[10px] font-black tracking-widest uppercase" style={{ color: "var(--text-tertiary)" }}>{data.nodes.length} atoms</span>
+                            </div>
+                            <div className="max-h-80 overflow-y-auto p-4 custom-scrollbar">
+                              <div className="space-y-3">
+                                {data.nodes.length === 0 ? (
+                                  <p className="py-8 text-center text-[11px] font-medium italic" style={{ color: "var(--text-tertiary)" }}>No nodes integrated yet.</p>
+                                ) : (
+                                  data.nodes.map((n, i) => (
+                                    <div key={i} className="flex flex-col gap-2 rounded-xl border px-5 py-4 shadow-sm" style={{ background: "rgba(0,0,0,0.15)", borderColor: "rgba(255,255,255,0.04)" }}>
+                                      <p className="font-mono text-[11px] font-black break-all" style={{ color: "var(--text-secondary)" }}>{n.node_id}</p>
+                                      <div className="flex items-center justify-between">
+                                        <p className="text-[9px] uppercase tracking-tighter font-bold" style={{ color: "var(--text-tertiary)" }}>
+                                          VEC: {n.vector_hash?.slice(0, 16)}... · BLK: {n.block_id || "-"}
+                                        </p>
+                                        <Badge variant="outline" className="h-4 text-[8px] border font-black opacity-60 px-1">ATOM</Badge>
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            className="rounded-2xl border overflow-hidden"
+                            style={{ background: "rgba(255,255,255,0.03)", borderColor: "var(--os-stroke)" }}
+                          >
+                            <div className="flex items-center justify-between border-b px-6 py-4" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                              <p className="text-[10px] font-bold uppercase tracking-[0.2em]" style={{ color: "var(--text-tertiary)" }}>Sequential Event Stream</p>
+                              <span className="text-[10px] font-black tracking-widest uppercase" style={{ color: "var(--text-tertiary)" }}>{data.events.length} signals</span>
+                            </div>
+                            <div className="p-6 relative">
+                               <div className="absolute left-7 top-8 bottom-8 w-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+                               <div className="space-y-6 relative z-10">
+                                 {data.events.length === 0 ? (
+                                   <p className="text-[11px] font-medium italic" style={{ color: "var(--text-tertiary)" }}>No trace signals recorded.</p>
+                                 ) : (
+                                   data.events.map((e, i) => (
+                                     <div key={i} className="flex gap-4 text-[11px] group">
+                                       <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 transition-transform group-hover:scale-125 bg-[var(--faim-primary)]" style={{ boxShadow: `0 0 8px var(--faim-primary)` }} />
+                                       <div className="flex-1 min-w-0">
+                                         <p className="font-black uppercase tracking-widest text-[10px]" style={{ color: "var(--text-primary)" }}>{e.kind}</p>
+                                         <p className="text-[9px] mt-1 font-mono font-medium opacity-60" style={{ color: "var(--text-tertiary)" }}>TS: {e.ts ? new Date(e.ts).toISOString() : "-"}</p>
+                                       </div>
+                                     </div>
+                                   ))
+                                 )}
+                               </div>
+                            </div>
+                          </div>
                         </div>
-                      ))}
+                      )}
                     </div>
-                  )}
-                </Card>
+                  );
+                })() as React.ReactNode}
               </div>
-            )}
-          </aside>
-        </div>
-      )}
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

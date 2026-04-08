@@ -40,6 +40,8 @@ const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
 // Types
 // ---------------------------------------------------------------------------
 
+type TopMode = "explore" | "analyze" | "lineage";
+
 type GraphNode = FigNode & {
   id: string;
   x?: number;
@@ -71,13 +73,14 @@ export type FigCanvasHandle = {
 type FigCanvasProps = {
   data: FigSurfaceResponse;
   layoutMode: LayoutMode;
+  topMode: TopMode;
   locked: boolean;
   selectedNodeId: string | null;
   onNodeSelect: (nodeId: string | null) => void;
 };
 
 // ---------------------------------------------------------------------------
-// Data transform — FigNode/FigEdge → ForceGraph format
+// Helpers
 // ---------------------------------------------------------------------------
 
 function toGraphData(nodes: FigNode[], edges: FigEdge[]): GraphData {
@@ -96,12 +99,26 @@ function toGraphData(nodes: FigNode[], edges: FigEdge[]): GraphData {
   };
 }
 
+// Deterministic color for block/shard IDs
+function getShardColor(blockId?: string): string {
+  if (!blockId) return "#475569"; // slate-600
+  const colors = [
+    "#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#fb7185", 
+    "#fb923c", "#fbbf24", "#a3e635", "#4ade80", "#2dd4bf"
+  ];
+  let hash = 0;
+  for (let i = 0; i < blockId.length; i++) {
+    hash = blockId.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length]!;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas(
-  { data, layoutMode, locked, selectedNodeId, onNodeSelect },
+  { data, layoutMode, topMode, locked, selectedNodeId, onNodeSelect },
   ref,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,6 +126,67 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
   const prevLayoutRef = useRef<LayoutMode>(layoutMode);
+
+  // -------------------------------------------------------------------------
+  // Graph Adjacency / Lineage Mapping
+  // -------------------------------------------------------------------------
+
+  const adjacency = useMemo(() => {
+    const adj = new Map<string, Set<string>>();
+    const incoming = new Map<string, Set<string>>();
+    
+    data.edges.forEach(e => {
+      if (!adj.has(e.src_node_id)) adj.set(e.src_node_id, new Set());
+      if (!incoming.has(e.dst_node_id)) incoming.set(e.dst_node_id, new Set());
+      adj.get(e.src_node_id)!.add(e.dst_node_id);
+      incoming.get(e.dst_node_id)!.add(e.src_node_id);
+    });
+    
+    return { outgoing: adj, incoming };
+  }, [data.edges]);
+
+  // For Lineage mode: recursive find all related nodes
+  const lineageSet = useMemo(() => {
+    if (topMode !== "lineage" || !selectedNodeId) return new Set<string>();
+    
+    const related = new Set<string>([selectedNodeId]);
+    const stack = [selectedNodeId];
+    
+    // Upwards (Ancestors)
+    let currentStack = [selectedNodeId];
+    while (currentStack.length > 0) {
+      const id = currentStack.pop()!;
+      adjacency.incoming.get(id)?.forEach(prev => {
+        if (!related.has(prev)) {
+          related.add(prev);
+          currentStack.push(prev);
+        }
+      });
+    }
+
+    // Downwards (Descendants)
+    currentStack = [selectedNodeId];
+    while (currentStack.length > 0) {
+      const id = currentStack.pop()!;
+      adjacency.outgoing.get(id)?.forEach(next => {
+        if (!related.has(next)) {
+          related.add(next);
+          currentStack.push(next);
+        }
+      });
+    }
+
+    return related;
+  }, [topMode, selectedNodeId, adjacency]);
+
+  // Highlighted neighbors for Explore mode
+  const neighbors = useMemo(() => {
+    if (topMode !== "explore" || !selectedNodeId) return new Set<string>();
+    const n = new Set<string>([selectedNodeId]);
+    adjacency.outgoing.get(selectedNodeId)?.forEach(id => n.add(id));
+    adjacency.incoming.get(selectedNodeId)?.forEach(id => n.add(id));
+    return n;
+  }, [topMode, selectedNodeId, adjacency]);
 
   // -------------------------------------------------------------------------
   // Responsive sizing via ResizeObserver
@@ -252,10 +330,34 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   const nodeColor = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (node: any) => {
-      const state = node?.display?.state ?? "unknown";
-      return nodeColorByState(state, node?.id === selectedNodeId);
+      let baseColor = "#ffffff";
+      
+      // Analyze Mode: Shard Coloring
+      if (topMode === "analyze") {
+         baseColor = getShardColor(node?.provenance?.block_id);
+      } else {
+        const state = node?.display?.state ?? "unknown";
+        baseColor = nodeColorByState(state, node?.id === selectedNodeId);
+      }
+
+      // Ensure we have a clean 6-digit hex (strip existing alpha if any)
+      const cleanBase = baseColor.length > 7 ? baseColor.slice(0, 7) : baseColor;
+
+      // Opacity Calculation
+      if (!selectedNodeId) return cleanBase;
+      
+      let opacity = 0.95;
+      if (topMode === "explore") {
+        opacity = neighbors.has(node.id) ? 0.95 : 0.1;
+      } else if (topMode === "lineage") {
+        opacity = lineageSet.has(node.id) ? 0.95 : 0.05;
+      }
+
+      // Simple alpha hex conversion or rgba
+      const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');
+      return `${cleanBase}${alpha}`;
     },
-    [selectedNodeId],
+    [selectedNodeId, topMode, neighbors, lineageSet],
   );
 
   const nodeVal = useCallback(
@@ -272,8 +374,28 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
 
   const linkColor = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (link: any) => edgeColorByKind(link?.kind ?? ""),
-    [],
+    (link: any) => {
+      const rawColor = edgeColorByKind(link?.kind ?? "");
+      // Ensure we have a clean 6-digit hex
+      const baseColor = rawColor.length > 7 ? rawColor.slice(0, 7) : rawColor;
+      
+      let opacity = 0.85;
+
+      if (selectedNodeId) {
+        if (topMode === "explore") {
+          opacity = (neighbors.has(link.source.id) && neighbors.has(link.target.id)) ? 0.85 : 0.08;
+        } else if (topMode === "lineage") {
+          opacity = (lineageSet.has(link.source.id) && lineageSet.has(link.target.id)) ? 0.85 : 0.05;
+        }
+      }
+
+      if (baseColor.startsWith("#")) {
+        const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');
+        return `${baseColor}${alpha}`;
+      }
+      return baseColor;
+    },
+    [selectedNodeId, topMode, neighbors, lineageSet],
   );
 
   const linkWidth = useCallback(
@@ -311,16 +433,14 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
         nodeLabel={nodeLabel}
         nodeColor={nodeColor}
         nodeVal={nodeVal}
-        nodeOpacity={0.9}
         nodeResolution={12}
         linkSource="source"
         linkTarget="target"
         linkColor={linkColor}
         linkWidth={linkWidth}
-        linkOpacity={0.6}
         linkDirectionalArrowLength={3}
         linkDirectionalArrowRelPos={1}
-        dagMode={config.dagMode ?? undefined}
+        dagMode={topMode === "lineage" ? "td" : (config.dagMode ?? undefined)}
         d3AlphaDecay={config.d3AlphaDecay}
         d3VelocityDecay={config.d3VelocityDecay}
         warmupTicks={50}
