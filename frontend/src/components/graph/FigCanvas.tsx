@@ -85,40 +85,6 @@ type FigCanvasProps = {
 };
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function toGraphData(nodes: FigNode[], edges: FigEdge[]): GraphData {
-  const nodeIds = new Set(nodes.map((n) => n.node_id));
-  return {
-    nodes: nodes.map((n) => ({ ...n, id: n.node_id })),
-    links: edges
-      .filter((e) => nodeIds.has(e.src_node_id) && nodeIds.has(e.dst_node_id))
-      .map((e) => ({
-        source: e.src_node_id,
-        target: e.dst_node_id,
-        kind: e.kind,
-        weight: e.weight,
-        edge_id: e.edge_id,
-      })),
-  };
-}
-
-// Deterministic color for block/shard IDs
-function getShardColor(blockId?: string): string {
-  if (!blockId) return "#475569"; // slate-600
-  const colors = [
-    "#38bdf8", "#818cf8", "#c084fc", "#f472b6", "#fb7185", 
-    "#fb923c", "#fbbf24", "#a3e635", "#4ade80", "#2dd4bf"
-  ];
-  let hash = 0;
-  for (let i = 0; i < blockId.length; i++) {
-    hash = blockId.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return colors[Math.abs(hash) % colors.length]!;
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -129,10 +95,10 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fgRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  // Track cursor position separately — ForceGraph3D's onNodeHover doesn't pass a MouseEvent
   const cursorPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
   const prevLayoutRef = useRef<LayoutMode>(layoutMode);
+  const [canvasReady, setCanvasReady] = useState(false);
 
   // -------------------------------------------------------------------------
   // Graph Adjacency / Lineage Mapping
@@ -141,29 +107,28 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   const adjacency = useMemo(() => {
     const adj = new Map<string, Set<string>>();
     const incoming = new Map<string, Set<string>>();
-    
-    data.edges.forEach(e => {
+
+    data.edges.forEach((e) => {
       if (!adj.has(e.src_node_id)) adj.set(e.src_node_id, new Set());
       if (!incoming.has(e.dst_node_id)) incoming.set(e.dst_node_id, new Set());
       adj.get(e.src_node_id)!.add(e.dst_node_id);
       incoming.get(e.dst_node_id)!.add(e.src_node_id);
     });
-    
+
     return { outgoing: adj, incoming };
   }, [data.edges]);
 
   // For Lineage mode: recursive find all related nodes
   const lineageSet = useMemo(() => {
     if (topMode !== "lineage" || !selectedNodeId) return new Set<string>();
-    
+
     const related = new Set<string>([selectedNodeId]);
-    const stack = [selectedNodeId];
-    
+
     // Upwards (Ancestors)
     let currentStack = [selectedNodeId];
     while (currentStack.length > 0) {
       const id = currentStack.pop()!;
-      adjacency.incoming.get(id)?.forEach(prev => {
+      adjacency.incoming.get(id)?.forEach((prev) => {
         if (!related.has(prev)) {
           related.add(prev);
           currentStack.push(prev);
@@ -175,7 +140,7 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
     currentStack = [selectedNodeId];
     while (currentStack.length > 0) {
       const id = currentStack.pop()!;
-      adjacency.outgoing.get(id)?.forEach(next => {
+      adjacency.outgoing.get(id)?.forEach((next) => {
         if (!related.has(next)) {
           related.add(next);
           currentStack.push(next);
@@ -186,40 +151,8 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
     return related;
   }, [topMode, selectedNodeId, adjacency]);
 
-  // Highlighted neighbors for Explore mode
-  const neighbors = useMemo(() => {
-    if (topMode !== "explore" || !selectedNodeId) return new Set<string>();
-    const n = new Set<string>([selectedNodeId]);
-    adjacency.outgoing.get(selectedNodeId)?.forEach(id => n.add(id));
-    adjacency.incoming.get(selectedNodeId)?.forEach(id => n.add(id));
-    return n;
-  }, [topMode, selectedNodeId, adjacency]);
-
   // -------------------------------------------------------------------------
-  // Responsive sizing via ResizeObserver
-  // -------------------------------------------------------------------------
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) {
-        const { width, height } = entry.contentRect;
-        setDimensions({
-          width: Math.max(400, Math.floor(width)),
-          height: Math.max(300, Math.floor(height)),
-        });
-      }
-    });
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  // -------------------------------------------------------------------------
-  // Graph data
+  // Graph transformation: filter by hidden kinds, apply layout
   // -------------------------------------------------------------------------
 
   const graphData = useMemo(() => {
@@ -232,94 +165,133 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
     return toGraphData(filteredNodes, filteredEdges);
   }, [data.nodes, data.edges, hiddenNodeKinds, hiddenEdgeKinds]);
 
+  const config = getLayoutConfig(layoutMode);
+
   // -------------------------------------------------------------------------
-  // Layout mode changes
+  // Apply layout if it changed
   // -------------------------------------------------------------------------
 
   useEffect(() => {
-    if (!fgRef.current) return;
-    const config = getLayoutConfig(layoutMode);
-    applyLayout(fgRef, config);
-    prevLayoutRef.current = layoutMode;
-  }, [layoutMode]);
-
-  // -------------------------------------------------------------------------
-  // Lock / unlock
-  // -------------------------------------------------------------------------
-
-  useEffect(() => {
-    if (!fgRef.current) return;
-    if (locked) {
-      fgRef.current.pauseAnimation();
-    } else {
-      fgRef.current.resumeAnimation();
+    if (layoutMode !== prevLayoutRef.current && fgRef.current && canvasReady) {
+      const layoutConfig = getLayoutConfig(layoutMode);
+      applyLayout(fgRef, layoutConfig);
+      prevLayoutRef.current = layoutMode;
     }
-  }, [locked]);
+  }, [layoutMode, canvasReady]);
 
   // -------------------------------------------------------------------------
-  // Fit to view after initial data load
+  // Responsive canvas dimensions
   // -------------------------------------------------------------------------
 
-  const hasInitialFit = useRef(false);
   useEffect(() => {
-    if (!fgRef.current || hasInitialFit.current) return;
-    if (graphData.nodes.length > 0) {
-      const timer = setTimeout(() => {
-        fgRef.current?.zoomToFit(400, 60);
-        hasInitialFit.current = true;
-      }, 800);
-      return () => clearTimeout(timer);
+    const observer = new ResizeObserver(() => {
+      if (containerRef.current) {
+        setDimensions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
+      }
+    });
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current);
     }
-  }, [graphData.nodes.length]);
+
+    return () => observer.disconnect();
+  }, []);
 
   // -------------------------------------------------------------------------
-  // Imperative handle
+  // Expose handle: fitGraph, centerOnNode, resetCamera, zoomIn, zoomOut
   // -------------------------------------------------------------------------
 
   useImperativeHandle(ref, () => ({
     fitGraph() {
-      fgRef.current?.zoomToFit(400, 60);
+      if (!fgRef.current) {
+        console.warn("Canvas not ready: fitGraph");
+        return;
+      }
+      try {
+        fgRef.current.zoomToFit(400, 60);
+      } catch (err) {
+        console.error("fitGraph error:", err);
+      }
     },
     centerOnNode(nodeId: string) {
-      const node = graphData.nodes.find((n) => n.id === nodeId);
-      if (!node || node.x == null || node.y == null || node.z == null) return;
-      const dist = 120;
-      fgRef.current?.cameraPosition(
-        { x: node.x, y: node.y, z: (node.z ?? 0) + dist },
-        { x: node.x, y: node.y, z: node.z ?? 0 },
-        600,
-      );
+      if (!fgRef.current) {
+        console.warn("Canvas not ready: centerOnNode");
+        return;
+      }
+      try {
+        const node = graphData.nodes.find((n) => n.id === nodeId);
+        if (!node || node.x == null || node.y == null || node.z == null) return;
+        const dist = 120;
+        fgRef.current.cameraPosition(
+          { x: node.x, y: node.y, z: (node.z ?? 0) + dist },
+          { x: node.x, y: node.y, z: node.z ?? 0 },
+          600,
+        );
+      } catch (err) {
+        console.error("centerOnNode error:", err);
+      }
     },
     resetCamera() {
-      fgRef.current?.cameraPosition(
-        DEFAULT_CAMERA,
-        { x: 0, y: 0, z: 0 },
-        600,
-      );
+      if (!fgRef.current) {
+        console.warn("Canvas not ready: resetCamera");
+        return;
+      }
+      try {
+        fgRef.current.cameraPosition(
+          DEFAULT_CAMERA,
+          { x: 0, y: 0, z: 0 },
+          600,
+        );
+      } catch (err) {
+        console.error("resetCamera error:", err);
+      }
     },
     zoomIn() {
-      const cam = fgRef.current?.camera();
-      if (!cam) return;
-      const pos = cam.position;
-      // Zoom in = move closer (multiply by 0.65 instead of 0.75)
-      const newPos = {
-        x: pos.x * 0.65,
-        y: pos.y * 0.65,
-        z: pos.z * 0.65,
-      };
-      fgRef.current?.cameraPosition(newPos, undefined, 250);
+      if (!fgRef.current) {
+        console.warn("Canvas not ready: zoomIn");
+        return;
+      }
+      try {
+        const cam = fgRef.current.camera();
+        if (!cam || !cam.position) {
+          console.warn("Camera position unavailable");
+          return;
+        }
+        const pos = cam.position;
+        const newPos = {
+          x: pos.x * 0.65,
+          y: pos.y * 0.65,
+          z: pos.z * 0.65,
+        };
+        fgRef.current.cameraPosition(newPos, undefined, 250);
+      } catch (err) {
+        console.error("zoomIn error:", err);
+      }
     },
     zoomOut() {
-      const cam = fgRef.current?.camera();
-      if (!cam) return;
-      const pos = cam.position;
-      // Zoom out = move away (multiply by 1.5 instead of 1.33)
-      const newPos = {
-        x: pos.x * 1.5,
-        y: pos.y * 1.5,
-        z: pos.z * 1.5,
-      };
-      fgRef.current?.cameraPosition(newPos, undefined, 250);
+      if (!fgRef.current) {
+        console.warn("Canvas not ready: zoomOut");
+        return;
+      }
+      try {
+        const cam = fgRef.current.camera();
+        if (!cam || !cam.position) {
+          console.warn("Camera position unavailable");
+          return;
+        }
+        const pos = cam.position;
+        const newPos = {
+          x: pos.x * 1.5,
+          y: pos.y * 1.5,
+          z: pos.z * 1.5,
+        };
+        fgRef.current.cameraPosition(newPos, undefined, 250);
+      } catch (err) {
+        console.error("zoomOut error:", err);
+      }
     },
   }));
 
@@ -327,12 +299,10 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   // Interaction callbacks
   // -------------------------------------------------------------------------
 
-  // Track cursor position for hover card placement
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     cursorPosRef.current = { x: e.clientX, y: e.clientY };
   }, []);
 
-  // ForceGraph3D onNodeHover — use stored cursor position for card coords
   const handleNodeHover = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (node: any) => {
@@ -355,96 +325,66 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
     onNodeSelect(null);
   }, [onNodeSelect]);
 
-  // -------------------------------------------------------------------------
-  // Accessors
-  // -------------------------------------------------------------------------
-
-  const nodeColor = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (node: any) => {
-      let baseColor = "#ffffff";
-      
-      // Analyze Mode: Shard Coloring
-      if (topMode === "analyze") {
-         baseColor = getShardColor(node?.provenance?.block_id);
-      } else {
-        const state = node?.display?.state ?? "unknown";
-        baseColor = nodeColorByState(state, node?.id === selectedNodeId);
-      }
-
-      // Ensure we have a clean 6-digit hex (strip existing alpha if any)
-      const cleanBase = baseColor.length > 7 ? baseColor.slice(0, 7) : baseColor;
-
-      // Opacity Calculation
-      if (!selectedNodeId) return cleanBase;
-      
-      let opacity = 0.95;
-      if (topMode === "explore") {
-        opacity = neighbors.has(node.id) ? 0.95 : 0.1;
-      } else if (topMode === "lineage") {
-        opacity = lineageSet.has(node.id) ? 0.95 : 0.05;
-      }
-
-      // Simple alpha hex conversion or rgba
-      const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');
-      return `${cleanBase}${alpha}`;
-    },
-    [selectedNodeId, topMode, neighbors, lineageSet],
-  );
-
-  const nodeVal = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (node: any) => nodeSizeByLevel(node?.level ?? 0),
-    [],
-  );
-
-  const nodeLabel = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (node: any) => safeNodeTitle(node),
-    [],
-  );
-
-  const linkColor = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (link: any) => {
-      const rawColor = edgeColorByKind(link?.kind ?? "");
-      // Ensure we have a clean 6-digit hex
-      const baseColor = rawColor.length > 7 ? rawColor.slice(0, 7) : rawColor;
-      
-      let opacity = 0.85;
-
-      if (selectedNodeId) {
-        if (topMode === "explore") {
-          opacity = (neighbors.has(link.source.id) && neighbors.has(link.target.id)) ? 0.85 : 0.08;
-        } else if (topMode === "lineage") {
-          opacity = (lineageSet.has(link.source.id) && lineageSet.has(link.target.id)) ? 0.85 : 0.05;
-        }
-      }
-
-      if (baseColor.startsWith("#")) {
-        const alpha = Math.round(opacity * 255).toString(16).padStart(2, '0');
-        return `${baseColor}${alpha}`;
-      }
-      return baseColor;
-    },
-    [selectedNodeId, topMode, neighbors, lineageSet],
-  );
-
-  const linkWidth = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (link: any) => Math.max(0.3, (link?.weight ?? 0) * 2),
-    [],
-  );
-
-  // -------------------------------------------------------------------------
-  // Engine ready — apply initial layout forces
-  // -------------------------------------------------------------------------
-
   const handleEngineStop = useCallback(() => {
-    // no-op for now; could persist positions
+    setCanvasReady(true);
   }, []);
 
-  const config = getLayoutConfig(layoutMode);
+  // -------------------------------------------------------------------------
+  // Computed colors/sizes for nodes and edges
+  // -------------------------------------------------------------------------
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const nodeLabel = useCallback((node: any) => {
+    const figNode = node as GraphNode;
+    return safeNodeTitle(figNode);
+  }, []);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const nodeColor = useCallback(
+    (node: any) => {
+      const figNode = node as GraphNode;
+      if (topMode === "lineage" && !lineageSet.has(figNode.id)) {
+        return "rgba(100, 116, 139, 0.2)";
+      }
+      const stateClass = figNode.display?.state ?? "unknown";
+      return nodeColorByState(stateClass, selectedNodeId === figNode.id);
+    },
+    [topMode, lineageSet, selectedNodeId],
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const nodeVal = useCallback((node: any) => {
+    const figNode = node as GraphNode;
+    return nodeSizeByLevel(figNode.level);
+  }, []);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const linkColor = useCallback(
+    (link: any) => {
+      const graphLink = link as GraphLink;
+      if (topMode === "lineage") {
+        const isInLineage =
+          lineageSet.has(graphLink.source as unknown as string) &&
+          lineageSet.has(graphLink.target as unknown as string);
+        if (!isInLineage) return "rgba(100, 116, 139, 0.1)";
+      }
+      return edgeColorByKind(graphLink.kind);
+    },
+    [topMode, lineageSet],
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const linkWidth = useCallback(
+    (link: any) => {
+      const graphLink = link as GraphLink;
+      const baseWidth = Math.max(0.5, Math.log(graphLink.weight) * 0.5);
+      if (selectedNodeId && (graphLink.source === selectedNodeId || graphLink.target === selectedNodeId)) {
+        return baseWidth * 1.5;
+      }
+      return baseWidth;
+    },
+    [selectedNodeId],
+  );
 
   // -------------------------------------------------------------------------
   // Render
@@ -489,5 +429,22 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
     </div>
   );
 });
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function toGraphData(nodes: FigNode[], edges: FigEdge[]): GraphData {
+  return {
+    nodes: nodes.map((n) => ({ ...n, id: n.node_id })),
+    links: edges.map((e) => ({
+      source: e.src_node_id,
+      target: e.dst_node_id,
+      kind: e.kind,
+      weight: e.weight,
+      edge_id: e.edge_id,
+    })),
+  };
+}
 
 export default FigCanvas;
