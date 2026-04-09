@@ -168,6 +168,16 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   const config = getLayoutConfig(layoutMode);
 
   // -------------------------------------------------------------------------
+  // Mark canvas as ready when graph data loads
+  // -------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (graphData.nodes.length > 0 && fgRef.current) {
+      setCanvasReady(true);
+    }
+  }, [graphData.nodes.length]);
+
+  // -------------------------------------------------------------------------
   // Apply layout if it changed
   // -------------------------------------------------------------------------
 
@@ -206,22 +216,17 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
 
   useImperativeHandle(ref, () => ({
     fitGraph() {
-      if (!fgRef.current) {
-        console.warn("Canvas not ready: fitGraph");
-        return;
-      }
       try {
-        fgRef.current.zoomToFit(400, 60);
+        if (fgRef.current?.zoomToFit) {
+          fgRef.current.zoomToFit(400, 60);
+        }
       } catch (err) {
         console.error("fitGraph error:", err);
       }
     },
     centerOnNode(nodeId: string) {
-      if (!fgRef.current) {
-        console.warn("Canvas not ready: centerOnNode");
-        return;
-      }
       try {
+        if (!fgRef.current) return;
         const node = graphData.nodes.find((n) => n.id === nodeId);
         if (!node || node.x == null || node.y == null || node.z == null) return;
         const dist = 120;
@@ -235,11 +240,8 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
       }
     },
     resetCamera() {
-      if (!fgRef.current) {
-        console.warn("Canvas not ready: resetCamera");
-        return;
-      }
       try {
+        if (!fgRef.current) return;
         fgRef.current.cameraPosition(
           DEFAULT_CAMERA,
           { x: 0, y: 0, z: 0 },
@@ -250,45 +252,31 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
       }
     },
     zoomIn() {
-      if (!fgRef.current) {
-        console.warn("Canvas not ready: zoomIn");
-        return;
-      }
       try {
-        const cam = fgRef.current.camera();
-        if (!cam || !cam.position) {
-          console.warn("Camera position unavailable");
-          return;
-        }
+        if (!fgRef.current) return;
+        const cam = fgRef.current.camera?.();
+        if (!cam?.position) return;
         const pos = cam.position;
-        const newPos = {
-          x: pos.x * 0.65,
-          y: pos.y * 0.65,
-          z: pos.z * 0.65,
-        };
-        fgRef.current.cameraPosition(newPos, undefined, 250);
+        fgRef.current.cameraPosition(
+          { x: pos.x * 0.65, y: pos.y * 0.65, z: pos.z * 0.65 },
+          undefined,
+          250,
+        );
       } catch (err) {
         console.error("zoomIn error:", err);
       }
     },
     zoomOut() {
-      if (!fgRef.current) {
-        console.warn("Canvas not ready: zoomOut");
-        return;
-      }
       try {
-        const cam = fgRef.current.camera();
-        if (!cam || !cam.position) {
-          console.warn("Camera position unavailable");
-          return;
-        }
+        if (!fgRef.current) return;
+        const cam = fgRef.current.camera?.();
+        if (!cam?.position) return;
         const pos = cam.position;
-        const newPos = {
-          x: pos.x * 1.5,
-          y: pos.y * 1.5,
-          z: pos.z * 1.5,
-        };
-        fgRef.current.cameraPosition(newPos, undefined, 250);
+        fgRef.current.cameraPosition(
+          { x: pos.x * 1.5, y: pos.y * 1.5, z: pos.z * 1.5 },
+          undefined,
+          250,
+        );
       } catch (err) {
         console.error("zoomOut error:", err);
       }
