@@ -254,6 +254,16 @@ export default function FigViewPage() {
     [graphData?.edges],
   );
 
+  // Filtered view (respects hidden kinds for metrics bar dual view)
+  const filteredNodes = useMemo(
+    () => (graphData?.nodes ?? []).filter((n) => !hiddenNodeKinds.has(n.kind)),
+    [graphData?.nodes, hiddenNodeKinds],
+  );
+  const filteredEdges = useMemo(
+    () => (graphData?.edges ?? []).filter((e) => !hiddenEdgeKinds.has(e.kind)),
+    [graphData?.edges, hiddenEdgeKinds],
+  );
+
   // --- Phase 6-7 handlers ---
 
   const handlePinToggle = useCallback((nodeId: string) => {
@@ -477,6 +487,10 @@ export default function FigViewPage() {
           edgeCount={data?.edges?.length ?? 0}
           nodes={data?.nodes}
           edges={data?.edges}
+          filteredNodeCount={filteredNodes.length}
+          filteredEdgeCount={filteredEdges.length}
+          filteredNodes={filteredNodes}
+          filteredEdges={filteredEdges}
         />
       </div>
 

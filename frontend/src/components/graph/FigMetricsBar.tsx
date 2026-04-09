@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * FIG View — Metrics Bar
+ * FIG View — Metrics Bar with Dual Scorecard
  *
  * Compact bar displaying graph-level metrics from topology.
  * Scorecard (D, H, λ) computed client-side from graph data:
@@ -9,15 +9,21 @@
  *   - H (Entropy): Shannon entropy of edge kinds
  *   - λ (Spectral Radius): largest eigenvalue via power iteration
  *
+ * DUAL MODE (toggle):
+ *   - Full Graph: Shows metrics for entire unfiltered graph
+ *   - Current View: Shows metrics for filtered view (based on hidden kinds)
+ *
  * Displays:
- *   - Node count
- *   - Edge count + breakdown by kind
- *   - D, H, λ — REAL COMPUTED VALUES
+ *   - Node count (updates per mode)
+ *   - Edge count (updates per mode)
+ *   - Opposition/Inheritance breakdown
+ *   - [Toggle Box] "Full Graph" ↔ "Current View"
+ *   - D, H, λ — REAL COMPUTED VALUES (updates per mode)
  *   - Snapshot version + consistency flag
  */
 
 import { Activity, GitBranch, Layers, Network } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import {
   computeScorecard,
@@ -36,6 +42,11 @@ type FigMetricsBarProps = {
   edgeCount: number;
   nodes?: FigNode[];
   edges?: FigEdge[];
+  // Filtered view (based on hidden kinds)
+  filteredNodeCount?: number;
+  filteredEdgeCount?: number;
+  filteredNodes?: FigNode[];
+  filteredEdges?: FigEdge[];
 };
 
 // ---------------------------------------------------------------------------
@@ -90,7 +101,14 @@ export default function FigMetricsBar({
   edgeCount,
   nodes = [],
   edges = [],
+  filteredNodeCount,
+  filteredEdgeCount,
+  filteredNodes,
+  filteredEdges,
 }: FigMetricsBarProps) {
+  // Toggle between Full Graph and Current View
+  const [metricsMode, setMetricsMode] = useState<"full" | "view">("full");
+
   const edgeKinds = topology?.edge_counts_by_kind ?? {};
   const oppCount = edgeKinds["opposition"] ?? edgeKinds["OPPOSITION"] ?? 0;
   const inhCount = edgeKinds["inheritance"] ?? edgeKinds["INHERITANCE"] ?? 0;
@@ -98,30 +116,47 @@ export default function FigMetricsBar({
   const effectiveNodes = topology?.node_count ?? nodeCount;
   const effectiveEdges = topology?.edge_count ?? edgeCount;
 
-  // Compute scorecard metrics from actual graph data
-  const scorecard = useMemo<FigScorecard | null>(() => {
+  // Compute scorecard for FULL GRAPH
+  const fullScorecard = useMemo<FigScorecard | null>(() => {
     if (nodes.length > 0 && edges.length >= 0) {
       return computeScorecard(nodes, edges);
     }
     return null;
   }, [nodes, edges]);
 
+  // Compute scorecard for FILTERED VIEW (current view with hidden kinds)
+  const viewScorecard = useMemo<FigScorecard | null>(() => {
+    if (filteredNodes && filteredNodes.length > 0 && filteredEdges && filteredEdges.length >= 0) {
+      return computeScorecard(filteredNodes, filteredEdges);
+    }
+    return null;
+  }, [filteredNodes, filteredEdges]);
+
+  // Select which scorecard to display based on mode
+  const displayScorecard = metricsMode === "full" ? fullScorecard : viewScorecard;
+  const displayNodeCount = metricsMode === "full" ? effectiveNodes : (filteredNodeCount ?? effectiveNodes);
+  const displayEdgeCount = metricsMode === "full" ? effectiveEdges : (filteredEdgeCount ?? effectiveEdges);
+
+  // Color based on mode
+  const modeColor = metricsMode === "view" ? "text-cyan-300" : "text-slate-400";
+  const modeBgHover = metricsMode === "view" ? "hover:bg-cyan-950/50" : "hover:bg-slate-800/50";
+
   return (
     <div className="flex items-stretch rounded-xl border border-slate-700/50 bg-slate-950/85 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.4)] overflow-hidden divide-x divide-slate-700/30">
 
-      {/* Nodes */}
+      {/* Nodes — updates per mode */}
       <MetricCell
-        icon={<Network size={11} className="text-cyan-400" />}
-        value={effectiveNodes}
+        icon={<Network size={11} className={metricsMode === "view" ? "text-cyan-400" : "text-slate-500"} />}
+        value={displayNodeCount}
         label="Nodes"
       />
 
       <Divider />
 
-      {/* Edges */}
+      {/* Edges — updates per mode */}
       <MetricCell
-        icon={<GitBranch size={11} className="text-violet-400" />}
-        value={effectiveEdges}
+        icon={<GitBranch size={11} className={metricsMode === "view" ? "text-cyan-400" : "text-slate-500"} />}
+        value={displayEdgeCount}
         label="Edges"
       />
 
@@ -145,32 +180,62 @@ export default function FigMetricsBar({
 
       <Divider />
 
+      {/* TOGGLE BOX — Full Graph ↔ Current View */}
+      <button
+        onClick={() => setMetricsMode(metricsMode === "full" ? "view" : "full")}
+        className={`flex flex-col items-center justify-center gap-0.5 px-3 py-2 min-w-[80px] transition-all duration-150 ${
+          metricsMode === "view"
+            ? "bg-cyan-950/30 border-l border-r border-cyan-500/30"
+            : "hover:bg-slate-800/40"
+        }`}
+        title="Toggle between Full Graph and Current View"
+      >
+        <span
+          className={`text-[11px] font-semibold transition-colors ${
+            metricsMode === "view" ? "text-cyan-300" : "text-slate-400"
+          }`}
+        >
+          {metricsMode === "full" ? "Full Graph" : "Current View"}
+        </span>
+        <span className={`text-[9px] ${metricsMode === "view" ? "text-cyan-600" : "text-slate-600"}`}>
+          ↕
+        </span>
+      </button>
+
+      <Divider />
+
       {/* ================================================================
-          SCORECARD — computed client-side from graph data
+          SCORECARD — D, H, λ computed from graph data (updates per mode)
       ================================================================ */}
       <div className="flex items-center gap-0 divide-x divide-slate-700/30">
         {[
           {
             key: "D",
-            value: scorecard?.density ?? 0,
+            value: displayScorecard?.density ?? 0,
             desc: "density",
           },
           {
             key: "H",
-            value: scorecard?.entropy ?? 0,
+            value: displayScorecard?.entropy ?? 0,
             desc: "entropy",
           },
           {
             key: "λ",
-            value: scorecard?.spectral_radius ?? 0,
+            value: displayScorecard?.spectral_radius ?? 0,
             desc: "spectral",
           },
         ].map(({ key, value, desc }) => (
           <div
             key={key}
-            className="flex flex-col items-center justify-center gap-0.5 px-4 py-2 min-w-[72px]"
+            className={`flex flex-col items-center justify-center gap-0.5 px-4 py-2 min-w-[72px] transition-colors ${
+              metricsMode === "view" ? "bg-cyan-950/10" : ""
+            }`}
           >
-            <span className="font-mono text-[14px] font-bold leading-none text-slate-100">
+            <span
+              className={`font-mono text-[14px] font-bold leading-none transition-colors ${
+                metricsMode === "view" ? "text-cyan-300" : "text-slate-100"
+              }`}
+            >
               {typeof value === "number" && value > 0
                 ? value.toFixed(2)
                 : value === 0
