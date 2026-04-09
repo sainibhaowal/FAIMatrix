@@ -70,13 +70,9 @@ export function fetchNodeSubgraph(
 
 
 export async function fetchGraphsSoft(): Promise<GraphSummary[]> {
-  try {
-    const data = await apiGet<GraphSummary[]>("/graphs");
-    if (Array.isArray(data)) return data;
-    return [];
-  } catch {
-    return [];
-  }
+  // Backend has no /graphs list endpoint — rely on universe resolution fallback
+  // in TopBar instead. Returning empty avoids a noisy 404 in the console.
+  return [];
 }
 
 // =============================================================================
