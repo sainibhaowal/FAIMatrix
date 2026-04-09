@@ -495,15 +495,22 @@ export default function FigViewPage() {
       </div>
 
       {/* ===================================================================
-          BOTTOM RIGHT — Zoom controls
+          BOTTOM RIGHT — Zoom controls (improved styling & feedback)
       =================================================================== */}
-      <div className="absolute right-3 bottom-4 z-20 flex flex-col gap-1">
+      <div className="absolute right-3 bottom-4 z-20 flex flex-col gap-1.5 pointer-events-auto">
         {[
-          { label: "Fit", action: () => canvasRef.current?.fitGraph(), icon: <Box size={12} /> },
-          { label: "Zoom In", action: () => canvasRef.current?.zoomIn(), icon: <span className="text-[13px] font-bold leading-none">+</span> },
-          { label: "Zoom Out", action: () => canvasRef.current?.zoomOut(), icon: <span className="text-[13px] font-bold leading-none">−</span> }
+          { label: "Fit Graph", action: () => canvasRef.current?.fitGraph(), icon: <Box size={13} className="text-amber-400" /> },
+          { label: "Zoom In", action: () => canvasRef.current?.zoomIn(), icon: <span className="text-[16px] font-bold leading-none text-emerald-400">+</span> },
+          { label: "Zoom Out", action: () => canvasRef.current?.zoomOut(), icon: <span className="text-[16px] font-bold leading-none text-blue-400">−</span> }
         ].map((btn) => (
-          <button key={btn.label} onClick={btn.action} className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-950/70 text-slate-400 hover:text-cyan-200 hover:border-cyan-400/30 transition-all backdrop-blur-sm">{btn.icon}</button>
+          <button
+            key={btn.label}
+            onClick={btn.action}
+            title={btn.label}
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-700/60 bg-slate-950/80 text-slate-400 hover:text-slate-100 hover:border-cyan-400/50 hover:bg-slate-900/90 transition-all duration-150 backdrop-blur-sm shadow-lg hover:shadow-[0_0_12px_rgba(34,211,238,0.2)]"
+          >
+            {btn.icon}
+          </button>
         ))}
       </div>
 
