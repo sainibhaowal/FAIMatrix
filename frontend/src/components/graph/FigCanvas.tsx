@@ -301,21 +301,25 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
       const cam = fgRef.current?.camera();
       if (!cam) return;
       const pos = cam.position;
-      fgRef.current?.cameraPosition(
-        { x: pos.x * 0.75, y: pos.y * 0.75, z: pos.z * 0.75 },
-        undefined,
-        300,
-      );
+      // Zoom in = move closer (multiply by 0.65 instead of 0.75)
+      const newPos = {
+        x: pos.x * 0.65,
+        y: pos.y * 0.65,
+        z: pos.z * 0.65,
+      };
+      fgRef.current?.cameraPosition(newPos, undefined, 250);
     },
     zoomOut() {
       const cam = fgRef.current?.camera();
       if (!cam) return;
       const pos = cam.position;
-      fgRef.current?.cameraPosition(
-        { x: pos.x * 1.33, y: pos.y * 1.33, z: pos.z * 1.33 },
-        undefined,
-        300,
-      );
+      // Zoom out = move away (multiply by 1.5 instead of 1.33)
+      const newPos = {
+        x: pos.x * 1.5,
+        y: pos.y * 1.5,
+        z: pos.z * 1.5,
+      };
+      fgRef.current?.cameraPosition(newPos, undefined, 250);
     },
   }));
 
