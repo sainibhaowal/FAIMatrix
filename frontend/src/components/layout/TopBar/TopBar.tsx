@@ -165,10 +165,11 @@ export function TopBar({
     const loadProfile = async () => {
       try {
         const token = (session as any)?.accessToken;
+        const tenantId = (session as any)?.tenantId;
         if (!token) return;
-        const res = await fetch("/api/v1/me", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+        if (tenantId) headers["X-Tenant-Id"] = tenantId;
+        const res = await fetch("/api/v1/auth/me", { headers });
         if (res.ok) {
           const data = await res.json();
           if (data.avatar_id) setAvatarId(data.avatar_id);

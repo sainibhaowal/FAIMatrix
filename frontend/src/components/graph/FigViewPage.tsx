@@ -336,6 +336,7 @@ export default function FigViewPage() {
   const toggleDrawer = (panel: DrawerPanel) => setActiveDrawer((prev) => prev === panel ? null : panel);
   const handleTopMode = (mode: TopMode) => {
     setTopMode(mode);
+    setLayoutMode(mode); // Sync layout mode with top mode
     if (mode === "explore") setActiveDrawer("nodes");
     if (mode === "analyze") setActiveDrawer("snapshot");
     if (mode === "lineage") setActiveDrawer("edges");

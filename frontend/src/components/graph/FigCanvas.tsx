@@ -18,6 +18,8 @@ import {
   DEFAULT_CAMERA,
   edgeColorByKind,
   getLayoutConfig,
+  nodeColorByIdentity,
+  nodeColorByLineageDepth,
   nodeColorByState,
   nodeSizeByLevel,
 } from "@/lib/figViewLayout";
@@ -118,37 +120,28 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
     return { outgoing: adj, incoming };
   }, [data.edges]);
 
-  // For Lineage mode: recursive find all related nodes
-  const lineageSet = useMemo(() => {
-    if (topMode !== "lineage" || !selectedNodeId) return new Set<string>();
+  // For Lineage mode: BFS depth from selected node (both directions).
+  // depth 0 = selected, 1 = direct neighbors, etc. Missing id = not in lineage.
+  const lineageDepths = useMemo(() => {
+    const depths = new Map<string, number>();
+    if (topMode !== "lineage" || !selectedNodeId) return depths;
 
-    const related = new Set<string>([selectedNodeId]);
-
-    // Upwards (Ancestors)
-    let currentStack = [selectedNodeId];
-    while (currentStack.length > 0) {
-      const id = currentStack.pop()!;
-      adjacency.incoming.get(id)?.forEach((prev) => {
-        if (!related.has(prev)) {
-          related.add(prev);
-          currentStack.push(prev);
+    depths.set(selectedNodeId, 0);
+    const queue: [string, number][] = [[selectedNodeId, 0]];
+    while (queue.length > 0) {
+      const [id, d] = queue.shift()!;
+      const nextDepth = d + 1;
+      const neighbors = new Set<string>();
+      adjacency.outgoing.get(id)?.forEach((n) => neighbors.add(n));
+      adjacency.incoming.get(id)?.forEach((n) => neighbors.add(n));
+      for (const n of Array.from(neighbors)) {
+        if (!depths.has(n)) {
+          depths.set(n, nextDepth);
+          queue.push([n, nextDepth]);
         }
-      });
+      }
     }
-
-    // Downwards (Descendants)
-    currentStack = [selectedNodeId];
-    while (currentStack.length > 0) {
-      const id = currentStack.pop()!;
-      adjacency.outgoing.get(id)?.forEach((next) => {
-        if (!related.has(next)) {
-          related.add(next);
-          currentStack.push(next);
-        }
-      });
-    }
-
-    return related;
+    return depths;
   }, [topMode, selectedNodeId, adjacency]);
 
   // -------------------------------------------------------------------------
@@ -159,9 +152,14 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
     const filteredNodes = hiddenNodeKinds?.size
       ? data.nodes.filter((n) => !hiddenNodeKinds.has(n.kind))
       : data.nodes;
-    const filteredEdges = hiddenEdgeKinds?.size
+    const nodeIds = new Set(filteredNodes.map((n) => n.node_id));
+    let filteredEdges = hiddenEdgeKinds?.size
       ? data.edges.filter((e) => !hiddenEdgeKinds.has(e.kind))
       : data.edges;
+    // Also filter out edges whose source or target nodes are hidden
+    filteredEdges = filteredEdges.filter(
+      (e) => nodeIds.has(e.src_node_id) && nodeIds.has(e.dst_node_id)
+    );
     return toGraphData(filteredNodes, filteredEdges);
   }, [data.nodes, data.edges, hiddenNodeKinds, hiddenEdgeKinds]);
 
@@ -217,9 +215,14 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   useImperativeHandle(ref, () => ({
     fitGraph() {
       try {
-        if (fgRef.current?.zoomToFit) {
-          fgRef.current.zoomToFit(400, 60);
+        if (!fgRef.current) return;
+        // Prefer built-in zoomToFit; fall back to resetting the camera if it
+        // no-ops (e.g. when called before the force engine has positioned nodes).
+        if (typeof fgRef.current.zoomToFit === "function") {
+          fgRef.current.zoomToFit(400, 80);
         }
+        // Force a controls update so the change is applied immediately.
+        fgRef.current.controls?.().update?.();
       } catch (err) {
         console.error("fitGraph error:", err);
       }
@@ -254,12 +257,22 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
     zoomIn() {
       try {
         if (!fgRef.current) return;
+        // Move camera toward its OrbitControls target (dolly in).
+        const controls = fgRef.current.controls?.();
         const cam = fgRef.current.camera?.();
         if (!cam?.position) return;
-        const pos = cam.position;
+        const target = controls?.target ?? { x: 0, y: 0, z: 0 };
+        const dx = cam.position.x - target.x;
+        const dy = cam.position.y - target.y;
+        const dz = cam.position.z - target.z;
+        const factor = 0.7; // 30% closer
         fgRef.current.cameraPosition(
-          { x: pos.x * 0.65, y: pos.y * 0.65, z: pos.z * 0.65 },
-          undefined,
+          {
+            x: target.x + dx * factor,
+            y: target.y + dy * factor,
+            z: target.z + dz * factor,
+          },
+          { x: target.x, y: target.y, z: target.z },
           250,
         );
       } catch (err) {
@@ -269,12 +282,21 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
     zoomOut() {
       try {
         if (!fgRef.current) return;
+        const controls = fgRef.current.controls?.();
         const cam = fgRef.current.camera?.();
         if (!cam?.position) return;
-        const pos = cam.position;
+        const target = controls?.target ?? { x: 0, y: 0, z: 0 };
+        const dx = cam.position.x - target.x;
+        const dy = cam.position.y - target.y;
+        const dz = cam.position.z - target.z;
+        const factor = 1.4; // 40% farther
         fgRef.current.cameraPosition(
-          { x: pos.x * 1.5, y: pos.y * 1.5, z: pos.z * 1.5 },
-          undefined,
+          {
+            x: target.x + dx * factor,
+            y: target.y + dy * factor,
+            z: target.z + dz * factor,
+          },
+          { x: target.x, y: target.y, z: target.z },
           250,
         );
       } catch (err) {
@@ -331,13 +353,32 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   const nodeColor = useCallback(
     (node: any) => {
       const figNode = node as GraphNode;
-      if (topMode === "lineage" && !lineageSet.has(figNode.id)) {
-        return "rgba(100, 116, 139, 0.2)";
+      const isSelected = selectedNodeId === figNode.id;
+
+      // ANALYZE mode → deterministic rainbow per node_id (guaranteed variety
+      // even when all nodes share the same kind/level/state).
+      if (topMode === "analyze") {
+        return nodeColorByIdentity(figNode.id, isSelected);
       }
+
+      // LINEAGE mode → color by BFS depth from the selected node. Non-lineage
+      // nodes dim only when a selection exists; otherwise show identity colors.
+      if (topMode === "lineage") {
+        if (!selectedNodeId) {
+          return nodeColorByIdentity(figNode.id, false);
+        }
+        const depth = lineageDepths.get(figNode.id);
+        if (depth === undefined) {
+          return "rgba(100, 116, 139, 0.4)";
+        }
+        return nodeColorByLineageDepth(depth, isSelected);
+      }
+
+      // EXPLORE mode → state-based lifecycle colors.
       const stateClass = figNode.display?.state ?? "unknown";
-      return nodeColorByState(stateClass, selectedNodeId === figNode.id);
+      return nodeColorByState(stateClass, isSelected);
     },
-    [topMode, lineageSet, selectedNodeId],
+    [topMode, lineageDepths, selectedNodeId],
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -350,15 +391,14 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   const linkColor = useCallback(
     (link: any) => {
       const graphLink = link as GraphLink;
-      if (topMode === "lineage") {
-        const isInLineage =
-          lineageSet.has(graphLink.source as unknown as string) &&
-          lineageSet.has(graphLink.target as unknown as string);
-        if (!isInLineage) return "rgba(100, 116, 139, 0.1)";
+      if (topMode === "lineage" && selectedNodeId) {
+        const srcIn = lineageDepths.has(graphLink.source as unknown as string);
+        const dstIn = lineageDepths.has(graphLink.target as unknown as string);
+        if (!srcIn || !dstIn) return "rgba(100, 116, 139, 0.1)";
       }
       return edgeColorByKind(graphLink.kind);
     },
-    [topMode, lineageSet],
+    [topMode, lineageDepths, selectedNodeId],
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
