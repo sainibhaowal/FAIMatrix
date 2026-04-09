@@ -20,8 +20,10 @@ import type {
 async function figAuthHeaders(): Promise<Record<string, string>> {
   const session = await getSession();
   const token = (session as { accessToken?: string } | null)?.accessToken;
+  const tenantId = (session as { tenantId?: string } | null)?.tenantId;
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
+  if (tenantId) headers["X-Tenant-Id"] = tenantId;
   return headers;
 }
 
