@@ -26,6 +26,8 @@ import {
   User,
   ChevronRight,
   Search,
+  Gamepad2,
+  Cpu,
 } from "lucide-react";
 
 import Logo from "@/components/brand/Logo";
@@ -59,6 +61,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/evolution", label: "Evolution", icon: Dna },
       { href: "/dashboard/api-keys", label: "API Keys", icon: Shield },
       { href: "/dashboard/storage", label: "Storage", icon: HardDrive },
+      { href: "/dashboard/providers", label: "Providers", icon: Cpu },
     ],
   },
   {
@@ -66,6 +69,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
       { href: "/dashboard/profile", label: "Profile", icon: User },
+      { href: "/dashboard/buttons", label: "Buttons", icon: Gamepad2 },
     ],
   },
 ];

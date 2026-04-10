@@ -3,33 +3,34 @@
 import React from "react";
 import { User, Zap, Bot } from "lucide-react";
 import { motion } from "framer-motion";
+import { useChat } from "@/contexts/ChatContext";
+import { useProviders } from "@/contexts/ProviderContext";
 
-const MOCK_MESSAGES = [
-  { 
-    id: "1", 
-    role: "assistant", 
-    content: "Neural core online. I have analyzed your memory graph. How can I assist with your contextual queries today?",
-    timestamp: "10:14:02"
-  },
-  { 
-    id: "2", 
-    role: "user", 
-    content: "Explain the recent structural optimization in region U:621b.",
-    timestamp: "10:15:24"
-  },
-  { 
-    id: "3", 
-    role: "assistant", 
-    content: "Structural optimization in region U:621b was triggered by a density surge in the vector embeddings. The system consolidated 14 redundant nodes and reorganized the hierarchy to reduce entropy by 8.4%.",
-    timestamp: "10:15:28"
-  }
-];
+const WELCOME_MESSAGE = {
+  id: "welcome",
+  role: "assistant" as const,
+  content:
+    "Neural core online. Connect to an LLM provider to start querying your memory graph. Select a provider from the dashboard.",
+  timestamp: new Date().toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }),
+};
 
 export function ChatInterface() {
+  const { messages, isStreaming } = useChat();
+  const { activeProvider } = useProviders();
+
+  // Show welcome message if no provider is selected and no messages
+  const displayMessages =
+    messages.length === 0 && !activeProvider ? [WELCOME_MESSAGE] : messages;
+
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">
       <div className="max-w-4xl mx-auto py-10 px-6 space-y-10">
-        {MOCK_MESSAGES.map((msg, i) => (
+        {displayMessages.map((msg, i) => (
           <motion.div
             key={msg.id}
             initial={{ opacity: 0, x: -8, filter: "blur(12px)" }}
@@ -62,12 +63,21 @@ export function ChatInterface() {
               </div>
               
               {/* Professional Linear Content */}
-              <div 
+              <div
                 className={`text-[14px] leading-relaxed tracking-tight text-slate-300 max-w-[90%] transition-colors duration-300 group-hover:text-slate-100 ${
                   msg.role === 'assistant' ? 'font-medium' : ''
                 }`}
               >
                 {msg.content}
+                {msg.role === 'assistant' && isStreaming && !msg.content && (
+                  <motion.span
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="ml-1 inline-block text-primary-400"
+                  >
+                    ▌
+                  </motion.span>
+                )}
               </div>
 
               {/* Action Ribbon (Internal/Contextual) */}
