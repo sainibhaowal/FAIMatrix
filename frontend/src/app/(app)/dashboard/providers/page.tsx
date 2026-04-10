@@ -553,74 +553,111 @@ export default function ProvidersPage() {
 
               {formStep === "models" && (
                 <>
-                  <h2 className="text-xl font-bold text-white mb-1">Select Model</h2>
-                  <p className="text-sm text-slate-400 mb-6">Step 2 of 2: Choose the default model and add provider</p>
-
-                  <div className="space-y-4">
-                    <div className="p-3 rounded-lg bg-primary-500/10 border border-primary-500/20">
-                      <div className="flex items-center gap-2 mb-1">
-                        <CheckCircle size={14} className="text-primary-400" />
-                        <span className="text-[10px] font-bold text-primary-300 uppercase tracking-widest">
-                          Connection Successful!
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-300">
-                        Found <span className="font-bold">{discoveredModels.length}</span> available models
-                      </p>
+                  {/* Header */}
+                  <div className="flex items-center gap-3 mb-1">
+                    <div className="w-8 h-8 rounded-lg bg-primary-500/20 border border-primary-500/30 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle size={16} className="text-primary-400" />
                     </div>
-
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
-                        Available Models
-                      </label>
-                      <select
-                        value={selectedModel}
-                        onChange={(e) => setSelectedModel(e.target.value)}
-                        className="w-full text-sm bg-black/40 border border-white/10 rounded px-3 py-3 text-slate-200 focus:outline-none focus:border-primary-500/50"
-                        disabled={formLoading}
-                      >
-                        {discoveredModels.map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                      <p className="text-[9px] text-slate-500 mt-2">
-                        Selected: <span className="font-mono text-primary-400">{selectedModel}</span>
+                      <h2 className="text-lg font-bold text-white leading-tight">Select Model</h2>
+                      <p className="text-[10px] text-primary-400 font-semibold uppercase tracking-widest">
+                        {discoveredModels.length} models found
                       </p>
                     </div>
+                  </div>
 
-                    {formError && (
-                      <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                        <AlertCircle size={14} className="text-rose-500 flex-shrink-0 mt-0.5" />
-                        <span className="text-[11px] text-rose-500">{formError}</span>
-                      </div>
-                    )}
+                  <p className="text-xs text-slate-500 mb-4">
+                    Step 2 of 2 — Pick the default model for <span className="text-slate-300 font-semibold">{formData.name || "this provider"}</span>
+                  </p>
 
-                    <div className="flex gap-3 pt-4">
-                      <Button
-                        className="flex-1"
-                        variant="primary"
-                        size="md"
-                        onClick={handleAddProvider}
-                        disabled={formLoading || !formData.name.trim() || !selectedModel}
-                        leftIcon={formLoading ? <Loader size={14} className="animate-spin" /> : <Plus size={14} />}
-                      >
-                        {formLoading ? "Adding..." : "Add Provider"}
-                      </Button>
-                      <Button
-                        className="flex-1"
-                        variant="outline"
-                        size="md"
-                        onClick={() => {
-                          setFormStep("config");
-                          setFormError(null);
-                        }}
-                        disabled={formLoading}
-                      >
-                        Back
-                      </Button>
+                  {/* Model Cards */}
+                  <div className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1 custom-scrollbar mb-4">
+                    {discoveredModels.map((m) => {
+                      const isSelected = selectedModel === m;
+                      const [vendor, ...rest] = m.split("/");
+                      const modelName = rest.length > 0 ? rest.join("/") : vendor;
+                      const vendorLabel = rest.length > 0 ? vendor : null;
+
+                      return (
+                        <button
+                          key={m}
+                          onClick={() => setSelectedModel(m)}
+                          disabled={formLoading}
+                          className={[
+                            "w-full text-left px-3 py-2.5 rounded-xl border transition-all duration-200 flex items-center gap-3 group",
+                            isSelected
+                              ? "bg-primary-500/15 border-primary-500/40 shadow-[0_0_12px_rgba(34,211,238,0.1)]"
+                              : "bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.07] hover:border-white/10",
+                          ].join(" ")}
+                        >
+                          {/* Selection indicator */}
+                          <div className={[
+                            "w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all",
+                            isSelected
+                              ? "border-primary-400 bg-primary-400"
+                              : "border-slate-600 group-hover:border-slate-400",
+                          ].join(" ")}>
+                            {isSelected && (
+                              <div className="w-1.5 h-1.5 rounded-full bg-slate-900" />
+                            )}
+                          </div>
+
+                          {/* Model info */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-baseline gap-2">
+                              <span className={[
+                                "text-[13px] font-semibold truncate",
+                                isSelected ? "text-primary-200" : "text-slate-200",
+                              ].join(" ")}>
+                                {modelName}
+                              </span>
+                            </div>
+                            {vendorLabel && (
+                              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">
+                                {vendorLabel}
+                              </span>
+                            )}
+                          </div>
+
+                          {isSelected && (
+                            <span className="text-[9px] font-bold text-primary-400 uppercase tracking-widest flex-shrink-0">
+                              Selected
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {formError && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 mb-4">
+                      <AlertCircle size={14} className="text-rose-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-[11px] text-rose-500">{formError}</span>
                     </div>
+                  )}
+
+                  <div className="flex gap-3">
+                    <Button
+                      className="flex-1"
+                      variant="primary"
+                      size="md"
+                      onClick={handleAddProvider}
+                      disabled={formLoading || !formData.name.trim() || !selectedModel}
+                      leftIcon={formLoading ? <Loader size={14} className="animate-spin" /> : <Plus size={14} />}
+                    >
+                      {formLoading ? "Adding..." : "Add Provider"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="md"
+                      onClick={() => {
+                        setFormStep("config");
+                        setFormError(null);
+                      }}
+                      disabled={formLoading}
+                    >
+                      Back
+                    </Button>
                   </div>
                 </>
               )}
