@@ -6,11 +6,13 @@ import Link from "next/link";
 import Logo from "@/components/brand/Logo";
 
 const navLinks = [
-  { href: "#features", label: "Features" },
-  { href: "#how-it-works", label: "How It Works" },
-  { href: "#pricing", label: "Pricing" },
+  { href: "#architecture", label: "Architecture" },
+  { href: "#powers", label: "Engine" },
+  { href: "#proof", label: "Math" },
+  { href: "#how-it-works", label: "Pipeline" },
+  { href: "#use-cases", label: "Use Cases" },
+  { href: "#specs", label: "Specs" },
   { href: "/docs", label: "Docs" },
-  { href: "/about", label: "About" },
 ];
 
 export default function Navbar() {
@@ -33,7 +35,13 @@ export default function Navbar() {
         transition={{ duration: 0.5 }}
         className="fixed top-0 left-0 right-0 z-50 pt-4 px-4"
       >
-        <div className="max-w-7xl mx-auto px-6 py-3 bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-lg shadow-slate-950/30">
+        <div
+          className={`max-w-7xl mx-auto px-6 py-3 backdrop-blur-xl border rounded-2xl shadow-lg transition-all duration-300 ${
+            isScrolled
+              ? "bg-slate-900/90 border-slate-700/60 shadow-slate-950/40"
+              : "bg-slate-900/80 border-slate-700/50 shadow-slate-950/30"
+          }`}
+        >
           <div className="flex items-center justify-between">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-3 group">
@@ -41,17 +49,28 @@ export default function Navbar() {
             </Link>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-8">
-              {navLinks.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  className="text-sm text-slate-400 hover:text-white transition-colors relative group"
-                >
-                  {link.label}
-                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 group-hover:w-full transition-all duration-300" />
-                </a>
-              ))}
+            <div className="hidden md:flex items-center gap-7">
+              {navLinks.map((link) =>
+                link.href.startsWith("/") ? (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="text-sm text-slate-400 hover:text-white transition-colors relative group"
+                  >
+                    {link.label}
+                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 group-hover:w-full transition-all duration-300" />
+                  </Link>
+                ) : (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="text-sm text-slate-400 hover:text-white transition-colors relative group"
+                  >
+                    {link.label}
+                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 group-hover:w-full transition-all duration-300" />
+                  </a>
+                )
+              )}
             </div>
 
             {/* CTA Buttons */}
@@ -121,7 +140,7 @@ export default function Navbar() {
                   href={link.href}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
+                  transition={{ delay: index * 0.05 }}
                   onClick={() => setIsMobileOpen(false)}
                   className="block text-2xl font-semibold text-white hover:text-cyan-400 transition-colors"
                 >

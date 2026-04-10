@@ -1,36 +1,68 @@
 "use client";
 
-import React from "react";
-import { User, Zap, Bot } from "lucide-react";
-import { motion } from "framer-motion";
+import React, { useEffect, useRef } from "react";
+import { User, Bot, MessageSquarePlus, Cpu } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useChat } from "@/contexts/ChatContext";
 import { useProviders } from "@/contexts/ProviderContext";
-
-const WELCOME_MESSAGE = {
-  id: "welcome",
-  role: "assistant" as const,
-  content:
-    "Neural core online. Connect to an LLM provider to start querying your memory graph. Select a provider from the dashboard.",
-  timestamp: new Date().toLocaleTimeString("en-US", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }),
-};
+import { MarkdownRenderer } from "./MarkdownRenderer";
+import { ThinkingPane } from "./ThinkingPane";
 
 export function ChatInterface() {
-  const { messages, isStreaming } = useChat();
+  const { messages, isStreaming, newThread, activeThreadId, isThinking, liveThinkingBuffer } = useChat();
   const { activeProvider } = useProviders();
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  // Show welcome message if no provider is selected and no messages
-  const displayMessages =
-    messages.length === 0 && !activeProvider ? [WELCOME_MESSAGE] : messages;
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Empty state: no messages in current thread (or no thread selected)
+  if (messages.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col items-center gap-5 text-center px-8 max-w-sm"
+        >
+          <div className="w-14 h-14 rounded-2xl bg-primary-500/10 border border-primary-500/20 flex items-center justify-center">
+            <Bot size={26} className="text-primary-400" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-base font-bold text-white tracking-tight">
+              {!activeProvider ? "No provider connected" : activeThreadId ? "Thread is empty" : "Start a conversation"}
+            </h3>
+            <p className="text-[12px] text-slate-500 leading-relaxed">
+              {!activeProvider
+                ? "Go to Providers in the sidebar to connect LM Studio, OpenAI, or any OpenAI-compatible endpoint."
+                : "Type a message below to begin querying your memory graph."}
+            </p>
+          </div>
+          {!activeProvider ? (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+              <Cpu size={13} className="text-amber-400 flex-shrink-0" />
+              <span className="text-[11px] text-amber-400 font-semibold">Connect a provider first</span>
+            </div>
+          ) : (
+            <button
+              onClick={newThread}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-500/10 border border-primary-500/20 hover:bg-primary-500/20 text-primary-300 text-[12px] font-bold uppercase tracking-widest transition-all"
+            >
+              <MessageSquarePlus size={14} />
+              New Thread
+            </button>
+          )}
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-y-auto custom-scrollbar">
       <div className="max-w-4xl mx-auto py-10 px-6 space-y-10">
-        {displayMessages.map((msg, i) => (
+        {messages.map((msg, i) => (
           <motion.div
             key={msg.id}
             initial={{ opacity: 0, x: -8, filter: "blur(12px)" }}
@@ -61,22 +93,36 @@ export function ChatInterface() {
                 <div className="h-[1px] w-2 bg-slate-800" />
                 <span className="text-[9px] font-mono text-slate-600 tracking-tighter uppercase">{msg.timestamp}</span>
               </div>
-              
-              {/* Professional Linear Content */}
-              <div
-                className={`text-[14px] leading-relaxed tracking-tight text-slate-300 max-w-[90%] transition-colors duration-300 group-hover:text-slate-100 ${
-                  msg.role === 'assistant' ? 'font-medium' : ''
-                }`}
-              >
-                {msg.content}
-                {msg.role === 'assistant' && isStreaming && !msg.content && (
-                  <motion.span
-                    animate={{ opacity: [0.4, 1, 0.4] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                    className="ml-1 inline-block text-primary-400"
-                  >
-                    ▌
-                  </motion.span>
+
+              {/* Thinking Pane (for assistant messages) */}
+              {msg.role === 'assistant' && (msg.thinking || (isThinking && i === messages.length - 1)) && (
+                <ThinkingPane
+                  content={msg.thinking ?? liveThinkingBuffer}
+                  durationMs={msg.thinkingDurationMs}
+                  isActive={isThinking && i === messages.length - 1}
+                />
+              )}
+
+              {/* Rendered Content */}
+              <div className="max-w-[90%] transition-colors duration-300">
+                {msg.role === "user" ? (
+                  <p className="text-[14px] leading-7 text-slate-300 group-hover:text-slate-100">
+                    {msg.content}
+                  </p>
+                ) : msg.content ? (
+                  <div className="prose-faim">
+                    <MarkdownRenderer content={msg.content} />
+                  </div>
+                ) : (
+                  isStreaming && (
+                    <motion.span
+                      animate={{ opacity: [0.4, 1, 0.4] }}
+                      transition={{ duration: 1.5, repeat: Infinity }}
+                      className="inline-block text-primary-400 text-lg"
+                    >
+                      ▌
+                    </motion.span>
+                  )
                 )}
               </div>
 
@@ -97,9 +143,9 @@ export function ChatInterface() {
           </motion.div>
         ))}
       </div>
-      
-      {/* Precision Bottom Anchor - Compensates for Floating Capsule */}
-      <div className="h-32" />
+
+      {/* Auto-scroll anchor */}
+      <div ref={bottomRef} className="h-32" />
     </div>
   );
 }

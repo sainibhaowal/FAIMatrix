@@ -524,6 +524,56 @@ Acceptance gate:
 
 - [ ] live graph updates remain stable
 
+
+
+
+
+##Verification Complete
+Phase 8: Overlays and FAIM-Specific Graph Signals
+
+✅ Partially Implemented:
+
+Edge coloring by kind (cyan = inheritance, red = opposition)
+Node coloring by state (active, cold, historical, compressed, deduplicated, pruned, deactivated, unknown)
+Node sizing by level (macro emergence cue)
+❌ NOT Implemented:
+
+Special visual emphasis for inheritance/opposition (no glow, stroke, dashing, or thickness variation)
+Dedup/prune/historical-specific indicators (no icons, badges, patterns, or textures — just generic color)
+Retrieval path visualization (backend endpoint exists /api/v1/paths/explain but no frontend UI)
+Evolution change overlay (evolution page exists separately, no integration into FigView)
+Timeline causality visualization (timeline data received but only shows list in drawer, no event visualization on graph)
+Compression vs merge distinction
+Prune policy feedback
+Phase 9: Event Sync, Timeline, and State Persistence
+
+✅ Foundation Exists:
+
+Timeline data structure in API response (FigTimeline with events, seq tracking)
+Selection state management (selectedNodeId)
+❌ NOT Implemented:
+
+No polling/streaming — graph loads once on page open, never refreshes
+No event application — timeline events are displayed but never applied to update graph visually
+No timeline stepping UI — can't navigate through historical states
+No idempotent event handling — no sequence tracking or dedup logic
+No view state persistence — camera position, node positions, mode/drawer state lost on reload
+No invalidation logic — no mechanism to detect when graph hash changes and refresh needed
+
+##Summary
+Category	Status
+Visual foundation (colors, sizes)	✅ 70% done
+Visual emphasis (glows, patterns, icons)	❌ 0% done
+Event integration	❌ 0% done
+Polling/refresh	❌ 0% done
+Timeline UI	❌ 0% done
+State persistence	❌ 0% done
+Key insight: FigView shows graph topology and basic FAIM attributes (state, level, kind) but has no temporal/event semantics and no live update mechanism. It's a static snapshot viewer, not a live evolving system view.
+
+
+
+
+
 ## Phase 10: Frontend Tests and Release Hardening
 
 Goal:
