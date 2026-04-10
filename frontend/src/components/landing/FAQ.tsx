@@ -1,118 +1,134 @@
 "use client";
 
-import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
 
-const faqs = [
+interface FAQItem {
+  question: string;
+  answer: string;
+}
+
+const FAQS: FAQItem[] = [
   {
-    question: "What is FAIMATRIX?",
+    question: "Is FAIMATRIX a vector database?",
     answer:
-      "FAIMATRIX (Fractal Antisymmetric Inheritance Memory) is an AI-powered knowledge management system that organizes your information into an intelligent, self-evolving knowledge graph. It learns from your data and helps you discover connections you never knew existed.",
+      "No. FAIMATRIX is a mathematical memory engine. Vector databases store and retrieve vectors. FAIM computes inheritance relationships, enforces mathematical invariants, runs fractal diagnostics, performs deterministic deduplication, and self-evolves \u2014 all without ML. Vectors are one component, not the whole system.",
   },
   {
-    question: "How does the knowledge graph work?",
+    question: "Do I need a GPU to run FAIM?",
     answer:
-      "When you add documents, notes, or text, FAIM automatically extracts key concepts and creates connections between related ideas. The graph evolves over time, becoming smarter and more connected as you add more knowledge.",
+      "No. The STRICT profile runs on 2 CPU cores and 1GB RAM with no GPU. This is verified in production via Docker resource limits. The core engine uses pure Python math \u2014 no PyTorch, no TensorFlow, no CUDA. GPU is optional for FAST/SCALE profiles but never required.",
   },
   {
-    question: "Is my data secure?",
+    question: "How is this different from using OpenAI embeddings + Pinecone?",
     answer:
-      "Absolutely. Your data is encrypted at rest and in transit. We offer self-hosted options for enterprises, and our cloud infrastructure is SOC 2 compliant. You maintain full ownership of your data.",
+      "Three fundamental differences: (1) FAIM\u2019s 256-dim vectors are computed deterministically with no API call \u2014 same input always produces the same vector. (2) FAIM adds mathematical structure on top: inheritance fractions, antisymmetric merge, fractal physics, 8 invariants. Pinecone just stores and does similarity search. (3) FAIM works offline, air-gapped. Pinecone + OpenAI require cloud connectivity.",
   },
   {
-    question: "Can I integrate FAIM with other tools?",
+    question: 'What does "deterministic" actually mean here?',
     answer:
-      "Yes! FAIM offers a REST API and webhooks for integration with your existing tools. Pro and Enterprise plans include direct integrations with Notion, Obsidian, and major document management systems.",
+      "It means: given the same input data and the same graph state, every operation produces exactly the same result. Same vectors, same inheritance fractions, same merge decisions (winner selected by SHA-256 hash comparison), same scores. Run it 10,000 times \u2014 identical output. This is mathematically enforced, not approximately reproducible.",
   },
   {
-    question: "What file formats are supported?",
+    question: "Can I use FAIM with my existing LLM (GPT-4, Claude, etc.)?",
     answer:
-      "FAIM supports PDF, DOCX, TXT, Markdown, and plain text. We also support direct paste from web pages and can process code files in most programming languages.",
+      "Yes. The application layer connects to any LLM for natural language queries and explanations. Generate API keys from the dashboard, connect from any framework (LangChain, LlamaIndex, or raw HTTP). The LLM translates between human language and FAIM\u2019s mathematical engine. But the engine itself runs independently \u2014 if the LLM goes down, FAIM keeps storing and retrieving.",
   },
   {
-    question: "How is this different from traditional search?",
+    question: "What is the golden ratio doing in a memory engine?",
     answer:
-      "Traditional search finds exact matches. FAIM understands context and relationships. Ask a question in natural language and get answers that synthesize knowledge from multiple sources in your graph.",
+      "The scaling factor s = 1/\u03C6 \u2248 0.618 is the fixed point of the recurrence s = 1/(1+s). It guarantees self-similar energy scaling across hierarchy levels. Energy E = mean_L2_norm \u00D7 s must stay \u2264 2.0 \u2014 this is a mathematical stability bound. The golden ratio isn\u2019t decorative; it\u2019s the only value that maintains consistent scaling at every depth.",
+  },
+  {
+    question: "How does multi-tenant isolation work?",
+    answer:
+      "Every tenant gets cryptographically isolated data. The middleware layer extracts tenant_id from every request and enforces it at the database level. Tenants cannot access each other\u2019s graphs, nodes, edges, or events. This is enforced by the auth middleware, not application logic \u2014 a tenant literally cannot construct a query that touches another tenant\u2019s data.",
+  },
+  {
+    question: "Is FAIM suitable for production?",
+    answer:
+      "FAIM runs in Docker with PostgreSQL, Redis, and Qdrant. It has defined SpeedBudget profiles (STRICT through SCALE), rate limiting, JWT + API key authentication, scoped permissions, tenant isolation, and a write-behind queue. The STRICT profile targets p95 retrieve latency of 10ms at 1M nodes. All of this is in the current codebase \u2014 not a roadmap.",
   },
 ];
 
 export default function FAQ() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (
-    <section
-      id="faq"
-      className="py-24 px-4 bg-gradient-to-b from-slate-950 to-slate-900"
-    >
+    <section id="faq" className="py-28 px-4 bg-slate-950">
       <div className="max-w-3xl mx-auto">
+        {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-12"
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
         >
-          <span className="text-purple-400 text-sm font-medium tracking-wide uppercase">
+          <span className="text-slate-400 text-sm font-medium tracking-wider uppercase">
             FAQ
           </span>
           <h2 className="mt-4 text-4xl md:text-5xl font-bold text-white">
-            Frequently Asked Questions
+            Common Questions
           </h2>
         </motion.div>
 
-        <div className="space-y-4">
-          {faqs.map((faq, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.05 }}
-              className="border border-slate-800 rounded-xl overflow-hidden bg-slate-900/50"
-            >
-              <button
-                onClick={() => setOpenIndex(openIndex === index ? null : index)}
-                className="w-full px-6 py-5 flex items-center justify-between text-left hover:bg-slate-800/50 transition-colors"
+        {/* FAQ Items */}
+        <div className="space-y-3">
+          {FAQS.map((faq, i) => {
+            const isOpen = openIndex === i;
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 15 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.4, delay: i * 0.05 }}
               >
-                <span className="text-white font-medium pr-4">
-                  {faq.question}
-                </span>
-                <motion.div
-                  animate={{ rotate: openIndex === index ? 180 : 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="shrink-0"
+                <button
+                  onClick={() => setOpenIndex(isOpen ? null : i)}
+                  className={`w-full text-left p-5 rounded-xl border transition-all duration-300 ${
+                    isOpen
+                      ? "border-slate-700 bg-slate-900/60"
+                      : "border-slate-800/60 bg-slate-900/20 hover:border-slate-700 hover:bg-slate-900/40"
+                  }`}
                 >
-                  <svg
-                    className="w-5 h-5 text-slate-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
+                  <div className="flex items-center justify-between gap-4">
+                    <h3 className="text-white font-medium text-sm md:text-base">
+                      {faq.question}
+                    </h3>
+                    <motion.svg
+                      animate={{ rotate: isOpen ? 180 : 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="w-5 h-5 text-slate-500 shrink-0"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
                       strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </motion.div>
-              </button>
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </motion.svg>
+                  </div>
 
-              <AnimatePresence>
-                {openIndex === index && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <div className="px-6 pb-5 text-slate-400 leading-relaxed">
-                      {faq.answer}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </motion.div>
-          ))}
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: "easeOut" }}
+                        className="overflow-hidden"
+                      >
+                        <p className="text-slate-400 text-sm leading-relaxed mt-4 pt-4 border-t border-slate-800">
+                          {faq.answer}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </button>
+              </motion.div>
+            );
+          })}
         </div>
       </div>
     </section>

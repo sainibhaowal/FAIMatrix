@@ -2,75 +2,64 @@
 
 import { motion } from "framer-motion";
 
-const steps = [
+const PIPELINE_STEPS = [
   {
     number: "01",
     title: "Ingest",
-    description:
-      "Upload documents, paste text, or connect your knowledge sources. FAIM handles it all.",
+    description: "Raw documents enter the perception pipeline. Text is extracted, packetized into semantic atoms, and encoded into 256-dimensional vectors using deterministic math — no embeddings API.",
+    detail: "perception \u2192 packetize \u2192 encode",
+    gradient: "from-cyan-500 to-blue-500",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-6 h-6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
       </svg>
     ),
   },
   {
     number: "02",
-    title: "Connect",
-    description:
-      "Watch as FAIM automatically discovers relationships and builds your knowledge graph.",
+    title: "Inherit",
+    description: "Each new memory finds its parents by cosine similarity. Fractions are computed and normalized to sum to exactly 1.0. The residual measures novelty — how much is truly new.",
+    detail: "parent selection \u2192 fraction normalization \u2192 residual computation",
+    gradient: "from-blue-500 to-indigo-500",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-6 h-6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
       </svg>
     ),
   },
   {
     number: "03",
-    title: "Query",
-    description:
-      "Ask questions in natural language. Get precise answers grounded in your knowledge.",
+    title: "Merge",
+    description: "Antisymmetric scan detects near-duplicates (>95% similarity). Winners are chosen deterministically by SHA-256 hash comparison. Same input always produces the same merge decisions.",
+    detail: "opposition scan \u2192 threshold check \u2192 deterministic merge",
+    gradient: "from-indigo-500 to-purple-500",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-6 h-6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <circle cx="11" cy="11" r="8" />
-        <path d="M21 21l-4.35-4.35" />
+      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
       </svg>
     ),
   },
   {
     number: "04",
-    title: "Learn",
-    description:
-      "Your memory evolves. The more you use it, the smarter your knowledge becomes.",
+    title: "Verify",
+    description: "All 8 mathematical invariants are checked. Inheritance sums, boundedness, fractal dimension ranges, energy limits. If any invariant fails, the write is rejected. No exceptions.",
+    detail: "8 invariants verified \u2192 graph hash computed \u2192 event journal updated",
+    gradient: "from-purple-500 to-pink-500",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-6 h-6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-        <path d="M22 4L12 14.01l-3-3" />
+      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+      </svg>
+    ),
+  },
+  {
+    number: "05",
+    title: "Evolve",
+    description: "The graph monitors its own fractal diagnostics. When evolution pressure (\u039B) signals change, the system autonomously merges, prunes, and self-invents — then re-verifies all invariants.",
+    detail: "diagnostics \u2192 adaptive threshold \u2192 merge/prune/invent \u2192 re-verify",
+    gradient: "from-emerald-500 to-cyan-500",
+    icon: (
+      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
       </svg>
     ),
   },
@@ -78,59 +67,66 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section
-      id="how-it-works"
-      className="py-24 px-4 bg-gradient-to-b from-slate-950 to-slate-900"
-    >
-      <div className="max-w-6xl mx-auto">
+    <section id="how-it-works" className="py-28 px-4 bg-gradient-to-b from-[#070a18] to-slate-950">
+      <div className="max-w-5xl mx-auto">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="text-center mb-16"
+          className="text-center mb-20"
         >
-          <span className="text-purple-400 text-sm font-medium tracking-wide uppercase">
-            How It Works
+          <span className="text-purple-400 text-sm font-medium tracking-wider uppercase">
+            Pipeline
           </span>
           <h2 className="mt-4 text-4xl md:text-5xl font-bold text-white">
-            Simple Yet Powerful
+            From Raw Data to{" "}
+            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Living Memory
+            </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            From raw information to intelligent insights in four seamless steps.
+            Every piece of knowledge passes through a rigorous mathematical pipeline.
+            No step is skipped. No invariant is optional.
           </p>
         </motion.div>
 
-        {/* Steps */}
+        {/* Pipeline Steps */}
         <div className="relative">
-          {/* Connecting Line */}
-          <div className="absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-700 to-transparent hidden md:block" />
+          {/* Vertical Line */}
+          <div className="absolute left-6 md:left-8 top-0 bottom-0 w-px bg-gradient-to-b from-cyan-500/40 via-purple-500/40 to-emerald-500/40 hidden sm:block" />
 
-          <div className="grid md:grid-cols-4 gap-8">
-            {steps.map((step, index) => (
+          <div className="space-y-6">
+            {PIPELINE_STEPS.map((step, index) => (
               <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 40 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.15 }}
-                className="relative text-center"
+                key={step.number}
+                initial={{ opacity: 0, x: -30 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, margin: "-30px" }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="relative flex gap-6 md:gap-8 group"
               >
-                {/* Number Badge */}
-                <div className="relative z-10 inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 mb-6">
-                  <span className="text-cyan-400 font-bold text-lg">
-                    {step.number}
-                  </span>
+                {/* Step Number Node */}
+                <div className="relative z-10 shrink-0">
+                  <div className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300`}>
+                    {step.icon}
+                  </div>
                 </div>
 
                 {/* Content */}
-                <h3 className="text-xl font-semibold text-white mb-3">
-                  {step.title}
-                </h3>
-                <p className="text-slate-400 text-sm leading-relaxed">
-                  {step.description}
-                </p>
+                <div className="pb-8 flex-1">
+                  <div className="flex items-baseline gap-3 mb-2">
+                    <span className="text-slate-600 text-xs font-mono font-bold">{step.number}</span>
+                    <h3 className="text-xl font-bold text-white">{step.title}</h3>
+                  </div>
+                  <p className="text-slate-400 text-sm leading-relaxed mb-3">
+                    {step.description}
+                  </p>
+                  <p className="text-slate-600 text-xs font-mono">
+                    {step.detail}
+                  </p>
+                </div>
               </motion.div>
             ))}
           </div>

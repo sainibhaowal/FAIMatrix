@@ -31,7 +31,9 @@ interface ProviderContextType {
     name: string,
     type: "local" | "openai" | "custom",
     baseUrl: string,
-    apiKey?: string
+    apiKey?: string,
+    models?: string[],
+    activeModel?: string
   ) => Promise<string | null>; // Returns provider ID on success, null on error
   removeProvider: (id: string) => void;
   setActiveProvider: (id: string) => void;
@@ -62,7 +64,9 @@ export function ProviderProvider({ children }: { children: React.ReactNode }) {
       name: string,
       type: "local" | "openai" | "custom",
       baseUrl: string,
-      apiKey?: string
+      apiKey?: string,
+      models?: string[],
+      activeModel?: string
     ): Promise<string | null> => {
       setIsLoading(true);
       setError(null);
@@ -70,29 +74,36 @@ export function ProviderProvider({ children }: { children: React.ReactNode }) {
       try {
         const normalized = normalizeBaseUrl(baseUrl);
 
-        // Create provider with empty models first
+        // Create provider — use pre-discovered models if provided, else fetch
+        let resolvedModels = models ?? [];
+        let resolvedActiveModel = activeModel ?? "";
+
+        if (resolvedModels.length === 0) {
+          // Fallback: discover models now
+          const res = await fetch("/api/provider/discover", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ baseUrl: normalized, apiKey }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            resolvedModels = data.models ?? [];
+            resolvedActiveModel = resolvedModels[0] ?? "";
+          }
+        }
+
         const newProvider: Omit<Provider, "id"> = {
           name,
           type,
           baseUrl: normalized,
           apiKey,
-          models: [],
-          activeModel: "",
+          models: resolvedModels,
+          activeModel: resolvedActiveModel,
           isActive: providers.length === 0,
-          status: "untested",
+          status: resolvedModels.length > 0 ? "online" : "untested",
         };
 
         const provider = addProviderLib(newProvider);
-
-        // Auto-discover models
-        setProviders((prev) => [...prev, provider]);
-
-        const discovered = await discoverModels(provider.id);
-
-        if (!discovered) {
-          setError("Could not discover models. Provider may be offline.");
-          return null;
-        }
 
         // Reload from localStorage to get updated state
         const updated = loadProviders();
