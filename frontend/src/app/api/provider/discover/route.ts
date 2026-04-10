@@ -20,9 +20,8 @@ export const runtime = "nodejs";
  * Check if running in Docker by looking for .dockerenv file
  */
 function isRunningInDocker(): boolean {
-  if (typeof window !== "undefined") return false; // Client-side
+  if (typeof window !== "undefined") return false;
   try {
-    // In Docker, /.dockerenv file exists
     const fs = require("fs");
     return fs.existsSync("/.dockerenv");
   } catch {
@@ -32,13 +31,11 @@ function isRunningInDocker(): boolean {
 
 /**
  * Convert localhost to host.docker.internal if in Docker
- * Allows http://localhost:1234 to work from within Docker containers
  */
 function resolveLocalhostUrl(url: string): string {
   const inDocker = isRunningInDocker();
   if (!inDocker) return url;
 
-  // Replace localhost with host.docker.internal for Docker environments
   return url.replace(/^http:\/\/localhost(:\d+)?/, (match) => {
     const port = match.match(/:\d+/)?.[0] || "";
     return `http://host.docker.internal${port}`;
@@ -75,64 +72,60 @@ export async function POST(req: Request): Promise<Response> {
     const resolvedUrl = resolveLocalhostUrl(normalizedUrl);
     const modelsUrl = `${resolvedUrl}/models`;
 
-    console.log(`[Provider Discovery] Original URL: ${normalizedUrl}`);
+    console.log(`[Provider Discovery] Normalized URL: ${normalizedUrl}`);
     if (resolvedUrl !== normalizedUrl) {
-      console.log(`[Provider Discovery] Docker environment detected. Resolved URL: ${resolvedUrl}`);
+      console.log(`[Provider Discovery] Docker resolved to: ${resolvedUrl}`);
     }
-    console.log(`[Provider Discovery] Testing URL: ${modelsUrl}`);
+    console.log(`[Provider Discovery] Fetching models from: ${modelsUrl}`);
 
-    // GET {baseUrl}/models with 8-second timeout
+    // Fetch models with 8-second timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     let response: globalThis.Response;
     try {
-      console.log(`[Provider Discovery] Fetching from: ${modelsUrl}`);
       response = await fetch(modelsUrl, {
         method: "GET",
         headers: {
+          "Content-Type": "application/json",
           ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
         },
         signal: controller.signal,
       });
+      clearTimeout(timeoutId);
     } catch (error: any) {
       clearTimeout(timeoutId);
-
-      console.error(`[Provider Discovery] Error: ${error.message}`, error);
-      console.error(`[Provider Discovery] Full error details:`, {
-        code: error.code,
+      console.error(`[Provider Discovery] Fetch error:`, {
         message: error.message,
-        errno: error.errno,
-        syscall: error.syscall,
+        code: error.code,
       });
 
-      // Classify the error
       if (error.name === "AbortError") {
-        console.error(`[Provider Discovery] Timeout on ${modelsUrl}`);
         return Response.json(
           {
             error: "timeout",
-            message: `Provider did not respond within 8 seconds. URL: ${modelsUrl}. Make sure the server is running and accessible.`
+            message: `Timeout after 8 seconds trying to reach ${modelsUrl}. Is the server running?`,
           } as DiscoverError,
           { status: 408 }
         );
       }
 
       if (error.code === "ECONNREFUSED" || error.message?.includes("ECONNREFUSED")) {
-        console.error(`[Provider Discovery] Connection refused on ${modelsUrl}`);
         return Response.json(
           {
             error: "offline",
-            message: `Connection refused: ${modelsUrl}. Is LM Studio running? Check: (1) Server is started (2) Correct port (3) Correct URL format`,
+            message: `Connection refused: ${modelsUrl}. LM Studio might not be running. Check: (1) Is LM Studio started? (2) Correct port? (3) Is CORS enabled in Server settings?`,
           } as DiscoverError,
           { status: 503 }
         );
       }
 
       if (error.code === "ENOTFOUND" || error.message?.includes("ENOTFOUND")) {
-        console.error(`[Provider Discovery] Host not found: ${modelsUrl}`);
         return Response.json(
-          { error: "offline", message: `Host not found: ${modelsUrl}. Check the URL is correct.` } as DiscoverError,
+          {
+            error: "offline",
+            message: `Host not found: ${modelsUrl}. Check the URL is correct.`,
+          } as DiscoverError,
           { status: 503 }
         );
       }
@@ -140,16 +133,18 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json(
         {
           error: "unknown",
-          message: `Network error connecting to ${modelsUrl}: ${error.message}. Verify the server is running and the URL is correct.`
+          message: `Network error: ${error.message}`,
         } as DiscoverError,
         { status: 500 }
       );
-    } finally {
-      clearTimeout(timeoutId);
     }
 
-    // Handle non-200 responses
+    // Check response status
     if (!response.ok) {
+      console.error(`[Provider Discovery] HTTP ${response.status} from ${modelsUrl}`);
+      const responseText = await response.text();
+      console.error(`[Provider Discovery] Response:`, responseText.slice(0, 300));
+
       if (response.status === 401 || response.status === 403) {
         return Response.json(
           { error: "unauthorized", message: "Invalid API key or unauthorized access" } as DiscoverError,
@@ -158,7 +153,10 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       return Response.json(
-        { error: "unknown", message: `HTTP ${response.status}: ${response.statusText}` } as DiscoverError,
+        {
+          error: "invalid_response",
+          message: `Server returned HTTP ${response.status}. Expected models list.`,
+        } as DiscoverError,
         { status: response.status }
       );
     }
@@ -167,26 +165,31 @@ export async function POST(req: Request): Promise<Response> {
     let data: any;
     try {
       data = await response.json();
+      console.log(`[Provider Discovery] Got response:`, JSON.stringify(data).slice(0, 200));
     } catch {
       return Response.json(
-        { error: "invalid_response", message: "Provider returned invalid JSON" } as DiscoverError,
+        {
+          error: "invalid_response",
+          message: "Server returned invalid JSON. Expected OpenAI-compatible models response.",
+        } as DiscoverError,
         { status: 502 }
       );
     }
 
-    // Extract model IDs from response
-    // OpenAI-compatible format: { data: [{ id: "...", ... }] }
+    // Extract models - handle both OpenAI format and plain array
     const models = Array.isArray(data.data)
       ? data.data.map((m: any) => m.id || m.model || m.name).filter(Boolean)
       : Array.isArray(data)
-      ? data
+      ? data.map((m: any) => (typeof m === "string" ? m : m.id || m.model || m.name)).filter(Boolean)
       : [];
+
+    console.log(`[Provider Discovery] Found ${models.length} models:`, models);
 
     if (models.length === 0) {
       return Response.json(
         {
           error: "invalid_response",
-          message: "Provider returned no models. Response format may not be OpenAI-compatible.",
+          message: `No models found. Server returned: ${JSON.stringify(data).slice(0, 100)}`,
         } as DiscoverError,
         { status: 502 }
       );
@@ -194,8 +197,12 @@ export async function POST(req: Request): Promise<Response> {
 
     return Response.json({ models } as DiscoverSuccess, { status: 200 });
   } catch (error: any) {
+    console.error(`[Provider Discovery] Unexpected error:`, error);
     return Response.json(
-      { error: "unknown", message: `Server error: ${error.message}` } as DiscoverError,
+      {
+        error: "unknown",
+        message: `Server error: ${error.message}`,
+      } as DiscoverError,
       { status: 500 }
     );
   }
