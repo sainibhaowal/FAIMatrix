@@ -11,6 +11,7 @@ import {
   Radio,
   Copy,
   Check,
+  Download,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GlassHeader } from "@/components/layout/GlassHeader";
@@ -37,16 +38,70 @@ export default function ProvidersPage() {
     baseUrl: "",
     apiKey: "",
   });
+  const [discoveredModels, setDiscoveredModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("");
+  const [formStep, setFormStep] = useState<"config" | "models">("config");
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Step 1: Test Connection & Fetch Models
+  const handleTestConnection = useCallback(async () => {
+    setFormError(null);
+    setFormLoading(true);
+    setDiscoveredModels([]);
+    setSelectedModel("");
+
+    if (!formData.baseUrl.trim()) {
+      setFormError("Base URL is required");
+      setFormLoading(false);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/provider/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseUrl: formData.baseUrl,
+          apiKey: formData.apiKey || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || `HTTP ${res.status}`);
+      }
+
+      const { models } = await res.json();
+      setDiscoveredModels(models);
+
+      if (models.length > 0) {
+        setSelectedModel(models[0]);
+        setFormStep("models");
+      } else {
+        setFormError("No models found from provider");
+      }
+    } catch (e: any) {
+      setFormError(e.message || "Failed to discover models");
+    } finally {
+      setFormLoading(false);
+    }
+  }, [formData.baseUrl, formData.apiKey]);
+
+  // Step 2: Add Provider with selected model
   const handleAddProvider = useCallback(async () => {
     setFormError(null);
     setFormLoading(true);
 
-    if (!formData.name.trim() || !formData.baseUrl.trim()) {
-      setFormError("Name and Base URL are required");
+    if (!formData.name.trim()) {
+      setFormError("Provider name is required");
+      setFormLoading(false);
+      return;
+    }
+
+    if (!selectedModel) {
+      setFormError("A model must be selected");
       setFormLoading(false);
       return;
     }
@@ -61,6 +116,9 @@ export default function ProvidersPage() {
 
       if (id) {
         setFormData({ name: "", type: "local", baseUrl: "", apiKey: "" });
+        setDiscoveredModels([]);
+        setSelectedModel("");
+        setFormStep("config");
         setShowAddForm(false);
       } else {
         setFormError("Failed to add provider. Check the URL and try again.");
@@ -68,7 +126,7 @@ export default function ProvidersPage() {
     } finally {
       setFormLoading(false);
     }
-  }, [formData, addProvider]);
+  }, [formData, selectedModel, addProvider]);
 
   const handleCopyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
@@ -82,6 +140,15 @@ export default function ProvidersPage() {
     },
     [discoverModels]
   );
+
+  const closeForm = () => {
+    setShowAddForm(false);
+    setFormStep("config");
+    setFormData({ name: "", type: "local", baseUrl: "", apiKey: "" });
+    setDiscoveredModels([]);
+    setSelectedModel("");
+    setFormError(null);
+  };
 
   return (
     <div className="relative space-y-6 pb-8 text-slate-100 px-1">
@@ -186,7 +253,6 @@ export default function ProvidersPage() {
               </p>
               <Button
                 size="sm"
-                variant="primary"
                 leftIcon={<Plus size={14} />}
                 onClick={() => setShowAddForm(true)}
               >
@@ -340,7 +406,7 @@ export default function ProvidersPage() {
         )}
       </div>
 
-      {/* Add Provider Modal */}
+      {/* Add Provider Modal - Step 1 & 2 */}
       <AnimatePresence>
         {showAddForm && (
           <motion.div
@@ -348,7 +414,7 @@ export default function ProvidersPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-            onClick={() => !formLoading && setShowAddForm(false)}
+            onClick={() => !formLoading && closeForm()}
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
@@ -357,143 +423,207 @@ export default function ProvidersPage() {
               className="max-w-md w-full bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-xl font-bold text-white mb-1">Add LLM Provider</h2>
-              <p className="text-sm text-slate-400 mb-6">
-                Connect to an LLM provider to enable memory queries.
-              </p>
+              {formStep === "config" && (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-1">Add LLM Provider</h2>
+                  <p className="text-sm text-slate-400 mb-6">Step 1 of 2: Configure provider and test connection</p>
 
-              <div className="space-y-4">
-                {/* Name Field */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
-                    Provider Name
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="e.g., My LM Studio"
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
-                    disabled={formLoading}
-                  />
-                </div>
-
-                {/* Type Selector */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
-                    Provider Type
-                  </label>
-                  <div className="flex gap-2">
-                    {["local", "openai", "custom"].map((t) => (
-                      <label
-                        key={t}
-                        className="flex-1 cursor-pointer"
-                      >
-                        <input
-                          type="radio"
-                          name="type"
-                          value={t}
-                          checked={formData.type === t}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              type: e.target.value as "local" | "openai" | "custom",
-                            })
-                          }
-                          disabled={formLoading}
-                          className="sr-only"
-                        />
-                        <div
-                          className={`px-3 py-2 rounded-lg border text-center text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer ${
-                            formData.type === t
-                              ? "bg-primary-500/20 border-primary-500/50 text-primary-300"
-                              : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10"
-                          }`}
-                        >
-                          {t === "local" ? "Local" : t === "openai" ? "OpenAI" : "Custom"}
-                        </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                        Provider Name
                       </label>
-                    ))}
-                  </div>
-                </div>
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="e.g., My LM Studio"
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
+                        disabled={formLoading}
+                      />
+                    </div>
 
-                {/* Base URL */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
-                    Base URL
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.baseUrl}
-                    onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
-                    placeholder={
-                      formData.type === "local"
-                        ? "http://localhost:1234"
-                        : formData.type === "openai"
-                        ? "https://api.openai.com/v1"
-                        : "https://your-endpoint.com/v1"
-                    }
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
-                    disabled={formLoading}
-                  />
-                  {formData.type === "local" && (
-                    <p className="text-[9px] text-slate-500 mt-1.5">
-                      Tip: If running in Docker, use <code className="font-mono">http://host.docker.internal:1234</code>
-                    </p>
-                  )}
-                </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                        Provider Type
+                      </label>
+                      <div className="flex gap-2">
+                        {["local", "openai", "custom"].map((t) => (
+                          <label key={t} className="flex-1 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="type"
+                              value={t}
+                              checked={formData.type === t}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  type: e.target.value as "local" | "openai" | "custom",
+                                })
+                              }
+                              disabled={formLoading}
+                              className="sr-only"
+                            />
+                            <div
+                              className={`px-3 py-2 rounded-lg border text-center text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer ${
+                                formData.type === t
+                                  ? "bg-primary-500/20 border-primary-500/50 text-primary-300"
+                                  : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10"
+                              }`}
+                            >
+                              {t === "local" ? "Local" : t === "openai" ? "OpenAI" : "Custom"}
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
 
-                {/* API Key (Optional for OpenAI) */}
-                {(formData.type === "openai" || formData.type === "custom") && (
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
-                      API Key {formData.type === "custom" && "(Optional)"}
-                    </label>
-                    <input
-                      type="password"
-                      value={formData.apiKey}
-                      onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                      placeholder="sk-... or leave empty"
-                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
-                      disabled={formLoading}
-                    />
-                  </div>
-                )}
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                        Base URL
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.baseUrl}
+                        onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
+                        placeholder={
+                          formData.type === "local"
+                            ? "http://localhost:1234"
+                            : formData.type === "openai"
+                            ? "https://api.openai.com/v1"
+                            : "https://your-endpoint.com/v1"
+                        }
+                        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
+                        disabled={formLoading}
+                      />
+                      {formData.type === "local" && (
+                        <p className="text-[9px] text-slate-500 mt-1.5">
+                          Tip: If running in Docker, use <code className="font-mono">http://host.docker.internal:1234</code>
+                        </p>
+                      )}
+                    </div>
 
-                {/* Error */}
-                {formError && (
-                  <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                    <AlertCircle size={14} className="text-rose-500 flex-shrink-0 mt-0.5" />
-                    <span className="text-[11px] text-rose-500">{formError}</span>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    className="flex-1"
-                    variant="primary"
-                    size="md"
-                    onClick={handleAddProvider}
-                    disabled={formLoading || !formData.name.trim() || !formData.baseUrl.trim()}
-                  >
-                    {formLoading ? (
-                      <><Loader size={14} className="animate-spin" /> Testing...</>
-                    ) : (
-                      "Test & Add"
+                    {(formData.type === "openai" || formData.type === "custom") && (
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                          API Key {formData.type === "custom" && "(Optional)"}
+                        </label>
+                        <input
+                          type="password"
+                          value={formData.apiKey}
+                          onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
+                          placeholder="sk-... or leave empty"
+                          className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
+                          disabled={formLoading}
+                        />
+                      </div>
                     )}
-                  </Button>
-                  <Button
-                    className="flex-1"
-                    variant="outline"
-                    size="md"
-                    onClick={() => setShowAddForm(false)}
-                    disabled={formLoading}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
+
+                    {formError && (
+                      <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                        <AlertCircle size={14} className="text-rose-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-[11px] text-rose-500">{formError}</span>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-4">
+                      <Button
+                        className="flex-1"
+                        variant="primary"
+                        size="md"
+                        onClick={handleTestConnection}
+                        disabled={formLoading || !formData.baseUrl.trim()}
+                        leftIcon={formLoading ? <Loader size={14} className="animate-spin" /> : <Download size={14} />}
+                      >
+                        {formLoading ? "Testing..." : "Test Connection"}
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        variant="outline"
+                        size="md"
+                        onClick={closeForm}
+                        disabled={formLoading}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {formStep === "models" && (
+                <>
+                  <h2 className="text-xl font-bold text-white mb-1">Select Model</h2>
+                  <p className="text-sm text-slate-400 mb-6">Step 2 of 2: Choose the default model and add provider</p>
+
+                  <div className="space-y-4">
+                    <div className="p-3 rounded-lg bg-primary-500/10 border border-primary-500/20">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CheckCircle size={14} className="text-primary-400" />
+                        <span className="text-[10px] font-bold text-primary-300 uppercase tracking-widest">
+                          Connection Successful!
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-300">
+                        Found <span className="font-bold">{discoveredModels.length}</span> available models
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                        Available Models
+                      </label>
+                      <select
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        className="w-full text-sm bg-black/40 border border-white/10 rounded px-3 py-3 text-slate-200 focus:outline-none focus:border-primary-500/50"
+                        disabled={formLoading}
+                      >
+                        {discoveredModels.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[9px] text-slate-500 mt-2">
+                        Selected: <span className="font-mono text-primary-400">{selectedModel}</span>
+                      </p>
+                    </div>
+
+                    {formError && (
+                      <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                        <AlertCircle size={14} className="text-rose-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-[11px] text-rose-500">{formError}</span>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3 pt-4">
+                      <Button
+                        className="flex-1"
+                        variant="primary"
+                        size="md"
+                        onClick={handleAddProvider}
+                        disabled={formLoading || !formData.name.trim() || !selectedModel}
+                        leftIcon={formLoading ? <Loader size={14} className="animate-spin" /> : <Plus size={14} />}
+                      >
+                        {formLoading ? "Adding..." : "Add Provider"}
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        variant="outline"
+                        size="md"
+                        onClick={() => {
+                          setFormStep("config");
+                          setFormError(null);
+                        }}
+                        disabled={formLoading}
+                      >
+                        Back
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}
