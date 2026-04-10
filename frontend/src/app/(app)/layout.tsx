@@ -2,13 +2,14 @@
 
 /**
  * App Layout
- * 
+ *
  * Wraps all protected app pages (dashboard, graph, monitor, etc.)
  * with the FaimShell sidebar and AuthGuard.
  */
 
 import { FaimShell } from "@/components/layout/FaimShell";
 import { AuthGuard, ErrorBoundary } from "@/components";
+import { ProviderProvider } from "@/contexts/ProviderContext";
 
 export default function AppLayout({
   children,
@@ -17,9 +18,11 @@ export default function AppLayout({
 }) {
   return (
     <AuthGuard>
-      <FaimShell>
-        <ErrorBoundary>{children}</ErrorBoundary>
-      </FaimShell>
+      <ProviderProvider>
+        <FaimShell>
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </FaimShell>
+      </ProviderProvider>
     </AuthGuard>
   );
 }
