@@ -244,6 +244,8 @@ services:
       - "8010:8010"
     environment:
       - API_HOST=api:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       api:
         condition: service_healthy
