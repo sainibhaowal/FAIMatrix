@@ -26,7 +26,6 @@ import {
   User,
   ChevronRight,
   Search,
-  Gamepad2,
   Cpu,
 } from "lucide-react";
 
@@ -69,7 +68,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
       { href: "/dashboard/profile", label: "Profile", icon: User },
-      { href: "/dashboard/buttons", label: "Buttons", icon: Gamepad2 },
     ],
   },
 ];
