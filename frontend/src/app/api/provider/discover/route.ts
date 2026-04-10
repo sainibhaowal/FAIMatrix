@@ -43,6 +43,9 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const normalizedUrl = normalizeBaseUrl(baseUrl);
+    const modelsUrl = `${normalizedUrl}/models`;
+
+    console.log(`[Provider Discovery] Testing URL: ${modelsUrl}`);
 
     // GET {baseUrl}/models with 8-second timeout
     const controller = new AbortController();
@@ -50,7 +53,8 @@ export async function POST(req: Request): Promise<Response> {
 
     let response: globalThis.Response;
     try {
-      response = await fetch(`${normalizedUrl}/models`, {
+      console.log(`[Provider Discovery] Fetching from: ${modelsUrl}`);
+      response = await fetch(modelsUrl, {
         method: "GET",
         headers: {
           ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
@@ -60,8 +64,11 @@ export async function POST(req: Request): Promise<Response> {
     } catch (error: any) {
       clearTimeout(timeoutId);
 
+      console.error(`[Provider Discovery] Error: ${error.message}`, error);
+
       // Classify the error
       if (error.name === "AbortError") {
+        console.error(`[Provider Discovery] Timeout on ${modelsUrl}`);
         return Response.json(
           { error: "timeout", message: "Provider did not respond within 8 seconds" } as DiscoverError,
           { status: 408 }
@@ -69,6 +76,7 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       if (error.code === "ECONNREFUSED" || error.message?.includes("ECONNREFUSED")) {
+        console.error(`[Provider Discovery] Connection refused on ${modelsUrl}`);
         return Response.json(
           {
             error: "offline",
@@ -79,6 +87,7 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       if (error.code === "ENOTFOUND" || error.message?.includes("ENOTFOUND")) {
+        console.error(`[Provider Discovery] Host not found: ${modelsUrl}`);
         return Response.json(
           { error: "offline", message: "Provider host not found (invalid URL)" } as DiscoverError,
           { status: 503 }
@@ -86,7 +95,10 @@ export async function POST(req: Request): Promise<Response> {
       }
 
       return Response.json(
-        { error: "unknown", message: `Network error: ${error.message}` } as DiscoverError,
+        {
+          error: "unknown",
+          message: `Network error: ${error.message}. Tried URL: ${modelsUrl}`
+        } as DiscoverError,
         { status: 500 }
       );
     } finally {
