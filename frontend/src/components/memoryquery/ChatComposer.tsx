@@ -1,20 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Send, Zap, Paperclip, Image as ImageIcon } from "lucide-react";
+import { Plus, Send, Zap, Paperclip, Image as ImageIcon, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/Button";
+import { useChat } from "@/contexts/ChatContext";
+import { useProviders } from "@/contexts/ProviderContext";
 
 export function ChatComposer() {
   const [value, setValue] = useState("");
-  const [isStreaming, setIsStreaming] = useState(false);
   const [showTools, setShowTools] = useState(false);
+  const { sendMessage, isStreaming, error } = useChat();
+  const { activeProvider } = useProviders();
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!value.trim() || isStreaming) return;
-    setIsStreaming(true);
-    // Unwired mode: reset after 3 seconds
-    setTimeout(() => setIsStreaming(false), 3000);
+    if (!activeProvider) return;
+    await sendMessage(value);
     setValue("");
   };
 
@@ -90,16 +92,33 @@ export function ChatComposer() {
           />
         </div>
 
-        <div className="relative z-10">
+        <div className="relative z-10 flex items-center gap-2">
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20"
+              title={error}
+            >
+              <AlertCircle size={14} className="text-rose-500 flex-shrink-0" />
+              <span className="text-[10px] text-rose-500 font-semibold uppercase tracking-widest truncate">
+                {error}
+              </span>
+            </motion.div>
+          )}
           <Button
             onClick={handleSend}
-            disabled={!value.trim() && !isStreaming}
+            disabled={!value.trim() || isStreaming || !activeProvider}
             className={`h-11 w-11 !p-0 rounded-[20px] transition-all duration-500 relative overflow-hidden group ${
-              isStreaming 
-                ? 'bg-primary-500 text-white shadow-[0_0_25px_rgba(34,211,238,0.5)]' 
+              isStreaming
+                ? 'bg-primary-500 text-white shadow-[0_0_25px_rgba(34,211,238,0.5)]'
+                : !activeProvider
+                ? 'bg-slate-700/30 text-slate-600 cursor-not-allowed'
                 : 'bg-white/5 border-white/5 text-slate-600 hover:text-primary-300 hover:bg-primary-500/10 hover:border-primary-500/30'
             }`}
             variant="outline"
+            title={!activeProvider ? "Select a provider first" : ""}
           >
             {isStreaming ? (
               <motion.div
@@ -109,12 +128,12 @@ export function ChatComposer() {
                 <Zap size={20} fill="currentColor" />
               </motion.div>
             ) : (
-              <Send size={20} className={value.trim() ? "text-primary-300" : "text-slate-700"} />
+              <Send size={20} className={value.trim() && activeProvider ? "text-primary-300" : "text-slate-700"} />
             )}
-            
+
             <AnimatePresence>
               {isStreaming && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="absolute inset-0 bg-white/20 blur-xl scale-150"
