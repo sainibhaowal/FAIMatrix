@@ -1,0 +1,503 @@
+"use client";
+
+import React, { useState, useCallback } from "react";
+import {
+  Cpu,
+  Plus,
+  Trash2,
+  CheckCircle,
+  AlertCircle,
+  Loader,
+  Radio,
+  Copy,
+  Check,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { GlassHeader } from "@/components/layout/GlassHeader";
+import { Button } from "@/components/ui/Button";
+import { useProviders } from "@/contexts/ProviderContext";
+
+export default function ProvidersPage() {
+  const {
+    providers,
+    activeProvider,
+    isLoading,
+    error,
+    addProvider,
+    removeProvider,
+    setActiveProvider,
+    setActiveModel,
+    discoverModels,
+  } = useProviders();
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: "",
+    type: "local" as "local" | "openai" | "custom",
+    baseUrl: "",
+    apiKey: "",
+  });
+  const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleAddProvider = useCallback(async () => {
+    setFormError(null);
+    setFormLoading(true);
+
+    if (!formData.name.trim() || !formData.baseUrl.trim()) {
+      setFormError("Name and Base URL are required");
+      setFormLoading(false);
+      return;
+    }
+
+    try {
+      const id = await addProvider(
+        formData.name,
+        formData.type,
+        formData.baseUrl,
+        formData.apiKey || undefined
+      );
+
+      if (id) {
+        setFormData({ name: "", type: "local", baseUrl: "", apiKey: "" });
+        setShowAddForm(false);
+      } else {
+        setFormError("Failed to add provider. Check the URL and try again.");
+      }
+    } finally {
+      setFormLoading(false);
+    }
+  }, [formData, addProvider]);
+
+  const handleCopyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedId(url);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleRefreshModels = useCallback(
+    async (providerId: string) => {
+      await discoverModels(providerId);
+    },
+    [discoverModels]
+  );
+
+  return (
+    <div className="relative space-y-6 pb-8 text-slate-100 px-1">
+      <div className="faim-grid" />
+
+      <GlassHeader
+        title="LLM Providers"
+        subtitle="Universal AI endpoint management"
+        icon={Cpu}
+        actions={
+          <Button
+            size="sm"
+            variant="primary"
+            leftIcon={<Plus size={14} />}
+            onClick={() => setShowAddForm(true)}
+          >
+            Add Provider
+          </Button>
+        }
+      />
+
+      {/* Metrics Strip */}
+      <div
+        className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+      >
+        {[
+          {
+            label: "Active Provider",
+            value: activeProvider?.name || "None",
+            icon: <Cpu size={18} />,
+            color: activeProvider ? "text-cyan-200" : "text-slate-500",
+          },
+          {
+            label: "Active Model",
+            value: activeProvider?.activeModel || "—",
+            icon: <CheckCircle size={18} />,
+            color: "text-emerald-400",
+          },
+          {
+            label: "Total Providers",
+            value: `${providers.length}`,
+            icon: <Radio size={18} />,
+            color: "text-amber-400",
+          },
+          {
+            label: "Connection Status",
+            value: activeProvider?.status === "online" ? "Online" : activeProvider ? "Checking..." : "Offline",
+            icon: <AlertCircle size={18} />,
+            color:
+              activeProvider?.status === "online"
+                ? "text-emerald-400"
+                : "text-slate-400",
+          },
+        ].map((stat, i) => (
+          <div
+            key={stat.label}
+            className="relative flex flex-col justify-center px-6 py-3"
+            style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                {stat.label}
+              </p>
+              <div className="opacity-20">{stat.icon}</div>
+            </div>
+            <p className="font-semibold tabular-nums leading-none" style={{ fontSize: 18 }}>
+              <span className={stat.color}>{stat.value}</span>
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Error Alert */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 flex items-center gap-3"
+        >
+          <AlertCircle size={16} className="text-rose-500 flex-shrink-0" />
+          <p className="text-sm text-rose-500">{error}</p>
+        </motion.div>
+      )}
+
+      {/* Providers Grid */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-bold uppercase tracking-[0.2em] text-slate-300">
+          Configured Providers
+        </h2>
+
+        {providers.length === 0 ? (
+          <div
+            className="rounded-xl border overflow-hidden p-12 flex flex-col items-center gap-4 text-center"
+            style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+          >
+            <Cpu size={32} className="text-slate-500 opacity-40" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-400 mb-2">No providers configured</h3>
+              <p className="text-xs text-slate-500 max-w-md mb-4">
+                Add your first LLM provider (LM Studio local server, OpenAI, or any OpenAI-compatible endpoint) to start querying.
+              </p>
+              <Button
+                size="sm"
+                variant="primary"
+                leftIcon={<Plus size={14} />}
+                onClick={() => setShowAddForm(true)}
+              >
+                Add Provider
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {providers.map((provider) => (
+              <motion.div
+                key={provider.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl border p-4 space-y-4"
+                style={{
+                  borderColor: provider.isActive
+                    ? "var(--primary-500)"
+                    : "var(--os-stroke)",
+                  background: "var(--os-surface-1)",
+                }}
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="text-sm font-bold text-white truncate">{provider.name}</h3>
+                      {provider.isActive && (
+                        <span className="inline-block px-2 py-1 rounded-lg bg-primary-500/20 border border-primary-500/30 text-[10px] font-bold text-primary-300 uppercase tracking-wider whitespace-nowrap">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2">
+                      {provider.type === "local"
+                        ? "Local Server"
+                        : provider.type === "openai"
+                        ? "OpenAI"
+                        : "Custom Endpoint"}
+                    </p>
+                  </div>
+
+                  {/* Status Badge */}
+                  <div className="flex-shrink-0">
+                    {provider.status === "online" ? (
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-wider">
+                          Online
+                        </span>
+                      </div>
+                    ) : provider.status === "offline" ? (
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                        <div className="w-2 h-2 rounded-full bg-rose-500" />
+                        <span className="text-[9px] font-bold text-rose-400 uppercase tracking-wider">
+                          Offline
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-slate-500/10 border border-slate-500/20">
+                        <Loader size={10} className="animate-spin" />
+                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                          Check
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* URL */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    Base URL
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[11px] font-mono text-slate-400 bg-black/30 px-2 py-1.5 rounded border border-slate-700/50 flex-1 truncate">
+                      {provider.baseUrl}
+                    </code>
+                    <button
+                      onClick={() => handleCopyUrl(provider.baseUrl)}
+                      className="p-1.5 rounded hover:bg-white/10 transition-colors"
+                      title="Copy URL"
+                    >
+                      {copiedId === provider.baseUrl ? (
+                        <Check size={14} className="text-emerald-400" />
+                      ) : (
+                        <Copy size={14} className="text-slate-500 hover:text-slate-300" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Models */}
+                {provider.models.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                        Models ({provider.models.length})
+                      </p>
+                      <button
+                        onClick={() => handleRefreshModels(provider.id)}
+                        className="text-[9px] text-primary-400 hover:text-primary-300 uppercase tracking-widest font-bold transition-colors"
+                      >
+                        Refresh
+                      </button>
+                    </div>
+                    <select
+                      value={provider.activeModel}
+                      onChange={(e) => setActiveModel(provider.id, e.target.value)}
+                      className="w-full text-sm bg-black/40 border border-white/10 rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-primary-500/50"
+                    >
+                      {provider.models.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <AlertCircle size={14} />
+                    <span className="text-[11px]">No models discovered. Check connection.</span>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-2 border-t border-slate-700/50">
+                  {!provider.isActive && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => setActiveProvider(provider.id)}
+                    >
+                      Set Active
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-rose-500/30 text-rose-500 hover:bg-rose-500/5 flex-1"
+                    leftIcon={<Trash2 size={12} />}
+                    onClick={() => removeProvider(provider.id)}
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Add Provider Modal */}
+      <AnimatePresence>
+        {showAddForm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => !formLoading && setShowAddForm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="max-w-md w-full bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-xl font-bold text-white mb-1">Add LLM Provider</h2>
+              <p className="text-sm text-slate-400 mb-6">
+                Connect to an LLM provider to enable memory queries.
+              </p>
+
+              <div className="space-y-4">
+                {/* Name Field */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                    Provider Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder="e.g., My LM Studio"
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
+                    disabled={formLoading}
+                  />
+                </div>
+
+                {/* Type Selector */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                    Provider Type
+                  </label>
+                  <div className="flex gap-2">
+                    {["local", "openai", "custom"].map((t) => (
+                      <label
+                        key={t}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <input
+                          type="radio"
+                          name="type"
+                          value={t}
+                          checked={formData.type === t}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              type: e.target.value as "local" | "openai" | "custom",
+                            })
+                          }
+                          disabled={formLoading}
+                          className="sr-only"
+                        />
+                        <div
+                          className={`px-3 py-2 rounded-lg border text-center text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer ${
+                            formData.type === t
+                              ? "bg-primary-500/20 border-primary-500/50 text-primary-300"
+                              : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10"
+                          }`}
+                        >
+                          {t === "local" ? "Local" : t === "openai" ? "OpenAI" : "Custom"}
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Base URL */}
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                    Base URL
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.baseUrl}
+                    onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
+                    placeholder={
+                      formData.type === "local"
+                        ? "http://localhost:1234"
+                        : formData.type === "openai"
+                        ? "https://api.openai.com/v1"
+                        : "https://your-endpoint.com/v1"
+                    }
+                    className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
+                    disabled={formLoading}
+                  />
+                  {formData.type === "local" && (
+                    <p className="text-[9px] text-slate-500 mt-1.5">
+                      Tip: If running in Docker, use <code className="font-mono">http://host.docker.internal:1234</code>
+                    </p>
+                  )}
+                </div>
+
+                {/* API Key (Optional for OpenAI) */}
+                {(formData.type === "openai" || formData.type === "custom") && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
+                      API Key {formData.type === "custom" && "(Optional)"}
+                    </label>
+                    <input
+                      type="password"
+                      value={formData.apiKey}
+                      onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
+                      placeholder="sk-... or leave empty"
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
+                      disabled={formLoading}
+                    />
+                  </div>
+                )}
+
+                {/* Error */}
+                {formError && (
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                    <AlertCircle size={14} className="text-rose-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-[11px] text-rose-500">{formError}</span>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-4">
+                  <Button
+                    className="flex-1"
+                    variant="primary"
+                    size="md"
+                    onClick={handleAddProvider}
+                    disabled={formLoading || !formData.name.trim() || !formData.baseUrl.trim()}
+                  >
+                    {formLoading ? (
+                      <><Loader size={14} className="animate-spin" /> Testing...</>
+                    ) : (
+                      "Test & Add"
+                    )}
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    variant="outline"
+                    size="md"
+                    onClick={() => setShowAddForm(false)}
+                    disabled={formLoading}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
