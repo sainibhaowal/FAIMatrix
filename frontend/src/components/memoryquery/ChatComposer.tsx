@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Send, Zap, Paperclip, Image as ImageIcon, AlertCircle } from "lucide-react";
+import { Plus, Send, Zap, Paperclip, Image as ImageIcon, AlertCircle, MessageSquarePlus, Brain } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { useChat } from "@/contexts/ChatContext";
@@ -10,7 +10,7 @@ import { useProviders } from "@/contexts/ProviderContext";
 export function ChatComposer() {
   const [value, setValue] = useState("");
   const [showTools, setShowTools] = useState(false);
-  const { sendMessage, isStreaming, error } = useChat();
+  const { sendMessage, isStreaming, error, newThread, thinkingEnabled, toggleThinking } = useChat();
   const { activeProvider } = useProviders();
 
   const handleSend = async () => {
@@ -22,11 +22,30 @@ export function ChatComposer() {
 
   return (
     <div className="w-full relative px-6 pb-3 pt-2 bg-transparent pointer-events-none">
-      <div 
+      {/* Floating thinking toggle button */}
+      <div className="absolute top-[-44px] left-6 pointer-events-auto">
+        <button
+          onClick={toggleThinking}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${
+            thinkingEnabled
+              ? 'bg-primary-500/10 border-primary-500/40 text-primary-300 shadow-[0_0_12px_rgba(34,211,238,0.3)]'
+              : 'bg-black/40 border-white/5 text-slate-600 hover:text-slate-400 hover:border-white/10'
+          }`}
+          title={thinkingEnabled ? "Thinking ON — click to disable" : "Thinking OFF — click to enable"}
+        >
+          <Brain size={11} className={thinkingEnabled ? "text-primary-400" : "text-slate-600"} />
+          <span>Think</span>
+          {thinkingEnabled && (
+            <span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
+          )}
+        </button>
+      </div>
+
+      <div
         className="max-w-4xl mx-auto flex items-center gap-3 p-2.5 rounded-[32px] border-[1px] shadow-[0_30px_70px_rgba(0,0,0,0.7)] backdrop-blur-3xl pointer-events-auto transition-all duration-500 relative"
-        style={{ 
+        style={{
           background: 'rgba(11, 18, 28, 0.9)',
-          borderColor: isStreaming ? 'var(--primary-400)' : 'rgba(255,255,255,0.03)' 
+          borderColor: isStreaming ? 'var(--primary-400)' : 'rgba(255,255,255,0.03)'
         }}
       >
         {/* Dynamic Glowing Foundation */}
@@ -62,13 +81,16 @@ export function ChatComposer() {
                 className="absolute bottom-16 left-0 z-50 p-1.5 rounded-2xl border bg-slate-900 shadow-2xl flex flex-col gap-0.5 min-w-[180px]"
                 style={{ borderColor: "var(--os-stroke)" }}
               >
-                <button className="flex items-center gap-3 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-                  <Paperclip size={15} className="text-primary-400" />
-                   Attach Matrix
+                <button
+                  onClick={() => { newThread(); setShowTools(false); }}
+                  className="flex items-center gap-3 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                >
+                  <MessageSquarePlus size={15} className="text-primary-400" />
+                  New Thread
                 </button>
                 <button className="flex items-center gap-3 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-                  <ImageIcon size={15} className="text-secondary-400" />
-                   Neural Source
+                  <Paperclip size={15} className="text-slate-500" />
+                  Attach File
                 </button>
               </motion.div>
             )}

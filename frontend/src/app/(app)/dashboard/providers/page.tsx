@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   Cpu,
   Plus,
@@ -12,11 +12,108 @@ import {
   Copy,
   Check,
   Download,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Button } from "@/components/ui/Button";
 import { useProviders } from "@/contexts/ProviderContext";
+
+function ModelDropdown({
+  models,
+  value,
+  onChange,
+}: {
+  models: string[];
+  value: string;
+  onChange: (model: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const [vendor, ...rest] = value.split("/");
+  const displayName = rest.length > 0 ? rest.join("/") : vendor;
+  const displayVendor = rest.length > 0 ? vendor : null;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-white/10 bg-black/40 hover:border-white/20 hover:bg-white/5 transition-all group"
+      >
+        <div className="flex items-center gap-2 min-w-0">
+          {displayVendor && (
+            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-800/60 px-1.5 py-0.5 rounded flex-shrink-0">
+              {displayVendor}
+            </span>
+          )}
+          <span className="text-sm text-slate-200 font-medium truncate">{displayName}</span>
+        </div>
+        <ChevronDown
+          size={14}
+          className={`flex-shrink-0 text-slate-500 group-hover:text-slate-300 transition-all duration-200 ${open ? "rotate-180 text-primary-400" : ""}`}
+        />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+            transition={{ duration: 0.12 }}
+            className="absolute z-50 left-0 right-0 top-full mt-1.5 rounded-xl border border-white/10 bg-slate-900/95 backdrop-blur-xl shadow-2xl overflow-hidden"
+          >
+            <div className="max-h-[200px] overflow-y-auto p-1 space-y-0.5 custom-scrollbar">
+              {models.map((m) => {
+                const [v, ...r] = m.split("/");
+                const mName = r.length > 0 ? r.join("/") : v;
+                const mVendor = r.length > 0 ? v : null;
+                const active = m === value;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => { onChange(m); setOpen(false); }}
+                    className={[
+                      "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all duration-150",
+                      active
+                        ? "bg-primary-500/15 border border-primary-500/30 text-primary-200"
+                        : "hover:bg-white/[0.06] border border-transparent text-slate-300",
+                    ].join(" ")}
+                  >
+                    <div className={[
+                      "w-2 h-2 rounded-full flex-shrink-0",
+                      active ? "bg-primary-400 shadow-[0_0_6px_rgba(34,211,238,0.5)]" : "bg-slate-700",
+                    ].join(" ")} />
+                    {mVendor && (
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-800/60 px-1.5 py-0.5 rounded flex-shrink-0">
+                        {mVendor}
+                      </span>
+                    )}
+                    <span className="text-[13px] font-medium truncate">{mName}</span>
+                    {active && (
+                      <Check size={12} className="ml-auto flex-shrink-0 text-primary-400" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function ProvidersPage() {
   const {
@@ -111,7 +208,9 @@ export default function ProvidersPage() {
         formData.name,
         formData.type,
         formData.baseUrl,
-        formData.apiKey || undefined
+        formData.apiKey || undefined,
+        discoveredModels,
+        selectedModel
       );
 
       if (id) {
@@ -359,17 +458,11 @@ export default function ProvidersPage() {
                         Refresh
                       </button>
                     </div>
-                    <select
+                    <ModelDropdown
+                      models={provider.models}
                       value={provider.activeModel}
-                      onChange={(e) => setActiveModel(provider.id, e.target.value)}
-                      className="w-full text-sm bg-black/40 border border-white/10 rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-primary-500/50"
-                    >
-                      {provider.models.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(m) => setActiveModel(provider.id, m)}
+                    />
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 text-sm text-slate-500">
