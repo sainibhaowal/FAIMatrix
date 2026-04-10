@@ -20,6 +20,35 @@
 
 export const runtime = "nodejs";
 
+/**
+ * Check if running in Docker by looking for .dockerenv file
+ */
+function isRunningInDocker(): boolean {
+  if (typeof window !== "undefined") return false; // Client-side
+  try {
+    // In Docker, /.dockerenv file exists
+    const fs = require("fs");
+    return fs.existsSync("/.dockerenv");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Convert localhost to host.docker.internal if in Docker
+ * Allows http://localhost:1234 to work from within Docker containers
+ */
+function resolveLocalhostUrl(url: string): string {
+  const inDocker = isRunningInDocker();
+  if (!inDocker) return url;
+
+  // Replace localhost with host.docker.internal for Docker environments
+  return url.replace(/^http:\/\/localhost(:\d+)?/, (match) => {
+    const port = match.match(/:\d+/)?.[0] || "";
+    return `http://host.docker.internal${port}`;
+  });
+}
+
 interface ChatRequest {
   providerUrl: string;
   apiKey?: string;
@@ -49,13 +78,22 @@ export async function POST(req: Request): Promise<Response> {
       ? [{ role: "system", content: systemPrompt }, ...messages]
       : messages;
 
+    // Resolve localhost URLs for Docker environments
+    const resolvedUrl = resolveLocalhostUrl(providerUrl);
+    const chatUrl = `${resolvedUrl}/chat/completions`;
+
+    console.log(`[Chat Route] Provider URL: ${providerUrl}`);
+    if (resolvedUrl !== providerUrl) {
+      console.log(`[Chat Route] Docker detected. Resolved to: ${resolvedUrl}`);
+    }
+
     // Make request to upstream provider with 60-second timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60_000);
 
     let upstream: globalThis.Response;
     try {
-      upstream = await fetch(`${providerUrl}/chat/completions`, {
+      upstream = await fetch(chatUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

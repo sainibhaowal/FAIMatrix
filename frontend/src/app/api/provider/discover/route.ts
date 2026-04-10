@@ -16,6 +16,35 @@ import { normalizeBaseUrl } from "@/lib/providers";
 
 export const runtime = "nodejs";
 
+/**
+ * Check if running in Docker by looking for .dockerenv file
+ */
+function isRunningInDocker(): boolean {
+  if (typeof window !== "undefined") return false; // Client-side
+  try {
+    // In Docker, /.dockerenv file exists
+    const fs = require("fs");
+    return fs.existsSync("/.dockerenv");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Convert localhost to host.docker.internal if in Docker
+ * Allows http://localhost:1234 to work from within Docker containers
+ */
+function resolveLocalhostUrl(url: string): string {
+  const inDocker = isRunningInDocker();
+  if (!inDocker) return url;
+
+  // Replace localhost with host.docker.internal for Docker environments
+  return url.replace(/^http:\/\/localhost(:\d+)?/, (match) => {
+    const port = match.match(/:\d+/)?.[0] || "";
+    return `http://host.docker.internal${port}`;
+  });
+}
+
 interface DiscoverRequest {
   baseUrl: string;
   apiKey?: string;
@@ -43,8 +72,13 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const normalizedUrl = normalizeBaseUrl(baseUrl);
-    const modelsUrl = `${normalizedUrl}/models`;
+    const resolvedUrl = resolveLocalhostUrl(normalizedUrl);
+    const modelsUrl = `${resolvedUrl}/models`;
 
+    console.log(`[Provider Discovery] Original URL: ${normalizedUrl}`);
+    if (resolvedUrl !== normalizedUrl) {
+      console.log(`[Provider Discovery] Docker environment detected. Resolved URL: ${resolvedUrl}`);
+    }
     console.log(`[Provider Discovery] Testing URL: ${modelsUrl}`);
 
     // GET {baseUrl}/models with 8-second timeout
