@@ -99,12 +99,21 @@ export async function POST(req: Request): Promise<Response> {
       clearTimeout(timeoutId);
 
       console.error(`[Provider Discovery] Error: ${error.message}`, error);
+      console.error(`[Provider Discovery] Full error details:`, {
+        code: error.code,
+        message: error.message,
+        errno: error.errno,
+        syscall: error.syscall,
+      });
 
       // Classify the error
       if (error.name === "AbortError") {
         console.error(`[Provider Discovery] Timeout on ${modelsUrl}`);
         return Response.json(
-          { error: "timeout", message: "Provider did not respond within 8 seconds" } as DiscoverError,
+          {
+            error: "timeout",
+            message: `Provider did not respond within 8 seconds. URL: ${modelsUrl}. Make sure the server is running and accessible.`
+          } as DiscoverError,
           { status: 408 }
         );
       }
@@ -114,7 +123,7 @@ export async function POST(req: Request): Promise<Response> {
         return Response.json(
           {
             error: "offline",
-            message: "Could not connect to provider. Is it running? (ECONNREFUSED)",
+            message: `Connection refused: ${modelsUrl}. Is LM Studio running? Check: (1) Server is started (2) Correct port (3) Correct URL format`,
           } as DiscoverError,
           { status: 503 }
         );
@@ -123,7 +132,7 @@ export async function POST(req: Request): Promise<Response> {
       if (error.code === "ENOTFOUND" || error.message?.includes("ENOTFOUND")) {
         console.error(`[Provider Discovery] Host not found: ${modelsUrl}`);
         return Response.json(
-          { error: "offline", message: "Provider host not found (invalid URL)" } as DiscoverError,
+          { error: "offline", message: `Host not found: ${modelsUrl}. Check the URL is correct.` } as DiscoverError,
           { status: 503 }
         );
       }
@@ -131,7 +140,7 @@ export async function POST(req: Request): Promise<Response> {
       return Response.json(
         {
           error: "unknown",
-          message: `Network error: ${error.message}. Tried URL: ${modelsUrl}`
+          message: `Network error connecting to ${modelsUrl}: ${error.message}. Verify the server is running and the URL is correct.`
         } as DiscoverError,
         { status: 500 }
       );
