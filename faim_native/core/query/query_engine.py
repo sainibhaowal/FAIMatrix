@@ -312,6 +312,94 @@ def recall_candidates_brute_force(
     return candidates[:n]
 
 
+def recall_with_graph_expansion(
+    session,
+    tenant_id: str,
+    graph_id: str,
+    q_vec: Tuple[float, ...],
+    n: int = 200,
+    seed_k: int = 30,
+    hop_limit: int = 8,
+) -> List[Tuple[UUID, float]]:
+    """Recall candidates using cosine seeds + 1-hop inheritance edge expansion.
+
+    Step 1: Get top-k cosine matches (seeds)
+    Step 2: Expand via 1-hop inheritance edges (parents + children)
+    Step 3: Score expanded set and return top-n
+
+    Returns list of (node_id, cosine_sim) ordered by similarity desc.
+    """
+    from store.pg.models_faim import EdgeModel, NodeModel
+
+    # Step 1: Fast seed recall — top seed_k by cosine (existing function)
+    seeds = recall_candidates_brute_force(
+        session=session,
+        tenant_id=tenant_id,
+        graph_id=graph_id,
+        q_vec=q_vec,
+        n=seed_k,
+    )
+    if not seeds:
+        return []
+
+    seed_ids = [node_id for node_id, _ in seeds]
+    expanded_ids: set = set(seed_ids)
+
+    # Step 2a: Batch query — parents of seeds (src -> seed via inheritance)
+    parent_rows = (
+        session.query(EdgeModel.src_node_id, EdgeModel.dst_node_id)
+        .filter(
+            EdgeModel.tenant_id == tenant_id,
+            EdgeModel.graph_id == graph_id,
+            EdgeModel.kind == "inheritance",
+            EdgeModel.dst_node_id.in_(seed_ids),
+        )
+        .limit(seed_k * hop_limit)
+        .all()
+    )
+    for src, _dst in parent_rows:
+        expanded_ids.add(src)
+
+    # Step 2b: Batch query — children of seeds (seed -> child via inheritance)
+    child_rows = (
+        session.query(EdgeModel.src_node_id, EdgeModel.dst_node_id)
+        .filter(
+            EdgeModel.tenant_id == tenant_id,
+            EdgeModel.graph_id == graph_id,
+            EdgeModel.kind == "inheritance",
+            EdgeModel.src_node_id.in_(seed_ids),
+        )
+        .limit(seed_k * hop_limit)
+        .all()
+    )
+    for _src, dst in child_rows:
+        expanded_ids.add(dst)
+
+    # Step 3: Load and score the full expanded set
+    expanded_nodes = (
+        session.query(NodeModel)
+        .filter(
+            NodeModel.tenant_id == tenant_id,
+            NodeModel.graph_id == graph_id,
+            NodeModel.node_id.in_(list(expanded_ids)),
+        )
+        .all()
+    )
+
+    candidates: List[Tuple[UUID, float]] = []
+    for node in expanded_nodes:
+        n_vec = (
+            tuple(node.v_native)
+            if isinstance(node.v_native, list)
+            else tuple(node.v_native)
+        )
+        sim = cosine_similarity(q_vec, n_vec)
+        candidates.append((node.node_id, sim))
+
+    candidates.sort(key=lambda x: (-x[1], str(x[0])))
+    return candidates[:n]
+
+
 def recall_candidates_index(
     index,
     tenant_id: str,
@@ -430,6 +518,42 @@ def rerank_faim(
 
     # Stable sort: by score desc, then by node_id for determinism
     scored.sort(key=lambda x: (-x["score"], str(x["node_id"])))
+
+    # --- PHASE 1: Opposition edge suppression ---
+    # Query actual opposition edges between candidates and suppress lower-scoring nodes
+    if len(candidate_ids) > 1:
+        from store.pg.models_faim import EdgeModel
+
+        opp_edges = (
+            session.query(EdgeModel)
+            .filter(
+                EdgeModel.tenant_id == tenant_id,
+                EdgeModel.graph_id == graph_id,
+                EdgeModel.kind == "opposition",
+                EdgeModel.src_node_id.in_(candidate_ids),
+                EdgeModel.dst_node_id.in_(candidate_ids),
+            )
+            .all()
+        )
+        if opp_edges:
+            score_map = {r["node_id"]: r["score"] for r in scored}
+            to_suppress: set = set()
+            for edge in opp_edges:
+                a, b = edge.src_node_id, edge.dst_node_id
+                if a in to_suppress or b in to_suppress:
+                    continue
+                a_score = score_map.get(a, -999.0)
+                b_score = score_map.get(b, -999.0)
+                if a_score > b_score:
+                    to_suppress.add(b)
+                elif b_score > a_score:
+                    to_suppress.add(a)
+                else:
+                    # Tie-break: deterministic by UUID string comparison
+                    to_suppress.add(b if str(a) < str(b) else a)
+            if to_suppress:
+                scored = [r for r in scored if r["node_id"] not in to_suppress]
+    # --- END PHASE 1 ---
 
     return scored[:k]
 
