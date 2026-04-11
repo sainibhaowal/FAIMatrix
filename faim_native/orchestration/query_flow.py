@@ -31,8 +31,10 @@ from core.query.query_engine import (  # noqa: E402
     build_explain_payload,
     compute_query_hash,
     recall_candidates_brute_force,
+    recall_with_graph_expansion,
     rerank_faim,
 )
+from core.query.idf_cache import apply_idf, compute_idf_weights  # noqa: E402
 from encoding.text_vectorizer import vectorize_text  # noqa: E402
 from orchestration.ingest_flow import FAIMProfile  # noqa: E402
 from store.journal.event_journal import EventJournal  # noqa: E402
@@ -298,6 +300,14 @@ def run_query(
     q_result = vectorize_text(query_text)
     q_vec = q_result.v_native
 
+    # 2b. Apply IDF weighting (Phase 3C)
+    try:
+        _idf = compute_idf_weights(session, tenant_id, graph_id)
+        q_vec = apply_idf(tuple(q_vec), _idf)
+    except Exception:
+        # If IDF computation fails (e.g., empty graph), continue with unweighted q_vec
+        pass
+
     # 3. Get graph metrics
     metrics = get_graph_metrics(session, tenant_id, graph_id)
     graph_avg_touch = metrics.get("avg_touch", 1.0)
@@ -337,9 +347,9 @@ def run_query(
             cache_hit = False
 
     if not candidates:
-        # STRICT mode: always brute-force
+        # STRICT mode: always use graph-expanded recall
         if profile == FAIMProfile.STRICT or index is None:
-            candidates = recall_candidates_brute_force(
+            candidates = recall_with_graph_expansion(
                 session=session,
                 tenant_id=tenant_id,
                 graph_id=graph_id,
@@ -357,9 +367,9 @@ def run_query(
                 q_vec=q_vec,
                 n=200,
             )
-            # If index fails, fall back to brute-force
+            # If index fails, fall back to graph-expanded recall
             if not candidates:
-                candidates = recall_candidates_brute_force(
+                candidates = recall_with_graph_expansion(
                     session=session,
                     tenant_id=tenant_id,
                     graph_id=graph_id,

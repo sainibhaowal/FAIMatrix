@@ -30,12 +30,14 @@ try:
         EvidenceBlock,
     )
     from faim.Faim_Native.encoding.vector_schema import VECTOR_DIMENSION, FAIMVector
+    from faim.Faim_Native.encoding.porter_stemmer import stem_text
 except (ImportError, RuntimeError):
     _parent = Path(__file__).parent.parent
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import EvidenceBlock
     from encoding.vector_schema import VECTOR_DIMENSION, FAIMVector
+    from encoding.porter_stemmer import stem_text
 
 
 # Constants
@@ -43,18 +45,50 @@ NGRAM_SIZES = (3, 4, 5)  # Character n-gram sizes
 NGRAM_BUCKETS = 240  # Buckets for n-gram features (leaving 16 for stats)
 STAT_FEATURES = 16  # Numeric stat features
 
+# Entity alias expansion table (Phase 3B)
+_ENTITY_ALIASES: Dict[str, str] = {
+    "nyc": "new york city",
+    "usa": "united states america",
+    "uk": "united kingdom",
+    "us": "united states",
+    "llm": "large language model",
+    "ai": "artificial intelligence",
+    "ml": "machine learning",
+    "rag": "retrieval augmented generation",
+    "db": "database",
+    "api": "application programming interface",
+    # Add domain-specific entries as needed
+}
+
+
+def _expand_aliases(text: str) -> str:
+    """Expand known abbreviations.
+
+    Input must be pre-lowercased.
+
+    Args:
+        text: Lowercased text to expand.
+
+    Returns:
+        Text with abbreviations expanded.
+    """
+    words = text.split()
+    return " ".join(_ENTITY_ALIASES.get(w, w) for w in words)
+
 
 # -----------------------------------------------------------------------------
 # Text Normalization (Deterministic)
 # -----------------------------------------------------------------------------
 
 
-def normalize_text(text: str, lowercase: bool = True) -> str:
+def normalize_text(text: str, lowercase: bool = True, stem: bool = False) -> str:
     """Normalize text deterministically.
 
     Args:
         text: Input text.
         lowercase: Whether to lowercase.
+        stem: Whether to apply Porter stemming. Recommended: False for backward
+              compatibility until full re-ingest is performed.
 
     Returns:
         Normalized text.
@@ -71,6 +105,11 @@ def normalize_text(text: str, lowercase: bool = True) -> str:
     # Lowercase
     if lowercase:
         text = text.lower()
+        # Expand entity aliases (Phase 3B)
+        text = _expand_aliases(text)
+        # Apply Porter stemming (Phase 3A, if enabled)
+        if stem:
+            text = stem_text(text)
 
     return text
 
