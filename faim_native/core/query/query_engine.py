@@ -449,6 +449,110 @@ def recall_candidates_index(
 
 
 # =============================================================================
+# Inheritance-Weighted Query Expansion (Phase 7)
+# =============================================================================
+
+
+def inheritance_weighted_expansion(
+    session,
+    tenant_id: str,
+    graph_id: str,
+    q_vec: Tuple[float, ...],
+    seed_node_ids: List[UUID],
+    alpha: float = 0.2,
+    max_parents: int = 3,
+) -> Tuple[float, ...]:
+    """Blend query vector with inheritance-weighted parent vectors of seed nodes.
+
+    For each seed node, traverses its parent edges and adds:
+        alpha * fraction * parent_v_native
+    to the query vector, then re-normalizes.
+
+    Args:
+        session: SQLAlchemy session
+        tenant_id: Tenant ID
+        graph_id: Graph ID
+        q_vec: Original query vector (256-dim)
+        seed_node_ids: Top-k candidate node IDs from initial recall
+        alpha: Blending weight for parent contribution (0.0 = no expansion, 1.0 = full)
+        max_parents: Max parents to traverse per seed node
+
+    Returns:
+        Expanded and re-normalized query vector (256-dim tuple)
+    """
+    from store.pg.models_faim import EdgeModel, NodeModel
+
+    if not seed_node_ids:
+        return q_vec
+
+    # Batch-load all parent edges for seed nodes
+    parent_edges = (
+        session.query(EdgeModel)
+        .filter(
+            EdgeModel.tenant_id == tenant_id,
+            EdgeModel.graph_id == graph_id,
+            EdgeModel.kind == "inheritance",
+            EdgeModel.dst_node_id.in_(seed_node_ids),
+        )
+        .all()
+    )
+
+    if not parent_edges:
+        return q_vec  # no expansion available
+
+    # Group by dst_node_id, take top max_parents by fraction (weight)
+    from collections import defaultdict
+
+    seed_parents: Dict[UUID, List[EdgeModel]] = defaultdict(list)
+    for edge in parent_edges:
+        seed_parents[edge.dst_node_id].append(edge)
+
+    # Collect all unique parent IDs to load
+    parent_ids_to_load: set = set()
+    for edges in seed_parents.values():
+        top_edges = sorted(edges, key=lambda e: -e.weight)[:max_parents]
+        for edge in top_edges:
+            parent_ids_to_load.add(edge.src_node_id)
+
+    if not parent_ids_to_load:
+        return q_vec
+
+    # Load parent vectors
+    parent_nodes = (
+        session.query(NodeModel)
+        .filter(
+            NodeModel.tenant_id == tenant_id,
+            NodeModel.graph_id == graph_id,
+            NodeModel.node_id.in_(list(parent_ids_to_load)),
+        )
+        .all()
+    )
+    parent_vec_map: Dict[UUID, Tuple[float, ...]] = {
+        n.node_id: (
+            tuple(n.v_native) if isinstance(n.v_native, list) else tuple(n.v_native)
+        )
+        for n in parent_nodes
+    }
+
+    # Blend: expanded = q_vec + alpha * sum(fraction * parent_vec)
+    dim = len(q_vec)
+    expanded: List[float] = list(q_vec)
+
+    for edges in seed_parents.values():
+        top_edges = sorted(edges, key=lambda e: -e.weight)[:max_parents]
+        for edge in top_edges:
+            fraction = edge.weight / 1e9
+            parent_vec = parent_vec_map.get(edge.src_node_id)
+            if parent_vec:
+                for i in range(dim):
+                    expanded[i] += alpha * fraction * parent_vec[i]
+
+    # Re-normalize L2
+    norm = math.sqrt(sum(x * x for x in expanded)) or 1.0
+    return tuple(x / norm for x in expanded)
+
+
+# =============================================================================
 # FAIM Re-ranker
 # =============================================================================
 
@@ -519,10 +623,12 @@ def rerank_faim(
     # Stable sort: by score desc, then by node_id for determinism
     scored.sort(key=lambda x: (-x["score"], str(x["node_id"])))
 
-    # --- PHASE 1: Opposition edge suppression ---
-    # Query actual opposition edges between candidates and suppress lower-scoring nodes
+    # --- PHASE 1 + PHASE 6: Opposition edge suppression + Temporal contradiction resolution ---
+    # Query actual opposition edges between candidates and apply temporal labeling
+    temporal_labels: Dict[UUID, str] = {}  # node_id → "CURRENT" | "HISTORICAL"
+
     if len(candidate_ids) > 1:
-        from store.pg.models_faim import EdgeModel
+        from store.pg.models_faim import EdgeModel, NodeModel
 
         opp_edges = (
             session.query(EdgeModel)
@@ -535,25 +641,61 @@ def rerank_faim(
             )
             .all()
         )
+
         if opp_edges:
+            # Load created_at timestamps for all nodes involved in opposition
+            opp_node_ids = set()
+            for edge in opp_edges:
+                opp_node_ids.add(edge.src_node_id)
+                opp_node_ids.add(edge.dst_node_id)
+
+            ts_rows = (
+                session.query(NodeModel.node_id, NodeModel.created_at)
+                .filter(NodeModel.node_id.in_(list(opp_node_ids)))
+                .all()
+            )
+            created_at_map = {row.node_id: row.created_at for row in ts_rows}
             score_map = {r["node_id"]: r["score"] for r in scored}
+
             to_suppress: set = set()
             for edge in opp_edges:
                 a, b = edge.src_node_id, edge.dst_node_id
                 if a in to_suppress or b in to_suppress:
                     continue
-                a_score = score_map.get(a, -999.0)
-                b_score = score_map.get(b, -999.0)
-                if a_score > b_score:
-                    to_suppress.add(b)
-                elif b_score > a_score:
-                    to_suppress.add(a)
+
+                a_ts = created_at_map.get(a)
+                b_ts = created_at_map.get(b)
+
+                # Determine CURRENT vs HISTORICAL by created_at (newer = CURRENT)
+                if a_ts and b_ts:
+                    if a_ts >= b_ts:
+                        temporal_labels[a] = "CURRENT"
+                        temporal_labels[b] = "HISTORICAL"
+                        to_suppress.add(b)  # still suppress lower to keep top-k clean
+                    else:
+                        temporal_labels[b] = "CURRENT"
+                        temporal_labels[a] = "HISTORICAL"
+                        to_suppress.add(a)
                 else:
-                    # Tie-break: deterministic by UUID string comparison
-                    to_suppress.add(b if str(a) < str(b) else a)
+                    # Fallback to score-based if timestamps unavailable
+                    a_score = score_map.get(a, -999.0)
+                    b_score = score_map.get(b, -999.0)
+                    if a_score >= b_score:
+                        temporal_labels[a] = "CURRENT"
+                        temporal_labels[b] = "HISTORICAL"
+                        to_suppress.add(b)
+                    else:
+                        temporal_labels[b] = "CURRENT"
+                        temporal_labels[a] = "HISTORICAL"
+                        to_suppress.add(a)
+
             if to_suppress:
                 scored = [r for r in scored if r["node_id"] not in to_suppress]
-    # --- END PHASE 1 ---
+
+    # Apply temporal labels to remaining scored results
+    for r in scored:
+        r["temporal_status"] = temporal_labels.get(r["node_id"])
+    # --- END PHASE 1 + PHASE 6 ---
 
     return scored[:k]
 
