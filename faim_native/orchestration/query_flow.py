@@ -296,8 +296,8 @@ def run_query(
     # 1. Emit QUERY_START
     emit_query_start(journal, graph_id, query_hash, k, profile_name)
 
-    # 2. Encode query → q_vec (using same vectorizer as ingest)
-    q_result = vectorize_text(query_text)
+    # 2. Encode query → q_vec (using same vectorizer as ingest, with synonym expansion enabled for recall)
+    q_result = vectorize_text(query_text, expand_synonyms=True)
     q_vec = q_result.v_native
 
     # 2b. Apply IDF weighting (Phase 3C)
@@ -306,6 +306,31 @@ def run_query(
         q_vec = apply_idf(tuple(q_vec), _idf)
     except Exception:
         # If IDF computation fails (e.g., empty graph), continue with unweighted q_vec
+        pass
+
+    # 2c. Inheritance-weighted query expansion (Phase 7)
+    try:
+        from core.query.query_engine import inheritance_weighted_expansion
+
+        _seeds = recall_candidates_brute_force(
+            session=session,
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+            q_vec=tuple(q_vec),
+            n=20,
+        )
+        if _seeds:
+            _seed_ids = [node_id for node_id, _ in _seeds]
+            q_vec = inheritance_weighted_expansion(
+                session=session,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                q_vec=tuple(q_vec),
+                seed_node_ids=_seed_ids,
+                alpha=0.2,
+            )
+    except Exception:
+        # Graceful fallback — continue with non-expanded q_vec
         pass
 
     # 3. Get graph metrics
@@ -427,6 +452,7 @@ def run_query(
             "score_components": r["score_components"],
             "level": r["level"],
             "touch_count": r["touch_count"],
+            "temporal_status": r.get("temporal_status"),
         }
 
         # Add evidence info

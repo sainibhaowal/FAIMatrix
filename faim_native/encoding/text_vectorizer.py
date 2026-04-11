@@ -31,6 +31,7 @@ try:
     )
     from faim.Faim_Native.encoding.vector_schema import VECTOR_DIMENSION, FAIMVector
     from faim.Faim_Native.encoding.porter_stemmer import stem_text
+    from faim.Faim_Native.lexical.synonym_expander import expand_synonyms_text
 except (ImportError, RuntimeError):
     _parent = Path(__file__).parent.parent
     if str(_parent) not in sys.path:
@@ -38,6 +39,7 @@ except (ImportError, RuntimeError):
     from core.contracts.types import EvidenceBlock
     from encoding.vector_schema import VECTOR_DIMENSION, FAIMVector
     from encoding.porter_stemmer import stem_text
+    from lexical.synonym_expander import expand_synonyms_text
 
 
 # Constants
@@ -81,7 +83,13 @@ def _expand_aliases(text: str) -> str:
 # -----------------------------------------------------------------------------
 
 
-def normalize_text(text: str, lowercase: bool = True, stem: bool = False) -> str:
+def normalize_text(
+    text: str,
+    lowercase: bool = True,
+    stem: bool = False,
+    remove_stopwords: bool = False,
+    expand_synonyms: bool = False,
+) -> str:
     """Normalize text deterministically.
 
     Args:
@@ -89,6 +97,10 @@ def normalize_text(text: str, lowercase: bool = True, stem: bool = False) -> str
         lowercase: Whether to lowercase.
         stem: Whether to apply Porter stemming. Recommended: False for backward
               compatibility until full re-ingest is performed.
+        remove_stopwords: Whether to remove stop words. Recommended: False for backward
+                         compatibility until full re-ingest is performed.
+        expand_synonyms: Whether to expand WordNet synonyms. Recommended: False for
+                        ingest (backward compatibility), True for query-time (improves recall).
 
     Returns:
         Normalized text.
@@ -107,6 +119,14 @@ def normalize_text(text: str, lowercase: bool = True, stem: bool = False) -> str
         text = text.lower()
         # Expand entity aliases (Phase 3B)
         text = _expand_aliases(text)
+        # Expand WordNet synonyms (Phase 5, if enabled)
+        if expand_synonyms:
+            text = expand_synonyms_text(text, max_synonyms_per_word=5)
+        # Remove stop words (Phase 4, if enabled)
+        if remove_stopwords:
+            from encoding.porter_stemmer import STOP_WORDS
+            tokens = text.split()
+            text = " ".join(t for t in tokens if t not in STOP_WORDS)
         # Apply Porter stemming (Phase 3A, if enabled)
         if stem:
             text = stem_text(text)
@@ -336,17 +356,31 @@ class VectorizationResult:
     opp_signature: Dict[str, float]
 
 
-def vectorize_text(text: str) -> VectorizationResult:
+def vectorize_text(
+    text: str,
+    stem: bool = False,
+    remove_stopwords: bool = False,
+    expand_synonyms: bool = False,
+) -> VectorizationResult:
     """Convert text to FAIM-native vector.
 
     Args:
         text: Raw text content.
+        stem: Whether to apply Porter stemming.
+        remove_stopwords: Whether to remove stop words.
+        expand_synonyms: Whether to expand WordNet synonyms (useful for query-time recall).
 
     Returns:
         VectorizationResult object.
     """
     # Normalize
-    normalized = normalize_text(text)
+    normalized = normalize_text(
+        text,
+        lowercase=True,
+        stem=stem,
+        remove_stopwords=remove_stopwords,
+        expand_synonyms=expand_synonyms,
+    )
 
     # Build n-gram vector
     ngram_vector = build_ngram_vector(normalized, NGRAM_BUCKETS)
