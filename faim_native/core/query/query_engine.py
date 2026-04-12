@@ -321,15 +321,18 @@ def recall_with_graph_expansion(
     seed_k: int = 30,
     hop_limit: int = 8,
 ) -> List[Tuple[UUID, float]]:
-    """Recall candidates using cosine seeds + 1-hop inheritance edge expansion.
+    """Recall candidates using cosine seeds + 1-hop inheritance edge expansion + semantic edges.
 
     Step 1: Get top-k cosine matches (seeds)
     Step 2: Expand via 1-hop inheritance edges (parents + children)
+    Step 2c: Semantic edge traversal with score boost
     Step 3: Score expanded set and return top-n
 
     Returns list of (node_id, cosine_sim) ordered by similarity desc.
     """
+    from sqlalchemy import or_
     from store.pg.models_faim import EdgeModel, NodeModel
+    from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
 
     # Step 1: Fast seed recall — top seed_k by cosine (existing function)
     seeds = recall_candidates_brute_force(
@@ -375,6 +378,42 @@ def recall_with_graph_expansion(
     for _src, dst in child_rows:
         expanded_ids.add(dst)
 
+    # Step 2c: Semantic edge expansion — traverse semantic edges (synonym, hypernym, hyponym, related)
+    # connected to seeds, track semantic weight as boost
+    semantic_boost: Dict[UUID, float] = {}
+    if KNOWN_SEMANTIC_KINDS:
+        semantic_rows = (
+            session.query(
+                EdgeModel.src_node_id,
+                EdgeModel.dst_node_id,
+                EdgeModel.kind,
+                EdgeModel.weight,
+            )
+            .filter(
+                EdgeModel.tenant_id == tenant_id,
+                EdgeModel.graph_id == graph_id,
+                EdgeModel.kind.in_(list(KNOWN_SEMANTIC_KINDS)),
+                or_(
+                    EdgeModel.src_node_id.in_(seed_ids),
+                    EdgeModel.dst_node_id.in_(seed_ids),
+                ),
+            )
+            .limit(seed_k * hop_limit)
+            .all()
+        )
+
+        for src, dst, kind, weight_int in semantic_rows:
+            # Expand both directions from seed
+            if src in seed_ids:
+                expanded_ids.add(dst)
+                # Track weight (max semantic weight for this node)
+                semantic_weight = weight_int / 1e9 if weight_int else 1.0
+                semantic_boost[dst] = max(semantic_boost.get(dst, 0.0), semantic_weight)
+            if dst in seed_ids:
+                expanded_ids.add(src)
+                semantic_weight = weight_int / 1e9 if weight_int else 1.0
+                semantic_boost[src] = max(semantic_boost.get(src, 0.0), semantic_weight)
+
     # Step 3: Load and score the full expanded set
     expanded_nodes = (
         session.query(NodeModel)
@@ -393,8 +432,14 @@ def recall_with_graph_expansion(
             if isinstance(node.v_native, list)
             else tuple(node.v_native)
         )
-        sim = cosine_similarity(q_vec, n_vec)
-        candidates.append((node.node_id, sim))
+        raw_sim = cosine_similarity(q_vec, n_vec)
+
+        # Apply semantic boost if node has semantic edges to seeds
+        semantic_alpha = 0.05
+        boost = semantic_boost.get(node.node_id, 0.0)
+        effective_sim = min(1.0, raw_sim + semantic_alpha * boost)
+
+        candidates.append((node.node_id, effective_sim))
 
     candidates.sort(key=lambda x: (-x[1], str(x[0])))
     return candidates[:n]
@@ -465,8 +510,12 @@ def inheritance_weighted_expansion(
     """Blend query vector with inheritance-weighted parent vectors of seed nodes.
 
     For each seed node, traverses its parent edges and adds:
-        alpha * fraction * parent_v_native
-    to the query vector, then re-normalizes.
+        alpha * fraction * semantic_weight * parent_v_native
+    to the query vector, with semantic_weight from edge meta (default 1.0).
+    Also blends semantic edges (synonym, hypernym, hyponym, related) with
+    semantic_alpha = alpha * 0.5.
+
+    Then re-normalizes.
 
     Args:
         session: SQLAlchemy session
@@ -480,12 +529,17 @@ def inheritance_weighted_expansion(
     Returns:
         Expanded and re-normalized query vector (256-dim tuple)
     """
+    from sqlalchemy import or_
     from store.pg.models_faim import EdgeModel, NodeModel
+    from core.operators.semantic_typing import (
+        KNOWN_SEMANTIC_KINDS,
+        get_semantic_weight_from_meta,
+    )
 
     if not seed_node_ids:
         return q_vec
 
-    # Batch-load all parent edges for seed nodes
+    # Batch-load all parent edges (inheritance) for seed nodes
     parent_edges = (
         session.query(EdgeModel)
         .filter(
@@ -497,7 +551,25 @@ def inheritance_weighted_expansion(
         .all()
     )
 
-    if not parent_edges:
+    # Batch-load semantic edges connected to seeds (Layer B)
+    semantic_edges = []
+    if KNOWN_SEMANTIC_KINDS:
+        semantic_edges = (
+            session.query(EdgeModel)
+            .filter(
+                EdgeModel.tenant_id == tenant_id,
+                EdgeModel.graph_id == graph_id,
+                EdgeModel.kind.in_(list(KNOWN_SEMANTIC_KINDS)),
+                or_(
+                    EdgeModel.src_node_id.in_(seed_node_ids),
+                    EdgeModel.dst_node_id.in_(seed_node_ids),
+                ),
+            )
+            .limit(len(seed_node_ids) * 5)
+            .all()
+        )
+
+    if not parent_edges and not semantic_edges:
         return q_vec  # no expansion available
 
     # Group by dst_node_id, take top max_parents by fraction (weight)
@@ -507,45 +579,75 @@ def inheritance_weighted_expansion(
     for edge in parent_edges:
         seed_parents[edge.dst_node_id].append(edge)
 
-    # Collect all unique parent IDs to load
+    # Collect all unique parent IDs to load (from inheritance)
     parent_ids_to_load: set = set()
     for edges in seed_parents.values():
         top_edges = sorted(edges, key=lambda e: -e.weight)[:max_parents]
         for edge in top_edges:
             parent_ids_to_load.add(edge.src_node_id)
 
-    if not parent_ids_to_load:
+    # Collect semantic neighbor IDs to load (from semantic edges)
+    semantic_neighbor_ids: set = set()
+    for edge in semantic_edges:
+        if edge.src_node_id in seed_node_ids:
+            semantic_neighbor_ids.add(edge.dst_node_id)
+        elif edge.dst_node_id in seed_node_ids:
+            semantic_neighbor_ids.add(edge.src_node_id)
+
+    all_nodes_to_load = parent_ids_to_load | semantic_neighbor_ids
+    if not all_nodes_to_load:
         return q_vec
 
-    # Load parent vectors
-    parent_nodes = (
+    # Load all vectors (parents + semantic neighbors)
+    all_nodes = (
         session.query(NodeModel)
         .filter(
             NodeModel.tenant_id == tenant_id,
             NodeModel.graph_id == graph_id,
-            NodeModel.node_id.in_(list(parent_ids_to_load)),
+            NodeModel.node_id.in_(list(all_nodes_to_load)),
         )
         .all()
     )
-    parent_vec_map: Dict[UUID, Tuple[float, ...]] = {
+    vec_map: Dict[UUID, Tuple[float, ...]] = {
         n.node_id: (
             tuple(n.v_native) if isinstance(n.v_native, list) else tuple(n.v_native)
         )
-        for n in parent_nodes
+        for n in all_nodes
     }
 
-    # Blend: expanded = q_vec + alpha * sum(fraction * parent_vec)
+    # Blend: expanded = q_vec + inheritance_contribution + semantic_contribution
     dim = len(q_vec)
     expanded: List[float] = list(q_vec)
 
+    # Phase 7 inheritance blending with semantic weight modifier (Layer A)
     for edges in seed_parents.values():
         top_edges = sorted(edges, key=lambda e: -e.weight)[:max_parents]
         for edge in top_edges:
             fraction = edge.weight / 1e9
-            parent_vec = parent_vec_map.get(edge.src_node_id)
+
+            # Extract semantic_weight from edge meta (Layer A), default 1.0
+            semantic_weight = get_semantic_weight_from_meta(edge.meta)
+
+            parent_vec = vec_map.get(edge.src_node_id)
             if parent_vec:
                 for i in range(dim):
-                    expanded[i] += alpha * fraction * parent_vec[i]
+                    expanded[i] += alpha * fraction * semantic_weight * parent_vec[i]
+
+    # Semantic edge blending (Layer B) with reduced alpha
+    semantic_alpha = alpha * 0.5
+    for edge in semantic_edges:
+        neighbor_id = None
+        if edge.src_node_id in seed_node_ids:
+            neighbor_id = edge.dst_node_id
+        elif edge.dst_node_id in seed_node_ids:
+            neighbor_id = edge.src_node_id
+
+        if neighbor_id and neighbor_id in vec_map:
+            # Use edge weight as semantic strength (already 0.0-1.0 when divided by 1e9)
+            semantic_strength = edge.weight / 1e9 if edge.weight else 1.0
+            neighbor_vec = vec_map[neighbor_id]
+            for i in range(dim):
+                expanded[i] += semantic_alpha * semantic_strength * neighbor_vec[i]
 
     # Re-normalize L2
     norm = math.sqrt(sum(x * x for x in expanded)) or 1.0

@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS edges (
     graph_id VARCHAR(64) NOT NULL,
     src_node_id UUID NOT NULL,                 -- parent (inheritance) or node A (opposition)
     dst_node_id UUID NOT NULL,                 -- child (inheritance) or node B (opposition)
-    kind VARCHAR(32) NOT NULL,                 -- "inheritance" or "opposition"
+    kind VARCHAR(32) NOT NULL,                 -- Edge type: inheritance, opposition, synonym, hypernym, hyponym, related
     weight DOUBLE PRECISION DEFAULT 0.0,       -- fraction or magnitude
     meta JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -199,15 +199,16 @@ COMMENT ON TABLE events IS 'Append-only event journal for audit and replay';
 COMMENT ON TABLE snapshots IS 'Graph snapshot metadata with integrity receipts';
 COMMENT ON TABLE graph_version IS 'Version tracking for cache invalidation';
 COMMENT ON TABLE nodes IS 'FIG graph nodes (atoms and macros) with vectors';
-COMMENT ON TABLE edges IS 'FIG graph edges (inheritance and opposition)';
+COMMENT ON TABLE edges IS 'FIG graph edges (inheritance, opposition, and semantic types)';
 
 COMMENT ON COLUMN events.seq IS 'Auto-assigned sequence for strict ordering';
 COMMENT ON COLUMN events.checksum IS 'SHA256(ts||graph_id||kind||payload) for integrity';
 COMMENT ON COLUMN snapshots.graph_hash IS 'Deterministic hash of graph state at snapshot time';
 COMMENT ON COLUMN nodes.kind IS 'Node type: atom (level 0) or macro (level > 0)';
 COMMENT ON COLUMN nodes.v_native IS 'FAIM-native vector (256 dimensions)';
-COMMENT ON COLUMN edges.kind IS 'Edge type: inheritance (parent-child) or opposition';
+COMMENT ON COLUMN edges.kind IS 'Edge type: inheritance (parent-child), opposition (contradiction), or semantic (synonym, hypernym, hyponym, related)';
 COMMENT ON COLUMN edges.weight IS 'Inheritance fraction (Σ=1) or opposition magnitude';
+COMMENT ON COLUMN edges.meta IS 'Semantic metadata for inheritance edges: {semantic_type, semantic_weight}. NULL for opposition and semantic edges.';
 
 -- =============================================================================
 -- Stage-9: Production Readiness Tables

@@ -325,6 +325,38 @@ class NodeRepo:
         )
         return [(n.node_id, n.v_native) for n in nodes]
 
+    def get_all_vectors_with_level(self, graph_id: str) -> List[tuple]:
+        """Get all (node_id, v_native, level) tuples for semantic type classification.
+
+        Used by engine_native._build_semantic_parents_data to classify inheritance
+        edge semantic types based on node level comparison.
+
+        Returns:
+            List[tuple]: Each tuple is (node_id, v_native, level)
+        """
+        nodes = (
+            self.session.query(
+                NodeModel.node_id,
+                NodeModel.v_native,
+                NodeModel.level,
+            )
+            .filter(
+                and_(
+                    NodeModel.tenant_id == self.tenant_id,
+                    NodeModel.graph_id == graph_id,
+                )
+            )
+            .order_by(
+                asc(NodeModel.created_at),
+                asc(NodeModel.node_id),
+            )
+            .all()
+        )
+        return [
+            (n.node_id, n.v_native, n.level or 0)
+            for n in nodes
+        ]
+
 
 # Exports
 __all__ = ["NodeRepo"]

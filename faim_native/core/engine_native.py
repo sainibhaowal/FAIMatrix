@@ -28,6 +28,12 @@ try:
         InheritancePlan,
         compute_inheritance_plan,
     )
+    from faim.Faim_Native.core.operators.semantic_typing import (
+        classify_semantic_type,
+        build_semantic_meta,
+        should_create_semantic_edge,
+        SEMANTIC_WEIGHTS,
+    )
     from faim.Faim_Native.encoding.vector_schema import FAIMVector
     from faim.Faim_Native.store.pg.models_faim import EdgeModel, NodeModel  # noqa: F401
     from faim.Faim_Native.store.pg.repos.edge_repo import EdgeRepo
@@ -40,6 +46,12 @@ except (ImportError, RuntimeError):
         sys.path.insert(0, str(_parent))
     from core.antisym import merge_vectors, opposition_score, should_merge
     from core.operators.inheritance import compute_inheritance_plan
+    from core.operators.semantic_typing import (
+        classify_semantic_type,
+        build_semantic_meta,
+        should_create_semantic_edge,
+        SEMANTIC_WEIGHTS,
+    )
     from encoding.vector_schema import FAIMVector
     from store.pg.repos.edge_repo import EdgeRepo
     from store.pg.repos.event_repo import EventRepo
@@ -146,17 +158,28 @@ class FAIMNativeEngine:
             result.events_emitted += 1
 
             # 2. Compute inheritance
-            candidates = self._get_parent_candidates(graph_id, node_id)
+            candidates_with_level = self._get_parent_candidates(graph_id, node_id)
 
-            if candidates:
+            if candidates_with_level:
+                # Extract (UUID, vector) for compute_inheritance_plan
+                candidates_for_plan = [(nid, v) for nid, v, _ in candidates_with_level]
+
                 plan = compute_inheritance_plan(
                     child_vector=list(vector.v_native),
-                    candidates=candidates,
+                    candidates=candidates_for_plan,
                     k=self.parent_top_k,
                 )
 
                 if plan.parents:
-                    # Set inheritance edges
+                    # Build semantic metadata and edges for inheritance parents
+                    parents_meta, semantic_edges = self._build_semantic_parents_data(
+                        child_vector=list(vector.v_native),
+                        child_level=vector.level,  # Atoms are level 0
+                        plan=plan,
+                        candidates=candidates_with_level,
+                    )
+
+                    # Set inheritance edges with semantic metadata (Layer A)
                     parents_with_fractions = list(
                         zip(plan.parents, plan.fractions, strict=False)
                     )
@@ -164,8 +187,20 @@ class FAIMNativeEngine:
                         graph_id=graph_id,
                         child_id=node_id,
                         parents=parents_with_fractions,
+                        parents_meta=parents_meta,
                     )
                     result.edges_written += len(edge_ids)
+
+                    # Create semantic edges (Layer B) for typed relationships
+                    for parent_id, semantic_type, semantic_weight in semantic_edges:
+                        self.edge_repo.add_semantic_edge(
+                            graph_id=graph_id,
+                            src_node_id=parent_id,
+                            dst_node_id=node_id,
+                            semantic_type=semantic_type,
+                            semantic_weight=semantic_weight,
+                            meta=None,
+                        )
 
                     # Emit INHERITANCE_SET event
                     self._emit_event(
@@ -255,13 +290,14 @@ class FAIMNativeEngine:
         self,
         graph_id: str,
         exclude_id: UUID,
-    ) -> List[Tuple[UUID, List[float]]]:
-        """Get candidate parents for inheritance.
+    ) -> List[Tuple[UUID, List[float], int]]:
+        """Get candidate parents for inheritance with node levels.
 
-        Returns all existing nodes except the target.
+        Returns all existing nodes except the target as (node_id, vector, level).
+        Level is used for semantic type classification (hypernym/hyponym decision).
         """
-        all_vectors = self.node_repo.get_all_vectors(graph_id)
-        return [(nid, v) for nid, v in all_vectors if nid != exclude_id]
+        all_vectors = self.node_repo.get_all_vectors_with_level(graph_id)
+        return [(nid, v, lvl) for nid, v, lvl in all_vectors if nid != exclude_id]
 
     def _get_merge_candidates(
         self,
@@ -292,6 +328,64 @@ class FAIMNativeEngine:
         candidates.sort(key=lambda x: (-x[2], x[1]))
 
         return candidates[:5]
+
+    def _build_semantic_parents_data(
+        self,
+        child_vector: List[float],
+        child_level: int,
+        plan: InheritancePlan,
+        candidates: List[Tuple[UUID, List[float], int]],
+    ) -> Tuple[List[Optional[Dict]], List[Tuple[UUID, str, float]]]:
+        """Build semantic metadata and edges for inheritance parents.
+
+        For each parent in the plan, classify semantic type using cosine similarity
+        and node level hierarchy, then build Layer A meta and Layer B edge rows.
+
+        Args:
+            child_vector: Child node's native vector.
+            child_level: Child node's level in hierarchy (typically 0 for atoms).
+            plan: InheritancePlan with selected parents and fractions.
+            candidates: List of (parent_id, parent_vector, parent_level) tuples.
+
+        Returns:
+            Tuple of:
+            - parents_meta: List[Optional[Dict]] parallel to plan.parents,
+              each dict = {"semantic_type": str, "semantic_weight": float}
+            - semantic_edges: List[Tuple[parent_id, semantic_type, semantic_weight]]
+              for types where should_create_semantic_edge() is True.
+        """
+        # Build lookup: parent_id -> (vector, level)
+        candidate_map = {nid: (vec, lvl) for nid, vec, lvl in candidates}
+
+        parents_meta = []
+        semantic_edges = []
+
+        # Classify each parent using cosine similarity and level
+        for parent_id, cosine_sim in zip(plan.parents, plan.similarities):
+            if parent_id not in candidate_map:
+                # Parent not in candidates (shouldn't happen, but be safe)
+                parents_meta.append(None)
+                continue
+
+            parent_vector, parent_level = candidate_map[parent_id]
+
+            # Classify semantic type deterministically
+            semantic_type = classify_semantic_type(
+                cosine_sim=cosine_sim,
+                child_level=child_level,
+                parent_level=parent_level,
+            )
+
+            # Layer A: Build meta dict for this parent
+            meta = build_semantic_meta(semantic_type)
+            parents_meta.append(meta)
+
+            # Layer B: If this type warrants a semantic edge row, add it
+            if should_create_semantic_edge(semantic_type):
+                semantic_weight = SEMANTIC_WEIGHTS.get(semantic_type, 1.0)
+                semantic_edges.append((parent_id, semantic_type, semantic_weight))
+
+        return parents_meta, semantic_edges
 
     def _emit_event(
         self,

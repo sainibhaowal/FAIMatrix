@@ -59,7 +59,13 @@ from api.fig_graph_core import (  # noqa: E402
     shortest_path_undirected,
 )
 from api.routers.metrics import _metric_text_value, _payload_dict  # noqa: E402
+from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS  # noqa: E402
 from store.pg.models_faim import EdgeModel  # noqa: E402
+
+# All valid edge kinds including semantic types
+_ALL_EDGE_KINDS = ",".join(sorted({"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS))
+# Default edge kinds for graph queries
+_DEFAULT_EDGE_KINDS = _ALL_EDGE_KINDS
 
 logger = logging.getLogger(__name__)
 
@@ -251,7 +257,7 @@ async def graph_neighborhood(
     depth: int = Query(NB_DEPTH_DEF, ge=0),
     node_limit: int = Query(NB_NODE_DEF, ge=0),
     edge_limit: int = Query(NB_EDGE_DEF, ge=0),
-    edge_kinds: str = Query("inheritance,opposition"),
+    edge_kinds: str = Query(_DEFAULT_EDGE_KINDS),
 ) -> Dict[str, Any]:
     dep = _clamp_int(depth, NB_DEPTH_DEF, NB_DEPTH_MIN, NB_DEPTH_MAX)
     nl = _clamp_int(node_limit, NB_NODE_DEF, NB_NODE_MIN, NB_NODE_MAX)
@@ -264,7 +270,7 @@ async def graph_neighborhood(
 
     allowed = _parse_edge_kinds_csv(edge_kinds)
     if not allowed:
-        allowed = {"inheritance", "opposition"}
+        allowed = _parse_edge_kinds_csv(_DEFAULT_EDGE_KINDS)
 
     visited: Set[UUID] = {seed}
     distances: Dict[str, int] = {str(seed): 0}
@@ -353,7 +359,7 @@ class PathsExplainBody(BaseModel):
     max_hops: int = Field(default=PATH_HOPS_DEF, ge=1)
     max_paths: int = Field(default=PATH_MAX_DEF, ge=1)
     edge_kinds: List[str] = Field(
-        default_factory=lambda: ["inheritance", "opposition"]
+        default_factory=lambda: sorted({"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS)
     )
 
 
@@ -378,9 +384,9 @@ async def graph_paths_explain(
         body.max_paths, PATH_MAX_DEF, PATH_MAX_MIN, PATH_MAX_MAX
     )
 
-    allowed = {k for k in body.edge_kinds if k in ("inheritance", "opposition")}
+    allowed = {k for k in body.edge_kinds if k in ({"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS)}
     if not allowed:
-        allowed = {"inheritance", "opposition"}
+        allowed = {"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS
 
     result = shortest_path_undirected(
         ctx.session,
