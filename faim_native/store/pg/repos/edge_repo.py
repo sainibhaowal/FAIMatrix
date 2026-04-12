@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
-from sqlalchemy import and_, asc, desc
+from sqlalchemy import and_, asc, desc, or_
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
@@ -19,12 +19,14 @@ from sqlalchemy.orm import Session
 try:
     from faim.Faim_Native.core.contracts.types import uuid7
     from faim.Faim_Native.store.pg.models_faim import EdgeModel
+    from faim.Faim_Native.core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
 except (ImportError, RuntimeError):
     _parent = Path(__file__).parent.parent.parent
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import uuid7
     from store.pg.models_faim import EdgeModel
+    from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
 
 
 class EdgeRepo:
@@ -53,20 +55,24 @@ class EdgeRepo:
         graph_id: str,
         child_id: UUID,
         parents: List[Tuple[UUID, float]],
+        parents_meta: Optional[List[Optional[Dict]]] = None,
     ) -> List[UUID]:
         """Set inheritance parents for a child node.
 
         This replaces all existing inheritance edges for the child.
+        Semantic edges are NOT touched (fully additive, separate lifecycle).
 
         Args:
             graph_id: Graph identifier.
             child_id: Child node ID.
             parents: List of (parent_id, fraction) tuples.
+            parents_meta: Optional list of meta dicts parallel to parents.
+                         If None or shorter than parents, defaults to None for that index.
 
         Returns:
             List of created edge IDs.
         """
-        # Delete existing inheritance edges for this child
+        # Delete existing inheritance edges for this child ONLY (not semantic edges)
         self.session.query(EdgeModel).filter(
             and_(
                 EdgeModel.tenant_id == self.tenant_id,
@@ -76,11 +82,16 @@ class EdgeRepo:
             )
         ).delete()
 
-        # Create new edges
+        # Create new edges with optional meta (Layer A semantic typing)
         edge_ids = []
         now = datetime.now(timezone.utc)
 
-        for parent_id, fraction in parents:
+        for idx, (parent_id, fraction) in enumerate(parents):
+            # Get meta for this edge if provided
+            meta_dict = None
+            if parents_meta and idx < len(parents_meta):
+                meta_dict = parents_meta[idx]
+
             edge = EdgeModel(
                 edge_id=uuid7(),
                 tenant_id=self.tenant_id,
@@ -89,7 +100,7 @@ class EdgeRepo:
                 dst_node_id=child_id,
                 kind="inheritance",
                 weight=int(fraction * 1e9),
-                meta=None,
+                meta=meta_dict,
                 created_at=now,
             )
             self.session.add(edge)
@@ -407,6 +418,143 @@ class EdgeRepo:
             .limit(limit)
             .all()
         )
+
+    def add_semantic_edge(
+        self,
+        graph_id: str,
+        src_node_id: UUID,
+        dst_node_id: UUID,
+        semantic_type: str,
+        semantic_weight: float,
+        meta: Optional[Dict[str, Any]] = None,
+    ) -> UUID:
+        """Create or update a semantic-typed edge (Layer B).
+
+        Uses Postgres ON CONFLICT DO UPDATE for idempotency.
+        Falls back to read-then-update on non-Postgres databases.
+
+        Args:
+            graph_id: Graph identifier.
+            src_node_id: Source node ID (parent/neighbor).
+            dst_node_id: Destination node ID (child/center).
+            semantic_type: Kind value: "synonym", "hypernym", "hyponym", or "related".
+            semantic_weight: Float weight (typically 0.95, 0.80, 0.75, 0.60).
+                            Stored as int(semantic_weight * 1e9).
+            meta: Optional metadata dict. If None, defaults to empty dict.
+
+        Returns:
+            UUID: The edge_id (new or updated).
+        """
+        now = datetime.now(timezone.utc)
+        weight_int = int(semantic_weight * 1e9)
+        edge_id = uuid7()
+
+        # Try Postgres upsert path
+        try:
+            stmt = pg_insert(EdgeModel).values(
+                edge_id=edge_id,
+                tenant_id=self.tenant_id,
+                graph_id=graph_id,
+                src_node_id=src_node_id,
+                dst_node_id=dst_node_id,
+                kind=semantic_type,
+                weight=weight_int,
+                meta=meta or {},
+                created_at=now,
+            )
+            # Postgres constraint: uq_edges_tenant_graph_src_dst_kind
+            stmt = stmt.on_conflict_do_update(
+                constraint="uq_edges_tenant_graph_src_dst_kind",
+                set_={
+                    EdgeModel.weight: weight_int,
+                    EdgeModel.meta: meta or {},
+                },
+            )
+            self.session.execute(stmt)
+            self.session.flush()
+            return edge_id
+        except Exception:
+            # Fallback: SQLite or non-Postgres — read-then-update
+            existing = (
+                self.session.query(EdgeModel)
+                .filter(
+                    and_(
+                        EdgeModel.tenant_id == self.tenant_id,
+                        EdgeModel.graph_id == graph_id,
+                        EdgeModel.src_node_id == src_node_id,
+                        EdgeModel.dst_node_id == dst_node_id,
+                        EdgeModel.kind == semantic_type,
+                    )
+                )
+                .first()
+            )
+            if existing:
+                existing.weight = weight_int
+                existing.meta = meta or {}
+                self.session.flush()
+                return existing.edge_id
+            else:
+                edge = EdgeModel(
+                    edge_id=edge_id,
+                    tenant_id=self.tenant_id,
+                    graph_id=graph_id,
+                    src_node_id=src_node_id,
+                    dst_node_id=dst_node_id,
+                    kind=semantic_type,
+                    weight=weight_int,
+                    meta=meta or {},
+                    created_at=now,
+                )
+                self.session.add(edge)
+                self.session.flush()
+                return edge_id
+
+    def list_semantic_neighbors(
+        self,
+        graph_id: str,
+        node_ids: List[UUID],
+        kinds: Optional[List[str]] = None,
+    ) -> List[EdgeModel]:
+        """Batch query: all semantic edges where src OR dst is in node_ids.
+
+        Used by query engine to expand candidates via semantic edges.
+
+        Args:
+            graph_id: Graph identifier.
+            node_ids: List of node IDs to find semantic neighbors for.
+            kinds: Optional list of semantic kinds to filter by.
+                   Defaults to all KNOWN_SEMANTIC_KINDS if None.
+
+        Returns:
+            List[EdgeModel]: Semantic edges, ordered by (kind, weight desc, edge_id asc).
+        """
+        if not node_ids:
+            return []
+
+        if kinds is None:
+            kinds = sorted(list(KNOWN_SEMANTIC_KINDS))
+
+        edges = (
+            self.session.query(EdgeModel)
+            .filter(
+                and_(
+                    EdgeModel.tenant_id == self.tenant_id,
+                    EdgeModel.graph_id == graph_id,
+                    EdgeModel.kind.in_(kinds),
+                    or_(
+                        EdgeModel.src_node_id.in_(node_ids),
+                        EdgeModel.dst_node_id.in_(node_ids),
+                    ),
+                )
+            )
+            .order_by(
+                asc(EdgeModel.kind),
+                desc(EdgeModel.weight),
+                asc(EdgeModel.edge_id),
+            )
+            .all()
+        )
+        return edges
 
 
 # Exports
