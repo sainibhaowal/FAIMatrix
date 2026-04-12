@@ -20,6 +20,7 @@ if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
 from store.pg.models_faim import EdgeModel, NodeModel  # noqa: E402
+from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS  # noqa: E402
 
 SURFACE_NODE_DEF, SURFACE_NODE_MIN, SURFACE_NODE_MAX = 200, 1, 500
 SURFACE_EDGE_DEF, SURFACE_EDGE_MIN, SURFACE_EDGE_MAX = 800, 0, 2000
@@ -45,7 +46,7 @@ def _clamp_int(value: int, default: int, lo: int, hi: int) -> int:
 
 
 def _parse_edge_kinds_csv(s: str) -> Set[str]:
-    known = {"inheritance", "opposition"}
+    known = {"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS
     parts = {p.strip() for p in (s or "").split(",") if p.strip()}
     return {p for p in parts if p in known}
 
