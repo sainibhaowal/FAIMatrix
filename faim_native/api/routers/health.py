@@ -219,7 +219,7 @@ async def version_info():
     """
     return {
         "version": "0.10.0",
-        "stage": "12",
+        "stage": "10",
         "faim_native": True,
         "schema": {
             "vector": "v1",

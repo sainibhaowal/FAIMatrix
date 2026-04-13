@@ -43,6 +43,11 @@ def test_storage_response_models_contain_minimum_required_fields():
         "StorageBackendsHealth": storage_router_module.StorageBackendsHealth,
         "StorageOpsMetricsResponse": storage_router_module.StorageOpsMetricsResponse,
         "StorageIngestActionResponse": storage_router_module.StorageIngestActionResponse,
+        "StorageRepresentationBackfillResponse": storage_router_module.StorageRepresentationBackfillResponse,
+        "StorageCanonicalSemanticsRebuildResponse": storage_router_module.StorageCanonicalSemanticsRebuildResponse,
+        "StorageDomainProfileRebuildResponse": storage_router_module.StorageDomainProfileRebuildResponse,
+        "StorageDomainKnowledgeImportResponse": storage_router_module.StorageDomainKnowledgeImportResponse,
+        "StorageMultimodalBackfillResponse": storage_router_module.StorageMultimodalBackfillResponse,
         "StorageSupportedTypesResponse": storage_router_module.StorageSupportedTypesResponse,
     }
 

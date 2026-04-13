@@ -11,6 +11,10 @@ Holds durable metadata and graph state:
 - `raw_refs`
 - `storage_files`
 - `nodes`
+- `node_repr_v2`
+- `graph_repr_v2_stats`
+- `graph_term_stats`
+- `graph_canonical_lexicon`
 - `edges`
 - `events`
 - `graph_version`
@@ -57,10 +61,32 @@ Immutable content-addressed blobs:
 - atom/macro memory nodes
 - important columns: `node_id`, `tenant_id`, `graph_id`, `kind`, `vector_hash`, `raw_id`, `block_id`, `anchor_json`, `v_native`, `opp_signature`, `residual`, `level`, `touch_count`
 
+## `node_repr_v2`
+
+- additive lexical-semantic sidecar keyed by `node_id`
+- important columns: `tenant_id`, `graph_id`, `repr_hash`, `word_counts`, `phrase_counts`, `skip_counts`, `entity_tokens`, `time_tokens`, `layout_tokens`, `channel_lengths`
+
+## `graph_repr_v2_stats`
+
+- graph-scoped BM25/document-frequency stats for Representation V2
+- important columns: `tenant_id`, `graph_id`, `channel`, `doc_count`, `avg_len`, `df_map`
+- existing graphs can rebuild these sidecars through `POST /api/v1/storage/graphs/{graph_id}/representation-v2/rebuild`
+
+## `graph_term_stats`
+
+- graph-scoped canonical term and phrase statistics for deterministic corpus mining
+- important columns: `tenant_id`, `graph_id`, `channel`, `term`, `df`, `cf`, `doc_count`, `context_terms`
+
+## `graph_canonical_lexicon`
+
+- graph-scoped canonical lexical mappings mined from aliases, acronym patterns, phrase templates, and corpus statistics
+- important columns: `tenant_id`, `graph_id`, `surface_form`, `canonical_form`, `kind`, `support_count`, `score`, `meta`
+- existing graphs can rebuild these artifacts through `POST /api/v1/storage/graphs/{graph_id}/canonical-semantics/rebuild`
+
 ## `edges`
 
 - relationship graph
-- `kind` in practice: inheritance/opposition
+- `kind` in practice: inheritance/opposition plus semantic kinds including `synonym`, `hypernym`, `hyponym`, `related`, `distributional_synonym`, `paraphrase`
 - `weight` stores fraction/magnitude
 
 ## `events`
@@ -117,6 +143,12 @@ Immutable content-addressed blobs:
 | Extracted block text | `str` | transient (may be persisted indirectly via node evidence fields) |
 | Anchor metadata | dict/typed object | `anchor_json` (`JSONB`) |
 | Vector (`v_native`) | tuple/list of 256 `float` | `nodes.v_native` (`JSONB`) |
+| Representation V2 sparse channels | dict/list sidecar | `node_repr_v2.*` (`JSONB`) |
+| Representation V2 graph stats | dict + numeric sidecar | `graph_repr_v2_stats.*` |
+| Canonical term stats | dict + numeric sidecar | `graph_term_stats.*` |
+| Canonical lexicon | dict + numeric sidecar | `graph_canonical_lexicon.*` |
+| Domain lexicon | dict + numeric sidecar | `graph_domain_lexicon.*` |
+| KB source registry | dict sidecar | `graph_kb_sources.*` |
 | Opposition signature | dict of floats | `nodes.opp_signature` (`JSONB`) |
 | Packet hash / vector hash / checksums | hex string | `VARCHAR/TEXT` |
 | Edge weights | float in code | scaled integer in DB (`BigInteger` with `*1e9`) |
@@ -131,12 +163,16 @@ FAIM stores memory in mixed symbolic + numeric form:
 
 - Symbolic: block content, anchors, event payloads, IDs, hashes.
 - Numeric vectors: 256-dim float vectors (`v_native`).
+- Sparse lexical-semantic sidecars: hashed word/phrase/skip channels plus entity/time/layout tokens.
+- Canonical semantics sidecars: graph-local term statistics and lexical mappings for query-time canonicalization.
 - Graph math primitives: cosine similarity, weighted parent fractions, residual novelty, opposition score.
 
 This is effectively:
 
 - text/evidence atoms
 - vector space representation (dense numeric arrays)
+- sparse lexical-semantic representation (Representation V2 sidecars)
+- canonical lexical-semantic statistics and mappings (Phase 2 sidecars)
 - graph structure (nodes/edges)
 
 ## 5) Redis Key Shapes (current modules)

@@ -517,6 +517,16 @@ def run_ingest(
 
         phase_started = time.perf_counter()
         vectors = vectorize_blocks(blocks)
+        from encoding.representation_v2 import build_representation_v2_for_block
+
+        reprs_v2 = []
+        for block in blocks:
+            if all(hasattr(block, attr) for attr in ("content", "anchor", "block_type")):
+                reprs_v2.append(build_representation_v2_for_block(block))
+            else:
+                # Compatibility path for unit tests that stub non-EvidenceBlock
+                # placeholders through the ingest pipeline.
+                reprs_v2.append(None)
         _finish_phase("encode", phase_started)
 
         # Verify dimension
@@ -559,6 +569,7 @@ def run_ingest(
             vectors=vectors,
             raw_id=raw_id,
             packet_hash=packet_hash,
+            reprs_v2=reprs_v2,
         )
         _finish_phase("write", phase_started)
 

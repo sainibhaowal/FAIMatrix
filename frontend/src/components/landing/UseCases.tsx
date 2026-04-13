@@ -96,7 +96,7 @@ const USE_CASES: UseCase[] = [
     ),
     reason: "Fully explainable. Deterministic. No black-box ML in the core engine.",
     features: [
-      "7-component explainable scoring",
+      "Deterministic multi-signal scoring breakdown",
       "Complete decision audit trail",
       "No black-box neural components",
       "Reproducible results for any input",

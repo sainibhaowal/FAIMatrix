@@ -1,16 +1,15 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { User, Bot, MessageSquarePlus, Cpu } from "lucide-react";
+import { User, Bot, MessageSquarePlus, Database } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useChat } from "@/contexts/ChatContext";
-import { useProviders } from "@/contexts/ProviderContext";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { ThinkingPane } from "./ThinkingPane";
+import { QueryAnswerCard } from "./QueryAnswerCard";
 
 export function ChatInterface() {
   const { messages, isStreaming, newThread, activeThreadId, isThinking, liveThinkingBuffer } = useChat();
-  const { activeProvider } = useProviders();
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,28 +31,23 @@ export function ChatInterface() {
           </div>
           <div className="space-y-2">
             <h3 className="text-base font-bold text-white tracking-tight">
-              {!activeProvider ? "No provider connected" : activeThreadId ? "Thread is empty" : "Start a conversation"}
+              {activeThreadId ? "Thread is empty" : "Start a conversation"}
             </h3>
             <p className="text-[12px] text-slate-500 leading-relaxed">
-              {!activeProvider
-                ? "Go to Providers in the sidebar to connect LM Studio, OpenAI, or any OpenAI-compatible endpoint."
-                : "Type a message below to begin querying your memory graph."}
+              {"Type a message below to query your memory graph. FAIM answer synthesis, citations, provenance, and explain data render directly from backend query results."}
             </p>
           </div>
-          {!activeProvider ? (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
-              <Cpu size={13} className="text-amber-400 flex-shrink-0" />
-              <span className="text-[11px] text-amber-400 font-semibold">Connect a provider first</span>
-            </div>
-          ) : (
-            <button
-              onClick={newThread}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-500/10 border border-primary-500/20 hover:bg-primary-500/20 text-primary-300 text-[12px] font-bold uppercase tracking-widest transition-all"
-            >
-              <MessageSquarePlus size={14} />
-              New Thread
-            </button>
-          )}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary-500/10 border border-primary-500/20">
+            <Database size={13} className="text-primary-300 flex-shrink-0" />
+            <span className="text-[11px] text-primary-300 font-semibold">FAIM query path active</span>
+          </div>
+          <button
+            onClick={newThread}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-500/10 border border-primary-500/20 hover:bg-primary-500/20 text-primary-300 text-[12px] font-bold uppercase tracking-widest transition-all"
+          >
+            <MessageSquarePlus size={14} />
+            New Thread
+          </button>
         </motion.div>
       </div>
     );
@@ -109,20 +103,25 @@ export function ChatInterface() {
                   <p className="text-[14px] leading-7 text-slate-300 group-hover:text-slate-100">
                     {msg.content}
                   </p>
-                ) : msg.content ? (
-                  <div className="prose-faim">
-                    <MarkdownRenderer content={msg.content} />
-                  </div>
                 ) : (
-                  isStreaming && (
-                    <motion.span
-                      animate={{ opacity: [0.4, 1, 0.4] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                      className="inline-block text-primary-400 text-lg"
-                    >
-                      ▌
-                    </motion.span>
-                  )
+                  <div className="space-y-4">
+                    {msg.content ? (
+                      <div className="prose-faim">
+                        <MarkdownRenderer content={msg.content} />
+                      </div>
+                    ) : (
+                      isStreaming && (
+                        <motion.span
+                          animate={{ opacity: [0.4, 1, 0.4] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          className="inline-block text-primary-400 text-lg"
+                        >
+                          ▌
+                        </motion.span>
+                      )
+                    )}
+                    {msg.queryData && <QueryAnswerCard queryData={msg.queryData} />}
+                  </div>
                 )}
               </div>
 

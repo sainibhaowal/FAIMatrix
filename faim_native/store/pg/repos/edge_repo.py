@@ -448,9 +448,11 @@ class EdgeRepo:
         now = datetime.now(timezone.utc)
         weight_int = int(semantic_weight * 1e9)
         edge_id = uuid7()
+        bind = self.session.get_bind()
+        dialect_name = (getattr(bind, "dialect", None) and bind.dialect.name) or ""
 
-        # Try Postgres upsert path
-        try:
+        # Postgres path: use the table-level unique constraint for idempotent upsert.
+        if dialect_name == "postgresql":
             stmt = pg_insert(EdgeModel).values(
                 edge_id=edge_id,
                 tenant_id=self.tenant_id,
@@ -470,44 +472,45 @@ class EdgeRepo:
                     EdgeModel.meta: meta or {},
                 },
             )
-            self.session.execute(stmt)
+            returned_edge_id = self.session.execute(stmt.returning(EdgeModel.edge_id)).scalar_one()
             self.session.flush()
-            return edge_id
-        except Exception:
-            # Fallback: SQLite or non-Postgres — read-then-update
-            existing = (
-                self.session.query(EdgeModel)
-                .filter(
-                    and_(
-                        EdgeModel.tenant_id == self.tenant_id,
-                        EdgeModel.graph_id == graph_id,
-                        EdgeModel.src_node_id == src_node_id,
-                        EdgeModel.dst_node_id == dst_node_id,
-                        EdgeModel.kind == semantic_type,
-                    )
+            return returned_edge_id
+
+        # Non-Postgres fallback (e.g. SQLite tests): update existing edge if present.
+        existing = (
+            self.session.query(EdgeModel)
+            .filter(
+                and_(
+                    EdgeModel.tenant_id == self.tenant_id,
+                    EdgeModel.graph_id == graph_id,
+                    EdgeModel.src_node_id == src_node_id,
+                    EdgeModel.dst_node_id == dst_node_id,
+                    EdgeModel.kind == semantic_type,
                 )
-                .first()
             )
-            if existing:
-                existing.weight = weight_int
-                existing.meta = meta or {}
-                self.session.flush()
-                return existing.edge_id
-            else:
-                edge = EdgeModel(
-                    edge_id=edge_id,
-                    tenant_id=self.tenant_id,
-                    graph_id=graph_id,
-                    src_node_id=src_node_id,
-                    dst_node_id=dst_node_id,
-                    kind=semantic_type,
-                    weight=weight_int,
-                    meta=meta or {},
-                    created_at=now,
-                )
-                self.session.add(edge)
-                self.session.flush()
-                return edge_id
+            .first()
+        )
+        if existing is not None:
+            existing.weight = weight_int
+            existing.meta = meta or {}
+            existing.created_at = now
+            self.session.flush()
+            return existing.edge_id
+
+        edge = EdgeModel(
+            edge_id=edge_id,
+            tenant_id=self.tenant_id,
+            graph_id=graph_id,
+            src_node_id=src_node_id,
+            dst_node_id=dst_node_id,
+            kind=semantic_type,
+            weight=weight_int,
+            meta=meta or {},
+            created_at=now,
+        )
+        self.session.add(edge)
+        self.session.flush()
+        return edge_id
 
     def list_semantic_neighbors(
         self,
@@ -555,6 +558,64 @@ class EdgeRepo:
             .all()
         )
         return edges
+
+    def list_graph_neighbors(
+        self,
+        graph_id: str,
+        node_ids: List[UUID],
+        kinds: Optional[List[str]] = None,
+        limit: int = 1000,
+    ) -> List[EdgeModel]:
+        """List incident graph edges for a node set with deterministic ordering."""
+        if not node_ids:
+            return []
+
+        query = self.session.query(EdgeModel).filter(
+            and_(
+                EdgeModel.tenant_id == self.tenant_id,
+                EdgeModel.graph_id == graph_id,
+                or_(
+                    EdgeModel.src_node_id.in_(node_ids),
+                    EdgeModel.dst_node_id.in_(node_ids),
+                ),
+            )
+        )
+        if kinds is not None:
+            query = query.filter(EdgeModel.kind.in_(list(kinds)))
+
+        return (
+            query.order_by(
+                asc(EdgeModel.src_node_id),
+                asc(EdgeModel.dst_node_id),
+                asc(EdgeModel.kind),
+                desc(EdgeModel.weight),
+                asc(EdgeModel.edge_id),
+            )
+            .limit(limit)
+            .all()
+        )
+
+    def delete_edges_by_kinds(
+        self,
+        graph_id: str,
+        kinds: List[str],
+    ) -> int:
+        """Delete only the specified edge kinds for a graph."""
+        if not kinds:
+            return 0
+        deleted = (
+            self.session.query(EdgeModel)
+            .filter(
+                and_(
+                    EdgeModel.tenant_id == self.tenant_id,
+                    EdgeModel.graph_id == graph_id,
+                    EdgeModel.kind.in_(list(kinds)),
+                )
+            )
+            .delete(synchronize_session=False)
+        )
+        self.session.flush()
+        return int(deleted or 0)
 
 
 # Exports

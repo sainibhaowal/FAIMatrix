@@ -116,6 +116,158 @@ CREATE INDEX IF NOT EXISTS idx_nodes_created ON nodes(tenant_id, graph_id, creat
 CREATE INDEX IF NOT EXISTS idx_nodes_level ON nodes(tenant_id, graph_id, level);
 
 -- -----------------------------------------------------------------------------
+-- node_repr_v2: additive Representation V2 sidecar per node
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS node_repr_v2 (
+    node_id UUID PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    graph_id VARCHAR(64) NOT NULL,
+    repr_hash VARCHAR(64) NOT NULL,
+    normalized_text TEXT NOT NULL DEFAULT '',
+    word_counts JSONB NOT NULL DEFAULT '{}',
+    phrase_counts JSONB NOT NULL DEFAULT '{}',
+    skip_counts JSONB NOT NULL DEFAULT '{}',
+    entity_tokens JSONB NOT NULL DEFAULT '[]',
+    time_tokens JSONB NOT NULL DEFAULT '[]',
+    layout_tokens JSONB NOT NULL DEFAULT '[]',
+    channel_lengths JSONB NOT NULL DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_node_repr_v2_tenant_graph ON node_repr_v2(tenant_id, graph_id);
+CREATE INDEX IF NOT EXISTS idx_node_repr_v2_repr_hash ON node_repr_v2(tenant_id, graph_id, repr_hash);
+
+-- -----------------------------------------------------------------------------
+-- node_modality_v1: additive multimodal sidecar per node
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS node_modality_v1 (
+    node_id UUID PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    graph_id VARCHAR(64) NOT NULL,
+    modality_hash VARCHAR(64) NOT NULL,
+    ocr_text TEXT NOT NULL DEFAULT '',
+    table_text TEXT NOT NULL DEFAULT '',
+    layout_tokens JSONB NOT NULL DEFAULT '[]',
+    image_phash VARCHAR(16) NOT NULL DEFAULT '',
+    filename_tokens JSONB NOT NULL DEFAULT '[]',
+    caption_tokens JSONB NOT NULL DEFAULT '[]',
+    metadata_tokens JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_node_modality_v1_tenant_graph ON node_modality_v1(tenant_id, graph_id);
+CREATE INDEX IF NOT EXISTS idx_node_modality_v1_hash ON node_modality_v1(tenant_id, graph_id, modality_hash);
+
+-- -----------------------------------------------------------------------------
+-- graph_repr_v2_stats: graph-scoped BM25/DF statistics by channel
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS graph_repr_v2_stats (
+    tenant_id TEXT NOT NULL,
+    graph_id VARCHAR(64) NOT NULL,
+    channel VARCHAR(32) NOT NULL,
+    doc_count INTEGER NOT NULL DEFAULT 0,
+    avg_len DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    df_map JSONB NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (tenant_id, graph_id, channel)
+);
+
+CREATE INDEX IF NOT EXISTS idx_graph_repr_v2_stats_tenant_graph ON graph_repr_v2_stats(tenant_id, graph_id);
+
+-- -----------------------------------------------------------------------------
+-- graph_term_stats: graph-scoped canonical term statistics
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS graph_term_stats (
+    tenant_id TEXT NOT NULL,
+    graph_id VARCHAR(64) NOT NULL,
+    channel VARCHAR(32) NOT NULL,
+    term TEXT NOT NULL,
+    df INTEGER NOT NULL DEFAULT 0,
+    cf INTEGER NOT NULL DEFAULT 0,
+    doc_count INTEGER NOT NULL DEFAULT 0,
+    context_terms JSONB NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (tenant_id, graph_id, channel, term)
+);
+
+CREATE INDEX IF NOT EXISTS idx_graph_term_stats_tenant_graph ON graph_term_stats(tenant_id, graph_id);
+CREATE INDEX IF NOT EXISTS idx_graph_term_stats_channel ON graph_term_stats(tenant_id, graph_id, channel);
+
+-- -----------------------------------------------------------------------------
+-- graph_canonical_lexicon: graph-scoped canonical lexical mappings
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS graph_canonical_lexicon (
+    tenant_id TEXT NOT NULL,
+    graph_id VARCHAR(64) NOT NULL,
+    surface_form TEXT NOT NULL,
+    canonical_form TEXT NOT NULL,
+    kind VARCHAR(32) NOT NULL,
+    support_count INTEGER NOT NULL DEFAULT 0,
+    score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    meta JSONB NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (tenant_id, graph_id, surface_form, canonical_form, kind)
+);
+
+CREATE INDEX IF NOT EXISTS idx_graph_canonical_lexicon_tenant_graph ON graph_canonical_lexicon(tenant_id, graph_id);
+CREATE INDEX IF NOT EXISTS idx_graph_canonical_lexicon_surface ON graph_canonical_lexicon(tenant_id, graph_id, surface_form);
+CREATE INDEX IF NOT EXISTS idx_graph_canonical_lexicon_kind ON graph_canonical_lexicon(tenant_id, graph_id, kind);
+
+-- -----------------------------------------------------------------------------
+-- graph_multilingual_lexicon: graph-scoped multilingual EN/DE mappings
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS graph_multilingual_lexicon (
+    tenant_id TEXT NOT NULL,
+    graph_id VARCHAR(64) NOT NULL,
+    language VARCHAR(8) NOT NULL,
+    surface_form TEXT NOT NULL,
+    canonical_form TEXT NOT NULL,
+    concept_key TEXT NOT NULL,
+    score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    meta JSONB NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    PRIMARY KEY (tenant_id, graph_id, language, surface_form, canonical_form)
+);
+
+CREATE INDEX IF NOT EXISTS idx_graph_multilingual_lexicon_graph ON graph_multilingual_lexicon(tenant_id, graph_id, language);
+
+CREATE TABLE IF NOT EXISTS graph_domain_lexicon (
+    tenant_id VARCHAR(64) NOT NULL,
+    graph_id VARCHAR(64) NOT NULL,
+    surface_form TEXT NOT NULL,
+    canonical_form TEXT NOT NULL,
+    kind VARCHAR(32) NOT NULL,
+    domain_pack VARCHAR(64),
+    support_count INTEGER NOT NULL DEFAULT 0,
+    score DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    meta JSONB NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (tenant_id, graph_id, surface_form, canonical_form, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_graph_domain_lexicon_graph ON graph_domain_lexicon(tenant_id, graph_id);
+CREATE INDEX IF NOT EXISTS idx_graph_domain_lexicon_surface ON graph_domain_lexicon(tenant_id, graph_id, surface_form);
+CREATE INDEX IF NOT EXISTS idx_graph_domain_lexicon_kind ON graph_domain_lexicon(tenant_id, graph_id, kind);
+
+CREATE TABLE IF NOT EXISTS graph_kb_sources (
+    tenant_id VARCHAR(64) NOT NULL,
+    graph_id VARCHAR(64) NOT NULL,
+    source_id VARCHAR(128) NOT NULL,
+    source_kind VARCHAR(32) NOT NULL,
+    source_hash VARCHAR(64) NOT NULL,
+    meta JSONB NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (tenant_id, graph_id, source_id)
+);
+CREATE INDEX IF NOT EXISTS idx_graph_kb_sources_graph ON graph_kb_sources(tenant_id, graph_id);
+CREATE INDEX IF NOT EXISTS idx_graph_kb_sources_hash ON graph_kb_sources(tenant_id, graph_id, source_hash);
+
+-- -----------------------------------------------------------------------------
 -- edges: inheritance and opposition edges
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS edges (
@@ -124,7 +276,7 @@ CREATE TABLE IF NOT EXISTS edges (
     graph_id VARCHAR(64) NOT NULL,
     src_node_id UUID NOT NULL,                 -- parent (inheritance) or node A (opposition)
     dst_node_id UUID NOT NULL,                 -- child (inheritance) or node B (opposition)
-    kind VARCHAR(32) NOT NULL,                 -- Edge type: inheritance, opposition, synonym, hypernym, hyponym, related
+    kind VARCHAR(32) NOT NULL,                 -- Edge type: inheritance, opposition, semantic (incl. canonical)
     weight DOUBLE PRECISION DEFAULT 0.0,       -- fraction or magnitude
     meta JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -136,6 +288,17 @@ CREATE TABLE IF NOT EXISTS edges (
 CREATE INDEX IF NOT EXISTS idx_edges_tenant_graph ON edges(tenant_id, graph_id);
 CREATE INDEX IF NOT EXISTS idx_edges_child ON edges(tenant_id, graph_id, dst_node_id, kind);
 CREATE INDEX IF NOT EXISTS idx_edges_parent ON edges(tenant_id, graph_id, src_node_id, kind);
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_distributional_synonym ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'distributional_synonym';
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_paraphrase ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'paraphrase';
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_concept_surface ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'concept_surface';
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_translation ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'translation';
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_entity_alias ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'entity_alias';
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_relation_alias ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'relation_alias';
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_entity_relation ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'entity_relation';
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_fact_value ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'fact_value';
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_fact_time ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'fact_time';
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_domain_term ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'domain_term';
+CREATE INDEX IF NOT EXISTS idx_edges_semantic_kb_source ON edges(tenant_id, graph_id, dst_node_id) WHERE kind = 'kb_source';
 
 -- -----------------------------------------------------------------------------
 -- Trigger to enforce append-only on events table
@@ -188,6 +351,27 @@ CREATE TRIGGER graph_version_reject_empty_tenant BEFORE INSERT OR UPDATE ON grap
 DROP TRIGGER IF EXISTS nodes_reject_empty_tenant ON nodes;
 CREATE TRIGGER nodes_reject_empty_tenant BEFORE INSERT OR UPDATE ON nodes FOR EACH ROW EXECUTE FUNCTION reject_empty_tenant();
 
+DROP TRIGGER IF EXISTS node_repr_v2_reject_empty_tenant ON node_repr_v2;
+CREATE TRIGGER node_repr_v2_reject_empty_tenant BEFORE INSERT OR UPDATE ON node_repr_v2 FOR EACH ROW EXECUTE FUNCTION reject_empty_tenant();
+DROP TRIGGER IF EXISTS node_modality_v1_reject_empty_tenant ON node_modality_v1;
+CREATE TRIGGER node_modality_v1_reject_empty_tenant BEFORE INSERT OR UPDATE ON node_modality_v1 FOR EACH ROW EXECUTE FUNCTION reject_empty_tenant();
+
+DROP TRIGGER IF EXISTS graph_repr_v2_stats_reject_empty_tenant ON graph_repr_v2_stats;
+CREATE TRIGGER graph_repr_v2_stats_reject_empty_tenant BEFORE INSERT OR UPDATE ON graph_repr_v2_stats FOR EACH ROW EXECUTE FUNCTION reject_empty_tenant();
+
+DROP TRIGGER IF EXISTS graph_term_stats_reject_empty_tenant ON graph_term_stats;
+CREATE TRIGGER graph_term_stats_reject_empty_tenant BEFORE INSERT OR UPDATE ON graph_term_stats FOR EACH ROW EXECUTE FUNCTION reject_empty_tenant();
+
+DROP TRIGGER IF EXISTS graph_canonical_lexicon_reject_empty_tenant ON graph_canonical_lexicon;
+CREATE TRIGGER graph_canonical_lexicon_reject_empty_tenant BEFORE INSERT OR UPDATE ON graph_canonical_lexicon FOR EACH ROW EXECUTE FUNCTION reject_empty_tenant();
+
+DROP TRIGGER IF EXISTS graph_multilingual_lexicon_reject_empty_tenant ON graph_multilingual_lexicon;
+CREATE TRIGGER graph_multilingual_lexicon_reject_empty_tenant BEFORE INSERT OR UPDATE ON graph_multilingual_lexicon FOR EACH ROW EXECUTE FUNCTION reject_empty_tenant();
+DROP TRIGGER IF EXISTS graph_domain_lexicon_reject_empty_tenant ON graph_domain_lexicon;
+CREATE TRIGGER graph_domain_lexicon_reject_empty_tenant BEFORE INSERT OR UPDATE ON graph_domain_lexicon FOR EACH ROW EXECUTE FUNCTION reject_empty_tenant();
+DROP TRIGGER IF EXISTS graph_kb_sources_reject_empty_tenant ON graph_kb_sources;
+CREATE TRIGGER graph_kb_sources_reject_empty_tenant BEFORE INSERT OR UPDATE ON graph_kb_sources FOR EACH ROW EXECUTE FUNCTION reject_empty_tenant();
+
 DROP TRIGGER IF EXISTS edges_reject_empty_tenant ON edges;
 CREATE TRIGGER edges_reject_empty_tenant BEFORE INSERT OR UPDATE ON edges FOR EACH ROW EXECUTE FUNCTION reject_empty_tenant();
 
@@ -199,6 +383,14 @@ COMMENT ON TABLE events IS 'Append-only event journal for audit and replay';
 COMMENT ON TABLE snapshots IS 'Graph snapshot metadata with integrity receipts';
 COMMENT ON TABLE graph_version IS 'Version tracking for cache invalidation';
 COMMENT ON TABLE nodes IS 'FIG graph nodes (atoms and macros) with vectors';
+COMMENT ON TABLE node_repr_v2 IS 'Additive Representation V2 lexical-semantic sidecar keyed by node_id';
+COMMENT ON TABLE node_modality_v1 IS 'Additive multimodal sidecar keyed by node_id';
+COMMENT ON TABLE graph_repr_v2_stats IS 'Graph-scoped document-frequency and length statistics for Representation V2 channels';
+COMMENT ON TABLE graph_term_stats IS 'Graph-scoped canonical term statistics and bounded context co-occurrence maps';
+COMMENT ON TABLE graph_canonical_lexicon IS 'Graph-scoped canonical lexical mappings mined from aliases, phrase patterns, and corpus statistics';
+COMMENT ON TABLE graph_multilingual_lexicon IS 'Graph-scoped multilingual EN/DE lexical mappings to shared concept keys';
+COMMENT ON TABLE graph_domain_lexicon IS 'Graph-scoped domain lexical mappings mined from KB imports, term induction, and domain packs';
+COMMENT ON TABLE graph_kb_sources IS 'Graph-scoped offline KB import source registry with deterministic source hashes';
 COMMENT ON TABLE edges IS 'FIG graph edges (inheritance, opposition, and semantic types)';
 
 COMMENT ON COLUMN events.seq IS 'Auto-assigned sequence for strict ordering';
@@ -206,7 +398,14 @@ COMMENT ON COLUMN events.checksum IS 'SHA256(ts||graph_id||kind||payload) for in
 COMMENT ON COLUMN snapshots.graph_hash IS 'Deterministic hash of graph state at snapshot time';
 COMMENT ON COLUMN nodes.kind IS 'Node type: atom (level 0) or macro (level > 0)';
 COMMENT ON COLUMN nodes.v_native IS 'FAIM-native vector (256 dimensions)';
-COMMENT ON COLUMN edges.kind IS 'Edge type: inheritance (parent-child), opposition (contradiction), or semantic (synonym, hypernym, hyponym, related)';
+COMMENT ON COLUMN node_repr_v2.repr_hash IS 'SHA256 of canonical Representation V2 sparse channels';
+COMMENT ON COLUMN node_repr_v2.normalized_text IS 'Deterministic normalized lexical text for explainable reranking';
+COMMENT ON COLUMN node_repr_v2.channel_lengths IS 'Per-channel document lengths for BM25-style scoring';
+COMMENT ON COLUMN node_modality_v1.modality_hash IS 'SHA256 of normalized multimodal sidecar payload';
+COMMENT ON COLUMN graph_repr_v2_stats.df_map IS 'Document frequency map keyed by hashed term or token';
+COMMENT ON COLUMN graph_term_stats.context_terms IS 'Top bounded co-occurring canonical context terms for deterministic PMI-style mining';
+COMMENT ON COLUMN graph_canonical_lexicon.kind IS 'Lexical mapping type: alias, acronym, phrase_pattern, distributional_synonym';
+COMMENT ON COLUMN edges.kind IS 'Edge type: inheritance, opposition, semantic geometry kinds, canonical semantic kinds, multilingual kinds, or domain knowledge kinds such as entity_alias/entity_relation/fact_value/fact_time/domain_term';
 COMMENT ON COLUMN edges.weight IS 'Inheritance fraction (Σ=1) or opposition magnitude';
 COMMENT ON COLUMN edges.meta IS 'Semantic metadata for inheritance edges: {semantic_type, semantic_weight}. NULL for opposition and semantic edges.';
 

@@ -17,116 +17,115 @@ interface Power {
 const POWERS: Power[] = [
   {
     number: "01",
-    title: "Zero-LLM Engine",
-    headline: "No API calls. No randomness. No cloud.",
+    title: "Deterministic Core",
+    headline: "The original FAIM engine is still the source of truth.",
     description:
-      "The core engine imports zero ML libraries. 256-dimensional vectors are encoded with pure math. Fractal diagnostics computed with pure Python. When cloud APIs go down, FAIM keeps running — on a laptop, offline, air-gapped.",
-    codeSnippet: `// engine_native.py — Zero ML imports
+      "FAIM still writes 256-dimensional native vectors, computes inheritance fractions, verifies 8 invariants, hashes graph state, and evolves without randomness. Everything else was added around this core, not in place of it.",
+    codeSnippet: `// engine_native.py — deterministic core
 raw document → deterministic extraction
-  → 256-dim encoding (NO ML)
+  → 256-dim encoding
   → inheritance computation
   → antisymmetric merge
-  → fractal diagnostics → done`,
+  → invariant verification
+  → graph hash + diagnostics`,
     codeFile: "engine_native.py",
     gradient: "from-cyan-500 to-blue-500",
     iconPath: "M13 10V3L4 14h7v7l9-11h-7z",
   },
   {
     number: "02",
-    title: "Mathematical Inheritance",
-    headline: "Fractions sum to exactly 1.0. Always.",
+    title: "Representation V2",
+    headline: "Dense native vectors plus deterministic sparse retrieval.",
     description:
-      "Every memory knows exactly where it came from. Parent fractions are computed by cosine similarity, normalized with stable rounding, and verified by invariant checks. The residual tells you exactly how novel each memory is.",
-    codeSnippet: `// invariants.py — Inheritance invariant
-fractions = [f for _, f in parents]
-total = sum(fractions)
-assert abs(total - 1.0) < 1e-9
-// residual = 1 - cos(child, parent_mix)`,
-    codeFile: "invariants.py",
+      "FAIM now stores additive sidecars for words, phrases, skip-grams, entities, time, and layout signals. Query-time lexical fusion adds BM25-style sparse scoring without touching v_native or base hashes.",
+    codeSnippet: `// representation_v2.py — additive sidecar
+channels = {
+  "word": word_terms,
+  "phrase": phrase_terms,
+  "entity": entity_terms,
+  "time": time_terms,
+  "layout": layout_terms,
+}
+score = native_score + lexical_score`,
+    codeFile: "representation_v2.py",
     gradient: "from-blue-500 to-indigo-500",
-    iconPath: "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z",
+    iconPath: "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 2 0 01-1-1v-6z",
   },
   {
     number: "03",
-    title: "Deterministic Deduplication",
-    headline: "Same input, same merge, same winner. Every time.",
+    title: "Canonical Semantics",
+    headline: "Aliases, lemmas, phrases, and corpus-derived meaning.",
     description:
-      "When two vectors are >95% similar, they merge. The winner is selected by lexicographic comparison of SHA-256 hashes — not random, not by timestamp. Run the same ingest 1,000 times: identical results, provably.",
-    codeSnippet: `// antisym.py — Deterministic winner
-if a_hash < b_hash:
-    return (a_id, b_id)   // a wins
-elif b_hash < a_hash:
-    return (b_id, a_id)   // b wins
-// SHA-256 hash = determinism`,
-    codeFile: "antisym.py",
+      "WordNet is no longer the only semantic layer. FAIM mines aliases, rewrites phrase variants, induces paraphrase-style edges, and rebuilds graph-local canonical lexicons from corpus statistics.",
+    codeSnippet: `// canonical_semantics.py — graph-local adaptation
+if pmi >= tau_pmi and overlap >= tau_ctx:
+    add_semantic_edge("distributional_synonym")
+if phrase_rule.matches(text):
+    add_semantic_edge("paraphrase")`,
+    codeFile: "canonical_semantics.py",
     gradient: "from-indigo-500 to-purple-500",
     iconPath: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
   },
   {
     number: "04",
-    title: "Fractal Physics",
-    headline: "Your memory has a physics. Measurable. Bounded.",
+    title: "Graph Semantics + Diffusion",
+    headline: "The graph now contributes retrieval value, not just structure.",
     description:
-      "D\u0302 (fractal dimension) measures structural complexity. H\u0302 (Shannon entropy) measures diversity. \u039B\u0302 (evolution pressure) signals when the graph needs to evolve. Energy E stays \u2264 2.0 — a mathematical stability bound scaled by the golden ratio.",
-    codeSnippet: `// fractal_physics.py — Real physics
-D = correlation_dimension(8 epsilons)
-H = shannon_entropy(20 bins)
-\u039B = 0.50*N + 0.30*(1-R) + 0.20*H
-E = mean_L2_norm * (1/\u03C6)  // \u2264 2.0
-// s = 1/PHI \u2248 0.618 (golden ratio)`,
-    codeFile: "fractal_physics.py",
+      "Bounded multi-hop traversal, semantic path scoring, concept neighborhood scoring, and deterministic diffusion now influence recall and ranking. Contradictions and opposition are handled during path expansion instead of only after the fact.",
+    codeSnippet: `// diffusion.py — bounded graph semantics
+S_graph(d|q) =
+  Σ paths(lambda ** hops * product(edge_weight))
+y_next = (1 - alpha) * seed + alpha * P^T * y
+// fixed hops, fixed iterations, deterministic ordering`,
+    codeFile: "diffusion.py",
     gradient: "from-purple-500 to-pink-500",
     iconPath: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
   },
   {
     number: "05",
-    title: "Cryptographic Integrity",
-    headline: "Every vector. Every state. SHA-256 verified.",
+    title: "Deterministic Reranker V2",
+    headline: "Structured relevance without a learned cross-encoder.",
     description:
-      "Every vector has a vector_hash. Every graph state has a graph_hash. Every diagnostic has a diagnostics_hash. Tamper with a single float — the hash breaks. This is an immutable audit trail built into the core engine.",
-    codeSnippet: `// vector_schema.py — Crypto integrity
-canonical = json.dumps(data,
-  sort_keys=True,
-  separators=(",", ":"))
-hash = sha256(canonical).hexdigest()
-// verify_hash() on every read`,
-    codeFile: "vector_schema.py",
+      "FAIM now extracts propositions, scores evidence spans, matches entity-relation-value-time structure, and suppresses weaker competing candidates pairwise. Relevance improved without giving up auditability.",
+    codeSnippet: `// reranker_v2.py — structured relevance
+score =
+  lexical + graph + entity + time
+  + evidence_span + proposition_match
+  - contradiction - redundancy
+dominance = suppress_weaker_conflicts(top_n)`,
+    codeFile: "reranker_v2.py",
     gradient: "from-emerald-500 to-cyan-500",
     iconPath: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
   },
   {
     number: "06",
-    title: "Self-Evolution",
-    headline: "The graph optimizes itself. No human intervention.",
+    title: "Scale, Multilingual, Multimodal",
+    headline: "Production-oriented retrieval paths beyond plain brute force.",
     description:
-      "Compute fractal diagnostics. If \u039B is high (lots of novelty) — loosen merge threshold, let the graph grow. If \u039B is low (high redundancy) — tighten, merge aggressively. Prune, self-invent macro nodes, re-verify all invariants. Automatically.",
-    codeSnippet: `// evolution_native.py — Self-evolving
-diagnostics = compute_diagnostics()
-threshold = adapt_threshold(\u039B)
-merges  = find_merge_candidates()
-prunes  = prune_safe_nodes()
-invents = self_invent_macros()
-verify_all_invariants()  // always`,
-    codeFile: "evolution_native.py",
+      "FAIM now includes sparse inverted indexes, deterministic ANN shortlist generation, English/German concept linking, layout/table/image sidecars, and modality-aware reranking. It scales better and handles richer evidence types.",
+    codeSnippet: `// query_flow.py — staged candidate generation
+sparse = inverted_index.shortlist(query)
+dense = deterministic_ann.shortlist(v_native)
+candidates = stable_union(sparse, dense)
+// multilingual + multimodal boosts stay additive`,
+    codeFile: "query_flow.py",
     gradient: "from-amber-500 to-orange-500",
     iconPath: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
   },
   {
     number: "07",
-    title: "Physics-Based Scoring",
-    headline: "7 components. Fully explainable. No black box.",
+    title: "Domain Knowledge + Answers",
+    headline: "FAIM now links facts and returns grounded answers.",
     description:
-      "Every query result comes with a complete breakdown: similarity, novelty, opposition penalty, redundancy penalty, recency boost, usage weight, and level penalty. Not a neural re-ranker — a transparent scoring function.",
-    codeSnippet: `// query_engine.py — 7-component score
-score =
-  0.40 * similarity
-+ 0.15 * novelty
-- 0.10 * opposition
-- 0.10 * redundancy
-+ 0.10 * recency
-+ 0.10 * usage
-- 0.05 * level_penalty`,
-    codeFile: "query_engine.py",
+      "Offline KB imports, domain profile packs, entity linking, terminology mining, and extractive answer synthesis make FAIM application-ready. It can now traverse text to entities and facts, then return citation-first answers with contradiction notes.",
+    codeSnippet: `// answer_synthesis.py — citation-first output
+answer = {
+  "direct_answer": best_span,
+  "citations": supporting_sources,
+  "contradiction_notes": conflicts,
+  "confidence": support_score,
+}`,
+    codeFile: "answer_synthesis.py",
     gradient: "from-rose-500 to-red-500",
     iconPath: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
   },
@@ -153,13 +152,11 @@ function PowerCard({ power, index }: { power: Power; index: number }) {
             : "border-slate-800/60 bg-slate-900/30 hover:border-slate-700 hover:bg-slate-900/50"
         }`}
       >
-        {/* Gradient glow on hover */}
         <div
           className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${power.gradient} opacity-0 group-hover:opacity-[0.04] transition-opacity duration-500 pointer-events-none`}
         />
 
         <div className="relative z-10">
-          {/* Header */}
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-4">
               <div className={`flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br ${power.gradient} bg-opacity-10`}>
@@ -187,17 +184,14 @@ function PowerCard({ power, index }: { power: Power; index: number }) {
             </motion.svg>
           </div>
 
-          {/* Headline */}
           <p className={`text-sm font-medium mb-3 bg-gradient-to-r ${power.gradient} bg-clip-text text-transparent`}>
             {power.headline}
           </p>
 
-          {/* Description */}
           <p className="text-slate-400 text-sm leading-relaxed">
             {power.description}
           </p>
 
-          {/* Code Snippet (expandable) */}
           <motion.div
             initial={false}
             animate={{
@@ -232,7 +226,6 @@ export default function SevenPowers() {
   return (
     <section id="powers" className="py-28 px-4 bg-gradient-to-b from-slate-950 to-[#070a18]">
       <div className="max-w-5xl mx-auto">
-        {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -244,17 +237,17 @@ export default function SevenPowers() {
             The Engine
           </span>
           <h2 className="mt-4 text-4xl md:text-5xl font-bold text-white">
-            7 Capabilities.{" "}
+            7 Production Layers.{" "}
             <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Zero Compromise.
+              One Deterministic System.
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto text-lg">
-            Every claim backed by real code. Click any card to see the implementation.
+            The original FAIM core is still intact. These cards show how the
+            retrieval, knowledge, and answer stack now work together in production.
           </p>
         </motion.div>
 
-        {/* Powers Grid */}
         <div className="grid gap-5">
           {POWERS.map((power, i) => (
             <PowerCard key={power.number} power={power} index={i} />

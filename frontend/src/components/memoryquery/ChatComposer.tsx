@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import { Plus, Send, Zap, Paperclip, Image as ImageIcon, AlertCircle, MessageSquarePlus, Brain } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { Plus, Send, Zap, Paperclip, AlertCircle, MessageSquarePlus, Brain, Database } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/Button";
 import { useChat } from "@/contexts/ChatContext";
@@ -10,18 +10,38 @@ import { useProviders } from "@/contexts/ProviderContext";
 export function ChatComposer() {
   const [value, setValue] = useState("");
   const [showTools, setShowTools] = useState(false);
-  const { sendMessage, isStreaming, error, newThread, thinkingEnabled, toggleThinking } = useChat();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { sendMessage, uploadFiles, isStreaming, error, newThread, thinkingEnabled, toggleThinking } = useChat();
   const { activeProvider } = useProviders();
 
   const handleSend = async () => {
     if (!value.trim() || isStreaming) return;
-    if (!activeProvider) return;
     await sendMessage(value);
     setValue("");
   };
 
+  const handleAttachClick = () => {
+    if (isStreaming) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    await uploadFiles(files);
+    event.target.value = "";
+    setShowTools(false);
+  };
+
   return (
     <div className="w-full relative px-6 pb-3 pt-2 bg-transparent pointer-events-none">
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleFileChange}
+      />
       {/* Floating thinking toggle button */}
       <div className="absolute top-[-44px] left-6 pointer-events-auto">
         <button
@@ -88,9 +108,12 @@ export function ChatComposer() {
                   <MessageSquarePlus size={15} className="text-primary-400" />
                   New Thread
                 </button>
-                <button className="flex items-center gap-3 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all">
+                <button
+                  onClick={handleAttachClick}
+                  className="flex items-center gap-3 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                >
                   <Paperclip size={15} className="text-slate-500" />
-                  Attach File
+                  Upload To Storage
                 </button>
               </motion.div>
             )}
@@ -115,6 +138,12 @@ export function ChatComposer() {
         </div>
 
         <div className="relative z-10 flex items-center gap-2">
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-500/8 border border-primary-500/15">
+            <Database size={12} className="text-primary-300" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-primary-300">
+              FAIM Query
+            </span>
+          </div>
           {error && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
@@ -131,16 +160,14 @@ export function ChatComposer() {
           )}
           <Button
             onClick={handleSend}
-            disabled={!value.trim() || isStreaming || !activeProvider}
+            disabled={!value.trim() || isStreaming}
             className={`h-11 w-11 !p-0 rounded-[20px] transition-all duration-500 relative overflow-hidden group ${
               isStreaming
                 ? 'bg-primary-500 text-white shadow-[0_0_25px_rgba(34,211,238,0.5)]'
-                : !activeProvider
-                ? 'bg-slate-700/30 text-slate-600 cursor-not-allowed'
                 : 'bg-white/5 border-white/5 text-slate-600 hover:text-primary-300 hover:bg-primary-500/10 hover:border-primary-500/30'
             }`}
             variant="outline"
-            title={!activeProvider ? "Select a provider first" : ""}
+            title={activeProvider ? "Send query to FAIM and active provider context" : "Send query to FAIM"}
           >
             {isStreaming ? (
               <motion.div
@@ -150,7 +177,7 @@ export function ChatComposer() {
                 <Zap size={20} fill="currentColor" />
               </motion.div>
             ) : (
-              <Send size={20} className={value.trim() && activeProvider ? "text-primary-300" : "text-slate-700"} />
+              <Send size={20} className={value.trim() ? "text-primary-300" : "text-slate-700"} />
             )}
 
             <AnimatePresence>

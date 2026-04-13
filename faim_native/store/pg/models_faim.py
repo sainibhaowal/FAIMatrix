@@ -6,7 +6,18 @@ from pathlib import Path
 from typing import Any, Dict
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    String,
+    Text,
+    inspect,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.ext.declarative import declarative_base
@@ -321,7 +332,7 @@ class SnapshotModel(Base):
     graph_version = Column(BigInteger, nullable=False)
     graph_hash = Column(String(64), nullable=False)
     node_count = Column(Integer, nullable=False, default=0)
-    extra_meta = Column(JSONBType, nullable=True)
+    extra_meta = Column("metadata", JSONBType, nullable=True)
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -459,6 +470,332 @@ class NodeModel(Base):
             "touch_count": self.touch_count,
             "last_access": self.last_access.isoformat() if self.last_access else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
+# NodeRepresentationV2Model - Additive lexical-semantic sidecar
+# -----------------------------------------------------------------------------
+
+
+class NodeRepresentationV2Model(Base):
+    """ORM model for additive Representation V2 sidecar data."""
+
+    __tablename__ = "node_repr_v2"
+
+    node_id = Column(UUIDType, primary_key=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    repr_hash = Column(String(64), nullable=False)
+    normalized_text = Column(Text, nullable=False, default="")
+    word_counts = Column(JSONBType, nullable=False, default=dict)
+    phrase_counts = Column(JSONBType, nullable=False, default=dict)
+    skip_counts = Column(JSONBType, nullable=False, default=dict)
+    entity_tokens = Column(JSONBType, nullable=False, default=list)
+    time_tokens = Column(JSONBType, nullable=False, default=list)
+    layout_tokens = Column(JSONBType, nullable=False, default=list)
+    channel_lengths = Column(JSONBType, nullable=False, default=dict)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "node_id": str(self.node_id),
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "repr_hash": self.repr_hash,
+            "normalized_text": self.normalized_text or "",
+            "word_counts": self.word_counts or {},
+            "phrase_counts": self.phrase_counts or {},
+            "skip_counts": self.skip_counts or {},
+            "entity_tokens": self.entity_tokens or [],
+            "time_tokens": self.time_tokens or [],
+            "layout_tokens": self.layout_tokens or [],
+            "channel_lengths": self.channel_lengths or {},
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
+# GraphRepresentationStatsModel - BM25 / DF stats sidecar
+# -----------------------------------------------------------------------------
+
+
+class GraphRepresentationStatsModel(Base):
+    """ORM model for graph-scoped Representation V2 statistics."""
+
+    __tablename__ = "graph_repr_v2_stats"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    channel = Column(String(32), primary_key=True)
+    doc_count = Column(Integer, nullable=False, default=0)
+    avg_len = Column(Float, nullable=False, default=0.0)
+    df_map = Column(JSONBType, nullable=False, default=dict)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "channel": self.channel,
+            "doc_count": self.doc_count,
+            "avg_len": self.avg_len,
+            "df_map": self.df_map or {},
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
+# GraphTermStatModel - Phase 2 canonical term statistics
+# -----------------------------------------------------------------------------
+
+
+class GraphTermStatModel(Base):
+    """ORM model for graph-scoped canonical term statistics."""
+
+    __tablename__ = "graph_term_stats"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    channel = Column(String(32), primary_key=True)
+    term = Column(Text, primary_key=True)
+    df = Column(Integer, nullable=False, default=0)
+    cf = Column(Integer, nullable=False, default=0)
+    doc_count = Column(Integer, nullable=False, default=0)
+    context_terms = Column(JSONBType, nullable=False, default=dict)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "channel": self.channel,
+            "term": self.term,
+            "df": self.df,
+            "cf": self.cf,
+            "doc_count": self.doc_count,
+            "context_terms": self.context_terms or {},
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
+# GraphCanonicalLexiconModel - Phase 2 canonical lexical mappings
+# -----------------------------------------------------------------------------
+
+
+class GraphCanonicalLexiconModel(Base):
+    """ORM model for graph-scoped canonical lexical mappings."""
+
+    __tablename__ = "graph_canonical_lexicon"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    surface_form = Column(Text, primary_key=True)
+    canonical_form = Column(Text, primary_key=True)
+    kind = Column(String(32), primary_key=True)
+    support_count = Column(Integer, nullable=False, default=0)
+    score = Column(Float, nullable=False, default=0.0)
+    meta = Column(JSONBType, nullable=False, default=dict)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "surface_form": self.surface_form,
+            "canonical_form": self.canonical_form,
+            "kind": self.kind,
+            "support_count": self.support_count,
+            "score": self.score,
+            "meta": self.meta or {},
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
+# GraphMultilingualLexiconModel - Phase 6 multilingual lexical mappings
+# -----------------------------------------------------------------------------
+
+
+class GraphMultilingualLexiconModel(Base):
+    """ORM model for graph-scoped multilingual EN/DE mappings."""
+
+    __tablename__ = "graph_multilingual_lexicon"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    language = Column(String(8), primary_key=True)
+    surface_form = Column(Text, primary_key=True)
+    canonical_form = Column(Text, primary_key=True)
+    concept_key = Column(Text, nullable=False)
+    score = Column(Float, nullable=False, default=0.0)
+    meta = Column(JSONBType, nullable=False, default=dict)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "language": self.language,
+            "surface_form": self.surface_form,
+            "canonical_form": self.canonical_form,
+            "concept_key": self.concept_key,
+            "score": self.score,
+            "meta": self.meta or {},
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
+# GraphDomainLexiconModel - Phase 8 domain lexical mappings
+# -----------------------------------------------------------------------------
+
+
+class GraphDomainLexiconModel(Base):
+    """ORM model for graph-scoped domain lexical mappings."""
+
+    __tablename__ = "graph_domain_lexicon"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    surface_form = Column(Text, primary_key=True)
+    canonical_form = Column(Text, primary_key=True)
+    kind = Column(String(32), primary_key=True)
+    domain_pack = Column(String(64), nullable=True)
+    support_count = Column(Integer, nullable=False, default=0)
+    score = Column(Float, nullable=False, default=0.0)
+    meta = Column(JSONBType, nullable=False, default=dict)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "surface_form": self.surface_form,
+            "canonical_form": self.canonical_form,
+            "kind": self.kind,
+            "domain_pack": self.domain_pack,
+            "support_count": self.support_count,
+            "score": self.score,
+            "meta": self.meta or {},
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
+# GraphKBSourceModel - Phase 8 KB source registry
+# -----------------------------------------------------------------------------
+
+
+class GraphKBSourceModel(Base):
+    """ORM model for graph-scoped offline KB source metadata."""
+
+    __tablename__ = "graph_kb_sources"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    source_id = Column(String(128), primary_key=True)
+    source_kind = Column(String(32), nullable=False)
+    source_hash = Column(String(64), nullable=False)
+    meta = Column(JSONBType, nullable=False, default=dict)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "source_id": self.source_id,
+            "source_kind": self.source_kind,
+            "source_hash": self.source_hash,
+            "meta": self.meta or {},
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
+# NodeModalityV1Model - Phase 7 multimodal sidecar
+# -----------------------------------------------------------------------------
+
+
+class NodeModalityV1Model(Base):
+    """ORM model for additive multimodal sidecar data."""
+
+    __tablename__ = "node_modality_v1"
+
+    node_id = Column(UUIDType, primary_key=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    modality_hash = Column(String(64), nullable=False)
+    ocr_text = Column(Text, nullable=False, default="")
+    table_text = Column(Text, nullable=False, default="")
+    layout_tokens = Column(JSONBType, nullable=False, default=list)
+    image_phash = Column(String(16), nullable=False, default="")
+    filename_tokens = Column(JSONBType, nullable=False, default=list)
+    caption_tokens = Column(JSONBType, nullable=False, default=list)
+    metadata_tokens = Column(JSONBType, nullable=False, default=list)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "node_id": str(self.node_id),
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "modality_hash": self.modality_hash,
+            "ocr_text": self.ocr_text or "",
+            "table_text": self.table_text or "",
+            "layout_tokens": self.layout_tokens or [],
+            "image_phash": self.image_phash or "",
+            "filename_tokens": self.filename_tokens or [],
+            "caption_tokens": self.caption_tokens or [],
+            "metadata_tokens": self.metadata_tokens or [],
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
 
@@ -684,6 +1021,7 @@ def create_all_tables(engine) -> None:
     from store.pg import models_crypto as _models_crypto  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
+    _ensure_additive_compat_columns(engine)
 
 
 def drop_all_tables(engine) -> None:
@@ -693,3 +1031,22 @@ def drop_all_tables(engine) -> None:
         engine: SQLAlchemy engine.
     """
     Base.metadata.drop_all(bind=engine)
+
+
+def _ensure_additive_compat_columns(engine) -> None:
+    """Patch additive columns on older or partially-created databases."""
+    inspector = inspect(engine)
+
+    try:
+        repr_columns = {col["name"] for col in inspector.get_columns("node_repr_v2")}
+    except Exception:
+        repr_columns = set()
+
+    if repr_columns and "normalized_text" not in repr_columns:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE node_repr_v2 "
+                    "ADD COLUMN normalized_text TEXT NOT NULL DEFAULT ''"
+                )
+            )

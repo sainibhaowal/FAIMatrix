@@ -6,8 +6,8 @@ const PIPELINE_STEPS = [
   {
     number: "01",
     title: "Ingest",
-    description: "Raw documents enter the perception pipeline. Text is extracted, packetized into semantic atoms, and encoded into 256-dimensional vectors using deterministic math — no embeddings API.",
-    detail: "perception \u2192 packetize \u2192 encode",
+    description: "Raw documents enter deterministic extraction. FAIM produces evidence blocks, native 256-dimensional vectors, and additive sidecars for lexical, structural, multilingual, and multimodal features.",
+    detail: "extract -> packetize -> encode -> sidecars",
     gradient: "from-cyan-500 to-blue-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -17,9 +17,9 @@ const PIPELINE_STEPS = [
   },
   {
     number: "02",
-    title: "Inherit",
-    description: "Each new memory finds its parents by cosine similarity. Fractions are computed and normalized to sum to exactly 1.0. The residual measures novelty — how much is truly new.",
-    detail: "parent selection \u2192 fraction normalization \u2192 residual computation",
+    title: "Structure",
+    description: "New memories are linked into the graph through inheritance, semantic edges, canonical forms, concept links, and modality/domain sidecars. The graph becomes the retrieval substrate, not just a storage container.",
+    detail: "inheritance -> semantic edges -> concept links -> graph version",
     gradient: "from-blue-500 to-indigo-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -29,9 +29,9 @@ const PIPELINE_STEPS = [
   },
   {
     number: "03",
-    title: "Merge",
-    description: "Antisymmetric scan detects near-duplicates (>95% similarity). Winners are chosen deterministically by SHA-256 hash comparison. Same input always produces the same merge decisions.",
-    detail: "opposition scan \u2192 threshold check \u2192 deterministic merge",
+    title: "Adapt",
+    description: "Graph-local rebuild paths mine aliases, phrases, terminology, multilingual mappings, multimodal artifacts, and domain knowledge. This adds coverage without changing raw truth or native vector identity.",
+    detail: "canonical rebuilds -> KB import -> domain and multilingual enrichment",
     gradient: "from-indigo-500 to-purple-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -41,9 +41,9 @@ const PIPELINE_STEPS = [
   },
   {
     number: "04",
-    title: "Verify",
-    description: "All 8 mathematical invariants are checked. Inheritance sums, boundedness, fractal dimension ranges, energy limits. If any invariant fails, the write is rejected. No exceptions.",
-    detail: "8 invariants verified \u2192 graph hash computed \u2192 event journal updated",
+    title: "Retrieve",
+    description: "Queries combine dense native vectors, sparse Representation V2 channels, graph diffusion, deterministic ANN, canonical semantics, multilingual concept traversal, and modality/domain boosts before reranking.",
+    detail: "sparse + dense shortlist -> graph expansion -> reranker v2",
     gradient: "from-purple-500 to-pink-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -53,9 +53,9 @@ const PIPELINE_STEPS = [
   },
   {
     number: "05",
-    title: "Evolve",
-    description: "The graph monitors its own fractal diagnostics. When evolution pressure (\u039B) signals change, the system autonomously merges, prunes, and self-invents — then re-verifies all invariants.",
-    detail: "diagnostics \u2192 adaptive threshold \u2192 merge/prune/invent \u2192 re-verify",
+    title: "Answer",
+    description: "Top evidence is turned into a deterministic answer block with supporting spans, citations, contradiction notes, confidence, and provenance. FAIM can answer directly without generative hallucination.",
+    detail: "span selection -> quote extraction -> citation-first answer",
     gradient: "from-emerald-500 to-cyan-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -69,7 +69,6 @@ export default function HowItWorks() {
   return (
     <section id="how-it-works" className="py-28 px-4 bg-gradient-to-b from-[#070a18] to-slate-950">
       <div className="max-w-5xl mx-auto">
-        {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -83,18 +82,16 @@ export default function HowItWorks() {
           <h2 className="mt-4 text-4xl md:text-5xl font-bold text-white">
             From Raw Data to{" "}
             <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              Living Memory
+              Grounded Answers
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            Every piece of knowledge passes through a rigorous mathematical pipeline.
-            No step is skipped. No invariant is optional.
+            FAIM now covers the full path from raw data to grounded answers.
+            The core invariants remain intact while retrieval and answer layers stay additive.
           </p>
         </motion.div>
 
-        {/* Pipeline Steps */}
         <div className="relative">
-          {/* Vertical Line */}
           <div className="absolute left-6 md:left-8 top-0 bottom-0 w-px bg-gradient-to-b from-cyan-500/40 via-purple-500/40 to-emerald-500/40 hidden sm:block" />
 
           <div className="space-y-6">
@@ -107,14 +104,12 @@ export default function HowItWorks() {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="relative flex gap-6 md:gap-8 group"
               >
-                {/* Step Number Node */}
                 <div className="relative z-10 shrink-0">
                   <div className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300`}>
                     {step.icon}
                   </div>
                 </div>
 
-                {/* Content */}
                 <div className="pb-8 flex-1">
                   <div className="flex items-baseline gap-3 mb-2">
                     <span className="text-slate-600 text-xs font-mono font-bold">{step.number}</span>

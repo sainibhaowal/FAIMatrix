@@ -21,6 +21,17 @@ SEMANTIC_WEIGHTS: Dict[str, float] = {
     "hypernym": 0.80,
     "hyponym": 0.75,
     "related": 0.60,
+    "distributional_synonym": 0.78,
+    "paraphrase": 0.74,
+    "concept_surface": 0.70,
+    "translation": 0.72,
+    "entity_alias": 0.90,
+    "relation_alias": 0.86,
+    "entity_relation": 0.88,
+    "fact_value": 0.84,
+    "fact_time": 0.82,
+    "domain_term": 0.68,
+    "kb_source": 0.58,
     "standard": 1.00,  # no semantic modifier
 }
 
@@ -32,12 +43,46 @@ RELATED_COSINE_THRESHOLD = 0.65  # cosine >= 0.65 → related
 
 # Known semantic edge kinds (Layer B edges use these as the `kind` column value)
 KNOWN_SEMANTIC_KINDS: frozenset = frozenset(
-    {"synonym", "hypernym", "hyponym", "related"}
+    {
+        "synonym",
+        "hypernym",
+        "hyponym",
+        "related",
+        "distributional_synonym",
+        "paraphrase",
+        "concept_surface",
+        "translation",
+        "entity_alias",
+        "relation_alias",
+        "entity_relation",
+        "fact_value",
+        "fact_time",
+        "domain_term",
+        "kb_source",
+    }
 )
 
 # All valid edge kinds in FAIM (inheritance + opposition + semantic)
 ALL_EDGE_KINDS: frozenset = frozenset(
-    {"inheritance", "opposition", "synonym", "hypernym", "hyponym", "related"}
+    {
+        "inheritance",
+        "opposition",
+        "synonym",
+        "hypernym",
+        "hyponym",
+        "related",
+        "distributional_synonym",
+        "paraphrase",
+        "concept_surface",
+        "translation",
+        "entity_alias",
+        "relation_alias",
+        "entity_relation",
+        "fact_value",
+        "fact_time",
+        "domain_term",
+        "kb_source",
+    }
 )
 
 
