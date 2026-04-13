@@ -13,13 +13,16 @@ interface ScoreComponent {
 }
 
 const SCORE_COMPONENTS: ScoreComponent[] = [
-  { name: "Similarity", weight: "0.40", value: 0.92, type: "positive", color: "bg-cyan-500", description: "Cosine similarity to query vector" },
-  { name: "Novelty", weight: "0.15", value: 0.68, type: "positive", color: "bg-blue-500", description: "Residual from parent mix — how unique" },
-  { name: "Opposition", weight: "0.10", value: 0.05, type: "negative", color: "bg-red-500", description: "Contradiction penalty" },
-  { name: "Redundancy", weight: "0.10", value: 0.12, type: "negative", color: "bg-orange-500", description: "Information already covered" },
-  { name: "Recency", weight: "0.10", value: 0.85, type: "positive", color: "bg-emerald-500", description: "How recently accessed" },
-  { name: "Usage", weight: "0.10", value: 0.45, type: "positive", color: "bg-purple-500", description: "log1p(access_count) normalized" },
-  { name: "Level", weight: "0.05", value: 0.08, type: "negative", color: "bg-amber-500", description: "Depth penalty in hierarchy" },
+  { name: "Char / Native", weight: "0.12", value: 0.86, type: "positive", color: "bg-cyan-500", description: "Base deterministic vector and character-level match" },
+  { name: "Word / Phrase", weight: "0.20", value: 0.91, type: "positive", color: "bg-blue-500", description: "Representation V2 sparse lexical score" },
+  { name: "Entity / Concept", weight: "0.14", value: 0.77, type: "positive", color: "bg-indigo-500", description: "Entity, alias, concept, and domain linking support" },
+  { name: "Graph", weight: "0.16", value: 0.74, type: "positive", color: "bg-purple-500", description: "Semantic traversal, diffusion, and neighborhood score" },
+  { name: "Temporal", weight: "0.08", value: 0.82, type: "positive", color: "bg-emerald-500", description: "Recency and temporal consistency weighting" },
+  { name: "Evidence", weight: "0.14", value: 0.88, type: "positive", color: "bg-fuchsia-500", description: "Evidence density, proposition overlap, and span quality" },
+  { name: "Opposition", weight: "0.09", value: 0.06, type: "negative", color: "bg-red-500", description: "Contradiction-aware suppression during traversal and rerank" },
+  { name: "Redundancy", weight: "0.07", value: 0.11, type: "negative", color: "bg-orange-500", description: "Duplicate or already-covered information penalty" },
+  { name: "Modality", weight: "0.05", value: 0.53, type: "positive", color: "bg-amber-500", description: "OCR, table, layout, and metadata-aware boost" },
+  { name: "Domain", weight: "0.05", value: 0.79, type: "positive", color: "bg-rose-500", description: "KB, terminology, and profile-pack support" },
 ];
 
 function AnimatedBar({ value, color, delay, isInView }: { value: number; color: string; delay: number; isInView: boolean }) {
@@ -43,8 +46,17 @@ export default function QueryExplain() {
   useEffect(() => {
     if (!isInView) return;
     const timer = setTimeout(() => {
-      // Calculate: 0.40*0.92 + 0.15*0.68 - 0.10*0.05 - 0.10*0.12 + 0.10*0.85 + 0.10*0.45 - 0.05*0.08
-      const score = 0.40 * 0.92 + 0.15 * 0.68 - 0.10 * 0.05 - 0.10 * 0.12 + 0.10 * 0.85 + 0.10 * 0.45 - 0.05 * 0.08;
+      const score =
+        0.12 * 0.86 +
+        0.20 * 0.91 +
+        0.14 * 0.77 +
+        0.16 * 0.74 +
+        0.08 * 0.82 +
+        0.14 * 0.88 -
+        0.09 * 0.06 -
+        0.07 * 0.11 +
+        0.05 * 0.53 +
+        0.05 * 0.79;
       setFinalScore(Math.round(score * 1000) / 1000);
     }, 1200);
     return () => clearTimeout(timer);
@@ -55,7 +67,6 @@ export default function QueryExplain() {
       <div className="absolute inset-0 faim-grid" />
 
       <div className="max-w-6xl mx-auto relative">
-        {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -73,13 +84,13 @@ export default function QueryExplain() {
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto text-lg">
-            Every query result includes a full scoring breakdown.
-            Not &ldquo;confidence: 0.87&rdquo; — the actual formula, the actual values.
+            Every query result includes a full scoring breakdown. Not a black-box
+            confidence score. The deterministic retrieval stack exposes the
+            signals that actually produced the result.
           </p>
         </motion.div>
 
         <div ref={ref} className="grid lg:grid-cols-2 gap-10 items-start">
-          {/* Left: Score Breakdown */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -130,7 +141,6 @@ export default function QueryExplain() {
             </div>
           </motion.div>
 
-          {/* Right: Explain Payload */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -138,27 +148,28 @@ export default function QueryExplain() {
             transition={{ duration: 0.6, delay: 0.15 }}
             className="space-y-6"
           >
-            {/* Formula */}
             <div className="p-6 rounded-2xl border border-slate-800 bg-slate-900/40">
               <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">
                 The Formula
               </h4>
               <div className="p-4 rounded-lg bg-slate-950 border border-slate-800">
                 <pre className="text-sm font-mono text-slate-300 leading-loose whitespace-pre-wrap">{`score =
-  0.40 × similarity
-+ 0.15 × novelty
-− 0.10 × opposition
-− 0.10 × redundancy
-+ 0.10 × recency
-+ 0.10 × usage
-− 0.05 × level`}</pre>
+  w1 × char/native
++ w2 × word/phrase
++ w3 × entity/concept
++ w4 × graph
++ w5 × temporal
++ w6 × evidence
++ w7 × modality
++ w8 × domain
+− w9 × opposition
+− w10 × redundancy`}</pre>
               </div>
               <p className="text-xs text-slate-600 mt-3 font-mono">
-                Source: query_engine.py — ScoringWeights dataclass
+                Source: query_flow.py + query_engine.py + reranker_v2.py
               </p>
             </div>
 
-            {/* Key points */}
             <div className="p-6 rounded-2xl border border-slate-800 bg-slate-900/40">
               <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">
                 What This Means
@@ -166,19 +177,19 @@ export default function QueryExplain() {
               <div className="space-y-4">
                 <ExplainPoint
                   title="Fully Transparent"
-                  text="Every score is a weighted sum of measurable components. No hidden layers, no learned weights."
+                  text="Lexical, graph, proposition, modality, and domain signals are all surfaced as measurable components."
                 />
                 <ExplainPoint
                   title="Reproducible"
-                  text="Same query, same graph state = same scores. Every time. Deterministically."
+                  text="Same query plus the same graph state produces the same shortlist, the same rerank, and the same answer block."
                 />
                 <ExplainPoint
                   title="Auditable"
-                  text='For regulated industries: "This memory ranked #1 because similarity=0.92, novelty=0.68, with 0.05 opposition penalty."'
+                  text='For regulated systems: "This result ranked first because lexical=0.91, graph=0.74, evidence=0.88, with contradiction penalty 0.06."'
                 />
                 <ExplainPoint
-                  title="Tunable"
-                  text="Weights are configurable per use case. Prioritize novelty for research, recency for real-time, similarity for precision."
+                  title="Citation-First"
+                  text="The same stack feeds extractive answer synthesis, so the answer stays tied to spans, sources, and contradiction notes."
                 />
               </div>
             </div>

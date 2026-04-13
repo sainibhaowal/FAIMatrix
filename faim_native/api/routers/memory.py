@@ -78,6 +78,7 @@ class MemorySearchResponse(BaseModel):
     k: int
     profile: str
     results: List[MemorySearchResult]
+    answer: Optional[Dict[str, Any]] = None
     metrics: Dict[str, float]
     duration_ms: float
 
@@ -448,6 +449,7 @@ async def memory_search(
                 )
                 for item in result.results
             ],
+            answer=result.answer,
             metrics=result.metrics,
             duration_ms=result.duration_ms,
         )

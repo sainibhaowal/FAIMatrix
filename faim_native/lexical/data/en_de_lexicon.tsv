@@ -1,0 +1,16 @@
+# concept_key	english	german
+concept:revenue	revenue	umsatz
+concept:quarter	quarter	quartal
+concept:city	city	stadt
+concept:inventory	inventory	bestand
+concept:warehouse	warehouse	lager
+concept:berlin	berlin	berlin
+concept:munich	munich	muenchen
+concept:planning	planning	planung
+concept:forecast	forecast	prognose
+concept:customer	customer	kunde
+concept:market	market	markt
+concept:price	price	preis
+concept:cost	cost	kosten
+concept:profit	profit	gewinn
+concept:report	report	bericht

@@ -139,6 +139,7 @@ def _sqlite_rewrite_sql_content(sql_content: str) -> str:
         r"(?i)\s+DEFAULT\s+gen_random_uuid\(\)", "", rewritten
     )
     rewritten = re.sub(r"(?i)\bUSING\s+GIN\s*\(", "(", rewritten)
+    rewritten = re.sub(r"(?i)\s+jsonb_path_ops\b", "", rewritten)
     return rewritten
 
 

@@ -6,9 +6,9 @@ import { useRef } from "react";
 
 const HERO_STATS = [
   { value: "256", unit: "dim", label: "Deterministic Vectors" },
-  { value: "0", unit: "LLM", label: "Zero ML Dependencies" },
-  { value: "8", unit: "", label: "Mathematical Invariants" },
-  { value: "SHA-256", unit: "", label: "Cryptographic Integrity" },
+  { value: "Hybrid", unit: "", label: "Retrieval Stack" },
+  { value: "EN/DE", unit: "", label: "Cross-Lingual Support" },
+  { value: "SHA-256", unit: "", label: "Cryptographic Lineage" },
 ];
 
 export default function Hero() {
@@ -25,21 +25,23 @@ export default function Hero() {
       ref={ref}
       className="relative min-h-screen flex items-center justify-center overflow-hidden"
     >
-      {/* Deep Background */}
       <motion.div
         style={{ y: bgY }}
         className="absolute inset-0 bg-gradient-to-br from-slate-950 via-[#070a18] to-cyan-950/30"
       />
 
-      {/* Fractal Grid */}
       <div className="absolute inset-0 faim-grid" />
 
-      {/* Animated Orbs */}
       <div className="absolute top-1/4 left-1/6 w-[500px] h-[500px] bg-cyan-500/8 rounded-full blur-[120px] animate-pulse" />
-      <div className="absolute bottom-1/3 right-1/5 w-[400px] h-[400px] bg-purple-500/6 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: "2s" }} />
-      <div className="absolute top-2/3 left-1/2 w-[300px] h-[300px] bg-blue-500/5 rounded-full blur-[80px] animate-pulse" style={{ animationDelay: "4s" }} />
+      <div
+        className="absolute bottom-1/3 right-1/5 w-[400px] h-[400px] bg-purple-500/6 rounded-full blur-[100px] animate-pulse"
+        style={{ animationDelay: "2s" }}
+      />
+      <div
+        className="absolute top-2/3 left-1/2 w-[300px] h-[300px] bg-blue-500/5 rounded-full blur-[80px] animate-pulse"
+        style={{ animationDelay: "4s" }}
+      />
 
-      {/* Floating Math Symbols */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {["D\u0302", "H\u0302", "\u039B\u0302", "\u03C6\u207B\u00B9", "\u2211=1", "E\u22642.0"].map((sym, i) => (
           <motion.span
@@ -66,9 +68,7 @@ export default function Hero() {
         ))}
       </div>
 
-      {/* Content */}
       <motion.div style={{ opacity }} className="relative z-10 text-center px-4 max-w-5xl mx-auto">
-        {/* Badge */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -79,11 +79,10 @@ export default function Hero() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
             </span>
-            Mathematical Memory Engine
+            Deterministic Memory + Retrieval Engine
           </span>
         </motion.div>
 
-        {/* Main Headline */}
         <motion.h2
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -97,19 +96,19 @@ export default function Hero() {
           </span>
         </motion.h2>
 
-        {/* Subtitle */}
         <motion.p
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.3 }}
           className="mt-6 text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed"
         >
-          FAIMATRIX is the world&apos;s first deterministic memory engine.
-          No LLM dependencies. No randomness. Fractal physics, cryptographic
-          integrity, and self-evolving graphs — built from first principles.
+          FAIMATRIX is a deterministic memory, retrieval, and answer engine.
+          It combines native 256-dimensional vectors, sparse lexical sidecars,
+          graph diffusion, proposition-aware reranking, multilingual concept links,
+          multimodal indexing, domain knowledge, and citation-first answers
+          without giving up FAIM&apos;s core invariants.
         </motion.p>
 
-        {/* CTA Buttons */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -137,7 +136,6 @@ export default function Hero() {
           </Link>
         </motion.div>
 
-        {/* Stats Row */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -166,7 +164,6 @@ export default function Hero() {
         </motion.div>
       </motion.div>
 
-      {/* Scroll Indicator */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

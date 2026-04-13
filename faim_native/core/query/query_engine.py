@@ -414,6 +414,30 @@ def recall_with_graph_expansion(
                 semantic_weight = weight_int / 1e9 if weight_int else 1.0
                 semantic_boost[src] = max(semantic_boost.get(src, 0.0), semantic_weight)
 
+    # Step 2d: Phase 3 graph semantics and bounded multi-hop diffusion
+    try:
+        from core.query.graph_semantics import build_graph_semantic_scores
+        from store.pg.repos.edge_repo import EdgeRepo
+        from store.pg.repos.node_repo import NodeRepo
+
+        seed_score_map = {node_id: max(0.0, score) for node_id, score in seeds}
+        graph_candidate_ids, graph_scores, _graph_paths = build_graph_semantic_scores(
+            edge_repo=EdgeRepo(session=session, tenant_id=tenant_id),
+            node_repo=NodeRepo(session=session, tenant_id=tenant_id),
+            graph_id=graph_id,
+            seed_scores=seed_score_map,
+            base_candidate_ids=sorted(expanded_ids, key=str),
+            allowed_kinds={"inheritance"} | KNOWN_SEMANTIC_KINDS | {"opposition"},
+            max_hops=2,
+            max_neighbors=hop_limit,
+            decay=0.6,
+            alpha=0.2,
+            steps=3,
+        )
+        expanded_ids = set(graph_candidate_ids)
+    except Exception:
+        graph_scores = {}
+
     # Step 3: Load and score the full expanded set
     expanded_nodes = (
         session.query(NodeModel)
@@ -437,7 +461,10 @@ def recall_with_graph_expansion(
         # Apply semantic boost if node has semantic edges to seeds
         semantic_alpha = 0.05
         boost = semantic_boost.get(node.node_id, 0.0)
-        effective_sim = min(1.0, raw_sim + semantic_alpha * boost)
+        graph_boost = 0.0
+        if graph_scores:
+            graph_boost = graph_scores.get(node.node_id, {}).get("total", 0.0)
+        effective_sim = min(1.0, raw_sim + semantic_alpha * boost + 0.08 * graph_boost)
 
         candidates.append((node.node_id, effective_sim))
 
@@ -668,12 +695,21 @@ def rerank_faim(
     graph_avg_touch: float = 1.0,
     weights: ScoringWeights = DEFAULT_WEIGHTS,
     k: int = 10,
+    lexical_scores: Optional[Dict[UUID, Tuple[float, Dict[str, float]]]] = None,
+    graph_scores: Optional[Dict[UUID, Dict[str, float]]] = None,
+    graph_paths: Optional[Dict[UUID, List[Dict[str, object]]]] = None,
+    domain_scores: Optional[Dict[UUID, Dict[str, float]]] = None,
+    query_text: str = "",
+    query_repr_v2=None,
 ) -> List[Dict[str, Any]]:
     """Re-rank candidates using FAIM physics scoring.
 
     Returns list of result dicts with node_id, score, score_components.
     """
     from store.pg.models_faim import NodeModel
+    from store.pg.repos.modality_repo import ModalityRepo
+    from store.pg.repos.representation_repo import RepresentationRepo
+    from core.query.reranker_v2 import RerankerV2Candidate, score_reranker_v2
 
     # Load candidate nodes
     nodes = (
@@ -688,6 +724,16 @@ def rerank_faim(
 
     # Score each node
     scored = []
+    repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
+    repr_rows = {
+        row.node_id: row
+        for row in repr_repo.list_by_node_ids(graph_id=graph_id, node_ids=candidate_ids)
+    }
+    modality_repo = ModalityRepo(session=session, tenant_id=tenant_id)
+    modality_rows = {
+        row.node_id: row
+        for row in modality_repo.list_by_node_ids(graph_id=graph_id, node_ids=candidate_ids)
+    }
     for node in nodes:
         n_vec = (
             tuple(node.v_native)
@@ -708,6 +754,61 @@ def rerank_faim(
             weights=weights,
         )
 
+        lex_score = 0.0
+        lex_components: Dict[str, float] = {}
+        if lexical_scores and node.node_id in lexical_scores:
+            lex_score, lex_components = lexical_scores[node.node_id]
+            score = round(score + 0.15 * lex_score, 6)
+        components["lex"] = round(lex_score, 6)
+        for key, value in lex_components.items():
+            components[f"lex_{key}"] = round(value, 6)
+
+        graph_total = 0.0
+        graph_components: Dict[str, float] = {}
+        if graph_scores and node.node_id in graph_scores:
+            graph_components = graph_scores[node.node_id]
+            graph_total = graph_components.get("total", 0.0)
+            score = round(score + 0.12 * graph_total, 6)
+        components["graph"] = round(graph_total, 6)
+        for key, value in graph_components.items():
+            if key == "total":
+                continue
+            components[f"graph_{key}"] = round(value, 6)
+
+        modality_score = 0.0
+        modality_row = modality_rows.get(node.node_id)
+        if modality_row is not None and query_text:
+            query_terms = {term for term in query_text.lower().split() if term}
+            ocr_terms = set(str(modality_row.ocr_text or "").lower().split())
+            table_terms = set(str(modality_row.table_text or "").lower().split())
+            filename_terms = set(modality_row.filename_tokens or [])
+            overlap = 0.0
+            if query_terms:
+                overlap += len(query_terms & ocr_terms) / len(query_terms)
+                overlap += len(query_terms & table_terms) / len(query_terms)
+                overlap += len(query_terms & filename_terms) / len(query_terms)
+            modality_score = min(1.0, overlap / 3.0)
+            score = round(score + 0.08 * modality_score, 6)
+        components["modality"] = round(modality_score, 6)
+
+        domain_total = 0.0
+        if domain_scores and node.node_id in domain_scores:
+            entity_link = float(domain_scores[node.node_id].get("entity_link", 0.0))
+            fact_support = float(domain_scores[node.node_id].get("fact_support", 0.0))
+            domain_term = float(domain_scores[node.node_id].get("domain_term", 0.0))
+            domain_total = min(1.0, 0.45 * entity_link + 0.40 * fact_support + 0.15 * domain_term)
+            score = round(score + 0.10 * domain_total, 6)
+            components["domain_entity_link"] = round(entity_link, 6)
+            components["domain_fact_support"] = round(fact_support, 6)
+            components["domain_term"] = round(domain_term, 6)
+        components["domain"] = round(domain_total, 6)
+
+        repr_row = repr_rows.get(node.node_id)
+        answer_text = ""
+        if repr_row is not None and getattr(repr_row, "normalized_text", None):
+            answer_text = str(repr_row.normalized_text)
+        elif modality_row is not None:
+            answer_text = str(modality_row.ocr_text or "") or str(modality_row.table_text or "")
         scored.append(
             {
                 "node_id": node.node_id,
@@ -719,8 +820,40 @@ def rerank_faim(
                 "raw_id": node.raw_id,
                 "block_id": node.block_id,
                 "anchor": node.anchor_json,
+                "created_at": node.created_at,
+                "graph_paths": (graph_paths or {}).get(node.node_id, []),
+                "repr_v2": repr_repo._row_to_repr(repr_row) if repr_row else None,
+                "answer_text": answer_text,
             }
         )
+
+    # --- PHASE 4: Deterministic reranker v2 ---
+    if query_text and query_repr_v2 is not None and scored:
+        phase4_candidates = [
+            RerankerV2Candidate(
+                node_id=item["node_id"],
+                created_at=item.get("created_at"),
+                representation=item.get("repr_v2"),
+                base_score=float(item["score"]),
+            )
+            for item in scored
+        ]
+        phase4_totals, phase4_components, phase4_explain, phase4_suppressed = (
+            score_reranker_v2(
+                query_text=query_text,
+                query_repr=query_repr_v2,
+                candidates=phase4_candidates,
+            )
+        )
+        for item in scored:
+            phase4_total = phase4_totals.get(item["node_id"], 0.0)
+            item["score"] = round(item["score"] + 0.18 * phase4_total, 6)
+            item["score_components"]["phase4"] = round(phase4_total, 6)
+            for key, value in phase4_components.get(item["node_id"], {}).items():
+                item["score_components"][f"phase4_{key}"] = round(value, 6)
+            item["phase4_explain"] = phase4_explain.get(item["node_id"], {})
+        if phase4_suppressed:
+            scored = [item for item in scored if item["node_id"] not in phase4_suppressed]
 
     # Stable sort: by score desc, then by node_id for determinism
     scored.sort(key=lambda x: (-x["score"], str(x["node_id"])))
@@ -797,6 +930,7 @@ def rerank_faim(
     # Apply temporal labels to remaining scored results
     for r in scored:
         r["temporal_status"] = temporal_labels.get(r["node_id"])
+        r.pop("repr_v2", None)
     # --- END PHASE 1 + PHASE 6 ---
 
     return scored[:k]
@@ -876,6 +1010,29 @@ def build_explain_payload(
             }
         )
 
+    semantic_neighbors = (
+        session.query(EdgeModel)
+        .filter(
+            EdgeModel.tenant_id == tenant_id,
+            EdgeModel.graph_id == graph_id,
+            EdgeModel.kind != "inheritance",
+            EdgeModel.kind != "opposition",
+        )
+        .filter((EdgeModel.src_node_id == node_id) | (EdgeModel.dst_node_id == node_id))
+        .limit(12)
+        .all()
+    )
+    graph_paths = []
+    for edge in semantic_neighbors:
+        other_id = edge.dst_node_id if edge.src_node_id == node_id else edge.src_node_id
+        graph_paths.append(
+            {
+                "to_node_id": str(other_id),
+                "kind": edge.kind,
+                "weight": edge.weight / 1e9 if edge.weight else 0.0,
+            }
+        )
+
     return {
         "node_id": str(node.node_id),
         "vector_hash": node.vector_hash,
@@ -888,6 +1045,7 @@ def build_explain_payload(
         "parents": parent_list,
         "parents_sum": sum(p["fraction"] for p in parent_list),
         "oppositions": opp_list,
+        "graph_paths": graph_paths,
         "evidence": {
             "raw_id": node.raw_id,
             "block_id": node.block_id,
@@ -920,6 +1078,8 @@ __all__ = [
     "compute_node_score",
     "recall_candidates_brute_force",
     "recall_candidates_index",
+    "recall_with_graph_expansion",
+    "inheritance_weighted_expansion",
     "rerank_faim",
     "build_explain_payload",
     "compute_query_hash",

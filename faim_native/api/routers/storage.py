@@ -230,6 +230,114 @@ class StorageIngestActionResponse(BaseModel):
     ingest: Dict[str, Any]
 
 
+class StorageRepresentationBackfillResponse(BaseModel):
+    """Graph-scoped Representation V2 backfill response."""
+
+    status: str
+    graph_id: str
+    files_scanned: int
+    files_loaded: int
+    files_failed: int
+    blocks_extracted: int
+    matched_nodes: int
+    inserted: int
+    updated: int
+    unchanged: int
+    skipped_nodes: int
+    graph_version: int
+    errors: List[str] = Field(default_factory=list)
+
+
+class StorageCanonicalSemanticsRebuildResponse(BaseModel):
+    """Graph-scoped canonical semantics rebuild response."""
+
+    status: str
+    graph_id: str
+    files_scanned: int
+    files_loaded: int
+    files_failed: int
+    blocks_extracted: int
+    matched_nodes: int
+    term_stats_written: int
+    lexicon_written: int
+    edges_written: int
+    graph_version: int
+    errors: List[str] = Field(default_factory=list)
+
+
+class StorageMultilingualSemanticsRebuildResponse(BaseModel):
+    """Graph-scoped multilingual semantics rebuild response."""
+
+    status: str
+    graph_id: str
+    files_scanned: int
+    files_loaded: int
+    files_failed: int
+    blocks_extracted: int
+    matched_nodes: int
+    lexicon_written: int
+    concept_nodes_written: int
+    concept_edges_written: int
+    graph_version: int
+    errors: List[str] = Field(default_factory=list)
+
+
+class StorageMultimodalBackfillResponse(BaseModel):
+    """Graph-scoped multimodal sidecar rebuild response."""
+
+    status: str
+    graph_id: str
+    files_scanned: int
+    files_loaded: int
+    files_failed: int
+    blocks_extracted: int
+    matched_nodes: int
+    inserted: int
+    updated: int
+    unchanged: int
+    graph_version: int
+    errors: List[str] = Field(default_factory=list)
+
+
+class StorageDomainProfileRebuildResponse(BaseModel):
+    """Graph-scoped domain profile rebuild response."""
+
+    status: str
+    graph_id: str
+    files_scanned: int
+    files_loaded: int
+    files_failed: int
+    blocks_extracted: int
+    matched_nodes: int
+    lexicon_written: int
+    graph_version: int
+    errors: List[str] = Field(default_factory=list)
+
+
+class StorageDomainKnowledgeImportRequest(BaseModel):
+    """Offline graph-scoped domain knowledge import payload."""
+
+    domain_pack: Optional[str] = None
+    kb_rows: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class StorageDomainKnowledgeImportResponse(BaseModel):
+    """Graph-scoped domain knowledge import response."""
+
+    status: str
+    graph_id: str
+    sources_written: int
+    lexicon_written: int
+    entity_nodes_written: int
+    relation_nodes_written: int
+    fact_nodes_written: int
+    value_nodes_written: int
+    time_nodes_written: int
+    edges_written: int
+    graph_version: int
+    errors: List[str] = Field(default_factory=list)
+
+
 class StorageUploadCancelResponse(BaseModel):
     """Response for upload cancellation request."""
 
@@ -1805,6 +1913,310 @@ async def retry_storage_file(
         detail="retry completed",
     )
     return response
+
+
+@router.post(
+    "/graphs/{graph_id}/representation-v2/rebuild",
+    response_model=StorageRepresentationBackfillResponse,
+)
+async def rebuild_representation_v2_for_graph(
+    graph_id: str,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageRepresentationBackfillResponse:
+    """Rebuild Representation V2 sidecars for all stored files in a graph."""
+    _require_storage_repos(ctx)
+
+    from orchestration.representation_v2_backfill import run_representation_v2_backfill
+
+    result = run_representation_v2_backfill(
+        session=ctx.session,
+        tenant_id=ctx.tenant_id,
+        graph_id=graph_id,
+        raw_repo=ctx.raw_repo,
+        storage_file_repo=ctx.storage_file_repo,
+        raw_store=_resolve_raw_store(ctx),
+        node_repo=ctx.node_repo,
+        gv_repo=ctx.gv_repo,
+        event_repo=ctx.event_repo,
+    )
+    ctx.session.commit()
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="repr_v2_backfill",
+        status="completed",
+        graph_id=graph_id,
+        detail="representation-v2 backfill completed",
+    )
+
+    return StorageRepresentationBackfillResponse(
+        status="ok",
+        graph_id=graph_id,
+        files_scanned=result.files_scanned,
+        files_loaded=result.files_loaded,
+        files_failed=result.files_failed,
+        blocks_extracted=result.blocks_extracted,
+        matched_nodes=result.matched_nodes,
+        inserted=result.inserted,
+        updated=result.updated,
+        unchanged=result.unchanged,
+        skipped_nodes=result.skipped_nodes,
+        graph_version=result.graph_version,
+        errors=result.errors,
+    )
+
+
+@router.post(
+    "/graphs/{graph_id}/canonical-semantics/rebuild",
+    response_model=StorageCanonicalSemanticsRebuildResponse,
+)
+async def rebuild_canonical_semantics_for_graph(
+    graph_id: str,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageCanonicalSemanticsRebuildResponse:
+    """Rebuild graph-scoped canonical semantics artifacts for stored files."""
+    _require_storage_repos(ctx)
+
+    from orchestration.canonical_semantics_rebuild import run_canonical_semantics_rebuild
+
+    result = run_canonical_semantics_rebuild(
+        session=ctx.session,
+        tenant_id=ctx.tenant_id,
+        graph_id=graph_id,
+        raw_repo=ctx.raw_repo,
+        storage_file_repo=ctx.storage_file_repo,
+        raw_store=_resolve_raw_store(ctx),
+        node_repo=ctx.node_repo,
+        edge_repo=ctx.edge_repo,
+        gv_repo=ctx.gv_repo,
+        event_repo=ctx.event_repo,
+    )
+    ctx.session.commit()
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="canonical_semantics_rebuild",
+        status="completed",
+        graph_id=graph_id,
+        detail="canonical semantics rebuild completed",
+    )
+
+    return StorageCanonicalSemanticsRebuildResponse(
+        status="ok",
+        graph_id=graph_id,
+        files_scanned=result.files_scanned,
+        files_loaded=result.files_loaded,
+        files_failed=result.files_failed,
+        blocks_extracted=result.blocks_extracted,
+        matched_nodes=result.matched_nodes,
+        term_stats_written=result.term_stats_written,
+        lexicon_written=result.lexicon_written,
+        edges_written=result.edges_written,
+        graph_version=result.graph_version,
+        errors=result.errors,
+    )
+
+
+@router.post(
+    "/graphs/{graph_id}/multilingual-semantics/rebuild",
+    response_model=StorageMultilingualSemanticsRebuildResponse,
+)
+async def rebuild_multilingual_semantics_for_graph(
+    graph_id: str,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageMultilingualSemanticsRebuildResponse:
+    """Rebuild graph-scoped EN/DE multilingual semantics artifacts for stored files."""
+    _require_storage_repos(ctx)
+
+    from orchestration.multilingual_semantics_rebuild import run_multilingual_semantics_rebuild
+
+    result = run_multilingual_semantics_rebuild(
+        session=ctx.session,
+        tenant_id=ctx.tenant_id,
+        graph_id=graph_id,
+        raw_repo=ctx.raw_repo,
+        storage_file_repo=ctx.storage_file_repo,
+        raw_store=_resolve_raw_store(ctx),
+        node_repo=ctx.node_repo,
+        edge_repo=ctx.edge_repo,
+        gv_repo=ctx.gv_repo,
+        event_repo=ctx.event_repo,
+    )
+    ctx.session.commit()
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="multilingual_semantics_rebuild",
+        status="completed",
+        graph_id=graph_id,
+        detail="multilingual semantics rebuild completed",
+    )
+
+    return StorageMultilingualSemanticsRebuildResponse(
+        status="ok",
+        graph_id=graph_id,
+        files_scanned=result.files_scanned,
+        files_loaded=result.files_loaded,
+        files_failed=result.files_failed,
+        blocks_extracted=result.blocks_extracted,
+        matched_nodes=result.matched_nodes,
+        lexicon_written=result.lexicon_written,
+        concept_nodes_written=result.concept_nodes_written,
+        concept_edges_written=result.concept_edges_written,
+        graph_version=result.graph_version,
+        errors=result.errors,
+    )
+
+
+@router.post(
+    "/graphs/{graph_id}/domain-profile/rebuild",
+    response_model=StorageDomainProfileRebuildResponse,
+)
+async def rebuild_domain_profile_for_graph(
+    graph_id: str,
+    domain_pack: Optional[str] = Query(None),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageDomainProfileRebuildResponse:
+    """Rebuild graph-scoped domain terminology artifacts for stored files."""
+    _require_storage_repos(ctx)
+
+    from orchestration.domain_profile_rebuild import run_domain_profile_rebuild
+
+    result = run_domain_profile_rebuild(
+        session=ctx.session,
+        tenant_id=ctx.tenant_id,
+        graph_id=graph_id,
+        raw_repo=ctx.raw_repo,
+        storage_file_repo=ctx.storage_file_repo,
+        raw_store=_resolve_raw_store(ctx),
+        node_repo=ctx.node_repo,
+        gv_repo=ctx.gv_repo,
+        event_repo=ctx.event_repo,
+        domain_pack=domain_pack,
+    )
+    ctx.session.commit()
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="domain_profile_rebuild",
+        status="completed",
+        graph_id=graph_id,
+        detail="domain profile rebuild completed",
+    )
+
+    return StorageDomainProfileRebuildResponse(
+        status="ok",
+        graph_id=graph_id,
+        files_scanned=result.files_scanned,
+        files_loaded=result.files_loaded,
+        files_failed=result.files_failed,
+        blocks_extracted=result.blocks_extracted,
+        matched_nodes=result.matched_nodes,
+        lexicon_written=result.lexicon_written,
+        graph_version=result.graph_version,
+        errors=result.errors,
+    )
+
+
+@router.post(
+    "/graphs/{graph_id}/domain-knowledge/import",
+    response_model=StorageDomainKnowledgeImportResponse,
+)
+async def import_domain_knowledge_for_graph(
+    graph_id: str,
+    body: StorageDomainKnowledgeImportRequest = Body(
+        default_factory=StorageDomainKnowledgeImportRequest
+    ),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageDomainKnowledgeImportResponse:
+    """Import offline graph-scoped domain knowledge."""
+    from orchestration.domain_knowledge_import import run_domain_knowledge_import
+
+    result = run_domain_knowledge_import(
+        session=ctx.session,
+        tenant_id=ctx.tenant_id,
+        graph_id=graph_id,
+        kb_rows=body.kb_rows,
+        domain_pack=body.domain_pack,
+        node_repo=ctx.node_repo,
+        edge_repo=ctx.edge_repo,
+        gv_repo=ctx.gv_repo,
+        event_repo=ctx.event_repo,
+    )
+    ctx.session.commit()
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="domain_knowledge_import",
+        status="completed",
+        graph_id=graph_id,
+        detail="domain knowledge import completed",
+    )
+
+    return StorageDomainKnowledgeImportResponse(
+        status="ok",
+        graph_id=graph_id,
+        sources_written=result.sources_written,
+        lexicon_written=result.lexicon_written,
+        entity_nodes_written=result.entity_nodes_written,
+        relation_nodes_written=result.relation_nodes_written,
+        fact_nodes_written=result.fact_nodes_written,
+        value_nodes_written=result.value_nodes_written,
+        time_nodes_written=result.time_nodes_written,
+        edges_written=result.edges_written,
+        graph_version=result.graph_version,
+        errors=result.errors,
+    )
+
+
+@router.post(
+    "/graphs/{graph_id}/multimodal/rebuild",
+    response_model=StorageMultimodalBackfillResponse,
+)
+async def rebuild_multimodal_for_graph(
+    graph_id: str,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageMultimodalBackfillResponse:
+    """Rebuild graph-scoped multimodal sidecars for stored files."""
+    _require_storage_repos(ctx)
+
+    from orchestration.multimodal_backfill import run_multimodal_backfill
+
+    result = run_multimodal_backfill(
+        session=ctx.session,
+        tenant_id=ctx.tenant_id,
+        graph_id=graph_id,
+        raw_repo=ctx.raw_repo,
+        storage_file_repo=ctx.storage_file_repo,
+        raw_store=_resolve_raw_store(ctx),
+        node_repo=ctx.node_repo,
+        gv_repo=ctx.gv_repo,
+        event_repo=ctx.event_repo,
+    )
+    ctx.session.commit()
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="multimodal_backfill",
+        status="completed",
+        graph_id=graph_id,
+        detail="multimodal backfill completed",
+    )
+
+    return StorageMultimodalBackfillResponse(
+        status="ok",
+        graph_id=graph_id,
+        files_scanned=result.files_scanned,
+        files_loaded=result.files_loaded,
+        files_failed=result.files_failed,
+        blocks_extracted=result.blocks_extracted,
+        matched_nodes=result.matched_nodes,
+        inserted=result.inserted,
+        updated=result.updated,
+        unchanged=result.unchanged,
+        graph_version=result.graph_version,
+        errors=result.errors,
+    )
 
 
 # =============================================================================

@@ -12,6 +12,7 @@ NOT RAG: No chunking, no ST, uses EvidenceBlocks only.
 
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -30,11 +31,13 @@ from core.query.query_engine import (  # noqa: E402
     STRICT_WEIGHTS,
     build_explain_payload,
     compute_query_hash,
+    inheritance_weighted_expansion,
     recall_candidates_brute_force,
     recall_with_graph_expansion,
     rerank_faim,
 )
 from core.query.idf_cache import apply_idf, compute_idf_weights  # noqa: E402
+from encoding.representation_v2 import build_query_representation_v2  # noqa: E402
 from encoding.text_vectorizer import vectorize_text  # noqa: E402
 from orchestration.ingest_flow import FAIMProfile  # noqa: E402
 from store.journal.event_journal import EventJournal  # noqa: E402
@@ -58,6 +61,7 @@ class QueryResult:
     metrics: Dict[str, float]
     profile: FAIMProfile
     duration_ms: float = 0.0
+    answer: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to API response dict."""
@@ -74,6 +78,7 @@ class QueryResult:
                 else str(self.profile)
             ),
             "results": self.results,
+            "answer": self.answer,
             "metrics": self.metrics,
             "duration_ms": self.duration_ms,
         }
@@ -242,6 +247,30 @@ def update_usage(
     return touches
 
 
+def _repr_v2_enabled() -> bool:
+    """Feature gate for Representation V2 query fusion."""
+    raw = os.getenv("FAIM_REPR_V2_ENABLED", "false").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _phase5_enabled() -> bool:
+    """Feature gate for Phase 5 scale pipeline."""
+    raw = os.getenv("FAIM_PHASE5_ENABLED", "false").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _stable_union_ids(primary_ids: List[UUID], extra_ids: List[UUID]) -> List[UUID]:
+    """Stable deterministic union preserving primary ordering."""
+    seen = set()
+    merged: List[UUID] = []
+    for node_id in primary_ids + extra_ids:
+        if node_id in seen:
+            continue
+        seen.add(node_id)
+        merged.append(node_id)
+    return merged
+
+
 # =============================================================================
 # Main Query Flow
 # =============================================================================
@@ -296,9 +325,64 @@ def run_query(
     # 1. Emit QUERY_START
     emit_query_start(journal, graph_id, query_hash, k, profile_name)
 
-    # 2. Encode query → q_vec (using same vectorizer as ingest, with synonym expansion enabled for recall)
-    q_result = vectorize_text(query_text, expand_synonyms=True)
+    # 2. Canonicalize query text with graph-local lexicon, then encode.
+    canonical_query_text = query_text
+    try:
+        from lexical.canonicalizer import canonicalize_text
+        from store.pg.repos.canonical_semantics_repo import CanonicalSemanticsRepo
+
+        canonical_repo = CanonicalSemanticsRepo(session=session, tenant_id=tenant_id)
+        canonical_map = canonical_repo.get_canonical_map(graph_id)
+        canonicalized = canonicalize_text(query_text, canonical_map=canonical_map)
+        if canonicalized.canonical_text:
+            canonical_query_text = canonicalized.canonical_text
+    except Exception:
+        canonical_query_text = query_text
+
+    try:
+        from lexical.multilingual_canonicalizer import canonicalize_multilingual_text
+        from store.pg.repos.multilingual_repo import MultilingualRepo
+
+        multilingual_repo = MultilingualRepo(session=session, tenant_id=tenant_id)
+        multilingual_map = multilingual_repo.get_language_map(graph_id)
+        multilingualized = canonicalize_multilingual_text(
+            canonical_query_text,
+            graph_map=multilingual_map,
+        )
+        if multilingualized.canonical_text:
+            canonical_query_text = multilingualized.canonical_text
+    except Exception:
+        pass
+
+    domain_candidate_ids: List[UUID] = []
+    domain_scores: Dict[UUID, Dict[str, float]] = {}
+    try:
+        from core.operators.entity_linking import (
+            build_domain_candidate_scores,
+            resolve_query_links,
+        )
+        from store.pg.repos.domain_knowledge_repo import DomainKnowledgeRepo
+        from store.pg.repos.edge_repo import EdgeRepo
+
+        domain_repo = DomainKnowledgeRepo(session=session, tenant_id=tenant_id)
+        domain_rows = domain_repo.list_lexicon_entries(graph_id)
+        linked_terms = resolve_query_links(canonical_query_text, domain_rows)
+        domain_candidate_ids, domain_scores = build_domain_candidate_scores(
+            edge_repo=EdgeRepo(session=session, tenant_id=tenant_id),
+            graph_id=graph_id,
+            linked_terms=linked_terms,
+        )
+    except Exception:
+        domain_candidate_ids = []
+        domain_scores = {}
+
+    # 2b. Encode query → q_vec (same vectorizer as ingest, with synonym expansion enabled for recall)
+    q_result = vectorize_text(canonical_query_text, expand_synonyms=True)
     q_vec = q_result.v_native
+    query_repr_v2 = build_query_representation_v2(canonical_query_text)
+    lexical_scores: Dict[UUID, Any] = {}
+    graph_scores: Dict[UUID, Dict[str, float]] = {}
+    graph_paths: Dict[UUID, List[Dict[str, object]]] = {}
 
     # 2b. Apply IDF weighting (Phase 3C)
     try:
@@ -310,8 +394,6 @@ def run_query(
 
     # 2c. Inheritance-weighted query expansion (Phase 7)
     try:
-        from core.query.query_engine import inheritance_weighted_expansion
-
         _seeds = recall_candidates_brute_force(
             session=session,
             tenant_id=tenant_id,
@@ -348,6 +430,8 @@ def run_query(
         profile.value if isinstance(profile, FAIMProfile) else str(profile).lower()
     )
     candidates: List[Any] = []
+    phase5_sparse_candidates: List[Any] = []
+    phase5_dense_candidates: List[Any] = []
 
     if cache is not None:
         try:
@@ -370,6 +454,67 @@ def run_query(
                     cache_hit = True
         except Exception:
             cache_hit = False
+
+    if not candidates:
+        if _phase5_enabled() and _repr_v2_enabled():
+            try:
+                from index.deterministic_ann import search_vptree
+                from index.wand import block_max_wand_shortlist
+                from orchestration.perf.index_rebuild import build_graph_index_artifacts
+                from store.pg.repos.representation_repo import RepresentationRepo
+
+                artifacts = build_graph_index_artifacts(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                )
+                repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
+                stats_by_channel = repr_repo.get_graph_stats(graph_id)
+                phase5_sparse_candidates = list(
+                    block_max_wand_shortlist(
+                        artifacts.sparse_index,
+                        query_repr_v2,
+                        stats_by_channel,
+                        k=max(200, k * 20),
+                        max_candidates=max(400, k * 40),
+                    )
+                )
+                phase5_dense_candidates = list(
+                    search_vptree(
+                        artifacts.ann_root,
+                        tuple(q_vec),
+                        max(200, k * 20),
+                    )
+                )
+                candidates = phase5_sparse_candidates or []
+                candidate_ids = [node_id for node_id, _score in candidates]
+                dense_ids = [node_id for node_id, _score in phase5_dense_candidates]
+                merged_ids = _stable_union_ids(candidate_ids, dense_ids)
+                dense_score_map = {
+                    node_id: float(score) for node_id, score in phase5_dense_candidates
+                }
+                sparse_score_map = {
+                    node_id: float(score) for node_id, score in phase5_sparse_candidates
+                }
+                merged_candidates = []
+                for node_id in merged_ids:
+                    merged_candidates.append(
+                        (
+                            node_id,
+                            max(
+                                sparse_score_map.get(node_id, 0.0),
+                                dense_score_map.get(node_id, 0.0),
+                            ),
+                        )
+                    )
+                candidates = sorted(
+                    merged_candidates,
+                    key=lambda item: (-item[1], str(item[0])),
+                )[: max(200, k * 20)]
+            except Exception:
+                phase5_sparse_candidates = []
+                phase5_dense_candidates = []
+                candidates = []
 
     if not candidates:
         # STRICT mode: always use graph-expanded recall
@@ -417,6 +562,62 @@ def run_query(
 
     candidate_ids = [c[0] for c in candidates]
 
+    if _repr_v2_enabled():
+        try:
+            from store.pg.repos.representation_repo import RepresentationRepo
+
+            repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
+            lexical_candidates = repr_repo.top_k_lexical(
+                graph_id=graph_id,
+                query_repr=query_repr_v2,
+                k=max(200, k * 20),
+            )
+            lexical_candidate_ids = [node_id for node_id, _score in lexical_candidates]
+            candidate_ids = _stable_union_ids(candidate_ids, lexical_candidate_ids)
+            lexical_scores = repr_repo.score_node_ids(
+                graph_id=graph_id,
+                query_repr=query_repr_v2,
+                node_ids=candidate_ids,
+            )
+        except Exception:
+            lexical_scores = {}
+
+    if domain_candidate_ids:
+        candidate_ids = _stable_union_ids(candidate_ids, domain_candidate_ids)
+
+    # Phase 3: bounded multi-hop graph semantics and diffusion
+    try:
+        from core.query.graph_semantics import build_graph_semantic_scores
+        from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
+        from store.pg.repos.edge_repo import EdgeRepo
+        from store.pg.repos.node_repo import NodeRepo
+
+        seed_pairs = recall_candidates_brute_force(
+            session=session,
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+            q_vec=tuple(q_vec),
+            n=30,
+        )
+        seed_score_map = {node_id: max(0.0, score) for node_id, score in seed_pairs}
+        graph_candidate_ids, graph_scores, graph_paths = build_graph_semantic_scores(
+            edge_repo=EdgeRepo(session=session, tenant_id=tenant_id),
+            node_repo=NodeRepo(session=session, tenant_id=tenant_id),
+            graph_id=graph_id,
+            seed_scores=seed_score_map,
+            base_candidate_ids=candidate_ids,
+            allowed_kinds={"inheritance"} | KNOWN_SEMANTIC_KINDS | {"opposition"},
+            max_hops=2,
+            max_neighbors=8,
+            decay=0.6,
+            alpha=0.2,
+            steps=3,
+        )
+        candidate_ids = _stable_union_ids(candidate_ids, graph_candidate_ids)
+    except Exception:
+        graph_scores = {}
+        graph_paths = {}
+
     # 5. Re-rank with FAIM scoring
     weights = STRICT_WEIGHTS if profile == FAIMProfile.STRICT else DEFAULT_WEIGHTS
     ranked = rerank_faim(
@@ -428,6 +629,12 @@ def run_query(
         graph_avg_touch=graph_avg_touch,
         weights=weights,
         k=k,
+        lexical_scores=lexical_scores,
+        graph_scores=graph_scores,
+        graph_paths=graph_paths,
+        domain_scores=domain_scores,
+        query_text=canonical_query_text,
+        query_repr_v2=query_repr_v2,
     )
 
     # Emit QUERY_RERANKED
@@ -465,13 +672,39 @@ def run_query(
 
         # Add explain if requested
         if return_explain:
-            result_item["explain"] = build_explain_payload(
+            explain_payload = build_explain_payload(
                 session, tenant_id, graph_id, r["node_id"]
             )
+            explain_payload["phase3_graph_paths"] = r.get("graph_paths", [])
+            explain_payload["phase3_graph_score"] = {
+                "total": r["score_components"].get("graph", 0.0),
+                "path": r["score_components"].get("graph_path", 0.0),
+                "diffusion": r["score_components"].get("graph_diffusion", 0.0),
+                "neighborhood": r["score_components"].get("graph_neighborhood", 0.0),
+                "contradiction": r["score_components"].get("graph_contradiction", 0.0),
+            }
+            explain_payload["phase4_reranker"] = r.get("phase4_explain", {})
+            result_item["explain"] = explain_payload
 
         results.append(result_item)
 
+    answer = None
+    try:
+        from core.query.answer_synthesis import synthesize_answer
+
+        answer = synthesize_answer(
+            query_text=canonical_query_text,
+            ranked_results=ranked,
+            query_hash=query_hash,
+            graph_id=graph_id,
+        )
+    except Exception:
+        answer = None
+
     metrics["cache_hit"] = 1.0 if cache_hit else 0.0
+    if phase5_sparse_candidates or phase5_dense_candidates:
+        metrics["phase5_sparse_candidates"] = float(len(phase5_sparse_candidates))
+        metrics["phase5_dense_candidates"] = float(len(phase5_dense_candidates))
 
     # Compute result
     duration_ms = (time.perf_counter() - start_time) * 1000
@@ -489,6 +722,7 @@ def run_query(
         query_hash=query_hash,
         k=k,
         results=results,
+        answer=answer,
         metrics=metrics,
         profile=profile,
         duration_ms=duration_ms,

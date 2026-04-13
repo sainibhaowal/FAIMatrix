@@ -59,22 +59,26 @@ const CODE_EXAMPLES: CodeExample[] = [
 
 # Response includes full scoring breakdown:
 # {
+#   "answer": {
+#     "direct_answer": "Pods should not run as root.",
+#     "confidence": 0.83,
+#     "citations": [{ "node_id": "n_8f3a..." }]
+#   },
 #   "results": [{
 #     "node_id": "n_8f3a...",
 #     "score": 0.847,
 #     "explain": {
-#       "similarity": 0.92,   // weight: 0.40
-#       "novelty": 0.12,      // weight: 0.15
-#       "opposition": 0.03,   // penalty: 0.10
-#       "redundancy": 0.08,   // penalty: 0.10
-#       "recency": 0.71,      // weight: 0.10
-#       "usage": 0.45,        // weight: 0.10
-#       "level": 0.02         // penalty: 0.05
+#       "lexical": 0.91,
+#       "graph": 0.74,
+#       "entity": 0.77,
+#       "evidence": 0.88,
+#       "opposition": 0.03,
+#       "domain": 0.61
 #     }
 #   }]
 # }`,
     description:
-      "Every result is fully explainable. 7 scoring components, exact weights, no black box. Ask WHY any memory was ranked — get math.",
+      "Query returns deterministic ranking, an explain payload, and a citation-first answer block. Ask WHY any memory ranked — get the actual retrieval signals, not a black box.",
   },
   {
     id: "evolve",
@@ -236,9 +240,9 @@ export default function DeveloperAPI() {
                 )}
                 {activeTab === "query" && (
                   <>
-                    <Highlight text="7-component scoring breakdown" />
-                    <Highlight text="Full explain payload on request" />
-                    <Highlight text="Deterministic ranking — no randomness" />
+                    <Highlight text="Lexical, graph, entity, evidence, and domain signals" />
+                    <Highlight text="Citation-first answer block on request" />
+                    <Highlight text="Deterministic ranking and explainability" />
                   </>
                 )}
                 {activeTab === "evolve" && (

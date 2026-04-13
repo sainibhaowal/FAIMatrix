@@ -134,6 +134,51 @@ class NodeRepo:
         self.session.flush()
         return node.node_id
 
+    def upsert_special_node(
+        self,
+        graph_id: str,
+        *,
+        kind: str,
+        vector_hash: str,
+        v_native: List[float],
+        opp_signature: Dict[str, float],
+        residual: float = 0.0,
+        level: int = 1,
+    ) -> UUID:
+        """Upsert a non-atom deterministic node such as a concept node."""
+        existing = self.get_by_vector_hash(graph_id, vector_hash)
+        now = datetime.now(timezone.utc)
+        if existing:
+            existing.kind = kind
+            existing.v_native = v_native
+            existing.opp_signature = opp_signature
+            existing.residual = int(residual * 1e9)
+            existing.level = level
+            existing.updated_at = now
+            self.session.flush()
+            return existing.node_id
+        node = NodeModel(
+            node_id=uuid7(),
+            tenant_id=self.tenant_id,
+            graph_id=graph_id,
+            kind=kind,
+            vector_hash=vector_hash,
+            raw_id=None,
+            block_id=None,
+            anchor_json=None,
+            v_native=v_native,
+            opp_signature=opp_signature,
+            residual=int(residual * 1e9),
+            level=level,
+            touch_count=0,
+            last_access=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.session.add(node)
+        self.session.flush()
+        return node.node_id
+
     def get_node(self, graph_id: str, node_id: UUID) -> Optional[NodeModel]:
         """Get node by ID."""
         return (
@@ -217,6 +262,30 @@ class NodeRepo:
         """Compatibility alias used by API routers."""
         return self.list_nodes(graph_id=graph_id, limit=limit, offset=offset)
 
+    def list_by_ids(
+        self,
+        graph_id: str,
+        node_ids: List[UUID],
+    ) -> List[NodeModel]:
+        """List nodes by explicit IDs with deterministic ordering."""
+        if not node_ids:
+            return []
+        return (
+            self.session.query(NodeModel)
+            .filter(
+                and_(
+                    NodeModel.tenant_id == self.tenant_id,
+                    NodeModel.graph_id == graph_id,
+                    NodeModel.node_id.in_(list(node_ids)),
+                )
+            )
+            .order_by(
+                asc(NodeModel.created_at),
+                asc(NodeModel.node_id),
+            )
+            .all()
+        )
+
     def list_atoms(self, graph_id: str, limit: int = 100) -> List[NodeModel]:
         """List atom nodes only."""
         return (
@@ -234,6 +303,30 @@ class NodeRepo:
             )
             .limit(limit)
             .all()
+        )
+
+    def list_by_raw_id(
+        self,
+        graph_id: str,
+        raw_id: str,
+        *,
+        kind: Optional[str] = None,
+    ) -> List[NodeModel]:
+        """List nodes for one raw file with deterministic ordering."""
+        query = self.session.query(NodeModel).filter(
+            and_(
+                NodeModel.tenant_id == self.tenant_id,
+                NodeModel.graph_id == graph_id,
+                NodeModel.raw_id == str(raw_id),
+            )
+        )
+        if kind is not None:
+            query = query.filter(NodeModel.kind == kind)
+        return (
+            query.order_by(
+                asc(NodeModel.created_at),
+                asc(NodeModel.node_id),
+            ).all()
         )
 
     def count_nodes(self, graph_id: str) -> int:
