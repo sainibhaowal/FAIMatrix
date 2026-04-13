@@ -49,7 +49,7 @@ Needs:
 - per-graph scope selector if needed
 - optional extractor mode display:
   - current extractor
-  - Docling enabled/disabled
+  - DocNative enabled/disabled
 
 This page should become the main control plane for Phases 2, 6, 7, 8.
 

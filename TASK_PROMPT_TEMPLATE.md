@@ -54,4 +54,4 @@ Plan first, identify exact files and risks, implement only in the approved scope
 
 
 
-make sure covered 100% implememted  and no gaps , no errois , i need 100% coverage of phase 3 with full acurately covred and make sure all risk under control and try to amake them gone completly make sure all work well and acurate , i approved  make sure all green before phase 4- i approved--make sure check if need to chnages something on frontend UI  pages for UI wiring --i approved now
+make sure covered 100% implememted  and no gaps , no errois , i need 100% coverage of phase 7 with full acurately covred and make sure all risk under control and try to amake them gone completly make sure all work well and acurate ,  make sure all green before phase 8- sure check if need to chnages something on frontend UI  pages for UI wiring -

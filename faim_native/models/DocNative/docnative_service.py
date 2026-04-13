@@ -1,7 +1,8 @@
-"""Optional Docling extraction adapter for Phase 7.
+"""Optional DocNative extraction adapter for FAIM Native.
 
-This is best-effort only. If Docling is unavailable, callers fall back to the
-existing extractor pipeline.
+This adapter is the permanent FAIM-facing name for the document conversion
+path. If the dependency is unavailable, callers should fall back to the
+native extractor stack.
 """
 
 from __future__ import annotations
@@ -14,7 +15,9 @@ except (ImportError, RuntimeError):
     from core.contracts.types import BlockAnchor, EvidenceBlock
 
 
-def extract_with_docling(file_bytes: bytes, filename: str, raw_id: str) -> Optional[List[EvidenceBlock]]:
+def extract_with_docnative(
+    file_bytes: bytes, filename: str, raw_id: str
+) -> Optional[List[EvidenceBlock]]:
     try:
         from docling.document_converter import DocumentConverter
     except Exception:
@@ -33,11 +36,19 @@ def extract_with_docling(file_bytes: bytes, filename: str, raw_id: str) -> Optio
                 content=text,
                 block_type="text",
                 confidence=1.0,
-                metadata={"extractor": "docling", "filename": filename},
+                metadata={"extractor": "docnative", "filename": filename},
             )
         ]
     except Exception:
         return None
 
 
-__all__ = ["extract_with_docling"]
+def is_docnative_available() -> bool:
+    try:
+        from docling.document_converter import DocumentConverter  # noqa: F401
+    except Exception:
+        return False
+    return True
+
+
+__all__ = ["extract_with_docnative", "is_docnative_available"]

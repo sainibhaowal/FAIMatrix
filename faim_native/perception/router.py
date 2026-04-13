@@ -138,7 +138,6 @@ def route_extraction(
             extract_text_blocks,
             extract_xlsx_blocks,
         )
-        from faim.Faim_Native.perception.extract.docling_service import extract_with_docling
     except ImportError:
         from perception.extract.extractors_faim import (
             extract_docx_blocks,
@@ -148,22 +147,36 @@ def route_extraction(
             extract_text_blocks,
             extract_xlsx_blocks,
         )
-        from perception.extract.docling_service import extract_with_docling
 
     doc_type = get_doc_type(filename)
     settings = settings or {}
-    docling_enabled = os.getenv("FAIM_DOCLING_ENABLED", "false").strip().lower() in {
+    extractor_mode = str(settings.get("extractor_mode", "auto") or "auto").strip().lower()
+    if extractor_mode not in {"auto", "faim_native", "docnative"}:
+        extractor_mode = "auto"
+    settings["_requested_extractor_mode"] = extractor_mode
+    docnative_enabled = os.getenv("FAIM_DOCNATIVE_ENABLED", "").strip().lower() in {
         "1",
         "true",
         "yes",
         "on",
     }
 
-    if docling_enabled and doc_type in {"pdf", "docx", "pptx", "xlsx"}:
-        docling_blocks = extract_with_docling(file_bytes, filename, raw_id)
-        if docling_blocks:
-            return docling_blocks
+    if extractor_mode == "docnative" or (
+        extractor_mode == "auto" and docnative_enabled and doc_type in {"pdf", "docx", "pptx", "xlsx"}
+    ):
+        try:
+            from faim.Faim_Native.models.DocNative.docnative_service import (
+                extract_with_docnative,
+            )
+        except ImportError:
+            from models.DocNative.docnative_service import extract_with_docnative
 
+        docnative_blocks = extract_with_docnative(file_bytes, filename, raw_id)
+        if docnative_blocks:
+            settings["_effective_extractor_mode"] = "docnative"
+            return docnative_blocks
+
+    settings["_effective_extractor_mode"] = "faim_native"
     if doc_type == "pdf":
         return extract_pdf_blocks(file_bytes, raw_id, settings=settings)
     elif doc_type == "docx":
