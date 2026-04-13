@@ -78,6 +78,7 @@ class QueryResultItem(BaseModel):
     score_components: Dict[str, float]
     level: int
     touch_count: int
+    temporal_status: Optional[str] = None
     evidence: Optional[EvidenceInfo] = None
     explain: Optional[Dict[str, Any]] = None
 
@@ -227,6 +228,7 @@ async def query_graph(
                     score_components=r["score_components"],
                     level=r["level"],
                     touch_count=r["touch_count"],
+                    temporal_status=r.get("temporal_status"),
                     evidence=evidence,
                     explain=r.get("explain"),
                 )

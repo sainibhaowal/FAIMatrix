@@ -1,6 +1,8 @@
 // Landing
 export { default as Navbar } from "./landing/Navbar";
 export { default as Hero } from "./landing/Hero";
+export { default as LandingProductHighlights } from "./landing/LandingProductHighlights";
+export { default as LandingOutcomes } from "./landing/LandingOutcomes";
 export { default as Architecture } from "./landing/Architecture";
 export { default as SevenPowers } from "./landing/SevenPowers";
 export { default as MathProof } from "./landing/MathProof";

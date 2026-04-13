@@ -88,6 +88,8 @@ export default function HowItWorks() {
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
             FAIM now covers the full path from raw data to grounded answers.
             The core invariants remain intact while retrieval and answer layers stay additive.
+            The product surfaces that matter most are Memory Query for grounded answers
+            and Storage for extractor selection, provenance, and maintenance workflows.
           </p>
         </motion.div>
 

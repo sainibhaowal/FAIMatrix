@@ -237,13 +237,13 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - API_HOST=api:8000
+        - API_HOST=faim-api:8000
     container_name: faim-frontend
     env_file: ./frontend/.env
     ports:
       - "8010:8010"
     environment:
-      - API_HOST=api:8000
+      - API_HOST=faim-api:8000
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

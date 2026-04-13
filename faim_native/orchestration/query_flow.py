@@ -259,6 +259,12 @@ def _phase5_enabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+def _phase4_stopwords_enabled() -> bool:
+    """Feature gate for Phase 4 stop-word filtering in query vectorization."""
+    raw = os.getenv("FAIM_PHASE4_STOPWORDS_ENABLED", "true").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 def _stable_union_ids(primary_ids: List[UUID], extra_ids: List[UUID]) -> List[UUID]:
     """Stable deterministic union preserving primary ordering."""
     seen = set()
@@ -377,7 +383,11 @@ def run_query(
         domain_scores = {}
 
     # 2b. Encode query → q_vec (same vectorizer as ingest, with synonym expansion enabled for recall)
-    q_result = vectorize_text(canonical_query_text, expand_synonyms=True)
+    q_result = vectorize_text(
+        canonical_query_text,
+        expand_synonyms=True,
+        remove_stopwords=_phase4_stopwords_enabled(),
+    )
     q_vec = q_result.v_native
     query_repr_v2 = build_query_representation_v2(canonical_query_text)
     lexical_scores: Dict[UUID, Any] = {}

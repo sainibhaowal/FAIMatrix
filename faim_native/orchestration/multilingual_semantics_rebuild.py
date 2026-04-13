@@ -153,11 +153,13 @@ def run_multilingual_semantics_rebuild(
                     "MULTILINGUAL_SEMANTICS_REBUILD",
                     {
                         "files_scanned": result.files_scanned,
+                        "files_failed": result.files_failed,
                         "matched_nodes": result.matched_nodes,
                         "lexicon_written": result.lexicon_written,
                         "concept_nodes_written": result.concept_nodes_written,
                         "concept_edges_written": result.concept_edges_written,
                         "edges_deleted": deleted,
+                        "graph_version": result.graph_version,
                     },
                 )
             except Exception:

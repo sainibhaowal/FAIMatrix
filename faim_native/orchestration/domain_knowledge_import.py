@@ -240,7 +240,13 @@ def run_domain_knowledge_import(
                     {
                         "sources_written": result.sources_written,
                         "lexicon_written": result.lexicon_written,
+                        "entity_nodes_written": result.entity_nodes_written,
+                        "relation_nodes_written": result.relation_nodes_written,
+                        "fact_nodes_written": result.fact_nodes_written,
+                        "value_nodes_written": result.value_nodes_written,
+                        "time_nodes_written": result.time_nodes_written,
                         "edges_written": result.edges_written,
+                        "graph_version": result.graph_version,
                     },
                 )
             except Exception:
