@@ -40,6 +40,7 @@ try:
     from faim.Faim_Native.store.pg.repos.event_repo import EventRepo
     from faim.Faim_Native.store.pg.repos.graph_version_repo import GraphVersionRepo
     from faim.Faim_Native.store.pg.repos.node_repo import NodeRepo
+    from faim.Faim_Native.store.pg.repos.representation_repo import RepresentationRepo
 except (ImportError, RuntimeError):
     _parent = Path(__file__).parent.parent
     if str(_parent) not in sys.path:
@@ -57,6 +58,7 @@ except (ImportError, RuntimeError):
     from store.pg.repos.event_repo import EventRepo
     from store.pg.repos.graph_version_repo import GraphVersionRepo
     from store.pg.repos.node_repo import NodeRepo
+    from store.pg.repos.representation_repo import RepresentationRepo
 
 
 @dataclass
@@ -119,6 +121,7 @@ class FAIMNativeEngine:
         vectors: List[FAIMVector],
         raw_id: Optional[str] = None,
         packet_hash: Optional[str] = None,
+        reprs_v2: Optional[List[Any]] = None,
     ) -> WriteResult:
         """Write atom vectors to graph.
 
@@ -138,12 +141,23 @@ class FAIMNativeEngine:
         """
         result = WriteResult()
         merged_ids = set()
+        repr_repo = RepresentationRepo(
+            session=self.node_repo.session,
+            tenant_id=self.node_repo.tenant_id,
+        )
 
-        for vector in vectors:
+        for idx, vector in enumerate(vectors):
             # 1. Upsert atom node
             node_id = self.node_repo.upsert_atom_node(graph_id, vector)
             result.node_ids.append(node_id)
             result.nodes_written += 1
+
+            if reprs_v2 and idx < len(reprs_v2) and reprs_v2[idx] is not None:
+                repr_repo.upsert_node_representation(
+                    graph_id=graph_id,
+                    node_id=node_id,
+                    representation=reprs_v2[idx],
+                )
 
             # Emit NODE_UPSERT event
             self._emit_event(

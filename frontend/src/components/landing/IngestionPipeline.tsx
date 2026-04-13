@@ -53,7 +53,7 @@ const PIPELINE_STAGES = [
     ),
     color: "purple",
     description: "Each block \u2192 256-dimensional FAIMVector. Deterministic encoding: same text = same vector, always.",
-    detail: "No embedding API. No ML model. Pure math. Every vector gets a SHA-256 vector_hash.",
+    detail: "No embedding API. Native deterministic encoding path. Every vector gets a SHA-256 vector_hash.",
     output: "faim_vectors[], vector_hashes[]",
   },
   {

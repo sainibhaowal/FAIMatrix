@@ -56,6 +56,16 @@ class TestNoMLModels(unittest.TestCase):
         self.assertNotIn("SentenceTransformer", source)
         self.assertNotIn("transformers", source)
 
+    def test_representation_v2_no_transformers(self):
+        """representation_v2.py must stay deterministic and model-free."""
+        import encoding.representation_v2 as rv2
+
+        source = inspect.getsource(rv2)
+
+        self.assertNotIn("sentence_transformers", source)
+        self.assertNotIn("SentenceTransformer", source)
+        self.assertNotIn("transformers", source)
+
     def test_vectorizer_is_hashed_ngram(self):
         """Encoding uses hashed n-grams, not ML."""
         import encoding.text_vectorizer as vec

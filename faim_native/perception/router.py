@@ -5,6 +5,7 @@ Routes extraction requests to appropriate extractors based on file type.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -137,6 +138,7 @@ def route_extraction(
             extract_text_blocks,
             extract_xlsx_blocks,
         )
+        from faim.Faim_Native.perception.extract.docling_service import extract_with_docling
     except ImportError:
         from perception.extract.extractors_faim import (
             extract_docx_blocks,
@@ -146,9 +148,21 @@ def route_extraction(
             extract_text_blocks,
             extract_xlsx_blocks,
         )
+        from perception.extract.docling_service import extract_with_docling
 
     doc_type = get_doc_type(filename)
     settings = settings or {}
+    docling_enabled = os.getenv("FAIM_DOCLING_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+    if docling_enabled and doc_type in {"pdf", "docx", "pptx", "xlsx"}:
+        docling_blocks = extract_with_docling(file_bytes, filename, raw_id)
+        if docling_blocks:
+            return docling_blocks
 
     if doc_type == "pdf":
         return extract_pdf_blocks(file_bytes, raw_id, settings=settings)

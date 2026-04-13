@@ -9,31 +9,31 @@ const SPEC_GROUPS = [
     borderColor: "border-cyan-500/20",
     specs: [
       { label: "Vector Dimension", value: "256", unit: "fixed" },
-      { label: "Encoding", value: "Deterministic", unit: "no ML" },
+      { label: "Encoding", value: "Deterministic", unit: "native" },
       { label: "Hash Algorithm", value: "SHA-256", unit: "" },
-      { label: "Parent Top-K", value: "8", unit: "max" },
+      { label: "Invariant Checks", value: "8", unit: "per write" },
     ],
   },
   {
-    title: "Fractal Physics",
+    title: "Retrieval Stack",
     color: "purple",
     borderColor: "border-purple-500/20",
     specs: [
-      { label: "D\u0302 Range", value: "[0, 10]", unit: "" },
-      { label: "H\u0302 Range", value: "[0, 1]", unit: "" },
-      { label: "\u039B\u0302 Formula", value: "0.5N+0.3(1-R)+0.2H", unit: "" },
-      { label: "Energy Bound", value: "\u2264 2.0", unit: "" },
+      { label: "Representation V2", value: "Dense + Sparse", unit: "" },
+      { label: "Canonical Semantics", value: "PMI + Rules", unit: "" },
+      { label: "Graph Expansion", value: "K-hop", unit: "bounded" },
+      { label: "Reranker V2", value: "Deterministic", unit: "proposition-aware" },
     ],
   },
   {
-    title: "Query Scoring",
+    title: "Knowledge Layers",
     color: "blue",
     borderColor: "border-blue-500/20",
     specs: [
-      { label: "Similarity Weight", value: "0.40", unit: "" },
-      { label: "Novelty Weight", value: "0.15", unit: "" },
-      { label: "Opposition Penalty", value: "0.10", unit: "" },
-      { label: "Components Total", value: "7", unit: "" },
+      { label: "Multilingual", value: "EN + DE", unit: "concept-linked" },
+      { label: "Multimodal", value: "OCR / Table / Layout / pHash", unit: "" },
+      { label: "Domain Knowledge", value: "Offline KB", unit: "graph-scoped" },
+      { label: "Answer Mode", value: "Extractive", unit: "citation-first" },
     ],
   },
   {
@@ -41,19 +41,19 @@ const SPEC_GROUPS = [
     color: "emerald",
     borderColor: "border-emerald-500/20",
     specs: [
-      { label: "Min CPU", value: "2", unit: "cores" },
-      { label: "Min RAM", value: "1", unit: "GB" },
-      { label: "GPU Required", value: "No", unit: "(STRICT)" },
-      { label: "Network Required", value: "No", unit: "" },
+      { label: "Tenant Isolation", value: "Built-in", unit: "" },
+      { label: "LLM Required", value: "No", unit: "" },
+      { label: "Cloud Required", value: "No", unit: "" },
+      { label: "Scale Path", value: "Inverted Index + ANN", unit: "" },
     ],
   },
 ];
 
-const SPEED_PROFILES = [
-  { name: "STRICT", nodes: "1M", p95: "10ms", qps: "50", gpu: "No", color: "text-emerald-400" },
-  { name: "FAST", nodes: "10M", p95: "2ms", qps: "200", gpu: "Yes", color: "text-blue-400" },
-  { name: "RELAXED", nodes: "50M", p95: "2ms", qps: "500", gpu: "Yes", color: "text-purple-400" },
-  { name: "SCALE", nodes: "80M", p95: "2ms", qps: "500", gpu: "Yes", color: "text-amber-400" },
+const STACK_PROFILES = [
+  { name: "Lexical", focus: "Representation V2", detail: "word / phrase / entity / time / layout sidecars", source: "representation_v2.py", color: "text-cyan-400" },
+  { name: "Graph", focus: "Graph Semantics", detail: "bounded diffusion, semantic paths, contradiction-aware traversal", source: "diffusion.py", color: "text-purple-400" },
+  { name: "Scale", focus: "Scale Path", detail: "inverted index, WAND shortlist, deterministic ANN", source: "inverted_index.py", color: "text-emerald-400" },
+  { name: "Answer", focus: "Answer Layer", detail: "span selection, confidence, citations, contradiction notes", source: "answer_synthesis.py", color: "text-amber-400" },
 ];
 
 const colorMap: Record<string, string> = {
@@ -74,7 +74,6 @@ export default function TechSpecs() {
   return (
     <section id="specs" className="py-28 px-4 bg-gradient-to-b from-slate-950 to-[#070a18]">
       <div className="max-w-6xl mx-auto">
-        {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -86,18 +85,17 @@ export default function TechSpecs() {
             Specifications
           </span>
           <h2 className="mt-4 text-4xl md:text-5xl font-bold text-white">
-            Real Numbers.{" "}
+            Real Architecture.{" "}
             <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
               From Real Code.
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            Every number on this page comes directly from the source code.
-            Nothing estimated. Nothing inflated.
+            These are implementation facts from the current FAIM stack, not
+            benchmark theater. The landing page now reflects what the current platform actually ships.
           </p>
         </motion.div>
 
-        {/* Spec Groups */}
         <div className="grid md:grid-cols-2 gap-5 mb-16">
           {SPEC_GROUPS.map((group, gi) => (
             <motion.div
@@ -134,7 +132,6 @@ export default function TechSpecs() {
           ))}
         </div>
 
-        {/* Speed Profiles Table */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -142,24 +139,22 @@ export default function TechSpecs() {
           transition={{ duration: 0.6 }}
         >
           <h3 className="text-xl font-bold text-white text-center mb-8">
-            Speed Budget Profiles
+            Additive Retrieval Layers
             <span className="block text-sm font-normal text-slate-500 mt-1">
-              from spec.py — SpeedBudget dataclass
+              major extensions added around the native FAIM core
             </span>
           </h3>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden">
-            {/* Table Header */}
             <div className="grid grid-cols-5 gap-4 px-6 py-4 border-b border-slate-800 bg-slate-900/50">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Profile</span>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Max Nodes</span>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">p95 Retrieve</span>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Min QPS</span>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">GPU</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Layer</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Focus</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">What It Added</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Source</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mode</span>
             </div>
 
-            {/* Table Rows */}
-            {SPEED_PROFILES.map((profile, i) => (
+            {STACK_PROFILES.map((profile, i) => (
               <motion.div
                 key={profile.name}
                 initial={{ opacity: 0 }}
@@ -171,18 +166,18 @@ export default function TechSpecs() {
                 <span className={`font-mono text-sm font-bold ${profile.color}`}>
                   {profile.name}
                 </span>
-                <span className="text-white font-mono text-sm">{profile.nodes}</span>
-                <span className="text-white font-mono text-sm">{profile.p95}</span>
-                <span className="text-white font-mono text-sm">{profile.qps}</span>
-                <span className={`font-mono text-sm ${profile.gpu === "No" ? "text-emerald-400" : "text-slate-400"}`}>
-                  {profile.gpu}
+                <span className="text-white font-mono text-sm">{profile.focus}</span>
+                <span className="text-white text-sm">{profile.detail}</span>
+                <span className="text-slate-400 font-mono text-sm">{profile.source}</span>
+                <span className="font-mono text-sm text-slate-300">
+                  additive
                 </span>
               </motion.div>
             ))}
           </div>
 
           <p className="text-center text-slate-600 text-xs mt-4 font-mono">
-            Source: faim_native/orchestration/perf/spec.py
+            The native FAIM core remains the base layer beneath all of these additions.
           </p>
         </motion.div>
       </div>

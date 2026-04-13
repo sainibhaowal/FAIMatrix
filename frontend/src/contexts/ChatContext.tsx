@@ -8,7 +8,7 @@
  */
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { useProviders } from "./ProviderContext";
+import { getSession } from "next-auth/react";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,7 +21,86 @@ export interface Message {
   thinking?: string;           // LLM reasoning/thinking content
   thinkingDurationMs?: number; // time spent thinking (ms)
   timestamp: string;
+  queryData?: FaimQueryResponse | null;
 }
+
+export interface FaimQueryAnswerCitation {
+  node_id: string;
+  raw_id?: string;
+  block_id?: string;
+  anchor?: Record<string, unknown> | null;
+  score: number;
+}
+
+export interface FaimQueryAnswerSpan {
+  node_id: string;
+  text: string;
+  score: number;
+  temporal_status?: string | null;
+}
+
+export interface FaimQueryAnswer {
+  direct_answer: string;
+  supporting_spans: FaimQueryAnswerSpan[];
+  citations: FaimQueryAnswerCitation[];
+  contradiction_notes: string[];
+  confidence: number;
+  provenance: Record<string, unknown>;
+  quotes: string[];
+}
+
+export interface FaimQueryResultItem {
+  node_id: string;
+  vector_hash: string;
+  score: number;
+  score_components: Record<string, number>;
+  level: number;
+  touch_count: number;
+  evidence?: {
+    raw_id?: string;
+    block_id?: string;
+    anchor?: Record<string, unknown> | null;
+  } | null;
+  explain?: Record<string, unknown> | null;
+  temporal_status?: string | null;
+}
+
+export interface FaimQueryResponse {
+  tenant_id: string;
+  graph_id: string;
+  graph_version: number;
+  graph_hash: string;
+  query_hash: string;
+  k: number;
+  profile: string;
+  results: FaimQueryResultItem[];
+  answer?: FaimQueryAnswer | null;
+  metrics?: Record<string, number>;
+  duration_ms?: number;
+}
+
+type StorageUploadFileResult = {
+  filename: string;
+  status: string;
+  raw_id?: string | null;
+  packet_hash?: string | null;
+  node_count: number;
+  vector_count: number;
+  error?: string | null;
+};
+
+type StorageUploadBatchResponse = {
+  job_id: string;
+  graph_id: string;
+  status: string;
+  requested_files: number;
+  processed_files: number;
+  success_files: number;
+  failed_files: number;
+  dedup_hits: number;
+  cancelled_files: number;
+  files: StorageUploadFileResult[];
+};
 
 export interface Thread {
   id: string;
@@ -48,6 +127,7 @@ interface ChatContextType {
 
   // Chat
   sendMessage: (content: string) => Promise<void>;
+  uploadFiles: (files: File[]) => Promise<void>;
 
   // Thinking/Reasoning
   thinkingEnabled: boolean;
@@ -100,12 +180,49 @@ function makeTitle(firstMessage: string): string {
   return trimmed.length > 40 ? trimmed.slice(0, 40).trimEnd() + "…" : trimmed;
 }
 
-// ---------------------------------------------------------------------------
-// System prompt
-// ---------------------------------------------------------------------------
+function resolveStoredGraphId(): string | null {
+  if (typeof window === "undefined") return null;
+  const keys = [
+    "faim.universe_graph_id",
+    "faim_universe_graph_id",
+  ];
+  for (const key of keys) {
+    const value = window.localStorage.getItem(key);
+    if (value?.trim()) return value.trim();
+  }
+  return null;
+}
 
-const FAIM_SYSTEM_PROMPT =
-  "You are FAIM Sentinel, an AI assistant connected to the user's memory graph. Answer questions about their stored memories, knowledge, and context. Be concise and precise.";
+async function buildAuthorizedHeaders(extra?: HeadersInit): Promise<HeadersInit> {
+  const session = await getSession();
+  const token = (session as { accessToken?: string } | null)?.accessToken;
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
+async function resolveActiveGraphId(): Promise<string | null> {
+  const session = await getSession();
+  const fromSession =
+    ((session as { graphId?: string } | null)?.graphId || "").trim() || null;
+  if (fromSession) return fromSession;
+
+  const fromStorage = resolveStoredGraphId();
+  if (fromStorage) return fromStorage;
+
+  const headers = await buildAuthorizedHeaders();
+  const res = await fetch("/api/v1/auth/me", { headers });
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => null);
+  const graphId =
+    String(data?.user?.graph_id || data?.graph_id || "").trim() || null;
+  if (graphId && typeof window !== "undefined") {
+    window.localStorage.setItem("faim.universe_graph_id", graphId);
+    window.localStorage.setItem("faim_universe_graph_id", graphId);
+  }
+  return graphId;
+}
 
 // ---------------------------------------------------------------------------
 // Context
@@ -117,11 +234,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [liveThinkingBuffer, setLiveThinkingBuffer] = useState("");
-  const { activeProvider } = useProviders();
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -206,16 +323,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || isStreaming) return;
-      if (!activeProvider) {
-        setError("No active provider selected");
-        return;
-      }
 
       setError(null);
 
       // Ensure we have an active thread; create one on first message
       let threadId = activeThreadId;
-      let currentMessages: Message[] = messages;
 
       if (!threadId) {
         const thread: Thread = {
@@ -228,7 +340,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setThreads((prev) => [thread, ...prev]);
         setActiveThreadId(thread.id);
         threadId = thread.id;
-        currentMessages = [];
       }
 
       const userMsg: Message = {
@@ -244,195 +355,90 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         role: "assistant",
         content: "",
         timestamp: now(),
+        queryData: null,
       };
 
       // Append messages to thread; auto-title on first user message
       setThreads((prev) =>
-        prev.map((t) => {
-          if (t.id !== threadId) return t;
-          const isFirst = t.messages.length === 0;
-          return {
-            ...t,
-            title: isFirst ? makeTitle(content) : t.title,
-            messages: [...t.messages, userMsg, assistantMsg],
-            updatedAt: isoNow(),
-          };
-        })
+        prev.some((t) => t.id === threadId)
+          ? prev.map((t) => {
+              if (t.id !== threadId) return t;
+              const isFirst = t.messages.length === 0;
+              return {
+                ...t,
+                title: isFirst ? makeTitle(content) : t.title,
+                messages: [...t.messages, userMsg, assistantMsg],
+                updatedAt: isoNow(),
+              };
+            })
+          : [
+              {
+                id: threadId!,
+                title: makeTitle(content),
+                messages: [userMsg, assistantMsg],
+                createdAt: isoNow(),
+                updatedAt: isoNow(),
+              },
+              ...prev,
+            ]
       );
 
       setIsStreaming(true);
       setIsThinking(false);
       setLiveThinkingBuffer("");
 
-      // Refs for thinking accumulation (not state, to avoid re-renders on every token)
-      const thinkingAccRef = { current: "" };
-      const thinkingStartRef = { current: null as number | null };
-      const inThinkBlockRef = { current: false };
-      const contentAccRef = { current: "" };
-      const lastThinkBufferUpdateRef = { current: 0 };
-
       try {
-        const historyPayload = currentMessages
-          .filter((m) => m.role !== "assistant" || m.content)
-          .map((m) => ({ role: m.role, content: m.content }));
+        const graphId = await resolveActiveGraphId();
+        if (!graphId) {
+          throw new Error("No active graph found for memory query");
+        }
 
-        const res = await fetch("/api/provider/chat", {
+        const headers = await buildAuthorizedHeaders();
+        const res = await fetch("/api/v1/query", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...headers },
           body: JSON.stringify({
-            providerUrl: activeProvider.baseUrl,
-            apiKey: activeProvider.apiKey,
-            model: activeProvider.activeModel,
-            messages: [...historyPayload, { role: "user", content: userMsg.content }],
-            systemPrompt: FAIM_SYSTEM_PROMPT,
+            graph_id: graphId,
+            query_text: userMsg.content,
+            k: 8,
+            profile: "STRICT",
+            return_explain: true,
           }),
         });
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.message || `HTTP ${res.status}`);
+          throw new Error(errData.detail || errData.message || `HTTP ${res.status}`);
         }
 
-        const reader = res.body!.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
+        const queryData = (await res.json()) as FaimQueryResponse;
+        const fallbackContent =
+          queryData.answer || queryData.results?.length
+            ? "FAIM retrieved evidence and prepared a structured answer."
+            :
+          (queryData.results?.length
+            ? `Retrieved ${queryData.results.length} matching memory result${queryData.results.length === 1 ? "" : "s"}.`
+            : "No matching memory found.");
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() ?? "";
-
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const data = line.slice(6).trim();
-            if (data === "[DONE]" || !data) continue;
-
-            try {
-              const json = JSON.parse(data);
-              const token = json.choices?.[0]?.delta?.content ?? "";
-              const reasoningToken = json.choices?.[0]?.delta?.reasoning_content ?? "";
-
-              // Handle thinking tokens (LM Studio / LLaMA.cpp style with <think> tags)
-              if (token) {
-                contentAccRef.current += token;
-
-                // Check for <think> opening tag
-                if (!inThinkBlockRef.current && contentAccRef.current.includes("<think>")) {
-                  inThinkBlockRef.current = true;
-                  thinkingStartRef.current = Date.now();
-                  setIsThinking(true);
-                }
-
-                // Extract thinking content between <think> and </think>
-                if (inThinkBlockRef.current) {
-                  thinkingAccRef.current += token;
-
-                  // Check for closing </think> tag
-                  if (thinkingAccRef.current.includes("</think>")) {
-                    inThinkBlockRef.current = false;
-                    const duration = thinkingStartRef.current ? Date.now() - thinkingStartRef.current : 0;
-
-                    // Extract content before and after thinking block
-                    const beforeThink = contentAccRef.current.split("<think>")[0];
-                    const thinkContent = thinkingAccRef.current.split("<think>")[1]?.split("</think>")[0] ?? "";
-                    const afterThink = contentAccRef.current.split("</think>")[1] ?? "";
-                    contentAccRef.current = beforeThink + afterThink;
-                    thinkingAccRef.current = thinkContent;
-
-                    // Flush to message
-                    setThreads((prev) =>
-                      prev.map((t) => {
-                        if (t.id !== threadId) return t;
-                        return {
-                          ...t,
-                          messages: t.messages.map((m) =>
-                            m.id === assistantId
-                              ? {
-                                  ...m,
-                                  thinking: thinkingAccRef.current,
-                                  thinkingDurationMs: duration,
-                                  content: contentAccRef.current,
-                                }
-                              : m
-                          ),
-                        };
-                      })
-                    );
-                    setLiveThinkingBuffer("");
-                    setIsThinking(false);
-                  } else {
-                    // Still thinking - throttle buffer updates to 100ms
-                    const now = Date.now();
-                    if (now - lastThinkBufferUpdateRef.current > 100) {
-                      setLiveThinkingBuffer(thinkingAccRef.current);
-                      lastThinkBufferUpdateRef.current = now;
+        setThreads((prev) =>
+          prev.map((t) => {
+            if (t.id !== threadId) return t;
+            return {
+              ...t,
+              messages: t.messages.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      content: fallbackContent,
+                      queryData,
                     }
-                  }
-                } else {
-                  // Normal content (outside thinking block)
-                  setThreads((prev) =>
-                    prev.map((t) => {
-                      if (t.id !== threadId) return t;
-                      return {
-                        ...t,
-                        messages: t.messages.map((m) =>
-                          m.id === assistantId ? { ...m, content: contentAccRef.current } : m
-                        ),
-                      };
-                    })
-                  );
-                }
-              }
-
-              // Handle OpenAI o1/o3 style reasoning_content
-              if (reasoningToken) {
-                if (!thinkingStartRef.current) {
-                  thinkingStartRef.current = Date.now();
-                  setIsThinking(true);
-                }
-                thinkingAccRef.current += reasoningToken;
-
-                // Throttle buffer updates
-                const now = Date.now();
-                if (now - lastThinkBufferUpdateRef.current > 100) {
-                  setLiveThinkingBuffer(thinkingAccRef.current);
-                  lastThinkBufferUpdateRef.current = now;
-                }
-              }
-            } catch {}
-          }
-        }
-
-        // Flush any remaining thinking content
-        if (thinkingAccRef.current && thinkingStartRef.current) {
-          const duration = Date.now() - thinkingStartRef.current;
-          setThreads((prev) =>
-            prev.map((t) => {
-              if (t.id !== threadId) return t;
-              return {
-                ...t,
-                messages: t.messages.map((m) =>
-                  m.id === assistantId
-                    ? {
-                        ...m,
-                        thinking: thinkingAccRef.current,
-                        thinkingDurationMs: duration,
-                        content: contentAccRef.current,
-                      }
-                    : m
-                ),
-              };
-            })
-          );
-        }
-
-        setIsThinking(false);
-        setLiveThinkingBuffer("");
+                  : m
+              ),
+            };
+          })
+        );
       } catch (e: any) {
-        const errorMsg = e.message || "Failed to get response from provider";
+        const errorMsg = e.message || "Failed to query FAIM";
         setError(errorMsg);
         setThreads((prev) =>
           prev.map((t) => {
@@ -450,14 +456,142 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setIsThinking(false);
       }
     },
-    [activeThreadId, messages, isStreaming, activeProvider]
+    [activeThreadId, messages, isStreaming]
+  );
+
+  const uploadFiles = useCallback(
+    async (files: File[]) => {
+      if (!files.length || isStreaming || isUploading) return;
+
+      setError(null);
+
+      let threadId = activeThreadId;
+      if (!threadId) {
+        const thread: Thread = {
+          id: crypto.randomUUID(),
+          title: "Memory Upload",
+          messages: [],
+          createdAt: isoNow(),
+          updatedAt: isoNow(),
+        };
+        setThreads((prev) => [thread, ...prev]);
+        setActiveThreadId(thread.id);
+        threadId = thread.id;
+      }
+
+      const assistantId = crypto.randomUUID();
+      const assistantMsg: Message = {
+        id: assistantId,
+        role: "assistant",
+        content: `Uploading ${files.length} file${files.length === 1 ? "" : "s"} into FAIM storage...`,
+        timestamp: now(),
+      };
+
+      setThreads((prev) =>
+        prev.some((t) => t.id === threadId)
+          ? prev.map((t) =>
+              t.id === threadId
+                ? {
+                    ...t,
+                    messages: [...t.messages, assistantMsg],
+                    updatedAt: isoNow(),
+                  }
+                : t
+            )
+          : [
+              {
+                id: threadId!,
+                title: "Memory Upload",
+                messages: [assistantMsg],
+                createdAt: isoNow(),
+                updatedAt: isoNow(),
+              },
+              ...prev,
+            ]
+      );
+
+      setIsUploading(true);
+
+      try {
+        const graphId = await resolveActiveGraphId();
+        if (!graphId) throw new Error("No active graph found for upload");
+
+        const headers = await buildAuthorizedHeaders();
+        const formData = new FormData();
+        formData.set("graph_id", graphId);
+        formData.set("profile", "strict");
+        formData.set("persist_mode", "relaxed");
+        for (const file of files) formData.append("files", file);
+
+        const res = await fetch("/api/v1/storage/uploads", {
+          method: "POST",
+          headers,
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.message || `HTTP ${res.status}`);
+        }
+
+        const batch = (await res.json()) as StorageUploadBatchResponse;
+        const lines = [
+          `FAIM storage ingest completed for ${batch.success_files}/${batch.requested_files} file${batch.requested_files === 1 ? "" : "s"}.`,
+          batch.dedup_hits ? `Dedup hits: ${batch.dedup_hits}.` : "",
+          batch.failed_files ? `Failures: ${batch.failed_files}.` : "",
+          "",
+          ...batch.files.map((item) => {
+            const details = [
+              item.status,
+              item.raw_id ? `raw ${item.raw_id}` : "",
+              item.node_count ? `${item.node_count} nodes` : "",
+              item.vector_count ? `${item.vector_count} vectors` : "",
+              item.error || "",
+            ].filter(Boolean);
+            return `- ${item.filename}: ${details.join(" · ")}`;
+          }),
+        ].filter(Boolean);
+
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === threadId
+              ? {
+                  ...t,
+                  messages: t.messages.map((m) =>
+                    m.id === assistantId ? { ...m, content: lines.join("\n") } : m
+                  ),
+                  updatedAt: isoNow(),
+                }
+              : t
+          )
+        );
+      } catch (e: any) {
+        const errorMsg = e.message || "Failed to upload files to FAIM storage";
+        setError(errorMsg);
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id === threadId
+              ? {
+                  ...t,
+                  messages: t.messages.map((m) =>
+                    m.id === assistantId ? { ...m, content: `[Upload error: ${errorMsg}]` } : m
+                  ),
+                }
+              : t
+          )
+        );
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [activeThreadId, isStreaming, isUploading]
   );
 
   return (
     <ChatContext.Provider
       value={{
         messages,
-        isStreaming,
+        isStreaming: isStreaming || isUploading,
         error,
         threads,
         activeThreadId,
@@ -467,6 +601,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         renameThread,
         purgeAllThreads,
         sendMessage,
+        uploadFiles,
         thinkingEnabled,
         toggleThinking,
         isThinking,

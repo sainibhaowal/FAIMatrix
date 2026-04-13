@@ -10,7 +10,7 @@
  *   4. Graph Demo — interactive knowledge graph with inheritance
  *   5. Ingestion Pipeline — file to graph visual flow
  *   6. Math Proof — 8 invariants + fractal physics
- *   7. Query Explain — 7-component scoring breakdown
+ *   7. Query Explain — deterministic multi-signal scoring breakdown
  *   8. Evolution — self-evolving + self-invention walkthrough
  *   9. FIG View — 3D graph visualization showcase
  *  10. Pipeline — high-level 5-step flow
@@ -45,7 +45,7 @@ export default function LandingPage() {
   return (
     <>
       <h1 className="sr-only">
-        FAIMATRIX — The World&apos;s First Deterministic Memory Engine
+        FAIMATRIX — Deterministic Memory, Retrieval, and Answer Engine
       </h1>
       <Hero />
       <Architecture />

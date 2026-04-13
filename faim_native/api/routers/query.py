@@ -58,6 +58,7 @@ class ScoreComponents(BaseModel):
     rec: float = Field(..., description="Recency boost")
     use: float = Field(..., description="Usage boost")
     lvl: float = Field(..., description="Level penalty")
+    lex: float = Field(0.0, description="Representation V2 lexical fusion bonus")
 
 
 class EvidenceInfo(BaseModel):
@@ -81,6 +82,31 @@ class QueryResultItem(BaseModel):
     explain: Optional[Dict[str, Any]] = None
 
 
+class AnswerCitation(BaseModel):
+    node_id: str
+    raw_id: str = ""
+    block_id: str = ""
+    anchor: Optional[Dict[str, Any]] = None
+    score: float
+
+
+class AnswerSpan(BaseModel):
+    node_id: str
+    text: str
+    score: float
+    temporal_status: Optional[str] = None
+
+
+class QueryAnswer(BaseModel):
+    direct_answer: str = ""
+    supporting_spans: List[AnswerSpan] = Field(default_factory=list)
+    citations: List[AnswerCitation] = Field(default_factory=list)
+    contradiction_notes: List[str] = Field(default_factory=list)
+    confidence: float = 0.0
+    provenance: Dict[str, Any] = Field(default_factory=dict)
+    quotes: List[str] = Field(default_factory=list)
+
+
 class QueryMetrics(BaseModel):
     """Graph metrics included in response."""
 
@@ -94,6 +120,8 @@ class QueryMetrics(BaseModel):
     novelty: float = 0.0
     energy: float = 0.0
     cache_hit: float = 0.0
+    phase5_sparse_candidates: float = 0.0
+    phase5_dense_candidates: float = 0.0
 
 
 class QueryResponse(BaseModel):
@@ -107,6 +135,7 @@ class QueryResponse(BaseModel):
     k: int
     profile: str
     results: List[QueryResultItem]
+    answer: Optional[QueryAnswer] = None
     metrics: QueryMetrics
     duration_ms: float
 
@@ -212,6 +241,7 @@ async def query_graph(
             k=result.k,
             profile=request.profile,
             results=results,
+            answer=(QueryAnswer(**result.answer) if result.answer else None),
             metrics=QueryMetrics(**result.metrics),
             duration_ms=result.duration_ms,
         )
