@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 const SPEC_GROUPS = [
   {
-    title: "Vector Engine",
+    title: "Core Memory",
     color: "cyan",
     borderColor: "border-cyan-500/20",
     specs: [
@@ -15,7 +15,7 @@ const SPEC_GROUPS = [
     ],
   },
   {
-    title: "Retrieval Stack",
+    title: "Retrieval",
     color: "purple",
     borderColor: "border-purple-500/20",
     specs: [
@@ -26,7 +26,7 @@ const SPEC_GROUPS = [
     ],
   },
   {
-    title: "Knowledge Layers",
+    title: "Knowledge + Answers",
     color: "blue",
     borderColor: "border-blue-500/20",
     specs: [
@@ -37,7 +37,7 @@ const SPEC_GROUPS = [
     ],
   },
   {
-    title: "Infrastructure",
+    title: "Deployment",
     color: "emerald",
     borderColor: "border-emerald-500/20",
     specs: [
@@ -82,17 +82,17 @@ export default function TechSpecs() {
           className="text-center mb-20"
         >
           <span className="text-amber-400 text-sm font-medium tracking-wider uppercase">
-            Specifications
+            Production Profile
           </span>
           <h2 className="mt-4 text-4xl md:text-5xl font-bold text-white">
-            Real Architecture.{" "}
+            Real architecture.{" "}
             <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">
-              From Real Code.
+              Ready for real teams.
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            These are implementation facts from the current FAIM stack, not
-            benchmark theater. The landing page now reflects what the current platform actually ships.
+            The platform is deterministic, self-hostable, and auditable.
+            These are the qualities teams need when the system becomes part of production.
           </p>
         </motion.div>
 
@@ -141,7 +141,7 @@ export default function TechSpecs() {
           <h3 className="text-xl font-bold text-white text-center mb-8">
             Additive Retrieval Layers
             <span className="block text-sm font-normal text-slate-500 mt-1">
-              major extensions added around the native FAIM core
+              extensions that increase capability without replacing the native FAIM core
             </span>
           </h3>
 

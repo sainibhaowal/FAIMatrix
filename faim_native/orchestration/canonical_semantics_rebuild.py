@@ -156,11 +156,13 @@ def run_canonical_semantics_rebuild(
                     "CANONICAL_SEMANTICS_REBUILD",
                     {
                         "files_scanned": result.files_scanned,
+                        "files_failed": result.files_failed,
                         "matched_nodes": result.matched_nodes,
                         "term_stats_written": result.term_stats_written,
                         "lexicon_written": result.lexicon_written,
                         "edges_written": result.edges_written,
                         "edges_deleted": deleted,
+                        "graph_version": result.graph_version,
                     },
                 )
             except Exception:  # nosec B110

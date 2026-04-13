@@ -328,21 +328,21 @@ Operational note:
 
 ## 18) Phase 7 Multimodal Without ML
 
-Phase 7 adds deterministic multimodal indexing and optional Docling-backed extraction without changing FAIM core graph truth.
+Phase 7 adds deterministic multimodal indexing and optional DocNative-backed extraction without changing FAIM core graph truth.
 
 Implemented behavior:
 
 - additive multimodal sidecar keyed by node
 - deterministic OCR/table/layout/file-metadata feature extraction
 - deterministic image hash proxy
-- optional Docling extractor path behind `FAIM_DOCLING_ENABLED`
+- optional DocNative extractor path behind `FAIM_DOCNATIVE_ENABLED`
 - explicit multimodal rebuild route for existing graphs
 - additive modality score in query reranking
 
 Safety properties:
 
 - sidecar only; existing vectors and edges remain canonical
-- Docling is optional and falls back to the current extractor stack
+- DocNative is optional and falls back to the current extractor stack
 - modality score is bounded and additive
 - storage/query/frontend contracts remain backward compatible
 

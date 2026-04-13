@@ -41,3 +41,5 @@ def test_supported_types_endpoint_returns_expected_contract(monkeypatch):
     assert "ocr_engine" in body
     assert "ocr_fail_closed" in body
     assert ".pdf" in body["ocr_capable_extensions"]
+    assert "docnative_enabled" in body
+    assert "docnative_available" in body

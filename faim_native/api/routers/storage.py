@@ -6,18 +6,21 @@ Provides storage upload/catalog APIs used by Storage UI.
 from __future__ import annotations
 
 import logging
+import io
 import os
 import sys
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from urllib.parse import quote
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, text
+from sqlalchemy import and_, desc, text
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -76,8 +79,10 @@ class UploadFileResult(BaseModel):
     error: Optional[str] = None
     requested_profile: Optional[str] = None
     requested_persist_mode: Optional[str] = None
+    requested_extractor_mode: Optional[str] = None
     effective_profile: Optional[str] = None
     effective_persist_mode: Optional[str] = None
+    effective_extractor_mode: Optional[str] = None
     durability_path: Optional[str] = None
 
 
@@ -96,8 +101,10 @@ class StorageUploadBatchResponse(BaseModel):
     files: List[UploadFileResult]
     requested_profile: Optional[str] = None
     requested_persist_mode: Optional[str] = None
+    requested_extractor_mode: Optional[str] = None
     effective_profile: Optional[str] = None
     effective_persist_mode: Optional[str] = None
+    effective_extractor_mode: Optional[str] = None
     durability_path: Optional[str] = None
 
 
@@ -121,8 +128,10 @@ class StorageUploadStatusResponse(BaseModel):
     files: List[StorageFileItem]
     requested_profile: Optional[str] = None
     requested_persist_mode: Optional[str] = None
+    requested_extractor_mode: Optional[str] = None
     effective_profile: Optional[str] = None
     effective_persist_mode: Optional[str] = None
+    effective_extractor_mode: Optional[str] = None
     durability_path: Optional[str] = None
 
 
@@ -185,6 +194,28 @@ class StorageSupportedTypesResponse(BaseModel):
     ocr_engine: str
     ocr_fail_closed: bool
     ocr_capable_extensions: List[str]
+    docnative_enabled: bool
+    docnative_available: bool
+
+
+class StorageMaintenanceHistoryItem(BaseModel):
+    """Summary of a maintenance action run for a graph."""
+
+    seq: int
+    kind: str
+    ts: Optional[str] = None
+    status: str
+    summary: str
+    graph_version: Optional[int] = None
+    payload: Dict[str, Any] = Field(default_factory=dict)
+
+
+class StorageMaintenanceHistoryResponse(BaseModel):
+    """Recent storage maintenance action history."""
+
+    graph_id: str
+    total: int
+    items: List[StorageMaintenanceHistoryItem]
 
 
 class StorageBackendState(BaseModel):
@@ -385,6 +416,7 @@ class StorageProvenanceEvent(BaseModel):
     kind: str
     ts: Optional[str] = None
     payload_keys: List[str]
+    payload: Dict[str, Any] = Field(default_factory=dict)
 
 
 class StorageProvenanceResponse(BaseModel):
@@ -490,6 +522,57 @@ def _storage_encryption_enabled() -> bool:
         return True
     raw = os.getenv("FAIM_ENCRYPTION_AT_REST", "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
+
+
+def _normalize_extractor_mode(value: Optional[str]) -> str:
+    mode = str(value or "auto").strip().lower()
+    if mode not in {"auto", "faim_native", "docnative"}:
+        return "auto"
+    return mode
+
+
+def _maintenance_summary(kind: str, payload: Dict[str, Any]) -> str:
+    kind = str(kind or "").strip().upper()
+    if kind == "CANONICAL_SEMANTICS_REBUILD":
+        return (
+            "canonical rebuild "
+            f"(files={payload.get('files_scanned', 0)}, "
+            f"nodes={payload.get('matched_nodes', 0)}, "
+            f"terms={payload.get('term_stats_written', 0)}, "
+            f"edges={payload.get('edges_written', 0)})"
+        )
+    if kind == "MULTILINGUAL_SEMANTICS_REBUILD":
+        return (
+            "multilingual rebuild "
+            f"(files={payload.get('files_scanned', 0)}, "
+            f"nodes={payload.get('matched_nodes', 0)}, "
+            f"concepts={payload.get('concept_nodes_written', 0)}, "
+            f"edges={payload.get('concept_edges_written', 0)})"
+        )
+    if kind == "MULTIMODAL_BACKFILL":
+        return (
+            "multimodal backfill "
+            f"(files={payload.get('files_scanned', 0)}, "
+            f"matched={payload.get('matched_nodes', 0)}, "
+            f"inserted={payload.get('inserted', 0)}, "
+            f"updated={payload.get('updated', 0)})"
+        )
+    if kind == "DOMAIN_PROFILE_REBUILD":
+        return (
+            "domain profile rebuild "
+            f"(files={payload.get('files_scanned', 0)}, "
+            f"nodes={payload.get('matched_nodes', 0)}, "
+            f"terms={payload.get('lexicon_written', 0)})"
+        )
+    if kind == "DOMAIN_KNOWLEDGE_IMPORT":
+        return (
+            "domain knowledge import "
+            f"(sources={payload.get('sources_written', 0)}, "
+            f"entities={payload.get('entity_nodes_written', 0)}, "
+            f"facts={payload.get('fact_nodes_written', 0)}, "
+            f"edges={payload.get('edges_written', 0)})"
+        )
+    return kind.lower().replace("_", " ")
 
 
 def _emit_storage_audit_event(
@@ -707,6 +790,7 @@ def _run_ingest_existing_raw(
     file_bytes: bytes,
     profile: str,
     persist_mode: str,
+    extractor_mode: str,
 ):
     """Execute ingest pipeline for existing persisted raw bytes."""
     from orchestration.ingest_flow import FAIMProfile, PersistMode, run_ingest
@@ -724,6 +808,7 @@ def _run_ingest_existing_raw(
         file_bytes=file_bytes,
         profile=profile_enum,
         persist_mode=persist_mode_enum,
+        extraction_settings={"extractor_mode": _normalize_extractor_mode(extractor_mode)},
         tenant_id=ctx.tenant_id,
         session=ctx.session,
         node_repo=ctx.node_repo,
@@ -776,6 +861,7 @@ async def create_upload_batch(
     graph_id: str = Form(...),
     profile: str = Form("strict"),
     persist_mode: str = Form("relaxed"),
+    extractor_mode: str = Form("auto"),
     files: List[UploadFile] = File(...),  # noqa: B008
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StorageUploadBatchResponse:
@@ -794,6 +880,7 @@ async def create_upload_batch(
 
     requested_profile = str(profile or "").strip().lower()
     requested_persist_mode = str(persist_mode or "").strip().lower()
+    requested_extractor_mode = _normalize_extractor_mode(extractor_mode)
     policy = resolve_profile_persist_policy(
         operation=PolicyOperation.INGEST,
         requested_profile=requested_profile,
@@ -810,10 +897,13 @@ async def create_upload_batch(
             "requested_files": requested_files,
             "profile": profile,
             "persist_mode": persist_mode,
+            "extractor_mode": requested_extractor_mode,
             "requested_profile": requested_profile,
             "requested_persist_mode": requested_persist_mode,
+            "requested_extractor_mode": requested_extractor_mode,
             "effective_profile": policy.effective_profile,
             "effective_persist_mode": policy.effective_persist_mode,
+            "effective_extractor_mode": requested_extractor_mode,
             "durability_path": policy.durability_path,
         },
     )
@@ -843,6 +933,7 @@ async def create_upload_batch(
             {
                 "message": "Storage upload batch started",
                 "requested_files": requested_files,
+                "requested_extractor_mode": requested_extractor_mode,
             },
         )
 
@@ -875,8 +966,10 @@ async def create_upload_batch(
                 status="pending",
                 requested_profile=requested_profile,
                 requested_persist_mode=requested_persist_mode,
+                requested_extractor_mode=requested_extractor_mode,
                 effective_profile=policy.effective_profile,
                 effective_persist_mode=policy.effective_persist_mode,
+                effective_extractor_mode=requested_extractor_mode,
                 durability_path=policy.durability_path,
             )
             file_results.append(result_entry)
@@ -968,6 +1061,7 @@ async def create_upload_batch(
                         "filename": filename,
                         "raw_id": str(raw_uuid),
                         "message": "Ingest started",
+                        "requested_extractor_mode": requested_extractor_mode,
                     },
                 )
 
@@ -995,6 +1089,7 @@ async def create_upload_batch(
                             "raw_id": str(raw_uuid),
                             "status": "cancelled",
                             "message": "Cancellation acknowledged before ingest",
+                            "requested_extractor_mode": requested_extractor_mode,
                         },
                     )
                     ctx.session.commit()
@@ -1018,6 +1113,7 @@ async def create_upload_batch(
                     file_bytes=file_bytes,
                     profile=profile,
                     persist_mode=persist_mode,
+                    extractor_mode=requested_extractor_mode,
                 )
 
                 ctx.storage_file_repo.mark_ingest_result(
@@ -1043,8 +1139,10 @@ async def create_upload_batch(
                             "packet_hash": ingest_result.packet_hash,
                             "requested_profile": ingest_result.requested_profile,
                             "requested_persist_mode": ingest_result.requested_persist_mode,
+                            "requested_extractor_mode": ingest_result.requested_extractor_mode,
                             "effective_profile": ingest_result.effective_profile,
                             "effective_persist_mode": ingest_result.effective_persist_mode,
+                            "effective_extractor_mode": ingest_result.effective_extractor_mode,
                             "durability_path": ingest_result.durability_path,
                         },
                     )
@@ -1060,8 +1158,10 @@ async def create_upload_batch(
                             "error": ingest_result.error,
                             "requested_profile": ingest_result.requested_profile,
                             "requested_persist_mode": ingest_result.requested_persist_mode,
+                            "requested_extractor_mode": ingest_result.requested_extractor_mode,
                             "effective_profile": ingest_result.effective_profile,
                             "effective_persist_mode": ingest_result.effective_persist_mode,
+                            "effective_extractor_mode": ingest_result.effective_extractor_mode,
                             "durability_path": ingest_result.durability_path,
                         },
                     )
@@ -1074,8 +1174,10 @@ async def create_upload_batch(
                 result_entry.vector_count = ingest_result.vector_count
                 result_entry.requested_profile = ingest_result.requested_profile
                 result_entry.requested_persist_mode = ingest_result.requested_persist_mode
+                result_entry.requested_extractor_mode = ingest_result.requested_extractor_mode
                 result_entry.effective_profile = ingest_result.effective_profile
                 result_entry.effective_persist_mode = ingest_result.effective_persist_mode
+                result_entry.effective_extractor_mode = ingest_result.effective_extractor_mode
                 result_entry.durability_path = ingest_result.durability_path
 
                 if ingest_result.status == "error":
@@ -1118,8 +1220,10 @@ async def create_upload_batch(
                         "packet_hash": ingest_result.packet_hash,
                         "requested_profile": ingest_result.requested_profile,
                         "requested_persist_mode": ingest_result.requested_persist_mode,
+                        "requested_extractor_mode": ingest_result.requested_extractor_mode,
                         "effective_profile": ingest_result.effective_profile,
                         "effective_persist_mode": ingest_result.effective_persist_mode,
+                        "effective_extractor_mode": ingest_result.effective_extractor_mode,
                         "durability_path": ingest_result.durability_path,
                         "message": "Ingest finished",
                     },
@@ -1152,8 +1256,10 @@ async def create_upload_batch(
                         "error": result_entry.error,
                         "requested_profile": result_entry.requested_profile,
                         "requested_persist_mode": result_entry.requested_persist_mode,
+                        "requested_extractor_mode": result_entry.requested_extractor_mode,
                         "effective_profile": result_entry.effective_profile,
                         "effective_persist_mode": result_entry.effective_persist_mode,
+                        "effective_extractor_mode": result_entry.effective_extractor_mode,
                         "durability_path": result_entry.durability_path,
                     },
                 )
@@ -1185,8 +1291,10 @@ async def create_upload_batch(
                         "error": str(e),
                         "requested_profile": result_entry.requested_profile,
                         "requested_persist_mode": result_entry.requested_persist_mode,
+                        "requested_extractor_mode": result_entry.requested_extractor_mode,
                         "effective_profile": result_entry.effective_profile,
                         "effective_persist_mode": result_entry.effective_persist_mode,
+                        "effective_extractor_mode": result_entry.effective_extractor_mode,
                         "durability_path": result_entry.durability_path,
                     },
                 )
@@ -1227,6 +1335,7 @@ async def create_upload_batch(
                 "failed": failed,
                 "dedup_hits": dedup_hits,
                 "cancelled_files": cancelled,
+                "requested_extractor_mode": requested_extractor_mode,
             },
         )
 
@@ -1327,8 +1436,10 @@ async def create_upload_batch(
             files=file_results,
             requested_profile=requested_profile,
             requested_persist_mode=requested_persist_mode,
+            requested_extractor_mode=requested_extractor_mode,
             effective_profile=policy.effective_profile,
             effective_persist_mode=policy.effective_persist_mode,
+            effective_extractor_mode=requested_extractor_mode,
             durability_path=policy.durability_path,
         )
     except HTTPException:
@@ -1396,8 +1507,10 @@ async def get_upload_status(
     cancel_reason = payload.get("cancel_reason")
     requested_profile = payload.get("requested_profile")
     requested_persist_mode = payload.get("requested_persist_mode")
+    requested_extractor_mode = payload.get("requested_extractor_mode")
     effective_profile = payload.get("effective_profile")
     effective_persist_mode = payload.get("effective_persist_mode")
+    effective_extractor_mode = payload.get("effective_extractor_mode")
     durability_path = payload.get("durability_path")
 
     return StorageUploadStatusResponse(
@@ -1422,11 +1535,17 @@ async def get_upload_status(
         requested_persist_mode=(
             str(requested_persist_mode) if requested_persist_mode is not None else None
         ),
+        requested_extractor_mode=(
+            str(requested_extractor_mode) if requested_extractor_mode is not None else None
+        ),
         effective_profile=(
             str(effective_profile) if effective_profile is not None else None
         ),
         effective_persist_mode=(
             str(effective_persist_mode) if effective_persist_mode is not None else None
+        ),
+        effective_extractor_mode=(
+            str(effective_extractor_mode) if effective_extractor_mode is not None else None
         ),
         durability_path=str(durability_path) if durability_path is not None else None,
     )
@@ -1579,6 +1698,45 @@ async def get_storage_file(
     return _row_to_file_item(row)
 
 
+@router.get("/files/{raw_id}/download")
+async def download_storage_file(
+    raw_id: str,
+    graph_id: Optional[str] = Query(None),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+):
+    """Download the original raw blob for a stored file."""
+    _require_storage_repos(ctx)
+
+    raw_uuid = _parse_uuid(raw_id, "raw_id")
+    row = ctx.storage_file_repo.get_by_raw_id(ctx.session, raw_uuid, graph_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Storage file not found")
+
+    raw_ref = ctx.raw_repo.get_by_id(ctx.session, raw_uuid)
+    if raw_ref is None:
+        raise HTTPException(status_code=404, detail="Raw reference not found")
+
+    store = _resolve_raw_store(ctx)
+    try:
+        file_bytes = store.load(raw_ref, verify=True)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Raw blob not available: {e}") from e
+
+    filename = sanitize_filename(row.filename or f"{raw_uuid}")
+    headers = {
+        "Content-Disposition": (
+            f"attachment; filename=\"{filename}\"; "
+            f"filename*=UTF-8''{quote(filename)}"
+        ),
+        "X-Content-Type-Options": "nosniff",
+    }
+    return StreamingResponse(
+        io.BytesIO(file_bytes),
+        media_type=row.mime_type or "application/octet-stream",
+        headers=headers,
+    )
+
+
 @router.get("/files/{raw_id}/provenance", response_model=StorageProvenanceResponse)
 async def get_storage_file_provenance(
     raw_id: str,
@@ -1658,6 +1816,7 @@ async def get_storage_file_provenance(
                             kind=event.kind,
                             ts=event.ts.isoformat() if event.ts else None,
                             payload_keys=sorted([str(k) for k in payload.keys()]),
+                            payload={str(k): v for k, v in payload.items()},
                         )
                     )
                 if len(event_items) >= limit_events:
@@ -1748,6 +1907,7 @@ async def reingest_storage_file(
     graph_id: Optional[str] = Query(None),
     profile: str = Query("strict"),
     persist_mode: str = Query("relaxed"),
+    extractor_mode: str = Query("auto"),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StorageIngestActionResponse:
     """Re-ingest an existing raw file."""
@@ -1784,6 +1944,7 @@ async def reingest_storage_file(
         file_bytes=file_bytes,
         profile=profile,
         persist_mode=persist_mode,
+        extractor_mode=extractor_mode,
     )
 
     row = ctx.storage_file_repo.mark_ingest_result(
@@ -1808,8 +1969,10 @@ async def reingest_storage_file(
                 "packet_hash": ingest_result.packet_hash,
                 "requested_profile": ingest_result.requested_profile,
                 "requested_persist_mode": ingest_result.requested_persist_mode,
+                "requested_extractor_mode": ingest_result.requested_extractor_mode,
                 "effective_profile": ingest_result.effective_profile,
                 "effective_persist_mode": ingest_result.effective_persist_mode,
+                "effective_extractor_mode": ingest_result.effective_extractor_mode,
                 "durability_path": ingest_result.durability_path,
             },
         )
@@ -1824,8 +1987,10 @@ async def reingest_storage_file(
                 "error": ingest_result.error,
                 "requested_profile": ingest_result.requested_profile,
                 "requested_persist_mode": ingest_result.requested_persist_mode,
+                "requested_extractor_mode": ingest_result.requested_extractor_mode,
                 "effective_profile": ingest_result.effective_profile,
                 "effective_persist_mode": ingest_result.effective_persist_mode,
+                "effective_extractor_mode": ingest_result.effective_extractor_mode,
                 "durability_path": ingest_result.durability_path,
             },
         )
@@ -1860,8 +2025,10 @@ async def reingest_storage_file(
             "error": ingest_result.error,
             "requested_profile": ingest_result.requested_profile,
             "requested_persist_mode": ingest_result.requested_persist_mode,
+            "requested_extractor_mode": ingest_result.requested_extractor_mode,
             "effective_profile": ingest_result.effective_profile,
             "effective_persist_mode": ingest_result.effective_persist_mode,
+            "effective_extractor_mode": ingest_result.effective_extractor_mode,
             "durability_path": ingest_result.durability_path,
             "index_write_mode": ingest_result.index_write_mode,
             "secondary_task_status": ingest_result.secondary_task_status,
@@ -1876,6 +2043,7 @@ async def retry_storage_file(
     graph_id: Optional[str] = Query(None),
     profile: str = Query("strict"),
     persist_mode: str = Query("relaxed"),
+    extractor_mode: str = Query("auto"),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StorageIngestActionResponse:
     """Retry a failed file ingest."""
@@ -1897,6 +2065,7 @@ async def retry_storage_file(
         graph_id=graph_id,
         profile=profile,
         persist_mode=persist_mode,
+        extractor_mode=extractor_mode,
         ctx=ctx,
     )
     _storage_lifecycle_log(
@@ -2243,6 +2412,16 @@ async def get_storage_supported_types(
     except Exception:
         get_ocr_settings = None  # type: ignore[assignment]
 
+    try:
+        from models.DocNative.docnative_service import is_docnative_available
+    except Exception:
+        try:
+            from faim.Faim_Native.models.DocNative.docnative_service import (
+                is_docnative_available,
+            )
+        except Exception:
+            is_docnative_available = None  # type: ignore[assignment]
+
     if get_ocr_settings is not None:
         ocr_settings = get_ocr_settings()
         ocr_enabled = bool(ocr_settings.enabled)
@@ -2252,6 +2431,14 @@ async def get_storage_supported_types(
         ocr_enabled = False
         ocr_engine = "unavailable"
         ocr_fail_closed = False
+
+    docnative_available = bool(is_docnative_available()) if callable(is_docnative_available) else False
+    docnative_enabled = os.getenv("FAIM_DOCNATIVE_ENABLED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
     categories: Dict[str, List[str]] = {
         "documents": [],
@@ -2325,6 +2512,67 @@ async def get_storage_supported_types(
         ocr_engine=ocr_engine,
         ocr_fail_closed=ocr_fail_closed,
         ocr_capable_extensions=ocr_capable_extensions,
+        docnative_enabled=docnative_enabled,
+        docnative_available=docnative_available,
+    )
+
+
+@router.get("/maintenance/history", response_model=StorageMaintenanceHistoryResponse)
+async def get_storage_maintenance_history(
+    graph_id: str = Query(...),
+    limit: int = Query(10, ge=1, le=50),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageMaintenanceHistoryResponse:
+    """Get recent storage maintenance actions for a graph."""
+    _require_storage_repos(ctx)
+
+    from store.pg.models_faim import EventModel
+
+    kinds = [
+        "CANONICAL_SEMANTICS_REBUILD",
+        "MULTILINGUAL_SEMANTICS_REBUILD",
+        "MULTIMODAL_BACKFILL",
+        "DOMAIN_PROFILE_REBUILD",
+        "DOMAIN_KNOWLEDGE_IMPORT",
+    ]
+    rows = (
+        ctx.session.query(EventModel)
+        .filter(
+            and_(
+                EventModel.tenant_id == ctx.tenant_id,
+                EventModel.graph_id == graph_id,
+                EventModel.kind.in_(kinds),
+            )
+        )
+        .order_by(desc(EventModel.seq))
+        .limit(limit)
+        .all()
+    )
+
+    items: List[StorageMaintenanceHistoryItem] = []
+    for row in reversed(rows):
+        payload = dict(row.payload or {})
+        items.append(
+            StorageMaintenanceHistoryItem(
+                seq=row.seq,
+                kind=row.kind,
+                ts=row.ts.isoformat() if row.ts else None,
+                status=str(payload.get("status") or "completed"),
+                summary=_maintenance_summary(row.kind, payload),
+                graph_version=(
+                    int(payload["graph_version"])
+                    if isinstance(payload.get("graph_version"), (int, float, str))
+                    and str(payload.get("graph_version")).strip().isdigit()
+                    else None
+                ),
+                payload=payload,
+            )
+        )
+
+    return StorageMaintenanceHistoryResponse(
+        graph_id=graph_id,
+        total=len(items),
+        items=items,
     )
 
 

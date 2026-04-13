@@ -153,8 +153,10 @@ type UploadResult = {
   error?: string | null;
   requested_profile?: string | null;
   requested_persist_mode?: string | null;
+  requested_extractor_mode?: string | null;
   effective_profile?: string | null;
   effective_persist_mode?: string | null;
+  effective_extractor_mode?: string | null;
   durability_path?: string | null;
 };
 
@@ -171,8 +173,10 @@ type UploadBatchResponse = {
   files: UploadResult[];
   requested_profile?: string | null;
   requested_persist_mode?: string | null;
+  requested_extractor_mode?: string | null;
   effective_profile?: string | null;
   effective_persist_mode?: string | null;
+  effective_extractor_mode?: string | null;
   durability_path?: string | null;
 };
 
@@ -194,8 +198,10 @@ type UploadStatusResponse = {
   files: StorageFileItem[];
   requested_profile?: string | null;
   requested_persist_mode?: string | null;
+  requested_extractor_mode?: string | null;
   effective_profile?: string | null;
   effective_persist_mode?: string | null;
+  effective_extractor_mode?: string | null;
   durability_path?: string | null;
 };
 
@@ -229,8 +235,10 @@ type StorageIngestActionResponse = {
     error?: string | null;
     requested_profile?: string | null;
     requested_persist_mode?: string | null;
+    requested_extractor_mode?: string | null;
     effective_profile?: string | null;
     effective_persist_mode?: string | null;
+    effective_extractor_mode?: string | null;
     durability_path?: string | null;
   };
 };
@@ -248,6 +256,24 @@ type StorageSupportedTypesResponse = {
   ocr_engine: string;
   ocr_fail_closed: boolean;
   ocr_capable_extensions: string[];
+  docnative_enabled: boolean;
+  docnative_available: boolean;
+};
+
+type StorageMaintenanceHistoryItem = {
+  seq: number;
+  kind: string;
+  ts?: string | null;
+  status: string;
+  summary: string;
+  graph_version?: number | null;
+  payload: Record<string, unknown>;
+};
+
+type StorageMaintenanceHistoryResponse = {
+  graph_id: string;
+  total: number;
+  items: StorageMaintenanceHistoryItem[];
 };
 
 type StorageProvenanceRawRef = {
@@ -280,6 +306,7 @@ type StorageProvenanceEvent = {
   kind: string;
   ts?: string | null;
   payload_keys: string[];
+  payload: Record<string, unknown>;
 };
 
 type StorageProvenanceResponse = {
@@ -308,12 +335,15 @@ type QueueStatus =
   | "failed"
   | "cancelled";
 
+type ExtractorMode = "auto" | "faim_native" | "docnative";
+
 type QueueItem = {
   id: string;
   file: File;
   filename: string;
   sizeBytes: number;
   mimeType: string;
+  graphId: string;
   status: QueueStatus;
   progress: number;
   jobId?: string;
@@ -330,8 +360,10 @@ type QueueItem = {
   busyAction?: "cancel" | "retry";
   requestedProfile?: string | null;
   requestedPersistMode?: string | null;
+  requestedExtractorMode?: ExtractorMode;
   effectiveProfile?: string | null;
   effectivePersistMode?: string | null;
+  effectiveExtractorMode?: ExtractorMode;
   durabilityPath?: string | null;
 };
 
@@ -441,6 +473,37 @@ function modeSummary(item: QueueItem): string | null {
   );
 }
 
+function extractorModeLabel(mode?: string | null): string {
+  const normalized = String(mode || "auto").toLowerCase();
+  if (normalized === "docnative") return "DocNative";
+  if (normalized === "faim_native") return "FAIM Native";
+  return "Auto";
+}
+
+function maintenanceActionSummary(
+  action: "canonical" | "multilingual" | "multimodal" | "domain_profile" | "domain_knowledge",
+  response: Record<string, unknown>
+): string {
+  const n = (value: unknown): number => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  if (action === "canonical") {
+    return `Canonical rebuild: files ${n(response.files_scanned)}, terms ${n(response.term_stats_written)}, edges ${n(response.edges_written)}`;
+  }
+  if (action === "multilingual") {
+    return `Multilingual rebuild: files ${n(response.files_scanned)}, concepts ${n(response.concept_nodes_written)}, edges ${n(response.concept_edges_written)}`;
+  }
+  if (action === "multimodal") {
+    return `Multimodal backfill: files ${n(response.files_scanned)}, inserted ${n(response.inserted)}, updated ${n(response.updated)}`;
+  }
+  if (action === "domain_profile") {
+    return `Domain profile: files ${n(response.files_scanned)}, terms ${n(response.lexicon_written)}`;
+  }
+  return `Domain knowledge import: entities ${n(response.entity_nodes_written)}, facts ${n(response.fact_nodes_written)}, edges ${n(response.edges_written)}`;
+}
+
 async function authHeaders(extra?: HeadersInit): Promise<HeadersInit> {
   const session = await getSession();
   const token = (session as { accessToken?: string } | null)?.accessToken;
@@ -494,12 +557,15 @@ export default function StoragePage() {
   const { data: session } = useSession();
   const { toast } = useToast();
 
-  const graphId = (session as { graphId?: string } | null)?.graphId || "default";
+  const sessionGraphId = (session as { graphId?: string } | null)?.graphId || "default";
+  const [graphScopeInput, setGraphScopeInput] = useState(sessionGraphId);
+  const [graphScope, setGraphScope] = useState(sessionGraphId);
 
   const [files, setFiles] = useState<StorageFileItem[]>([]);
   const [summary, setSummary] = useState<StorageSummary | null>(null);
   const [backends, setBackends] = useState<StorageBackends | null>(null);
   const [supportedTypes, setSupportedTypes] = useState<StorageSupportedTypesResponse | null>(null);
+  const [maintenanceHistory, setMaintenanceHistory] = useState<StorageMaintenanceHistoryItem[]>([]);
   const [total, setTotal] = useState(0);
 
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
@@ -507,21 +573,55 @@ export default function StoragePage() {
 
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(true);
+  const [loadingMaintenanceHistory, setLoadingMaintenanceHistory] = useState(false);
   const [actionRawId, setActionRawId] = useState<string | null>(null);
+  const [maintenanceBusy, setMaintenanceBusy] = useState<string | null>(null);
+  const [domainPack, setDomainPack] = useState("finance");
+  const [domainKnowledgeText, setDomainKnowledgeText] = useState(
+    JSON.stringify(
+      [
+        {
+          entity: "Acme Corp",
+          relation: "headquartered_in",
+          value: "Berlin",
+          time: "",
+          aliases: ["Acme"],
+          source_id: "acme-corp-hq",
+          source_kind: "manual",
+          meta: { confidence: 0.9 },
+        },
+      ],
+      null,
+      2
+    )
+  );
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
   const [profile, setProfile] = useState("strict");
   const [persistMode, setPersistMode] = useState("relaxed");
+  const [extractorMode, setExtractorMode] = useState<ExtractorMode>("auto");
 
   const ingestModePolicy = useMemo(
     () => resolveUiModePolicy("ingest", profile, persistMode),
     [persistMode, profile]
   );
+  const activeGraphId = useMemo(
+    () => (graphScope.trim() || sessionGraphId),
+    [graphScope, sessionGraphId]
+  );
   const selectedModeLabel = useMemo(
     () => formatModePair(profile, persistMode),
     [persistMode, profile]
+  );
+  const docnativeAvailable = Boolean(supportedTypes?.docnative_available);
+  const docnativeEnabled = Boolean(supportedTypes?.docnative_enabled);
+  const docnativeSelectedButDisabled =
+    extractorMode === "docnative" && docnativeAvailable && !docnativeEnabled;
+  const selectedExtractorLabel = useMemo(
+    () => extractorModeLabel(extractorMode),
+    [extractorMode]
   );
 
   const [provenanceOpen, setProvenanceOpen] = useState(false);
@@ -613,7 +713,7 @@ export default function StoragePage() {
     setLoadingFiles(true);
     try {
       const params = new URLSearchParams({
-        graph_id: graphId,
+        graph_id: activeGraphId,
         limit: String(PAGE_SIZE),
         offset: String(page * PAGE_SIZE),
         include_delete_requested: "true",
@@ -645,13 +745,13 @@ export default function StoragePage() {
     } finally {
       setLoadingFiles(false);
     }
-  }, [graphId, page, query, statusFilter, throttledToast]);
+  }, [activeGraphId, page, query, statusFilter, throttledToast]);
 
   const fetchSummaryInternal = useCallback(async () => {
     setLoadingSummary(true);
     try {
       const [summaryData, backendData] = await Promise.all([
-        fetchJson<StorageSummary>(`/api/v1/storage/summary?graph_id=${encodeURIComponent(graphId)}`),
+        fetchJson<StorageSummary>(`/api/v1/storage/summary?graph_id=${encodeURIComponent(activeGraphId)}`),
         fetchJson<StorageBackends>(`/api/v1/storage/backends/health`),
       ]);
       setSummary(summaryData);
@@ -677,7 +777,37 @@ export default function StoragePage() {
     } finally {
       setLoadingSummary(false);
     }
-  }, [graphId, throttledToast]);
+  }, [activeGraphId, throttledToast]);
+
+  const fetchMaintenanceHistoryInternal = useCallback(async () => {
+    setLoadingMaintenanceHistory(true);
+    try {
+      const data = await fetchJson<StorageMaintenanceHistoryResponse>(
+        `/api/v1/storage/maintenance/history?graph_id=${encodeURIComponent(activeGraphId)}&limit=10`
+      );
+      setMaintenanceHistory(data.items || []);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      if (error instanceof ApiError && error.status === 429) {
+        throttledToast(
+          "warning",
+          "Maintenance history rate-limited",
+          message,
+          "storage-maintenance-429"
+        );
+      } else {
+        throttledToast(
+          "warning",
+          "Maintenance history unavailable",
+          message,
+          "storage-maintenance-error",
+          20000
+        );
+      }
+    } finally {
+      setLoadingMaintenanceHistory(false);
+    }
+  }, [activeGraphId, throttledToast]);
 
   const fetchSupportedTypesInternal = useCallback(async () => {
     setSupportedTypesLoading(true);
@@ -718,11 +848,11 @@ export default function StoragePage() {
     if (refreshLockRef.current) return;
     refreshLockRef.current = true;
     try {
-      await Promise.all([fetchFilesInternal(), fetchSummaryInternal()]);
+      await Promise.all([fetchFilesInternal(), fetchSummaryInternal(), fetchMaintenanceHistoryInternal()]);
     } finally {
       refreshLockRef.current = false;
     }
-  }, [fetchFilesInternal, fetchSummaryInternal]);
+  }, [fetchFilesInternal, fetchMaintenanceHistoryInternal, fetchSummaryInternal]);
 
   const patchQueueItem = useCallback(
     (itemId: string, updater: (item: QueueItem) => QueueItem) => {
@@ -799,9 +929,15 @@ export default function StoragePage() {
           requestedProfile: statusData.requested_profile ?? item.requestedProfile,
           requestedPersistMode:
             statusData.requested_persist_mode ?? item.requestedPersistMode,
+          requestedExtractorMode:
+            (statusData.requested_extractor_mode as ExtractorMode | null | undefined) ??
+            item.requestedExtractorMode,
           effectiveProfile: statusData.effective_profile ?? item.effectiveProfile,
           effectivePersistMode:
             statusData.effective_persist_mode ?? item.effectivePersistMode,
+          effectiveExtractorMode:
+            (statusData.effective_extractor_mode as ExtractorMode | null | undefined) ??
+            item.effectiveExtractorMode,
           durabilityPath: statusData.durability_path ?? item.durabilityPath,
           error: fileMatch?.error || item.error,
           cancelRequested: statusData.cancel_requested || item.cancelRequested,
@@ -878,6 +1014,9 @@ export default function StoragePage() {
           lastEventSeq: 0,
           createdAt: now,
           updatedAt: now,
+          graphId: activeGraphId,
+          requestedExtractorMode: extractorMode,
+          effectiveExtractorMode: extractorMode,
         });
       }
 
@@ -892,7 +1031,7 @@ export default function StoragePage() {
 
       setQueueItems((prev) => trimQueue([...prev, ...accepted]));
     },
-    [persistMode, profile, toast]
+    [activeGraphId, extractorMode, persistMode, profile, toast]
   );
 
   const startQueueUpload = useCallback(
@@ -925,9 +1064,10 @@ export default function StoragePage() {
 
       try {
         const formData = new FormData();
-        formData.set("graph_id", graphId);
+        formData.set("graph_id", current.graphId || activeGraphId);
         formData.set("profile", profile);
         formData.set("persist_mode", persistMode);
+        formData.set("extractor_mode", current.requestedExtractorMode || extractorMode);
         formData.append("files", current.file);
 
         const headers = await authHeaders();
@@ -973,6 +1113,10 @@ export default function StoragePage() {
             result?.requested_persist_mode ??
             batch.requested_persist_mode ??
             item.requestedPersistMode,
+          requestedExtractorMode:
+            (result?.requested_extractor_mode as ExtractorMode | null | undefined) ??
+            (batch.requested_extractor_mode as ExtractorMode | null | undefined) ??
+            item.requestedExtractorMode,
           effectiveProfile:
             result?.effective_profile ??
             batch.effective_profile ??
@@ -981,6 +1125,10 @@ export default function StoragePage() {
             result?.effective_persist_mode ??
             batch.effective_persist_mode ??
             item.effectivePersistMode,
+          effectiveExtractorMode:
+            (result?.effective_extractor_mode as ExtractorMode | null | undefined) ??
+            (batch.effective_extractor_mode as ExtractorMode | null | undefined) ??
+            item.effectiveExtractorMode,
           durabilityPath:
             result?.durability_path ??
             batch.durability_path ??
@@ -1021,7 +1169,7 @@ export default function StoragePage() {
         uploadControllersRef.current.delete(itemId);
       }
     },
-    [graphId, patchQueueItem, persistMode, profile, refreshQueueJob, refreshViews]
+    [activeGraphId, extractorMode, patchQueueItem, persistMode, profile, refreshQueueJob, refreshViews]
   );
 
   const requestQueueCancel = useCallback(
@@ -1114,8 +1262,10 @@ export default function StoragePage() {
             vectorCount: 0,
             requestedProfile: undefined,
             requestedPersistMode: undefined,
+            requestedExtractorMode: undefined,
             effectiveProfile: undefined,
             effectivePersistMode: undefined,
+            effectiveExtractorMode: undefined,
             durabilityPath: undefined,
             error: undefined,
             cancelRequested: false,
@@ -1139,7 +1289,7 @@ export default function StoragePage() {
         }));
 
         const data = await fetchJson<StorageIngestActionResponse>(
-          `/api/v1/storage/files/${encodeURIComponent(current.rawId)}/retry?graph_id=${encodeURIComponent(graphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}`,
+          `/api/v1/storage/files/${encodeURIComponent(current.rawId)}/retry?graph_id=${encodeURIComponent(current.graphId || activeGraphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}&extractor_mode=${encodeURIComponent(extractorMode)}`,
           { method: "POST" }
         );
 
@@ -1158,10 +1308,16 @@ export default function StoragePage() {
             data.ingest?.requested_profile ?? item.requestedProfile,
           requestedPersistMode:
             data.ingest?.requested_persist_mode ?? item.requestedPersistMode,
+          requestedExtractorMode:
+            (data.ingest?.requested_extractor_mode as ExtractorMode | null | undefined) ??
+            item.requestedExtractorMode,
           effectiveProfile:
             data.ingest?.effective_profile ?? item.effectiveProfile,
           effectivePersistMode:
             data.ingest?.effective_persist_mode ?? item.effectivePersistMode,
+          effectiveExtractorMode:
+            (data.ingest?.effective_extractor_mode as ExtractorMode | null | undefined) ??
+            item.effectiveExtractorMode,
           durabilityPath: data.ingest?.durability_path ?? item.durabilityPath,
           error: data.ingest?.error || data.file?.error || undefined,
           busyAction: undefined,
@@ -1181,7 +1337,7 @@ export default function StoragePage() {
         }));
       }
     },
-    [graphId, patchQueueItem, persistMode, profile, refreshViews, toast]
+    [activeGraphId, extractorMode, patchQueueItem, persistMode, profile, refreshViews, toast]
   );
 
   const clearTerminalQueueItems = useCallback(() => {
@@ -1210,12 +1366,12 @@ export default function StoragePage() {
         let method = "POST";
 
         if (action === "ingest") {
-          url += `/ingest?graph_id=${encodeURIComponent(graphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}`;
+          url += `/ingest?graph_id=${encodeURIComponent(activeGraphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}&extractor_mode=${encodeURIComponent(extractorMode)}`;
         } else if (action === "retry") {
-          url += `/retry?graph_id=${encodeURIComponent(graphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}`;
+          url += `/retry?graph_id=${encodeURIComponent(activeGraphId)}&profile=${encodeURIComponent(profile)}&persist_mode=${encodeURIComponent(persistMode)}&extractor_mode=${encodeURIComponent(extractorMode)}`;
         } else {
           method = "DELETE";
-          url += `?graph_id=${encodeURIComponent(graphId)}&reason=${encodeURIComponent("Requested from storage UI")}`;
+          url += `?graph_id=${encodeURIComponent(activeGraphId)}&reason=${encodeURIComponent("Requested from storage UI")}`;
         }
 
         const data = await fetchJson<StorageIngestActionResponse | unknown>(url, { method });
@@ -1249,7 +1405,52 @@ export default function StoragePage() {
         setActionRawId(null);
       }
     },
-    [graphId, persistMode, profile, refreshViews, toast]
+    [activeGraphId, extractorMode, persistMode, profile, refreshViews, toast]
+  );
+
+  const downloadStorageFile = useCallback(
+    async (rawId: string, filename: string) => {
+      setActionRawId(rawId);
+      try {
+        const headers = await authHeaders();
+        const response = await fetch(
+          `/api/v1/storage/files/${encodeURIComponent(rawId)}/download?graph_id=${encodeURIComponent(activeGraphId)}`,
+          {
+            method: "GET",
+            headers,
+          }
+        );
+        if (!response.ok) {
+          const text = await response.text();
+          let payload: unknown = null;
+          if (text) {
+            try {
+              payload = JSON.parse(text);
+            } catch {
+              payload = text;
+            }
+          }
+          throw new ApiError(response.status, normalizeApiError(payload, "Download failed"));
+        }
+
+        const blob = await response.blob();
+        const objectUrl = window.URL.createObjectURL(blob);
+        const anchor = document.createElement("a");
+        anchor.href = objectUrl;
+        anchor.download = filename || rawId;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        window.setTimeout(() => window.URL.revokeObjectURL(objectUrl), 1000);
+        toast.success("Download started", filename);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        toast.error("Failed to download", message);
+      } finally {
+        setActionRawId(null);
+      }
+    },
+    [activeGraphId, toast]
   );
 
   const openProvenance = useCallback(
@@ -1262,7 +1463,7 @@ export default function StoragePage() {
 
       try {
         const data = await fetchJson<StorageProvenanceResponse>(
-          `/api/v1/storage/files/${encodeURIComponent(rawId)}/provenance?graph_id=${encodeURIComponent(graphId)}`
+          `/api/v1/storage/files/${encodeURIComponent(rawId)}/provenance?graph_id=${encodeURIComponent(activeGraphId)}`
         );
         setProvenanceData(data);
       } catch (error) {
@@ -1272,8 +1473,97 @@ export default function StoragePage() {
         setProvenanceLoading(false);
       }
     },
-    [graphId, toast]
+    [activeGraphId, toast]
   );
+
+  const applyGraphScope = useCallback(() => {
+    const next = graphScopeInput.trim() || sessionGraphId;
+    if (next === graphScope) return;
+    setGraphScope(next);
+    setPage(0);
+    setQueueItems([]);
+    setMaintenanceHistory([]);
+    toast.info("Graph scope updated", `Storage control plane now targets ${next}`);
+  }, [graphScope, graphScopeInput, sessionGraphId, toast]);
+
+  type MaintenanceActionKey =
+    | "canonical"
+    | "multilingual"
+    | "multimodal"
+    | "domain_profile"
+    | "domain_knowledge";
+
+  const runMaintenanceAction = useCallback(
+    async (action: MaintenanceActionKey) => {
+      if (maintenanceBusy) return;
+      setMaintenanceBusy(action);
+      try {
+        let response: Record<string, unknown> = {};
+
+        if (action === "canonical") {
+          response = await fetchJson<Record<string, unknown>>(
+            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/canonical-semantics/rebuild`,
+            { method: "POST" }
+          );
+        } else if (action === "multilingual") {
+          response = await fetchJson<Record<string, unknown>>(
+            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/multilingual-semantics/rebuild`,
+            { method: "POST" }
+          );
+        } else if (action === "multimodal") {
+          response = await fetchJson<Record<string, unknown>>(
+            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/multimodal/rebuild`,
+            { method: "POST" }
+          );
+        } else if (action === "domain_profile") {
+          const params = new URLSearchParams();
+          if (domainPack.trim()) params.set("domain_pack", domainPack.trim());
+          response = await fetchJson<Record<string, unknown>>(
+            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/domain-profile/rebuild${
+              params.toString() ? `?${params.toString()}` : ""
+            }`,
+            { method: "POST" }
+          );
+        } else if (action === "domain_knowledge") {
+          let kbRows: unknown;
+          try {
+            kbRows = JSON.parse(domainKnowledgeText);
+          } catch (error) {
+            throw new Error("Domain knowledge input must be valid JSON.");
+          }
+          if (!Array.isArray(kbRows)) {
+            throw new Error("Domain knowledge input must be a JSON array of rows.");
+          }
+          response = await fetchJson<Record<string, unknown>>(
+            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/domain-knowledge/import`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                domain_pack: domainPack.trim() || null,
+                kb_rows: kbRows,
+              }),
+            }
+          );
+        }
+
+        const summary = maintenanceActionSummary(action, response);
+        toast.success("Maintenance completed", summary);
+        await refreshViews();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        toast.error("Maintenance failed", message);
+      } finally {
+        setMaintenanceBusy(null);
+      }
+    },
+    [activeGraphId, domainKnowledgeText, domainPack, fetchJson, maintenanceBusy, refreshViews, toast]
+  );
+
+  useEffect(() => {
+    setGraphScopeInput(sessionGraphId);
+    setGraphScope(sessionGraphId);
+  }, [sessionGraphId]);
 
   useEffect(() => {
     fetchFilesInternal();
@@ -1286,6 +1576,10 @@ export default function StoragePage() {
   useEffect(() => {
     void fetchSupportedTypesInternal();
   }, [fetchSupportedTypesInternal]);
+
+  useEffect(() => {
+    void fetchMaintenanceHistoryInternal();
+  }, [fetchMaintenanceHistoryInternal]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -1379,7 +1673,7 @@ export default function StoragePage() {
       
       <GlassHeader
         title="Storage Control"
-        subtitle={`Immutable Provenance & Ingest Lifecycle · Graph: ${graphId}`}
+        subtitle={`Immutable Provenance & Ingest Lifecycle · Graph Scope: ${activeGraphId}`}
         icon={Database}
         actions={
           <label
@@ -1392,6 +1686,226 @@ export default function StoragePage() {
           </label>
         }
       />
+
+      {/* ── Control Plane ───────────────────────────────────── */}
+      <div
+        className="overflow-hidden rounded-xl border"
+        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+      >
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
+          style={{ borderColor: "var(--os-stroke)" }}
+        >
+          <p className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+            Retrieval Control Plane
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge size="xs" variant={docnativeAvailable ? "success" : "warning"}>
+              DocNative {docnativeAvailable ? "installed" : "unavailable"}
+            </Badge>
+            <Badge size="xs" variant={docnativeEnabled ? "success" : "default"}>
+              {docnativeAvailable
+                ? `DocNative ${docnativeEnabled ? "enabled" : "disabled by config"}`
+                : "DocNative not installed"}
+            </Badge>
+            <Badge size="xs" variant={docnativeSelectedButDisabled ? "warning" : "info"}>
+              Active extractor: {selectedExtractorLabel}
+              {docnativeSelectedButDisabled ? " (fallback applies)" : ""}
+            </Badge>
+          </div>
+        </div>
+
+        <div className="grid gap-4 px-5 py-4 xl:grid-cols-[1.15fr_.85fr]">
+          <div className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div>
+                <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                  Graph Scope
+                </p>
+                <Input
+                  value={graphScopeInput}
+                  onChange={(e) => setGraphScopeInput(e.target.value)}
+                  placeholder={sessionGraphId}
+                />
+              </div>
+              <div className="flex items-end gap-2">
+                <Button size="sm" variant="outline" onClick={applyGraphScope}>
+                  Apply Scope
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setGraphScopeInput(sessionGraphId);
+                    setGraphScope(sessionGraphId);
+                    setPage(0);
+                    setQueueItems([]);
+                  }}
+                >
+                  Reset
+                </Button>
+              </div>
+              <div className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)", color: "var(--text-secondary)" }}>
+                <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>Scope summary</p>
+                <p className="mt-1 font-medium" style={{ color: "var(--text-primary)" }}>{activeGraphId}</p>
+              </div>
+            </div>
+
+            {maintenanceBusy && (
+              <div
+                className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs"
+                style={{ borderColor: "rgba(99,102,241,0.25)", background: "rgba(99,102,241,0.08)", color: "var(--text-secondary)" }}
+              >
+                <Activity size={14} className="animate-spin" />
+                Running {maintenanceBusy.replace("_", " ")} on {activeGraphId} ...
+              </div>
+            )}
+
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {[
+                { key: "canonical" as const, label: "Canonical semantics rebuild" },
+                { key: "multilingual" as const, label: "Multilingual semantics rebuild" },
+                { key: "multimodal" as const, label: "Multimodal backfill/rebuild" },
+                { key: "domain_profile" as const, label: "Domain profile rebuild" },
+                { key: "domain_knowledge" as const, label: "Domain knowledge import" },
+              ].map((action) => (
+                <Button
+                  key={action.key}
+                  size="sm"
+                  variant="outline"
+                  className="justify-start"
+                  disabled={!!maintenanceBusy}
+                  onClick={() => {
+                    void runMaintenanceAction(action.key);
+                  }}
+                >
+                  {maintenanceBusy === action.key ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Activity size={12} className="animate-spin" />
+                      Running...
+                    </span>
+                  ) : (
+                    action.label
+                  )}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                Domain Pack
+              </p>
+              <ThemedSelect
+                value={domainPack}
+                onChange={setDomainPack}
+                options={[
+                  { value: "finance", label: "finance" },
+                  { value: "general", label: "general" },
+                  { value: "", label: "auto" },
+                ]}
+              />
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>
+                Domain Knowledge JSON
+              </p>
+              <textarea
+                value={domainKnowledgeText}
+                onChange={(e) => setDomainKnowledgeText(e.target.value)}
+                className="min-h-[170px] w-full rounded-xl border px-3 py-2 text-xs outline-none transition-colors"
+                style={{
+                  borderColor: "var(--os-stroke)",
+                  background: "var(--os-surface-2)",
+                  color: "var(--text-primary)",
+                }}
+              />
+              <p className="mt-1 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                Paste a JSON array of `{"{ entity, relation, value, time, aliases?, source_id?, source_kind?, meta? }"}` rows.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!!maintenanceBusy}
+                onClick={() => {
+                  setDomainKnowledgeText(
+                    JSON.stringify(
+                      [
+                        {
+                          entity: "Acme Corp",
+                          relation: "headquartered_in",
+                          value: "Berlin",
+                          time: "",
+                          aliases: ["Acme"],
+                          source_id: "acme-corp-hq",
+                          source_kind: "manual",
+                          meta: { confidence: 0.9 },
+                        },
+                      ],
+                      null,
+                      2
+                    )
+                  );
+                }}
+              >
+                Load sample
+              </Button>
+              <Button
+                size="sm"
+                variant="primary"
+                disabled={!!maintenanceBusy}
+                onClick={() => {
+                  void runMaintenanceAction("domain_knowledge");
+                }}
+              >
+                Import KB rows
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t px-5 py-4" style={{ borderColor: "var(--os-stroke)" }}>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[10px] font-medium uppercase tracking-widest" style={{ color: "var(--text-tertiary)" }}>
+              Maintenance History
+            </p>
+            <span className="text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+              {loadingMaintenanceHistory ? "Refreshing..." : `${maintenanceHistory.length} recent run(s)`}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-3 xl:grid-cols-2">
+            {maintenanceHistory.length === 0 ? (
+              <div className="rounded-lg border px-3 py-3 text-xs" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)", color: "var(--text-tertiary)" }}>
+                No maintenance runs recorded for this graph yet.
+              </div>
+            ) : (
+              maintenanceHistory.map((item) => (
+                <div
+                  key={`${item.kind}-${item.seq}`}
+                  className="rounded-lg border px-3 py-3 text-xs"
+                  style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-medium" style={{ color: "var(--text-primary)" }}>{item.kind.replaceAll("_", " ").toLowerCase()}</p>
+                    <Badge size="xs" variant={item.status === "completed" ? "success" : item.status === "failed" ? "error" : "default"}>
+                      {item.status}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-[11px]" style={{ color: "var(--text-tertiary)" }}>
+                    {item.ts ? new Date(item.ts).toLocaleString() : "-"} · v{item.graph_version ?? "—"}
+                  </p>
+                  <p className="mt-2" style={{ color: "var(--text-secondary)" }}>{item.summary}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* ── Metric Strip ─────────────────────────────────────── */}
       <div
@@ -1506,7 +2020,7 @@ export default function StoragePage() {
         </motion.div>
 
         {/* Controls row */}
-        <div className="grid grid-cols-3 gap-3 px-5 pb-4 pt-4">
+        <div className="grid grid-cols-4 gap-3 px-5 pb-4 pt-4">
           {[
             {
               label: "Profile",
@@ -1536,6 +2050,20 @@ export default function StoragePage() {
               ),
             },
             {
+              label: "Extractor",
+              node: (
+                <ThemedSelect
+                  value={extractorMode}
+                  onChange={setExtractorMode}
+                  options={[
+                    { value: "auto", label: "Auto" },
+                    { value: "faim_native", label: "FAIM Native" },
+                    { value: "docnative", label: "DocNative" },
+                  ]}
+                />
+              ),
+            },
+            {
               label: "Queue Depth",
               node: (
                 <div className="flex h-8 items-center rounded-lg border px-2.5 text-xs tabular-nums"
@@ -1560,6 +2088,7 @@ export default function StoragePage() {
           style={ingestModePolicy.supported ? { borderColor: "rgba(99,102,241,0.18)", background: "rgba(99,102,241,0.05)", color: "var(--text-secondary)" } : { color: "var(--faim-error-text)" }}
         >
           <span style={{ color: "#818cf8", fontWeight: 500 }}>Requested mode: {selectedModeLabel}</span>
+          {" · "}Extractor: {selectedExtractorLabel}
           {" · "}{getProfileHelper(profile)} {getPersistHelper(persistMode)}
           {" "}{ingestModePolicy.supported ? "All profile/persist combinations supported by policy." : ingestModePolicy.reason}
         </div>
@@ -1680,6 +2209,9 @@ export default function StoragePage() {
                           {mode}
                         </p>
                       )}
+                      <p className="mt-1 text-[11px] text-slate-400" data-testid="storage-queue-extractor">
+                        Extractor: {extractorModeLabel(item.requestedExtractorMode || item.effectiveExtractorMode || extractorMode)}
+                      </p>
                       <p className="mt-1 text-[11px] text-slate-400">{latest}</p>
                     </div>
 
@@ -1833,6 +2365,12 @@ export default function StoragePage() {
                             disabled={busy || row.delete_requested}
                                leftIcon={<FileSearch size={11} />}
                                onClick={() => { void openProvenance(row.raw_id, "faim"); }}>Inspect</Button>
+                          <Button size="xs" variant="ghost" className="h-6 text-[11px]"
+                            disabled={busy}
+                            leftIcon={<Download size={11} />}
+                            onClick={() => { void downloadStorageFile(row.raw_id, row.filename); }}>
+                            Download
+                          </Button>
                              <Button size="xs" variant="ghost" className="h-6 text-[11px]"
                                data-testid="storage-file-technical" data-raw-id={row.raw_id}
                                disabled={busy || row.delete_requested}
@@ -2235,12 +2773,29 @@ export default function StoragePage() {
                                  {data.events.length === 0 ? (
                                    <p className="text-[11px] font-medium italic" style={{ color: "var(--text-tertiary)" }}>No trace signals recorded.</p>
                                  ) : (
-                                   data.events.map((e, i) => (
+                                 data.events.map((e, i) => (
                                      <div key={i} className="flex gap-4 text-[11px] group">
                                        <div className="w-2 h-2 rounded-full mt-1.5 shrink-0 transition-transform group-hover:scale-125 bg-[var(--faim-primary)]" style={{ boxShadow: `0 0 8px var(--faim-primary)` }} />
                                        <div className="flex-1 min-w-0">
                                          <p className="font-black uppercase tracking-widest text-[10px]" style={{ color: "var(--text-primary)" }}>{e.kind}</p>
                                          <p className="text-[9px] mt-1 font-mono font-medium opacity-60" style={{ color: "var(--text-tertiary)" }}>TS: {e.ts ? new Date(e.ts).toISOString() : "-"}</p>
+                                         {Object.keys(e.payload || {}).length > 0 && (
+                                           <div className="mt-2 flex flex-wrap gap-1.5">
+                                             {Object.entries(e.payload).slice(0, 4).map(([key, value]) => (
+                                               <span
+                                                 key={`${e.seq}-${key}`}
+                                                 className="rounded-full border px-2 py-0.5 font-mono text-[9px]"
+                                                 style={{
+                                                   borderColor: "rgba(255,255,255,0.08)",
+                                                   background: "rgba(255,255,255,0.03)",
+                                                   color: "var(--text-secondary)",
+                                                 }}
+                                               >
+                                                 {key}: {typeof value === "string" ? value : JSON.stringify(value)}
+                                               </span>
+                                             ))}
+                                           </div>
+                                         )}
                                        </div>
                                      </div>
                                    ))

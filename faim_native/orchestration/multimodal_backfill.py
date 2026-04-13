@@ -123,10 +123,12 @@ def run_multimodal_backfill(
                     "MULTIMODAL_BACKFILL",
                     {
                         "files_scanned": result.files_scanned,
+                        "files_failed": result.files_failed,
                         "matched_nodes": result.matched_nodes,
                         "inserted": result.inserted,
                         "updated": result.updated,
                         "unchanged": result.unchanged,
+                        "graph_version": result.graph_version,
                     },
                 )
             except Exception:

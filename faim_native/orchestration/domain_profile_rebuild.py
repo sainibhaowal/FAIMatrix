@@ -97,7 +97,18 @@ def run_domain_profile_rebuild(
         result.graph_version = gv_repo.bump(session=session, graph_id=graph_id, reason="domain_profile_rebuild")
         if event_repo is not None:
             try:
-                event_repo.emit(session, graph_id, "DOMAIN_PROFILE_REBUILD", {"lexicon_written": result.lexicon_written})
+                event_repo.emit(
+                    session,
+                    graph_id,
+                    "DOMAIN_PROFILE_REBUILD",
+                    {
+                        "files_scanned": result.files_scanned,
+                        "files_failed": result.files_failed,
+                        "matched_nodes": result.matched_nodes,
+                        "lexicon_written": result.lexicon_written,
+                        "graph_version": result.graph_version,
+                    },
+                )
             except Exception:
                 pass
     return result

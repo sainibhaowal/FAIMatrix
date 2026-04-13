@@ -96,6 +96,8 @@ class IngestResult:
     index_write_mode: str = "skipped"
     secondary_task_status: str = "not_required"
     secondary_task_job_id: Optional[str] = None
+    requested_extractor_mode: str = "auto"
+    effective_extractor_mode: str = "faim_native"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for API response."""
@@ -122,6 +124,8 @@ class IngestResult:
             "index_write_mode": self.index_write_mode,
             "secondary_task_status": self.secondary_task_status,
             "secondary_task_job_id": self.secondary_task_job_id,
+            "requested_extractor_mode": self.requested_extractor_mode,
+            "effective_extractor_mode": self.effective_extractor_mode,
         }
 
 
@@ -277,6 +281,7 @@ def run_ingest(
     edge_repo: Optional[Any] = None,
     event_repo: Optional[Any] = None,
     gv_repo: Optional[Any] = None,
+    extraction_settings: Optional[Dict[str, Any]] = None,
 ) -> IngestResult:
     """Run the FAIM-native ingest pipeline.
 
@@ -314,6 +319,14 @@ def run_ingest(
     events_emitted: List[str] = []
     phase_latency_ms: Dict[str, int] = {}
     raw_id = str(raw_id or "").strip()
+    extraction_settings = dict(extraction_settings or {})
+    requested_extractor_mode = str(
+        extraction_settings.get("extractor_mode", "auto") or "auto"
+    ).strip().lower()
+    if requested_extractor_mode not in {"auto", "faim_native", "docnative"}:
+        requested_extractor_mode = "auto"
+    extraction_settings["extractor_mode"] = requested_extractor_mode
+    effective_extractor_mode = requested_extractor_mode
 
     def _finish_phase(phase: str, started_at: float) -> None:
         phase_latency_ms[phase] = int((time.perf_counter() - started_at) * 1000)
@@ -367,6 +380,8 @@ def run_ingest(
                 "durability_path": policy.durability_path,
                 "profile_persist_compat_mode": policy.compatibility_mode,
                 "profile_persist_coercion_reason": policy.coercion_reason,
+                "requested_extractor_mode": requested_extractor_mode,
+                "effective_extractor_mode": effective_extractor_mode,
             },
             event_repo,
             session=session,
@@ -379,7 +394,14 @@ def run_ingest(
         from perception.router import route_extraction
 
         phase_started = time.perf_counter()
-        blocks = route_extraction(file_bytes, filename, raw_id)
+        blocks = route_extraction(file_bytes, filename, raw_id, settings=extraction_settings)
+        effective_extractor_mode = str(
+            extraction_settings.get("_effective_extractor_mode")
+            or extraction_settings.get("_requested_extractor_mode")
+            or requested_extractor_mode
+        ).strip().lower()
+        if effective_extractor_mode not in {"auto", "faim_native", "docnative"}:
+            effective_extractor_mode = "faim_native"
         _finish_phase("extract", phase_started)
 
         if not blocks:
@@ -396,6 +418,8 @@ def run_ingest(
                 latency_ms=int((time.time() - start_time) * 1000),
                 error="No blocks extracted from file",
                 phase_latency_ms=phase_latency_ms,
+                requested_extractor_mode=requested_extractor_mode,
+                effective_extractor_mode=effective_extractor_mode,
             )
 
         logger.info(f"[Ingest] Extracted {len(blocks)} EvidenceBlocks")
@@ -491,6 +515,8 @@ def run_ingest(
                         requested_persist_mode=requested_persist_mode.value,
                         effective_profile=effective_profile.value,
                         effective_persist_mode=effective_persist_mode.value,
+                        requested_extractor_mode=requested_extractor_mode,
+                        effective_extractor_mode=effective_extractor_mode,
                         durability_path=policy.durability_path,
                         index_write_mode="dedup_hit",
                         secondary_task_status="dedup_hit",
@@ -624,6 +650,8 @@ def run_ingest(
                             "effective_profile": effective_profile.value,
                             "effective_persist_mode": effective_persist_mode.value,
                             "durability_path": policy.durability_path,
+                            "requested_extractor_mode": requested_extractor_mode,
+                            "effective_extractor_mode": effective_extractor_mode,
                             "index_write_mode": "sync_inline_compat",
                             "profile_persist_compat_mode": True,
                         },
@@ -653,15 +681,17 @@ def run_ingest(
                 _emit_event(
                     "INDEX_UPSERTED",
                     graph_id,
-                    {
-                        "vector_count": indexed_count,
-                        "profile": requested_profile.value,
-                        "effective_profile": effective_profile.value,
-                        "effective_persist_mode": effective_persist_mode.value,
-                        "durability_path": policy.durability_path,
-                        "index_write_mode": "sync_inline",
-                        "profile_persist_compat_mode": False,
-                    },
+                        {
+                            "vector_count": indexed_count,
+                            "profile": requested_profile.value,
+                            "effective_profile": effective_profile.value,
+                            "effective_persist_mode": effective_persist_mode.value,
+                            "durability_path": policy.durability_path,
+                            "requested_extractor_mode": requested_extractor_mode,
+                            "effective_extractor_mode": effective_extractor_mode,
+                            "index_write_mode": "sync_inline",
+                            "profile_persist_compat_mode": False,
+                        },
                     event_repo,
                     session=session,
                 )
@@ -698,6 +728,8 @@ def run_ingest(
                             "effective_profile": effective_profile.value,
                             "effective_persist_mode": effective_persist_mode.value,
                             "durability_path": policy.durability_path,
+                            "requested_extractor_mode": requested_extractor_mode,
+                            "effective_extractor_mode": effective_extractor_mode,
                             "index_write_mode": "async_queued",
                             "secondary_task_job_id": secondary_task_job_id,
                             "profile_persist_compat_mode": False,
@@ -732,6 +764,8 @@ def run_ingest(
                             "effective_profile": effective_profile.value,
                             "effective_persist_mode": effective_persist_mode.value,
                             "durability_path": policy.durability_path,
+                            "requested_extractor_mode": requested_extractor_mode,
+                            "effective_extractor_mode": effective_extractor_mode,
                             "index_write_mode": "sync_fallback_no_jobs",
                             "fallback_reason": "jobs_disabled_or_session_missing",
                             "profile_persist_compat_mode": False,
@@ -759,6 +793,8 @@ def run_ingest(
                     "effective_profile": effective_profile.value,
                     "effective_persist_mode": effective_persist_mode.value,
                     "durability_path": policy.durability_path,
+                    "requested_extractor_mode": requested_extractor_mode,
+                    "effective_extractor_mode": effective_extractor_mode,
                     "index_write_mode": index_write_mode,
                 },
                 event_repo,
@@ -827,6 +863,8 @@ def run_ingest(
             requested_persist_mode=requested_persist_mode.value,
             effective_profile=effective_profile.value,
             effective_persist_mode=effective_persist_mode.value,
+            requested_extractor_mode=requested_extractor_mode,
+            effective_extractor_mode=effective_extractor_mode,
             durability_path=policy.durability_path,
             index_write_mode=index_write_mode,
             secondary_task_status=secondary_task_status,
@@ -882,6 +920,8 @@ def run_ingest(
             requested_persist_mode=requested_persist_mode.value,
             effective_profile=effective_profile.value,
             effective_persist_mode=effective_persist_mode.value,
+            requested_extractor_mode=requested_extractor_mode,
+            effective_extractor_mode=effective_extractor_mode,
             durability_path=policy.durability_path,
             index_write_mode="error",
             secondary_task_status="error",

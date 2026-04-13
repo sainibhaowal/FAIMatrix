@@ -24,6 +24,8 @@
 
 import {
   Hero,
+  LandingProductHighlights,
+  LandingOutcomes,
   Architecture,
   SevenPowers,
   GraphDemo,
@@ -48,6 +50,8 @@ export default function LandingPage() {
         FAIMATRIX — Deterministic Memory, Retrieval, and Answer Engine
       </h1>
       <Hero />
+      <LandingProductHighlights />
+      <LandingOutcomes />
       <Architecture />
       <SevenPowers />
       <GraphDemo />

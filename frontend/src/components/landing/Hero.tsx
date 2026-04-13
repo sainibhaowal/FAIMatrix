@@ -105,8 +105,9 @@ export default function Hero() {
           FAIMATRIX is a deterministic memory, retrieval, and answer engine.
           It combines native 256-dimensional vectors, sparse lexical sidecars,
           graph diffusion, proposition-aware reranking, multilingual concept links,
-          multimodal indexing, domain knowledge, and citation-first answers
-          without giving up FAIM&apos;s core invariants.
+          multimodal indexing, domain knowledge, citation-first answers, and
+          real product workflows for Memory Query and Storage without giving up
+          FAIM&apos;s core invariants.
         </motion.p>
 
         <motion.div
@@ -161,6 +162,32 @@ export default function Hero() {
               <p className="text-xs md:text-sm text-slate-500 mt-1">{stat.label}</p>
             </motion.div>
           ))}
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.95 }}
+          className="mt-10 grid gap-4 sm:grid-cols-2 max-w-4xl mx-auto"
+        >
+          <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.04] px-5 py-4 text-left">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-cyan-300/80">
+              Memory Query
+            </p>
+            <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+              Ask questions, get cited answers, inspect provenance, and upload
+              source files directly into the same FAIM graph.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] px-5 py-4 text-left">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-purple-300/80">
+              Storage Control
+            </p>
+            <p className="mt-2 text-sm text-slate-300 leading-relaxed">
+              Upload with Auto, FAIM Native, or DocNative, then rebuild
+              canonical, multilingual, multimodal, and domain layers safely.
+            </p>
+          </div>
         </motion.div>
       </motion.div>
 
