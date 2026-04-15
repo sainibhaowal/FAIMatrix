@@ -9,6 +9,7 @@ import { getSession } from "next-auth/react";
 
 import type {
   FigExplainResponse,
+  FigLatestEventResponse,
   FigNeighborhoodResponse,
   FigSurfaceResponse,
 } from "@/types/figView";
@@ -85,6 +86,15 @@ export async function fetchGraphSurface(
   if (opts.includeTopology != null) params.set("include_topology", String(opts.includeTopology));
 
   return figRequest<FigSurfaceResponse>(`/api/v1/graph/surface?${params}`);
+}
+
+// ---------------------------------------------------------------------------
+// Graph Latest Event
+// ---------------------------------------------------------------------------
+
+export async function fetchGraphLatestEvent(graphId: string): Promise<FigLatestEventResponse> {
+  const params = new URLSearchParams({ graph_id: graphId });
+  return figRequest<FigLatestEventResponse>(`/api/v1/events/latest?${params}`);
 }
 
 // ---------------------------------------------------------------------------

@@ -207,3 +207,94 @@ export function nodeSizeByLevel(level: number): number {
 // ---------------------------------------------------------------------------
 
 export const DEFAULT_CAMERA = { x: 0, y: 0, z: 300 } as const;
+
+// ---------------------------------------------------------------------------
+// Overlay Modes — FAIM-specific semantic emphasis
+//
+// Overlays sit on top of the topMode coloring and encode FAIM-specific
+// signals from backend-authoritative node.metrics and display.state fields.
+//
+//   none       — use existing topMode-based coloring
+//   retrieval  — highlight nodes by retrieval relevance (residual + touch_count)
+//   evolution  — encode lifecycle state × freshness (last_access)
+//   temporal   — warm-cool gradient by last_access recency (causal flow hints)
+// ---------------------------------------------------------------------------
+
+export type OverlayMode = "none" | "retrieval" | "evolution" | "temporal";
+
+/**
+ * Retrieval relevance overlay.
+ *
+ * score = normalizedResidual × 0.6 + normalizedTouchCount × 0.4
+ * High score → cyan (FAIM is actively retrieving from this node).
+ * Low score  → near-black (rarely or never retrieved).
+ */
+export function nodeColorByRetrieval(score: number, isSelected: boolean): string {
+  if (isSelected) return SELECTED_COLOR;
+  if (score >= 0.8) return "#22d3ee"; // cyan-400  — highly relevant
+  if (score >= 0.6) return "#0891b2"; // cyan-600
+  if (score >= 0.4) return "#155e75"; // cyan-800
+  if (score >= 0.2) return "#164e63"; // cyan-900
+  return "#1e293b";                   // slate-800 — not retrieved
+}
+
+/**
+ * Evolution freshness overlay.
+ *
+ * Encodes lifecycle state × temporal freshness derived from last_access.
+ * freshnessScore = 0 (oldest in graph) … 1 (most recently accessed).
+ * Nodes with no last_access get freshnessScore = 0.
+ *
+ * active      fresh/stale : emerald bright / emerald dark
+ * historical  fresh/stale : amber bright / amber dark   (recently deprecated)
+ * compressed  fresh/stale : blue bright / blue dark
+ * deduplicated            : violet (merge is permanent — no freshness dimming)
+ * pruned                  : red    (terminal — no freshness dimming)
+ * cold / deactivated      : always dim slate
+ */
+export function nodeColorByEvolution(
+  state: FigNodeDisplayState,
+  freshnessScore: number,
+  isSelected: boolean,
+): string {
+  if (isSelected) return SELECTED_COLOR;
+  const fresh = freshnessScore >= 0.5;
+  switch (state) {
+    case "active":       return fresh ? "#34d399" : "#065f46"; // emerald-400 / emerald-900
+    case "historical":   return fresh ? "#fbbf24" : "#92400e"; // amber-400   / amber-800
+    case "compressed":   return fresh ? "#60a5fa" : "#1e3a5f"; // blue-400    / custom dark blue
+    case "deduplicated": return "#a78bfa";                      // violet-400 (permanent)
+    case "pruned":       return "#f87171";                      // red-400    (terminal)
+    case "cold":         return "#334155";                      // slate-700
+    case "deactivated":  return "#1e293b";                      // slate-800
+    default:             return "#475569";                      // slate-600
+  }
+}
+
+/**
+ * Temporal recency overlay.
+ *
+ * Maps last_access freshness to a warm-cool gradient:
+ * hot (orange) = just accessed  →  cool (blue) = long ago  →  dark = never.
+ * Encodes causal flow: follow the heat to see where FAIM has been recently.
+ */
+export function nodeColorByTemporal(score: number, isSelected: boolean): string {
+  if (isSelected) return SELECTED_COLOR;
+  if (score >= 0.85) return "#f97316"; // orange-500 — very recent
+  if (score >= 0.65) return "#fbbf24"; // amber-400
+  if (score >= 0.45) return "#34d399"; // emerald-400
+  if (score >= 0.25) return "#60a5fa"; // blue-400
+  if (score > 0)     return "#475569"; // slate-600  — old
+  return "#1e293b";                    // slate-800  — never accessed
+}
+
+/**
+ * Retrieval size boost.
+ *
+ * Scales node size by normalizedTouchCount so frequently-retrieved nodes
+ * are visually prominent in retrieval overlay mode.
+ * baseSize × (1 + normT) caps at 2× the base size.
+ */
+export function nodeSizeByRetrievalBoost(baseSize: number, normalizedTouchCount: number): number {
+  return baseSize * (1 + Math.min(normalizedTouchCount, 1));
+}

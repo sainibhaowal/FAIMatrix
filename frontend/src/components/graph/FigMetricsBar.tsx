@@ -29,7 +29,7 @@ import {
   computeScorecard,
   type FigScorecard,
 } from "@/lib/figViewGraphTransform";
-import type { FigEdge, FigNode, FigSnapshot, FigTopology } from "@/types/figView";
+import type { FigBackendScorecard, FigEdge, FigNode, FigSnapshot, FigTopology } from "@/types/figView";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -116,17 +116,23 @@ export default function FigMetricsBar({
   const effectiveNodes = topology?.node_count ?? nodeCount;
   const effectiveEdges = topology?.edge_count ?? edgeCount;
 
-  // Compute scorecard for FULL GRAPH
-  const fullScorecard = useMemo<FigScorecard | null>(() => {
-    if (nodes.length > 0 && edges.length >= 0) {
-      return computeScorecard(nodes, edges);
-    }
-    return null;
-  }, [nodes, edges]);
+  // Backend-provided scorecard (plan §11: authoritative source when available).
+  // The backend embeds this only when cheaply available; otherwise null.
+  const backendScorecard: FigBackendScorecard | null = topology?.scorecard ?? null;
 
-  // Compute scorecard for FILTERED VIEW (current view with hidden kinds)
+  // Full-graph scorecard: prefer backend when provided, fall back to client-computed.
+  // Client-computed is derived entirely from backend-authoritative node/edge data,
+  // so it is correct — just not independently verified by the backend process.
+  const fullScorecard = useMemo<FigScorecard | null>(() => {
+    if (backendScorecard) return backendScorecard;
+    if (nodes.length > 0) return computeScorecard(nodes, edges);
+    return null;
+  }, [backendScorecard, nodes, edges]);
+
+  // Filtered-view scorecard: always client-computed (backend does not know about
+  // client-side kind filters).
   const viewScorecard = useMemo<FigScorecard | null>(() => {
-    if (filteredNodes && filteredNodes.length > 0 && filteredEdges && filteredEdges.length >= 0) {
+    if (filteredNodes && filteredNodes.length > 0 && filteredEdges) {
       return computeScorecard(filteredNodes, filteredEdges);
     }
     return null;
@@ -136,6 +142,11 @@ export default function FigMetricsBar({
   const displayScorecard = metricsMode === "full" ? fullScorecard : viewScorecard;
   const displayNodeCount = metricsMode === "full" ? effectiveNodes : (filteredNodeCount ?? effectiveNodes);
   const displayEdgeCount = metricsMode === "full" ? effectiveEdges : (filteredEdgeCount ?? effectiveEdges);
+
+  // Source label: "backend" when the backend provided the scorecard and we are
+  // showing full-graph mode; "computed" otherwise (client-derived from backend data).
+  const scorecardSource: "backend" | "computed" =
+    metricsMode === "full" && backendScorecard !== null ? "backend" : "computed";
 
   // Color based on mode
   const modeColor = metricsMode === "view" ? "text-cyan-300" : "text-slate-400";
@@ -205,25 +216,22 @@ export default function FigMetricsBar({
       <Divider />
 
       {/* ================================================================
-          SCORECARD — D, H, λ computed from graph data (updates per mode)
+          SCORECARD — D, H, λ
+          Source: backend scorecard when provided (plan §11 authoritative);
+          client-computed fallback when backend returns null.
       ================================================================ */}
-      <div className="flex items-center gap-0 divide-x divide-slate-700/30">
+      <div
+        className="flex items-stretch gap-0 divide-x divide-slate-700/30"
+        title={
+          scorecardSource === "backend"
+            ? "D/H/λ sourced from backend scorecard (authoritative)"
+            : "D/H/λ computed client-side from backend-authoritative node/edge data"
+        }
+      >
         {[
-          {
-            key: "D",
-            value: displayScorecard?.density ?? 0,
-            desc: "density",
-          },
-          {
-            key: "H",
-            value: displayScorecard?.entropy ?? 0,
-            desc: "entropy",
-          },
-          {
-            key: "λ",
-            value: displayScorecard?.spectral_radius ?? 0,
-            desc: "spectral",
-          },
+          { key: "D", value: displayScorecard?.density ?? 0, desc: "density" },
+          { key: "H", value: displayScorecard?.entropy ?? 0, desc: "entropy" },
+          { key: "λ", value: displayScorecard?.spectral_radius ?? 0, desc: "spectral" },
         ].map(({ key, value, desc }) => (
           <div
             key={key}
@@ -248,6 +256,16 @@ export default function FigMetricsBar({
             <span className="text-[7px] text-slate-700 font-mono">{desc}</span>
           </div>
         ))}
+        {/* Source badge — indicates whether D/H/λ came from backend or were derived */}
+        <div className="flex flex-col items-center justify-end px-2 py-2">
+          <span
+            className={`text-[7px] font-mono uppercase tracking-widest ${
+              scorecardSource === "backend" ? "text-emerald-600" : "text-slate-700"
+            }`}
+          >
+            {scorecardSource}
+          </span>
+        </div>
       </div>
 
       {/* ================================================================

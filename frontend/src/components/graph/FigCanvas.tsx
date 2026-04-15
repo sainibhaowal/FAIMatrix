@@ -18,12 +18,16 @@ import {
   DEFAULT_CAMERA,
   edgeColorByKind,
   getLayoutConfig,
+  nodeColorByEvolution,
   nodeColorByIdentity,
   nodeColorByLineageDepth,
+  nodeColorByRetrieval,
   nodeColorByState,
+  nodeColorByTemporal,
   nodeSizeByLevel,
+  nodeSizeByRetrievalBoost,
 } from "@/lib/figViewLayout";
-import type { LayoutMode } from "@/lib/figViewLayout";
+import type { LayoutMode, OverlayMode } from "@/lib/figViewLayout";
 import { safeNodeTitle } from "@/lib/figViewSafety";
 import type { FigEdge, FigSurfaceResponse } from "@/types/figView";
 
@@ -82,6 +86,7 @@ type FigCanvasProps = {
   selectedNodeId: string | null;
   hiddenNodeKinds?: Set<string>;
   hiddenEdgeKinds?: Set<string>;
+  overlayMode?: OverlayMode;
   onNodeSelect: (nodeId: string | null) => void;
   onNodeHover?: (node: FigNode | null, x: number, y: number) => void;
 };
@@ -91,7 +96,7 @@ type FigCanvasProps = {
 // ---------------------------------------------------------------------------
 
 const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas(
-  { data, layoutMode, topMode, locked, selectedNodeId, hiddenNodeKinds, hiddenEdgeKinds, onNodeSelect, onNodeHover },
+  { data, layoutMode, topMode, locked, selectedNodeId, hiddenNodeKinds, hiddenEdgeKinds, overlayMode = "none", onNodeSelect, onNodeHover },
   ref,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -164,6 +169,33 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   }, [data.nodes, data.edges, hiddenNodeKinds, hiddenEdgeKinds]);
 
   const config = getLayoutConfig(layoutMode);
+
+  // -------------------------------------------------------------------------
+  // Overlay normalization — computed once per overlay mode change or node list
+  // change. Provides the min/max values needed to normalize node metrics into
+  // [0, 1] scores for retrieval / evolution / temporal overlays.
+  // Only populated when overlayMode !== "none".
+  // -------------------------------------------------------------------------
+
+  const overlayNorm = useMemo(() => {
+    if (overlayMode === "none") return null;
+    let maxResidual = 0;
+    let maxTouchCount = 0;
+    let minTs = Infinity;
+    let maxTs = -Infinity;
+    for (const n of data.nodes) {
+      const m = n.metrics;
+      if (!m) continue;
+      if (m.residual > maxResidual) maxResidual = m.residual;
+      if (m.touch_count > maxTouchCount) maxTouchCount = m.touch_count;
+      if (m.last_access) {
+        const ts = new Date(m.last_access).getTime();
+        if (ts < minTs) minTs = ts;
+        if (ts > maxTs) maxTs = ts;
+      }
+    }
+    return { maxResidual, maxTouchCount, minTs, maxTs };
+  }, [overlayMode, data.nodes]);
 
   // -------------------------------------------------------------------------
   // Mark canvas as ready when graph data loads
@@ -355,8 +387,52 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
       const figNode = node as GraphNode;
       const isSelected = selectedNodeId === figNode.id;
 
+      // ------------------------------------------------------------------
+      // OVERLAY MODE — takes precedence over topMode coloring.
+      // Normalization values are pre-computed in overlayNorm.
+      // ------------------------------------------------------------------
+      if (overlayMode !== "none" && overlayNorm) {
+        const m = figNode.metrics;
+        const tsRange = overlayNorm.maxTs - overlayNorm.minTs;
+
+        if (overlayMode === "retrieval") {
+          const normR = overlayNorm.maxResidual > 0
+            ? (m?.residual ?? 0) / overlayNorm.maxResidual
+            : 0;
+          const normT = overlayNorm.maxTouchCount > 0
+            ? (m?.touch_count ?? 0) / overlayNorm.maxTouchCount
+            : 0;
+          return nodeColorByRetrieval(normR * 0.6 + normT * 0.4, isSelected);
+        }
+
+        if (overlayMode === "evolution") {
+          const state = figNode.display?.state ?? "unknown";
+          let freshnessScore = 0;
+          if (m?.last_access) {
+            const ts = new Date(m.last_access).getTime();
+            freshnessScore = tsRange > 0
+              ? (ts - overlayNorm.minTs) / tsRange
+              : 1; // single timestamp → treat as fresh
+          }
+          return nodeColorByEvolution(state, freshnessScore, isSelected);
+        }
+
+        if (overlayMode === "temporal") {
+          let temporalScore = 0;
+          if (m?.last_access) {
+            const ts = new Date(m.last_access).getTime();
+            temporalScore = tsRange > 0
+              ? (ts - overlayNorm.minTs) / tsRange
+              : 1;
+          }
+          return nodeColorByTemporal(temporalScore, isSelected);
+        }
+      }
+
+      // ------------------------------------------------------------------
       // ANALYZE mode → deterministic rainbow per node_id (guaranteed variety
       // even when all nodes share the same kind/level/state).
+      // ------------------------------------------------------------------
       if (topMode === "analyze") {
         return nodeColorByIdentity(figNode.id, isSelected);
       }
@@ -378,14 +454,22 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
       const stateClass = figNode.display?.state ?? "unknown";
       return nodeColorByState(stateClass, isSelected);
     },
-    [topMode, lineageDepths, selectedNodeId],
+    [topMode, lineageDepths, selectedNodeId, overlayMode, overlayNorm],
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nodeVal = useCallback((node: any) => {
-    const figNode = node as GraphNode;
-    return nodeSizeByLevel(figNode.level);
-  }, []);
+  const nodeVal = useCallback(
+    (node: any) => {
+      const figNode = node as GraphNode;
+      const baseSize = nodeSizeByLevel(figNode.level);
+      if (overlayMode === "retrieval" && overlayNorm && overlayNorm.maxTouchCount > 0) {
+        const normT = (figNode.metrics?.touch_count ?? 0) / overlayNorm.maxTouchCount;
+        return nodeSizeByRetrievalBoost(baseSize, normT);
+      }
+      return baseSize;
+    },
+    [overlayMode, overlayNorm],
+  );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const linkColor = useCallback(
