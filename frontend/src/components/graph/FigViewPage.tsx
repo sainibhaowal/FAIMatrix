@@ -34,13 +34,33 @@ import FigLegend from "@/components/graph/FigLegend";
 import FigMetricsBar from "@/components/graph/FigMetricsBar";
 import FigRelationPanel from "@/components/graph/FigRelationPanel";
 import FigSearch from "@/components/graph/FigSearch";
-import { fetchGraphExplain, fetchGraphSurface } from "@/lib/figViewApi";
+import {
+  fetchGraphExplain,
+  fetchGraphLatestEvent,
+  fetchGraphNeighborhood,
+  fetchGraphSurface,
+} from "@/lib/figViewApi";
 import { buildAdjacency, buildNodeIndex } from "@/lib/figViewGraphTransform";
-import type { LayoutMode } from "@/lib/figViewLayout";
-import { clearStaleGraphState, nodeStateClass, safeNodeTitle } from "@/lib/figViewSafety";
+import type { LayoutMode, OverlayMode } from "@/lib/figViewLayout";
+import {
+  clearStaleGraphState,
+  loadGraphViewState,
+  nodeStateClass,
+  persistGraphViewState,
+  safeNodeTitle,
+} from "@/lib/figViewSafety";
+import {
+  createInitialTimelineSyncState,
+  deriveTimelineSyncStatus,
+  mergeTimelineResponse,
+  nextTimelineCursor,
+  shouldRebaseTimeline,
+  type FigTimelineSyncState,
+} from "@/lib/figViewTimelineSync";
 import type {
   FigExplainResponse,
   FigLoadState,
+  FigNeighborhoodExpansion,
   FigNode,
   FigSurfaceResponse,
 } from "@/types/figView";
@@ -217,8 +237,19 @@ export default function FigViewPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [topMode, setTopMode] = useState<TopMode>("explore");
   const [activeDrawer, setActiveDrawer] = useState<DrawerPanel>(null);
+  const [timelineSync, setTimelineSync] = useState<FigTimelineSyncState>(
+    () => createInitialTimelineSyncState(false),
+  );
   const canvasRef = useRef<FigCanvasHandle>(null);
   const initializedRef = useRef(false);
+  const graphDataRef = useRef<FigSurfaceResponse | null>(null);
+  const graphIdRef = useRef<string>("");
+  const timelineCursorRef = useRef<number>(0);
+  const timelinePollInFlightRef = useRef(false);
+  const timelinePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timelineLiveEnabledRef = useRef(true);
+  const timelineVisibleRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Phase 6-7 state ---
   // Pinned node for relation/explain comparisons
@@ -234,12 +265,30 @@ export default function FigViewPage() {
   // Client-side kind filters (never mutate backend data)
   const [hiddenNodeKinds, setHiddenNodeKinds] = useState<Set<string>>(new Set());
   const [hiddenEdgeKinds, setHiddenEdgeKinds] = useState<Set<string>>(new Set());
+  const [timelineLiveEnabled, setTimelineLiveEnabled] = useState(true);
+  const [timelineLastSyncedAt, setTimelineLastSyncedAt] = useState<string | null>(null);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [neighborhoodExpansion, setNeighborhoodExpansion] = useState<FigNeighborhoodExpansion | null>(null);
+  const [neighborhoodLoading, setNeighborhoodLoading] = useState(false);
+  const [overlayMode, setOverlayMode] = useState<OverlayMode>("none");
 
   useEffect(() => {
     if (initializedRef.current) return;
     const sessionGraphId = (session as { graphId?: string } | null)?.graphId;
     if (sessionGraphId) { setGraphId(sessionGraphId); initializedRef.current = true; }
   }, [session]);
+
+  useEffect(() => {
+    graphIdRef.current = graphId;
+  }, [graphId]);
+
+  useEffect(() => {
+    timelineLiveEnabledRef.current = timelineLiveEnabled;
+  }, [timelineLiveEnabled]);
+
+  useEffect(() => {
+    timelineVisibleRef.current = activeDrawer === "timeline";
+  }, [activeDrawer]);
 
   // Derived graph structures (stable between renders)
   const graphData = state.status === "loaded" || state.status === "degraded" ? state.data : null;
@@ -263,6 +312,10 @@ export default function FigViewPage() {
     () => (graphData?.edges ?? []).filter((e) => !hiddenEdgeKinds.has(e.kind)),
     [graphData?.edges, hiddenEdgeKinds],
   );
+
+  useEffect(() => {
+    graphDataRef.current = graphData;
+  }, [graphData]);
 
   // --- Phase 6-7 handlers ---
 
@@ -317,21 +370,133 @@ export default function FigViewPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  // Applies a persisted view-state payload back to component state.
+  // All useState setters are stable references — empty dep array is correct.
+  const applyPersistedViewState = useCallback((payload: Record<string, unknown>) => {
+    if (typeof payload.layoutMode === "string") setLayoutMode(payload.layoutMode as LayoutMode);
+    if (typeof payload.topMode === "string") setTopMode(payload.topMode as TopMode);
+    if (typeof payload.locked === "boolean") setLocked(payload.locked);
+    if (Array.isArray(payload.hiddenNodeKinds))
+      setHiddenNodeKinds(new Set(payload.hiddenNodeKinds as string[]));
+    if (Array.isArray(payload.hiddenEdgeKinds))
+      setHiddenEdgeKinds(new Set(payload.hiddenEdgeKinds as string[]));
+    if (typeof payload.selectedNodeId === "string" || payload.selectedNodeId === null)
+      setSelectedNodeId(payload.selectedNodeId as string | null);
+    if (typeof payload.activeDrawer === "string" || payload.activeDrawer === null)
+      setActiveDrawer(payload.activeDrawer as DrawerPanel | null);
+    if (typeof payload.timelineLiveEnabled === "boolean")
+      setTimelineLiveEnabled(payload.timelineLiveEnabled);
+    if (typeof payload.overlayMode === "string")
+      setOverlayMode(payload.overlayMode as OverlayMode);
+  }, []);
+
   const loadSurface = useCallback(async (targetGraphId: string) => {
     if (!targetGraphId) return;
     setState({ status: "loading" });
+    setTimelineError(null);
+    setTimelineLastSyncedAt(null);
     try {
       const data = await fetchGraphSurface(targetGraphId, { timelineLimit: 20, includeTopology: true });
       clearStaleGraphState(targetGraphId);
+      graphDataRef.current = data;
+      const nextCursor = data.timeline?.next_seq ?? data.timeline?.events?.at(-1)?.seq ?? 0;
+      timelineCursorRef.current = nextCursor;
+      setTimelineSync((prev) => ({
+        ...prev,
+        enabled: timelineLiveEnabledRef.current,
+        status:
+          data.timeline && timelineLiveEnabledRef.current && timelineVisibleRef.current
+            ? "live"
+            : "idle",
+        lastAppliedSeq: nextCursor,
+        lastSnapshotHash: data.snapshot.graph_hash,
+        lastSnapshotVersion: data.snapshot.graph_version,
+        lastSyncedAt: new Date().toISOString(),
+        lastError: null,
+        lastEventKind: data.timeline?.events?.at(-1)?.kind ?? null,
+      }));
+      setTimelineLastSyncedAt(new Date().toISOString());
       setState(classifyResponse(data));
+      // Restore persisted view state only when graph version matches exactly.
+      const saved = loadGraphViewState(targetGraphId, data.snapshot.graph_version);
+      if (saved) applyPersistedViewState(saved);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to load graph";
       setState({ status: "error", message });
+      setTimelineSync((prev) => ({
+        ...prev,
+        status: "disconnected",
+        lastError: message,
+      }));
+      setTimelineError(message);
       toast.error("Graph load failed", message);
     }
-  }, [toast]);
+  }, [toast, applyPersistedViewState]);
 
   useEffect(() => { if (graphId) loadSurface(graphId); }, [graphId, loadSurface]);
+
+  const handleExpandNeighborhood = useCallback(
+    async (nodeId: string, depth: number) => {
+      const currentData = graphDataRef.current;
+      if (!graphId || !currentData) return;
+      setNeighborhoodLoading(true);
+      try {
+        const result = await fetchGraphNeighborhood(graphId, nodeId, { depth });
+        const existingNodeIds = new Set(currentData.nodes.map((n) => n.node_id));
+        const existingEdgeIds = new Set(currentData.edges.map((e) => e.edge_id));
+        const newNodes = result.nodes.filter((n) => !existingNodeIds.has(n.node_id));
+        const newEdges = result.edges.filter((e) => !existingEdgeIds.has(e.edge_id));
+        const merged: FigSurfaceResponse = {
+          ...currentData,
+          nodes: [...currentData.nodes, ...newNodes],
+          edges: [...currentData.edges, ...newEdges],
+        };
+        graphDataRef.current = merged;
+        setState(classifyResponse(merged));
+        setNeighborhoodExpansion({
+          seedNodeId: nodeId,
+          addedNodeCount: newNodes.length,
+          addedEdgeCount: newEdges.length,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Neighborhood fetch failed";
+        toast.error("Expand failed", message);
+      } finally {
+        setNeighborhoodLoading(false);
+      }
+    },
+    [graphId, toast],
+  );
+
+  const handleClearNeighborhood = useCallback(() => {
+    setNeighborhoodExpansion(null);
+    void loadSurface(graphId);
+  }, [graphId, loadSurface]);
+
+  // Debounced view-state persistence: saves layout, filter, and selection
+  // preferences to localStorage whenever they change. Restores on next load
+  // of the same graph version. Debounced to 500 ms to avoid excess writes.
+  useEffect(() => {
+    const currentData = graphDataRef.current;
+    if (!graphId || !currentData) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      persistGraphViewState(graphId, currentData.snapshot.graph_version, {
+        layoutMode,
+        topMode,
+        locked,
+        hiddenNodeKinds: Array.from(hiddenNodeKinds),
+        hiddenEdgeKinds: Array.from(hiddenEdgeKinds),
+        selectedNodeId,
+        activeDrawer,
+        timelineLiveEnabled,
+        overlayMode,
+      });
+    }, 500);
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
+  }, [graphId, layoutMode, topMode, locked, hiddenNodeKinds, hiddenEdgeKinds, selectedNodeId, activeDrawer, timelineLiveEnabled, overlayMode]);
 
   const toggleDrawer = (panel: DrawerPanel) => setActiveDrawer((prev) => prev === panel ? null : panel);
   const handleTopMode = (mode: TopMode) => {
@@ -349,6 +514,189 @@ export default function FigViewPage() {
       setActiveDrawer("inspector");
     }
   }, []);
+
+  const timelineVisible = activeDrawer === "timeline";
+
+  const stopTimelinePoll = useCallback(() => {
+    if (timelinePollTimerRef.current) {
+      clearTimeout(timelinePollTimerRef.current);
+      timelinePollTimerRef.current = null;
+    }
+    timelinePollInFlightRef.current = false;
+  }, []);
+
+  const scheduleTimelinePoll = useCallback((delayMs: number) => {
+    if (timelinePollTimerRef.current) {
+      clearTimeout(timelinePollTimerRef.current);
+    }
+    timelinePollTimerRef.current = setTimeout(() => {
+      timelinePollTimerRef.current = null;
+      void pollTimeline();
+    }, delayMs);
+  }, []);
+
+  const pollTimeline = useCallback(async () => {
+    const currentGraphId = graphIdRef.current;
+    const liveEnabled = timelineLiveEnabledRef.current;
+    const visible = timelineVisibleRef.current;
+
+    if (!currentGraphId || !liveEnabled || !visible) {
+      setTimelineSync((prev) => ({
+        ...prev,
+        enabled: liveEnabled,
+        status: liveEnabled ? prev.status : "idle",
+      }));
+      return;
+    }
+    if (timelinePollInFlightRef.current) return;
+    timelinePollInFlightRef.current = true;
+
+    try {
+      const latest = await fetchGraphLatestEvent(currentGraphId);
+      const currentCursor = timelineCursorRef.current;
+      const currentSnapshot = graphDataRef.current;
+      const latestSeq = latest.last_seq ?? 0;
+
+      if (latestSeq <= currentCursor) {
+        setTimelineSync((prev) => ({
+          ...prev,
+          enabled: true,
+          status: deriveTimelineSyncStatus(true, !!currentSnapshot, false, false),
+          lastAppliedSeq: currentCursor,
+          lastSnapshotHash: currentSnapshot?.snapshot.graph_hash ?? prev.lastSnapshotHash,
+          lastSnapshotVersion: currentSnapshot?.snapshot.graph_version ?? prev.lastSnapshotVersion,
+          lastSyncedAt: new Date().toISOString(),
+          lastError: null,
+          lastEventKind: latest.last_kind ?? prev.lastEventKind,
+        }));
+        setTimelineLastSyncedAt(new Date().toISOString());
+        setTimelineError(null);
+        scheduleTimelinePoll(2000);
+        return;
+      }
+
+      setTimelineSync((prev) => ({
+        ...prev,
+        enabled: true,
+        status: "catching_up",
+        lastEventKind: latest.last_kind ?? prev.lastEventKind,
+      }));
+
+      let cursor = currentCursor;
+      let nextSurface = currentSnapshot;
+      let safety = 0;
+      let sawRebase = false;
+
+      while (!sawRebase && cursor < latestSeq && safety < 4) {
+        const page = await fetchGraphSurface(currentGraphId, {
+          timelineLimit: 50,
+          afterSeq: cursor,
+          includeTopology: true,
+        });
+
+        if (
+          nextSurface &&
+          shouldRebaseTimeline(
+            nextSurface.snapshot.graph_hash,
+            page.snapshot.graph_hash,
+            nextSurface.snapshot.graph_version,
+            page.snapshot.graph_version,
+          )
+        ) {
+          sawRebase = true;
+        }
+
+        nextSurface = nextSurface
+          ? mergeTimelineResponse(nextSurface, page, cursor)
+          : page;
+
+        cursor = nextTimelineCursor(
+          cursor,
+          latestSeq,
+          nextSurface.timeline?.next_seq,
+        );
+        safety += 1;
+
+        if (!page.timeline?.has_more) break;
+      }
+
+      if (nextSurface) {
+        graphDataRef.current = nextSurface;
+        timelineCursorRef.current = Math.max(
+          cursor,
+          nextSurface.timeline?.next_seq ?? 0,
+          latestSeq,
+        );
+        setTimelineLastSyncedAt(new Date().toISOString());
+        setTimelineError(null);
+        setState(classifyResponse(nextSurface));
+        setTimelineSync((prev) => ({
+          ...prev,
+          enabled: true,
+          status: sawRebase ? "stale" : "live",
+          lastAppliedSeq: timelineCursorRef.current,
+          lastSnapshotHash: nextSurface.snapshot.graph_hash,
+          lastSnapshotVersion: nextSurface.snapshot.graph_version,
+          lastSyncedAt: new Date().toISOString(),
+          lastError: null,
+          lastEventKind: latest.last_kind ?? prev.lastEventKind,
+        }));
+      }
+
+      scheduleTimelinePoll(2000);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Timeline sync failed";
+      setTimelineSync((prev) => ({
+        ...prev,
+        enabled: liveEnabled,
+        status: "disconnected",
+        lastError: message,
+      }));
+      setTimelineError(message);
+      scheduleTimelinePoll(4000);
+    } finally {
+      timelinePollInFlightRef.current = false;
+    }
+  }, [graphId, timelineLiveEnabled, timelineVisible, scheduleTimelinePoll]);
+
+  useEffect(() => {
+    if (!timelineVisible) {
+      stopTimelinePoll();
+      return;
+    }
+    if (!timelineLiveEnabled) {
+      setTimelineSync((prev) => ({ ...prev, enabled: false, status: "idle" }));
+      stopTimelinePoll();
+      return;
+    }
+    setTimelineSync((prev) => ({ ...prev, enabled: true, status: prev.status === "disconnected" ? "idle" : prev.status }));
+    void pollTimeline();
+    return () => stopTimelinePoll();
+  }, [timelineVisible, timelineLiveEnabled, pollTimeline, stopTimelinePoll]);
+
+  useEffect(() => () => stopTimelinePoll(), [stopTimelinePoll]);
+
+  const handleTimelineToggle = useCallback(() => {
+    setActiveDrawer((prev) => (prev === "timeline" ? null : "timeline"));
+  }, []);
+
+  const handleLiveSyncToggle = useCallback(() => {
+    setTimelineLiveEnabled((prev) => {
+      const next = !prev;
+      setTimelineSync((sync) => ({
+        ...sync,
+        enabled: next,
+        status: next ? sync.status : "idle",
+        lastError: next ? sync.lastError : null,
+      }));
+      if (!next) {
+        stopTimelinePoll();
+      } else if (activeDrawer === "timeline") {
+        void pollTimeline();
+      }
+      return next;
+    });
+  }, [activeDrawer, pollTimeline, stopTimelinePoll]);
 
   const graphLabel = graphId ? graphId.slice(0, 12) + (graphId.length > 12 ? "…" : "") : "—";
   const data = graphData;
@@ -369,6 +717,7 @@ export default function FigViewPage() {
           selectedNodeId={selectedNodeId}
           hiddenNodeKinds={hiddenNodeKinds}
           hiddenEdgeKinds={hiddenEdgeKinds}
+          overlayMode={overlayMode}
           onNodeSelect={handleNodeSelect}
           onNodeHover={handleNodeHover}
         />
@@ -398,6 +747,16 @@ export default function FigViewPage() {
             <span className="text-[10px] text-slate-500 font-mono">{graphLabel}</span>
           </div>
           <div className="h-6 w-px bg-slate-700/60" />
+          {neighborhoodExpansion && (
+            <button
+              onClick={handleClearNeighborhood}
+              title="Neighborhood expanded — click to reset to surface snapshot"
+              className="flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[10px] text-emerald-300 hover:bg-emerald-500/20 transition-colors"
+            >
+              <span>+{neighborhoodExpansion.addedNodeCount}n expanded</span>
+              <span className="text-slate-500 text-[11px]">×</span>
+            </button>
+          )}
           <div className="flex items-center gap-1 rounded-lg border border-slate-700/50 bg-slate-950/70 p-0.5 backdrop-blur">
             {([{ id: "explore", label: "Explore", icon: <Network size={11} /> }, { id: "analyze", label: "Analyze", icon: <BarChart2 size={11} /> }, { id: "lineage", label: "Lineage", icon: <GitBranch size={11} /> }]).map((tab) => (
               <button
@@ -411,6 +770,9 @@ export default function FigViewPage() {
           </div>
         </div>
         <div className="flex items-center gap-1 pointer-events-auto">
+          <Badge size="sm" variant={timelineSync.status === "disconnected" || timelineSync.status === "error" ? "error" : timelineSync.status === "catching_up" ? "warning" : "outline"}>
+            {timelineSync.status}
+          </Badge>
           <button
             onClick={() => setSearchOpen(true)}
             title="Search nodes (press /)"
@@ -537,6 +899,9 @@ export default function FigViewPage() {
             onRequestExplain={handleRequestExplain}
             explainResult={explainResult}
             explainLoading={explainLoading}
+            onExpandNeighborhood={handleExpandNeighborhood}
+            neighborhoodLoading={neighborhoodLoading}
+            neighborhoodExpansion={neighborhoodExpansion}
           />
         ) : (
           <p className="text-xs text-slate-500 text-center py-6">
@@ -608,16 +973,61 @@ export default function FigViewPage() {
         ) : <p className="text-xs text-slate-500">No snapshot data</p>}
       </FloatingDrawer>
       <FloatingDrawer open={activeDrawer === "timeline"} onClose={() => setActiveDrawer(null)} title="Timeline">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex flex-col">
+            <span className="text-[10px] uppercase tracking-widest text-slate-500">Live timeline</span>
+            <span className="text-[10px] text-slate-400 font-mono">
+              {timelineSync.lastSyncedAt ? `synced ${formatTimestamp(timelineSync.lastSyncedAt)}` : "waiting for event journal"}
+            </span>
+          </div>
+          <button
+            onClick={handleLiveSyncToggle}
+            className={`rounded-md border px-2 py-1 text-[10px] font-medium transition-colors ${
+              timelineLiveEnabled
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                : "border-slate-700/60 bg-slate-900/50 text-slate-400"
+            }`}
+          >
+            {timelineLiveEnabled ? "Pause live" : "Resume live"}
+          </button>
+        </div>
+        {timelineError && (
+          <div className="mb-3 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-[10px] text-red-200">
+            {timelineError}
+          </div>
+        )}
         {data?.timeline?.events?.length ? (
           <div className="flex flex-col gap-1 text-xs">
             {data.timeline.events.map((ev) => (
-              <div key={ev.seq} className="flex items-center justify-between rounded bg-slate-900/30 px-2 py-1.5"><span className="font-mono text-slate-500">#{ev.seq}</span><Badge size="sm" variant="outline">{ev.kind}</Badge></div>
+              <div key={ev.seq} className="flex items-center justify-between rounded bg-slate-900/30 px-2 py-1.5">
+                <span className="font-mono text-slate-500">#{ev.seq}</span>
+                <Badge size="sm" variant="outline">{ev.kind}</Badge>
+              </div>
             ))}
           </div>
         ) : <p className="text-xs text-slate-500">No events</p>}
       </FloatingDrawer>
       <FloatingDrawer open={activeDrawer === "controls"} onClose={() => setActiveDrawer(null)} title="Graph Controls">
-        <FigControls layoutMode={layoutMode} onLayoutChange={setLayoutMode} locked={locked} onLockToggle={() => setLocked((v) => !v)} selectedNodeId={selectedNodeId} onFit={() => canvasRef.current?.fitGraph()} onCenter={() => selectedNodeId && canvasRef.current?.centerOnNode(selectedNodeId)} onResetCamera={() => canvasRef.current?.resetCamera()} onZoomIn={() => canvasRef.current?.zoomIn()} onZoomOut={() => canvasRef.current?.zoomOut()} timelineVisible={false} onTimelineToggle={() => {}} similarityMode={data?.controls?.similarity?.mode ?? "none"} />
+        <FigControls
+          layoutMode={layoutMode}
+          onLayoutChange={setLayoutMode}
+          locked={locked}
+          onLockToggle={() => setLocked((v) => !v)}
+          selectedNodeId={selectedNodeId}
+          onFit={() => canvasRef.current?.fitGraph()}
+          onCenter={() => selectedNodeId && canvasRef.current?.centerOnNode(selectedNodeId)}
+          onResetCamera={() => canvasRef.current?.resetCamera()}
+          onZoomIn={() => canvasRef.current?.zoomIn()}
+          onZoomOut={() => canvasRef.current?.zoomOut()}
+          timelineVisible={timelineVisible}
+          onTimelineToggle={handleTimelineToggle}
+          liveSyncEnabled={timelineLiveEnabled}
+          onLiveSyncToggle={handleLiveSyncToggle}
+          liveSyncStatus={timelineSync.status}
+          similarityMode={data?.controls?.similarity?.mode ?? "none"}
+          overlayMode={overlayMode}
+          onOverlayChange={setOverlayMode}
+        />
       </FloatingDrawer>
 
     </div>

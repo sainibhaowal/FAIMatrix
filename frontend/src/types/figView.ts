@@ -96,15 +96,42 @@ export type FigTimeline = {
   events: FigTimelineEvent[];
 };
 
+export type FigLatestEventResponse = {
+  graph_id: string;
+  last_seq: number;
+  last_kind: string | null;
+  last_ts: string | null;
+  snapshot_hash: string | null;
+  event_count: number;
+};
+
 // ---------------------------------------------------------------------------
 // Topology
 // ---------------------------------------------------------------------------
+
+/**
+ * Backend-computed scorecard fields.
+ *
+ * Policy (plan §11): D/H/λ are backend-verification-only when available.
+ * The backend embeds this only when a shared MetricsScorecard helper is
+ * callable at surface-build time (API contract §3.3.4). When the backend
+ * cannot compute it cheaply, it returns null and the frontend falls back
+ * to client-computed values derived from the backend-authoritative node/edge
+ * data — those are labelled "computed" in the UI to distinguish them from
+ * backend-verified values.
+ */
+export type FigBackendScorecard = {
+  density: number;
+  entropy: number;
+  spectral_radius: number;
+};
 
 export type FigTopology = {
   node_count: number;
   edge_count: number;
   edge_counts_by_kind: Record<string, number>;
-  scorecard: null;
+  /** null = backend did not compute; frontend falls back to client-side derivation. */
+  scorecard: FigBackendScorecard | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -167,3 +194,9 @@ export type FigLoadState =
   | { status: "empty"; snapshot: FigSnapshot }
   | { status: "error"; message: string }
   | { status: "degraded"; data: FigSurfaceResponse; warnings: string[] };
+
+export type FigNeighborhoodExpansion = {
+  seedNodeId: string;
+  addedNodeCount: number;
+  addedEdgeCount: number;
+};

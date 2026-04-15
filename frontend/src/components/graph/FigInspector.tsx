@@ -34,7 +34,13 @@ import {
 } from "@/lib/figViewGraphTransform";
 import { nodeColorByState } from "@/lib/figViewLayout";
 import { nodeStateClass, safeNodeTitle } from "@/lib/figViewSafety";
-import type { FigEdge, FigExplainResponse, FigNode, FigNodeDisplayState } from "@/types/figView";
+import type {
+  FigEdge,
+  FigExplainResponse,
+  FigNeighborhoodExpansion,
+  FigNode,
+  FigNodeDisplayState,
+} from "@/types/figView";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -52,6 +58,9 @@ type FigInspectorProps = {
   onRequestExplain: (fromNodeId: string, toNodeId: string) => void;
   explainResult: FigExplainResponse | null;
   explainLoading: boolean;
+  onExpandNeighborhood: (nodeId: string, depth: number) => void;
+  neighborhoodLoading: boolean;
+  neighborhoodExpansion: FigNeighborhoodExpansion | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -146,6 +155,9 @@ export default function FigInspector({
   onRequestExplain,
   explainResult,
   explainLoading,
+  onExpandNeighborhood,
+  neighborhoodLoading,
+  neighborhoodExpansion,
 }: FigInspectorProps) {
   const [sections, setSections] = useState<Record<string, boolean>>({
     identity: true,
@@ -154,8 +166,10 @@ export default function FigInspector({
     parents: true,
     children: false,
     opposition: true,
+    neighborhood: false,
     explain: true,
   });
+  const [neighborhoodDepth, setNeighborhoodDepth] = useState(1);
   const [showAllParents, setShowAllParents] = useState(false);
   const [showAllChildren, setShowAllChildren] = useState(false);
 
@@ -432,6 +446,60 @@ export default function FigInspector({
           )}
         </div>
       )}
+
+      {/* ================================================================
+          NEIGHBORHOOD EXPANSION
+      ================================================================ */}
+      <div className="border-t border-slate-800/40">
+        <SectionHeader
+          title="Neighborhood"
+          open={sections.neighborhood}
+          onToggle={() => toggleSection("neighborhood")}
+        />
+        {sections.neighborhood && (
+          <div className="mb-3 pl-1 space-y-2">
+            <p className="text-[10px] text-slate-500">
+              Expand the graph to include nodes reachable from here.
+            </p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] uppercase tracking-widest text-slate-500 shrink-0">Depth</span>
+              {([1, 2, 3] as const).map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setNeighborhoodDepth(d)}
+                  className={`rounded px-2 py-0.5 text-[10px] font-mono border transition-colors ${
+                    neighborhoodDepth === d
+                      ? "border-cyan-500/40 bg-cyan-900/50 text-cyan-300"
+                      : "border-slate-700/60 text-slate-400 hover:text-slate-200 hover:border-slate-600"
+                  }`}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => onExpandNeighborhood(node.node_id, neighborhoodDepth)}
+              disabled={neighborhoodLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-950/30 px-3 py-1.5 text-[11px] text-emerald-300 hover:bg-emerald-950/50 disabled:opacity-50 transition-all"
+            >
+              {neighborhoodLoading ? (
+                <>
+                  <Spinner size="sm" />
+                  <span>Expanding…</span>
+                </>
+              ) : (
+                "Expand Neighborhood"
+              )}
+            </button>
+            {neighborhoodExpansion?.seedNodeId === node.node_id && (
+              <div className="rounded-lg border border-emerald-800/40 bg-emerald-950/20 px-2.5 py-2 text-[10px] text-emerald-300 space-y-0.5">
+                <div>+{neighborhoodExpansion.addedNodeCount} node{neighborhoodExpansion.addedNodeCount !== 1 ? "s" : ""} added</div>
+                <div>+{neighborhoodExpansion.addedEdgeCount} edge{neighborhoodExpansion.addedEdgeCount !== 1 ? "s" : ""} added</div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* ================================================================
           EXPLAIN RELATION

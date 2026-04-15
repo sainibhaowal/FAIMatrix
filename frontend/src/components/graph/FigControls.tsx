@@ -11,11 +11,12 @@ import {
   Network,
   Plus,
   RotateCcw,
+  RefreshCw,
   Unlock,
 } from "lucide-react";
 
-import { Badge, Button } from "@/components/ui";
-import type { LayoutMode } from "@/lib/figViewLayout";
+import { Badge } from "@/components/ui";
+import type { LayoutMode, OverlayMode } from "@/lib/figViewLayout";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -34,7 +35,12 @@ type FigControlsProps = {
   onZoomOut: () => void;
   timelineVisible: boolean;
   onTimelineToggle: () => void;
+  liveSyncEnabled: boolean;
+  onLiveSyncToggle: () => void;
+  liveSyncStatus: "idle" | "live" | "catching_up" | "stale" | "disconnected" | "error";
   similarityMode: string;
+  overlayMode: OverlayMode;
+  onOverlayChange: (mode: OverlayMode) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -45,6 +51,13 @@ const MODES: Array<{ key: LayoutMode; label: string; icon: React.ReactNode }> = 
   { key: "explore", label: "Explore", icon: <Eye className="h-3.5 w-3.5" /> },
   { key: "analyze", label: "Analyze", icon: <Network className="h-3.5 w-3.5" /> },
   { key: "lineage", label: "Lineage", icon: <GitFork className="h-3.5 w-3.5" /> },
+];
+
+const OVERLAYS: Array<{ key: OverlayMode; label: string; title: string }> = [
+  { key: "none",      label: "None",      title: "No overlay — use layout mode coloring" },
+  { key: "retrieval", label: "Retrieval", title: "Highlight nodes by retrieval relevance (residual × touch count)" },
+  { key: "evolution", label: "Evolution", title: "Encode lifecycle state × temporal freshness" },
+  { key: "temporal",  label: "Temporal",  title: "Warm-cool gradient by last access recency (causal flow)" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -64,7 +77,12 @@ export default function FigControls({
   onZoomOut,
   timelineVisible,
   onTimelineToggle,
+  liveSyncEnabled,
+  onLiveSyncToggle,
+  liveSyncStatus,
   similarityMode,
+  overlayMode,
+  onOverlayChange,
 }: FigControlsProps) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-slate-900/70 border border-slate-800 px-3 py-2">
@@ -132,13 +150,52 @@ export default function FigControls({
             : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
         }`}
         title={timelineVisible ? "Hide timeline" : "Show timeline"}
-      >
+        >
         <Clock3 className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">Timeline</span>
       </button>
 
+      <button
+        onClick={onLiveSyncToggle}
+        className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+          liveSyncEnabled
+            ? "bg-emerald-900/35 text-emerald-300"
+            : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+        }`}
+        title={liveSyncEnabled ? "Pause live timeline sync" : "Resume live timeline sync"}
+      >
+        <RefreshCw className={`h-3.5 w-3.5 ${liveSyncEnabled && liveSyncStatus === "live" ? "animate-spin" : ""}`} />
+        <span className="hidden sm:inline">Live</span>
+      </button>
+
+      <Separator />
+
+      {/* Overlay mode */}
+      <div className="flex flex-col gap-1 w-full">
+        <span className="text-[9px] uppercase tracking-widest text-slate-500 px-1">Overlay</span>
+        <div className="flex items-center rounded-lg bg-slate-800/60 p-0.5">
+          {OVERLAYS.map((o) => (
+            <button
+              key={o.key}
+              onClick={() => onOverlayChange(o.key)}
+              title={o.title}
+              className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                overlayMode === o.key
+                  ? "bg-violet-900/60 text-violet-300"
+                  : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Similarity control (v1 placeholder) */}
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex items-center gap-1 mt-1">
+        <Badge size="sm" variant={liveSyncStatus === "disconnected" || liveSyncStatus === "error" ? "error" : liveSyncStatus === "catching_up" ? "warning" : "outline"}>
+          {liveSyncStatus}
+        </Badge>
         <Badge size="sm" variant="outline">
           similarity: {similarityMode}
         </Badge>
