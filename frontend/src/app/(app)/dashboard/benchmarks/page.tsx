@@ -116,7 +116,7 @@ export default function BenchmarksPage() {
             <Button onClick={handleRunStressTest} disabled={loading} variant="secondary" size="sm">
               Stress Test
             </Button>
-            <Button onClick={handleExport} disabled={loading} variant="secondary" size="sm">
+            <Button onClick={handleExport} disabled={loading || !benchmark} variant="secondary" size="sm">
               <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
@@ -124,7 +124,43 @@ export default function BenchmarksPage() {
         }
       />
 
-      {signals && (
+      {!benchmark && !loading && (
+        <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-8 text-center">
+          <div className="max-w-md mx-auto">
+            <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mx-auto mb-4">
+              <Activity className="h-6 w-6 text-cyan-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">No Benchmarks Run Yet</h3>
+            <p className="text-slate-400 text-sm mb-6">
+              Click "Run Benchmark" to execute the BM-1–BM-9 test suite and measure your graph's performance across ingest speed, retrieval latency, graph evolution, and stability.
+            </p>
+            <div className="space-y-3 text-sm text-slate-400">
+              <div className="flex gap-3 items-start">
+                <span className="text-cyan-400 font-semibold">1.</span>
+                <span>Click "Run Benchmark" — measures baseline performance (ingest, retrieval, evolution, scoring)</span>
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="text-cyan-400 font-semibold">2.</span>
+                <span>Click "Stress Test" — progressive load testing to find your saturation point</span>
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="text-cyan-400 font-semibold">3.</span>
+                <span>View Golden Signals — real-time CPU, memory, latency, error rates from your system</span>
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="text-cyan-400 font-semibold">4.</span>
+                <span>Check Alerts — 9 rule-based anomaly conditions (latency spikes, memory pressure, invariants)</span>
+              </div>
+              <div className="flex gap-3 items-start">
+                <span className="text-cyan-400 font-semibold">5.</span>
+                <span>Export Report — download complete snapshot with SHA-256 integrity hash</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {signals ? (
         <div className="grid grid-cols-4 gap-4">
           <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Latency</p>
@@ -158,7 +194,22 @@ export default function BenchmarksPage() {
             <p className="text-[10px] text-slate-500 mt-1">memory usage</p>
           </div>
         </div>
-      )}
+      ) : benchmark ? (
+        <div className="grid grid-cols-4 gap-4">
+          {[
+            { label: "Latency", color: "text-cyan-400" },
+            { label: "Traffic", color: "text-purple-400" },
+            { label: "Errors", color: "text-amber-400" },
+            { label: "Saturation", color: "text-orange-400" },
+          ].map((item) => (
+            <div key={item.label} className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">{item.label}</p>
+              <p className={`text-2xl font-bold ${item.color}`}>—</p>
+              <p className="text-[10px] text-slate-500 mt-1">collecting...</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="flex gap-2 border-b border-slate-800">
         {(["overview", "golden-signals", "stress", "alerts", "export"] as const).map((tab) => (
