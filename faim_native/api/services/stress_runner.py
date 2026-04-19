@@ -12,6 +12,8 @@ import threading
 from dataclasses import dataclass
 from typing import Dict, List, Any, Optional
 from sqlalchemy.orm import Session
+from orchestration.ingest_flow import run_ingest, FAIMProfile, PersistMode
+from core.invariants import check_all_invariants
 
 
 @dataclass
@@ -105,10 +107,6 @@ class StressRunner:
 
         Actually ingests documents using the real orchestration pipeline.
         """
-        from orchestration.ingest_flow import ingest_packet_flow, FAIMProfile
-        from core.invariants import check_all_invariants
-        from perception.packetize import create_packet
-
         latencies: List[float] = []
         error_count = 0
         invariants_passed = True
@@ -122,37 +120,30 @@ class StressRunner:
 
             for doc_id, content in doc_batch:
                 try:
-                    # Create real packet from content
-                    packet = create_packet(
-                        tenant_id=self.ctx.tenant_id,
-                        graph_id=graph_id,
-                        raw_bytes=content.encode("utf-8"),
-                        filename=f"stress_test_{doc_id}.txt",
-                        doc_type="text",
-                    )
-
-                    # REAL ingest using actual pipeline
+                    # REAL ingest using actual run_ingest pipeline
                     ingest_start = time.monotonic()
-                    result = ingest_packet_flow(
-                        session=self.ctx.session,
-                        tenant_id=self.ctx.tenant_id,
+                    result = run_ingest(
                         graph_id=graph_id,
-                        packet=packet,
+                        raw_id=f"stress_{doc_id}",
+                        filename=f"stress_test_{doc_id}.txt",
+                        file_bytes=content.encode("utf-8"),
+                        tenant_id=self.ctx.tenant_id,
+                        session=self.ctx.session,
                         profile=FAIMProfile.STRICT,
+                        persist_mode=PersistMode.RELAXED,
                     )
                     ingest_duration = (time.monotonic() - ingest_start) * 1000  # ms
 
                     latencies.append(ingest_duration)
-                    docs_ingested += 1
 
-                    # Commit after each document to avoid long transactions
-                    try:
-                        self.ctx.session.commit()
-                    except Exception:
-                        self.ctx.session.rollback()
+                    # Only count successful ingests
+                    if result.status in ("completed", "dedup_hit"):
+                        docs_ingested += 1
+                    else:
+                        error_count += 1
 
-                    # Check invariants periodically
-                    if docs_ingested % 10 == 0:
+                    # Check invariants periodically on successful ingests
+                    if docs_ingested > 0 and docs_ingested % 10 == 0:
                         try:
                             check_all_invariants(
                                 session=self.ctx.session,
@@ -163,6 +154,7 @@ class StressRunner:
 
                 except Exception as e:
                     error_count += 1
+                    latencies.append(0.0)  # Record failed attempt
                     try:
                         self.ctx.session.rollback()
                     except:
