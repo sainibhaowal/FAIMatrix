@@ -3,6 +3,7 @@
 from .admin import router as admin_router
 from .api_keys import router as api_keys_router
 from .auth import router as auth_router
+from .benchmarks import router as benchmarks_router
 from .events import router as events_router
 from .evolve import router as evolve_router
 from .graph import router as graph_router
@@ -19,6 +20,7 @@ __all__ = [
     "api_keys_router",
     "auth_router",
     "events_router",
+    "benchmarks_router",
     "ingest_router",
     "query_router",
     "memory_router",
