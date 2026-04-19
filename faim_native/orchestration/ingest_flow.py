@@ -320,11 +320,7 @@ def run_ingest(
     phase_latency_ms: Dict[str, int] = {}
     raw_id = str(raw_id or "").strip()
     extraction_settings = dict(extraction_settings or {})
-    requested_extractor_mode = str(
-        extraction_settings.get("extractor_mode", "auto") or "auto"
-    ).strip().lower()
-    if requested_extractor_mode not in {"auto", "faim_native", "docnative"}:
-        requested_extractor_mode = "auto"
+    requested_extractor_mode = "faim_native"
     extraction_settings["extractor_mode"] = requested_extractor_mode
     effective_extractor_mode = requested_extractor_mode
 
@@ -395,13 +391,7 @@ def run_ingest(
 
         phase_started = time.perf_counter()
         blocks = route_extraction(file_bytes, filename, raw_id, settings=extraction_settings)
-        effective_extractor_mode = str(
-            extraction_settings.get("_effective_extractor_mode")
-            or extraction_settings.get("_requested_extractor_mode")
-            or requested_extractor_mode
-        ).strip().lower()
-        if effective_extractor_mode not in {"auto", "faim_native", "docnative"}:
-            effective_extractor_mode = "faim_native"
+        effective_extractor_mode = "faim_native"
         _finish_phase("extract", phase_started)
 
         if not blocks:

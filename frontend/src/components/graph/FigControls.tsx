@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Clock3,
   Crosshair,
@@ -17,6 +18,7 @@ import {
 
 import { Badge } from "@/components/ui";
 import type { LayoutMode, OverlayMode } from "@/lib/figViewLayout";
+import type { FigNode, FigTopology } from "@/types/figView";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,6 +43,8 @@ type FigControlsProps = {
   similarityMode: string;
   overlayMode: OverlayMode;
   onOverlayChange: (mode: OverlayMode) => void;
+  topology?: FigTopology | null;
+  nodes?: FigNode[];
 };
 
 // ---------------------------------------------------------------------------
@@ -57,12 +61,26 @@ const OVERLAYS: Array<{ key: OverlayMode; label: string; title: string }> = [
   { key: "none",      label: "None",      title: "No overlay — use layout mode coloring" },
   { key: "retrieval", label: "Retrieval", title: "Highlight nodes by retrieval relevance (residual × touch count)" },
   { key: "evolution", label: "Evolution", title: "Encode lifecycle state × temporal freshness" },
-  { key: "temporal",  label: "Temporal",  title: "Warm-cool gradient by last access recency (causal flow)" },
+  { key: "temporal",  label: "Temporal",  title: "Warm-cool gradient by last access recency" },
+  { key: "causality", label: "Causality", title: "Hot zones by combined recency × access frequency" },
 ];
 
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
+
+// Color helpers for quality indicators
+function dHealthColor(d: number) { return d >= 0.15 ? "#22d3ee" : d >= 0.05 ? "#fbbf24" : "#64748b"; }
+function hHealthColor(h: number) { return h >= 0.8 ? "#a78bfa" : h >= 0.3 ? "#fbbf24" : "#64748b"; }
+function lHealthColor(l: number) { return l >= 2.0 ? "#34d399" : l >= 0.5 ? "#fbbf24" : "#64748b"; }
+function stateColor(s: string): string {
+  const MAP: Record<string, string> = {
+    active: "#34d399", cold: "#64748b", historical: "#fbbf24",
+    compressed: "#60a5fa", deduplicated: "#a78bfa", pruned: "#f87171",
+    deactivated: "#475569", unknown: "#94a3b8",
+  };
+  return MAP[s] ?? "#94a3b8";
+}
 
 export default function FigControls({
   layoutMode,
@@ -83,7 +101,32 @@ export default function FigControls({
   similarityMode,
   overlayMode,
   onOverlayChange,
+  topology,
+  nodes = [],
 }: FigControlsProps) {
+  const quality = useMemo(() => {
+    if (!nodes.length) return null;
+    const counts: Record<string, number> = {};
+    let macroCount = 0;
+    for (const n of nodes) {
+      const s = n.display?.state ?? "unknown";
+      counts[s] = (counts[s] ?? 0) + 1;
+      if (n.level > 0) macroCount++;
+    }
+    const total = nodes.length;
+    const compressedCount = (counts.compressed ?? 0) + (counts.deduplicated ?? 0);
+    const edgeTotal = topology?.edge_count ?? 0;
+    const oppCount = topology?.edge_counts_by_kind?.opposition ?? topology?.edge_counts_by_kind?.OPPOSITION ?? 0;
+    return {
+      counts,
+      total,
+      macroRatio: total > 0 ? macroCount / total : 0,
+      compressionRate: total > 0 ? compressedCount / total : 0,
+      activeRatio: total > 0 ? (counts.active ?? 0) / total : 0,
+      oppositionDensity: edgeTotal > 0 ? oppCount / edgeTotal : 0,
+    };
+  }, [nodes, topology]);
+
   return (
     <div className="flex flex-wrap items-center gap-1.5 rounded-xl bg-slate-900/70 border border-slate-800 px-3 py-2">
       {/* Layout mode toggle */}
@@ -200,6 +243,76 @@ export default function FigControls({
           similarity: {similarityMode}
         </Badge>
       </div>
+
+      {/* ================================================================
+          TOPOLOGY QUALITY PANEL
+          Shows D/H/λ health, node lifecycle breakdown, and self-org signals.
+          All values computed client-side from backend-authoritative data.
+      ================================================================ */}
+      {(topology || quality) && (
+        <div className="w-full mt-1 space-y-2 border-t border-slate-700/40 pt-2">
+          <span className="text-[9px] uppercase tracking-widest text-slate-500 px-1">Graph Quality</span>
+
+          {/* Scorecard health — color-coded D / H / λ */}
+          {topology?.scorecard && (
+            <div className="grid grid-cols-3 gap-1">
+              {[
+                { key: "D", val: topology.scorecard.density, color: dHealthColor(topology.scorecard.density), hint: "density" },
+                { key: "H", val: topology.scorecard.entropy, color: hHealthColor(topology.scorecard.entropy), hint: "entropy" },
+                { key: "λ", val: topology.scorecard.spectral_radius, color: lHealthColor(topology.scorecard.spectral_radius), hint: "spectral" },
+              ].map(({ key, val, color, hint }) => (
+                <div key={key} className="flex flex-col items-center rounded-md bg-slate-900/40 border border-slate-800/60 py-1.5">
+                  <span className="font-mono text-xs font-bold" style={{ color }}>{val.toFixed(2)}</span>
+                  <span className="text-[8px] text-slate-500">{key}</span>
+                  <span className="text-[7px] text-slate-700">{hint}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Self-org signals */}
+          {quality && (
+            <div className="grid grid-cols-2 gap-1">
+              {[
+                { label: "Active", value: `${(quality.activeRatio * 100).toFixed(0)}%`, color: quality.activeRatio >= 0.6 ? "#34d399" : quality.activeRatio >= 0.3 ? "#fbbf24" : "#94a3b8" },
+                { label: "Compressed", value: `${(quality.compressionRate * 100).toFixed(0)}%`, color: quality.compressionRate > 0 ? "#60a5fa" : "#64748b" },
+                { label: "Macro nodes", value: `${(quality.macroRatio * 100).toFixed(0)}%`, color: quality.macroRatio > 0 ? "#a78bfa" : "#64748b" },
+                { label: "Opp. density", value: `${(quality.oppositionDensity * 100).toFixed(0)}%`, color: quality.oppositionDensity > 0.2 ? "#f87171" : quality.oppositionDensity > 0.05 ? "#fbbf24" : "#64748b" },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="flex items-center justify-between rounded bg-slate-900/30 px-2 py-1">
+                  <span className="text-[9px] text-slate-500">{label}</span>
+                  <span className="font-mono text-[10px] font-semibold" style={{ color }}>{value}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Node lifecycle breakdown */}
+          {quality && Object.entries(quality.counts).length > 0 && (
+            <div className="space-y-0.5">
+              <span className="text-[8px] uppercase tracking-widest text-slate-600 px-1">Lifecycle</span>
+              {Object.entries(quality.counts)
+                .sort(([, a], [, b]) => b - a)
+                .map(([state, count]) => (
+                  <div key={state} className="flex items-center gap-1.5 px-1">
+                    <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: stateColor(state) }} />
+                    <span className="flex-1 text-[9px] text-slate-500 capitalize">{state}</span>
+                    <span className="font-mono text-[9px] text-slate-400">{count}</span>
+                    <div
+                      className="h-1 rounded-full bg-slate-700"
+                      style={{ width: 40, position: "relative" }}
+                    >
+                      <div
+                        className="h-1 rounded-full absolute left-0 top-0"
+                        style={{ width: `${(count / quality.total) * 100}%`, backgroundColor: stateColor(state) }}
+                      />
+                    </div>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

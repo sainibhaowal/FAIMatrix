@@ -277,8 +277,12 @@ def recall_candidates_brute_force(
     q_vec: Tuple[float, ...],
     n: int = 200,
     level_filter: Optional[int] = None,
+    cluster_ids: Optional[List[int]] = None,
 ) -> List[Tuple[UUID, float]]:
     """Brute-force candidate recall from Postgres.
+
+    If cluster_ids is provided (from cluster scoping), filters to those clusters first,
+    then falls back to full scan if the filtered result is too small.
 
     Returns list of (node_id, cosine_sim) ordered by similarity desc.
     """
@@ -291,6 +295,20 @@ def recall_candidates_brute_force(
 
     if level_filter is not None:
         query = query.filter(NodeModel.level <= level_filter)
+
+    # Cluster scoping: filter to relevant clusters when available
+    if cluster_ids:
+        scoped_query = query.filter(NodeModel.cluster_id.in_(cluster_ids))
+        scoped_nodes = scoped_query.limit(n * 10).all()
+        # Fall back to full scan if cluster filter yields too few candidates
+        if len(scoped_nodes) >= max(10, n // 2):
+            candidates = []
+            for node in scoped_nodes:
+                n_vec = tuple(node.v_native) if isinstance(node.v_native, list) else tuple(node.v_native)
+                sim = cosine_similarity(q_vec, n_vec)
+                candidates.append((node.node_id, sim))
+            candidates.sort(key=lambda x: (-x[1], str(x[0])))
+            return candidates[:n]
 
     # Limit scan for performance
     nodes = query.limit(n * 10).all()
@@ -331,16 +349,39 @@ def recall_with_graph_expansion(
     Returns list of (node_id, cosine_sim) ordered by similarity desc.
     """
     from sqlalchemy import or_
-    from store.pg.models_faim import EdgeModel, NodeModel
+    from store.pg.models_faim import EdgeModel, NodeModel, GraphClusterModel
     from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
+    from core.clustering import nearest_cluster
 
-    # Step 1: Fast seed recall — top seed_k by cosine (existing function)
+    # Cluster scoping: load centers and find top-2 clusters for this query
+    cluster_ids: Optional[List[int]] = None
+    try:
+        cluster_rows = (
+            session.query(GraphClusterModel)
+            .filter(
+                GraphClusterModel.tenant_id == tenant_id,
+                GraphClusterModel.graph_id == graph_id,
+            )
+            .all()
+        )
+        if len(cluster_rows) >= 2:
+            centers = [None] * len(cluster_rows)
+            for row in cluster_rows:
+                if 0 <= row.cluster_id < len(centers):
+                    centers[row.cluster_id] = list(row.center) if row.center else []
+            q_list = list(q_vec)
+            cluster_ids = nearest_cluster(q_list, [c for c in centers if c], top_k=2)
+    except Exception:
+        cluster_ids = None  # silently fall back to full scan
+
+    # Step 1: Fast seed recall — top seed_k by cosine (cluster-scoped if available)
     seeds = recall_candidates_brute_force(
         session=session,
         tenant_id=tenant_id,
         graph_id=graph_id,
         q_vec=q_vec,
         n=seed_k,
+        cluster_ids=cluster_ids,
     )
     if not seeds:
         return []

@@ -271,6 +271,8 @@ export default function FigViewPage() {
   const [neighborhoodExpansion, setNeighborhoodExpansion] = useState<FigNeighborhoodExpansion | null>(null);
   const [neighborhoodLoading, setNeighborhoodLoading] = useState(false);
   const [overlayMode, setOverlayMode] = useState<OverlayMode>("none");
+  // Timeline step mode — null = scrolling list, number = step cursor
+  const [timelineStepIdx, setTimelineStepIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (initializedRef.current) return;
@@ -312,6 +314,26 @@ export default function FigViewPage() {
     () => (graphData?.edges ?? []).filter((e) => !hiddenEdgeKinds.has(e.kind)),
     [graphData?.edges, hiddenEdgeKinds],
   );
+
+  // Explain path for canvas visualization — derived from explainResult.
+  // Only the first path is visualized; amber-400 nodes/edges + particles.
+  const explainPath = useMemo(() => {
+    if (!explainResult?.path_found) return null;
+    const firstPath = explainResult.paths[0];
+    if (!firstPath) return null;
+    return {
+      nodeIdSet: new Set(firstPath.node_ids),
+      edgeIdSet: new Set(firstPath.edges.map((e) => e.edge_id)),
+    };
+  }, [explainResult]);
+
+  // Derive historyTs from current timeline step for graph-at-time visualization.
+  // Null when not in step mode; canvas filters nodes/edges to created_at <= ts.
+  const historyTs = useMemo(() => {
+    if (timelineStepIdx === null) return null;
+    const events = graphData?.timeline?.events ?? [];
+    return events[timelineStepIdx]?.ts ?? null;
+  }, [timelineStepIdx, graphData?.timeline?.events]);
 
   useEffect(() => {
     graphDataRef.current = graphData;
@@ -718,6 +740,8 @@ export default function FigViewPage() {
           hiddenNodeKinds={hiddenNodeKinds}
           hiddenEdgeKinds={hiddenEdgeKinds}
           overlayMode={overlayMode}
+          explainPath={explainPath}
+          historyTs={historyTs}
           onNodeSelect={handleNodeSelect}
           onNodeHover={handleNodeHover}
         />
@@ -996,16 +1020,84 @@ export default function FigViewPage() {
             {timelineError}
           </div>
         )}
-        {data?.timeline?.events?.length ? (
-          <div className="flex flex-col gap-1 text-xs">
-            {data.timeline.events.map((ev) => (
-              <div key={ev.seq} className="flex items-center justify-between rounded bg-slate-900/30 px-2 py-1.5">
-                <span className="font-mono text-slate-500">#{ev.seq}</span>
-                <Badge size="sm" variant="outline">{ev.kind}</Badge>
+        {data?.timeline?.events?.length ? (() => {
+          const events = data.timeline!.events;
+          const total = events.length;
+          const stepActive = timelineStepIdx !== null;
+          const clampedStep = stepActive ? Math.min(timelineStepIdx!, total - 1) : null;
+          const currentEv = clampedStep !== null ? events[clampedStep] : null;
+          return (
+            <div className="space-y-2 text-xs">
+              {/* Step mode controls */}
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => { setTimelineStepIdx(stepActive ? null : 0); }}
+                  className={`rounded px-2 py-0.5 text-[10px] border transition-colors ${stepActive ? "border-amber-500/40 bg-amber-950/30 text-amber-300" : "border-slate-700/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-400/30"}`}
+                >
+                  {stepActive ? "Exit step" : "Step mode"}
+                </button>
+                {stepActive && (
+                  <>
+                    <button
+                      onClick={() => setTimelineStepIdx(Math.max(0, clampedStep! - 1))}
+                      disabled={clampedStep === 0}
+                      className="rounded px-1.5 py-0.5 text-[10px] border border-slate-700/60 text-slate-400 hover:text-cyan-300 disabled:opacity-30 transition-colors"
+                    >←</button>
+                    <span className="text-[9px] text-slate-500">{clampedStep! + 1} / {total}</span>
+                    <button
+                      onClick={() => setTimelineStepIdx(Math.min(total - 1, clampedStep! + 1))}
+                      disabled={clampedStep === total - 1}
+                      className="rounded px-1.5 py-0.5 text-[10px] border border-slate-700/60 text-slate-400 hover:text-cyan-300 disabled:opacity-30 transition-colors"
+                    >→</button>
+                  </>
+                )}
               </div>
-            ))}
-          </div>
-        ) : <p className="text-xs text-slate-500">No events</p>}
+
+              {/* Current step event detail */}
+              {currentEv && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-950/20 px-2.5 py-2 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] text-amber-300">#{currentEv.seq}</span>
+                    <Badge size="sm" variant="warning">{currentEv.kind}</Badge>
+                  </div>
+                  {currentEv.ts && (
+                    <p className="text-[9px] text-slate-400">{new Date(currentEv.ts).toLocaleString()}</p>
+                  )}
+                  {currentEv.payload_keys.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {currentEv.payload_keys.map((k) => (
+                        <span key={k} className="rounded bg-slate-800/60 px-1 py-0.5 text-[8px] font-mono text-slate-500">{k}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Event list */}
+              <div className="flex flex-col gap-0.5">
+                {events.map((ev, idx) => (
+                  <button
+                    key={ev.seq}
+                    onClick={() => stepActive && setTimelineStepIdx(idx)}
+                    className={`flex items-center justify-between rounded px-2 py-1.5 text-left transition-colors ${
+                      stepActive && clampedStep === idx
+                        ? "border border-amber-500/30 bg-amber-950/20"
+                        : stepActive
+                          ? "hover:bg-slate-800/40 cursor-pointer border border-transparent"
+                          : "border border-transparent"
+                    }`}
+                  >
+                    <span className="font-mono text-slate-500">#{ev.seq}</span>
+                    <div className="flex items-center gap-1">
+                      {ev.ts && <span className="text-[8px] text-slate-600">{new Date(ev.ts).toLocaleTimeString()}</span>}
+                      <Badge size="sm" variant="outline">{ev.kind}</Badge>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })() : <p className="text-xs text-slate-500">No events</p>}
       </FloatingDrawer>
       <FloatingDrawer open={activeDrawer === "controls"} onClose={() => setActiveDrawer(null)} title="Graph Controls">
         <FigControls
@@ -1027,6 +1119,8 @@ export default function FigViewPage() {
           similarityMode={data?.controls?.similarity?.mode ?? "none"}
           overlayMode={overlayMode}
           onOverlayChange={setOverlayMode}
+          topology={graphData?.topology}
+          nodes={graphData?.nodes}
         />
       </FloatingDrawer>
 

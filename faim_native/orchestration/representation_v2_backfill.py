@@ -124,7 +124,11 @@ def run_representation_v2_backfill(
             except Exception as exc:  # nosec B110
                 result.files_failed += 1
                 if len(result.errors) < max_errors:
-                    result.errors.append(f"{row.filename}: {exc}")
+                    result.errors.append(f"{row.filename}: {exc!r}")
+                try:
+                    session.rollback()
+                except Exception:
+                    pass
 
         offset += len(rows)
 

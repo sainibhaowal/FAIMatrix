@@ -142,19 +142,21 @@ async def get_latest_event(
     Returns:
         {"last_seq": int, "last_kind": str, "snapshot_hash": str|null}
     """
-    # Get recent events efficiently
-    events = ctx.event_repo.get_by_seq(
+    # Real total count via SQL COUNT — not capped by pagination
+    total_count = ctx.event_repo.count(ctx.session, graph_id=graph_id)
+
+    # Fetch only the last few events to find latest seq/kind and snapshot hash
+    recent = ctx.event_repo.get_by_seq(
         ctx.session,
         graph_id=graph_id,
         after_seq=0,
-        limit=200,
+        limit=50,
     )
 
-    last_event = events[-1] if events else None
+    last_event = recent[-1] if recent else None
 
-    # Find last snapshot hash from DIAGNOSTICS_SNAPSHOT events
     snapshot_hash = None
-    for e in reversed(events):
+    for e in reversed(recent):
         if e.kind == "DIAGNOSTICS_SNAPSHOT":
             snapshot_hash = e.payload.get("graph_hash")
             break
@@ -165,7 +167,7 @@ async def get_latest_event(
         "last_kind": last_event.kind if last_event else None,
         "last_ts": last_event.ts.isoformat() if last_event and last_event.ts else None,
         "snapshot_hash": snapshot_hash,
-        "event_count": len(events),
+        "event_count": total_count,
     }
 
 

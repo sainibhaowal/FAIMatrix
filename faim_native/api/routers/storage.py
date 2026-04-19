@@ -20,7 +20,7 @@ from uuid import UUID
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, desc, text
+from sqlalchemy import and_, desc, func, text
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -194,8 +194,6 @@ class StorageSupportedTypesResponse(BaseModel):
     ocr_engine: str
     ocr_fail_closed: bool
     ocr_capable_extensions: List[str]
-    docnative_enabled: bool
-    docnative_available: bool
 
 
 class StorageMaintenanceHistoryItem(BaseModel):
@@ -277,6 +275,42 @@ class StorageRepresentationBackfillResponse(BaseModel):
     skipped_nodes: int
     graph_version: int
     errors: List[str] = Field(default_factory=list)
+
+
+class StoragePruneResponse(BaseModel):
+    """Cold-node pruning summary."""
+
+    status: str
+    graph_id: str
+    dry_run: bool
+    cold_age_days: int
+    scanned: int
+    pruned: int
+    skipped_level: int
+    skipped_touched: int
+    graph_version: int
+
+
+class StorageLongTermResponse(BaseModel):
+    """Response for long-term flag toggle on a node."""
+
+    status: str
+    node_id: str
+    graph_id: str
+    long_term: bool
+
+
+class StorageClusterResponse(BaseModel):
+    """Response for k-means clustering run."""
+
+    status: str
+    graph_id: str
+    k: int
+    nodes_clustered: int
+    iterations: int
+    converged: bool
+    cluster_sizes: Dict[str, int]
+    graph_version: int
 
 
 class StorageCanonicalSemanticsRebuildResponse(BaseModel):
@@ -525,10 +559,7 @@ def _storage_encryption_enabled() -> bool:
 
 
 def _normalize_extractor_mode(value: Optional[str]) -> str:
-    mode = str(value or "auto").strip().lower()
-    if mode not in {"auto", "faim_native", "docnative"}:
-        return "auto"
-    return mode
+    return "faim_native"
 
 
 def _maintenance_summary(kind: str, payload: Dict[str, Any]) -> str:
@@ -2412,16 +2443,6 @@ async def get_storage_supported_types(
     except Exception:
         get_ocr_settings = None  # type: ignore[assignment]
 
-    try:
-        from models.DocNative.docnative_service import is_docnative_available
-    except Exception:
-        try:
-            from faim.Faim_Native.models.DocNative.docnative_service import (
-                is_docnative_available,
-            )
-        except Exception:
-            is_docnative_available = None  # type: ignore[assignment]
-
     if get_ocr_settings is not None:
         ocr_settings = get_ocr_settings()
         ocr_enabled = bool(ocr_settings.enabled)
@@ -2431,14 +2452,6 @@ async def get_storage_supported_types(
         ocr_enabled = False
         ocr_engine = "unavailable"
         ocr_fail_closed = False
-
-    docnative_available = bool(is_docnative_available()) if callable(is_docnative_available) else False
-    docnative_enabled = os.getenv("FAIM_DOCNATIVE_ENABLED", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
 
     categories: Dict[str, List[str]] = {
         "documents": [],
@@ -2512,8 +2525,6 @@ async def get_storage_supported_types(
         ocr_engine=ocr_engine,
         ocr_fail_closed=ocr_fail_closed,
         ocr_capable_extensions=ocr_capable_extensions,
-        docnative_enabled=docnative_enabled,
-        docnative_available=docnative_available,
     )
 
 
@@ -2929,6 +2940,249 @@ async def enqueue_storage_retention_job(
         graph_id=graph_for_job,
         kind="storage_retention",
         status="pending",
+    )
+
+
+@router.post(
+    "/graphs/{graph_id}/prune-cold-nodes",
+    response_model=StoragePruneResponse,
+)
+async def prune_cold_nodes(
+    graph_id: str,
+    dry_run: bool = Query(True, description="If true, report what would be pruned without deleting"),
+    cold_age_days: int = Query(90, ge=30, le=365),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StoragePruneResponse:
+    """Prune cold nodes: level-0 atoms with zero touch_count and no access within cold_age_days."""
+    from store.pg.models_faim import NodeModel as _NM
+
+    _require_storage_repos(ctx)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=cold_age_days)
+
+    candidates = (
+        ctx.session.query(_NM)
+        .filter(
+            _NM.tenant_id == ctx.tenant_id,
+            _NM.graph_id == graph_id,
+            _NM.level == 0,
+            _NM.touch_count == 0,
+            _NM.last_access.is_(None),
+            _NM.created_at < cutoff,
+            _NM.long_term == False,  # noqa: E712 — long_term nodes are never pruned
+        )
+        .all()
+    )
+
+    scanned = len(candidates)
+    pruned = 0
+
+    if not dry_run:
+        for node in candidates:
+            try:
+                ctx.session.delete(node)
+                pruned += 1
+            except Exception:
+                pass
+        ctx.session.commit()
+
+        gv = 0
+        try:
+            gv = ctx.gv_repo.bump(
+                session=ctx.session,
+                graph_id=graph_id,
+                reason=f"prune_cold_nodes_{cold_age_days}d",
+            )
+        except Exception:
+            pass
+    else:
+        pruned = scanned  # dry run: all candidates qualify
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="prune_cold_nodes",
+        status="dry_run" if dry_run else "completed",
+        graph_id=graph_id,
+        detail=f"cold_age={cold_age_days}d scanned={scanned} pruned={'(dry)' if dry_run else pruned}",
+    )
+
+    return StoragePruneResponse(
+        status="dry_run" if dry_run else "ok",
+        graph_id=graph_id,
+        dry_run=dry_run,
+        cold_age_days=cold_age_days,
+        scanned=scanned,
+        pruned=pruned,
+        skipped_level=0,
+        skipped_touched=0,
+        graph_version=0 if dry_run else gv,
+    )
+
+
+# =============================================================================
+# Long-term memory flag — exempt individual nodes from cold pruning
+# =============================================================================
+
+
+@router.post(
+    "/graphs/{graph_id}/nodes/{node_id}/long-term",
+    response_model=StorageLongTermResponse,
+)
+async def set_node_long_term(
+    graph_id: str,
+    node_id: str,
+    long_term: bool = Query(True, description="Set to true to protect node from cold pruning"),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageLongTermResponse:
+    """Toggle the long_term flag on a node. Long-term nodes are never cold-pruned."""
+    from store.pg.models_faim import NodeModel as _NM
+    import uuid as _uuid
+
+    _require_storage_repos(ctx)
+
+    try:
+        nid = _uuid.UUID(node_id)
+    except ValueError:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="Invalid node_id format")
+
+    node = (
+        ctx.session.query(_NM)
+        .filter(
+            _NM.tenant_id == ctx.tenant_id,
+            _NM.graph_id == graph_id,
+            _NM.node_id == nid,
+        )
+        .first()
+    )
+    if node is None:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Node not found")
+
+    node.long_term = long_term
+    ctx.session.commit()
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="set_long_term",
+        status="ok",
+        graph_id=graph_id,
+        detail=f"node={node_id} long_term={long_term}",
+    )
+
+    return StorageLongTermResponse(
+        status="ok",
+        node_id=node_id,
+        graph_id=graph_id,
+        long_term=long_term,
+    )
+
+
+# =============================================================================
+# K-means clustering — assign topic clusters to all nodes in a graph
+# =============================================================================
+
+
+@router.post(
+    "/graphs/{graph_id}/cluster",
+    response_model=StorageClusterResponse,
+)
+async def run_graph_clustering(
+    graph_id: str,
+    k: Optional[int] = Query(None, ge=2, le=20, description="Number of clusters. Auto-selected if omitted."),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageClusterResponse:
+    """Run k-means clustering on all node v_native vectors in the graph.
+
+    Assigns cluster_id to every node. Stores cluster centers in graph_clusters table.
+    Subsequent queries scope recall to the top-matching clusters for faster retrieval.
+    """
+    from store.pg.models_faim import NodeModel as _NM, GraphClusterModel as _GCM
+    from core.clustering import run_kmeans
+
+    _require_storage_repos(ctx)
+
+    # Load all nodes with their vectors
+    nodes = (
+        ctx.session.query(_NM)
+        .filter(
+            _NM.tenant_id == ctx.tenant_id,
+            _NM.graph_id == graph_id,
+        )
+        .all()
+    )
+
+    if len(nodes) < 2:
+        return StorageClusterResponse(
+            status="skipped",
+            graph_id=graph_id,
+            k=0,
+            nodes_clustered=0,
+            iterations=0,
+            converged=True,
+            cluster_sizes={},
+            graph_version=0,
+        )
+
+    node_ids = [node.node_id for node in nodes]
+    vectors = [
+        list(node.v_native) if isinstance(node.v_native, list) else list(node.v_native)
+        for node in nodes
+    ]
+
+    # Run k-means
+    result = run_kmeans(node_ids=node_ids, vectors=vectors, graph_id=graph_id, k=k)
+
+    # Write cluster_id back to each node
+    id_to_node = {node.node_id: node for node in nodes}
+    for nid, cid in result.assignments.items():
+        if nid in id_to_node:
+            id_to_node[nid].cluster_id = cid
+
+    # Replace cluster centers for this graph (delete old, insert new)
+    ctx.session.query(_GCM).filter(
+        _GCM.tenant_id == ctx.tenant_id,
+        _GCM.graph_id == graph_id,
+    ).delete()
+
+    for ci, center in enumerate(result.centers):
+        if center:
+            ctx.session.add(_GCM(
+                tenant_id=ctx.tenant_id,
+                graph_id=graph_id,
+                cluster_id=ci,
+                center=center,
+                node_count=result.cluster_sizes.get(ci, 0),
+            ))
+
+    ctx.session.flush()
+    gv = 0
+    try:
+        gv = ctx.gv_repo.bump(
+            session=ctx.session,
+            graph_id=graph_id,
+            reason=f"clustering_k{result.k}",
+        )
+    except Exception:
+        pass
+    ctx.session.commit()
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="run_clustering",
+        status="ok",
+        graph_id=graph_id,
+        detail=f"k={result.k} nodes={len(nodes)} iterations={result.iterations} converged={result.converged}",
+    )
+
+    return StorageClusterResponse(
+        status="ok",
+        graph_id=graph_id,
+        k=result.k,
+        nodes_clustered=len(nodes),
+        iterations=result.iterations,
+        converged=result.converged,
+        cluster_sizes={str(k): v for k, v in result.cluster_sizes.items()},
+        graph_version=gv,
     )
 
 

@@ -116,19 +116,25 @@ class RedisAuthStore:
     def set_otp(self, email_hash: str, otp_hash: str, expiry_minutes: int):
         client = self._get_client()
         if client:
-            client.setex(f"auth:otp:{email_hash}", expiry_minutes * 60, otp_hash)
-        else:
-            # Fallback for dev only
-            _OTP_STORE[email_hash] = {
-                "otp_hash": otp_hash,
-                "expiry": datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
-            }
+            try:
+                client.setex(f"auth:otp:{email_hash}", expiry_minutes * 60, otp_hash)
+                return
+            except Exception as e:
+                logger.warning(f"Redis set_otp failed, falling back to memory: {e}")
+        _OTP_STORE[email_hash] = {
+            "otp_hash": otp_hash,
+            "expiry": datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
+        }
 
     def get_otp(self, email_hash: str) -> Optional[str]:
         client = self._get_client()
         if client:
-            val = client.get(f"auth:otp:{email_hash}")
-            return val.decode() if val else None
+            try:
+                val = client.get(f"auth:otp:{email_hash}")
+                if val is not None:
+                    return val.decode() if isinstance(val, bytes) else val
+            except Exception as e:
+                logger.warning(f"Redis get_otp failed, falling back to memory: {e}")
         record = _OTP_STORE.get(email_hash)
         if record and datetime.now(timezone.utc) <= record["expiry"]:
             return record["otp_hash"]
@@ -137,20 +143,25 @@ class RedisAuthStore:
     def delete_otp(self, email_hash: str):
         client = self._get_client()
         if client:
-            client.delete(f"auth:otp:{email_hash}")
-        else:
-            _OTP_STORE.pop(email_hash, None)
+            try:
+                client.delete(f"auth:otp:{email_hash}")
+            except Exception as e:
+                logger.warning(f"Redis delete_otp failed, cleaning memory: {e}")
+        _OTP_STORE.pop(email_hash, None)
 
     # --- Rate Limiting ---
     def check_rate_limit(self, email: str, window_minutes: int, max_reqs: int) -> bool:
         client = self._get_client()
         email_hash = _hash_email(email)
         if client:
-            key = f"auth:rl:{email_hash}"
-            count = client.get(key)
-            if count and int(count) >= max_reqs:
-                return False
-            return True
+            try:
+                key = f"auth:rl:{email_hash}"
+                count = client.get(key)
+                if count and int(count) >= max_reqs:
+                    return False
+                return True
+            except Exception as e:
+                logger.warning(f"Redis check_rate_limit failed, falling back to memory: {e}")
         # In-memory fallback
         now = datetime.now(timezone.utc)
         requests = _RATE_LIMIT_STORE.get(email_hash, [])
@@ -162,25 +173,31 @@ class RedisAuthStore:
         client = self._get_client()
         email_hash = _hash_email(email)
         if client:
-            key = f"auth:rl:{email_hash}"
-            with client.pipeline() as pipe:
-                pipe.incr(key)
-                pipe.expire(key, window_minutes * 60)
-                pipe.execute()
-        else:
-            if email_hash not in _RATE_LIMIT_STORE:
-                _RATE_LIMIT_STORE[email_hash] = []
-            _RATE_LIMIT_STORE[email_hash].append(datetime.now(timezone.utc))
+            try:
+                key = f"auth:rl:{email_hash}"
+                with client.pipeline() as pipe:
+                    pipe.incr(key)
+                    pipe.expire(key, window_minutes * 60)
+                    pipe.execute()
+                return
+            except Exception as e:
+                logger.warning(f"Redis record_rate_limit failed, falling back to memory: {e}")
+        if email_hash not in _RATE_LIMIT_STORE:
+            _RATE_LIMIT_STORE[email_hash] = []
+        _RATE_LIMIT_STORE[email_hash].append(datetime.now(timezone.utc))
 
     # --- Brute Force Protection ---
     def check_lockout(self, email: str) -> Optional[int]:
         client = self._get_client()
         email_hash = _hash_email(email)
         if client:
-            locked = client.get(f"auth:lock:{email_hash}")
-            if locked:
-                return int(client.ttl(f"auth:lock:{email_hash}"))
-            return None
+            try:
+                locked = client.get(f"auth:lock:{email_hash}")
+                if locked:
+                    return int(client.ttl(f"auth:lock:{email_hash}"))
+                return None
+            except Exception as e:
+                logger.warning(f"Redis check_lockout failed, falling back to memory: {e}")
         # In-memory fallback
         record = _FAILED_ATTEMPTS.get(email_hash)
         if record and record.get("locked_until") and datetime.now(timezone.utc) < record["locked_until"]:
@@ -191,13 +208,16 @@ class RedisAuthStore:
         client = self._get_client()
         email_hash = _hash_email(email)
         if client:
-            fail_key = f"auth:fails:{email_hash}"
-            count = client.incr(fail_key)
-            client.expire(fail_key, lockout_minutes * 60)
-            if count >= max_attempts:
-                client.setex(f"auth:lock:{email_hash}", lockout_minutes * 60, "true")
-                logger.warning(f"Account locked (Redis): {email_hash[:8]}")
-            return count
+            try:
+                fail_key = f"auth:fails:{email_hash}"
+                count = client.incr(fail_key)
+                client.expire(fail_key, lockout_minutes * 60)
+                if count >= max_attempts:
+                    client.setex(f"auth:lock:{email_hash}", lockout_minutes * 60, "true")
+                    logger.warning(f"Account locked (Redis): {email_hash[:8]}")
+                return count
+            except Exception as e:
+                logger.warning(f"Redis record_failed_attempt failed, falling back to memory: {e}")
         # In-memory fallback
         if email_hash not in _FAILED_ATTEMPTS:
             _FAILED_ATTEMPTS[email_hash] = {"count": 0, "locked_until": None}
@@ -211,9 +231,12 @@ class RedisAuthStore:
         client = self._get_client()
         email_hash = _hash_email(email)
         if client:
-            client.delete(f"auth:fails:{email_hash}", f"auth:lock:{email_hash}")
-        else:
-            _FAILED_ATTEMPTS.pop(email_hash, None)
+            try:
+                client.delete(f"auth:fails:{email_hash}", f"auth:lock:{email_hash}")
+            except Exception as e:
+                logger.warning(f"Redis clear_failed_attempts failed: {e}")
+        # Always clear in-memory too (covers Redis-failure fallback path)
+        _FAILED_ATTEMPTS.pop(email_hash, None)
 
 
 # Internal memory fallbacks (kept for non-Redis environments/tests)

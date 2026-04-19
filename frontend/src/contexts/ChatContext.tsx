@@ -204,62 +204,178 @@ async function buildAuthorizedHeaders(extra?: HeadersInit): Promise<HeadersInit>
 }
 
 // ---------------------------------------------------------------------------
+// Conversational intent detector — skip FAIM retrieval for non-memory queries
+// ---------------------------------------------------------------------------
+
+const CONVERSATIONAL_PATTERNS = [
+  /^(hi|hey|hello|hiya|howdy|sup|yo)[\s!?.]*$/i,
+  /^(how are you|how's it going|what's up|whats up|how do you do)[\s!?.]*$/i,
+  /^(good morning|good afternoon|good evening|good night|gm|gn)[\s!?.]*$/i,
+  /^(thanks|thank you|thx|ty|cheers|awesome|great|ok|okay|sure|cool|nice|perfect)[\s!?.]*$/i,
+  /^(bye|goodbye|see you|cya|later|ttyl)[\s!?.]*$/i,
+  /^(yes|no|yep|nope|yeah|nah|agreed|correct|exactly|right)[\s!?.]*$/i,
+];
+
+function isConversationalMessage(text: string): boolean {
+  const trimmed = text.trim();
+  // Very short with no content signal
+  if (trimmed.length < 4) return true;
+  // Matches a known conversational pattern
+  return CONVERSATIONAL_PATTERNS.some((re) => re.test(trimmed));
+}
+
+function buildConversationalSystemPrompt(): string {
+  return [
+    "You are FAIM SentineL — a memory assistant. The user sent a conversational message, not a memory query.",
+    "Respond briefly and naturally. Remind them they can ask questions about their ingested documents, data, or memory.",
+    "Do not make up information. Do not mention retrieving data — none was retrieved for this message.",
+  ].join("\n");
+}
+
+// ---------------------------------------------------------------------------
 // FAIM → LLM context builder
 // ---------------------------------------------------------------------------
 
-function buildFaimSystemPrompt(queryData: FaimQueryResponse, thinkingEnabled: boolean): string {
-  const spans  = queryData.answer?.supporting_spans   ?? [];
-  const quotes = queryData.answer?.quotes             ?? [];
-  const direct = queryData.answer?.direct_answer      ?? "";
-  const contra = queryData.answer?.contradiction_notes ?? [];
-  const count  = queryData.results?.length            ?? 0;
+interface MemoryFileEntry {
+  raw_id: string;
+  filename: string;
+  mime_type: string;
+  node_count: number;
+  uploaded_at?: string | null;
+  ingested_at?: string | null;
+}
 
-  const lines: string[] = [
-    "You are FAIM SentineL, an intelligent memory assistant with access to the user's personal knowledge graph.",
-    "Answer using ONLY the memory context retrieved below. Do not invent information not present in it.",
-    "",
-  ];
+interface MemoryInventory {
+  totalFiles: number;
+  byType: Record<string, number>;
+  files: MemoryFileEntry[];
+}
 
+function buildFaimSystemPrompt(queryData: FaimQueryResponse, thinkingEnabled: boolean, inventory?: MemoryInventory): string {
+  const spans   = queryData.answer?.supporting_spans    ?? [];
+  const quotes  = queryData.answer?.quotes              ?? [];
+  const direct  = queryData.answer?.direct_answer       ?? "";
+  const contra  = queryData.answer?.contradiction_notes ?? [];
+  const conf    = queryData.answer?.confidence          ?? 0;
+  const results = queryData.results                     ?? [];
+
+  // Build rawId → filename map from inventory
+  const rawIdToFilename: Record<string, string> = {};
+  if (inventory) {
+    for (const f of inventory.files) rawIdToFilename[f.raw_id] = f.filename;
+  }
+
+  // Build node_id → full result item map
+  const resultMap: Record<string, FaimQueryResultItem> = {};
+  for (const r of results) resultMap[r.node_id] = r;
+
+  function fmtNodeMeta(nodeId: string): string {
+    const r = resultMap[nodeId];
+    if (!r?.evidence) return "";
+    const anchor = r.evidence.anchor ?? {};
+    const rawId = r.evidence.raw_id ?? "";
+    const filename = rawIdToFilename[rawId] ?? rawId;
+    const page = anchor.page ?? anchor.page_number;
+    const section = anchor.section as string | undefined;
+    const blockType = (anchor.block_type ?? anchor.content_type ?? "text") as string;
+    const column = anchor.column as string | undefined;
+    const parts: string[] = [filename];
+    if (page != null) parts.push(`p.${page}`);
+    if (section) parts.push(`§${section}`);
+    if (column) parts.push(`col ${column}`);
+    return `[${blockType.toUpperCase()}] [${parts.join(" · ")}]`;
+  }
+
+  function fmtScore(score: number): string {
+    if (score >= 0.80) return `${Math.round(score * 100)}% ▲ high`;
+    if (score >= 0.55) return `${Math.round(score * 100)}% ◆ moderate`;
+    return `${Math.round(score * 100)}% ▼ weak`;
+  }
+
+  const lines: string[] = [];
+
+  // ── Identity ──────────────────────────────────────────────────────────────
+  lines.push("You are FAIM SentineL — a retrieval-grounded memory assistant.");
+  lines.push("Every answer you give must be derived exclusively from the FAIM memory nodes below.");
+  lines.push("You have no internet access, no training knowledge, no outside facts.");
+  lines.push("If the answer is not in the nodes below, say so precisely: 'That data is not in your FAIM memory.'");
+  lines.push("");
+
+  // ── Memory inventory (document metadata) ─────────────────────────────────
+  if (inventory && inventory.totalFiles > 0) {
+    lines.push(`MEMORY INVENTORY — your complete knowledge base has ${inventory.totalFiles} document(s):`);
+    const typeList = Object.entries(inventory.byType).map(([t, n]) => `${t.toUpperCase()} (${n})`).join(", ");
+    if (typeList) lines.push(`  File types: ${typeList}`);
+    inventory.files.forEach((f) => {
+      const when = f.ingested_at ? new Date(f.ingested_at).toLocaleDateString() : (f.uploaded_at ? new Date(f.uploaded_at).toLocaleDateString() : "unknown date");
+      lines.push(`  • ${f.filename} | ${f.node_count} nodes | ingested ${when} | id:${f.raw_id}`);
+    });
+    lines.push("  → Use this inventory to answer: 'how many docs?', 'what files?', 'when ingested?', 'how many nodes?'");
+    lines.push("");
+  } else if (inventory && inventory.totalFiles === 0) {
+    lines.push("MEMORY INVENTORY: No documents have been ingested yet. Tell the user to upload files in Storage.");
+    lines.push("");
+  }
+
+  // ── Signal legend ─────────────────────────────────────────────────────────
+  lines.push("SIGNAL LEGEND (FAIM computed these — use them to shape your answer):");
+  lines.push("  CURRENT    → most recent, authoritative version of this fact");
+  lines.push("  SUPERSEDED → an older version exists; a newer node overrides it");
+  lines.push("  CONFLICTED → value contradicts another node; flag both to the user");
+  lines.push("  score ≥80% → treat as strong evidence; cite source and page");
+  lines.push("  score 55–79% → supporting evidence; note if other nodes agree");
+  lines.push("  score <55%  → weak match; qualify with 'weakly supported'");
+  lines.push(`  graph confidence: ${Math.round(conf * 100)}% — your answer certainty ceiling`);
+  lines.push("");
+
+  // ── Retrieved nodes ───────────────────────────────────────────────────────
   if (spans.length > 0) {
-    lines.push("## Retrieved Memory Nodes");
+    lines.push("RETRIEVED MEMORY NODES:");
     spans.forEach((s, i) => {
-      const tag = s.temporal_status ? ` [${s.temporal_status}]` : "";
-      lines.push(`${i + 1}. (relevance ${(s.score * 100).toFixed(0)}%)${tag}`);
+      const status = s.temporal_status ? ` [${s.temporal_status}]` : " [CURRENT]";
+      const meta = fmtNodeMeta(s.node_id);
+      lines.push(`--- Node ${i + 1} | ${fmtScore(s.score)} | ${status} | ${meta}`);
       lines.push(s.text);
     });
     lines.push("");
+  } else if (results.length === 0) {
+    lines.push("RETRIEVED MEMORY NODES: none");
+    lines.push("→ No nodes matched this query. Respond: 'No memory found for this query — ingest that data first.'");
+    lines.push("");
   }
 
+  // ── FAIM's own direct answer (extractive, pre-LLM) ───────────────────────
   if (direct) {
-    lines.push("## Knowledge Summary");
+    lines.push(`FAIM EXTRACTIVE SUMMARY (score: ${Math.round(conf * 100)}% confidence):`);
     lines.push(direct);
+    lines.push("→ Use this as your factual anchor. Expand on it using the nodes above. Do not contradict it.");
     lines.push("");
   }
 
+  // ── Verbatim quotes extracted by FAIM ────────────────────────────────────
   if (quotes.length > 0) {
-    lines.push("## Supporting Quotes");
-    quotes.forEach((q) => lines.push(`"${q}"`));
+    lines.push("VERBATIM QUOTES FROM DOCUMENTS:");
+    quotes.forEach((q) => lines.push(`  "${q}"`));
+    lines.push("→ These are exact document text. Use them directly in your answer when relevant.");
     lines.push("");
   }
 
+  // ── Contradictions FAIM already detected ─────────────────────────────────
   if (contra.length > 0) {
-    lines.push("## Contradictions Detected");
-    contra.forEach((c) => lines.push(`- ${c}`));
+    lines.push("CONTRADICTIONS DETECTED BY FAIM:");
+    contra.forEach((c) => lines.push(`  ⚠ ${c}`));
+    lines.push("→ Surface these contradictions explicitly to the user. Do not resolve them by guessing.");
     lines.push("");
   }
 
-  if (count === 0) {
-    lines.push("## Note");
-    lines.push("No relevant memories were found. Tell the user honestly that no matching information exists in their graph.");
-    lines.push("");
-  }
-
-  lines.push("## Instructions");
-  lines.push("- Answer naturally and conversationally");
-  lines.push("- Reference specific content from the retrieved memories when relevant");
-  lines.push("- If the context is insufficient, say so clearly — never hallucinate");
-  lines.push("- Maintain continuity with the conversation history");
-  if (thinkingEnabled) lines.push("- Think through the answer step by step before responding");
+  // ── Behavioural contract (minimal, data-tied) ─────────────────────────────
+  lines.push("RESPONSE CONTRACT:");
+  lines.push("  1. Cite source + page for every factual claim (format: [filename · p.N])");
+  lines.push("  2. SUPERSEDED nodes: state 'older data — superseded by Node X'");
+  lines.push("  3. CONFLICTED nodes: state both values and the conflict — never pick one silently");
+  lines.push(`  4. If graph confidence is below 40% (current: ${Math.round(conf * 100)}%), open with a confidence caveat`);
+  lines.push("  5. No answer exists in nodes → say exactly what is missing, nothing more");
+  if (thinkingEnabled) lines.push("  6. Reason through node scores and temporal status before composing your answer");
 
   return lines.join("\n");
 }
@@ -322,7 +438,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   // Derived: messages of the active thread
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? null;
-  const messages = activeThread?.messages ?? [];
+  const messages = React.useMemo(
+    () => activeThread?.messages ?? [],
+    [activeThread]
+  );
 
   // ── Thread actions ──────────────────────────────────────────────────────
 
@@ -461,49 +580,55 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const graphId = await resolveActiveGraphId();
         if (!graphId) throw new Error("No active graph found for memory query");
 
-        // ── Step 1: FAIM retrieval ──────────────────────────────────────────
+        // ── Step 1: FAIM retrieval (skip for conversational messages) ─────────
         const headers = await buildAuthorizedHeaders();
-        const queryRes = await fetch("/api/v1/query", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", ...headers },
-          body: JSON.stringify({
-            graph_id: graphId,
-            query_text: userMsg.content,
-            k: 8,
-            profile: "STRICT",
-            return_explain: true,
-          }),
-        });
+        const skipRetrieval = isConversationalMessage(userMsg.content);
+        let queryData: FaimQueryResponse | null = null;
 
-        if (!queryRes.ok) {
-          const errData = await queryRes.json().catch(() => ({}));
-          throw new Error(errData.detail || errData.message || `HTTP ${queryRes.status}`);
+        if (!skipRetrieval) {
+          const queryRes = await fetch("/api/v1/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", ...headers },
+            body: JSON.stringify({
+              graph_id: graphId,
+              query_text: userMsg.content,
+              k: 15,
+              profile: "RELAXED",
+              return_explain: true,
+            }),
+          });
+
+          if (!queryRes.ok) {
+            const errData = await queryRes.json().catch(() => ({}));
+            throw new Error(errData.detail || errData.message || `HTTP ${queryRes.status}`);
+          }
+
+          queryData = (await queryRes.json()) as FaimQueryResponse;
+
+          // Attach queryData so the sources card appears while LLM streams
+          setThreads((prev) =>
+            prev.map((t) =>
+              t.id !== threadId ? t : {
+                ...t,
+                messages: t.messages.map((m) =>
+                  m.id === assistantId ? { ...m, queryData } : m
+                ),
+              }
+            )
+          );
         }
-
-        const queryData = (await queryRes.json()) as FaimQueryResponse;
-
-        // Attach queryData immediately so the results card appears while LLM streams
-        setThreads((prev) =>
-          prev.map((t) =>
-            t.id !== threadId ? t : {
-              ...t,
-              messages: t.messages.map((m) =>
-                m.id === assistantId ? { ...m, queryData } : m
-              ),
-            }
-          )
-        );
 
         // ── Step 2: Check active provider ──────────────────────────────────
         const provider = getActiveProvider();
 
         if (!provider) {
-          // No LLM connected — fall back to FAIM extractive answer
-          const fallback =
-            queryData.answer?.direct_answer ||
-            (queryData.results?.length
-              ? `Retrieved ${queryData.results.length} memory result${queryData.results.length === 1 ? "" : "s"}.`
-              : "No matching memory found for this query.");
+          // No LLM — fall back to FAIM extractive answer or plain message
+          const fallback = queryData
+            ? queryData.answer?.direct_answer ||
+              (queryData.results?.length
+                ? `Retrieved ${queryData.results.length} memory result${queryData.results.length === 1 ? "" : "s"}.`
+                : "No matching memory found for this query.")
+            : "Hi! Ask me anything about your ingested documents and data.";
           setThreads((prev) =>
             prev.map((t) =>
               t.id !== threadId ? t : {
@@ -517,8 +642,30 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // ── Step 3: Build system prompt with FAIM context ──────────────────
-        const systemPrompt = buildFaimSystemPrompt(queryData, thinkingEnabled);
+        // ── Step 3: Fetch memory inventory for system prompt ──────────────
+        let inventory: MemoryInventory | undefined;
+        try {
+          const [summaryRes, filesRes] = await Promise.all([
+            fetch(`/api/v1/storage/summary?graph_id=${encodeURIComponent(graphId)}`, { headers }),
+            fetch(`/api/v1/storage/files?graph_id=${encodeURIComponent(graphId)}&limit=50&status=ready`, { headers }),
+          ]);
+          if (summaryRes.ok && filesRes.ok) {
+            const summary = await summaryRes.json() as { total_files: number; by_type: Record<string, number> };
+            const filesData = await filesRes.json() as { items?: Array<MemoryFileEntry> };
+            inventory = {
+              totalFiles: summary.total_files ?? 0,
+              byType: summary.by_type ?? {},
+              files: (filesData.items ?? []).slice(0, 50),
+            };
+          }
+        } catch {
+          // inventory stays undefined — system prompt works without it
+        }
+
+        // ── Step 4: Build system prompt ────────────────────────────────────
+        const systemPrompt = queryData
+          ? buildFaimSystemPrompt(queryData, thinkingEnabled, inventory)
+          : buildConversationalSystemPrompt();
 
         // ── Step 4: Call LLM provider and stream response ──────────────────
         const llmMessages = [
@@ -597,7 +744,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         // Finalise — ensure we always have something
         const finalContent = accumulated ||
-          queryData.answer?.direct_answer ||
+          queryData?.answer?.direct_answer ||
           "I couldn't generate an answer. Please check the source results below.";
 
         setThreads((prev) =>

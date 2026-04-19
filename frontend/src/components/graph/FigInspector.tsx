@@ -22,10 +22,11 @@
  *   - All display values from backend only
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Badge, Spinner } from "@/components/ui";
 import {
+  getBestEdgeToNeighbor,
   getChildIds,
   getOppositionEdges,
   getParentIds,
@@ -141,6 +142,110 @@ function NodeRef({
 }
 
 // ---------------------------------------------------------------------------
+// Lifecycle banner config — shown for terminal/notable states
+// ---------------------------------------------------------------------------
+
+const LIFECYCLE_BANNERS: Partial<Record<string, { title: string; desc: string; cls: string }>> = {
+  compressed: {
+    title: "Compressed node",
+    desc: "This node was merged into a macro node during summarization. Its content is represented by a higher-level ancestor.",
+    cls: "border-blue-500/30 bg-blue-950/20 text-blue-300",
+  },
+  deduplicated: {
+    title: "Deduplicated node",
+    desc: "This node was detected as a near-duplicate and removed from active retrieval. Its canonical version is another node.",
+    cls: "border-violet-500/30 bg-violet-950/20 text-violet-300",
+  },
+  pruned: {
+    title: "Pruned node",
+    desc: "This node was removed by the pruning policy. It is no longer returned in retrieval results.",
+    cls: "border-red-500/30 bg-red-950/20 text-red-300",
+  },
+  deactivated: {
+    title: "Deactivated node",
+    desc: "This node was explicitly deactivated by an operator action.",
+    cls: "border-slate-600/40 bg-slate-900/40 text-slate-400",
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Memory signal helpers — pure, no React
+// ---------------------------------------------------------------------------
+
+function noveltyColor(r: number): string {
+  return r >= 0.7 ? "#34d399" : r >= 0.3 ? "#fbbf24" : "#94a3b8";
+}
+function noveltyLabel(r: number): string {
+  return r >= 0.7 ? "novel" : r >= 0.3 ? "moderate" : "low novelty";
+}
+function redundancyColor(tc: number): string {
+  return tc <= 5 ? "#34d399" : tc <= 20 ? "#fbbf24" : "#f87171";
+}
+function redundancyLabel(tc: number): string {
+  return tc <= 5 ? "low access" : tc <= 20 ? "medium access" : "high access";
+}
+function recencyDays(isoDate: string): number {
+  return Math.floor((Date.now() - new Date(isoDate).getTime()) / 86_400_000);
+}
+function recencyColor(days: number): string {
+  return days < 7 ? "#34d399" : days < 30 ? "#fbbf24" : "#94a3b8";
+}
+function recencyLabel(days: number): string {
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  return `${days}d ago`;
+}
+
+// ---------------------------------------------------------------------------
+// Long-term toggle sub-component
+// ---------------------------------------------------------------------------
+
+function LongTermToggle({ node, graphId }: { node: FigNode; graphId: string }) {
+  const [longTerm, setLongTerm] = useState<boolean>(node.long_term ?? false);
+  const [loading, setLoading] = useState(false);
+
+  const toggle = async () => {
+    setLoading(true);
+    try {
+      const next = !longTerm;
+      const res = await fetch(
+        `/api/v1/storage/graphs/${encodeURIComponent(graphId)}/nodes/${encodeURIComponent(node.node_id)}/long-term?long_term=${next}`,
+        { method: "POST" }
+      );
+      if (res.ok) {
+        setLongTerm(next);
+      }
+    } catch {
+      // silent — user can retry
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="border-t border-slate-800/40 px-3 py-2 flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500">Long-term Memory</p>
+        <p className="text-[9px] text-slate-600 mt-0.5 leading-tight">
+          {longTerm ? "Protected from cold pruning" : "Eligible for cold pruning"}
+        </p>
+      </div>
+      <button
+        onClick={toggle}
+        disabled={loading}
+        className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-semibold border transition-all ${
+          longTerm
+            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+            : "border-slate-700 bg-slate-900/40 text-slate-500 hover:border-slate-600 hover:text-slate-400"
+        }`}
+      >
+        {loading ? "…" : longTerm ? "♾ Protected" : "Set Long-term"}
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
 
@@ -172,6 +277,9 @@ export default function FigInspector({
   const [neighborhoodDepth, setNeighborhoodDepth] = useState(1);
   const [showAllParents, setShowAllParents] = useState(false);
   const [showAllChildren, setShowAllChildren] = useState(false);
+  // nav cursor — 0-based index into relevantOrder; resets on node change
+  const [navIdx, setNavIdx] = useState(0);
+  useEffect(() => { setNavIdx(0); }, [node.node_id]);
 
   const toggleSection = (key: string) =>
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -230,29 +338,103 @@ export default function FigInspector({
             {stateKey}
           </span>
           <Badge size="sm" variant="secondary">L{node.level}</Badge>
+          {node.metrics?.temperature && (
+            <span
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border"
+              style={{
+                color: node.metrics.temperature === "hot" ? "#f97316" : node.metrics.temperature === "warm" ? "#fbbf24" : "#64748b",
+                borderColor: (node.metrics.temperature === "hot" ? "#f97316" : node.metrics.temperature === "warm" ? "#fbbf24" : "#64748b") + "44",
+              }}
+            >
+              {node.metrics.temperature === "hot" ? "🔥 hot" : node.metrics.temperature === "warm" ? "◆ warm" : "❄ cold"}
+            </span>
+          )}
+          {node.anchor?.block_type && (
+            <Badge size="sm" variant="outline">{node.anchor.block_type}</Badge>
+          )}
+          {node.cluster_id != null && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border border-violet-500/30 bg-violet-500/10 text-violet-400">
+              cluster {node.cluster_id}
+            </span>
+          )}
+          {node.long_term && (
+            <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+              ♾ long-term
+            </span>
+          )}
         </div>
 
-        {/* Navigation row */}
-        {relevantOrder.length > 0 && (
-          <div className="mt-2 flex items-center gap-1 border-t border-slate-800/60 pt-2">
-            <span className="text-[9px] text-slate-500 mr-1">Navigate:</span>
-            {relevantOrder.slice(0, 3).map((nid) => {
-              const n = nodeIndex.get(nid);
-              if (!n) return null;
-              return (
+        {/* Relevant memory navigation — deterministic prev/next ordering */}
+        {relevantOrder.length > 0 && (() => {
+          const clampedIdx = Math.min(navIdx, relevantOrder.length - 1);
+          const targetId = relevantOrder[clampedIdx]!;
+          const targetNode = nodeIndex.get(targetId);
+          const edge = getBestEdgeToNeighbor(node.node_id, targetId, adj);
+          const stateC = targetNode
+            ? nodeColorByState(nodeStateClass(targetNode) as FigNodeDisplayState, false)
+            : "#64748b";
+          return (
+            <div className="mt-2 border-t border-slate-800/60 pt-2 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] uppercase tracking-widest text-slate-500">Relevant memories</span>
+                <span className="text-[9px] text-slate-600">
+                  {clampedIdx + 1} / {relevantOrder.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                {/* Prev */}
                 <button
-                  key={nid}
-                  onClick={() => onNavigateToNode(nid)}
-                  title={`Navigate to ${safeNodeTitle(n)}`}
-                  className="rounded-md border border-slate-700/60 bg-slate-900/60 px-1.5 py-0.5 text-[9px] text-slate-400 hover:text-cyan-300 hover:border-cyan-400/30 transition-all truncate max-w-[70px]"
+                  onClick={() => setNavIdx(clampedIdx <= 0 ? relevantOrder.length - 1 : clampedIdx - 1)}
+                  title="Previous relevant memory"
+                  className="shrink-0 rounded px-1.5 py-1 text-[10px] border border-slate-700/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-400/30 transition-all"
                 >
-                  {safeNodeTitle(n).slice(0, 12)}
+                  ←
                 </button>
-              );
-            })}
-          </div>
-        )}
+                {/* Node preview — clicking navigates */}
+                <button
+                  onClick={() => targetNode && onNavigateToNode(targetId)}
+                  disabled={!targetNode}
+                  className="flex flex-1 min-w-0 items-center justify-between gap-1.5 rounded-md bg-slate-900/40 border border-slate-800/60 px-2 py-1 hover:border-cyan-500/30 hover:bg-slate-900/70 disabled:opacity-40 transition-all"
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: stateC }} />
+                    <span className="truncate text-[10px] font-medium text-slate-200">
+                      {targetNode ? safeNodeTitle(targetNode).slice(0, 22) : targetId.slice(0, 12)}
+                    </span>
+                  </div>
+                  {edge && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <span className="text-[8px] text-slate-600">{edge.kind.slice(0, 3)}</span>
+                      <span className="font-mono text-[8px] text-slate-500">{edge.weight.toFixed(2)}</span>
+                    </div>
+                  )}
+                </button>
+                {/* Next */}
+                <button
+                  onClick={() => setNavIdx(clampedIdx >= relevantOrder.length - 1 ? 0 : clampedIdx + 1)}
+                  title="Next relevant memory"
+                  className="shrink-0 rounded px-1.5 py-1 text-[10px] border border-slate-700/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-400/30 transition-all"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
+
+      {/* ================================================================
+          LIFECYCLE BANNER — shown for compressed/deduplicated/pruned/deactivated
+      ================================================================ */}
+      {LIFECYCLE_BANNERS[stateKey] && (() => {
+        const b = LIFECYCLE_BANNERS[stateKey]!;
+        return (
+          <div className={`mb-3 rounded-lg border px-3 py-2 ${b.cls}`}>
+            <p className="text-[10px] font-semibold">{b.title}</p>
+            <p className="mt-0.5 text-[9px] opacity-75">{b.desc}</p>
+          </div>
+        );
+      })()}
 
       {/* ================================================================
           IDENTITY
@@ -328,37 +510,126 @@ export default function FigInspector({
       )}
 
       {/* ================================================================
-          METRICS
+          MEMORY SIGNALS — novelty, redundancy, recency
+          Source: FigNode.metrics (always available when node has metrics)
+          Energy / confidence / salience are not exposed per node — omitted.
       ================================================================ */}
       {node.metrics && (
         <div className="border-t border-slate-800/40">
-          <SectionHeader title="Metrics" open={sections.metrics} onToggle={() => toggleSection("metrics")} />
+          <SectionHeader title="Memory Signals" open={sections.metrics} onToggle={() => toggleSection("metrics")} />
           {sections.metrics && (
-            <div className="mb-3 grid grid-cols-3 gap-2 pl-1">
-              <div className="rounded-lg bg-slate-900/40 border border-slate-800/60 px-2 py-1.5 text-center">
-                <p className="text-[9px] text-slate-500">touches</p>
-                <p className="font-mono text-slate-200 font-semibold">{node.metrics.touch_count}</p>
-              </div>
-              <div className="rounded-lg bg-slate-900/40 border border-slate-800/60 px-2 py-1.5 text-center">
-                <p className="text-[9px] text-slate-500">residual</p>
-                <p className="font-mono text-slate-200 font-semibold">
-                  {typeof node.metrics.residual === "number"
-                    ? node.metrics.residual.toFixed(2)
-                    : "—"}
-                </p>
-              </div>
-              <div className="rounded-lg bg-slate-900/40 border border-slate-800/60 px-2 py-1.5 text-center">
-                <p className="text-[9px] text-slate-500">last access</p>
-                <p className="font-mono text-[9px] text-slate-300">
-                  {node.metrics.last_access
-                    ? new Date(node.metrics.last_access).toLocaleDateString()
-                    : "—"}
-                </p>
-              </div>
+            <div className="mb-3 pl-1 space-y-1.5">
+              {/* Novelty — from residual [0-1]: high = unique content, low = replicated */}
+              {typeof node.metrics.residual === "number" && (() => {
+                const r = node.metrics!.residual;
+                const c = noveltyColor(r);
+                return (
+                  <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-2.5 py-2">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest text-slate-500">Novelty</p>
+                      <p className="mt-0.5 text-[9px] text-slate-600">Uniqueness vs graph average</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-sm font-semibold" style={{ color: c }}>{r.toFixed(2)}</p>
+                      <p className="text-[9px]" style={{ color: c }}>{noveltyLabel(r)}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Redundancy signal — from touch_count: high touches = frequently queried */}
+              {(() => {
+                const tc = node.metrics!.touch_count;
+                const c = redundancyColor(tc);
+                return (
+                  <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-2.5 py-2">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest text-slate-500">Redundancy</p>
+                      <p className="mt-0.5 text-[9px] text-slate-600">Query access frequency</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-sm font-semibold" style={{ color: c }}>{tc}</p>
+                      <p className="text-[9px]" style={{ color: c }}>{redundancyLabel(tc)}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Recency — from last_access datetime */}
+              {(() => {
+                const la = node.metrics!.last_access;
+                if (!la) return (
+                  <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-2.5 py-2">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest text-slate-500">Recency</p>
+                      <p className="mt-0.5 text-[9px] text-slate-600">Last query access</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-sm font-semibold text-slate-500">—</p>
+                      <p className="text-[9px] text-slate-600">never accessed</p>
+                    </div>
+                  </div>
+                );
+                const days = recencyDays(la);
+                const c = recencyColor(days);
+                return (
+                  <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-2.5 py-2">
+                    <div>
+                      <p className="text-[9px] uppercase tracking-widest text-slate-500">Recency</p>
+                      <p className="mt-0.5 text-[9px] text-slate-600">Last query access</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-mono text-sm font-semibold" style={{ color: c }}>{recencyLabel(days)}</p>
+                      <p className="text-[9px] text-slate-500">{new Date(la).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>
       )}
+
+      {/* ================================================================
+          STRUCTURE — anchor metadata: doc_type, block_type, page, section, etc.
+      ================================================================ */}
+      {node.anchor && Object.values(node.anchor).some((v) => v != null) && (
+        <div className="border-t border-slate-800/40">
+          <SectionHeader title="Structure" open={sections.structure ?? true} onToggle={() => toggleSection("structure")} />
+          {(sections.structure ?? true) && (
+            <div className="mb-3 pl-1 space-y-1">
+              {[
+                { label: "Doc Type",   value: node.anchor.doc_type },
+                { label: "Block Type", value: node.anchor.block_type },
+                { label: "Page",       value: node.anchor.page != null ? `p.${node.anchor.page}` : null },
+                { label: "Slide",      value: node.anchor.slide != null ? `slide ${node.anchor.slide}` : null },
+                { label: "Sheet",      value: node.anchor.sheet },
+                { label: "Section",    value: node.anchor.section },
+                { label: "Rows",       value: node.anchor.row_start != null ? `${node.anchor.row_start}–${node.anchor.row_end ?? node.anchor.row_start}` : null },
+                { label: "Chars",      value: node.anchor.char_start != null ? `${node.anchor.char_start}–${node.anchor.char_end ?? "?"}` : null },
+              ]
+                .filter((r) => r.value != null && r.value !== "")
+                .map((r) => (
+                  <div key={r.label} className="flex items-center justify-between py-1 border-b border-slate-800/40 last:border-0">
+                    <span className="text-[9px] uppercase tracking-widest text-slate-500">{r.label}</span>
+                    <span className="font-mono text-[10px] text-slate-300">{String(r.value)}</span>
+                  </div>
+                ))}
+              {node.cluster_id != null && (
+                <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
+                  <span className="text-[9px] uppercase tracking-widest text-slate-500">Cluster</span>
+                  <span className="font-mono text-[10px] text-violet-400">#{node.cluster_id}</span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ================================================================
+          MEMORY CONTROLS — long-term flag toggle
+      ================================================================ */}
+      <LongTermToggle node={node} graphId={graphId} />
 
       {/* ================================================================
           PARENTS

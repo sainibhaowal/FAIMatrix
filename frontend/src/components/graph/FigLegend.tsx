@@ -33,16 +33,17 @@ type FigLegendProps = {
 // Constants
 // ---------------------------------------------------------------------------
 
-// All known display states with their canonical colors
-const NODE_STATES: { state: FigNodeDisplayState; label: string }[] = [
-  { state: "active", label: "Active" },
-  { state: "cold", label: "Cold" },
-  { state: "historical", label: "Historical" },
-  { state: "compressed", label: "Compressed" },
-  { state: "deduplicated", label: "Deduplicated" },
-  { state: "pruned", label: "Pruned" },
-  { state: "deactivated", label: "Deactivated" },
-  { state: "unknown", label: "Unknown" },
+// All known display states with canonical colors and descriptions
+const NODE_STATES: { state: FigNodeDisplayState; label: string; desc: string }[] = [
+  { state: "active",       label: "Active (Hot)",  desc: "Accessed within 7 days — highest retrieval priority" },
+  { state: "warm",         label: "Warm",          desc: "Accessed within 30 days — still in working memory" },
+  { state: "cold",         label: "Cold",          desc: "Not accessed in 90+ days or zero touches — candidate for pruning" },
+  { state: "historical",   label: "Historical",    desc: "Older contradicting fact (temporal suppression)" },
+  { state: "compressed",   label: "Compressed",    desc: "Merged into a macro node (summarized)" },
+  { state: "deduplicated", label: "Deduplicated",  desc: "Detected as near-duplicate and removed" },
+  { state: "pruned",       label: "Pruned",        desc: "Removed by pruning policy (terminal)" },
+  { state: "deactivated",  label: "Deactivated",   desc: "Explicitly deactivated by operator" },
+  { state: "unknown",      label: "Unknown",       desc: "State not yet determined" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -130,13 +131,16 @@ export default function FigLegend({
           NODE STATES — visual reference only (not filterable by state)
       ================================================================ */}
       <LegendSection title="Node States">
-        {NODE_STATES.map(({ state, label }) => (
-          <div key={state} className="flex items-center gap-2.5 px-2 py-0.5">
+        {NODE_STATES.map(({ state, label, desc }) => (
+          <div key={state} className="flex items-start gap-2.5 px-2 py-0.5" title={desc}>
             <span
-              className="h-2.5 w-2.5 rounded-full shrink-0"
+              className="h-2.5 w-2.5 rounded-full shrink-0 mt-0.5"
               style={{ backgroundColor: nodeColorByState(state, false) }}
             />
-            <span className="text-[11px] text-slate-400">{label}</span>
+            <div className="min-w-0">
+              <span className="text-[11px] text-slate-400">{label}</span>
+              <p className="text-[8px] text-slate-600 leading-tight mt-0.5">{desc}</p>
+            </div>
           </div>
         ))}
       </LegendSection>

@@ -32,6 +32,7 @@ PATH_HOPS_DEF, PATH_HOPS_MIN, PATH_HOPS_MAX = 12, 1, 32
 PATH_MAX_DEF, PATH_MAX_MIN, PATH_MAX_MAX = 1, 1, 3
 
 COLD_AGE = timedelta(days=90)
+WARM_AGE = timedelta(days=30)
 COLD_TOUCH0_AGE = timedelta(days=7)
 ACTIVE_RECENT = timedelta(days=7)
 ACTIVE_TOUCH = 5
@@ -97,27 +98,59 @@ def node_display_payload(node: NodeModel) -> Dict[str, Any]:
         state = "active"
     elif node.touch_count >= ACTIVE_TOUCH:
         state = "active"
+    elif last is not None and (now - last) <= WARM_AGE:
+        state = "warm"
+
+    # temperature: granular 3-tier (hot / warm / cold)
+    temperature = "cold"
+    if last is not None and (now - last) <= ACTIVE_RECENT:
+        temperature = "hot"
+    elif node.touch_count >= ACTIVE_TOUCH or (last is not None and (now - last) <= WARM_AGE):
+        temperature = "warm"
 
     return {
         "title": title,
         "title_source": src,
         "state": state,
+        "temperature": temperature,
     }
 
 
 def _serialize_node(node: NodeModel) -> Dict[str, Any]:
+    display = node_display_payload(node)
     out: Dict[str, Any] = {
         "node_id": str(node.node_id),
         "kind": node.kind,
         "level": node.level,
         "vector_hash": node.vector_hash,
-        "display": node_display_payload(node),
+        "display": display,
         "metrics": {
             "touch_count": node.touch_count,
             "residual": node.residual / 1e9 if node.residual else 0.0,
             "last_access": node.last_access.isoformat() if node.last_access else None,
+            "temperature": display.get("temperature", "cold"),
         },
+        "long_term": getattr(node, "long_term", False),
+        "cluster_id": getattr(node, "cluster_id", None),
+        # created_at exposed for client-side timeline stepping (graph-at-time visualization).
+        "created_at": node.created_at.isoformat() if node.created_at else None,
     }
+
+    # Anchor metadata — expose structural fields for FIG View and LLM context
+    anchor = node.anchor_json or {}
+    out["anchor"] = {
+        "doc_type": anchor.get("doc_type"),
+        "block_type": anchor.get("block_type"),
+        "page": anchor.get("page"),
+        "slide": anchor.get("slide"),
+        "sheet": anchor.get("sheet"),
+        "section": anchor.get("section"),
+        "row_start": anchor.get("row_start"),
+        "row_end": anchor.get("row_end"),
+        "char_start": anchor.get("char_start"),
+        "char_end": anchor.get("char_end"),
+    }
+
     prov = {}
     if node.raw_id:
         prov["raw_id"] = str(node.raw_id)
@@ -144,6 +177,8 @@ def _serialize_edge(edge: EdgeModel) -> Dict[str, Any]:
         "kind": edge.kind,
         "weight": edge.weight / 1e9 if edge.weight else 0.0,
         "meta": _safe_meta(edge.meta),
+        # created_at exposed for client-side timeline stepping.
+        "created_at": edge.created_at.isoformat() if edge.created_at else None,
     }
 
 
