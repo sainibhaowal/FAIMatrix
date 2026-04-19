@@ -38,6 +38,7 @@ const NAV_GROUPS = [
     items: [
       { id: "fig-view",      label: "FIG View" },
       { id: "security",      label: "Security" },
+      { id: "benchmarks",    label: "Engine Benchmarks" },
       { id: "capabilities",  label: "Full Capabilities" },
       { id: "roadmap",       label: "Roadmap" },
     ],
@@ -1056,6 +1057,116 @@ function SectionCapabilities() {
   );
 }
 
+function SectionBenchmarks() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Engine Benchmarks</h2>
+        <p className="text-slate-400 leading-relaxed">
+          Real-time performance monitoring, stress testing, and state-of-the-art benchmarking with deterministic, reproducible measurement of FAIM-Native's speed, efficiency, and system health.
+        </p>
+      </div>
+
+      <Card title="8-Phase Benchmark System" color="cyan">
+        <div className="space-y-4 text-sm text-slate-400">
+          <p>FAIM's benchmarks measure real performance across multiple dimensions — no synthetics, no hardcoded metrics. Every data point is measured live from your graph, infrastructure, and stress tests.</p>
+          <div className="space-y-3">
+            {[
+              { num: "1–3", label: "Baseline Suite", desc: "BM-1 through BM-9 tests: ingest latency, retrieval latency, graph evolution speed, cluster stability." },
+              { num: "4", label: "Golden Signals", desc: "Google SRE's Four Golden Signals: Latency (p50/p95/p99), Traffic (req/sec), Errors (error_rate), Saturation (CPU/memory/DB)." },
+              { num: "5", label: "Series Tracking", desc: "Historical benchmark runs stored in PostgreSQL. Track performance trends over time as your graph grows." },
+              { num: "6", label: "Stress Testing", desc: "Progressive load testing: concurrency [1, 2, 5, 10], measure throughput and latency at each level, detect saturation point." },
+              { num: "7", label: "Series Trending", desc: "Compare current run against historical baseline. Detect performance regressions before they impact production." },
+              { num: "8", label: "Anomaly Detection", desc: "Rule-based alerts: 9 conditions (latency spikes, memory pressure, error rates, invariant violations) with severity levels." },
+              { num: "8", label: "Exportable Reports", desc: "Download complete benchmark snapshots as JSON with SHA-256 integrity hash for audit trails and compliance." },
+            ].map(({ num, label, desc }) => (
+              <div key={label} className="flex gap-3 p-3 rounded-lg border border-slate-800 bg-slate-950/40">
+                <span className="text-cyan-400 font-mono text-xs shrink-0 w-12 pt-0.5 font-bold">{num}</span>
+                <div className="flex-1">
+                  <p className="text-slate-200 font-semibold text-xs">{label}</p>
+                  <p className="text-slate-500 text-[11px] mt-1">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      <Card title="Live Metrics — Real Infrastructure Data" color="purple">
+        <p className="text-sm text-slate-400 mb-3">Every metric is measured directly from your running system, not estimated or cached:</p>
+        <div className="grid md:grid-cols-2 gap-3 text-[11px]">
+          {[
+            ["CPU utilization", "From Docker cgroup limits — actual % of container CPU used"],
+            ["Memory usage", "From container memory — actual % of allocated memory"],
+            ["Database connections", "From pg_stat_activity — active connections vs max_connections"],
+            ["Database size", "pg_total_relation_size() — actual storage footprint"],
+            ["Redis memory", "INFO memory — hit rate, evicted keys, command latency"],
+            ["Ingest throughput", "Documents per second during stress test"],
+            ["Query latency", "p50/p95/p99 milliseconds from live query sampling"],
+            ["Graph invariants", "Inheritance sum check, boundedness check, opposition validation"],
+          ].map(([metric, desc]) => (
+            <div key={metric} className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+              <p className="font-mono text-purple-400 text-[10px] mb-0.5">{metric}</p>
+              <p className="text-slate-600 text-[10px]">{desc}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Stress Testing — Progressive Load" color="emerald">
+        <p className="text-sm text-slate-400 mb-3">Measure how your graph handles increasing concurrency. FAIM runs at 1, 2, 5, and 10 concurrent ingest streams:</p>
+        <div className="space-y-2 text-[11px]">
+          {[
+            ["Concurrency", "Progressive load levels: [1, 2, 5, 10] concurrent document streams"],
+            ["Throughput", "Documents ingested per second at each concurrency level"],
+            ["Latency percentiles", "p50, p95, p99 ingest latency in milliseconds per concurrency"],
+            ["Saturation detection", "Identifies where throughput plateaus (<10% improvement) — your saturation point"],
+            ["Invariant stability", "Verifies that graph invariants remain valid under load — no corruption"],
+          ].map(([k, v]) => (
+            <div key={k} className="flex gap-3 py-1 border-b border-slate-800/40 last:border-0">
+              <span className="text-slate-500 text-[11px] shrink-0 w-28 font-mono">{k}</span>
+              <span className="text-slate-300">{v}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Anomaly Alerts — 9 Rule-Based Conditions" color="amber">
+        <p className="text-sm text-slate-400 mb-3">Deterministic rule-based detection (no ML) across 9 alert categories:</p>
+        <div className="space-y-2">
+          {[
+            { rule: "Latency spike (CRITICAL)", cond: "Ingest latency > 2× SpeedBudget target" },
+            { rule: "Latency warning (WARNING)", cond: "Ingest latency > 1.5× SpeedBudget target" },
+            { rule: "Cache hit rate low (WARNING)", cond: "Redis hit rate < 50%" },
+            { rule: "Energy approaching bound (CRITICAL)", cond: "E > 1.8 (out of 2.0 max)" },
+            { rule: "High redundancy (WARNING)", cond: "Graph redundancy > 50%" },
+            { rule: "Database disconnected (CRITICAL)", cond: "PostgreSQL unavailable" },
+            { rule: "Memory pressure (WARNING)", cond: "Container memory usage > 85%" },
+            { rule: "CPU throttle (INFO)", cond: "Container CPU usage > 80%" },
+            { rule: "Invariant violation (CRITICAL)", cond: "Inheritance sum ≠ 1.0 or boundedness violated" },
+          ].map(({ rule, cond }) => (
+            <div key={rule} className="flex gap-3 p-2 rounded-lg border border-slate-800/50 bg-slate-950/20">
+              <span className="text-amber-400 font-mono text-[10px] shrink-0">{rule}</span>
+              <span className="text-slate-500 text-[10px]">{cond}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Accessing Benchmarks" color="default">
+        <p className="text-sm text-slate-400 mb-3">All benchmarks are available from the Dashboard:</p>
+        <div className="space-y-2 text-sm text-slate-400">
+          <div className="flex gap-2"><span className="text-slate-500">1.</span>Go to Dashboard → Benchmarks tab</div>
+          <div className="flex gap-2"><span className="text-slate-500">2.</span>Click "Run Benchmark" to execute the full BM-1 to BM-9 suite (takes ~10s)</div>
+          <div className="flex gap-2"><span className="text-slate-500">3.</span>Click "Stress Test" to run progressive load testing (5–10min depending on graph size)</div>
+          <div className="flex gap-2"><span className="text-slate-500">4.</span>View Golden Signals, Alerts, and historical trends in the tabs</div>
+          <div className="flex gap-2"><span className="text-slate-500">5.</span>Click "Export" to download a complete JSON report with SHA-256 integrity hash</div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function SectionRoadmap() {
   return (
     <div className="space-y-6">
@@ -1076,6 +1187,7 @@ function SectionRoadmap() {
           { phase: "Phase 10", label: "Topic Clustering", status: "done", detail: "Deterministic k-means++ on v_native vectors. Auto-selects K = sqrt(N/2), seeded from graph_id for reproducibility. cluster_id stored on every node. Query engine scopes recall to top-2 clusters before full scan. FIG View shows cluster badge per node. Triggered from Storage → Maintenance → Run Topic Clustering." },
           { phase: "Phase 10", label: "Long-term Memory Preservation", status: "done", detail: "long_term flag (BOOLEAN) on every node. Nodes marked long-term are never deleted by cold pruning regardless of age or access count. Toggle per-node from FIG View Inspector. Cold prune endpoint enforces the flag automatically." },
           { phase: "Phase 10", label: "Figure / Diagram Nodes", status: "done", detail: "PyMuPDF type=1 image blocks detected as inline figures on text pages. block_type=figure nodes created with spatial bbox anchor (x0/y0/x1/y1, area fraction, page). Excluded from text extraction to prevent overlap. New PDFs automatically produce figure nodes." },
+          { phase: "Benchmark", label: "8-Phase Benchmark System", status: "done", detail: "Golden Signals (latency/traffic/errors/saturation), stress testing with saturation point detection, anomaly alerts (9 rule-based conditions), exportable SHA256-hashed reports. All real measured data, no synthetics." },
           { phase: "Future", label: "Self-organizing Cluster Entropy", status: "planned", detail: "When graph entropy exceeds a configured threshold, automatically trigger re-clustering of cold zones. Graph organizes itself over time." },
           { phase: "Future", label: "Inverted Index Scale Path", status: "planned", detail: "WAND shortlist algorithm for large-scale sparse retrieval across millions of nodes. Enables production-scale knowledge bases." },
         ].map((item) => (
@@ -1114,6 +1226,7 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   "ingestion":      SectionIngestion,
   "fig-view":       SectionFigView,
   "security":       SectionSecurity,
+  "benchmarks":     SectionBenchmarks,
   "capabilities":   SectionCapabilities,
   "roadmap":        SectionRoadmap,
 };
