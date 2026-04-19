@@ -14,7 +14,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useCallback, useMemo, useState } from "react";
 import {
-  Activity,
   BarChart3,
   LayoutDashboard,
   MessageSquare,
@@ -48,7 +47,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/dashboard/memory-query", label: "Memory Query", icon: Search },
-      { href: "/dashboard/monitor", label: "Monitor", icon: Activity },
       { href: "/dashboard/graph", label: "FIG View", icon: Network },
     ],
   },

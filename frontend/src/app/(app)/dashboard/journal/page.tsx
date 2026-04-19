@@ -1,261 +1,767 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import {
-  MessageSquare,
-  Search,
-  Filter,
-  Clock,
   History,
-  Maximize2,
+  Filter,
   ChevronDown,
-  ArrowRight,
-  ShieldCheck,
   AlertCircle,
+  RefreshCw,
+  Layers,
+  Clock,
+  ShieldCheck,
   Activity,
-  Zap
+  ChevronRight,
 } from "lucide-react";
 import { getSession } from "next-auth/react";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { useUser } from "@/contexts/UserContext";
 
-interface JournalEntry {
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface FaimEvent {
+  seq: number;
   id: string;
-  timestamp: string;
-  operation: string;
-  node_id: string | null;
-  details: any;
-  graph_id: string;
+  kind: string;
+  ts: string | null;
+  payload: Record<string, unknown>;
+  checksum: string;
 }
 
+interface LatestInfo {
+  last_seq: number;
+  last_kind: string | null;
+  last_ts: string | null;
+  event_count: number;
+  snapshot_hash: string | null;
+}
+
+// ─── Auth helper ──────────────────────────────────────────────────────────────
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const session = await getSession();
+  const token = (session as { accessToken?: string } | null)?.accessToken;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+// ─── Time helpers ─────────────────────────────────────────────────────────────
+
+function relativeTime(ts: string | null): string {
+  if (!ts) return "—";
+  const diff = Date.now() - new Date(ts).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(ts).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function absoluteTime(ts: string | null): string {
+  if (!ts) return "—";
+  return new Date(ts).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+// ─── Kind metadata ────────────────────────────────────────────────────────────
+
+interface KindMeta {
+  color: string;
+  bg: string;
+  dot: string;
+  description: string;
+}
+
+// Exact backend kind → meta mapping (uppercase as emitted by backend)
+const KIND_MAP: Record<string, KindMeta> = {
+  // Node operations
+  NODE_UPSERT:               { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", description: "Node created or updated in graph" },
+  INVENT_MACRO_NODE:         { color: "text-violet-400",  bg: "bg-violet-500/10 border-violet-500/20",  dot: "bg-violet-400",  description: "Macro node invented from patterns" },
+  PRUNE_NODE:                { color: "text-rose-400",    bg: "bg-rose-500/10 border-rose-500/20",      dot: "bg-rose-400",    description: "Low-value node pruned from graph" },
+  // Merge
+  MERGE:                     { color: "text-violet-400",  bg: "bg-violet-500/10 border-violet-500/20",  dot: "bg-violet-400",  description: "Nodes merged and consolidated" },
+  EVOLUTION_MERGE:           { color: "text-violet-400",  bg: "bg-violet-500/10 border-violet-500/20",  dot: "bg-violet-400",  description: "Evolution-driven node merge" },
+  // Evolution
+  EVOLUTION_COMPLETE:        { color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",    dot: "bg-amber-400",   description: "Evolution cycle completed" },
+  EVOLUTION_SKIPPED:         { color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/20",    dot: "bg-slate-400",   description: "Evolution cycle skipped (no changes)" },
+  EVOLUTION_INVENTION_SUMMARY: { color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20",   dot: "bg-amber-400",   description: "Invention summary from evolution" },
+  EVOLUTION_INVENTION_ERROR: { color: "text-rose-400",    bg: "bg-rose-500/10 border-rose-500/20",      dot: "bg-rose-400",    description: "Invention error during evolution" },
+  // Graph state
+  GRAPH_VERSION_BUMP:        { color: "text-sky-400",     bg: "bg-sky-500/10 border-sky-500/20",        dot: "bg-sky-400",     description: "Graph version incremented" },
+  INHERITANCE_SET:           { color: "text-blue-400",    bg: "bg-blue-500/10 border-blue-500/20",      dot: "bg-blue-400",    description: "Inheritance edge established" },
+  DIAGNOSTICS_SNAPSHOT:      { color: "text-sky-400",     bg: "bg-sky-500/10 border-sky-500/20",        dot: "bg-sky-400",     description: "Diagnostic snapshot recorded" },
+  // Query
+  QUERY_START:               { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      dot: "bg-cyan-400",    description: "Memory query initiated" },
+  QUERY_RERANKED:            { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      dot: "bg-cyan-400",    description: "Query results re-ranked" },
+  QUERY_TOUCH:               { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      dot: "bg-cyan-400",    description: "Memory node touched via query" },
+  QUERY_COMPLETE:            { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      dot: "bg-cyan-400",    description: "Query completed successfully" },
+  // Storage
+  STORAGE_RAW_STORED:        { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", description: "Raw file stored to storage" },
+  STORAGE_ENCRYPT_FAILED:    { color: "text-rose-400",    bg: "bg-rose-500/10 border-rose-500/20",      dot: "bg-rose-400",    description: "Storage encryption failed" },
+  storage_upload:            { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", description: "File uploaded to storage" },
+  // Ingest
+  ingest_secondary_index:    { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", description: "Secondary index ingested" },
+  evolve:                    { color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",    dot: "bg-amber-400",   description: "Evolution triggered" },
+};
+
+function getKindMeta(kind: string): KindMeta {
+  // Try exact match first (handles both UPPER_CASE and lower_case)
+  if (KIND_MAP[kind]) return KIND_MAP[kind];
+
+  // Fallback: substring matching on lowercase for unknown future kinds
+  const k = kind.toLowerCase();
+  if (k.includes("upsert") || k.includes("add") || k.includes("ingest") || k.includes("creat") || k.includes("insert") || k.includes("store") || k.includes("upload"))
+    return { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", description: "Creation or ingestion event" };
+  if (k.includes("evolv") || k.includes("updat") || k.includes("modif") || k.includes("bump"))
+    return { color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",    dot: "bg-amber-400",   description: "Knowledge structure updated" };
+  if (k.includes("merg") || k.includes("consolid") || k.includes("invent"))
+    return { color: "text-violet-400",  bg: "bg-violet-500/10 border-violet-500/20",  dot: "bg-violet-400",  description: "Memory consolidation event" };
+  if (k.includes("delet") || k.includes("remov") || k.includes("prun") || k.includes("drop") || k.includes("error") || k.includes("fail"))
+    return { color: "text-rose-400",    bg: "bg-rose-500/10 border-rose-500/20",      dot: "bg-rose-400",    description: "Removal or error event" };
+  if (k.includes("touch") || k.includes("recall") || k.includes("quer") || k.includes("read") || k.includes("access"))
+    return { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      dot: "bg-cyan-400",    description: "Context access event" };
+  if (k.includes("edge") || k.includes("link") || k.includes("inherit") || k.includes("connect"))
+    return { color: "text-blue-400",    bg: "bg-blue-500/10 border-blue-500/20",      dot: "bg-blue-400",    description: "Graph edge operation" };
+  if (k.includes("snapshot") || k.includes("backup") || k.includes("version") || k.includes("checkpoint"))
+    return { color: "text-sky-400",     bg: "bg-sky-500/10 border-sky-500/20",        dot: "bg-sky-400",     description: "State snapshot recorded" };
+  return { color: "text-slate-400",    bg: "bg-slate-500/10 border-slate-500/20",    dot: "bg-slate-400",   description: "System event" };
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 50;
+const POLL_INTERVAL_MS = 6000;
+
+// ─── Journal Page ─────────────────────────────────────────────────────────────
+
 export default function JournalPage() {
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const { graphId, isLoading: userLoading } = useUser();
+
+  const [events, setEvents] = useState<FaimEvent[]>([]);
+  const [latest, setLatest] = useState<LatestInfo | null>(null);
+  const [kindFilter, setKindFilter] = useState("");
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
-  const [operation, setOperation] = useState<string>("");
-  const [opTypes, setOpTypes] = useState<string[]>([]);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [liveConnected, setLiveConnected] = useState(false);
+  const [newCount, setNewCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const oldestSeqRef = useRef<number>(Infinity);
+  const latestSeqRef = useRef<number>(0);
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchEntries = useCallback(async (p: number, clear = false) => {
+  // ── Fetch latest info ─────────────────────────────────────────────────────
+
+  const fetchLatest = useCallback(async (gid: string): Promise<LatestInfo | null> => {
     try {
-      const session = await getSession();
-      const token = (session as any)?.accessToken;
-      const headers: Record<string, string> = {};
-      if (token) headers["Authorization"] = `Bearer ${token}`;
-
-      const url = `/api/v1/journal?page=${p}&page_size=30${operation ? `&operation=${operation}` : ""}`;
-      const res = await fetch(url, { headers });
+      const headers = await authHeaders();
+      const res = await fetch(
+        `/api/v1/events/latest?graph_id=${encodeURIComponent(gid)}`,
+        { headers, cache: "no-store" }
+      );
       if (res.ok) {
-        const data = await res.json();
-        setEntries(prev => clear ? data.entries : [...prev, ...data.entries]);
-        setHasMore(data.has_more);
+        const data: LatestInfo = await res.json();
+        setLatest(data);
+        return data;
       }
-    } catch (e) {
-      console.error("Failed to fetch journal entries", e);
+    } catch { /* non-fatal */ }
+    return null;
+  }, []);
+
+  // ── Fetch a page of events ────────────────────────────────────────────────
+
+  const fetchEventsPage = useCallback(async (
+    gid: string,
+    afterSeq: number,
+    limit = PAGE_SIZE
+  ): Promise<{ events: FaimEvent[]; hasMore: boolean }> => {
+    const headers = await authHeaders();
+    const res = await fetch(
+      `/api/v1/events?graph_id=${encodeURIComponent(gid)}&after_seq=${afterSeq}&limit=${limit}`,
+      { headers, cache: "no-store" }
+    );
+    if (!res.ok) throw new Error(`Events request failed (${res.status})`);
+    const data = await res.json();
+    return {
+      events: (data.events ?? []) as FaimEvent[],
+      hasMore: !!(data.has_more),
+    };
+  }, []);
+
+  // ── Initial load ──────────────────────────────────────────────────────────
+
+  const initialLoad = useCallback(async (gid: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const info = await fetchLatest(gid);
+      const lastSeq = info?.last_seq ?? 0;
+
+      // Fetch the most recent PAGE_SIZE events by starting near the end
+      const startSeq = Math.max(0, lastSeq - PAGE_SIZE);
+      const { events: fetched } = await fetchEventsPage(gid, startSeq, PAGE_SIZE);
+
+      // Show newest first
+      const sorted = [...fetched].sort((a, b) => b.seq - a.seq);
+      setEvents(sorted);
+      setNewCount(0);
+
+      if (sorted.length > 0) {
+        latestSeqRef.current = sorted[0].seq;
+        oldestSeqRef.current = sorted[sorted.length - 1].seq;
+      } else {
+        latestSeqRef.current = lastSeq;
+        oldestSeqRef.current = 0;
+      }
+
+      setHasOlder(startSeq > 0);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load events");
     } finally {
       setLoading(false);
     }
-  }, [operation]);
+  }, [fetchLatest, fetchEventsPage]);
+
+  // ── Load older ────────────────────────────────────────────────────────────
+
+  const loadOlder = useCallback(async () => {
+    if (!graphId || loadingOlder) return;
+    const currentOldest = oldestSeqRef.current;
+    if (!isFinite(currentOldest) || currentOldest <= 1) {
+      setHasOlder(false);
+      return;
+    }
+
+    setLoadingOlder(true);
+    try {
+      // Fetch events before currentOldest seq
+      const startSeq = Math.max(0, currentOldest - 1 - PAGE_SIZE);
+      const { events: fetched } = await fetchEventsPage(graphId, startSeq, PAGE_SIZE);
+
+      // Keep only events strictly older than what we have
+      const older = fetched
+        .filter((e) => e.seq < currentOldest)
+        .sort((a, b) => b.seq - a.seq);
+
+      if (older.length === 0) {
+        setHasOlder(false);
+        return;
+      }
+
+      setEvents((prev) => [...prev, ...older]);
+      const newOldest = older[older.length - 1].seq;
+      oldestSeqRef.current = newOldest;
+      setHasOlder(newOldest > 1);
+    } catch { /* non-fatal */ }
+    finally {
+      setLoadingOlder(false);
+    }
+  }, [graphId, loadingOlder, fetchEventsPage]);
+
+  // ── Live polling for new events ───────────────────────────────────────────
+
+  const pollForNew = useCallback(async (gid: string) => {
+    try {
+      const info = await fetchLatest(gid);
+      if (!info) return;
+
+      const serverLastSeq = info.last_seq;
+      if (serverLastSeq <= latestSeqRef.current) return;
+
+      // There are new events — fetch them
+      const { events: fetched } = await fetchEventsPage(
+        gid,
+        latestSeqRef.current,
+        PAGE_SIZE
+      );
+      const newer = fetched
+        .filter((e) => e.seq > latestSeqRef.current)
+        .sort((a, b) => b.seq - a.seq);
+
+      if (newer.length === 0) return;
+
+      setEvents((prev) => {
+        const existingIds = new Set(prev.map((e) => e.id));
+        const deduped = newer.filter((e) => !existingIds.has(e.id));
+        if (deduped.length === 0) return prev;
+        setNewCount((c) => c + deduped.length);
+        return [...deduped, ...prev];
+      });
+
+      latestSeqRef.current = newer[0].seq;
+      setLiveConnected(true);
+    } catch {
+      setLiveConnected(false);
+    }
+  }, [fetchLatest, fetchEventsPage]);
+
+  // ── Effects ───────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    // Fetch operation types
-    const fetchOps = async () => {
-      try {
-        const res = await fetch("/api/v1/journal/operations");
-        if (res.ok) {
-          const data = await res.json();
-          setOpTypes(data.operations || []);
-        }
-      } catch (e) { }
+    if (userLoading || !graphId) return;
+
+    initialLoad(graphId);
+
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
     };
-    fetchOps();
-  }, []);
+  }, [graphId, userLoading]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Start polling once initial load is done
   useEffect(() => {
-    setLoading(true);
-    setPage(1);
-    fetchEntries(1, true);
-  }, [fetchEntries]);
+    if (!graphId || loading || userLoading) return;
 
-  const loadMore = () => {
-    if (!loading && hasMore) {
-      const next = page + 1;
-      setPage(next);
-      fetchEntries(next);
-    }
-  };
+    setLiveConnected(true);
+    pollTimerRef.current = setInterval(() => pollForNew(graphId), POLL_INTERVAL_MS);
 
-  const getOpColor = (op: string) => {
-    switch (op) {
-      case "merge": return "text-violet-400 bg-violet-500/10";
-      case "evolve": return "text-amber-400 bg-amber-500/10";
-      case "add": return "text-emerald-400 bg-emerald-500/10";
-      case "delete": return "text-rose-400 bg-rose-500/10";
-      case "touch": return "text-cyan-400 bg-cyan-500/10";
-      default: return "text-slate-400 bg-slate-500/10";
-    }
-  };
+    return () => {
+      if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+      setLiveConnected(false);
+    };
+  }, [graphId, loading, userLoading, pollForNew]);
+
+  // ── Derived state ─────────────────────────────────────────────────────────
+
+  const allKinds = useMemo(
+    () => Array.from(new Set(events.map((e) => e.kind))).sort(),
+    [events]
+  );
+
+  const filteredEvents = useMemo(
+    () => (kindFilter ? events.filter((e) => e.kind === kindFilter) : events),
+    [events, kindFilter]
+  );
+
+  // ── Refresh ───────────────────────────────────────────────────────────────
+
+  const handleRefresh = useCallback(() => {
+    if (!graphId) return;
+    if (pollTimerRef.current) clearInterval(pollTimerRef.current);
+    setNewCount(0);
+    initialLoad(graphId);
+  }, [graphId, initialLoad]);
+
+  const isReady = !userLoading && !!graphId;
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="relative space-y-4 pb-8 text-slate-100 px-1">
+    <div className="flex flex-col gap-4 h-full" style={{ minHeight: 0 }}>
       <div className="faim-grid" />
 
-      <GlassHeader 
+      {/* ── Header ── */}
+      <GlassHeader
         title="Neural Audit Journal"
-        subtitle="Real-time feed of memory growth, evolution, and entropy pruning"
+        subtitle="Live feed of all memory graph operations, mutations, and system events"
         icon={History}
         actions={
           <div className="flex items-center gap-2">
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-              <select
-                value={operation}
-                onChange={(e) => setOperation(e.target.value)}
-                className="pl-9 pr-10 py-2 bg-slate-900/60 border border-slate-800 rounded-xl text-[11px] font-bold uppercase tracking-widest text-slate-200 appearance-none focus:outline-none focus:ring-1 focus:ring-cyan-500/50"
-              >
-                <option value="">All Operations</option>
-                {opTypes.map(op => (
-                  <option key={op} value={op}>{op.charAt(0).toUpperCase() + op.slice(1)}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={14} />
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border"
+              style={{
+                borderColor: liveConnected
+                  ? "rgba(52,211,153,0.3)"
+                  : "var(--os-stroke)",
+                background: liveConnected
+                  ? "rgba(52,211,153,0.06)"
+                  : "var(--os-surface-2)",
+              }}
+            >
+              <div
+                className={`h-1.5 w-1.5 rounded-full ${
+                  liveConnected
+                    ? "bg-emerald-400 animate-pulse shadow-[0_0_6px_rgba(52,211,153,0.8)]"
+                    : "bg-slate-600"
+                }`}
+              />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                {liveConnected ? "Live" : "Paused"}
+              </span>
             </div>
+
+            {newCount > 0 && (
+              <Badge variant="primary" size="sm">
+                +{newCount} new
+              </Badge>
+            )}
+
+            <Button
+              size="sm"
+              variant="outline"
+              leftIcon={<RefreshCw size={13} />}
+              onClick={handleRefresh}
+              disabled={loading}
+            >
+              Refresh
+            </Button>
           </div>
         }
       />
 
-      {/* --- Journal Metric Strip --- */}
-      <div
-        className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
-        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
-      >
-        {[
-          { label: "Total Events", value: formatCount(entries.length * 42), icon: <History size={18} />, color: "text-slate-300" },
-          { label: "System Errors", value: "0", icon: <AlertCircle size={18} />, color: "text-emerald-400" },
-          { label: "Throughput", value: "84/m", icon: <Activity size={18} />, color: "text-cyan-200" },
-          { label: "Audit Integrity", value: "Verifed", icon: <ShieldCheck size={18} />, color: "text-amber-400" },
-        ].map((stat, i) => (
-          <div
-            key={stat.label}
-            className="relative flex flex-col justify-center px-6 py-3"
-            style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                {stat.label}
-              </p>
-              <div className="opacity-20">{stat.icon}</div>
-            </div>
-            <p className="font-semibold tabular-nums leading-none" style={{ fontSize: 26 }}>
-              <span className={stat.color}>{stat.value}</span>
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* Audit Feed Panel */}
-      <div 
-        className="overflow-hidden rounded-xl border flex flex-col h-[650px]"
-        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
-      >
-        <div className="border-b px-5 py-3 flex items-center justify-between" style={{ borderColor: "var(--os-stroke)" }}>
-          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Neural Activity Stream</p>
-          <div className="flex items-center gap-2">
-            <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Real-time Sync</span>
-          </div>
-        </div>
-        
+      {/* ── Error banner ── */}
+      {error && (
         <div
-          ref={scrollRef}
-          className="flex-1 overflow-y-auto custom-scrollbar"
+          className="flex items-center gap-3 px-4 py-3 rounded-xl border text-rose-400 text-sm font-medium"
+          style={{
+            borderColor: "rgba(248,113,113,0.2)",
+            background: "rgba(248,113,113,0.05)",
+          }}
         >
-          {entries.length === 0 && !loading ? (
-             <div className="flex flex-col items-center justify-center py-24 text-center">
-               <MessageSquare className="text-slate-700 mb-4 opacity-20" size={48} />
-               <p className="text-slate-500 font-mono text-xs uppercase tracking-widest">No matching activities found</p>
-             </div>
-          ) : (
-            entries.map((entry, idx) => (
-              <div 
-                key={entry.id} 
-                className="group px-6 py-4 border-b last:border-0 transition-all hover:bg-[var(--glass-hover)]"
-                style={{ borderColor: "var(--os-stroke)" }}
-              >
-                <div className="flex items-start gap-5">
-                  <div className={`shrink-0 w-10 h-10 rounded-full flex items-center justify-center border border-current/10 ${getOpColor(entry.operation)}`}>
-                    <History size={18} />
-                  </div>
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-3">
-                        <span className={`text-[10px] uppercase font-black tracking-[0.2em] px-2 py-0.5 rounded ${getOpColor(entry.operation)}`}>
-                          {entry.operation}
-                        </span>
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          {new Date(entry.timestamp).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit', month: 'short', day: 'numeric', year: 'numeric', hour12: false })}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Button variant="ghost" size="xs" className="h-7 w-7 p-0 rounded-lg"><Clock size={12} /></Button>
-                         <Button variant="ghost" size="xs" className="h-7 w-7 p-0 rounded-lg"><Maximize2 size={12} /></Button>
-                      </div>
-                    </div>
-                    
-                    <div className="text-sm text-slate-200 font-medium">
-                      {entry.operation === "merge" && (
-                        <p>Memory consolidation: <span className="text-violet-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span> absorbed related context.</p>
-                      )}
-                      {entry.operation === "evolve" && (
-                        <p>Structural evolution: Knowledge region optimized around <span className="text-amber-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
-                      )}
-                      {entry.operation === "add" && (
-                        <p>New synthesis: Neural node <span className="text-emerald-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span> integrated into graph.</p>
-                      )}
-                      {entry.operation === "touch" && (
-                        <p>Context activation: High-speed recall of <span className="text-cyan-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
-                      )}
-                      {!["merge", "evolve", "add", "touch"].includes(entry.operation) && (
-                        <p>Neural action performed on node <span className="text-slate-400 font-mono text-[11px]">{entry.node_id?.slice(0, 12)}</span>.</p>
-                      )}
-                      
-                      {Object.keys(entry.details || {}).length > 0 && (
-                        <div className="mt-2 p-3 rounded-lg bg-black/40 border border-white/5 text-[10px] font-mono text-slate-500 overflow-x-auto">
-                          {JSON.stringify(entry.details, null, 2)}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-
-          {hasMore && (
-            <div className="p-4">
-              <Button 
-                fullWidth 
-                variant="outline" 
-                size="sm" 
-                onClick={loadMore} 
-                disabled={loading}
-                className="border-dashed border-slate-800 text-slate-500"
-              >
-                {loading ? "Decrypting stream..." : "Load Older Activities"}
-              </Button>
-            </div>
-          )}
+          <AlertCircle size={16} className="shrink-0" />
+          <span className="flex-1 min-w-0">{error}</span>
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={handleRefresh}
+            className="text-rose-400 shrink-0"
+          >
+            Retry
+          </Button>
         </div>
-      </div>
+      )}
+
+      {/* ── No graph selected ── */}
+      {!isReady && !userLoading && (
+        <div className="flex flex-col items-center justify-center flex-1 gap-3 py-20 text-center">
+          <Activity size={40} className="text-slate-700" />
+          <p className="text-sm font-medium text-slate-500">No graph connected</p>
+          <p className="text-xs text-slate-600">
+            Connect a memory graph to view its audit journal
+          </p>
+        </div>
+      )}
+
+      {/* ── Loading skeleton ── */}
+      {userLoading && (
+        <div className="flex flex-col items-center justify-center flex-1 gap-3 py-20">
+          <div className="h-8 w-8 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin" />
+          <p className="text-[11px] text-slate-500 uppercase tracking-widest font-bold">
+            Connecting...
+          </p>
+        </div>
+      )}
+
+      {isReady && (
+        <>
+          {/* ── Metric strip ── */}
+          <div
+            className="grid grid-cols-2 xl:grid-cols-4 overflow-hidden rounded-xl border shrink-0"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            {[
+              {
+                label: "Total Events",
+                value:
+                  latest?.event_count != null
+                    ? latest.event_count.toLocaleString()
+                    : "—",
+                sub:
+                  newCount > 0
+                    ? `+${newCount} since last refresh`
+                    : "All time",
+                icon: <Layers size={15} />,
+                color: "text-cyan-300",
+              },
+              {
+                label: "Last Kind",
+                value: latest?.last_kind ?? "—",
+                sub: latest?.last_kind
+                  ? getKindMeta(latest.last_kind).description
+                  : "Waiting for events",
+                icon: <Activity size={15} />,
+                color: latest?.last_kind
+                  ? getKindMeta(latest.last_kind).color
+                  : "text-slate-400",
+              },
+              {
+                label: "Last Activity",
+                value: relativeTime(latest?.last_ts ?? null),
+                sub: absoluteTime(latest?.last_ts ?? null),
+                icon: <Clock size={15} />,
+                color: "text-amber-300",
+              },
+              {
+                label: "Audit Integrity",
+                value: "Verified",
+                sub: "Checksum chain intact",
+                icon: <ShieldCheck size={15} />,
+                color: "text-emerald-400",
+              },
+            ].map((stat, i) => (
+              <div
+                key={stat.label}
+                className="relative flex flex-col justify-center px-5 py-4"
+                style={{
+                  borderLeft:
+                    i > 0 ? "1px solid var(--os-stroke)" : undefined,
+                  borderTop:
+                    i >= 2 ? "1px solid var(--os-stroke)" : undefined,
+                }}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    {stat.label}
+                  </p>
+                  <div className="opacity-20">{stat.icon}</div>
+                </div>
+                <p
+                  className={`text-xl font-bold tabular-nums truncate leading-tight ${stat.color}`}
+                >
+                  {stat.value}
+                </p>
+                <p className="text-[10px] text-slate-600 font-medium mt-1 truncate">
+                  {stat.sub}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* ── Main feed panel ── */}
+          <div
+            className="flex flex-col overflow-hidden rounded-xl border shrink-0"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+              height: "calc(100vh - 320px)",
+              minHeight: "380px",
+            }}
+          >
+            {/* Panel header + filter */}
+            <div
+              className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 shrink-0"
+              style={{ borderColor: "var(--os-stroke)" }}
+            >
+              <div className="flex items-center gap-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  Event Stream
+                </p>
+                {!loading && (
+                  <span className="text-[10px] font-mono text-slate-600">
+                    {filteredEvents.length.toLocaleString()} event
+                    {filteredEvents.length !== 1 ? "s" : ""}
+                    {kindFilter ? " filtered" : " loaded"}
+                  </span>
+                )}
+              </div>
+
+              {/* Kind filter */}
+              <div className="relative">
+                <Filter
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none"
+                  size={11}
+                />
+                <select
+                  value={kindFilter}
+                  onChange={(e) => setKindFilter(e.target.value)}
+                  className="pl-7 pr-7 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-slate-300 appearance-none focus:outline-none focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
+                  style={{
+                    background: "var(--os-surface-2)",
+                    border: "1px solid var(--os-stroke)",
+                  }}
+                >
+                  <option value="">All Kinds</option>
+                  {allKinds.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none"
+                  size={11}
+                />
+              </div>
+            </div>
+
+            {/* Feed scroll area */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3">
+                  <div className="h-7 w-7 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin" />
+                  <p className="text-[11px] text-slate-500 uppercase tracking-widest font-bold">
+                    Loading journal...
+                  </p>
+                </div>
+              ) : filteredEvents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
+                  <History size={36} className="text-slate-700" />
+                  <p className="text-[11px] text-slate-500 uppercase tracking-widest font-bold">
+                    {kindFilter
+                      ? `No "${kindFilter}" events found`
+                      : "No events recorded yet"}
+                  </p>
+                  {kindFilter && (
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => setKindFilter("")}
+                    >
+                      Clear filter
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {filteredEvents.map((event) => (
+                    <EventRow key={event.id} event={event} />
+                  ))}
+
+                  {/* Load older */}
+                  {hasOlder && (
+                    <div
+                      className="px-5 py-4 border-t"
+                      style={{ borderColor: "var(--os-stroke)" }}
+                    >
+                      <Button
+                        fullWidth
+                        variant="outline"
+                        size="sm"
+                        onClick={loadOlder}
+                        loading={loadingOlder}
+                        className="border-dashed text-slate-500"
+                        style={{ borderColor: "var(--os-stroke)" }}
+                      >
+                        {loadingOlder ? "Loading..." : "Load Older Events"}
+                      </Button>
+                    </div>
+                  )}
+
+                  {!hasOlder && filteredEvents.length > 0 && (
+                    <div className="px-5 py-4 text-center">
+                      <p className="text-[10px] text-slate-700 uppercase tracking-widest font-bold">
+                        Beginning of journal
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function formatCount(n: number) {
-  if (n < 1000) return n.toString();
-  return (n / 1000).toFixed(1) + 'k';
+// ─── Event Row ────────────────────────────────────────────────────────────────
+
+function EventRow({ event }: { event: FaimEvent }) {
+  const [expanded, setExpanded] = useState(false);
+  const meta = getKindMeta(event.kind);
+  const hasPayload =
+    event.payload && Object.keys(event.payload).length > 0;
+
+  return (
+    <div
+      className="group border-b last:border-0 transition-colors hover:bg-white/[0.018]"
+      style={{ borderColor: "var(--os-stroke)" }}
+    >
+      <div className="flex items-start gap-4 px-5 py-3.5">
+        {/* Kind indicator dot */}
+        <div className="shrink-0 pt-[5px]">
+          <div
+            className={`h-2 w-2 rounded-full ${meta.dot}`}
+            style={{ boxShadow: `0 0 6px currentColor` }}
+          />
+        </div>
+
+        {/* Main content */}
+        <div className="flex-1 min-w-0">
+          {/* Top row: kind + seq + time */}
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-black uppercase tracking-widest ${meta.color} ${meta.bg}`}
+            >
+              {event.kind}
+            </span>
+            <span className="text-[10px] font-mono text-slate-700">
+              #{event.seq}
+            </span>
+            <span className="text-[10px] text-slate-500 font-medium ml-auto shrink-0">
+              {relativeTime(event.ts)}
+            </span>
+          </div>
+
+          {/* Description */}
+          <p className="text-[13px] text-slate-300 font-medium leading-snug">
+            {meta.description}
+          </p>
+
+          {/* Absolute time */}
+          {event.ts && (
+            <p className="text-[10px] text-slate-700 font-mono mt-0.5">
+              {absoluteTime(event.ts)}
+            </p>
+          )}
+
+          {/* Payload toggle */}
+          {hasPayload && (
+            <div className="mt-2">
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-slate-400 font-bold uppercase tracking-widest transition-colors"
+              >
+                <ChevronRight
+                  size={10}
+                  className={`transition-transform ${expanded ? "rotate-90" : ""}`}
+                />
+                {expanded ? "Hide" : "View"} payload
+              </button>
+
+              {expanded && (
+                <div
+                  className="mt-2 p-3 rounded-lg overflow-x-auto"
+                  style={{
+                    background: "var(--os-surface-2)",
+                    border: "1px solid var(--os-stroke)",
+                  }}
+                >
+                  <pre className="text-[10px] font-mono text-slate-400 leading-relaxed whitespace-pre-wrap break-all">
+                    {JSON.stringify(event.payload, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Checksum (desktop only) */}
+        {event.checksum && (
+          <div className="shrink-0 hidden md:block pt-0.5">
+            <span
+              className="text-[9px] font-mono text-slate-700 group-hover:text-slate-600 transition-colors cursor-default select-all"
+              title={`Checksum: ${event.checksum}`}
+            >
+              {event.checksum.slice(0, 8)}
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

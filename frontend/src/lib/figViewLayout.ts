@@ -183,10 +183,13 @@ export function nodeColorByLineageDepth(depth: number, selected: boolean): strin
 
 const EDGE_COLORS: Record<string, string> = {
   inheritance: "#22d3ee", // cyan-400
-  opposition: "#ff4444",  // bright red (more visible on dark bg)
+  opposition:  "#f87171", // rose-400
+  similarity:  "#a78bfa", // violet-400
+  semantic:    "#60a5fa", // blue-400
+  co_occur:    "#94a3b8", // slate-400
 };
 
-const EDGE_DEFAULT_COLOR = "#475569"; // slate-600
+const EDGE_DEFAULT_COLOR = "#94a3b8"; // slate-400 — visible on dark canvas
 
 export function edgeColorByKind(kind: string): string {
   return EDGE_COLORS[kind] ?? EDGE_DEFAULT_COLOR;
@@ -220,7 +223,7 @@ export const DEFAULT_CAMERA = { x: 0, y: 0, z: 300 } as const;
 //   temporal   — warm-cool gradient by last_access recency (causal flow hints)
 // ---------------------------------------------------------------------------
 
-export type OverlayMode = "none" | "retrieval" | "evolution" | "temporal";
+export type OverlayMode = "none" | "retrieval" | "evolution" | "temporal" | "causality";
 
 /**
  * Retrieval relevance overlay.
@@ -297,4 +300,17 @@ export function nodeColorByTemporal(score: number, isSelected: boolean): string 
  */
 export function nodeSizeByRetrievalBoost(baseSize: number, normalizedTouchCount: number): number {
   return baseSize * (1 + Math.min(normalizedTouchCount, 1));
+}
+
+/**
+ * Causality overlay — hot zones by combined recency × access frequency.
+ * Score = 0.5 × normalizedTouchCount + 0.5 × recencyScore [0-1]
+ */
+export function nodeColorByCausality(score: number, isSelected: boolean): string {
+  if (isSelected) return SELECTED_COLOR;
+  if (score >= 0.8) return "#ef4444"; // red-500   — very hot (recent + frequent)
+  if (score >= 0.6) return "#f97316"; // orange-500
+  if (score >= 0.4) return "#fbbf24"; // amber-400
+  if (score >= 0.2) return "#60a5fa"; // blue-400  — cool
+  return "#1e293b";                   // slate-800 — cold / never accessed
 }
