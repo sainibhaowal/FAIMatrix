@@ -1070,6 +1070,40 @@ class BenchmarkSampleModel(Base):
 
 
 # -----------------------------------------------------------------------------
+# BenchmarkBaselineModel — baseline snapshots for regression detection
+# -----------------------------------------------------------------------------
+
+
+class BenchmarkBaselineModel(Base):
+    """ORM model for benchmark baselines."""
+
+    __tablename__ = "benchmark_baselines"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    label = Column(String(128), nullable=False)
+    snapshot = Column(JSONBType, nullable=False)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "label": self.label,
+            "snapshot": self.snapshot or {},
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
 # Table creation helper
 # -----------------------------------------------------------------------------
 
