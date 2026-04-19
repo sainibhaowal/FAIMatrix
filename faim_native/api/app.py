@@ -148,6 +148,15 @@ def create_app() -> FastAPI:
     app.add_middleware(SecurityHeadersMiddleware)
     logger.info("SecurityHeadersMiddleware registered")
 
+    # Latency Collection (for benchmarks)
+    try:
+        from api.middleware.latency_collector import LatencyCollectorMiddleware
+
+        app.add_middleware(LatencyCollectorMiddleware)
+        logger.info("LatencyCollectorMiddleware registered")
+    except Exception as e:
+        logger.warning(f"Failed to register LatencyCollectorMiddleware: {e}")
+
     # ==========================================================================
     # Routers
     # ==========================================================================
@@ -156,6 +165,7 @@ def create_app() -> FastAPI:
         admin_router,
         api_keys_router,
         auth_router,
+        benchmarks_router,
         events_router,
         evolve_router,
         graph_router,
@@ -174,6 +184,7 @@ def create_app() -> FastAPI:
     # API v1 routes (consistent /api/v1 prefix)
     prefix = "/api/v1"
     app.include_router(auth_router, prefix=prefix)
+    app.include_router(benchmarks_router, prefix=prefix)
     app.include_router(events_router, prefix=prefix)
     app.include_router(ingest_router, prefix=prefix)
     app.include_router(query_router, prefix=prefix)
