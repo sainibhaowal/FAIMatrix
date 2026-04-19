@@ -1,415 +1,336 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useTransition } from "react";
-import {
-  Activity,
-  ArrowUpRight,
-  BarChart3,
-  CheckCircle2,
-  Clock3,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-
-import { resolveGraphId } from "@/lib/api-client";
-import { fetchBenchmarkRunById, fetchBenchmarkRuns, fetchBenchmarkSeries, fetchLatestBenchmark, runBenchmarkSuite } from "@/lib/benchmarks";
+import React, { useEffect, useState, useCallback } from "react";
+import { AlertCircle, CheckCircle2, Download } from "lucide-react";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import type { BenchmarkSeriesPoint, BenchmarkSuiteRun } from "@/types/benchmarks";
+import { resolveGraphId } from "@/lib/api-client";
+import {
+  fetchLatestBenchmark,
+  runBenchmarkSuite,
+  fetchGoldenSignals,
+  fetchAlerts,
+  runStressTest,
+  exportBenchmarkReport,
+} from "@/lib/benchmarks";
+import type { BenchmarkSuiteRun, GoldenSignal, BenchmarkAlert, StressTestResult, BenchmarkReport } from "@/types/benchmarks";
 
-type MetricCardProps = {
-  label: string;
-  value: string;
-  sub: string;
-  icon: React.ReactNode;
-  accent: string;
-};
-
-function MetricCard({ label, value, sub, icon, accent }: MetricCardProps) {
-  return (
-    <div className="rounded-xl border p-5" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-slate-500">{label}</p>
-        <div className="opacity-70" style={{ color: accent }}>{icon}</div>
-      </div>
-      <div className="mt-4 text-[30px] font-semibold leading-none tabular-nums" style={{ color: accent }}>
-        {value}
-      </div>
-      <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">{sub}</p>
-    </div>
-  );
-}
-
-function SectionShell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
-  return (
-    <section className="overflow-hidden rounded-2xl border" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
-      <div className="flex items-center justify-between gap-3 border-b px-5 py-3" style={{ borderColor: "var(--os-stroke)" }}>
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">{title}</p>
-          {subtitle ? <p className="mt-0.5 text-[10px] text-slate-500">{subtitle}</p> : null}
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-function formatScore(value: number): string {
-  return `${Math.round(value)}%`;
-}
-
-function formatLatency(value: number): string {
-  if (!Number.isFinite(value) || value <= 0) return "—";
-  if (value >= 1000) return `${(value / 1000).toFixed(2)}s`;
-  return `${Math.round(value)}ms`;
-}
-
-const BENCHMARK_COLORS = ["#34d399", "#22d3ee", "#f59e0b", "#f472b6", "#a78bfa", "#60a5fa", "#f87171", "#fb7185", "#c084fc"];
+type Tab = "overview" | "golden-signals" | "stress" | "alerts" | "export";
 
 export default function BenchmarksPage() {
-  const graphId = useMemo(() => resolveGraphId(), []);
-  const [latest, setLatest] = useState<BenchmarkSuiteRun | null>(null);
-  const [series, setSeries] = useState<BenchmarkSeriesPoint[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingSeries, setLoadingSeries] = useState(true);
-  const [runs, setRuns] = useState<BenchmarkSuiteRun[]>([]);
-  const [selectedRunId, setSelectedRunId] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const graphId = resolveGraphId();
 
-  const refresh = async () => {
-    if (!graphId) {
-      setLoading(false);
-      setLoadingSeries(false);
-      setLatest(null);
-      setSeries([]);
-      return;
-    }
+  const [benchmark, setBenchmark] = useState<BenchmarkSuiteRun | null>(null);
+  const [signals, setSignals] = useState<GoldenSignal | null>(null);
+  const [alerts, setAlerts] = useState<BenchmarkAlert[]>([]);
+  const [stressResults, setStressResults] = useState<StressTestResult[] | null>(null);
+  const [report, setReport] = useState<BenchmarkReport | null>(null);
 
-    setError(null);
-    setLoading(true);
-    setLoadingSeries(true);
-    try {
-      const [latestRun, history] = await Promise.all([
-        fetchLatestBenchmark(graphId),
-        fetchBenchmarkSeries(graphId),
-      ]);
-      setLatest(latestRun);
-      setSeries(history);
-      const historyRuns = await fetchBenchmarkRuns(graphId, 25);
-      setRuns(historyRuns);
-      if (latestRun?.run_id) {
-        setSelectedRunId(latestRun.run_id);
-      }
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "Failed to load benchmarks");
-    } finally {
-      setLoading(false);
-      setLoadingSeries(false);
-    }
-  };
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
 
   useEffect(() => {
-    void refresh();
+    if (!graphId) return;
+    const loadData = async () => {
+      const [bm, sig, al] = await Promise.all([
+        fetchLatestBenchmark(graphId),
+        fetchGoldenSignals(graphId),
+        fetchAlerts(graphId),
+      ]);
+      if (bm) setBenchmark(bm);
+      if (sig) setSignals(sig);
+      if (al?.alerts) setAlerts(al.alerts);
+    };
+    loadData();
   }, [graphId]);
 
-  const latestBenchmarks = latest?.benchmarks ?? [];
-  const scoreData = latestBenchmarks.map((item) => ({
-    name: item.benchmark_id,
-    label: item.name,
-    score: item.score,
-    passed: item.passed,
-  }));
+  const handleRunBenchmark = useCallback(async () => {
+    if (!graphId) return;
+    setLoading(true);
+    try {
+      const result = await runBenchmarkSuite(graphId);
+      if (result) setBenchmark(result);
+    } finally {
+      setLoading(false);
+    }
+  }, [graphId]);
 
-  const latencyData = series.slice(-12).map((point) => ({
-    timestamp: point.timestamp ? new Date(point.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "now",
-    store: point.latency.store_p50_ms,
-    retrieve: point.latency.retrieve_p50_ms,
-    p95: point.latency.retrieve_p95_ms,
-  }));
+  const handleRunStressTest = useCallback(async () => {
+    if (!graphId) return;
+    setLoading(true);
+    try {
+      const result = await runStressTest(graphId);
+      if (result?.results) setStressResults(result.results);
+    } finally {
+      setLoading(false);
+    }
+  }, [graphId]);
 
-  const summaryCards = latest
-    ? [
-        { label: "Overall Score", value: formatScore(latest.overall_score), sub: `${latest.passed_count}/${latest.benchmark_count} benchmarks passed`, icon: <Sparkles size={18} />, accent: "#34d399" },
-        { label: "Graph Integrity", value: latest.graph_hash.slice(0, 12), sub: `Diagnostics ${latest.diagnostics_hash.slice(0, 12)}`, icon: <ShieldCheck size={18} />, accent: "#22d3ee" },
-        { label: "Latency", value: formatLatency(Number(latest.summary?.latest_ingest_latency_ms ?? latest.duration_ms)), sub: `Run duration ${formatLatency(latest.duration_ms)}`, icon: <Clock3 size={18} />, accent: "#f59e0b" },
-        { label: "Throughput", value: latest.throughput_synapses_per_sec.toFixed(1), sub: "synapses / sec", icon: <Activity size={18} />, accent: "#60a5fa" },
-      ]
-    : [
-        { label: "Overall Score", value: "—", sub: "Run the suite to collect evidence", icon: <Sparkles size={18} />, accent: "#34d399" },
-        { label: "Graph Integrity", value: "—", sub: "No benchmark run yet", icon: <ShieldCheck size={18} />, accent: "#22d3ee" },
-        { label: "Latency", value: "—", sub: "Waiting for ingest evidence", icon: <Clock3 size={18} />, accent: "#f59e0b" },
-        { label: "Throughput", value: "—", sub: "Waiting for live telemetry", icon: <Activity size={18} />, accent: "#60a5fa" },
-      ];
+  const handleExport = useCallback(async () => {
+    if (!graphId) return;
+    setLoading(true);
+    try {
+      const result = await exportBenchmarkReport(graphId);
+      if (result) {
+        setReport(result);
+        const json = JSON.stringify(result, null, 2);
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `benchmark-${graphId}-${new Date().toISOString().split("T")[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [graphId]);
+
+  const criticalAlerts = alerts.filter((a) => a.severity === "critical");
 
   return (
-    <div className="relative space-y-5 pb-8 px-1 text-slate-100">
-      <div className="faim-grid" />
+    <div className="space-y-6">
+      {criticalAlerts.length > 0 && (
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+          <div className="flex items-center gap-3 text-red-400">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-semibold">{criticalAlerts.length} Critical Alert(s)</p>
+              <p className="text-sm text-red-300/80">{criticalAlerts[0]?.message}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <GlassHeader
-        title="Benchmark Evidence"
-        subtitle="Live BM-1 to BM-9 proof suite with real graph, latency, and isolation evidence"
-        icon={BarChart3}
-        actions={
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" size="md" className="border-cyan-500/30 bg-cyan-500/5 text-cyan-300">
-              {graphId || "No graph selected"}
-            </Badge>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                startTransition(() => {
-                  void runBenchmarkSuite(graphId).then((result) => {
-                    if (result) {
-                      setLatest(result);
-                      setSelectedRunId(result.run_id);
-                      void refresh();
-                    }
-                  });
-                });
-              }}
-              disabled={!graphId || isPending}
-            >
-              {isPending ? "Running..." : "Run Benchmark Suite"}
-            </Button>
-          </div>
-        }
+        title="Engine Benchmarks"
+        subtitle="Live FAIM-Native Performance & System Health"
+        buttons={[
+          <Button key="run" onClick={handleRunBenchmark} disabled={loading}>
+            {loading ? "Running..." : "Run Benchmark"}
+          </Button>,
+          <Button key="stress" onClick={handleRunStressTest} disabled={loading} variant="secondary">
+            Stress Test
+          </Button>,
+          <Button key="export" onClick={handleExport} disabled={loading} variant="secondary">
+            <Download className="h-4 w-4 mr-2" />
+            Export Report
+          </Button>,
+        ]}
       />
 
-      {error ? (
-        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-          {error}
-        </div>
-      ) : null}
+      {signals && (
+        <div className="grid grid-cols-4 gap-4">
+          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Latency</p>
+            <p className="text-2xl font-bold text-cyan-400">
+              {signals.latency.p95_ms ? `${signals.latency.p95_ms.toFixed(0)}ms` : "—"}
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1">p95 latency</p>
+          </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {summaryCards.map((card) => (
-          <MetricCard
-            key={card.label}
-            label={card.label}
-            value={loading ? "…" : card.value}
-            sub={card.sub}
-            icon={card.icon}
-            accent={card.accent}
-          />
+          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Traffic</p>
+            <p className="text-2xl font-bold text-purple-400">
+              {signals.traffic.requests_per_sec ? `${signals.traffic.requests_per_sec.toFixed(1)}/s` : "—"}
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1">requests/sec</p>
+          </div>
+
+          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Errors</p>
+            <p className="text-2xl font-bold text-amber-400">
+              {signals.errors.error_rate ? `${(signals.errors.error_rate * 100).toFixed(1)}%` : "0%"}
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1">error rate</p>
+          </div>
+
+          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Saturation</p>
+            <p className="text-2xl font-bold text-orange-400">
+              {signals.saturation.memory_percent ? `${signals.saturation.memory_percent.toFixed(0)}%` : "—"}
+            </p>
+            <p className="text-[10px] text-slate-500 mt-1">memory usage</p>
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-2 border-b border-slate-800">
+        {(["overview", "golden-signals", "stress", "alerts", "export"] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab ? "border-b-2 border-cyan-500 text-cyan-400" : "text-slate-400"
+            }`}
+          >
+            {tab === "overview" && "Overview"}
+            {tab === "golden-signals" && "Golden Signals"}
+            {tab === "stress" && "Stress Test"}
+            {tab === "alerts" && `Alerts (${alerts.length})`}
+            {tab === "export" && "Report"}
+          </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
-        <div className="xl:col-span-3">
-          <SectionShell title="BM-1 to BM-9 Scores" subtitle="Each score is derived from the live backend benchmark run">
-            <div className="p-5">
-              {loading ? (
-                <div className="h-64 animate-pulse rounded-xl bg-white/5" />
-              ) : scoreData.length ? (
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={scoreData} margin={{ top: 10, right: 16, left: 0, bottom: 10 }}>
-                      <CartesianGrid stroke="rgba(148,163,184,0.12)" vertical={false} />
-                      <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis domain={[0, 100]} tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <Tooltip
-                        contentStyle={{ background: "#07111d", border: "1px solid rgba(148,163,184,0.2)", borderRadius: 12 }}
-                        formatter={(value) => [`${Number(value).toFixed(1)}%`, "Score"]}
-                        labelFormatter={(label, payload) => payload?.[0]?.payload?.label ?? label}
-                      />
-                      <Bar dataKey="score" radius={[10, 10, 0, 0]}>
-                        {scoreData.map((entry, index) => (
-                          <Cell key={entry.name} fill={BENCHMARK_COLORS[index % BENCHMARK_COLORS.length]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-slate-700/70 px-4 py-12 text-center text-sm text-slate-500">
-                  No benchmark run exists yet. Run the suite to collect real BM-1 to BM-9 evidence.
-                </div>
-              )}
+      {activeTab === "overview" && benchmark && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Score</p>
+              <p className="text-3xl font-bold text-green-400 mt-2">{benchmark.overall_score.toFixed(0)}</p>
             </div>
-          </SectionShell>
-        </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Nodes</p>
+              <p className="text-3xl font-bold text-blue-400 mt-2">{benchmark.node_count}</p>
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Edges</p>
+              <p className="text-3xl font-bold text-purple-400 mt-2">{benchmark.edge_count}</p>
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Duration</p>
+              <p className="text-3xl font-bold text-amber-400 mt-2">{(benchmark.duration_ms / 1000).toFixed(1)}s</p>
+            </div>
+          </div>
 
-        <div className="xl:col-span-2">
-          <SectionShell title="Evidence Summary" subtitle="The latest run is stored as append-only event data">
-            <div className="space-y-4 p-5">
-              {latest ? (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl border px-4 py-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Graph Nodes</p>
-                      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-100">{latest.node_count}</p>
+          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-6">
+            <h3 className="text-sm font-bold text-white mb-4">Benchmark Results</h3>
+            <div className="space-y-2">
+              {benchmark.benchmarks.map((bm) => (
+                <div key={bm.benchmark_id} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                  <div>
+                    <p className="font-medium text-slate-200">{bm.name}</p>
+                    <p className="text-[10px] text-slate-500">{bm.status}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-bold text-slate-300">{(bm.score * 100).toFixed(0)}</span>
+                    {bm.passed ? (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    ) : (
+                      <AlertCircle className="h-5 w-5 text-red-500" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "golden-signals" && signals && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            {Object.entries(signals.saturation).map(([key, value]) => (
+              <div key={key} className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+                <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">{key.replace(/_/g, " ")}</p>
+                <div className="w-full bg-slate-800 rounded-full h-2 mt-3">
+                  <div className="bg-gradient-to-r from-green-500 to-red-500 h-2 rounded-full" style={{ width: `${Math.min(100, value || 0)}%` }} />
+                </div>
+                <p className="text-lg font-bold text-slate-300 mt-2">{(value || 0).toFixed(1)}%</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === "stress" && stressResults && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-6">
+            <h3 className="text-sm font-bold text-white mb-4">Load Test Results</h3>
+            <div className="space-y-3">
+              {stressResults.map((result) => (
+                <div key={result.concurrency} className="p-4 bg-slate-800/30 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-slate-300">Concurrency {result.concurrency}</span>
+                    <span className="text-sm text-slate-500">{result.throughput_docs_per_sec.toFixed(1)} docs/sec</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-[10px]">
+                    <div>
+                      <p className="text-slate-500">p50</p>
+                      <p className="text-cyan-400 font-mono">{result.ingest_latency_p50_ms.toFixed(1)}ms</p>
                     </div>
-                    <div className="rounded-xl border px-4 py-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Graph Edges</p>
-                      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-100">{latest.edge_count}</p>
+                    <div>
+                      <p className="text-slate-500">p95</p>
+                      <p className="text-amber-400 font-mono">{result.ingest_latency_p95_ms.toFixed(1)}ms</p>
                     </div>
-                    <div className="rounded-xl border px-4 py-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Compression</p>
-                      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-100">{latest.compression_ratio.toFixed(3)}</p>
-                    </div>
-                    <div className="rounded-xl border px-4 py-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">Budget</p>
-                      <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-100">{latest.budget_profile}</p>
+                    <div>
+                      <p className="text-slate-500">p99</p>
+                      <p className="text-red-400 font-mono">{result.ingest_latency_p99_ms.toFixed(1)}ms</p>
                     </div>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
-                  <div className="rounded-2xl border p-4" style={{ borderColor: "var(--os-stroke)", background: "rgba(14,19,30,0.7)" }}>
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Latest Evidence</p>
-                        <p className="mt-1 text-xs text-slate-500">Run {latest.run_id.slice(0, 12)} · {new Date(latest.computed_at).toLocaleString()}</p>
-                      </div>
-                      <Badge variant="outline" size="sm" className="border-emerald-500/30 text-emerald-300">
-                        {latest.overall_score.toFixed(1)}%
-                      </Badge>
-                    </div>
-                    <div className="mt-4 space-y-2 text-sm text-slate-300">
-                      {latest.benchmarks.map((item) => (
-                        <div key={item.benchmark_id} className="flex items-center justify-between rounded-lg border px-3 py-2" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
-                          <div className="flex items-center gap-2">
-                            {item.passed ? <CheckCircle2 size={15} className="text-emerald-400" /> : <ShieldCheck size={15} className="text-amber-400" />}
-                            <span>{item.benchmark_id} · {item.name}</span>
-                          </div>
-                          <span className="font-mono text-xs text-slate-400">{item.score.toFixed(1)}% · {item.evidence_hash.slice(0, 8)}</span>
-                        </div>
-                      ))}
+      {activeTab === "alerts" && (
+        <div className="space-y-4">
+          {alerts.length === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-2" />
+              <p className="text-slate-400">No alerts detected</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {alerts.map((alert) => (
+                <div
+                  key={alert.id}
+                  className={`p-4 rounded-lg border ${
+                    alert.severity === "critical"
+                      ? "border-red-500/30 bg-red-500/10"
+                      : alert.severity === "warning"
+                        ? "border-amber-500/30 bg-amber-500/10"
+                        : "border-blue-500/30 bg-blue-500/10"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className={`font-semibold ${
+                        alert.severity === "critical"
+                          ? "text-red-400"
+                          : alert.severity === "warning"
+                            ? "text-amber-400"
+                            : "text-blue-400"
+                      }`}>
+                        {alert.title}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-1">{alert.message}</p>
                     </div>
                   </div>
-
-                  <div className="rounded-2xl border p-4" style={{ borderColor: "var(--os-stroke)", background: "rgba(7,17,29,0.72)" }}>
-                    <div className="mb-3 flex items-center justify-between gap-2">
-                      <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Recent Runs</p>
-                      <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500">{runs.length} recorded</span>
-                    </div>
-                    <div className="space-y-2">
-                      {runs.length ? runs.slice().reverse().slice(0, 8).map((run) => (
-                        <button
-                          key={run.run_id}
-                          type="button"
-                          className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left"
-                          style={{
-                            borderColor: selectedRunId === run.run_id ? "rgba(52,211,153,0.35)" : "var(--os-stroke)",
-                            background: selectedRunId === run.run_id ? "rgba(52,211,153,0.08)" : "var(--os-surface-2)",
-                          }}
-                          onClick={() => {
-                            void fetchBenchmarkRunById(graphId, run.run_id).then((fullRun) => {
-                              if (fullRun) {
-                                setLatest(fullRun);
-                                setSelectedRunId(fullRun.run_id);
-                              }
-                            });
-                          }}
-                        >
-                          <span className="text-xs text-slate-300">{run.run_id.slice(0, 12)} · {new Date(run.computed_at).toLocaleTimeString()}</span>
-                          <span className="font-mono text-xs text-slate-400">{run.overall_score.toFixed(1)}%</span>
-                        </button>
-                      )) : (
-                        <p className="text-xs text-slate-500">No historical runs yet.</p>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-700/70 px-4 py-10 text-sm text-slate-500">
-                  This graph has no benchmark history yet. Run the suite to generate a real evidence trail.
                 </div>
-              )}
+              ))}
             </div>
-          </SectionShell>
+          )}
         </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-5">
-        <div className="xl:col-span-3">
-          <SectionShell title="Benchmark Timeline" subtitle="Series data returned by the backend benchmark history endpoint">
-            <div className="p-5">
-              {loadingSeries ? (
-                <div className="h-64 animate-pulse rounded-xl bg-white/5" />
-              ) : latencyData.length ? (
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={latencyData} margin={{ top: 10, right: 16, left: 0, bottom: 10 }}>
-                      <defs>
-                        <linearGradient id="latencyStore" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#22d3ee" stopOpacity={0.02} />
-                        </linearGradient>
-                        <linearGradient id="latencyRetrieve" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#34d399" stopOpacity={0.35} />
-                          <stop offset="95%" stopColor="#34d399" stopOpacity={0.02} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid stroke="rgba(148,163,184,0.12)" vertical={false} />
-                      <XAxis dataKey="timestamp" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ background: "#07111d", border: "1px solid rgba(148,163,184,0.2)", borderRadius: 12 }} />
-                      <Legend />
-                      <Area type="monotone" dataKey="store" name="Store p50 ms" stroke="#22d3ee" fill="url(#latencyStore)" strokeWidth={2} />
-                      <Area type="monotone" dataKey="retrieve" name="Retrieve p50 ms" stroke="#34d399" fill="url(#latencyRetrieve)" strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-slate-700/70 px-4 py-12 text-center text-sm text-slate-500">
-                  No benchmark series is available yet.
-                </div>
-              )}
+      {activeTab === "export" && report && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-6">
+            <h3 className="text-sm font-bold text-white mb-4">Export Report</h3>
+            <div className="space-y-2 text-[11px] font-mono text-slate-400">
+              <div>
+                <span className="text-slate-500">Report Hash:</span> {report.report_hash}
+              </div>
+              <div>
+                <span className="text-slate-500">Exported:</span> {report.export_timestamp}
+              </div>
+              <div>
+                <span className="text-slate-500">Graph:</span> {report.graph_id}
+              </div>
             </div>
-          </SectionShell>
+            <Button onClick={handleExport} className="mt-4" disabled={loading}>
+              <Download className="h-4 w-4 mr-2" />
+              Download JSON Report
+            </Button>
+          </div>
         </div>
-
-        <div className="xl:col-span-2">
-          <SectionShell title="Latency Snapshot" subtitle="Recent ingest/query telemetry exposed by the benchmark history">
-            <div className="p-5">
-              {series.length ? (
-                <div className="h-64 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={latencyData} margin={{ top: 10, right: 16, left: 0, bottom: 10 }}>
-                      <CartesianGrid stroke="rgba(148,163,184,0.12)" vertical={false} />
-                      <XAxis dataKey="timestamp" tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ background: "#07111d", border: "1px solid rgba(148,163,184,0.2)", borderRadius: 12 }} />
-                      <Line type="monotone" dataKey="p95" name="Retrieve p95 ms" stroke="#f59e0b" strokeWidth={2.5} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-slate-700/70 px-4 py-12 text-center text-sm text-slate-500">
-                  Waiting for benchmark history.
-                </div>
-              )}
-            </div>
-          </SectionShell>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-3 rounded-2xl border px-5 py-4" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Evidence-Ready</p>
-          <p className="mt-1 text-sm text-slate-500">The benchmark suite is backed by live graph hashes, diagnostics, ingest latency, query fidelity, and tenant-scoped evidence.</p>
-        </div>
-        <Button variant="ghost" size="sm" className="uppercase tracking-[0.2em] text-[10px]" rightIcon={<ArrowUpRight size={14} />} onClick={() => void refresh()} disabled={!graphId}>
-          Refresh
-        </Button>
-      </div>
+      )}
     </div>
   );
 }
