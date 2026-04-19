@@ -1034,6 +1034,42 @@ class SelfEvolutionStateModel(Base):
 
 
 # -----------------------------------------------------------------------------
+# BenchmarkSampleModel — time-series metrics for live benchmarking
+# -----------------------------------------------------------------------------
+
+
+class BenchmarkSampleModel(Base):
+    """ORM model for benchmark time-series samples."""
+
+    __tablename__ = "benchmark_samples"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    metric_name = Column(String(64), nullable=False)
+    metric_value = Column(Float, nullable=False)
+    labels = Column(JSONBType, nullable=False, default=dict)
+    recorded_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": self.id,
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "metric_name": self.metric_name,
+            "metric_value": self.metric_value,
+            "labels": self.labels or {},
+            "recorded_at": self.recorded_at.isoformat() if self.recorded_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
 # Table creation helper
 # -----------------------------------------------------------------------------
 
