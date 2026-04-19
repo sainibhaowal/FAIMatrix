@@ -185,4 +185,193 @@ async def get_benchmark_run(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
+# Phase 4: Golden Signals + Infrastructure Telemetry
+class GoldenSignalsResponse(BaseModel):
+    """Google SRE Four Golden Signals."""
+    latency: Dict[str, float] = Field(default_factory=dict)  # p50, p95, p99
+    traffic: Dict[str, float] = Field(default_factory=dict)  # req/sec, nodes/sec
+    errors: Dict[str, float] = Field(default_factory=dict)   # error_rate, failed_checks
+    saturation: Dict[str, float] = Field(default_factory=dict)  # cpu%, mem%, db%, cache%
+
+
+@router.get("/{graph_id}/golden-signals", response_model=GoldenSignalsResponse)
+async def get_golden_signals(
+    graph_id: str,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> GoldenSignalsResponse:
+    """Get Google SRE Golden Signals snapshot."""
+    try:
+        from api.services.infra_telemetry import InfraTelemetry
+
+        session = ctx.session
+        infra = InfraTelemetry.get_snapshot(session, redis_client=None)
+
+        return GoldenSignalsResponse(
+            latency={},  # Would aggregate from latency collector
+            traffic={
+                "requests_per_sec": 0.0,  # From throughput collector
+                "nodes_per_sec": 0.0,
+            },
+            errors={
+                "error_rate": 0.0,
+                "failed_invariants": 0.0,
+            },
+            saturation={
+                "cpu_percent": infra.docker.cpu_utilization_percent,
+                "memory_percent": infra.docker.memory_utilization_percent,
+                "db_connections_percent": (infra.postgres.active_connections / infra.postgres.max_connections * 100) if infra.postgres.max_connections > 0 else 0,
+                "cache_utilization_percent": 0.0,  # Would compute from cache stats
+            },
+        )
+    except Exception as exc:
+        logger.exception("golden signals failed graph=%s", graph_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Phase 6: Stress Testing
+class StressTestRequest(BaseModel):
+    """Stress test configuration."""
+    max_concurrency: int = 10
+    document_count: int = 100
+    test_doc_size: str = "small"
+
+
+class StressTestResponse(BaseModel):
+    """Stress test results."""
+    job_id: str
+    graph_id: str
+    test_config: Dict[str, Any]
+    duration_sec: float
+    saturation_point: Optional[int]
+    results: List[Dict[str, Any]]
+
+
+@router.post("/{graph_id}/stress", response_model=StressTestResponse)
+async def run_stress_test(
+    graph_id: str,
+    request: StressTestRequest,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StressTestResponse:
+    """Run progressive load stress test."""
+    try:
+        from api.services.stress_runner import StressRunner
+
+        runner = StressRunner(ctx)
+        result = runner.run_stress_test(
+            graph_id=graph_id,
+            max_concurrency=request.max_concurrency,
+            document_count=request.document_count,
+            test_doc_size=request.test_doc_size,
+        )
+        result_dict = runner.to_dict(result)
+        return StressTestResponse(**result_dict)
+    except Exception as exc:
+        logger.exception("stress test failed graph=%s", graph_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# Phase 8: Anomaly Alerts + Export
+class AlertsResponse(BaseModel):
+    """Benchmark alerts."""
+    alerts: List[Dict[str, Any]] = Field(default_factory=list)
+    critical_count: int = 0
+    warning_count: int = 0
+
+
+@router.get("/{graph_id}/alerts", response_model=AlertsResponse)
+async def get_alerts(
+    graph_id: str,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> AlertsResponse:
+    """Get active alerts for graph."""
+    try:
+        from api.services.benchmark_alerts import BenchmarkAlerts
+        from api.services.benchmark_collector import BenchmarkCollector
+
+        collector = _collector(ctx)
+        latest = collector.latest_suite(graph_id)
+
+        if not latest:
+            return AlertsResponse()
+
+        alerts_list = BenchmarkAlerts.check_alerts(latest)
+        alerts_dict = BenchmarkAlerts.alerts_to_dict(alerts_list)
+
+        critical_count = sum(1 for a in alerts_list if a.severity == "critical")
+        warning_count = sum(1 for a in alerts_list if a.severity == "warning")
+
+        return AlertsResponse(
+            alerts=alerts_dict,
+            critical_count=critical_count,
+            warning_count=warning_count,
+        )
+    except Exception as exc:
+        logger.exception("alerts lookup failed graph=%s", graph_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+class ExportReportResponse(BaseModel):
+    """Exported benchmark report."""
+    graph_id: str
+    export_timestamp: str
+    report_hash: str
+    snapshot: Dict[str, Any]
+    alerts: List[Dict[str, Any]]
+    infrastructure: Dict[str, Any]
+
+
+@router.post("/{graph_id}/export", response_model=ExportReportResponse)
+async def export_benchmark_report(
+    graph_id: str,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> ExportReportResponse:
+    """Export complete benchmark report with SHA256 integrity hash."""
+    try:
+        import hashlib
+        import json
+        from datetime import datetime
+        from api.services.benchmark_alerts import BenchmarkAlerts
+        from api.services.infra_telemetry import InfraTelemetry
+        from api.services.benchmark_collector import BenchmarkCollector
+
+        collector = _collector(ctx)
+        latest = collector.latest_suite(graph_id)
+
+        if not latest:
+            raise HTTPException(status_code=404, detail="no_benchmark_data")
+
+        alerts_list = BenchmarkAlerts.check_alerts(latest)
+        alerts_dict = BenchmarkAlerts.alerts_to_dict(alerts_list)
+
+        infra = InfraTelemetry.get_snapshot(ctx.session)
+        infra_dict = InfraTelemetry.to_dict(infra)
+
+        timestamp = datetime.now().isoformat()
+
+        # Compute integrity hash
+        report_dict = {
+            "graph_id": graph_id,
+            "timestamp": timestamp,
+            "snapshot": latest,
+            "alerts": alerts_dict,
+            "infrastructure": infra_dict,
+        }
+        report_json = json.dumps(report_dict, sort_keys=True, separators=(",", ":"))
+        report_hash = hashlib.sha256(report_json.encode()).hexdigest()
+
+        return ExportReportResponse(
+            graph_id=graph_id,
+            export_timestamp=timestamp,
+            report_hash=report_hash,
+            snapshot=latest,
+            alerts=alerts_dict,
+            infrastructure=infra_dict,
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("export failed graph=%s", graph_id)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
 __all__ = ["router"]

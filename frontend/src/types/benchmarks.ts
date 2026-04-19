@@ -47,3 +47,43 @@ export type BenchmarkSuiteRun = {
   summary: Record<string, unknown>;
   benchmarks: BenchmarkItem[];
 };
+
+export type GoldenSignal = {
+  latency: Record<string, number>;
+  traffic: Record<string, number>;
+  errors: Record<string, number>;
+  saturation: Record<string, number>;
+};
+
+export type BenchmarkAlert = {
+  id: string;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  message: string;
+  metric: string;
+  current_value: number;
+  threshold: number;
+  triggered_at: string;
+};
+
+export type StressTestResult = {
+  concurrency: number;
+  document_count: number;
+  total_docs_ingested: number;
+  ingest_latency_p50_ms: number;
+  ingest_latency_p95_ms: number;
+  ingest_latency_p99_ms: number;
+  throughput_docs_per_sec: number;
+  total_duration_sec: number;
+  invariants_passed: boolean;
+  error_count: number;
+};
+
+export type BenchmarkReport = {
+  graph_id: string;
+  export_timestamp: string;
+  report_hash: string;
+  snapshot: BenchmarkSuiteRun;
+  alerts: BenchmarkAlert[];
+  infrastructure: Record<string, unknown>;
+};
