@@ -48,21 +48,41 @@ class LatencyCollector:
         """Add sample to buffer. Non-blocking."""
         self.buffer.append(sample)
 
-    def get_samples(self, endpoint: Optional[str] = None, limit: int = 100) -> list[LatencySample]:
-        """Get recent samples, optionally filtered by endpoint."""
+    def get_samples(self, graph_id: Optional[str] = None, endpoint: Optional[str] = None, limit: int = 100) -> list[dict]:
+        """Get recent samples, optionally filtered by graph_id or endpoint."""
         samples = list(self.buffer)
+        if graph_id:
+            samples = [s for s in samples if s.graph_id == graph_id]
         if endpoint:
             samples = [s for s in samples if s.endpoint == endpoint]
-        return samples[-limit:]
 
-    def get_percentile(self, percentile: int, endpoint: Optional[str] = None) -> float:
-        """Get latency percentile for an endpoint or all."""
-        samples = self.get_samples(endpoint, limit=None)
+        # Convert to dict for JSON serialization
+        result = []
+        for s in samples[-limit:]:
+            result.append({
+                "tenant_id": s.tenant_id,
+                "graph_id": s.graph_id,
+                "endpoint": s.endpoint,
+                "method": s.method,
+                "latency_ms": s.latency_ms,
+                "status": s.status,
+                "recorded_at": s.recorded_at.isoformat(),
+            })
+        return result
+
+    def get_percentile(self, percentile: int, graph_id: Optional[str] = None, endpoint: Optional[str] = None) -> float:
+        """Get latency percentile for a graph_id/endpoint or all."""
+        samples = list(self.buffer)
+        if graph_id:
+            samples = [s for s in samples if s.graph_id == graph_id]
+        if endpoint:
+            samples = [s for s in samples if s.endpoint == endpoint]
+
         if not samples:
             return 0.0
         latencies = sorted([s.latency_ms for s in samples])
         idx = max(0, int(len(latencies) * percentile / 100) - 1)
-        return latencies[idx]
+        return float(latencies[idx])
 
 
 # Global singleton

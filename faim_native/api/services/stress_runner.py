@@ -1,14 +1,16 @@
-"""Progressive stress testing service.
+"""Progressive stress testing with REAL ingest operations.
 
-Runs ingest/evolve/query under increasing load to find saturation points.
+Runs actual document ingestion under increasing concurrency to measure
+real latency, throughput, and find saturation points.
 """
 
 from __future__ import annotations
 
 import time
 import uuid
+import threading
 from dataclasses import dataclass
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 from sqlalchemy.orm import Session
 
 
@@ -35,11 +37,11 @@ class StressSuiteResult:
     test_config: Dict[str, Any]
     duration_sec: float
     results: List[StressResult]
-    saturation_point: Optional[int]  # Concurrency level where throughput plateaus
+    saturation_point: Optional[int]
 
 
 class StressRunner:
-    """Execute progressive load testing on FAIM."""
+    """Execute REAL progressive load testing on FAIM."""
 
     def __init__(self, ctx: Any):
         self.ctx = ctx
@@ -49,22 +51,22 @@ class StressRunner:
         graph_id: str,
         max_concurrency: int = 10,
         document_count: int = 100,
-        test_doc_size: str = "small",  # "small" (1KB), "medium" (10KB), "large" (100KB)
+        test_doc_size: str = "small",
     ) -> StressSuiteResult:
-        """Run progressive load test."""
+        """Run REAL progressive load test with actual ingest operations."""
         job_id = str(uuid.uuid4())
         start_time = time.monotonic()
         results: List[StressResult] = []
 
-        # Synthetic test documents by size
+        # Generate test documents (real content)
         test_docs = {
-            "small": self._generate_test_doc(size=1024),
-            "medium": self._generate_test_doc(size=10240),
-            "large": self._generate_test_doc(size=102400),
+            "small": self._generate_test_doc(size=1024),      # 1KB
+            "medium": self._generate_test_doc(size=10240),    # 10KB
+            "large": self._generate_test_doc(size=102400),    # 100KB
         }
         test_doc = test_docs.get(test_doc_size, test_docs["small"])
 
-        # Progressive concurrency: 1, 2, 5, 10
+        # Progressive concurrency levels
         concurrency_levels = [1, 2, 5, min(10, max_concurrency)]
 
         for concurrency in concurrency_levels:
@@ -77,8 +79,6 @@ class StressRunner:
             results.append(result)
 
         total_duration = time.monotonic() - start_time
-
-        # Detect saturation point (where throughput stops increasing >10%)
         saturation_point = self._detect_saturation(results)
 
         return StressSuiteResult(
@@ -101,47 +101,115 @@ class StressRunner:
         document_count: int,
         test_doc: str,
     ) -> StressResult:
-        """Run load at a single concurrency level."""
-        from orchestration.ingest_flow import ingest_packet_flow
+        """Run REAL load test at a single concurrency level.
+
+        Actually ingests documents using the real orchestration pipeline.
+        """
+        from orchestration.ingest_flow import ingest_packet_flow, FAIMProfile
         from core.invariants import check_all_invariants
+        from perception.packetize import create_packet
 
         latencies: List[float] = []
         error_count = 0
         invariants_passed = True
+        docs_ingested = 0
 
         start_time = time.monotonic()
 
-        # Simulate concurrent ingestion
-        for doc_idx in range(document_count):
-            try:
-                # Create synthetic packet
-                doc_id = f"stress_test_{doc_idx}"
+        # Simulate concurrent ingestion by distributing docs across threads
+        def ingest_worker(doc_batch: List[tuple]):
+            nonlocal error_count, invariants_passed, docs_ingested
 
-                # Ingest packet (simplified - actual would use full flow)
-                ingest_start = time.monotonic()
-                # Would call: result = ingest_packet_flow(...)
-                # For now, simulate with small delay
-                time.sleep(0.001)  # 1ms minimum latency
-                ingest_duration = (time.monotonic() - ingest_start) * 1000
-                latencies.append(ingest_duration)
+            for doc_id, content in doc_batch:
+                try:
+                    # Create real packet from content
+                    packet = create_packet(
+                        tenant_id=self.ctx.tenant_id,
+                        graph_id=graph_id,
+                        raw_bytes=content.encode("utf-8"),
+                        filename=f"stress_test_{doc_id}.txt",
+                        doc_type="text",
+                    )
 
-            except Exception as e:
-                error_count += 1
+                    # REAL ingest using actual pipeline
+                    ingest_start = time.monotonic()
+                    result = ingest_packet_flow(
+                        session=self.ctx.session,
+                        tenant_id=self.ctx.tenant_id,
+                        graph_id=graph_id,
+                        packet=packet,
+                        profile=FAIMProfile.STRICT,
+                    )
+                    ingest_duration = (time.monotonic() - ingest_start) * 1000  # ms
+
+                    latencies.append(ingest_duration)
+                    docs_ingested += 1
+
+                    # Commit after each document to avoid long transactions
+                    try:
+                        self.ctx.session.commit()
+                    except Exception:
+                        self.ctx.session.rollback()
+
+                    # Check invariants periodically
+                    if docs_ingested % 10 == 0:
+                        try:
+                            check_all_invariants(
+                                session=self.ctx.session,
+                                graph_id=graph_id,
+                            )
+                        except Exception as inv_err:
+                            invariants_passed = False
+
+                except Exception as e:
+                    error_count += 1
+                    try:
+                        self.ctx.session.rollback()
+                    except:
+                        pass
+
+        # Distribute documents across worker threads
+        docs_per_thread = max(1, document_count // concurrency)
+        threads = []
+
+        for thread_idx in range(concurrency):
+            start_doc = thread_idx * docs_per_thread
+            end_doc = start_doc + docs_per_thread if thread_idx < concurrency - 1 else document_count
+            doc_batch = [
+                (f"{thread_idx}_{i}", test_doc)
+                for i in range(start_doc, end_doc)
+            ]
+
+            thread = threading.Thread(
+                target=ingest_worker,
+                args=(doc_batch,),
+                daemon=False,
+            )
+            threads.append(thread)
+            thread.start()
+
+        # Wait for all threads to complete
+        for thread in threads:
+            thread.join()
 
         total_duration = time.monotonic() - start_time
 
-        # Calculate percentiles
-        latencies.sort()
-        p50 = latencies[int(len(latencies) * 0.5)] if latencies else 0
-        p95 = latencies[int(len(latencies) * 0.95)] if latencies else 0
-        p99 = latencies[int(len(latencies) * 0.99)] if latencies else 0
+        # Calculate latency percentiles from REAL measurements
+        if latencies:
+            latencies.sort()
+            p50 = latencies[int(len(latencies) * 0.50)]
+            p95 = latencies[int(len(latencies) * 0.95)]
+            p99 = latencies[int(len(latencies) * 0.99)]
+        else:
+            p50 = p95 = p99 = 0.0
 
-        throughput = document_count / total_duration if total_duration > 0 else 0
+        # REAL throughput from actual documents ingested
+        throughput = docs_ingested / total_duration if total_duration > 0 else 0.0
 
         return StressResult(
             concurrency=concurrency,
             document_count=document_count,
-            total_docs_ingested=document_count - error_count,
+            total_docs_ingested=docs_ingested,
             ingest_latency_p50_ms=p50,
             ingest_latency_p95_ms=p95,
             ingest_latency_p99_ms=p99,
@@ -152,21 +220,32 @@ class StressRunner:
         )
 
     def _generate_test_doc(self, size: int) -> str:
-        """Generate synthetic test document."""
-        import random
-        import string
+        """Generate realistic test document (deterministic, not random)."""
+        # Use Lorem Ipsum like text repeated to reach size
+        base_text = (
+            "The quick brown fox jumps over the lazy dog. "
+            "FAIM is a deterministic memory graph engine that stores content as "
+            "typed nodes connected by inheritance, opposition, semantic, and causal edges. "
+            "Every operation is auditable, reproducible, and mathematically proven. "
+        )
 
-        return "".join(random.choices(string.ascii_letters + string.digits, k=size))
+        # Repeat base text to reach target size
+        repetitions = (size // len(base_text)) + 1
+        text = (base_text * repetitions)[:size]
+        return text
 
     def _detect_saturation(self, results: List[StressResult]) -> Optional[int]:
-        """Detect concurrency level where throughput plateaus."""
+        """Detect concurrency level where throughput plateaus.
+
+        Real saturation detection: when throughput increase drops below 10%.
+        """
         if len(results) < 2:
             return None
 
-        # Check if throughput stops increasing significantly
         for i in range(1, len(results)):
             prev_throughput = results[i - 1].throughput_docs_per_sec
             curr_throughput = results[i].throughput_docs_per_sec
+
             if prev_throughput > 0:
                 increase = (curr_throughput - prev_throughput) / prev_throughput
                 if increase < 0.10:  # Less than 10% increase = saturation
@@ -175,7 +254,7 @@ class StressRunner:
         return None
 
     def to_dict(self, result: StressSuiteResult) -> Dict[str, Any]:
-        """Convert to dictionary."""
+        """Convert result to JSON-serializable dict."""
         return {
             "job_id": result.job_id,
             "graph_id": result.graph_id,
@@ -187,11 +266,11 @@ class StressRunner:
                     "concurrency": r.concurrency,
                     "document_count": r.document_count,
                     "total_docs_ingested": r.total_docs_ingested,
-                    "ingest_latency_p50_ms": r.ingest_latency_p50_ms,
-                    "ingest_latency_p95_ms": r.ingest_latency_p95_ms,
-                    "ingest_latency_p99_ms": r.ingest_latency_p99_ms,
-                    "throughput_docs_per_sec": r.throughput_docs_per_sec,
-                    "total_duration_sec": r.total_duration_sec,
+                    "ingest_latency_p50_ms": round(r.ingest_latency_p50_ms, 2),
+                    "ingest_latency_p95_ms": round(r.ingest_latency_p95_ms, 2),
+                    "ingest_latency_p99_ms": round(r.ingest_latency_p99_ms, 2),
+                    "throughput_docs_per_sec": round(r.throughput_docs_per_sec, 2),
+                    "total_duration_sec": round(r.total_duration_sec, 2),
                     "invariants_passed": r.invariants_passed,
                     "error_count": r.error_count,
                 }
