@@ -18,9 +18,9 @@ const features = [
         <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
       </svg>
     ),
-    title: "Fractal Memory Engine",
+    title: "Structured Memory Engine",
     description:
-      "Self-organizing knowledge structures that grow smarter with every piece of information you add.",
+      "Deterministic 256-dim vectors with SHA-256 fingerprints. Hot/warm/cold memory tiering, opposition suppression, inheritance weighting, and idempotent ingestion — no ML, no drift.",
     gradient: "from-cyan-500 to-blue-500",
     link: "/features/memory-engine",
   },
@@ -42,9 +42,9 @@ const features = [
         <path d="M12 10V8M8 8l2-2M14 8l2-2M12 14v2M8 16l2 2M14 16l2 2" />
       </svg>
     ),
-    title: "Knowledge Graph",
+    title: "FIG View — Graph Intelligence",
     description:
-      "Visualize connections between your ideas in stunning 3D. See how knowledge connects and evolves.",
+      "Inspect every node's block type, page, section, and memory temperature (hot/warm/cold). Trace inheritance, opposition, and semantic paths. Prune cold nodes directly from the UI.",
     gradient: "from-purple-500 to-pink-500",
     link: "/features/knowledge-graph",
   },
@@ -65,7 +65,7 @@ const features = [
     ),
     title: "Document Intelligence",
     description:
-      "Upload PDFs, docs, and text. FAIM automatically extracts and connects knowledge.",
+      "FAIM Native extractor handles multi-column PDFs, complex tables, scanned page OCR, DOCX, PPTX, XLSX, images, and code — zero ML dependencies, all deterministic.",
     gradient: "from-orange-500 to-amber-500",
     link: "/features/document-intelligence",
   },

@@ -191,22 +191,33 @@ def build_representation_v2(
     anchor: Optional[BlockAnchor] = None,
     expand_synonyms: bool = False,
     stem: bool = True,
+    display_text: Optional[str] = None,
 ) -> RepresentationV2:
-    """Build deterministic sparse lexical representation."""
-    normalized = normalize_text(
+    """Build deterministic sparse lexical representation.
+
+    display_text: if provided, stored as normalized_text for LLM retrieval.
+    Defaults to the stemmed/lowercased form when not provided.
+    Token matching channels (word_counts etc.) always use the processed form.
+    """
+    processed = normalize_text(
         text,
         lowercase=True,
         stem=stem,
         remove_stopwords=False,
         expand_synonyms=expand_synonyms,
     )
-    tokens = _tokenize_words(normalized)
+    tokens = _tokenize_words(processed)
     word_counts = _count_bucketed(tokens, WORD_BUCKETS)
     phrase_counts = _count_bucketed(_build_phrase_terms(tokens), PHRASE_BUCKETS)
     skip_counts = _count_bucketed(_build_skip_terms(tokens), SKIP_BUCKETS)
     entity_tokens = _extract_entity_tokens(text)
     time_tokens = _extract_time_tokens(text)
     layout_tokens = _extract_layout_tokens(block_type, anchor)
+
+    # Store original readable text for LLM answer synthesis.
+    # Matching channels (word_counts etc.) use the processed form above.
+    # Strip NUL bytes — PostgreSQL rejects strings containing \x00.
+    readable_text = (display_text or text).strip().replace("\x00", "")
 
     channel_lengths = {
         "word": len(tokens),
@@ -218,7 +229,7 @@ def build_representation_v2(
     }
 
     canonical = {
-        "normalized_text": normalized,
+        "normalized_text": readable_text,
         "word_counts": word_counts,
         "phrase_counts": phrase_counts,
         "skip_counts": skip_counts,
@@ -230,7 +241,7 @@ def build_representation_v2(
 
     return RepresentationV2(
         repr_hash=_compute_repr_hash(canonical),
-        normalized_text=normalized,
+        normalized_text=readable_text,
         word_counts=word_counts,
         phrase_counts=phrase_counts,
         skip_counts=skip_counts,
@@ -249,6 +260,7 @@ def build_representation_v2_for_block(block: EvidenceBlock) -> RepresentationV2:
         anchor=block.anchor,
         expand_synonyms=False,
         stem=True,
+        display_text=block.content,  # store original text for LLM retrieval
     )
 
 

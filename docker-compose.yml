@@ -39,6 +39,8 @@ services:
         "yes",
         "--requirepass",
         "${REDIS_PASSWORD:?REDIS_PASSWORD required}",
+        "--stop-writes-on-bgsave-error",
+        "no",
       ]
     volumes:
       - redis_data:/data

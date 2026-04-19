@@ -442,6 +442,8 @@ class NodeModel(Base):
     level = Column(Integer, nullable=False, default=0)
     touch_count = Column(Integer, nullable=False, default=0)
     last_access = Column(DateTime(timezone=True), nullable=True)
+    long_term = Column(Boolean, nullable=False, default=False)  # 0018: exempt from cold pruning
+    cluster_id = Column(Integer, nullable=True)  # 0019: k-means topic cluster assignment
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -469,8 +471,33 @@ class NodeModel(Base):
             "level": self.level,
             "touch_count": self.touch_count,
             "last_access": self.last_access.isoformat() if self.last_access else None,
+            "long_term": self.long_term,
+            "cluster_id": self.cluster_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+# -----------------------------------------------------------------------------
+# GraphClusterModel - k-means cluster centers per graph (0019)
+# -----------------------------------------------------------------------------
+
+
+class GraphClusterModel(Base):
+    """Stores k-means cluster center vectors per graph."""
+
+    __tablename__ = "graph_clusters"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    cluster_id = Column(Integer, nullable=False)
+    center = Column(JSONBType, nullable=False)  # List[float] — centroid vector
+    node_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
 
 
 # -----------------------------------------------------------------------------

@@ -36,6 +36,7 @@ type FigFloatingCardProps = {
 
 const STATE_LABELS: Record<FigNodeDisplayState, string> = {
   active: "Active",
+  warm: "Warm",
   cold: "Cold",
   historical: "Historical",
   compressed: "Compressed",

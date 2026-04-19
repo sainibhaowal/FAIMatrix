@@ -30,8 +30,8 @@ const OUTCOMES = [
 ];
 
 const WORKFLOWS = [
-  "Upload documents into Storage",
-  "Select Auto, FAIM Native, or DocNative",
+  "Upload PDFs, DOCX, PPTX, XLSX, images, code, and text",
+  "FAIM Native extractor — multi-column, tables, scanned OCR, zero ML",
   "Inspect provenance and download originals",
   "Rebuild canonical, multilingual, multimodal, or domain layers",
   "Ask Memory Query and get cited answers",

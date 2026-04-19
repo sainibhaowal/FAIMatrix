@@ -23,6 +23,7 @@ export type FigSnapshot = {
 
 export type FigNodeDisplayState =
   | "active"
+  | "warm"
   | "historical"
   | "compressed"
   | "deduplicated"
@@ -30,6 +31,8 @@ export type FigNodeDisplayState =
   | "cold"
   | "deactivated"
   | "unknown";
+
+export type FigNodeTemperature = "hot" | "warm" | "cold";
 
 export type FigNodeTitleSource =
   | "anchor"
@@ -49,6 +52,20 @@ export type FigNodeMetrics = {
   touch_count: number;
   residual: number;
   last_access: string | null;
+  temperature?: FigNodeTemperature;
+};
+
+export type FigNodeAnchor = {
+  doc_type?: string | null;
+  block_type?: string | null;
+  page?: number | null;
+  slide?: number | null;
+  sheet?: string | null;
+  section?: string | null;
+  row_start?: number | null;
+  row_end?: number | null;
+  char_start?: number | null;
+  char_end?: number | null;
 };
 
 export type FigNode = {
@@ -58,10 +75,17 @@ export type FigNode = {
   vector_hash: string;
   display: FigNodeDisplay;
   metrics?: FigNodeMetrics;
+  anchor?: FigNodeAnchor;
   provenance?: {
     raw_id?: string;
     block_id?: string;
   };
+  /** Whether this node is protected from cold pruning. */
+  long_term?: boolean;
+  /** Topic cluster assignment (null = not yet clustered). */
+  cluster_id?: number | null;
+  /** ISO datetime when this node was first created. Used for timeline step filtering. */
+  created_at?: string | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -75,6 +99,8 @@ export type FigEdge = {
   kind: string;
   weight: number;
   meta: Record<string, unknown> | null;
+  /** ISO datetime when this edge was created. Used for timeline step filtering. */
+  created_at?: string | null;
 };
 
 // ---------------------------------------------------------------------------
