@@ -7,7 +7,19 @@ import type { NextRequest } from "next/server";
 export default withAuth(
   async function middleware(req) {
     // Test-only bypass for Playwright e2e runs.
+    // For proxied FAIM API calls, inject the E2E JWT so the backend's JWTAuthMiddleware
+    // accepts the request without requiring X-Tenant-Id / X-Api-Key headers.
     if (process.env.PLAYWRIGHT_BYPASS_AUTH === "true") {
+      const e2eJwt = process.env.PLAYWRIGHT_E2E_JWT;
+      const isApiCall =
+        req.nextUrl.pathname.startsWith("/api/v1/") ||
+        req.nextUrl.pathname.startsWith("/api/ops/") ||
+        req.nextUrl.pathname.startsWith("/api/billing/");
+      if (e2eJwt && isApiCall) {
+        const requestHeaders = new Headers(req.headers);
+        requestHeaders.set("Authorization", `Bearer ${e2eJwt}`);
+        return NextResponse.next({ request: { headers: requestHeaders } });
+      }
       return NextResponse.next();
     }
 

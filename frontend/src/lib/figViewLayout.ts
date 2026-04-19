@@ -90,9 +90,10 @@ export function applyLayout(
 // ---------------------------------------------------------------------------
 
 const STATE_COLORS: Record<FigNodeDisplayState, string> = {
-  active: "#34d399",       // emerald-400
-  cold: "#64748b",         // slate-500
-  historical: "#fbbf24",   // amber-400
+  active: "#34d399",       // emerald-400 — recently accessed / hot
+  warm: "#fbbf24",         // amber-400   — accessed within 30 days
+  cold: "#64748b",         // slate-500   — not accessed in 90+ days
+  historical: "#818cf8",   // indigo-400
   compressed: "#60a5fa",   // blue-400
   deduplicated: "#a78bfa", // violet-400
   pruned: "#f87171",       // red-400

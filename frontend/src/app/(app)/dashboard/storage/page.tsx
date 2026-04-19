@@ -256,8 +256,6 @@ type StorageSupportedTypesResponse = {
   ocr_engine: string;
   ocr_fail_closed: boolean;
   ocr_capable_extensions: string[];
-  docnative_enabled: boolean;
-  docnative_available: boolean;
 };
 
 type StorageMaintenanceHistoryItem = {
@@ -335,7 +333,7 @@ type QueueStatus =
   | "failed"
   | "cancelled";
 
-type ExtractorMode = "auto" | "faim_native" | "docnative";
+type ExtractorMode = "faim_native";
 
 type QueueItem = {
   id: string;
@@ -473,15 +471,12 @@ function modeSummary(item: QueueItem): string | null {
   );
 }
 
-function extractorModeLabel(mode?: string | null): string {
-  const normalized = String(mode || "auto").toLowerCase();
-  if (normalized === "docnative") return "DocNative";
-  if (normalized === "faim_native") return "FAIM Native";
-  return "Auto";
+function extractorModeLabel(_mode?: string | null): string {
+  return "FAIM Native";
 }
 
 function maintenanceActionSummary(
-  action: "canonical" | "multilingual" | "multimodal" | "domain_profile" | "domain_knowledge",
+  action: "canonical" | "multilingual" | "multimodal" | "domain_profile" | "domain_knowledge" | "repr_v2" | "prune_cold_dry" | "prune_cold_live" | "cluster",
   response: Record<string, unknown>
 ): string {
   const n = (value: unknown): number => {
@@ -500,6 +495,18 @@ function maintenanceActionSummary(
   }
   if (action === "domain_profile") {
     return `Domain profile: files ${n(response.files_scanned)}, terms ${n(response.lexicon_written)}`;
+  }
+  if (action === "repr_v2") {
+    return `Memory index rebuild: scanned ${n(response.files_scanned)} files, matched ${n(response.matched_nodes)} nodes, updated ${n(response.updated)}, inserted ${n(response.inserted)}, skipped ${n(response.skipped_nodes)}`;
+  }
+  if (action === "prune_cold_dry") {
+    return `Prune preview (dry run): ${n(response.scanned)} cold candidates found — run live prune to delete them`;
+  }
+  if (action === "prune_cold_live") {
+    return `Pruned ${n(response.pruned)} cold nodes (age >${n(response.cold_age_days)}d, never accessed)`;
+  }
+  if (action === "cluster") {
+    return `Clustering complete: k=${n(response.k)}, ${n(response.nodes_clustered)} nodes assigned, ${n(response.iterations)} iterations${response.converged ? " (converged)" : ""}`;
   }
   return `Domain knowledge import: entities ${n(response.entity_nodes_written)}, facts ${n(response.fact_nodes_written)}, edges ${n(response.edges_written)}`;
 }
@@ -601,7 +608,7 @@ export default function StoragePage() {
   const [page, setPage] = useState(0);
   const [profile, setProfile] = useState("strict");
   const [persistMode, setPersistMode] = useState("relaxed");
-  const [extractorMode, setExtractorMode] = useState<ExtractorMode>("auto");
+  const [extractorMode, setExtractorMode] = useState<ExtractorMode>("faim_native");
 
   const ingestModePolicy = useMemo(
     () => resolveUiModePolicy("ingest", profile, persistMode),
@@ -615,10 +622,6 @@ export default function StoragePage() {
     () => formatModePair(profile, persistMode),
     [persistMode, profile]
   );
-  const docnativeAvailable = Boolean(supportedTypes?.docnative_available);
-  const docnativeEnabled = Boolean(supportedTypes?.docnative_enabled);
-  const docnativeSelectedButDisabled =
-    extractorMode === "docnative" && docnativeAvailable && !docnativeEnabled;
   const selectedExtractorLabel = useMemo(
     () => extractorModeLabel(extractorMode),
     [extractorMode]
@@ -1491,7 +1494,11 @@ export default function StoragePage() {
     | "multilingual"
     | "multimodal"
     | "domain_profile"
-    | "domain_knowledge";
+    | "domain_knowledge"
+    | "repr_v2"
+    | "prune_cold_dry"
+    | "prune_cold_live"
+    | "cluster";
 
   const runMaintenanceAction = useCallback(
     async (action: MaintenanceActionKey) => {
@@ -1522,6 +1529,26 @@ export default function StoragePage() {
             `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/domain-profile/rebuild${
               params.toString() ? `?${params.toString()}` : ""
             }`,
+            { method: "POST" }
+          );
+        } else if (action === "repr_v2") {
+          response = await fetchJson<Record<string, unknown>>(
+            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/representation-v2/rebuild`,
+            { method: "POST" }
+          );
+        } else if (action === "prune_cold_dry") {
+          response = await fetchJson<Record<string, unknown>>(
+            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/prune-cold-nodes?dry_run=true&cold_age_days=90`,
+            { method: "POST" }
+          );
+        } else if (action === "prune_cold_live") {
+          response = await fetchJson<Record<string, unknown>>(
+            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/prune-cold-nodes?dry_run=false&cold_age_days=90`,
+            { method: "POST" }
+          );
+        } else if (action === "cluster") {
+          response = await fetchJson<Record<string, unknown>>(
+            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/cluster`,
             { method: "POST" }
           );
         } else if (action === "domain_knowledge") {
@@ -1700,17 +1727,9 @@ export default function StoragePage() {
             Retrieval Control Plane
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge size="xs" variant={docnativeAvailable ? "success" : "warning"}>
-              DocNative {docnativeAvailable ? "installed" : "unavailable"}
-            </Badge>
-            <Badge size="xs" variant={docnativeEnabled ? "success" : "default"}>
-              {docnativeAvailable
-                ? `DocNative ${docnativeEnabled ? "enabled" : "disabled by config"}`
-                : "DocNative not installed"}
-            </Badge>
-            <Badge size="xs" variant={docnativeSelectedButDisabled ? "warning" : "info"}>
-              Active extractor: {selectedExtractorLabel}
-              {docnativeSelectedButDisabled ? " (fallback applies)" : ""}
+            <Badge size="xs" variant="success">FAIM Native Extractor</Badge>
+            <Badge size="xs" variant="info">
+              Multi-column · Tables · Scanned PDFs · OCR
             </Badge>
           </div>
         </div>
@@ -1763,6 +1782,10 @@ export default function StoragePage() {
 
             <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
               {[
+                { key: "cluster" as const, label: "Run Topic Clustering" },
+                { key: "repr_v2" as const, label: "Rebuild Memory Index" },
+                { key: "prune_cold_dry" as const, label: "Preview Cold Prune (dry run)" },
+                { key: "prune_cold_live" as const, label: "Prune Cold Nodes (live)" },
                 { key: "canonical" as const, label: "Canonical semantics rebuild" },
                 { key: "multilingual" as const, label: "Multilingual semantics rebuild" },
                 { key: "multimodal" as const, label: "Multimodal backfill/rebuild" },
@@ -2052,15 +2075,10 @@ export default function StoragePage() {
             {
               label: "Extractor",
               node: (
-                <ThemedSelect
-                  value={extractorMode}
-                  onChange={setExtractorMode}
-                  options={[
-                    { value: "auto", label: "Auto" },
-                    { value: "faim_native", label: "FAIM Native" },
-                    { value: "docnative", label: "DocNative" },
-                  ]}
-                />
+                <div className="flex h-8 items-center rounded-lg border px-2.5 text-xs font-medium"
+                  style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)", color: "var(--text-secondary)" }}>
+                  FAIM Native
+                </div>
               ),
             },
             {

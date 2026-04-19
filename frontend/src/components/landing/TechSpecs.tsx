@@ -11,7 +11,9 @@ const SPEC_GROUPS = [
       { label: "Vector Dimension", value: "256", unit: "fixed" },
       { label: "Encoding", value: "Deterministic", unit: "native" },
       { label: "Hash Algorithm", value: "SHA-256", unit: "" },
-      { label: "Invariant Checks", value: "8", unit: "per write" },
+      { label: "Idempotency", value: "SHA-256 dedup", unit: "per write" },
+      { label: "Memory Tiers", value: "Hot · Warm · Cold", unit: "auto" },
+      { label: "Cold Pruning", value: "90d", unit: "configurable" },
     ],
   },
   {
@@ -31,7 +33,8 @@ const SPEC_GROUPS = [
     borderColor: "border-blue-500/20",
     specs: [
       { label: "Multilingual", value: "EN + DE", unit: "concept-linked" },
-      { label: "Multimodal", value: "OCR / Table / Layout / pHash", unit: "" },
+      { label: "Extraction", value: "PDF · DOCX · PPTX · XLSX · Images · Code", unit: "FAIM Native" },
+      { label: "PDF Layout", value: "Multi-column · Tables · Scanned OCR", unit: "zero ML" },
       { label: "Domain Knowledge", value: "Offline KB", unit: "graph-scoped" },
       { label: "Answer Mode", value: "Extractive", unit: "citation-first" },
     ],

@@ -184,8 +184,9 @@ export default function Hero() {
               Storage Control
             </p>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-              Upload with Auto, FAIM Native, or DocNative, then rebuild
-              canonical, multilingual, multimodal, and domain layers safely.
+              Upload PDFs, DOCX, PPTX, XLSX, images and more. FAIM Native
+              extractor handles multi-column layouts, tables, and scanned pages
+              out of the box — zero ML dependencies.
             </p>
           </div>
         </motion.div>
