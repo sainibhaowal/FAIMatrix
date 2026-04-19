@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { AlertCircle, CheckCircle2, Download } from "lucide-react";
+import { AlertCircle, CheckCircle2, Download, Activity } from "lucide-react";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -105,20 +105,23 @@ export default function BenchmarksPage() {
       )}
 
       <GlassHeader
+        icon={Activity}
         title="Engine Benchmarks"
         subtitle="Live FAIM-Native Performance & System Health"
-        buttons={[
-          <Button key="run" onClick={handleRunBenchmark} disabled={loading}>
-            {loading ? "Running..." : "Run Benchmark"}
-          </Button>,
-          <Button key="stress" onClick={handleRunStressTest} disabled={loading} variant="secondary">
-            Stress Test
-          </Button>,
-          <Button key="export" onClick={handleExport} disabled={loading} variant="secondary">
-            <Download className="h-4 w-4 mr-2" />
-            Export Report
-          </Button>,
-        ]}
+        actions={
+          <div className="flex gap-2">
+            <Button onClick={handleRunBenchmark} disabled={loading} size="sm">
+              {loading ? "Running..." : "Run Benchmark"}
+            </Button>
+            <Button onClick={handleRunStressTest} disabled={loading} variant="secondary" size="sm">
+              Stress Test
+            </Button>
+            <Button onClick={handleExport} disabled={loading} variant="secondary" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+          </div>
+        }
       />
 
       {signals && (
