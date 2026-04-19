@@ -148,10 +148,6 @@ export default function FigMetricsBar({
   const scorecardSource: "backend" | "computed" =
     metricsMode === "full" && backendScorecard !== null ? "backend" : "computed";
 
-  // Color based on mode
-  const modeColor = metricsMode === "view" ? "text-cyan-300" : "text-slate-400";
-  const modeBgHover = metricsMode === "view" ? "hover:bg-cyan-950/50" : "hover:bg-slate-800/50";
-
   return (
     <div className="flex items-stretch rounded-xl border border-slate-700/50 bg-slate-950/85 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.4)] overflow-hidden divide-x divide-slate-700/30">
 
@@ -229,34 +225,41 @@ export default function FigMetricsBar({
         }
       >
         {[
-          { key: "D", value: displayScorecard?.density ?? 0, desc: "density" },
-          { key: "H", value: displayScorecard?.entropy ?? 0, desc: "entropy" },
-          { key: "λ", value: displayScorecard?.spectral_radius ?? 0, desc: "spectral" },
-        ].map(({ key, value, desc }) => (
-          <div
-            key={key}
-            className={`flex flex-col items-center justify-center gap-0.5 px-4 py-2 min-w-[72px] transition-colors ${
-              metricsMode === "view" ? "bg-cyan-950/10" : ""
-            }`}
-          >
-            <span
-              className={`font-mono text-[14px] font-bold leading-none transition-colors ${
-                metricsMode === "view" ? "text-cyan-300" : "text-slate-100"
+          {
+            key: "D", value: displayScorecard?.density ?? 0,
+            healthColor: (v: number) => v >= 0.15 ? "#22d3ee" : v >= 0.05 ? "#fbbf24" : "#64748b",
+            healthHint: (v: number) => v >= 0.15 ? "dense" : v >= 0.05 ? "sparse" : "disconnected",
+          },
+          {
+            key: "H", value: displayScorecard?.entropy ?? 0,
+            healthColor: (v: number) => v >= 0.8 ? "#a78bfa" : v >= 0.3 ? "#fbbf24" : "#64748b",
+            healthHint: (v: number) => v >= 0.8 ? "diverse" : v >= 0.3 ? "moderate" : "uniform",
+          },
+          {
+            key: "λ", value: displayScorecard?.spectral_radius ?? 0,
+            healthColor: (v: number) => v >= 2.0 ? "#34d399" : v >= 0.5 ? "#fbbf24" : "#64748b",
+            healthHint: (v: number) => v >= 2.0 ? "clustered" : v >= 0.5 ? "moderate" : "sparse",
+          },
+        ].map(({ key, value, healthColor, healthHint }) => {
+          const valColor = metricsMode === "view" ? "#22d3ee" : healthColor(value);
+          return (
+            <div
+              key={key}
+              className={`flex flex-col items-center justify-center gap-0.5 px-4 py-2 min-w-[72px] transition-colors ${
+                metricsMode === "view" ? "bg-cyan-950/10" : ""
               }`}
             >
-              {typeof value === "number" && value > 0
-                ? value.toFixed(2)
-                : value === 0
-                  ? "0"
-                  : "—"}
-            </span>
-            <span className="text-[8px] uppercase tracking-widest text-slate-500 mt-0.5">
-              {key}
-            </span>
-            <span className="text-[7px] text-slate-700 font-mono">{desc}</span>
-          </div>
-        ))}
-        {/* Source badge — indicates whether D/H/λ came from backend or were derived */}
+              <span className="font-mono text-[14px] font-bold leading-none transition-colors" style={{ color: valColor }}>
+                {typeof value === "number" && value > 0 ? value.toFixed(2) : value === 0 ? "0" : "—"}
+              </span>
+              <span className="text-[8px] uppercase tracking-widest text-slate-500 mt-0.5">{key}</span>
+              <span className="text-[7px] font-mono" style={{ color: valColor, opacity: 0.7 }}>
+                {healthHint(value)}
+              </span>
+            </div>
+          );
+        })}
+        {/* Source badge */}
         <div className="flex flex-col items-center justify-end px-2 py-2">
           <span
             className={`text-[7px] font-mono uppercase tracking-widest ${

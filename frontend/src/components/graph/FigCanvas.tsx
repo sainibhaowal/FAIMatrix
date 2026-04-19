@@ -18,6 +18,7 @@ import {
   DEFAULT_CAMERA,
   edgeColorByKind,
   getLayoutConfig,
+  nodeColorByCausality,
   nodeColorByEvolution,
   nodeColorByIdentity,
   nodeColorByLineageDepth,
@@ -78,6 +79,11 @@ export type FigCanvasHandle = {
   zoomOut: () => void;
 };
 
+export type FigExplainPath = {
+  nodeIdSet: Set<string>;
+  edgeIdSet: Set<string>;
+};
+
 type FigCanvasProps = {
   data: FigSurfaceResponse;
   layoutMode: LayoutMode;
@@ -87,6 +93,15 @@ type FigCanvasProps = {
   hiddenNodeKinds?: Set<string>;
   hiddenEdgeKinds?: Set<string>;
   overlayMode?: OverlayMode;
+  /** When set, path nodes/edges are highlighted in amber-400 with directional particles. */
+  explainPath?: FigExplainPath | null;
+  /**
+   * When set (ISO timestamp from a timeline step event), only nodes and edges
+   * with created_at <= historyTs are rendered. This enables approximate
+   * graph-at-time visualization when stepping through the event timeline.
+   * Nodes/edges without created_at are always shown (safe fallback).
+   */
+  historyTs?: string | null;
   onNodeSelect: (nodeId: string | null) => void;
   onNodeHover?: (node: FigNode | null, x: number, y: number) => void;
 };
@@ -96,7 +111,7 @@ type FigCanvasProps = {
 // ---------------------------------------------------------------------------
 
 const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas(
-  { data, layoutMode, topMode, locked, selectedNodeId, hiddenNodeKinds, hiddenEdgeKinds, overlayMode = "none", onNodeSelect, onNodeHover },
+  { data, layoutMode, topMode, locked, selectedNodeId, hiddenNodeKinds, hiddenEdgeKinds, overlayMode = "none", explainPath, historyTs, onNodeSelect, onNodeHover },
   ref,
 ) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -154,19 +169,28 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   // -------------------------------------------------------------------------
 
   const graphData = useMemo(() => {
-    const filteredNodes = hiddenNodeKinds?.size
-      ? data.nodes.filter((n) => !hiddenNodeKinds.has(n.kind))
+    const historyMs = historyTs ? new Date(historyTs).getTime() : null;
+    let visibleNodes = historyMs
+      ? data.nodes.filter((n) => !n.created_at || new Date(n.created_at).getTime() <= historyMs)
       : data.nodes;
+    const filteredNodes = hiddenNodeKinds?.size
+      ? visibleNodes.filter((n) => !hiddenNodeKinds.has(n.kind))
+      : visibleNodes;
     const nodeIds = new Set(filteredNodes.map((n) => n.node_id));
     let filteredEdges = hiddenEdgeKinds?.size
       ? data.edges.filter((e) => !hiddenEdgeKinds.has(e.kind))
       : data.edges;
+    if (historyMs) {
+      filteredEdges = filteredEdges.filter(
+        (e) => !e.created_at || new Date(e.created_at).getTime() <= historyMs,
+      );
+    }
     // Also filter out edges whose source or target nodes are hidden
     filteredEdges = filteredEdges.filter(
       (e) => nodeIds.has(e.src_node_id) && nodeIds.has(e.dst_node_id)
     );
     return toGraphData(filteredNodes, filteredEdges);
-  }, [data.nodes, data.edges, hiddenNodeKinds, hiddenEdgeKinds]);
+  }, [data.nodes, data.edges, hiddenNodeKinds, hiddenEdgeKinds, historyTs]);
 
   const config = getLayoutConfig(layoutMode);
 
@@ -388,6 +412,14 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
       const isSelected = selectedNodeId === figNode.id;
 
       // ------------------------------------------------------------------
+      // EXPLAIN PATH — highest priority: highlight path nodes in amber.
+      // Explicit user action (Find Path) overrides all other coloring.
+      // ------------------------------------------------------------------
+      if (explainPath?.nodeIdSet.has(figNode.id)) {
+        return isSelected ? "#fde68a" : "#f59e0b"; // amber-200 selected / amber-400 path
+      }
+
+      // ------------------------------------------------------------------
       // OVERLAY MODE — takes precedence over topMode coloring.
       // Normalization values are pre-computed in overlayNorm.
       // ------------------------------------------------------------------
@@ -412,7 +444,7 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
             const ts = new Date(m.last_access).getTime();
             freshnessScore = tsRange > 0
               ? (ts - overlayNorm.minTs) / tsRange
-              : 1; // single timestamp → treat as fresh
+              : 1;
           }
           return nodeColorByEvolution(state, freshnessScore, isSelected);
         }
@@ -427,18 +459,29 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
           }
           return nodeColorByTemporal(temporalScore, isSelected);
         }
+
+        if (overlayMode === "causality") {
+          const m2 = figNode.metrics;
+          const normT = overlayNorm.maxTouchCount > 0
+            ? (m2?.touch_count ?? 0) / overlayNorm.maxTouchCount
+            : 0;
+          let recencyScore = 0;
+          if (m2?.last_access) {
+            const ts = new Date(m2.last_access).getTime();
+            recencyScore = tsRange > 0 ? (ts - overlayNorm.minTs) / tsRange : 1;
+          }
+          return nodeColorByCausality(normT * 0.5 + recencyScore * 0.5, isSelected);
+        }
       }
 
       // ------------------------------------------------------------------
-      // ANALYZE mode → deterministic rainbow per node_id (guaranteed variety
-      // even when all nodes share the same kind/level/state).
+      // ANALYZE mode → deterministic rainbow per node_id.
       // ------------------------------------------------------------------
       if (topMode === "analyze") {
         return nodeColorByIdentity(figNode.id, isSelected);
       }
 
-      // LINEAGE mode → color by BFS depth from the selected node. Non-lineage
-      // nodes dim only when a selection exists; otherwise show identity colors.
+      // LINEAGE mode → color by BFS depth from the selected node.
       if (topMode === "lineage") {
         if (!selectedNodeId) {
           return nodeColorByIdentity(figNode.id, false);
@@ -454,7 +497,7 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
       const stateClass = figNode.display?.state ?? "unknown";
       return nodeColorByState(stateClass, isSelected);
     },
-    [topMode, lineageDepths, selectedNodeId, overlayMode, overlayNorm],
+    [topMode, lineageDepths, selectedNodeId, overlayMode, overlayNorm, explainPath],
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -475,27 +518,56 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
   const linkColor = useCallback(
     (link: any) => {
       const graphLink = link as GraphLink;
-      if (topMode === "lineage" && selectedNodeId) {
-        const srcIn = lineageDepths.has(graphLink.source as unknown as string);
-        const dstIn = lineageDepths.has(graphLink.target as unknown as string);
-        if (!srcIn || !dstIn) return "rgba(100, 116, 139, 0.1)";
+      // Explain path edges — amber, overrides all other coloring.
+      if (explainPath?.edgeIdSet.has(graphLink.edge_id)) return "#f59e0b";
+      if (topMode === "lineage") {
+        if (selectedNodeId) {
+          // Node selected: highlight lineage path, fade everything else.
+          const srcIn = lineageDepths.has(graphLink.source as unknown as string);
+          const dstIn = lineageDepths.has(graphLink.target as unknown as string);
+          if (!srcIn || !dstIn) return "rgba(148, 163, 184, 0.08)";
+          return edgeColorByKind(graphLink.kind);
+        }
+        // No node selected: inheritance edges bright, everything else dimmed.
+        const k = (graphLink.kind ?? "").toLowerCase();
+        if (k === "inheritance") return "#22d3ee";
+        return "rgba(148, 163, 184, 0.2)";
       }
       return edgeColorByKind(graphLink.kind);
     },
-    [topMode, lineageDepths, selectedNodeId],
+    [topMode, lineageDepths, selectedNodeId, explainPath],
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const linkParticles = useCallback(
+    (link: any) => {
+      const graphLink = link as GraphLink;
+      return explainPath?.edgeIdSet.has(graphLink.edge_id) ? 4 : 0;
+    },
+    [explainPath],
+  );
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const linkParticleColor = useCallback(
+    (link: any) => {
+      const graphLink = link as GraphLink;
+      return explainPath?.edgeIdSet.has(graphLink.edge_id) ? "#fbbf24" : "#94a3b8";
+    },
+    [explainPath],
   );
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const linkWidth = useCallback(
     (link: any) => {
       const graphLink = link as GraphLink;
-      const baseWidth = Math.max(0.5, Math.log(graphLink.weight) * 0.5);
+      const minWidth = topMode === "lineage" ? 1.0 : 0.8;
+      const baseWidth = Math.max(minWidth, Math.log1p(graphLink.weight ?? 1) * 0.6);
       if (selectedNodeId && (graphLink.source === selectedNodeId || graphLink.target === selectedNodeId)) {
-        return baseWidth * 1.5;
+        return baseWidth * 2;
       }
       return baseWidth;
     },
-    [selectedNodeId],
+    [selectedNodeId, topMode],
   );
 
   // -------------------------------------------------------------------------
@@ -525,6 +597,9 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(function FigCanvas
         linkWidth={linkWidth}
         linkDirectionalArrowLength={3}
         linkDirectionalArrowRelPos={1}
+        linkDirectionalParticles={linkParticles}
+        linkDirectionalParticleSpeed={0.004}
+        linkDirectionalParticleColor={linkParticleColor}
         dagMode={topMode === "lineage" ? "td" : (config.dagMode ?? undefined)}
         d3AlphaDecay={config.d3AlphaDecay}
         d3VelocityDecay={config.d3VelocityDecay}

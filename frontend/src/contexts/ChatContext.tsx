@@ -9,6 +9,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { getSession } from "next-auth/react";
+import { getActiveProvider } from "@/lib/providers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -202,6 +203,69 @@ async function buildAuthorizedHeaders(extra?: HeadersInit): Promise<HeadersInit>
   };
 }
 
+// ---------------------------------------------------------------------------
+// FAIM → LLM context builder
+// ---------------------------------------------------------------------------
+
+function buildFaimSystemPrompt(queryData: FaimQueryResponse, thinkingEnabled: boolean): string {
+  const spans  = queryData.answer?.supporting_spans   ?? [];
+  const quotes = queryData.answer?.quotes             ?? [];
+  const direct = queryData.answer?.direct_answer      ?? "";
+  const contra = queryData.answer?.contradiction_notes ?? [];
+  const count  = queryData.results?.length            ?? 0;
+
+  const lines: string[] = [
+    "You are FAIM SentineL, an intelligent memory assistant with access to the user's personal knowledge graph.",
+    "Answer using ONLY the memory context retrieved below. Do not invent information not present in it.",
+    "",
+  ];
+
+  if (spans.length > 0) {
+    lines.push("## Retrieved Memory Nodes");
+    spans.forEach((s, i) => {
+      const tag = s.temporal_status ? ` [${s.temporal_status}]` : "";
+      lines.push(`${i + 1}. (relevance ${(s.score * 100).toFixed(0)}%)${tag}`);
+      lines.push(s.text);
+    });
+    lines.push("");
+  }
+
+  if (direct) {
+    lines.push("## Knowledge Summary");
+    lines.push(direct);
+    lines.push("");
+  }
+
+  if (quotes.length > 0) {
+    lines.push("## Supporting Quotes");
+    quotes.forEach((q) => lines.push(`"${q}"`));
+    lines.push("");
+  }
+
+  if (contra.length > 0) {
+    lines.push("## Contradictions Detected");
+    contra.forEach((c) => lines.push(`- ${c}`));
+    lines.push("");
+  }
+
+  if (count === 0) {
+    lines.push("## Note");
+    lines.push("No relevant memories were found. Tell the user honestly that no matching information exists in their graph.");
+    lines.push("");
+  }
+
+  lines.push("## Instructions");
+  lines.push("- Answer naturally and conversationally");
+  lines.push("- Reference specific content from the retrieved memories when relevant");
+  lines.push("- If the context is insufficient, say so clearly — never hallucinate");
+  lines.push("- Maintain continuity with the conversation history");
+  if (thinkingEnabled) lines.push("- Think through the answer step by step before responding");
+
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+
 async function resolveActiveGraphId(): Promise<string | null> {
   const session = await getSession();
   const fromSession =
@@ -387,14 +451,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setIsThinking(false);
       setLiveThinkingBuffer("");
 
+      // Capture history BEFORE we append the new messages (messages is still stale here)
+      const historySnapshot = messages
+        .slice(-8)
+        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content || "" }))
+        .filter((m) => m.content.trim());
+
       try {
         const graphId = await resolveActiveGraphId();
-        if (!graphId) {
-          throw new Error("No active graph found for memory query");
-        }
+        if (!graphId) throw new Error("No active graph found for memory query");
 
+        // ── Step 1: FAIM retrieval ──────────────────────────────────────────
         const headers = await buildAuthorizedHeaders();
-        const res = await fetch("/api/v1/query", {
+        const queryRes = await fetch("/api/v1/query", {
           method: "POST",
           headers: { "Content-Type": "application/json", ...headers },
           body: JSON.stringify({
@@ -406,57 +475,168 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           }),
         });
 
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || errData.message || `HTTP ${res.status}`);
+        if (!queryRes.ok) {
+          const errData = await queryRes.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.message || `HTTP ${queryRes.status}`);
         }
 
-        const queryData = (await res.json()) as FaimQueryResponse;
-        const fallbackContent =
-          queryData.answer || queryData.results?.length
-            ? "FAIM retrieved evidence and prepared a structured answer."
-            :
-          (queryData.results?.length
-            ? `Retrieved ${queryData.results.length} matching memory result${queryData.results.length === 1 ? "" : "s"}.`
-            : "No matching memory found.");
+        const queryData = (await queryRes.json()) as FaimQueryResponse;
 
+        // Attach queryData immediately so the results card appears while LLM streams
         setThreads((prev) =>
-          prev.map((t) => {
-            if (t.id !== threadId) return t;
-            return {
+          prev.map((t) =>
+            t.id !== threadId ? t : {
               ...t,
               messages: t.messages.map((m) =>
-                m.id === assistantId
-                  ? {
-                      ...m,
-                      content: fallbackContent,
-                      queryData,
-                    }
-                  : m
+                m.id === assistantId ? { ...m, queryData } : m
               ),
-            };
-          })
+            }
+          )
         );
-      } catch (e: any) {
-        const errorMsg = e.message || "Failed to query FAIM";
+
+        // ── Step 2: Check active provider ──────────────────────────────────
+        const provider = getActiveProvider();
+
+        if (!provider) {
+          // No LLM connected — fall back to FAIM extractive answer
+          const fallback =
+            queryData.answer?.direct_answer ||
+            (queryData.results?.length
+              ? `Retrieved ${queryData.results.length} memory result${queryData.results.length === 1 ? "" : "s"}.`
+              : "No matching memory found for this query.");
+          setThreads((prev) =>
+            prev.map((t) =>
+              t.id !== threadId ? t : {
+                ...t,
+                messages: t.messages.map((m) =>
+                  m.id === assistantId ? { ...m, content: fallback, queryData } : m
+                ),
+              }
+            )
+          );
+          return;
+        }
+
+        // ── Step 3: Build system prompt with FAIM context ──────────────────
+        const systemPrompt = buildFaimSystemPrompt(queryData, thinkingEnabled);
+
+        // ── Step 4: Call LLM provider and stream response ──────────────────
+        const llmMessages = [
+          ...historySnapshot,
+          { role: "user" as const, content: userMsg.content },
+        ];
+
+        const chatRes = await fetch("/api/provider/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            providerUrl: provider.baseUrl,
+            apiKey: provider.apiKey || undefined,
+            model: provider.activeModel,
+            messages: llmMessages,
+            systemPrompt,
+          }),
+        });
+
+        if (!chatRes.ok) {
+          const errData = await chatRes.json().catch(() => ({}));
+          throw new Error(errData.error || `Provider error (${chatRes.status})`);
+        }
+
+        // Stream token by token
+        const reader = chatRes.body?.getReader();
+        const decoder = new TextDecoder();
+        let accumulated = "";
+        let thinkingAccum = "";
+
+        if (reader) {
+          outer: while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            for (const line of chunk.split("\n")) {
+              if (!line.startsWith("data: ")) continue;
+              const raw = line.slice(6).trim();
+              if (raw === "[DONE]") break outer;
+
+              try {
+                const parsed = JSON.parse(raw);
+                const delta = parsed.choices?.[0]?.delta;
+                if (!delta) continue;
+
+                if (delta.thinking) {
+                  thinkingAccum += delta.thinking;
+                  setIsThinking(true);
+                  setLiveThinkingBuffer(thinkingAccum);
+                  continue;
+                }
+
+                if (delta.content) {
+                  accumulated += delta.content;
+                  setThreads((prev) =>
+                    prev.map((t) =>
+                      t.id !== threadId ? t : {
+                        ...t,
+                        messages: t.messages.map((m) =>
+                          m.id !== assistantId ? m : {
+                            ...m,
+                            content: accumulated,
+                            queryData,
+                            ...(thinkingAccum ? { thinking: thinkingAccum } : {}),
+                          }
+                        ),
+                      }
+                    )
+                  );
+                }
+              } catch { /* skip malformed SSE lines */ }
+            }
+          }
+        }
+
+        // Finalise — ensure we always have something
+        const finalContent = accumulated ||
+          queryData.answer?.direct_answer ||
+          "I couldn't generate an answer. Please check the source results below.";
+
+        setThreads((prev) =>
+          prev.map((t) =>
+            t.id !== threadId ? t : {
+              ...t,
+              messages: t.messages.map((m) =>
+                m.id !== assistantId ? m : {
+                  ...m,
+                  content: finalContent,
+                  queryData,
+                  ...(thinkingAccum ? { thinking: thinkingAccum } : {}),
+                }
+              ),
+              updatedAt: isoNow(),
+            }
+          )
+        );
+
+      } catch (e: unknown) {
+        const errorMsg = e instanceof Error ? e.message : "Failed to query FAIM";
         setError(errorMsg);
         setThreads((prev) =>
-          prev.map((t) => {
-            if (t.id !== threadId) return t;
-            return {
+          prev.map((t) =>
+            t.id !== threadId ? t : {
               ...t,
               messages: t.messages.map((m) =>
                 m.id === assistantId ? { ...m, content: `[Error: ${errorMsg}]` } : m
               ),
-            };
-          })
+            }
+          )
         );
       } finally {
         setIsStreaming(false);
         setIsThinking(false);
+        setLiveThinkingBuffer("");
       }
     },
-    [activeThreadId, messages, isStreaming]
+    [activeThreadId, messages, isStreaming, thinkingEnabled]
   );
 
   const uploadFiles = useCallback(
