@@ -6,10 +6,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
+from core.contracts.types import uuid7
 from sqlalchemy import and_, asc, desc, func, or_
 from sqlalchemy.orm import Session
 
-from core.contracts.types import uuid7
 from store.pg.models_faim import StorageFileModel
 
 
@@ -228,7 +228,9 @@ class StorageFileRepo:
         if graph_id:
             q = q.filter(StorageFileModel.graph_id == graph_id)
         return (
-            q.order_by(asc(StorageFileModel.delete_requested_at), asc(StorageFileModel.id))
+            q.order_by(
+                asc(StorageFileModel.delete_requested_at), asc(StorageFileModel.id)
+            )
             .limit(max(1, int(limit)))
             .all()
         )
@@ -305,12 +307,16 @@ class StorageFileRepo:
         total_files = q.count()
 
         total_bytes = (
-            q.with_entities(func.coalesce(func.sum(StorageFileModel.size_bytes), 0)).scalar()
+            q.with_entities(
+                func.coalesce(func.sum(StorageFileModel.size_bytes), 0)
+            ).scalar()
             or 0
         )
 
         status_rows = (
-            q.with_entities(StorageFileModel.ingest_status, func.count(StorageFileModel.id))
+            q.with_entities(
+                StorageFileModel.ingest_status, func.count(StorageFileModel.id)
+            )
             .group_by(StorageFileModel.ingest_status)
             .all()
         )

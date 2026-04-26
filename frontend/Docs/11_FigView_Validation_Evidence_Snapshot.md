@@ -28,7 +28,7 @@ Backend endpoints and wiring exist:
 
 - faim_native/api/routers/graph.py
 - faim_native/api/app.py
-- faim_native/api/routers/__init__.py
+- faim_native/api/routers/**init**.py
 
 Frontend FIG implementation exists:
 

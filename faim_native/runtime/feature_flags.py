@@ -94,9 +94,7 @@ def get_feature_flags() -> FeatureFlags:
             "FAIM_PROFILE_PERSIST_COMPAT_MODE", True
         ),
         auth_db_primary=_parse_bool("FAIM_AUTH_DB_PRIMARY", True),
-        auth_env_fallback_enabled=_parse_bool(
-            "FAIM_AUTH_ENV_FALLBACK_ENABLED", False
-        ),
+        auth_env_fallback_enabled=_parse_bool("FAIM_AUTH_ENV_FALLBACK_ENABLED", False),
         auth_scope_enforcement_enabled=_parse_bool(
             "FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED", False
         ),
@@ -117,9 +115,7 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
     jobs_enabled = _parse_bool("FAIM_ENABLE_JOBS", False)
 
     if flags.storage_hard_delete_enabled and not jobs_enabled:
-        errors.append(
-            "FAIM_STORAGE_HARD_DELETE_ENABLED requires FAIM_ENABLE_JOBS=true"
-        )
+        errors.append("FAIM_STORAGE_HARD_DELETE_ENABLED requires FAIM_ENABLE_JOBS=true")
 
     allowed_trigger_modes = {"manual", "post_upload", "periodic", "hybrid"}
     trigger_mode = str(flags.self_evolve_trigger_mode or "").strip().lower()
@@ -152,13 +148,9 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
 
     if env in {"prod", "production"}:
         if not encryption_enabled:
-            errors.append(
-                "Production mode requires FAIM_ENCRYPTION_AT_REST=true"
-            )
+            errors.append("Production mode requires FAIM_ENCRYPTION_AT_REST=true")
         if not flags.encryption_fail_closed:
-            errors.append(
-                "Production mode requires FAIM_ENCRYPTION_FAIL_CLOSED=true"
-            )
+            errors.append("Production mode requires FAIM_ENCRYPTION_FAIL_CLOSED=true")
 
     if flags.storage_live_job_stream_enabled:
         warnings.append(

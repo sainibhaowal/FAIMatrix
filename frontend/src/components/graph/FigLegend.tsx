@@ -34,23 +34,65 @@ type FigLegendProps = {
 // ---------------------------------------------------------------------------
 
 // All known display states with canonical colors and descriptions
-const NODE_STATES: { state: FigNodeDisplayState; label: string; desc: string }[] = [
-  { state: "active",       label: "Active (Hot)",  desc: "Accessed within 7 days — highest retrieval priority" },
-  { state: "warm",         label: "Warm",          desc: "Accessed within 30 days — still in working memory" },
-  { state: "cold",         label: "Cold",          desc: "Not accessed in 90+ days or zero touches — candidate for pruning" },
-  { state: "historical",   label: "Historical",    desc: "Older contradicting fact (temporal suppression)" },
-  { state: "compressed",   label: "Compressed",    desc: "Merged into a macro node (summarized)" },
-  { state: "deduplicated", label: "Deduplicated",  desc: "Detected as near-duplicate and removed" },
-  { state: "pruned",       label: "Pruned",        desc: "Removed by pruning policy (terminal)" },
-  { state: "deactivated",  label: "Deactivated",   desc: "Explicitly deactivated by operator" },
-  { state: "unknown",      label: "Unknown",       desc: "State not yet determined" },
+const NODE_STATES: {
+  state: FigNodeDisplayState;
+  label: string;
+  desc: string;
+}[] = [
+  {
+    state: "active",
+    label: "Active (Hot)",
+    desc: "Accessed within 7 days — highest retrieval priority",
+  },
+  {
+    state: "warm",
+    label: "Warm",
+    desc: "Accessed within 30 days — still in working memory",
+  },
+  {
+    state: "cold",
+    label: "Cold",
+    desc: "Not accessed in 90+ days or zero touches — candidate for pruning",
+  },
+  {
+    state: "historical",
+    label: "Historical",
+    desc: "Older contradicting fact (temporal suppression)",
+  },
+  {
+    state: "compressed",
+    label: "Compressed",
+    desc: "Merged into a macro node (summarized)",
+  },
+  {
+    state: "deduplicated",
+    label: "Deduplicated",
+    desc: "Detected as near-duplicate and removed",
+  },
+  {
+    state: "pruned",
+    label: "Pruned",
+    desc: "Removed by pruning policy (terminal)",
+  },
+  {
+    state: "deactivated",
+    label: "Deactivated",
+    desc: "Explicitly deactivated by operator",
+  },
+  { state: "unknown", label: "Unknown", desc: "State not yet determined" },
 ];
 
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-function LegendSection({ title, children }: { title: string; children: React.ReactNode }) {
+function LegendSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div>
       <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-slate-500">
@@ -126,20 +168,25 @@ export default function FigLegend({
 }: FigLegendProps) {
   return (
     <div className="flex flex-col gap-4 text-xs">
-
       {/* ================================================================
           NODE STATES — visual reference only (not filterable by state)
       ================================================================ */}
       <LegendSection title="Node States">
         {NODE_STATES.map(({ state, label, desc }) => (
-          <div key={state} className="flex items-start gap-2.5 px-2 py-0.5" title={desc}>
+          <div
+            key={state}
+            className="flex items-start gap-2.5 px-2 py-0.5"
+            title={desc}
+          >
             <span
               className="h-2.5 w-2.5 rounded-full shrink-0 mt-0.5"
               style={{ backgroundColor: nodeColorByState(state, false) }}
             />
             <div className="min-w-0">
               <span className="text-[11px] text-slate-400">{label}</span>
-              <p className="text-[8px] text-slate-600 leading-tight mt-0.5">{desc}</p>
+              <p className="text-[8px] text-slate-600 leading-tight mt-0.5">
+                {desc}
+              </p>
             </div>
           </div>
         ))}
@@ -198,38 +245,46 @@ export default function FigLegend({
 
         {/* D — Density */}
         <div className="rounded-md bg-slate-900/50 border border-slate-800/40 p-2">
-          <p className="text-[10px] font-mono font-semibold text-cyan-300">D — Density</p>
+          <p className="text-[10px] font-mono font-semibold text-cyan-300">
+            D — Density
+          </p>
           <p className="text-[8px] text-slate-500 mt-0.5">
             Edges ÷ (Nodes × (Nodes−1)). Range 0–1.
           </p>
           <p className="text-[8px] text-slate-600 mt-1">
-            <strong>0</strong> = no connections · <strong>1</strong> = complete graph
+            <strong>0</strong> = no connections · <strong>1</strong> = complete
+            graph
           </p>
         </div>
 
         {/* H — Entropy */}
         <div className="rounded-md bg-slate-900/50 border border-slate-800/40 p-2">
-          <p className="text-[10px] font-mono font-semibold text-violet-300">H — Entropy</p>
+          <p className="text-[10px] font-mono font-semibold text-violet-300">
+            H — Entropy
+          </p>
           <p className="text-[8px] text-slate-500 mt-0.5">
             Shannon entropy of edge kinds (bits). Higher = more diverse.
           </p>
           <p className="text-[8px] text-slate-600 mt-1">
-            <strong>0</strong> = all edges same kind · <strong>log₂(kinds)</strong> = max
+            <strong>0</strong> = all edges same kind ·{" "}
+            <strong>log₂(kinds)</strong> = max
           </p>
         </div>
 
         {/* λ — Spectral Radius */}
         <div className="rounded-md bg-slate-900/50 border border-slate-800/40 p-2">
-          <p className="text-[10px] font-mono font-semibold text-emerald-300">λ — Spectral Radius</p>
+          <p className="text-[10px] font-mono font-semibold text-emerald-300">
+            λ — Spectral Radius
+          </p>
           <p className="text-[8px] text-slate-500 mt-0.5">
             Largest eigenvalue of adjacency matrix (power iteration).
           </p>
           <p className="text-[8px] text-slate-600 mt-1">
-            <strong>Higher</strong> = tighter clustering · <strong>Lower</strong> = sparse/random
+            <strong>Higher</strong> = tighter clustering ·{" "}
+            <strong>Lower</strong> = sparse/random
           </p>
         </div>
       </div>
-
     </div>
   );
 }

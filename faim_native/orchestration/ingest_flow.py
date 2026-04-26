@@ -175,7 +175,9 @@ def _jobs_enabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
-def _project_id_from_graph_or_default(graph_id: str, fallback: Optional[Any] = None) -> UUID:
+def _project_id_from_graph_or_default(
+    graph_id: str, fallback: Optional[Any] = None
+) -> UUID:
     """Resolve project UUID for index partitioning."""
     if fallback is not None:
         try:
@@ -390,7 +392,9 @@ def run_ingest(
         from perception.router import route_extraction
 
         phase_started = time.perf_counter()
-        blocks = route_extraction(file_bytes, filename, raw_id, settings=extraction_settings)
+        blocks = route_extraction(
+            file_bytes, filename, raw_id, settings=extraction_settings
+        )
         effective_extractor_mode = "faim_native"
         _finish_phase("extract", phase_started)
 
@@ -537,7 +541,9 @@ def run_ingest(
 
         reprs_v2 = []
         for block in blocks:
-            if all(hasattr(block, attr) for attr in ("content", "anchor", "block_type")):
+            if all(
+                hasattr(block, attr) for attr in ("content", "anchor", "block_type")
+            ):
                 reprs_v2.append(build_representation_v2_for_block(block))
             else:
                 # Compatibility path for unit tests that stub non-EvidenceBlock
@@ -652,10 +658,14 @@ def run_ingest(
                     _finish_phase("index_sync", phase_started)
                     index_write_mode = "sync_inline_compat"
                     secondary_task_status = "completed_sync"
-                    logger.info("[Ingest] Indexed %d vectors (compat mode)", indexed_count)
+                    logger.info(
+                        "[Ingest] Indexed %d vectors (compat mode)", indexed_count
+                    )
                 except Exception as e:
                     # Index failures are non-fatal in compatibility mode.
-                    logger.warning(f"[Ingest] Index upsert failed (compat, non-fatal): {e}")
+                    logger.warning(
+                        f"[Ingest] Index upsert failed (compat, non-fatal): {e}"
+                    )
                     index_write_mode = "sync_inline_compat_failed_nonfatal"
                     secondary_task_status = "sync_failed_nonfatal"
             elif effective_persist_mode == PersistMode.STRICT:
@@ -671,24 +681,26 @@ def run_ingest(
                 _emit_event(
                     "INDEX_UPSERTED",
                     graph_id,
-                        {
-                            "vector_count": indexed_count,
-                            "profile": requested_profile.value,
-                            "effective_profile": effective_profile.value,
-                            "effective_persist_mode": effective_persist_mode.value,
-                            "durability_path": policy.durability_path,
-                            "requested_extractor_mode": requested_extractor_mode,
-                            "effective_extractor_mode": effective_extractor_mode,
-                            "index_write_mode": "sync_inline",
-                            "profile_persist_compat_mode": False,
-                        },
+                    {
+                        "vector_count": indexed_count,
+                        "profile": requested_profile.value,
+                        "effective_profile": effective_profile.value,
+                        "effective_persist_mode": effective_persist_mode.value,
+                        "durability_path": policy.durability_path,
+                        "requested_extractor_mode": requested_extractor_mode,
+                        "effective_extractor_mode": effective_extractor_mode,
+                        "index_write_mode": "sync_inline",
+                        "profile_persist_compat_mode": False,
+                    },
                     event_repo,
                     session=session,
                 )
                 events_emitted.append("INDEX_UPSERTED")
                 index_write_mode = "sync_inline"
                 secondary_task_status = "completed_sync"
-                logger.info("[Ingest] Indexed %d vectors (strict durability)", indexed_count)
+                logger.info(
+                    "[Ingest] Indexed %d vectors (strict durability)", indexed_count
+                )
             else:
                 # Relaxed durability path: queue secondary index work when jobs are enabled.
                 if _jobs_enabled() and session is not None:

@@ -304,7 +304,11 @@ def recall_candidates_brute_force(
         if len(scoped_nodes) >= max(10, n // 2):
             candidates = []
             for node in scoped_nodes:
-                n_vec = tuple(node.v_native) if isinstance(node.v_native, list) else tuple(node.v_native)
+                n_vec = (
+                    tuple(node.v_native)
+                    if isinstance(node.v_native, list)
+                    else tuple(node.v_native)
+                )
                 sim = cosine_similarity(q_vec, n_vec)
                 candidates.append((node.node_id, sim))
             candidates.sort(key=lambda x: (-x[1], str(x[0])))
@@ -348,10 +352,10 @@ def recall_with_graph_expansion(
 
     Returns list of (node_id, cosine_sim) ordered by similarity desc.
     """
-    from sqlalchemy import or_
-    from store.pg.models_faim import EdgeModel, NodeModel, GraphClusterModel
-    from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
     from core.clustering import nearest_cluster
+    from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
+    from sqlalchemy import or_
+    from store.pg.models_faim import EdgeModel, GraphClusterModel, NodeModel
 
     # Cluster scoping: load centers and find top-2 clusters for this query
     cluster_ids: Optional[List[int]] = None
@@ -443,7 +447,7 @@ def recall_with_graph_expansion(
             .all()
         )
 
-        for src, dst, kind, weight_int in semantic_rows:
+        for src, dst, _kind, weight_int in semantic_rows:
             # Expand both directions from seed
             if src in seed_ids:
                 expanded_ids.add(dst)
@@ -597,12 +601,12 @@ def inheritance_weighted_expansion(
     Returns:
         Expanded and re-normalized query vector (256-dim tuple)
     """
-    from sqlalchemy import or_
-    from store.pg.models_faim import EdgeModel, NodeModel
     from core.operators.semantic_typing import (
         KNOWN_SEMANTIC_KINDS,
         get_semantic_weight_from_meta,
     )
+    from sqlalchemy import or_
+    from store.pg.models_faim import EdgeModel, NodeModel
 
     if not seed_node_ids:
         return q_vec
@@ -747,10 +751,10 @@ def rerank_faim(
 
     Returns list of result dicts with node_id, score, score_components.
     """
+    from core.query.reranker_v2 import RerankerV2Candidate, score_reranker_v2
     from store.pg.models_faim import NodeModel
     from store.pg.repos.modality_repo import ModalityRepo
     from store.pg.repos.representation_repo import RepresentationRepo
-    from core.query.reranker_v2 import RerankerV2Candidate, score_reranker_v2
 
     # Load candidate nodes
     nodes = (
@@ -773,7 +777,9 @@ def rerank_faim(
     modality_repo = ModalityRepo(session=session, tenant_id=tenant_id)
     modality_rows = {
         row.node_id: row
-        for row in modality_repo.list_by_node_ids(graph_id=graph_id, node_ids=candidate_ids)
+        for row in modality_repo.list_by_node_ids(
+            graph_id=graph_id, node_ids=candidate_ids
+        )
     }
     for node in nodes:
         n_vec = (
@@ -837,7 +843,9 @@ def rerank_faim(
             entity_link = float(domain_scores[node.node_id].get("entity_link", 0.0))
             fact_support = float(domain_scores[node.node_id].get("fact_support", 0.0))
             domain_term = float(domain_scores[node.node_id].get("domain_term", 0.0))
-            domain_total = min(1.0, 0.45 * entity_link + 0.40 * fact_support + 0.15 * domain_term)
+            domain_total = min(
+                1.0, 0.45 * entity_link + 0.40 * fact_support + 0.15 * domain_term
+            )
             score = round(score + 0.10 * domain_total, 6)
             components["domain_entity_link"] = round(entity_link, 6)
             components["domain_fact_support"] = round(fact_support, 6)
@@ -849,7 +857,9 @@ def rerank_faim(
         if repr_row is not None and getattr(repr_row, "normalized_text", None):
             answer_text = str(repr_row.normalized_text)
         elif modality_row is not None:
-            answer_text = str(modality_row.ocr_text or "") or str(modality_row.table_text or "")
+            answer_text = str(modality_row.ocr_text or "") or str(
+                modality_row.table_text or ""
+            )
         scored.append(
             {
                 "node_id": node.node_id,
@@ -894,7 +904,9 @@ def rerank_faim(
                 item["score_components"][f"phase4_{key}"] = round(value, 6)
             item["phase4_explain"] = phase4_explain.get(item["node_id"], {})
         if phase4_suppressed:
-            scored = [item for item in scored if item["node_id"] not in phase4_suppressed]
+            scored = [
+                item for item in scored if item["node_id"] not in phase4_suppressed
+            ]
 
     # Stable sort: by score desc, then by node_id for determinism
     scored.sort(key=lambda x: (-x["score"], str(x["node_id"])))

@@ -11,11 +11,7 @@ import { FaimShell } from "@/components/layout/FaimShell";
 import { AuthGuard, ErrorBoundary } from "@/components";
 import { ProviderProvider } from "@/contexts/ProviderContext";
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
       <ProviderProvider>

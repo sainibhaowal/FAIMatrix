@@ -139,7 +139,9 @@ def _preprocess_image_for_ocr(image: Any, settings: OCRSettings) -> Any:
     return gray
 
 
-def _estimate_confidence(pytesseract: Any, image: Any, *, settings: OCRSettings) -> float:
+def _estimate_confidence(
+    pytesseract: Any, image: Any, *, settings: OCRSettings
+) -> float:
     """Compute mean word-level confidence from Tesseract data output."""
     try:
         data = pytesseract.image_to_data(
@@ -188,7 +190,9 @@ def extract_text_from_image_bytes(
         import pytesseract
         from PIL import Image
     except Exception as exc:
-        raise OCRUnavailableError("OCR dependencies (pytesseract, Pillow) are not installed") from exc
+        raise OCRUnavailableError(
+            "OCR dependencies (pytesseract, Pillow) are not installed"
+        ) from exc
 
     if not image_bytes:
         raise OCRProcessingError("Empty image payload")
@@ -262,6 +266,7 @@ def extract_text_from_pdf_page(
 
     try:
         import fitz
+
         # Scale factor: DPI / 72 (PDF native DPI)
         scale = max(1.0, float(settings.pdf_render_dpi) / 72.0)
         matrix = fitz.Matrix(scale, scale)

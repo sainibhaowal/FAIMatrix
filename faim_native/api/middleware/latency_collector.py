@@ -7,8 +7,8 @@ Adds < 1ms overhead per request.
 
 import time
 from collections import deque
-from typing import Callable, Deque, Optional
 from datetime import datetime
+from typing import Callable, Deque, Optional
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,7 +17,15 @@ from starlette.middleware.base import BaseHTTPMiddleware
 class LatencySample:
     """Single request latency sample."""
 
-    __slots__ = ("tenant_id", "graph_id", "endpoint", "method", "latency_ms", "status", "recorded_at")
+    __slots__ = (
+        "tenant_id",
+        "graph_id",
+        "endpoint",
+        "method",
+        "latency_ms",
+        "status",
+        "recorded_at",
+    )
 
     def __init__(
         self,
@@ -48,7 +56,12 @@ class LatencyCollector:
         """Add sample to buffer. Non-blocking."""
         self.buffer.append(sample)
 
-    def get_samples(self, graph_id: Optional[str] = None, endpoint: Optional[str] = None, limit: int = 100) -> list[dict]:
+    def get_samples(
+        self,
+        graph_id: Optional[str] = None,
+        endpoint: Optional[str] = None,
+        limit: int = 100,
+    ) -> list[dict]:
         """Get recent samples, optionally filtered by graph_id or endpoint."""
         samples = list(self.buffer)
         if graph_id:
@@ -59,18 +72,25 @@ class LatencyCollector:
         # Convert to dict for JSON serialization
         result = []
         for s in samples[-limit:]:
-            result.append({
-                "tenant_id": s.tenant_id,
-                "graph_id": s.graph_id,
-                "endpoint": s.endpoint,
-                "method": s.method,
-                "latency_ms": s.latency_ms,
-                "status": s.status,
-                "recorded_at": s.recorded_at.isoformat(),
-            })
+            result.append(
+                {
+                    "tenant_id": s.tenant_id,
+                    "graph_id": s.graph_id,
+                    "endpoint": s.endpoint,
+                    "method": s.method,
+                    "latency_ms": s.latency_ms,
+                    "status": s.status,
+                    "recorded_at": s.recorded_at.isoformat(),
+                }
+            )
         return result
 
-    def get_percentile(self, percentile: int, graph_id: Optional[str] = None, endpoint: Optional[str] = None) -> float:
+    def get_percentile(
+        self,
+        percentile: int,
+        graph_id: Optional[str] = None,
+        endpoint: Optional[str] = None,
+    ) -> float:
         """Get latency percentile for a graph_id/endpoint or all."""
         samples = list(self.buffer)
         if graph_id:
@@ -97,11 +117,13 @@ class LatencyCollectorMiddleware(BaseHTTPMiddleware):
 
         # Extract tenant_id and graph_id from headers/scope
         tenant_id = request.headers.get("x-tenant-id", "unknown")
-        graph_id = request.query_params.get("graph_id") or request.headers.get("x-graph-id")
+        graph_id = request.query_params.get("graph_id") or request.headers.get(
+            "x-graph-id"
+        )
 
         try:
             response = await call_next(request)
-        except Exception as e:
+        except Exception:
             # If call_next raises, still record it
             elapsed_ms = (time.monotonic() - start) * 1000
             sample = LatencySample(

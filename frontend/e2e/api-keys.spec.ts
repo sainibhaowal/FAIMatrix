@@ -46,7 +46,10 @@ function makeKey(
   };
 }
 
-async function installApiKeyMocks(page: import("@playwright/test").Page, options?: MockOptions) {
+async function installApiKeyMocks(
+  page: import("@playwright/test").Page,
+  options?: MockOptions,
+) {
   await page.route("**/api/auth/session**", async (route) => {
     await route.fulfill({
       status: 200,
@@ -61,7 +64,12 @@ async function installApiKeyMocks(page: import("@playwright/test").Page, options
 
   let counter = 2;
   const keys: KeyItem[] = [
-    makeKey("faim_k0001", "faim_0001", ["keys.read", "keys.write", "memory.read", "memory.write"]),
+    makeKey("faim_k0001", "faim_0001", [
+      "keys.read",
+      "keys.write",
+      "memory.read",
+      "memory.write",
+    ]),
   ];
   const audit: Array<{
     id: string;
@@ -93,7 +101,9 @@ async function installApiKeyMocks(page: import("@playwright/test").Page, options
 
     if (method === "GET" && path.endsWith("/api/v1/api-keys")) {
       const includeRevoked = url.searchParams.get("include_revoked") === "true";
-      const items = includeRevoked ? keys : keys.filter((item) => item.revoked_at == null);
+      const items = includeRevoked
+        ? keys
+        : keys.filter((item) => item.revoked_at == null);
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -133,11 +143,12 @@ async function installApiKeyMocks(page: import("@playwright/test").Page, options
       counter += 1;
       const keyId = `faim_k${next}`;
       const keyPrefix = `faim_${next}`;
-      const created = makeKey(
-        keyId,
-        keyPrefix,
-        ["keys.read", "keys.write", "memory.read", "memory.write"],
-      );
+      const created = makeKey(keyId, keyPrefix, [
+        "keys.read",
+        "keys.write",
+        "memory.read",
+        "memory.write",
+      ]);
       keys.unshift(created);
       audit.push({
         id: `evt-created-${next}`,
@@ -160,7 +171,11 @@ async function installApiKeyMocks(page: import("@playwright/test").Page, options
       return;
     }
 
-    if (method === "POST" && path.includes("/api/v1/api-keys/") && path.endsWith("/rotate")) {
+    if (
+      method === "POST" &&
+      path.includes("/api/v1/api-keys/") &&
+      path.endsWith("/rotate")
+    ) {
       const parts = path.split("/");
       const keyId = decodeURIComponent(parts[parts.length - 2] || "");
       const source = keys.find((item) => item.key_id === keyId);
@@ -207,7 +222,11 @@ async function installApiKeyMocks(page: import("@playwright/test").Page, options
       return;
     }
 
-    if (method === "POST" && path.includes("/api/v1/api-keys/") && path.endsWith("/revoke")) {
+    if (
+      method === "POST" &&
+      path.includes("/api/v1/api-keys/") &&
+      path.endsWith("/revoke")
+    ) {
       const parts = path.split("/");
       const keyId = decodeURIComponent(parts[parts.length - 2] || "");
       const key = keys.find((item) => item.key_id === keyId);
@@ -244,7 +263,9 @@ async function installApiKeyMocks(page: import("@playwright/test").Page, options
     await route.fulfill({
       status: 404,
       contentType: "application/json",
-      body: JSON.stringify({ detail: `Unhandled mock route: ${method} ${path}` }),
+      body: JSON.stringify({
+        detail: `Unhandled mock route: ${method} ${path}`,
+      }),
     });
   });
 }
@@ -282,7 +303,9 @@ test.describe("API Keys Page", () => {
     await page.goto("/dashboard/api-keys");
 
     await page.getByRole("button", { name: "Create key" }).click();
-    await expect(page.getByText("Create key blocked by mock policy")).toBeVisible();
+    await expect(
+      page.getByText("Create key blocked by mock policy"),
+    ).toBeVisible();
     await expect(page.getByText("One-time key reveal")).toHaveCount(0);
   });
 });

@@ -9,6 +9,9 @@
     "faim:logs": "docker compose logs -f",
     "faim:ps": "docker compose ps",
     "faim:accel:up": "docker compose --profile accel up -d",
-    "faim:cleanup": "docker system prune -f"
+    "faim:cleanup": "docker system prune -f",
+    "tsc": "cd frontend && pnpm exec tsc",
+    "eslint": "cd frontend && pnpm exec eslint",
+    "prettier": "cd frontend && pnpm exec prettier"
   }
 }

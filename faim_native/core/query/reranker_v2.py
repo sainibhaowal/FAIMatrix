@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Set, Tuple
+from typing import (
+    Dict,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 from uuid import UUID
 
 try:
@@ -81,13 +87,17 @@ def score_reranker_v2(
     for candidate in candidates:
         doc_repr = candidate.representation
         doc_text = doc_repr.normalized_text if doc_repr else ""
-        doc_analysis = extract_propositions(doc_text, representation=doc_repr) if doc_text else PropositionAnalysis(
-            propositions=tuple(),
-            entities=tuple(),
-            relations=tuple(),
-            values=tuple(),
-            times=tuple(),
-            content_tokens=tuple(),
+        doc_analysis = (
+            extract_propositions(doc_text, representation=doc_repr)
+            if doc_text
+            else PropositionAnalysis(
+                propositions=tuple(),
+                entities=tuple(),
+                relations=tuple(),
+                values=tuple(),
+                times=tuple(),
+                content_tokens=tuple(),
+            )
         )
         doc_analysis_map[candidate.node_id] = doc_analysis
 
@@ -118,8 +128,12 @@ def score_reranker_v2(
         explain[candidate.node_id] = {
             "query_signature": proposition_signature(query_analysis),
             "doc_signature": proposition_signature(doc_analysis),
-            "query_propositions": [prop.__dict__ for prop in query_analysis.propositions[:4]],
-            "doc_propositions": [prop.__dict__ for prop in doc_analysis.propositions[:4]],
+            "query_propositions": [
+                prop.__dict__ for prop in query_analysis.propositions[:4]
+            ],
+            "doc_propositions": [
+                prop.__dict__ for prop in doc_analysis.propositions[:4]
+            ],
             "evidence_components": evidence_components,
         }
 
@@ -145,12 +159,20 @@ def score_reranker_v2(
             right_values = set(right_analysis.values or ("",))
             left_times = set(left_analysis.times or ("",))
             right_times = set(right_analysis.times or ("",))
-            value_conflict = bool(left_values and right_values and left_values != right_values)
-            time_conflict = bool(left_times and right_times and left_times != right_times)
+            value_conflict = bool(
+                left_values and right_values and left_values != right_values
+            )
+            time_conflict = bool(
+                left_times and right_times and left_times != right_times
+            )
             left_entity_tail = {value for value in left_analysis.entities[1:] if value}
-            right_entity_tail = {value for value in right_analysis.entities[1:] if value}
+            right_entity_tail = {
+                value for value in right_analysis.entities[1:] if value
+            }
             if left_sig[:2] == right_sig[:2] and left_entity_tail and right_entity_tail:
-                value_conflict = value_conflict or (left_entity_tail != right_entity_tail)
+                value_conflict = value_conflict or (
+                    left_entity_tail != right_entity_tail
+                )
 
             winner = left
             loser = right
@@ -166,10 +188,14 @@ def score_reranker_v2(
 
             suppressed.add(loser.node_id)
             loser_components = components.setdefault(loser.node_id, {})
-            loser_components["contradiction"] = 1.0 if (value_conflict or time_conflict) else 0.5
+            loser_components["contradiction"] = (
+                1.0 if (value_conflict or time_conflict) else 0.5
+            )
             explain.setdefault(loser.node_id, {})["dominance"] = {
                 "winner_node_id": str(winner.node_id),
-                "reason": "conflict" if (value_conflict or time_conflict) else "duplicate",
+                "reason": (
+                    "conflict" if (value_conflict or time_conflict) else "duplicate"
+                ),
             }
 
     return totals, components, explain, suppressed

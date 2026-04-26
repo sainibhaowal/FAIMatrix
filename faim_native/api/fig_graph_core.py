@@ -19,8 +19,8 @@ _parent = Path(__file__).parent.parent
 if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
-from store.pg.models_faim import EdgeModel, NodeModel  # noqa: E402
 from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS  # noqa: E402
+from store.pg.models_faim import EdgeModel, NodeModel  # noqa: E402
 
 SURFACE_NODE_DEF, SURFACE_NODE_MIN, SURFACE_NODE_MAX = 200, 1, 500
 SURFACE_EDGE_DEF, SURFACE_EDGE_MIN, SURFACE_EDGE_MAX = 800, 0, 2000
@@ -105,7 +105,9 @@ def node_display_payload(node: NodeModel) -> Dict[str, Any]:
     temperature = "cold"
     if last is not None and (now - last) <= ACTIVE_RECENT:
         temperature = "hot"
-    elif node.touch_count >= ACTIVE_TOUCH or (last is not None and (now - last) <= WARM_AGE):
+    elif node.touch_count >= ACTIVE_TOUCH or (
+        last is not None and (now - last) <= WARM_AGE
+    ):
         temperature = "warm"
 
     return {
@@ -241,9 +243,7 @@ def shortest_path_undirected(
         u = q.popleft()
         if depth[u] >= max_hops:
             continue
-        edges = _incident_edges_query(
-            session, tenant_id, graph_id, [u], allowed
-        ).all()
+        edges = _incident_edges_query(session, tenant_id, graph_id, [u], allowed).all()
         for edge in edges:
             v = _other_node(edge, u)
             if v is None:

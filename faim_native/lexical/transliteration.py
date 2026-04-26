@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from lexical.unicode_normalizer import normalize_unicode_text
 
-
 _DE_MAP = str.maketrans(
     {
         "ä": "ae",

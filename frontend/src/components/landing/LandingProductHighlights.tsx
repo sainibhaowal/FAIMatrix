@@ -47,54 +47,71 @@ const HIGHLIGHTS = [
 
 export default function LandingProductHighlights() {
   return (
-    <section className="py-20 px-4 bg-gradient-to-b from-[#070a18] to-slate-950">
-      <div className="max-w-6xl mx-auto">
+    <section className="py-28 px-4 bg-gradient-to-b from-[#070a18] to-slate-950 relative overflow-hidden">
+      {/* Background Ornaments */}
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/5 blur-[120px] rounded-full" />
+      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/5 blur-[120px] rounded-full" />
+
+      <div className="max-w-6xl mx-auto relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-10"
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="text-center mb-16"
         >
-          <span className="text-cyan-400 text-sm font-medium tracking-wider uppercase">
+          <motion.span 
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            className="inline-block px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-[10px] font-bold tracking-widest uppercase mb-4"
+          >
             Built for Production
-          </span>
-          <h2 className="mt-3 text-3xl md:text-4xl font-bold text-white">
-            Real product surfaces for teams that need memory, not just chat
+          </motion.span>
+          <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight">
+            Real product surfaces for teams <br className="hidden md:block" />
+            that need <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">memory</span>, not just chat
           </h2>
-          <p className="mt-4 text-slate-400 max-w-3xl mx-auto">
-            Memory Query, Storage, FIG View, explainability, multilingual retrieval,
-            domain knowledge, and deterministic answers all live in the product now.
+          <p className="mt-6 text-slate-400 max-w-3xl mx-auto text-lg leading-relaxed">
+            Memory Query, Storage, FIG View, and deterministic answers all live in
+            the product now. Every claim is backed by the core engine.
           </p>
         </motion.div>
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {HIGHLIGHTS.map((item, index) => (
             <motion.div
               key={item.title}
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-40px" }}
-              transition={{ duration: 0.45, delay: index * 0.08 }}
-              className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 shadow-lg shadow-black/20"
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.5, delay: index * 0.05 }}
+              whileHover={{ y: -8, transition: { duration: 0.2 } }}
+              className="group relative rounded-3xl border border-slate-800 bg-slate-900/40 p-8 hover:border-cyan-500/30 hover:bg-slate-900/60 transition-all duration-300 overflow-hidden"
             >
-              <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-cyan-300/80">
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.03] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400/60 group-hover:text-cyan-400 transition-colors">
                 {item.tag}
               </p>
-              <h3 className="mt-3 text-xl font-semibold text-white">{item.title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-slate-400">
+              <h3 className="mt-4 text-xl font-bold text-white group-hover:translate-x-1 transition-transform">
+                {item.title}
+              </h3>
+              <p className="mt-4 text-sm leading-relaxed text-slate-500 group-hover:text-slate-400 transition-colors">
                 {item.text}
               </p>
+
+              {/* Decorative corner accent */}
+              <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-cyan-500/5 blur-xl group-hover:bg-cyan-500/10 transition-all" />
             </motion.div>
           ))}
         </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-40px" }}
-          transition={{ duration: 0.45, delay: 0.1 }}
-          className="mt-8 grid gap-3 md:grid-cols-3"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 1, delay: 0.4 }}
+          className="mt-12 grid gap-4 md:grid-cols-3"
         >
           {[
             "Self-hostable and tenant-isolated",
@@ -103,13 +120,15 @@ export default function LandingProductHighlights() {
             "EN/DE + domain knowledge ready",
             "History-aware and graph-native",
             "Built for storage, query, and audit workflows",
-          ].map((line) => (
-            <div
+          ].map((line, i) => (
+            <motion.div
               key={line}
-              className="rounded-xl border border-slate-800 bg-slate-900/40 px-4 py-3 text-sm text-slate-400"
+              whileHover={{ scale: 1.02 }}
+              className="flex items-center gap-3 rounded-2xl border border-slate-800/60 bg-slate-900/20 px-5 py-4 text-[11px] font-bold uppercase tracking-widest text-slate-500 hover:text-slate-300 hover:border-slate-700 transition-all cursor-default"
             >
+              <div className="w-1.5 h-1.5 rounded-full bg-cyan-500/40" />
               {line}
-            </div>
+            </motion.div>
           ))}
         </motion.div>
       </div>

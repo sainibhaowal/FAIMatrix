@@ -55,7 +55,7 @@ def _install_ingest_mocks(monkeypatch):
 
     monkeypatch.setattr(
         "perception.router.route_extraction",
-        lambda _bytes, _filename, _raw_id: [object(), object()],
+        lambda _bytes, _filename, _raw_id, **kwargs: [object(), object()],
     )
     monkeypatch.setattr(
         "perception.packetize.create_packet",

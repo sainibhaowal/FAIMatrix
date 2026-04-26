@@ -42,10 +42,10 @@ export function GlowCard({
         } as React.CSSProperties
       }
       className={[
-        "group relative overflow-hidden rounded-3xl border", 
+        "group relative overflow-hidden rounded-3xl border",
         // Deep Ocean: Dark Slate with subtle Cyan tint linked to FAIM identity
-        "border-cyan-500/10 bg-slate-950/40", 
-        "backdrop-blur-2xl", 
+        "border-cyan-500/10 bg-slate-950/40",
+        "backdrop-blur-2xl",
         // Depth: Cyan/Teal top highlight
         "shadow-[inset_0_1px_0_0_rgba(34,211,238,0.1)]",
         // Transition
@@ -62,10 +62,10 @@ export function GlowCard({
     >
       {/* Noise Texture (Keep for realism) */}
       <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none mix-blend-overlay"></div>
-      
+
       {/* Deep Ocean Gradient subtle bottom fade */}
       <div className="absolute inset-0 bg-gradient-to-t from-cyan-950/10 to-transparent pointer-events-none" />
-      
+
       {/* Inner Content Container */}
       <div className="relative p-6 z-10">{children}</div>
     </div>

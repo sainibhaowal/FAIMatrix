@@ -6,60 +6,116 @@ const PIPELINE_STEPS = [
   {
     number: "01",
     title: "Ingest",
-    description: "Raw documents enter deterministic extraction. FAIM produces evidence blocks, native 256-dimensional vectors, and additive sidecars for lexical, structural, multilingual, and multimodal features.",
+    description:
+      "Raw documents enter deterministic extraction. FAIM produces evidence blocks, native 256-dimensional vectors, and additive sidecars for lexical, structural, multilingual, and multimodal features.",
     detail: "extract -> packetize -> encode -> sidecars",
     gradient: "from-cyan-500 to-blue-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+        />
       </svg>
     ),
   },
   {
     number: "02",
     title: "Structure",
-    description: "New memories are linked into the graph through inheritance, semantic edges, canonical forms, concept links, and modality/domain sidecars. The graph becomes the retrieval substrate, not just a storage container.",
+    description:
+      "New memories are linked into the graph through inheritance, semantic edges, canonical forms, concept links, and modality/domain sidecars. The graph becomes the retrieval substrate, not just a storage container.",
     detail: "inheritance -> semantic edges -> concept links -> graph version",
     gradient: "from-blue-500 to-indigo-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
+        />
       </svg>
     ),
   },
   {
     number: "03",
     title: "Adapt",
-    description: "Graph-local rebuild paths mine aliases, phrases, terminology, multilingual mappings, multimodal artifacts, and domain knowledge. This adds coverage without changing raw truth or native vector identity.",
-    detail: "canonical rebuilds -> KB import -> domain and multilingual enrichment",
+    description:
+      "Graph-local rebuild paths mine aliases, phrases, terminology, multilingual mappings, multimodal artifacts, and domain knowledge. This adds coverage without changing raw truth or native vector identity.",
+    detail:
+      "canonical rebuilds -> KB import -> domain and multilingual enrichment",
     gradient: "from-indigo-500 to-purple-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"
+        />
       </svg>
     ),
   },
   {
     number: "04",
     title: "Retrieve",
-    description: "Queries combine dense native vectors, sparse Representation V2 channels, graph diffusion, deterministic ANN, canonical semantics, multilingual concept traversal, and modality/domain boosts before reranking.",
+    description:
+      "Queries combine dense native vectors, sparse Representation V2 channels, graph diffusion, deterministic ANN, canonical semantics, multilingual concept traversal, and modality/domain boosts before reranking.",
     detail: "sparse + dense shortlist -> graph expansion -> reranker v2",
     gradient: "from-purple-500 to-pink-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+        />
       </svg>
     ),
   },
   {
     number: "05",
     title: "Answer",
-    description: "Top evidence is turned into a deterministic answer block with supporting spans, citations, contradiction notes, confidence, and provenance. FAIM can answer directly without generative hallucination.",
+    description:
+      "Top evidence is turned into a deterministic answer block with supporting spans, citations, contradiction notes, confidence, and provenance. FAIM can answer directly without generative hallucination.",
     detail: "span selection -> quote extraction -> citation-first answer",
     gradient: "from-emerald-500 to-cyan-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"
+        />
       </svg>
     ),
   },
@@ -67,7 +123,10 @@ const PIPELINE_STEPS = [
 
 export default function HowItWorks() {
   return (
-    <section id="how-it-works" className="py-28 px-4 bg-gradient-to-b from-[#070a18] to-slate-950">
+    <section
+      id="how-it-works"
+      className="py-28 px-4 bg-gradient-to-b from-[#070a18] to-slate-950"
+    >
       <div className="max-w-5xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -86,10 +145,11 @@ export default function HowItWorks() {
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            FAIM now covers the full path from raw data to grounded answers.
-            The core invariants remain intact while retrieval and answer layers stay additive.
-            The product surfaces that matter most are Memory Query for grounded answers
-            and Storage for extractor selection, provenance, and maintenance workflows.
+            FAIM now covers the full path from raw data to grounded answers. The
+            core invariants remain intact while retrieval and answer layers stay
+            additive. The product surfaces that matter most are Memory Query for
+            grounded answers and Storage for extractor selection, provenance,
+            and maintenance workflows.
           </p>
         </motion.div>
 
@@ -107,15 +167,21 @@ export default function HowItWorks() {
                 className="relative flex gap-6 md:gap-8 group"
               >
                 <div className="relative z-10 shrink-0">
-                  <div className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300`}>
+                  <div
+                    className={`w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-gradient-to-br ${step.gradient} flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300`}
+                  >
                     {step.icon}
                   </div>
                 </div>
 
                 <div className="pb-8 flex-1">
                   <div className="flex items-baseline gap-3 mb-2">
-                    <span className="text-slate-600 text-xs font-mono font-bold">{step.number}</span>
-                    <h3 className="text-xl font-bold text-white">{step.title}</h3>
+                    <span className="text-slate-600 text-xs font-mono font-bold">
+                      {step.number}
+                    </span>
+                    <h3 className="text-xl font-bold text-white">
+                      {step.title}
+                    </h3>
                   </div>
                   <p className="text-slate-400 text-sm leading-relaxed mb-3">
                     {step.description}

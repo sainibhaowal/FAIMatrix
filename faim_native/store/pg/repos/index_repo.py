@@ -13,6 +13,7 @@ try:
     from faim.Faim_Native.store.pg.repos.representation_repo import RepresentationRepo
 except (ImportError, RuntimeError):
     from index.deterministic_ann import VectorPoint
+
     from store.pg.repos.node_repo import NodeRepo
     from store.pg.repos.representation_repo import RepresentationRepo
 
@@ -25,7 +26,9 @@ class IndexRepo:
         self.tenant_id = tenant_id
 
     def load_representation_rows(self, graph_id: str):
-        return RepresentationRepo(session=self.session, tenant_id=self.tenant_id).list_all(graph_id)
+        return RepresentationRepo(
+            session=self.session, tenant_id=self.tenant_id
+        ).list_all(graph_id)
 
     def load_vector_points(self, graph_id: str) -> List[VectorPoint]:
         node_repo = NodeRepo(session=self.session, tenant_id=self.tenant_id)

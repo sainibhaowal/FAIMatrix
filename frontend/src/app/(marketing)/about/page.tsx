@@ -127,8 +127,8 @@ export default function AboutPage() {
             </h1>
             <p className="mt-6 text-xl text-slate-400 max-w-2xl mx-auto">
               FAIMATRIX is on a mission to transform how humans interact with
-              their knowledge. We&apos;re building an AI that remembers, connects,
-              and evolves alongside you.
+              their knowledge. We&apos;re building an AI that remembers,
+              connects, and evolves alongside you.
             </p>
           </motion.div>
         </div>
@@ -160,15 +160,15 @@ export default function AboutPage() {
                   Founder, CEO & Developer
                 </p>
                 <p className="text-slate-400 leading-relaxed mb-6">
-                  I started FAIMATRIX because I believed there had to be a better
-                  way to manage knowledge. Traditional tools force rigid
+                  I started FAIMATRIX because I believed there had to be a
+                  better way to manage knowledge. Traditional tools force rigid
                   structures on fluid thoughts. FAIM is different — it adapts to
                   how you think, not the other way around.
                 </p>
                 <p className="text-slate-400 leading-relaxed">
-                  As the sole developer and founder, I&apos;ve built every component
-                  of FAIMATRIX from the ground up. The fractal memory engine, the
-                  knowledge graph — all crafted with one goal: to
+                  As the sole developer and founder, I&apos;ve built every
+                  component of FAIMATRIX from the ground up. The fractal memory
+                  engine, the knowledge graph — all crafted with one goal: to
                   make your knowledge truly intelligent.
                 </p>
               </div>
@@ -270,8 +270,8 @@ export default function AboutPage() {
             Join the Journey
           </h2>
           <p className="text-slate-400 mb-8">
-            FAIMATRIX is just getting started. Be part of the future of knowledge
-            management.
+            FAIMATRIX is just getting started. Be part of the future of
+            knowledge management.
           </p>
           <div className="flex items-center justify-center gap-4">
             <Link

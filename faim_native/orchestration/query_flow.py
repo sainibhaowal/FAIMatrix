@@ -26,6 +26,7 @@ if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
 from core.contracts.types import EventRecord  # noqa: E402
+from core.query.idf_cache import apply_idf, compute_idf_weights  # noqa: E402
 from core.query.query_engine import (  # noqa: E402
     DEFAULT_WEIGHTS,
     STRICT_WEIGHTS,
@@ -36,7 +37,6 @@ from core.query.query_engine import (  # noqa: E402
     recall_with_graph_expansion,
     rerank_faim,
 )
-from core.query.idf_cache import apply_idf, compute_idf_weights  # noqa: E402
 from encoding.representation_v2 import build_query_representation_v2  # noqa: E402
 from encoding.text_vectorizer import vectorize_text  # noqa: E402
 from orchestration.ingest_flow import FAIMProfile  # noqa: E402
@@ -565,7 +565,9 @@ def run_query(
                     query_vector=q_vec,
                     profile=profile_name_cache,
                     k=200,
-                    results=[(str(node_id), float(score)) for node_id, score in candidates],
+                    results=[
+                        (str(node_id), float(score)) for node_id, score in candidates
+                    ],
                 )
             except Exception:
                 pass
@@ -597,8 +599,8 @@ def run_query(
 
     # Phase 3: bounded multi-hop graph semantics and diffusion
     try:
-        from core.query.graph_semantics import build_graph_semantic_scores
         from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
+        from core.query.graph_semantics import build_graph_semantic_scores
         from store.pg.repos.edge_repo import EdgeRepo
         from store.pg.repos.node_repo import NodeRepo
 

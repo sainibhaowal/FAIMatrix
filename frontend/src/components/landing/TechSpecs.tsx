@@ -24,7 +24,11 @@ const SPEC_GROUPS = [
       { label: "Representation V2", value: "Dense + Sparse", unit: "" },
       { label: "Canonical Semantics", value: "PMI + Rules", unit: "" },
       { label: "Graph Expansion", value: "K-hop", unit: "bounded" },
-      { label: "Reranker V2", value: "Deterministic", unit: "proposition-aware" },
+      {
+        label: "Reranker V2",
+        value: "Deterministic",
+        unit: "proposition-aware",
+      },
     ],
   },
   {
@@ -33,8 +37,16 @@ const SPEC_GROUPS = [
     borderColor: "border-blue-500/20",
     specs: [
       { label: "Multilingual", value: "EN + DE", unit: "concept-linked" },
-      { label: "Extraction", value: "PDF · DOCX · PPTX · XLSX · Images · Code", unit: "FAIM Native" },
-      { label: "PDF Layout", value: "Multi-column · Tables · Scanned OCR", unit: "zero ML" },
+      {
+        label: "Extraction",
+        value: "PDF · DOCX · PPTX · XLSX · Images · Code",
+        unit: "FAIM Native",
+      },
+      {
+        label: "PDF Layout",
+        value: "Multi-column · Tables · Scanned OCR",
+        unit: "zero ML",
+      },
       { label: "Domain Knowledge", value: "Offline KB", unit: "graph-scoped" },
       { label: "Answer Mode", value: "Extractive", unit: "citation-first" },
     ],
@@ -53,10 +65,34 @@ const SPEC_GROUPS = [
 ];
 
 const STACK_PROFILES = [
-  { name: "Lexical", focus: "Representation V2", detail: "word / phrase / entity / time / layout sidecars", source: "representation_v2.py", color: "text-cyan-400" },
-  { name: "Graph", focus: "Graph Semantics", detail: "bounded diffusion, semantic paths, contradiction-aware traversal", source: "diffusion.py", color: "text-purple-400" },
-  { name: "Scale", focus: "Scale Path", detail: "inverted index, WAND shortlist, deterministic ANN", source: "inverted_index.py", color: "text-emerald-400" },
-  { name: "Answer", focus: "Answer Layer", detail: "span selection, confidence, citations, contradiction notes", source: "answer_synthesis.py", color: "text-amber-400" },
+  {
+    name: "Lexical",
+    focus: "Representation V2",
+    detail: "word / phrase / entity / time / layout sidecars",
+    source: "representation_v2.py",
+    color: "text-cyan-400",
+  },
+  {
+    name: "Graph",
+    focus: "Graph Semantics",
+    detail: "bounded diffusion, semantic paths, contradiction-aware traversal",
+    source: "diffusion.py",
+    color: "text-purple-400",
+  },
+  {
+    name: "Scale",
+    focus: "Scale Path",
+    detail: "inverted index, WAND shortlist, deterministic ANN",
+    source: "inverted_index.py",
+    color: "text-emerald-400",
+  },
+  {
+    name: "Answer",
+    focus: "Answer Layer",
+    detail: "span selection, confidence, citations, contradiction notes",
+    source: "answer_synthesis.py",
+    color: "text-amber-400",
+  },
 ];
 
 const colorMap: Record<string, string> = {
@@ -75,7 +111,10 @@ const bgMap: Record<string, string> = {
 
 export default function TechSpecs() {
   return (
-    <section id="specs" className="py-28 px-4 bg-gradient-to-b from-slate-950 to-[#070a18]">
+    <section
+      id="specs"
+      className="py-28 px-4 bg-gradient-to-b from-slate-950 to-[#070a18]"
+    >
       <div className="max-w-6xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -94,8 +133,9 @@ export default function TechSpecs() {
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            The platform is deterministic, self-hostable, and auditable.
-            These are the qualities teams need when the system becomes part of production.
+            The platform is deterministic, self-hostable, and auditable. These
+            are the qualities teams need when the system becomes part of
+            production.
           </p>
         </motion.div>
 
@@ -111,21 +151,31 @@ export default function TechSpecs() {
             >
               <div className="flex items-center gap-3 mb-5">
                 <div className={`w-2 h-2 rounded-full ${bgMap[group.color]}`}>
-                  <div className={`w-2 h-2 rounded-full ${colorMap[group.color]} animate-pulse`} style={{ opacity: 0.8 }} />
+                  <div
+                    className={`w-2 h-2 rounded-full ${colorMap[group.color]} animate-pulse`}
+                    style={{ opacity: 0.8 }}
+                  />
                 </div>
-                <h3 className={`text-sm font-bold tracking-wider uppercase ${colorMap[group.color]}`}>
+                <h3
+                  className={`text-sm font-bold tracking-wider uppercase ${colorMap[group.color]}`}
+                >
                   {group.title}
                 </h3>
               </div>
 
               <div className="space-y-3">
                 {group.specs.map((spec) => (
-                  <div key={spec.label} className="flex items-center justify-between py-2 border-b border-slate-800/50 last:border-0">
+                  <div
+                    key={spec.label}
+                    className="flex items-center justify-between py-2 border-b border-slate-800/50 last:border-0"
+                  >
                     <span className="text-slate-500 text-sm">{spec.label}</span>
                     <span className="text-white font-mono text-sm font-medium">
                       {spec.value}
                       {spec.unit && (
-                        <span className="text-slate-600 text-xs ml-1.5">{spec.unit}</span>
+                        <span className="text-slate-600 text-xs ml-1.5">
+                          {spec.unit}
+                        </span>
                       )}
                     </span>
                   </div>
@@ -144,17 +194,28 @@ export default function TechSpecs() {
           <h3 className="text-xl font-bold text-white text-center mb-8">
             Additive Retrieval Layers
             <span className="block text-sm font-normal text-slate-500 mt-1">
-              extensions that increase capability without replacing the native FAIM core
+              extensions that increase capability without replacing the native
+              FAIM core
             </span>
           </h3>
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden">
             <div className="grid grid-cols-5 gap-4 px-6 py-4 border-b border-slate-800 bg-slate-900/50">
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Layer</span>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Focus</span>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">What It Added</span>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Source</span>
-              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Mode</span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Layer
+              </span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Focus
+              </span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                What It Added
+              </span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Source
+              </span>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                Mode
+              </span>
             </div>
 
             {STACK_PROFILES.map((profile, i) => (
@@ -166,12 +227,18 @@ export default function TechSpecs() {
                 transition={{ duration: 0.3, delay: i * 0.08 }}
                 className="grid grid-cols-5 gap-4 px-6 py-4 border-b border-slate-800/50 last:border-0 hover:bg-slate-800/20 transition-colors"
               >
-                <span className={`font-mono text-sm font-bold ${profile.color}`}>
+                <span
+                  className={`font-mono text-sm font-bold ${profile.color}`}
+                >
                   {profile.name}
                 </span>
-                <span className="text-white font-mono text-sm">{profile.focus}</span>
+                <span className="text-white font-mono text-sm">
+                  {profile.focus}
+                </span>
                 <span className="text-white text-sm">{profile.detail}</span>
-                <span className="text-slate-400 font-mono text-sm">{profile.source}</span>
+                <span className="text-slate-400 font-mono text-sm">
+                  {profile.source}
+                </span>
                 <span className="font-mono text-sm text-slate-300">
                   additive
                 </span>
@@ -180,7 +247,8 @@ export default function TechSpecs() {
           </div>
 
           <p className="text-center text-slate-600 text-xs mt-4 font-mono">
-            The native FAIM core remains the base layer beneath all of these additions.
+            The native FAIM core remains the base layer beneath all of these
+            additions.
           </p>
         </motion.div>
       </div>

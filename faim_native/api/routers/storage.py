@@ -5,22 +5,31 @@ Provides storage upload/catalog APIs used by Storage UI.
 
 from __future__ import annotations
 
-import logging
 import io
+import logging
 import os
 import sys
 import time
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from urllib.parse import quote
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, desc, func, text
+from sqlalchemy import and_, desc, text
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -194,6 +203,8 @@ class StorageSupportedTypesResponse(BaseModel):
     ocr_engine: str
     ocr_fail_closed: bool
     ocr_capable_extensions: List[str]
+    docnative_enabled: bool
+    docnative_available: bool
 
 
 class StorageMaintenanceHistoryItem(BaseModel):
@@ -686,7 +697,10 @@ def _normalize_failure_reason(error: Optional[str]) -> str:
         return "path_traversal_filename"
     if "decrypt" in text_value or "encrypt" in text_value:
         return "encryption_error"
-    if "raw blob not available" in text_value or "raw reference not found" in text_value:
+    if (
+        "raw blob not available" in text_value
+        or "raw reference not found" in text_value
+    ):
         return "raw_unavailable"
     if "extract" in text_value:
         return "extract_error"
@@ -839,7 +853,9 @@ def _run_ingest_existing_raw(
         file_bytes=file_bytes,
         profile=profile_enum,
         persist_mode=persist_mode_enum,
-        extraction_settings={"extractor_mode": _normalize_extractor_mode(extractor_mode)},
+        extraction_settings={
+            "extractor_mode": _normalize_extractor_mode(extractor_mode)
+        },
         tenant_id=ctx.tenant_id,
         session=ctx.session,
         node_repo=ctx.node_repo,
@@ -852,6 +868,7 @@ def _run_ingest_existing_raw(
 
 def _collect_backend_states(ctx: FAIMContext) -> Dict[str, StorageBackendState]:
     """Collect backend health states with per-check latency."""
+
     def _redis_probe() -> bool:
         from cache.query_cache import is_redis_available
 
@@ -1012,9 +1029,11 @@ async def create_upload_batch(
                 file_bytes = await upload.read()
                 validate_upload_size(len(file_bytes))
 
-                mime_type = (upload.content_type or "application/octet-stream").split(";")[
-                    0
-                ].strip()
+                mime_type = (
+                    (upload.content_type or "application/octet-stream")
+                    .split(";")[0]
+                    .strip()
+                )
                 validate_content_type(mime_type)
                 validate_mime_extension_match(filename, mime_type)
 
@@ -1204,11 +1223,19 @@ async def create_upload_batch(
                 result_entry.node_count = ingest_result.nodes_written
                 result_entry.vector_count = ingest_result.vector_count
                 result_entry.requested_profile = ingest_result.requested_profile
-                result_entry.requested_persist_mode = ingest_result.requested_persist_mode
-                result_entry.requested_extractor_mode = ingest_result.requested_extractor_mode
+                result_entry.requested_persist_mode = (
+                    ingest_result.requested_persist_mode
+                )
+                result_entry.requested_extractor_mode = (
+                    ingest_result.requested_extractor_mode
+                )
                 result_entry.effective_profile = ingest_result.effective_profile
-                result_entry.effective_persist_mode = ingest_result.effective_persist_mode
-                result_entry.effective_extractor_mode = ingest_result.effective_extractor_mode
+                result_entry.effective_persist_mode = (
+                    ingest_result.effective_persist_mode
+                )
+                result_entry.effective_extractor_mode = (
+                    ingest_result.effective_extractor_mode
+                )
                 result_entry.durability_path = ingest_result.durability_path
 
                 if ingest_result.status == "error":
@@ -1567,7 +1594,9 @@ async def get_upload_status(
             str(requested_persist_mode) if requested_persist_mode is not None else None
         ),
         requested_extractor_mode=(
-            str(requested_extractor_mode) if requested_extractor_mode is not None else None
+            str(requested_extractor_mode)
+            if requested_extractor_mode is not None
+            else None
         ),
         effective_profile=(
             str(effective_profile) if effective_profile is not None else None
@@ -1576,7 +1605,9 @@ async def get_upload_status(
             str(effective_persist_mode) if effective_persist_mode is not None else None
         ),
         effective_extractor_mode=(
-            str(effective_extractor_mode) if effective_extractor_mode is not None else None
+            str(effective_extractor_mode)
+            if effective_extractor_mode is not None
+            else None
         ),
         durability_path=str(durability_path) if durability_path is not None else None,
     )
@@ -1751,13 +1782,14 @@ async def download_storage_file(
     try:
         file_bytes = store.load(raw_ref, verify=True)
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Raw blob not available: {e}") from e
+        raise HTTPException(
+            status_code=404, detail=f"Raw blob not available: {e}"
+        ) from e
 
     filename = sanitize_filename(row.filename or f"{raw_uuid}")
     headers = {
         "Content-Disposition": (
-            f"attachment; filename=\"{filename}\"; "
-            f"filename*=UTF-8''{quote(filename)}"
+            f'attachment; filename="{filename}"; ' f"filename*=UTF-8''{quote(filename)}"
         ),
         "X-Content-Type-Options": "nosniff",
     }
@@ -1957,7 +1989,9 @@ async def reingest_storage_file(
     try:
         file_bytes = store.load(raw_ref, verify=True)
     except Exception as e:
-        raise HTTPException(status_code=404, detail=f"Raw blob not available: {e}") from e
+        raise HTTPException(
+            status_code=404, detail=f"Raw blob not available: {e}"
+        ) from e
 
     ctx.storage_file_repo.mark_ingesting(
         ctx.session,
@@ -2177,7 +2211,9 @@ async def rebuild_canonical_semantics_for_graph(
     """Rebuild graph-scoped canonical semantics artifacts for stored files."""
     _require_storage_repos(ctx)
 
-    from orchestration.canonical_semantics_rebuild import run_canonical_semantics_rebuild
+    from orchestration.canonical_semantics_rebuild import (
+        run_canonical_semantics_rebuild,
+    )
 
     result = run_canonical_semantics_rebuild(
         session=ctx.session,
@@ -2228,7 +2264,9 @@ async def rebuild_multilingual_semantics_for_graph(
     """Rebuild graph-scoped EN/DE multilingual semantics artifacts for stored files."""
     _require_storage_repos(ctx)
 
-    from orchestration.multilingual_semantics_rebuild import run_multilingual_semantics_rebuild
+    from orchestration.multilingual_semantics_rebuild import (
+        run_multilingual_semantics_rebuild,
+    )
 
     result = run_multilingual_semantics_rebuild(
         session=ctx.session,
@@ -2324,7 +2362,7 @@ async def rebuild_domain_profile_for_graph(
 )
 async def import_domain_knowledge_for_graph(
     graph_id: str,
-    body: StorageDomainKnowledgeImportRequest = Body(
+    body: StorageDomainKnowledgeImportRequest = Body(  # noqa: B008
         default_factory=StorageDomainKnowledgeImportRequest
     ),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
@@ -2509,7 +2547,11 @@ async def get_storage_supported_types(
         extractor_doc_types[doc_type] = extractor_doc_types.get(doc_type, 0) + 1
 
     ocr_capable_extensions = sorted(
-        [ext for ext, doc_type in EXTENSION_DOC_TYPE.items() if doc_type in {"image", "pdf"}]
+        [
+            ext
+            for ext, doc_type in EXTENSION_DOC_TYPE.items()
+            if doc_type in {"image", "pdf"}
+        ]
     )
 
     return StorageSupportedTypesResponse(
@@ -2520,11 +2562,15 @@ async def get_storage_supported_types(
         extensions=sorted(ALLOWED_EXTENSIONS),
         content_types=sorted(ALLOWED_CONTENT_TYPES),
         categories=categories,
-        extractor_doc_types=dict(sorted(extractor_doc_types.items(), key=lambda item: item[0])),
+        extractor_doc_types=dict(
+            sorted(extractor_doc_types.items(), key=lambda item: item[0])
+        ),
         ocr_enabled=ocr_enabled,
         ocr_engine=ocr_engine,
         ocr_fail_closed=ocr_fail_closed,
         ocr_capable_extensions=ocr_capable_extensions,
+        docnative_enabled=True,
+        docnative_available=True,
     )
 
 
@@ -2737,9 +2783,7 @@ async def get_storage_backends_health(
         status=(
             "ok"
             if all(s.ok for s in states.values())
-            else "degraded"
-            if any(s.ok for s in states.values())
-            else "down"
+            else "degraded" if any(s.ok for s in states.values()) else "down"
         ),
         detail="backend health snapshot generated",
     )
@@ -2754,7 +2798,9 @@ async def get_storage_backends_health(
 
 @router.post("/retention/execute", response_model=StorageRetentionResponse)
 async def execute_storage_retention(
-    request: StorageRetentionRequest = Body(default_factory=StorageRetentionRequest),
+    request: StorageRetentionRequest = Body(  # noqa: B008
+        default_factory=StorageRetentionRequest
+    ),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StorageRetentionResponse:
     """Run retention cleanup for delete-requested files.
@@ -2864,7 +2910,9 @@ async def execute_storage_retention(
 
 @router.post("/retention/jobs", response_model=StorageRetentionJobResponse)
 async def enqueue_storage_retention_job(
-    request: StorageRetentionRequest = Body(default_factory=StorageRetentionRequest),
+    request: StorageRetentionRequest = Body(  # noqa: B008
+        default_factory=StorageRetentionRequest
+    ),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StorageRetentionJobResponse:
     """Enqueue retention cleanup for background worker execution."""
@@ -2949,7 +2997,9 @@ async def enqueue_storage_retention_job(
 )
 async def prune_cold_nodes(
     graph_id: str,
-    dry_run: bool = Query(True, description="If true, report what would be pruned without deleting"),
+    dry_run: bool = Query(
+        True, description="If true, report what would be pruned without deleting"
+    ),
     cold_age_days: int = Query(90, ge=30, le=365),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StoragePruneResponse:
@@ -3030,12 +3080,15 @@ async def prune_cold_nodes(
 async def set_node_long_term(
     graph_id: str,
     node_id: str,
-    long_term: bool = Query(True, description="Set to true to protect node from cold pruning"),
+    long_term: bool = Query(
+        True, description="Set to true to protect node from cold pruning"
+    ),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StorageLongTermResponse:
     """Toggle the long_term flag on a node. Long-term nodes are never cold-pruned."""
-    from store.pg.models_faim import NodeModel as _NM
     import uuid as _uuid
+
+    from store.pg.models_faim import NodeModel as _NM
 
     _require_storage_repos(ctx)
 
@@ -3043,7 +3096,8 @@ async def set_node_long_term(
         nid = _uuid.UUID(node_id)
     except ValueError:
         from fastapi import HTTPException
-        raise HTTPException(status_code=400, detail="Invalid node_id format")
+
+        raise HTTPException(status_code=400, detail="Invalid node_id format") from None
 
     node = (
         ctx.session.query(_NM)
@@ -3056,6 +3110,7 @@ async def set_node_long_term(
     )
     if node is None:
         from fastapi import HTTPException
+
         raise HTTPException(status_code=404, detail="Node not found")
 
     node.long_term = long_term
@@ -3088,7 +3143,9 @@ async def set_node_long_term(
 )
 async def run_graph_clustering(
     graph_id: str,
-    k: Optional[int] = Query(None, ge=2, le=20, description="Number of clusters. Auto-selected if omitted."),
+    k: Optional[int] = Query(
+        None, ge=2, le=20, description="Number of clusters. Auto-selected if omitted."
+    ),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StorageClusterResponse:
     """Run k-means clustering on all node v_native vectors in the graph.
@@ -3096,8 +3153,9 @@ async def run_graph_clustering(
     Assigns cluster_id to every node. Stores cluster centers in graph_clusters table.
     Subsequent queries scope recall to the top-matching clusters for faster retrieval.
     """
-    from store.pg.models_faim import NodeModel as _NM, GraphClusterModel as _GCM
     from core.clustering import run_kmeans
+    from store.pg.models_faim import GraphClusterModel as _GCM
+    from store.pg.models_faim import NodeModel as _NM
 
     _require_storage_repos(ctx)
 
@@ -3146,13 +3204,15 @@ async def run_graph_clustering(
 
     for ci, center in enumerate(result.centers):
         if center:
-            ctx.session.add(_GCM(
-                tenant_id=ctx.tenant_id,
-                graph_id=graph_id,
-                cluster_id=ci,
-                center=center,
-                node_count=result.cluster_sizes.get(ci, 0),
-            ))
+            ctx.session.add(
+                _GCM(
+                    tenant_id=ctx.tenant_id,
+                    graph_id=graph_id,
+                    cluster_id=ci,
+                    center=center,
+                    node_count=result.cluster_sizes.get(ci, 0),
+                )
+            )
 
     ctx.session.flush()
     gv = 0

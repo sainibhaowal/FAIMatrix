@@ -22,6 +22,7 @@ except (ImportError, RuntimeError):
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import BlockAnchor, EvidenceBlock
+
     from encoding.text_vectorizer import normalize_text
 
 
@@ -78,16 +79,16 @@ class RepresentationV2:
         return cls(
             repr_hash=str(data.get("repr_hash", "")),
             normalized_text=str(data.get("normalized_text", "")),
-            word_counts={str(k): int(v) for k, v in dict(data.get("word_counts", {})).items()},
+            word_counts={str(k): int(v) for k, v in dict(data.get("word_counts", {})).items()},  # type: ignore[call-overload]
             phrase_counts={
-                str(k): int(v) for k, v in dict(data.get("phrase_counts", {})).items()
+                str(k): int(v) for k, v in dict(data.get("phrase_counts", {})).items()  # type: ignore[call-overload]
             },
-            skip_counts={str(k): int(v) for k, v in dict(data.get("skip_counts", {})).items()},
-            entity_tokens=tuple(str(x) for x in list(data.get("entity_tokens", []))),
-            time_tokens=tuple(str(x) for x in list(data.get("time_tokens", []))),
-            layout_tokens=tuple(str(x) for x in list(data.get("layout_tokens", []))),
+            skip_counts={str(k): int(v) for k, v in dict(data.get("skip_counts", {})).items()},  # type: ignore[call-overload]
+            entity_tokens=tuple(str(x) for x in list(data.get("entity_tokens", []))),  # type: ignore[call-overload]
+            time_tokens=tuple(str(x) for x in list(data.get("time_tokens", []))),  # type: ignore[call-overload]
+            layout_tokens=tuple(str(x) for x in list(data.get("layout_tokens", []))),  # type: ignore[call-overload]
             channel_lengths={
-                str(k): int(v) for k, v in dict(data.get("channel_lengths", {})).items()
+                str(k): int(v) for k, v in dict(data.get("channel_lengths", {})).items()  # type: ignore[call-overload]
             },
         )
 

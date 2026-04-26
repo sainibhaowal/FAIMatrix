@@ -46,7 +46,11 @@ function figNode(nodeId: string, title: string) {
     level: 0,
     vector_hash: `${nodeId}-vh`,
     display: { title, title_source: "anchor", state: "active" },
-    metrics: { touch_count: 1, residual: 0.5, last_access: "2026-02-20T10:00:00Z" },
+    metrics: {
+      touch_count: 1,
+      residual: 0.5,
+      last_access: "2026-02-20T10:00:00Z",
+    },
     provenance: { raw_id: `${nodeId}-raw`, block_id: `${nodeId}-block` },
   };
 }
@@ -77,7 +81,10 @@ function baseSurface(nodes: ReturnType<typeof figNode>[]) {
   };
 }
 
-function neighborhoodResponse(seedNodeId: string, extraNodes: ReturnType<typeof figNode>[]) {
+function neighborhoodResponse(
+  seedNodeId: string,
+  extraNodes: ReturnType<typeof figNode>[],
+) {
   return {
     snapshot: {
       graph_id: "fig-nbhd-graph",
@@ -105,10 +112,15 @@ function neighborhoodResponse(seedNodeId: string, extraNodes: ReturnType<typeof 
 }
 
 test.describe("FIG View neighborhood expansion", () => {
-  test("inspector drawer shows Neighborhood section with depth selector", async ({ page }) => {
+  test("inspector drawer shows Neighborhood section with depth selector", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page, "fig-nbhd-graph");
 
-    const initialNodes = [figNode("node-seed", "Seed Node"), figNode("node-b", "Beta")];
+    const initialNodes = [
+      figNode("node-seed", "Seed Node"),
+      figNode("node-b", "Beta"),
+    ];
 
     await page.route("**/api/v1/**", async (route) => {
       const req = route.request();
@@ -151,14 +163,24 @@ test.describe("FIG View neighborhood expansion", () => {
     await page.getByTitle("Inspector").click();
 
     // With no selected node the placeholder is shown
-    await expect(page.getByText("Click a node in the graph to inspect it.")).toBeVisible();
+    await expect(
+      page.getByText("Click a node in the graph to inspect it."),
+    ).toBeVisible();
   });
 
-  test("neighborhood API is called with correct params and merged result updates node count badge", async ({ page }) => {
+  test("neighborhood API is called with correct params and merged result updates node count badge", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page, "fig-nbhd-graph");
 
-    const initialNodes = [figNode("node-seed", "Seed Node"), figNode("node-b", "Beta")];
-    const expandedNodes = [figNode("node-c", "Gamma"), figNode("node-d", "Delta")];
+    const initialNodes = [
+      figNode("node-seed", "Seed Node"),
+      figNode("node-b", "Beta"),
+    ];
+    const expandedNodes = [
+      figNode("node-c", "Gamma"),
+      figNode("node-d", "Delta"),
+    ];
 
     let neighborhoodCalled = false;
     let neighborhoodCalledWith: { nodeId: string; depth: string } | null = null;
@@ -184,7 +206,9 @@ test.describe("FIG View neighborhood expansion", () => {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify(neighborhoodResponse("node-seed", expandedNodes)),
+          body: JSON.stringify(
+            neighborhoodResponse("node-seed", expandedNodes),
+          ),
         });
       }
       if (path.endsWith("/events/latest") && req.method() === "GET") {
@@ -223,8 +247,14 @@ test.describe("FIG View neighborhood expansion", () => {
     });
 
     expect(neighborhoodCalled).toBe(true);
-    expect((neighborhoodCalledWith as { nodeId: string; depth: string } | null)?.nodeId).toBe("node-seed");
-    expect((neighborhoodCalledWith as { nodeId: string; depth: string } | null)?.depth).toBe("1");
+    expect(
+      (neighborhoodCalledWith as { nodeId: string; depth: string } | null)
+        ?.nodeId,
+    ).toBe("node-seed");
+    expect(
+      (neighborhoodCalledWith as { nodeId: string; depth: string } | null)
+        ?.depth,
+    ).toBe("1");
 
     // Response contains seed + 2 extra nodes
     expect(result.nodes.length).toBe(3);
@@ -232,7 +262,9 @@ test.describe("FIG View neighborhood expansion", () => {
     expect(result.nodes.map((n) => n.node_id)).toContain("node-d");
   });
 
-  test("neighborhood expansion error is handled without crashing the page", async ({ page }) => {
+  test("neighborhood expansion error is handled without crashing the page", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page, "fig-nbhd-graph");
 
     await page.route("**/api/v1/**", async (route) => {
@@ -243,7 +275,9 @@ test.describe("FIG View neighborhood expansion", () => {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify(baseSurface([figNode("node-seed", "Seed Node")])),
+          body: JSON.stringify(
+            baseSurface([figNode("node-seed", "Seed Node")]),
+          ),
         });
       }
       if (path.endsWith("/graph/neighborhood") && req.method() === "GET") {

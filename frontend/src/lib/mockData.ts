@@ -1,6 +1,6 @@
 /**
  * FAIM-Native Mock Data
- * 
+ *
  * Demo graph data with full FAIM properties for UI testing without backend.
  */
 
@@ -37,10 +37,10 @@ export interface MockGraphData {
 function mockHash(seed: string): string {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
-    hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+    hash = (hash << 5) - hash + seed.charCodeAt(i);
     hash = hash & hash;
   }
-  return `sha256:${Math.abs(hash).toString(16).padStart(16, '0')}`;
+  return `sha256:${Math.abs(hash).toString(16).padStart(16, "0")}`;
 }
 
 export const MOCK_GRAPH_DATA: MockGraphData = {
@@ -54,7 +54,8 @@ export const MOCK_GRAPH_DATA: MockGraphData = {
       parents: [],
       novelty: 0.3,
       importance: 0.5,
-      preview: "Introduction to supervised and unsupervised learning algorithms.",
+      preview:
+        "Introduction to supervised and unsupervised learning algorithms.",
     },
     {
       id: "atom-002",
@@ -110,7 +111,8 @@ export const MOCK_GRAPH_DATA: MockGraphData = {
       importance: 0.7,
       evolution_flags: ["merged"],
       merged: true,
-      preview: "Unified understanding of ML fundamentals and neural architectures.",
+      preview:
+        "Unified understanding of ML fundamentals and neural architectures.",
     },
     {
       id: "concept-002",
@@ -134,7 +136,7 @@ export const MOCK_GRAPH_DATA: MockGraphData = {
       residual: 0.08,
       novelty: 0.7,
       importance: 0.75,
-      opp_signature: { "forgetting": -0.3, "compression": 0.5 },
+      opp_signature: { forgetting: -0.3, compression: 0.5 },
       preview: "Graph + vector hybrid for knowledge representation.",
     },
 
@@ -150,7 +152,7 @@ export const MOCK_GRAPH_DATA: MockGraphData = {
       novelty: 0.85,
       importance: 0.95,
       evolution_flags: ["synthesized", "emergent"],
-      opp_signature: { "static": -0.8, "dynamic": 0.9 },
+      opp_signature: { static: -0.8, dynamic: 0.9 },
       preview: "Self-evolving fractal memory with antisymmetric opposition.",
     },
     {
@@ -178,8 +180,9 @@ export const MOCK_GRAPH_DATA: MockGraphData = {
       novelty: 0.95,
       importance: 1.0,
       evolution_flags: ["emergent", "invention"],
-      opp_signature: { "entropy": -0.9, "order": 0.95 },
-      preview: "The engine that invents new concepts from compressed knowledge.",
+      opp_signature: { entropy: -0.9, order: 0.95 },
+      preview:
+        "The engine that invents new concepts from compressed knowledge.",
     },
 
     // Pruned node example
@@ -205,19 +208,59 @@ export const MOCK_GRAPH_DATA: MockGraphData = {
     { source: "atom-002", target: "concept-002", rel: "inherits", weight: 0.3 },
     { source: "atom-004", target: "concept-003", rel: "inherits", weight: 0.5 },
     { source: "atom-005", target: "concept-003", rel: "inherits", weight: 0.5 },
-    { source: "concept-001", target: "abstract-001", rel: "inherits", weight: 0.3 },
-    { source: "concept-002", target: "abstract-001", rel: "inherits", weight: 0.35 },
-    { source: "concept-003", target: "abstract-001", rel: "inherits", weight: 0.35 },
-    { source: "concept-001", target: "abstract-002", rel: "inherits", weight: 0.45 },
-    { source: "concept-003", target: "abstract-002", rel: "inherits", weight: 0.55 },
-    { source: "abstract-001", target: "invention-001", rel: "inherits", weight: 0.6 },
-    { source: "abstract-002", target: "invention-001", rel: "inherits", weight: 0.4 },
+    {
+      source: "concept-001",
+      target: "abstract-001",
+      rel: "inherits",
+      weight: 0.3,
+    },
+    {
+      source: "concept-002",
+      target: "abstract-001",
+      rel: "inherits",
+      weight: 0.35,
+    },
+    {
+      source: "concept-003",
+      target: "abstract-001",
+      rel: "inherits",
+      weight: 0.35,
+    },
+    {
+      source: "concept-001",
+      target: "abstract-002",
+      rel: "inherits",
+      weight: 0.45,
+    },
+    {
+      source: "concept-003",
+      target: "abstract-002",
+      rel: "inherits",
+      weight: 0.55,
+    },
+    {
+      source: "abstract-001",
+      target: "invention-001",
+      rel: "inherits",
+      weight: 0.6,
+    },
+    {
+      source: "abstract-002",
+      target: "invention-001",
+      rel: "inherits",
+      weight: 0.4,
+    },
 
     // Cross-links (semantic relationships)
     { source: "atom-001", target: "atom-002", rel: "related", weight: 0.3 },
     { source: "atom-003", target: "atom-004", rel: "related", weight: 0.25 },
-    { source: "concept-002", target: "concept-003", rel: "related", weight: 0.4 },
-    
+    {
+      source: "concept-002",
+      target: "concept-003",
+      rel: "related",
+      weight: 0.4,
+    },
+
     // Pruned tether
     { source: "atom-001", target: "pruned-001", rel: "tether", weight: 0.05 },
   ],

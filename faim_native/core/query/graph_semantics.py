@@ -4,7 +4,15 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Set, Tuple
+from typing import (
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+)
 from uuid import UUID
 
 try:
@@ -52,7 +60,9 @@ def build_graph_semantic_scores(
     decay: float = 0.6,
     alpha: float = 0.2,
     steps: int = 3,
-) -> Tuple[List[UUID], Dict[UUID, Dict[str, float]], Dict[UUID, List[Dict[str, object]]]]:
+) -> Tuple[
+    List[UUID], Dict[UUID, Dict[str, float]], Dict[UUID, List[Dict[str, object]]]
+]:
     """Return additive graph-semantic scores and multi-hop candidate expansion."""
     if not seed_scores:
         return list(base_candidate_ids), {}, {}
@@ -86,7 +96,9 @@ def build_graph_semantic_scores(
         for edge in edges:
             candidate_node_ids.add(edge.src_node_id)
             candidate_node_ids.add(edge.dst_node_id)
-        for node in node_repo.list_by_ids(graph_id=graph_id, node_ids=sorted(candidate_node_ids, key=str)):
+        for node in node_repo.list_by_ids(
+            graph_id=graph_id, node_ids=sorted(candidate_node_ids, key=str)
+        ):
             node_times[node.node_id] = _utc(node.created_at)
 
         next_frontier: Set[UUID] = set()
@@ -213,7 +225,7 @@ def build_graph_semantic_scores(
     explain_paths = {
         node_id: sorted(
             path_sources.get(node_id, ()),
-            key=lambda item: (int(item["hop"]), item["kind"], item["from_node_id"]),
+            key=lambda item: (int(item["hop"]), item["kind"], item["from_node_id"]),  # type: ignore[call-overload]
         )[:8]
         for node_id in expanded_ids
     }

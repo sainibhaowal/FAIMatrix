@@ -114,12 +114,32 @@ ALLOWED_EXTENSIONS: Set[str] = {
 # MIME/extension compatibility map (security hardening)
 ALLOWED_MIME_BY_EXTENSION: Dict[str, Set[str]] = {
     ".txt": {"text/plain", "application/octet-stream"},
-    ".md": {"text/markdown", "text/x-markdown", "text/plain", "application/octet-stream"},
-    ".markdown": {"text/markdown", "text/x-markdown", "text/plain", "application/octet-stream"},
+    ".md": {
+        "text/markdown",
+        "text/x-markdown",
+        "text/plain",
+        "application/octet-stream",
+    },
+    ".markdown": {
+        "text/markdown",
+        "text/x-markdown",
+        "text/plain",
+        "application/octet-stream",
+    },
     ".csv": {"text/csv", "text/plain", "application/octet-stream"},
     ".json": {"application/json", "text/plain", "application/octet-stream"},
-    ".yaml": {"application/yaml", "application/x-yaml", "text/plain", "application/octet-stream"},
-    ".yml": {"application/yaml", "application/x-yaml", "text/plain", "application/octet-stream"},
+    ".yaml": {
+        "application/yaml",
+        "application/x-yaml",
+        "text/plain",
+        "application/octet-stream",
+    },
+    ".yml": {
+        "application/yaml",
+        "application/x-yaml",
+        "text/plain",
+        "application/octet-stream",
+    },
     ".toml": {"application/toml", "text/plain", "application/octet-stream"},
     ".xml": {"application/xml", "text/xml", "application/octet-stream"},
     ".html": {"text/html", "application/octet-stream"},

@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from typing import Iterable, List, Optional, Sequence, Tuple
 from uuid import UUID
 
-
 Vector = Tuple[float, ...]
 
 
@@ -76,13 +75,19 @@ def build_vptree(points: Sequence[VectorPoint]) -> Optional[VPTreeNode]:
     )
 
 
-def exact_top_k(points: Iterable[VectorPoint], query_vec: Vector, k: int) -> List[Tuple[UUID, float]]:
-    scored = [(point.node_id, cosine_similarity(query_vec, point.vector)) for point in points]
+def exact_top_k(
+    points: Iterable[VectorPoint], query_vec: Vector, k: int
+) -> List[Tuple[UUID, float]]:
+    scored = [
+        (point.node_id, cosine_similarity(query_vec, point.vector)) for point in points
+    ]
     scored.sort(key=lambda item: (-item[1], str(item[0])))
     return scored[:k]
 
 
-def search_vptree(root: Optional[VPTreeNode], query_vec: Vector, k: int) -> List[Tuple[UUID, float]]:
+def search_vptree(
+    root: Optional[VPTreeNode], query_vec: Vector, k: int
+) -> List[Tuple[UUID, float]]:
     if root is None or k <= 0:
         return []
     points: List[VectorPoint] = []

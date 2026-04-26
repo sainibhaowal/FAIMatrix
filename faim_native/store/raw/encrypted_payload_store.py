@@ -14,6 +14,7 @@ except (ImportError, RuntimeError):
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import RawRef
+
     from store.raw.crypto import PayloadCipher
     from store.raw.raw_store import RawStore
 

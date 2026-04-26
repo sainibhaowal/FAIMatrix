@@ -62,10 +62,6 @@ class EventRepoWrapper:
         """Match production interface."""
         return self.append(graph_id, kind, payload)
 
-    def emit(self, session, graph_id: str, kind: str, payload: dict):
-        """Match production interface."""
-        return self.append(graph_id, kind, payload)
-
     def list(self, graph_id: str, limit: int = 100):
         return self._repo.list(self.session, graph_id=graph_id, limit=limit)
 

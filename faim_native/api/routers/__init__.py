@@ -9,8 +9,8 @@ from .evolve import router as evolve_router
 from .graph import router as graph_router
 from .health import router as health_router
 from .ingest import router as ingest_router
-from .metrics import router as metrics_router
 from .memory import router as memory_router
+from .metrics import router as metrics_router
 from .node import router as node_router
 from .query import router as query_router
 from .storage import router as storage_router

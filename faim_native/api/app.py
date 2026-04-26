@@ -177,6 +177,7 @@ def create_app() -> FastAPI:
         query_router,
         storage_router,
     )
+    from api.routers.faim_bench import router as faim_bench_router
 
     # Health routes (no prefix - for external status checks)
     app.include_router(health_router)
@@ -196,6 +197,7 @@ def create_app() -> FastAPI:
     app.include_router(admin_router, prefix=prefix)
     app.include_router(api_keys_router, prefix=prefix)
     app.include_router(storage_router, prefix=prefix)
+    app.include_router(faim_bench_router, prefix=prefix)
     app.include_router(health_router, prefix=prefix)
 
     # ==========================================================================

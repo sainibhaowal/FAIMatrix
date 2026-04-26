@@ -1,12 +1,28 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { MessageSquare, Trash2, Edit3, Clock, Check, X, Plus } from "lucide-react";
+import {
+  MessageSquare,
+  Trash2,
+  Edit3,
+  Clock,
+  Check,
+  X,
+  Plus,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useChat } from "@/contexts/ChatContext";
 
 export function HistoryPanel() {
-  const { threads, activeThreadId, switchThread, newThread, deleteThread, renameThread, purgeAllThreads } = useChat();
+  const {
+    threads,
+    activeThreadId,
+    switchThread,
+    newThread,
+    deleteThread,
+    renameThread,
+    purgeAllThreads,
+  } = useChat();
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -58,7 +74,10 @@ export function HistoryPanel() {
       {/* Header */}
       <div
         className="px-4 py-3 border-b flex items-center justify-between gap-2"
-        style={{ borderColor: "var(--os-stroke)", background: "rgba(255,255,255,0.02)" }}
+        style={{
+          borderColor: "var(--os-stroke)",
+          background: "rgba(255,255,255,0.02)",
+        }}
       >
         <div className="flex items-center gap-2">
           <Clock size={13} className="text-primary-400" />
@@ -116,7 +135,10 @@ export function HistoryPanel() {
 
                 <div className="flex items-start justify-between gap-2">
                   {isEditing ? (
-                    <div className="flex-1 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="flex-1 flex items-center gap-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <input
                         ref={inputRef}
                         value={editValue}
@@ -128,13 +150,19 @@ export function HistoryPanel() {
                         className="flex-1 text-[12px] font-semibold bg-white/10 border border-primary-500/40 rounded px-2 py-0.5 text-white outline-none focus:border-primary-500/70"
                       />
                       <button
-                        onClick={(e) => { e.stopPropagation(); commitEdit(); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          commitEdit();
+                        }}
                         className="h-5 w-5 flex items-center justify-center rounded-md bg-primary-500/20 hover:bg-primary-500/30 text-primary-400 transition-all"
                       >
                         <Check size={10} />
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); cancelEdit(); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          cancelEdit();
+                        }}
                         className="h-5 w-5 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-500 transition-all"
                       >
                         <X size={10} />
@@ -142,10 +170,14 @@ export function HistoryPanel() {
                     </div>
                   ) : (
                     <>
-                      <span className={[
-                        "text-[12px] font-semibold line-clamp-1 leading-none tracking-tight flex-1 transition-colors",
-                        isActive ? "text-primary-200" : "text-slate-300 group-hover:text-white",
-                      ].join(" ")}>
+                      <span
+                        className={[
+                          "text-[12px] font-semibold line-clamp-1 leading-none tracking-tight flex-1 transition-colors",
+                          isActive
+                            ? "text-primary-200"
+                            : "text-slate-300 group-hover:text-white",
+                        ].join(" ")}
+                      >
                         {thread.title}
                       </span>
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
@@ -186,7 +218,10 @@ export function HistoryPanel() {
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t bg-black/20" style={{ borderColor: "var(--os-stroke)" }}>
+      <div
+        className="p-3 border-t bg-black/20"
+        style={{ borderColor: "var(--os-stroke)" }}
+      >
         {confirmPurge ? (
           <div className="space-y-2">
             <p className="text-[9px] text-rose-400 font-bold uppercase tracking-widest text-center">
@@ -194,7 +229,10 @@ export function HistoryPanel() {
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => { purgeAllThreads(); setConfirmPurge(false); }}
+                onClick={() => {
+                  purgeAllThreads();
+                  setConfirmPurge(false);
+                }}
                 className="flex-1 h-7 rounded-lg bg-rose-500/20 border border-rose-500/40 text-rose-400 text-[9px] font-black uppercase tracking-widest hover:bg-rose-500/30 transition-all"
               >
                 Delete All

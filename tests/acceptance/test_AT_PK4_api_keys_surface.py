@@ -45,7 +45,7 @@ def test_phase_k4_ratelimit_category_present():
     assert ENDPOINT_CATEGORIES.get("/api/v1/api-keys") == "api_keys"
 
 
-def test_k7_api_key_tenant_isolation(monkeypatch):
+def test_k7_api_key_tenant_isolation(monkeypatch, db_session):
     client = _mk_client(
         monkeypatch,
         '{"tenant_pk4_a":["pk4_key_a"],"tenant_pk4_b":["pk4_key_b"]}',
@@ -82,7 +82,7 @@ def test_k7_api_key_tenant_isolation(monkeypatch):
     assert rotate_b.status_code == 404
 
 
-def test_k7_api_key_lifecycle_e2e(monkeypatch):
+def test_k7_api_key_lifecycle_e2e(monkeypatch, db_session):
     tenant_id = f"tenant_pk4_{uuid4().hex[:8]}"
     bootstrap_key = "pk4_bootstrap_key"
     client = _mk_client(

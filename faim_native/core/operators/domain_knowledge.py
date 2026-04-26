@@ -7,8 +7,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
-
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
 _PROFILE_DIR = Path(__file__).parent.parent.parent / "lexical" / "domain_profiles"
 
@@ -55,7 +54,9 @@ def vector_text_for_key(key: str) -> str:
 
 
 def source_hash(row: Mapping[str, object]) -> str:
-    payload = json.dumps(dict(sorted(row.items())), sort_keys=True, separators=(",", ":"))
+    payload = json.dumps(
+        dict(sorted(row.items())), sort_keys=True, separators=(",", ":")
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
@@ -110,7 +111,9 @@ def build_kb_lexicon_rows(
             "score": 1.0,
             "meta": {"class": "relation"},
         }
-        for alias in sorted(set(_norm(value) for value in fact.aliases if _norm(value))):
+        for alias in sorted(
+            set(_norm(value) for value in fact.aliases if _norm(value))
+        ):
             rows[(alias, e_key, "entity_alias")] = {
                 "surface_form": alias,
                 "canonical_form": e_key,

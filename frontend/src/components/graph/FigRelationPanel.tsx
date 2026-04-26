@@ -17,7 +17,10 @@
 import { useState, useMemo } from "react";
 
 import { Badge, Spinner } from "@/components/ui";
-import { buildSearchIndex, filterNodesBySearch } from "@/lib/figViewGraphTransform";
+import {
+  buildSearchIndex,
+  filterNodesBySearch,
+} from "@/lib/figViewGraphTransform";
 import { nodeColorByState } from "@/lib/figViewLayout";
 import { nodeStateClass, safeNodeTitle } from "@/lib/figViewSafety";
 import type {
@@ -69,20 +72,30 @@ function NodePicker({
     return filterNodesBySearch(searchIndex, query).slice(0, 8);
   }, [searchIndex, query]);
 
-  const selectedNode = selectedId ? nodes.find((n) => n.node_id === selectedId) : null;
-  const displayTitle = selectedNode ? safeNodeTitle(selectedNode) : "Select node…";
+  const selectedNode = selectedId
+    ? nodes.find((n) => n.node_id === selectedId)
+    : null;
+  const displayTitle = selectedNode
+    ? safeNodeTitle(selectedNode)
+    : "Select node…";
 
   const accent = accentColor === "violet" ? "violet" : "cyan";
-  const borderActive = accent === "violet" ? "border-violet-400/50" : "border-cyan-400/50";
+  const borderActive =
+    accent === "violet" ? "border-violet-400/50" : "border-cyan-400/50";
   const bgActive = accent === "violet" ? "bg-violet-500/10" : "bg-cyan-500/10";
   const textActive = accent === "violet" ? "text-violet-300" : "text-cyan-300";
   const dotColor = selectedNode
-    ? nodeColorByState(nodeStateClass(selectedNode) as FigNodeDisplayState, false)
+    ? nodeColorByState(
+        nodeStateClass(selectedNode) as FigNodeDisplayState,
+        false,
+      )
     : "#475569";
 
   return (
     <div className="relative">
-      <p className="mb-1 text-[9px] uppercase tracking-widest text-slate-500">{label}</p>
+      <p className="mb-1 text-[9px] uppercase tracking-widest text-slate-500">
+        {label}
+      </p>
       <button
         onClick={() => setOpen((v) => !v)}
         className={`flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-all ${
@@ -126,12 +139,17 @@ function NodePicker({
           </div>
           <div className="max-h-44 overflow-auto">
             {results.length === 0 ? (
-              <p className="px-3 py-2 text-[10px] text-slate-600 text-center">No matches</p>
+              <p className="px-3 py-2 text-[10px] text-slate-600 text-center">
+                No matches
+              </p>
             ) : (
               results.map((entry) => {
                 const n = nodes.find((node) => node.node_id === entry.node_id);
                 const color = n
-                  ? nodeColorByState(nodeStateClass(n) as FigNodeDisplayState, false)
+                  ? nodeColorByState(
+                      nodeStateClass(n) as FigNodeDisplayState,
+                      false,
+                    )
                   : "#475569";
                 return (
                   <button
@@ -147,8 +165,12 @@ function NodePicker({
                       className="h-1.5 w-1.5 rounded-full shrink-0"
                       style={{ backgroundColor: color }}
                     />
-                    <span className="truncate text-slate-200">{entry.title}</span>
-                    <Badge size="sm" variant="outline">{entry.kind}</Badge>
+                    <span className="truncate text-slate-200">
+                      {entry.title}
+                    </span>
+                    <Badge size="sm" variant="outline">
+                      {entry.kind}
+                    </Badge>
                   </button>
                 );
               })
@@ -178,9 +200,13 @@ function PathDisplay({
       <div className="rounded-lg border border-red-900/30 bg-red-950/20 px-3 py-2.5">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-red-400 shrink-0" />
-          <span className="text-xs font-medium text-red-300">No path found</span>
+          <span className="text-xs font-medium text-red-300">
+            No path found
+          </span>
         </div>
-        <p className="mt-1 text-[10px] text-slate-500">{result.explanation.summary}</p>
+        <p className="mt-1 text-[10px] text-slate-500">
+          {result.explanation.summary}
+        </p>
       </div>
     );
   }
@@ -191,15 +217,22 @@ function PathDisplay({
       <div className="rounded-lg border border-slate-800/60 bg-slate-900/40 px-3 py-2">
         <div className="flex items-center gap-2 mb-1.5">
           <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
-          <span className="text-xs font-semibold text-slate-200">Path found</span>
+          <span className="text-xs font-semibold text-slate-200">
+            Path found
+          </span>
         </div>
-        <p className="text-[10px] text-slate-400 mb-1.5">{result.explanation.summary}</p>
+        <p className="text-[10px] text-slate-400 mb-1.5">
+          {result.explanation.summary}
+        </p>
         <div className="flex flex-wrap gap-1">
           <Badge size="sm" variant="outline">
-            {result.explanation.hops} hop{result.explanation.hops !== 1 ? "s" : ""}
+            {result.explanation.hops} hop
+            {result.explanation.hops !== 1 ? "s" : ""}
           </Badge>
           {result.explanation.edge_kinds_used.map((k) => (
-            <Badge key={k} size="sm" variant="secondary">{k}</Badge>
+            <Badge key={k} size="sm" variant="secondary">
+              {k}
+            </Badge>
           ))}
           {result.explanation.relation_distance != null && (
             <Badge size="sm" variant="outline">
@@ -223,7 +256,10 @@ function PathDisplay({
               const n = nodeIndex.get(id);
               const label = n ? safeNodeTitle(n).slice(0, 14) : id.slice(0, 8);
               const color = n
-                ? nodeColorByState(nodeStateClass(n) as FigNodeDisplayState, false)
+                ? nodeColorByState(
+                    nodeStateClass(n) as FigNodeDisplayState,
+                    false,
+                  )
                 : "#475569";
               return (
                 <span key={id} className="flex items-center gap-1">

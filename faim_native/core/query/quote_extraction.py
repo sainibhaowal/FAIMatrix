@@ -7,7 +7,9 @@ from typing import Iterable, List
 from core.query.span_selection import CandidateSpan
 
 
-def extract_quotes(spans: Iterable[CandidateSpan], *, limit: int = 3, max_chars: int = 180) -> List[str]:
+def extract_quotes(
+    spans: Iterable[CandidateSpan], *, limit: int = 3, max_chars: int = 180
+) -> List[str]:
     quotes: List[str] = []
     for span in spans:
         text = " ".join(str(span.text).split())

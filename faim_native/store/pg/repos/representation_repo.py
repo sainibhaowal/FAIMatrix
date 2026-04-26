@@ -8,7 +8,7 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 from uuid import UUID
 
 from sqlalchemy import and_, asc
@@ -28,6 +28,7 @@ except (ImportError, RuntimeError):
         sys.path.insert(0, str(_parent))
     from core.query.lexical_scorer import compute_lexical_score
     from encoding.representation_v2 import RepresentationV2
+
     from store.pg.models_faim import (
         GraphRepresentationStatsModel,
         NodeModel,
@@ -236,14 +237,18 @@ class RepresentationRepo:
             for row in rows:
                 repr_data = self._row_to_repr(row)
                 for channel in CHANNELS:
-                    stats[channel]["doc_count"] = int(stats[channel]["doc_count"]) + 1
-                    lengths_sum[channel] += int(repr_data.channel_lengths.get(channel, 0))
+                    stats[channel]["doc_count"] = int(stats[channel]["doc_count"]) + 1  # type: ignore[call-overload]
+                    lengths_sum[channel] += int(
+                        repr_data.channel_lengths.get(channel, 0)
+                    )
 
                 for channel, terms in self._repr_df_terms(repr_data).items():
-                    df_map = dict(stats[channel]["df_map"])
+                    df_map = dict(stats[channel]["df_map"])  # type: ignore[call-overload]
                     for term in terms:
                         df_map[term] = int(df_map.get(term, 0)) + 1
-                    stats[channel]["df_map"] = dict(sorted(df_map.items(), key=lambda item: item[0]))
+                    stats[channel]["df_map"] = dict(
+                        sorted(df_map.items(), key=lambda item: item[0])
+                    )
 
             total_docs = len(rows)
             for channel in CHANNELS:
@@ -264,9 +269,9 @@ class RepresentationRepo:
                 tenant_id=self.tenant_id,
                 graph_id=graph_id,
                 channel=channel,
-                doc_count=int(stats[channel]["doc_count"]),
+                doc_count=int(stats[channel]["doc_count"]),  # type: ignore[call-overload]
                 avg_len=float(stats[channel]["avg_len"]),
-                df_map=dict(stats[channel]["df_map"]),
+                df_map=dict(stats[channel]["df_map"]),  # type: ignore[call-overload]
                 updated_at=now,
             )
             self.session.add(row)
@@ -307,9 +312,8 @@ class RepresentationRepo:
             next_doc_count = prev_doc_count + 1
             channel_len = int(representation.channel_lengths.get(channel, 0))
             row.avg_len = (
-                ((float(row.avg_len or 0.0) * prev_doc_count) + channel_len)
-                / max(next_doc_count, 1)
-            )
+                (float(row.avg_len or 0.0) * prev_doc_count) + channel_len
+            ) / max(next_doc_count, 1)
             row.doc_count = next_doc_count
             df_map = dict(row.df_map or {})
             for term in df_terms[channel]:

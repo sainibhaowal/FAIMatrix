@@ -61,7 +61,9 @@ class InvertedIndex:
         rows: Iterable[object],
     ) -> "InvertedIndex":
         documents: Dict[UUID, RepresentationV2] = {}
-        postings: Dict[str, Dict[str, List[Posting]]] = {channel: {} for channel in CHANNELS}
+        postings: Dict[str, Dict[str, List[Posting]]] = {
+            channel: {} for channel in CHANNELS
+        }
 
         for row in rows:
             repr_data = RepresentationV2.from_dict(
@@ -77,23 +79,29 @@ class InvertedIndex:
                     "channel_lengths": getattr(row, "channel_lengths", {}) or {},
                 }
             )
-            node_id = getattr(row, "node_id")
+            node_id = row.node_id
             documents[node_id] = repr_data
 
             for term, tf in repr_data.word_counts.items():
-                postings["word"].setdefault(term, []).append(Posting(node_id=node_id, tf=int(tf)))
+                postings["word"].setdefault(term, []).append(
+                    Posting(node_id=node_id, tf=int(tf))
+                )
             for term, tf in repr_data.phrase_counts.items():
                 postings["phrase"].setdefault(term, []).append(
                     Posting(node_id=node_id, tf=int(tf))
                 )
             for term, tf in repr_data.skip_counts.items():
-                postings["skip"].setdefault(term, []).append(Posting(node_id=node_id, tf=int(tf)))
+                postings["skip"].setdefault(term, []).append(
+                    Posting(node_id=node_id, tf=int(tf))
+                )
             for term in repr_data.entity_tokens:
                 postings["entity"].setdefault(str(term), []).append(
                     Posting(node_id=node_id, tf=1)
                 )
             for term in repr_data.time_tokens:
-                postings["time"].setdefault(str(term), []).append(Posting(node_id=node_id, tf=1))
+                postings["time"].setdefault(str(term), []).append(
+                    Posting(node_id=node_id, tf=1)
+                )
             for term in repr_data.layout_tokens:
                 postings["layout"].setdefault(str(term), []).append(
                     Posting(node_id=node_id, tf=1)
@@ -140,7 +148,9 @@ class InvertedIndex:
         scores: Dict[UUID, float] = {}
         for node_id in node_ids:
             doc_repr = self._documents[node_id]
-            score, _components = compute_lexical_score(query_repr, doc_repr, stats_by_channel)
+            score, _components = compute_lexical_score(
+                query_repr, doc_repr, stats_by_channel
+            )
             scores[node_id] = score
         return scores
 

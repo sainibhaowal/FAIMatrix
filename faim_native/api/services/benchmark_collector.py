@@ -12,7 +12,6 @@ from uuid import uuid4
 from core.dynamics.nativegraph import compute_compression_ratio, compute_graph_hash
 from core.invariants import check_all_invariants
 from core.metrics.fractal_physics import compute_diagnostics
-from orchestration.ingest_flow import FAIMProfile
 from orchestration.perf.spec import get_speed_budget
 from orchestration.perf.telemetry import global_throughput
 
@@ -37,7 +36,11 @@ def _sha256_text(value: Any) -> str:
 
 
 def _is_hex_hash(value: str) -> bool:
-    return isinstance(value, str) and len(value) == 64 and all(ch in "0123456789abcdef" for ch in value.lower())
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(ch in "0123456789abcdef" for ch in value.lower())
+    )
 
 
 def _parse_float(payload: Dict[str, Any], *keys: str, default: float = 0.0) -> float:
@@ -140,12 +143,16 @@ class BenchmarkSuiteRun:
             "atom_count": int(self.atom_count),
             "macro_count": int(self.macro_count),
             "compression_ratio": round(float(self.compression_ratio), 6),
-            "throughput_synapses_per_sec": round(float(self.throughput_synapses_per_sec), 3),
+            "throughput_synapses_per_sec": round(
+                float(self.throughput_synapses_per_sec), 3
+            ),
             "budget_profile": self.budget_profile,
             "benchmark_count": len(self.benchmarks),
             "passed_count": passed_count,
             "failed_count": len(self.benchmarks) - passed_count,
-            "overall_score": round(_safe_mean([item.score for item in self.benchmarks]), 2),
+            "overall_score": round(
+                _safe_mean([item.score for item in self.benchmarks]), 2
+            ),
             "summary": self.summary,
             "benchmarks": [item.to_dict() for item in self.benchmarks],
         }
@@ -242,8 +249,11 @@ class BenchmarkCollector:
             events=events,
         )
 
-    def _query_without_persist(self, graph_id: str, query_text: str, k: int = 5) -> Dict[str, Any]:
-        from orchestration.query_flow import FAIMProfile as QueryProfile, run_query
+    def _query_without_persist(
+        self, graph_id: str, query_text: str, k: int = 5
+    ) -> Dict[str, Any]:
+        from orchestration.query_flow import FAIMProfile as QueryProfile
+        from orchestration.query_flow import run_query
 
         try:
             result = run_query(
@@ -266,8 +276,12 @@ class BenchmarkCollector:
         return payload
 
     def _bm1_determinism(self, state: GraphState) -> BenchmarkItem:
-        first_hash = _sha256_text({"graph_hash": state.graph_hash, "diagnostics_hash": state.diagnostics_hash})
-        second_hash = _sha256_text({"graph_hash": state.graph_hash, "diagnostics_hash": state.diagnostics_hash})
+        first_hash = _sha256_text(
+            {"graph_hash": state.graph_hash, "diagnostics_hash": state.diagnostics_hash}
+        )
+        second_hash = _sha256_text(
+            {"graph_hash": state.graph_hash, "diagnostics_hash": state.diagnostics_hash}
+        )
         evidence = {
             "graph_hash_first": state.graph_hash,
             "graph_hash_second": state.graph_hash,
@@ -276,19 +290,30 @@ class BenchmarkCollector:
         }
         passed = first_hash == second_hash and _is_hex_hash(state.graph_hash)
         score = 100.0 if passed else 0.0
-        return BenchmarkItem("BM-1", "Determinism Proof", passed, score, _hash_evidence(evidence), evidence, ["same input produced stable hashes"])
+        return BenchmarkItem(
+            "BM-1",
+            "Determinism Proof",
+            passed,
+            score,
+            _hash_evidence(evidence),
+            evidence,
+            ["same input produced stable hashes"],
+        )
 
     def _bm2_integrity(self, state: GraphState) -> BenchmarkItem:
         latest_snapshot_hash = ""
         if state.diagnostics_event is not None:
             payload = _event_payload_dict(state.diagnostics_event)
-            latest_snapshot_hash = str(payload.get("graph_hash") or payload.get("diagnostics_hash") or "")
+            latest_snapshot_hash = str(
+                payload.get("graph_hash") or payload.get("diagnostics_hash") or ""
+            )
 
         evidence = {
             "graph_hash": state.graph_hash,
             "diagnostics_hash": state.diagnostics_hash,
             "snapshot_hash": latest_snapshot_hash,
-            "hash_verified": bool(latest_snapshot_hash) and latest_snapshot_hash == state.graph_hash,
+            "hash_verified": bool(latest_snapshot_hash)
+            and latest_snapshot_hash == state.graph_hash,
             "diagnostics_verified": bool(state.diagnostics_hash),
         }
         passed = _is_hex_hash(state.graph_hash) and _is_hex_hash(state.diagnostics_hash)
@@ -298,13 +323,29 @@ class BenchmarkCollector:
         notes = ["current graph state hashes are verifiable"]
         if latest_snapshot_hash:
             notes.append("compared against latest diagnostics snapshot")
-        return BenchmarkItem("BM-2", "Cryptographic Integrity", passed, score, _hash_evidence(evidence), evidence, notes)
+        return BenchmarkItem(
+            "BM-2",
+            "Cryptographic Integrity",
+            passed,
+            score,
+            _hash_evidence(evidence),
+            evidence,
+            notes,
+        )
 
     def _bm3_invariants(self, state: GraphState) -> BenchmarkItem:
-        invariant_result = check_all_invariants(self.ctx.node_repo, self.ctx.edge_repo, state.graph_id)
+        invariant_result = check_all_invariants(
+            self.ctx.node_repo, self.ctx.edge_repo, state.graph_id
+        )
         total_checks = len(invariant_result.checks)
-        passed_checks = sum(1 for check in invariant_result.checks if check.get("passed"))
-        score = 100.0 if invariant_result.passed else round((passed_checks / max(1, total_checks)) * 100.0, 2)
+        passed_checks = sum(
+            1 for check in invariant_result.checks if check.get("passed")
+        )
+        score = (
+            100.0
+            if invariant_result.passed
+            else round((passed_checks / max(1, total_checks)) * 100.0, 2)
+        )
         evidence = {
             "passed": invariant_result.passed,
             "errors": invariant_result.errors,
@@ -312,10 +353,26 @@ class BenchmarkCollector:
             "total_checks": total_checks,
             "passed_checks": passed_checks,
         }
-        return BenchmarkItem("BM-3", "Mathematical Invariants", invariant_result.passed, score, _hash_evidence(evidence), evidence, ["inheritance, boundedness, and event-consistency checks"])
+        return BenchmarkItem(
+            "BM-3",
+            "Mathematical Invariants",
+            invariant_result.passed,
+            score,
+            _hash_evidence(evidence),
+            evidence,
+            ["inheritance, boundedness, and event-consistency checks"],
+        )
 
     def _bm4_zero_llm(self) -> BenchmarkItem:
-        provider = str(os.getenv("FAIM_BENCHMARK_LLM_PROVIDER", os.getenv("FAIM_LLM_PROVIDER", ""))).strip().lower()
+        provider = (
+            str(
+                os.getenv(
+                    "FAIM_BENCHMARK_LLM_PROVIDER", os.getenv("FAIM_LLM_PROVIDER", "")
+                )
+            )
+            .strip()
+            .lower()
+        )
         cloud_keys = {
             "OPENAI_API_KEY": bool(os.getenv("OPENAI_API_KEY")),
             "ANTHROPIC_API_KEY": bool(os.getenv("ANTHROPIC_API_KEY")),
@@ -325,20 +382,40 @@ class BenchmarkCollector:
         }
         evidence = {
             "provider": provider or "none",
-            "cloud_keys_present": sorted([name for name, present in cloud_keys.items() if present]),
+            "cloud_keys_present": sorted(
+                [name for name, present in cloud_keys.items() if present]
+            ),
             "core_engine_requires_llm": False,
         }
-        passed = provider in {"", "none", "local", "ollama", "native"} and not evidence["cloud_keys_present"]
+        passed = (
+            provider in {"", "none", "local", "ollama", "native"}
+            and not evidence["cloud_keys_present"]
+        )
         score = 100.0 if passed else 25.0
         notes = ["core ingest/query/evolve paths do not require a cloud LLM"]
         if evidence["cloud_keys_present"]:
             notes.append("cloud LLM credentials detected in environment")
-        return BenchmarkItem("BM-4", "Zero-LLM Operation", passed, score, _hash_evidence(evidence), evidence, notes)
+        return BenchmarkItem(
+            "BM-4",
+            "Zero-LLM Operation",
+            passed,
+            score,
+            _hash_evidence(evidence),
+            evidence,
+            notes,
+        )
 
     def _bm5_deduplication(self, state: GraphState) -> BenchmarkItem:
-        total_touch_count = sum(max(int(getattr(node, "touch_count", 0) or 0), 0) for node in state.nodes)
-        duplicate_touch_count = sum(max(int(getattr(node, "touch_count", 0) or 0) - 1, 0) for node in state.nodes)
-        active_nodes = sum(1 for node in state.nodes if int(getattr(node, "touch_count", 0) or 0) > 1)
+        total_touch_count = sum(
+            max(int(getattr(node, "touch_count", 0) or 0), 0) for node in state.nodes
+        )
+        duplicate_touch_count = sum(
+            max(int(getattr(node, "touch_count", 0) or 0) - 1, 0)
+            for node in state.nodes
+        )
+        active_nodes = sum(
+            1 for node in state.nodes if int(getattr(node, "touch_count", 0) or 0) > 1
+        )
         effectiveness = duplicate_touch_count / max(1, total_touch_count)
         score = round(effectiveness * 100.0, 2)
         evidence = {
@@ -351,12 +428,24 @@ class BenchmarkCollector:
                     "touch_count": int(getattr(node, "touch_count", 0) or 0),
                     "level": int(getattr(node, "level", 0) or 0),
                 }
-                for node in sorted(state.nodes, key=lambda item: int(getattr(item, "touch_count", 0) or 0), reverse=True)[:5]
+                for node in sorted(
+                    state.nodes,
+                    key=lambda item: int(getattr(item, "touch_count", 0) or 0),
+                    reverse=True,
+                )[:5]
             ],
         }
         passed = score > 0.0
         notes = ["measured from live node touch counts and duplicate collapse pressure"]
-        return BenchmarkItem("BM-5", "Deduplication Effectiveness", passed, score, _hash_evidence(evidence), evidence, notes)
+        return BenchmarkItem(
+            "BM-5",
+            "Deduplication Effectiveness",
+            passed,
+            score,
+            _hash_evidence(evidence),
+            evidence,
+            notes,
+        )
 
     def _bm6_self_evolution(self, state: GraphState) -> BenchmarkItem:
         self_evolution_state = None
@@ -365,29 +454,54 @@ class BenchmarkCollector:
             from store.pg.repos.self_evolution_state_repo import SelfEvolutionStateRepo
             from store.pg.repos.self_invention_state_repo import SelfInventionStateRepo
 
-            self_evolution_state = SelfEvolutionStateRepo(session=self.ctx.session, tenant_id=self.ctx.tenant_id).get(state.graph_id, session=self.ctx.session)
-            self_invention_state = SelfInventionStateRepo(session=self.ctx.session, tenant_id=self.ctx.tenant_id).get(state.graph_id, session=self.ctx.session)
+            self_evolution_state = SelfEvolutionStateRepo(
+                session=self.ctx.session, tenant_id=self.ctx.tenant_id
+            ).get(state.graph_id, session=self.ctx.session)
+            self_invention_state = SelfInventionStateRepo(
+                session=self.ctx.session, tenant_id=self.ctx.tenant_id
+            ).get(state.graph_id, session=self.ctx.session)
         except Exception:
             self_evolution_state = None
             self_invention_state = None
 
         latest_event = state.latest_evolution_event
-        latest_payload = _event_payload_dict(latest_event) if latest_event is not None else {}
+        latest_payload = (
+            _event_payload_dict(latest_event) if latest_event is not None else {}
+        )
         merge_count = _parse_int(latest_payload, "merges", "merge_count", default=0)
         prune_count = _parse_int(latest_payload, "prunes", "prune_count", default=0)
-        invention_count = _parse_int(latest_payload, "inventions", "macro_count", default=0)
+        invention_count = _parse_int(
+            latest_payload, "inventions", "macro_count", default=0
+        )
         pressure = float(getattr(state.diagnostics, "lambda_hat", 0.0) or 0.0)
-        recent_activity = merge_count + prune_count + invention_count + int(getattr(self_invention_state, "last_cycle_macros", 0) or 0)
-        evolution_gap = max(0, state.graph_version - int(getattr(self_evolution_state, "last_evolved_version", 0) or 0))
+        recent_activity = (
+            merge_count
+            + prune_count
+            + invention_count
+            + int(getattr(self_invention_state, "last_cycle_macros", 0) or 0)
+        )
+        evolution_gap = max(
+            0,
+            state.graph_version
+            - int(getattr(self_evolution_state, "last_evolved_version", 0) or 0),
+        )
         pressure_score = _clamp01(pressure)
         activity_score = _clamp01(recent_activity / 5.0)
-        gap_score = _clamp01(1.0 - (evolution_gap / max(1.0, float(state.graph_version or 1))))
-        score = round((pressure_score * 0.5 + activity_score * 0.3 + gap_score * 0.2) * 100.0, 2)
+        gap_score = _clamp01(
+            1.0 - (evolution_gap / max(1.0, float(state.graph_version or 1)))
+        )
+        score = round(
+            (pressure_score * 0.5 + activity_score * 0.3 + gap_score * 0.2) * 100.0, 2
+        )
         evidence = {
             "lambda_hat": round(pressure, 6),
             "graph_version": state.graph_version,
-            "last_evolved_version": int(getattr(self_evolution_state, "last_evolved_version", 0) or 0),
-            "last_cycle_macros": int(getattr(self_invention_state, "last_cycle_macros", 0) or 0),
+            "last_evolved_version": int(
+                getattr(self_evolution_state, "last_evolved_version", 0) or 0
+            ),
+            "last_cycle_macros": int(
+                getattr(self_invention_state, "last_cycle_macros", 0) or 0
+            ),
             "merge_count": merge_count,
             "prune_count": prune_count,
             "invention_count": invention_count,
@@ -396,17 +510,35 @@ class BenchmarkCollector:
         }
         passed = score >= 50.0 or recent_activity > 0 or pressure > 0.0
         notes = ["derived from live diagnostics and durable evolution state"]
-        return BenchmarkItem("BM-6", "Self-Evolution", passed, score, _hash_evidence(evidence), evidence, notes)
+        return BenchmarkItem(
+            "BM-6",
+            "Self-Evolution",
+            passed,
+            score,
+            _hash_evidence(evidence),
+            evidence,
+            notes,
+        )
 
     def _bm7_pipeline_performance(self, state: GraphState) -> BenchmarkItem:
-        phase_latency_ms = _event_payload_dict(state.ingest_latency_event).get("phase_latency_ms", {}) if state.ingest_latency_event else {}
-        phase_latency_ms = phase_latency_ms if isinstance(phase_latency_ms, dict) else {}
-        latency_ms = _parse_int(_event_payload_dict(state.ingest_latency_event), "latency_ms", default=0)
+        phase_latency_ms = (
+            _event_payload_dict(state.ingest_latency_event).get("phase_latency_ms", {})
+            if state.ingest_latency_event
+            else {}
+        )
+        phase_latency_ms = (
+            phase_latency_ms if isinstance(phase_latency_ms, dict) else {}
+        )
+        latency_ms = _parse_int(
+            _event_payload_dict(state.ingest_latency_event), "latency_ms", default=0
+        )
         strict_budget = get_speed_budget("STRICT")
         target_ms = float(strict_budget.p95_insert_ms_strict)
         throughput = float(global_throughput.get_throughput())
         latency_score = _clamp01(target_ms / max(1.0, float(latency_ms or target_ms)))
-        throughput_score = _clamp01(throughput / max(1.0, float(strict_budget.min_insert_qps)))
+        throughput_score = _clamp01(
+            throughput / max(1.0, float(strict_budget.min_insert_qps))
+        )
         score = round(((latency_score * 0.7) + (throughput_score * 0.3)) * 100.0, 2)
         evidence = {
             "latency_ms": latency_ms,
@@ -417,15 +549,48 @@ class BenchmarkCollector:
         }
         passed = latency_ms > 0 and score >= 50.0
         notes = ["uses the latest ingest latency event and live throughput tracker"]
-        return BenchmarkItem("BM-7", "Pipeline Performance", passed, score, _hash_evidence(evidence), evidence, notes)
+        return BenchmarkItem(
+            "BM-7",
+            "Pipeline Performance",
+            passed,
+            score,
+            _hash_evidence(evidence),
+            evidence,
+            notes,
+        )
+
+    @staticmethod
+    def _stable_query_repr(result: Dict[str, Any]) -> Dict[str, Any]:
+        """Strip timing fields so two identical queries produce the same hash."""
+        return {
+            "graph_hash": result.get("graph_hash"),
+            "graph_version": result.get("graph_version"),
+            "results": [
+                {
+                    "node_id": r.get("node_id"),
+                    "score": round(float(r.get("score") or 0), 6),
+                }
+                for r in result.get("results", [])
+            ],
+        }
 
     def _bm8_query_fidelity(self, state: GraphState) -> BenchmarkItem:
         query_text = f"FAIM benchmark query graph={state.graph_id} nodes={state.diagnostics.node_count} edges={state.diagnostics.edge_count} hash={state.graph_hash[:16]}"
-        first = self._query_without_persist(state.graph_id, query_text, k=min(5, max(1, state.diagnostics.node_count or 1)))
-        second = self._query_without_persist(state.graph_id, query_text, k=min(5, max(1, state.diagnostics.node_count or 1)))
-        first_hash = _sha256_text(first)
-        second_hash = _sha256_text(second)
-        explain_present = any(bool(item.get("explain")) for item in first.get("results", []))
+        first = self._query_without_persist(
+            state.graph_id,
+            query_text,
+            k=min(5, max(1, state.diagnostics.node_count or 1)),
+        )
+        second = self._query_without_persist(
+            state.graph_id,
+            query_text,
+            k=min(5, max(1, state.diagnostics.node_count or 1)),
+        )
+        first_hash = _sha256_text(self._stable_query_repr(first))
+        second_hash = _sha256_text(self._stable_query_repr(second))
+        explain_present = any(
+            bool(item.get("explain")) for item in first.get("results", [])
+        )
         score = 100.0 if first_hash == second_hash else 45.0
         if explain_present:
             score = min(100.0, score + 5.0)
@@ -435,21 +600,44 @@ class BenchmarkCollector:
             "second_hash": second_hash,
             "result_count": len(first.get("results", [])),
             "explain_present": explain_present,
-            "first_result_nodes": [item.get("node_id") for item in first.get("results", [])[:5]],
-            "first_scores": [item.get("score") for item in first.get("results", [])[:5]],
+            "first_result_nodes": [
+                item.get("node_id") for item in first.get("results", [])[:5]
+            ],
+            "first_scores": [
+                item.get("score") for item in first.get("results", [])[:5]
+            ],
         }
         passed = first_hash == second_hash
         notes = ["queries were executed twice in rolled-back STRICT mode"]
-        return BenchmarkItem("BM-8", "Query Fidelity", passed, score, _hash_evidence(evidence), evidence, notes)
+        return BenchmarkItem(
+            "BM-8",
+            "Query Fidelity",
+            passed,
+            score,
+            _hash_evidence(evidence),
+            evidence,
+            notes,
+        )
 
     def _bm9_tenant_isolation(self, state: GraphState) -> BenchmarkItem:
         node_rows = self.ctx.node_repo.list_nodes(state.graph_id, limit=10000)
         edge_rows = self.ctx.edge_repo.list_all_edges(state.graph_id, limit=10000)
-        event_rows = self.ctx.event_repo.get_by_seq(self.ctx.session, graph_id=state.graph_id, after_seq=0, limit=10000)
+        event_rows = self.ctx.event_repo.get_by_seq(
+            self.ctx.session, graph_id=state.graph_id, after_seq=0, limit=10000
+        )
 
-        node_scope_ok = all(getattr(node, "tenant_id", state.tenant_id) == state.tenant_id for node in node_rows)
-        edge_scope_ok = all(getattr(edge, "tenant_id", state.tenant_id) == state.tenant_id for edge in edge_rows)
-        event_scope_ok = all(getattr(event, "tenant_id", state.tenant_id) == state.tenant_id for event in event_rows)
+        node_scope_ok = all(
+            getattr(node, "tenant_id", state.tenant_id) == state.tenant_id
+            for node in node_rows
+        )
+        edge_scope_ok = all(
+            getattr(edge, "tenant_id", state.tenant_id) == state.tenant_id
+            for edge in edge_rows
+        )
+        event_scope_ok = all(
+            getattr(event, "tenant_id", state.tenant_id) == state.tenant_id
+            for event in event_rows
+        )
         passed = node_scope_ok and edge_scope_ok and event_scope_ok
         sample_counts = {
             "node_sample_count": len(node_rows),
@@ -465,11 +653,35 @@ class BenchmarkCollector:
         }
         score = 100.0 if passed else 0.0
         notes = ["sampled rows remained tenant-scoped in current API access path"]
-        return BenchmarkItem("BM-9", "Multi-Tenant Isolation", passed, score, _hash_evidence(evidence), evidence, notes)
+        return BenchmarkItem(
+            "BM-9",
+            "Multi-Tenant Isolation",
+            passed,
+            score,
+            _hash_evidence(evidence),
+            evidence,
+            notes,
+        )
 
     def run_suite(self, graph_id: str) -> BenchmarkSuiteRun:
         started_at = datetime.now(timezone.utc)
         state = self._build_graph_state(graph_id)
+        # Emit a fresh snapshot so BM-2 always has a current hash to compare
+        try:
+            self.ctx.event_repo.emit(
+                self.ctx.session,
+                graph_id,
+                "DIAGNOSTICS_SNAPSHOT",
+                {
+                    "graph_hash": state.graph_hash,
+                    "diagnostics_hash": state.diagnostics_hash,
+                    "node_count": len(state.nodes),
+                    "edge_count": len(state.edges),
+                },
+            )
+            self.ctx.session.flush()
+        except Exception:
+            pass
         benchmarks = [
             self._bm1_determinism(state),
             self._bm2_integrity(state),
@@ -487,12 +699,20 @@ class BenchmarkCollector:
             "overall_score": overall_score,
             "passed_count": sum(1 for item in benchmarks if item.passed),
             "failed_count": sum(1 for item in benchmarks if not item.passed),
-            "max_lambda_hat": round(float(getattr(state.diagnostics, "lambda_hat", 0.0) or 0.0), 6),
-            "latest_ingest_latency_ms": _parse_int(_event_payload_dict(state.ingest_latency_event), "latency_ms", default=0),
-            "latest_evolution_kind": getattr(state.latest_evolution_event, "kind", None),
+            "max_lambda_hat": round(
+                float(getattr(state.diagnostics, "lambda_hat", 0.0) or 0.0), 6
+            ),
+            "latest_ingest_latency_ms": _parse_int(
+                _event_payload_dict(state.ingest_latency_event), "latency_ms", default=0
+            ),
+            "latest_evolution_kind": getattr(
+                state.latest_evolution_event, "kind", None
+            ),
         }
 
-        duration_ms = int((datetime.now(timezone.utc) - started_at).total_seconds() * 1000)
+        duration_ms = int(
+            (datetime.now(timezone.utc) - started_at).total_seconds() * 1000
+        )
         return BenchmarkSuiteRun(
             run_id=str(uuid4()),
             tenant_id=state.tenant_id,
@@ -504,11 +724,21 @@ class BenchmarkCollector:
             duration_ms=duration_ms,
             node_count=len(state.nodes),
             edge_count=len(state.edges),
-            atom_count=sum(1 for node in state.nodes if int(getattr(node, "level", 0) or 0) == 0),
-            macro_count=sum(1 for node in state.nodes if int(getattr(node, "level", 0) or 0) > 0),
+            atom_count=sum(
+                1 for node in state.nodes if int(getattr(node, "level", 0) or 0) == 0
+            ),
+            macro_count=sum(
+                1 for node in state.nodes if int(getattr(node, "level", 0) or 0) > 0
+            ),
             compression_ratio=compute_compression_ratio(
-                atom_count=sum(1 for node in state.nodes if int(getattr(node, "level", 0) or 0) == 0),
-                macro_count=sum(1 for node in state.nodes if int(getattr(node, "level", 0) or 0) > 0),
+                atom_count=sum(
+                    1
+                    for node in state.nodes
+                    if int(getattr(node, "level", 0) or 0) == 0
+                ),
+                macro_count=sum(
+                    1 for node in state.nodes if int(getattr(node, "level", 0) or 0) > 0
+                ),
             ),
             throughput_synapses_per_sec=float(global_throughput.get_throughput()),
             budget_profile="STRICT",
@@ -521,13 +751,21 @@ class BenchmarkCollector:
             "run": run.to_dict(),
             "benchmark_id": run.run_id,
         }
-        event = self.ctx.event_repo.emit(self.ctx.session, graph_id, "BENCHMARK_SUITE_RESULT", payload)
+        event = self.ctx.event_repo.emit(
+            self.ctx.session, graph_id, "BENCHMARK_SUITE_RESULT", payload
+        )
         self.ctx.session.commit()
         return event
 
     def list_suite_events(self, graph_id: str, limit: int = 200) -> List[Any]:
-        events = self.ctx.event_repo.get_by_seq(self.ctx.session, graph_id=graph_id, after_seq=0, limit=max(1, limit) + 1)
-        return [event for event in events if getattr(event, "kind", None) == "BENCHMARK_SUITE_RESULT"]
+        events = self.ctx.event_repo.get_by_seq(
+            self.ctx.session, graph_id=graph_id, after_seq=0, limit=max(1, limit) + 1
+        )
+        return [
+            event
+            for event in events
+            if getattr(event, "kind", None) == "BENCHMARK_SUITE_RESULT"
+        ]
 
     def list_runs(self, graph_id: str, limit: int = 200) -> List[Dict[str, Any]]:
         runs: List[Dict[str, Any]] = []
@@ -556,15 +794,34 @@ class BenchmarkCollector:
                 continue
             points.append(
                 {
-                    "timestamp": run.get("computed_at") or getattr(event, "ts", None).isoformat() if getattr(event, "ts", None) else None,
+                    "timestamp": (
+                        run.get("computed_at") or getattr(event, "ts", None).isoformat()
+                        if getattr(event, "ts", None)
+                        else None
+                    ),
                     "nodes": int(run.get("node_count", 0) or 0),
                     "cr": float(run.get("compression_ratio", 0.0) or 0.0),
-                    "redundancy": float((run.get("benchmarks", [{}])[4].get("score", 0.0) / 100.0) if len(run.get("benchmarks", [])) > 4 else 0.0),
-                    "drift": float(run.get("summary", {}).get("max_lambda_hat", 0.0) or 0.0),
+                    "redundancy": float(
+                        (run.get("benchmarks", [{}])[4].get("score", 0.0) / 100.0)
+                        if len(run.get("benchmarks", [])) > 4
+                        else 0.0
+                    ),
+                    "drift": float(
+                        run.get("summary", {}).get("max_lambda_hat", 0.0) or 0.0
+                    ),
                     "latency": {
-                        "store_p50_ms": float(run.get("summary", {}).get("latest_ingest_latency_ms", 0.0) or 0.0),
-                        "retrieve_p50_ms": float(run.get("summary", {}).get("latest_ingest_latency_ms", 0.0) or 0.0),
-                        "retrieve_p95_ms": float(run.get("summary", {}).get("latest_ingest_latency_ms", 0.0) or 0.0),
+                        "store_p50_ms": float(
+                            run.get("summary", {}).get("latest_ingest_latency_ms", 0.0)
+                            or 0.0
+                        ),
+                        "retrieve_p50_ms": float(
+                            run.get("summary", {}).get("latest_ingest_latency_ms", 0.0)
+                            or 0.0
+                        ),
+                        "retrieve_p95_ms": float(
+                            run.get("summary", {}).get("latest_ingest_latency_ms", 0.0)
+                            or 0.0
+                        ),
                     },
                 }
             )

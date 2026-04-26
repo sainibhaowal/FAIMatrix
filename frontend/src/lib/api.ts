@@ -1,7 +1,16 @@
 // src/lib/api.ts
 import { apiGet, apiPost, resolveGraphId } from "@/lib/api-client";
 export * from "@/lib/api-client";
-import { GraphMetrics, BenchmarkPoint, GraphSubgraph, NodeScanItem, FaimNodeDetail, HealthStatus, UsedNodeSummary, GraphSummary } from "@/types/api";
+import {
+  GraphMetrics,
+  BenchmarkPoint,
+  GraphSubgraph,
+  NodeScanItem,
+  FaimNodeDetail,
+  HealthStatus,
+  UsedNodeSummary,
+  GraphSummary,
+} from "@/types/api";
 export * from "@/types/api";
 
 export function fetchHealth(): Promise<HealthStatus> {
@@ -68,7 +77,6 @@ export function fetchNodeSubgraph(
   );
 }
 
-
 export async function fetchGraphsSoft(): Promise<GraphSummary[]> {
   // Backend has no /graphs list endpoint — rely on universe resolution fallback
   // in TopBar instead. Returning empty avoids a noisy 404 in the console.
@@ -96,7 +104,9 @@ export function fetchNodeProvenance(
 /**
  * Trigger an evolution cycle (pruning, merging, synthesis).
  */
-export function triggerEvolution(graphId: string): Promise<{ cycle_id: string; status: string }> {
+export function triggerEvolution(
+  graphId: string,
+): Promise<{ cycle_id: string; status: string }> {
   const gid = resolveGraphId(graphId);
   return apiPost<{ cycle_id: string; status: string }>(
     `/graphs/${encodeURIComponent(gid)}/evolution/trigger`,
@@ -119,7 +129,9 @@ export function fetchEvolutionHistory(
 /**
  * Verify graph hash for determinism proof.
  */
-export function verifyGraphHash(graphId: string): Promise<{ graph_hash: string; node_count: number; edge_count: number }> {
+export function verifyGraphHash(
+  graphId: string,
+): Promise<{ graph_hash: string; node_count: number; edge_count: number }> {
   const gid = resolveGraphId(graphId);
   return apiGet<{ graph_hash: string; node_count: number; edge_count: number }>(
     `/graphs/${encodeURIComponent(gid)}/hash`,

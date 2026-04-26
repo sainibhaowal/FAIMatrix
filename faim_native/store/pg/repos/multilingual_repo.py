@@ -24,7 +24,9 @@ class MultilingualRepo:
         self.session = session
         self.tenant_id = tenant_id
 
-    def replace_lexicon(self, graph_id: str, rows: Sequence[Mapping[str, object]]) -> int:
+    def replace_lexicon(
+        self, graph_id: str, rows: Sequence[Mapping[str, object]]
+    ) -> int:
         self.session.query(GraphMultilingualLexiconModel).filter(
             GraphMultilingualLexiconModel.tenant_id == self.tenant_id,
             GraphMultilingualLexiconModel.graph_id == graph_id,
@@ -40,7 +42,7 @@ class MultilingualRepo:
                     canonical_form=str(row["canonical_form"]),
                     concept_key=str(row["concept_key"]),
                     score=float(row.get("score", 0.0)),
-                    meta=dict(row.get("meta", {})),
+                    meta=dict(row.get("meta", {})),  # type: ignore[call-overload]
                     updated_at=now,
                 )
             )
@@ -64,10 +66,16 @@ class MultilingualRepo:
         mapped: Dict[str, List[str]] = {}
         for row in rows:
             values = mapped.setdefault(row.surface_form, [])
-            for candidate in (row.canonical_form, str((row.meta or {}).get("translated_form", ""))):
+            for candidate in (
+                row.canonical_form,
+                str((row.meta or {}).get("translated_form", "")),
+            ):
                 if candidate and candidate not in values:
                     values.append(candidate)
-        return {key: tuple(values) for key, values in sorted(mapped.items(), key=lambda item: item[0])}
+        return {
+            key: tuple(values)
+            for key, values in sorted(mapped.items(), key=lambda item: item[0])
+        }
 
 
 __all__ = ["MultilingualRepo"]

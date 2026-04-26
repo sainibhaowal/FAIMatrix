@@ -7,7 +7,13 @@
  * Stores all providers in localStorage via the providers.ts library.
  */
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import {
   Provider,
   loadProviders,
@@ -33,7 +39,7 @@ interface ProviderContextType {
     baseUrl: string,
     apiKey?: string,
     models?: string[],
-    activeModel?: string
+    activeModel?: string,
   ) => Promise<string | null>; // Returns provider ID on success, null on error
   removeProvider: (id: string) => void;
   setActiveProvider: (id: string) => void;
@@ -42,11 +48,15 @@ interface ProviderContextType {
   refreshAllProvidersStatus: () => Promise<void>;
 }
 
-const ProviderContext = createContext<ProviderContextType | undefined>(undefined);
+const ProviderContext = createContext<ProviderContextType | undefined>(
+  undefined,
+);
 
 export function ProviderProvider({ children }: { children: React.ReactNode }) {
   const [providers, setProviders] = useState<Provider[]>([]);
-  const [activeProvider, setActiveProviderState] = useState<Provider | null>(null);
+  const [activeProvider, setActiveProviderState] = useState<Provider | null>(
+    null,
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,7 +76,7 @@ export function ProviderProvider({ children }: { children: React.ReactNode }) {
       baseUrl: string,
       apiKey?: string,
       models?: string[],
-      activeModel?: string
+      activeModel?: string,
     ): Promise<string | null> => {
       setIsLoading(true);
       setError(null);
@@ -119,7 +129,7 @@ export function ProviderProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       }
     },
-    [providers.length]
+    [providers.length],
   );
 
   const removeProvider = useCallback((id: string) => {
@@ -158,53 +168,56 @@ export function ProviderProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const discoverModels = useCallback(async (providerId: string): Promise<boolean> => {
-    try {
-      const provider = providers.find((p) => p.id === providerId);
-      if (!provider) {
-        setError("Provider not found");
+  const discoverModels = useCallback(
+    async (providerId: string): Promise<boolean> => {
+      try {
+        const provider = providers.find((p) => p.id === providerId);
+        if (!provider) {
+          setError("Provider not found");
+          return false;
+        }
+
+        const res = await fetch("/api/provider/discover", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            baseUrl: provider.baseUrl,
+            apiKey: provider.apiKey,
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          setError(errData.message || `Discovery failed (${res.status})`);
+          return false;
+        }
+
+        const { models } = await res.json();
+
+        // Update provider with discovered models
+        updateProviderModels(providerId, models);
+
+        // Reload from localStorage
+        const updated = loadProviders();
+        setProviders(updated);
+        const active = updated.find((p) => p.isActive) || null;
+        setActiveProviderState(active);
+
+        return true;
+      } catch (e: any) {
+        setError(e.message || "Failed to discover models");
         return false;
       }
-
-      const res = await fetch("/api/provider/discover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: provider.baseUrl,
-          apiKey: provider.apiKey,
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        setError(errData.message || `Discovery failed (${res.status})`);
-        return false;
-      }
-
-      const { models } = await res.json();
-
-      // Update provider with discovered models
-      updateProviderModels(providerId, models);
-
-      // Reload from localStorage
-      const updated = loadProviders();
-      setProviders(updated);
-      const active = updated.find((p) => p.isActive) || null;
-      setActiveProviderState(active);
-
-      return true;
-    } catch (e: any) {
-      setError(e.message || "Failed to discover models");
-      return false;
-    }
-  }, [providers]);
+    },
+    [providers],
+  );
 
   const refreshAllProvidersStatus = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     const results = await Promise.all(
-      providers.map((p) => discoverModels(p.id))
+      providers.map((p) => discoverModels(p.id)),
     );
 
     const anyFailed = results.some((r) => !r);

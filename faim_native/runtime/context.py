@@ -47,7 +47,7 @@ def _is_production_env() -> bool:
 def _get_engine():
     """Get or create SQLAlchemy engine."""
     global _engine, _engine_db_url, _SessionLocal
-    db_url = os.getenv("DATABASE_URL", "sqlite:///./faim_test.db")
+    db_url = os.getenv("DATABASE_URL", "sqlite:///Runtime/faim_test.db")
     if _engine is None or _engine_db_url != db_url:
         if _engine is not None:
             try:
@@ -60,7 +60,6 @@ def _get_engine():
         _engine_db_url = db_url
         _SessionLocal = None
 
-        # Create tables if needed
         from store.pg.models_faim import create_all_tables
 
         create_all_tables(_engine)
@@ -69,15 +68,18 @@ def _get_engine():
 
 
 def _get_session_factory():
-    """Get or create session factory."""
+    """Get the SQLAlchemy session factory, creating if needed."""
     global _SessionLocal
-    if _SessionLocal is None:
+    current_engine = _get_engine()
+
+    # Recreate session factory if it doesn't exist or is bound to a stale engine
+    if _SessionLocal is None or _SessionLocal.kw.get("bind") is not current_engine:
         from sqlalchemy.orm import sessionmaker
 
         _SessionLocal = sessionmaker(
             autocommit=False,
             autoflush=False,
-            bind=_get_engine(),
+            bind=current_engine,
         )
     return _SessionLocal
 
@@ -115,7 +117,9 @@ def _get_raw_store(tenant_id: str):
     tid = str(tenant_id or "").strip()
     if not tid:
         if production:
-            raise RuntimeError("Production mode requires non-empty tenant_id for raw store")
+            raise RuntimeError(
+                "Production mode requires non-empty tenant_id for raw store"
+            )
         return _raw_store_plain
 
     cached = _raw_store_by_tenant.get(tid)
@@ -134,7 +138,9 @@ def _get_raw_store(tenant_id: str):
         )
         if isinstance(cipher, NoopCipher):
             if production:
-                raise RuntimeError("Production mode forbids plaintext/noop payload cipher")
+                raise RuntimeError(
+                    "Production mode forbids plaintext/noop payload cipher"
+                )
             return _raw_store_plain
 
         wrapped = EncryptedRawStore(

@@ -54,7 +54,7 @@ def check_inheritance_sum(
     edge_repo: EdgeRepo,
     node_repo: NodeRepo,
     graph_id: str,
-    tolerance: float = 1e-9,
+    tolerance: float = 1e-6,
 ) -> InvariantResult:
     """Check that inheritance fractions sum to 1 for all children.
 

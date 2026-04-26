@@ -78,9 +78,7 @@ class JobStore:
 
         stale_time = datetime.now(timezone.utc) - timedelta(seconds=timeout_seconds)
         allowed_kinds = [
-            str(kind).strip()
-            for kind in (executable_kinds or [])
-            if str(kind).strip()
+            str(kind).strip() for kind in (executable_kinds or []) if str(kind).strip()
         ]
 
         while True:
@@ -110,7 +108,9 @@ class JobStore:
                 job.completed_at = datetime.now(timezone.utc)
                 job.updated_at = datetime.now(timezone.utc)
                 if not job.error_message:
-                    reason = JobStore._cancel_reason(job) or "Cancelled before execution"
+                    reason = (
+                        JobStore._cancel_reason(job) or "Cancelled before execution"
+                    )
                     job.error_message = reason[:1024]
                 session.commit()
                 logger.info("Job cancelled before claim: %s", job.job_id)

@@ -51,7 +51,7 @@ pytest --cov=app --cov-report=term-missing
 pnpm tsc --noEmit
 
 # Linting
-pnpm eslint . 
+pnpm eslint .
 
 # Auto-fix lint
 pnpm eslint . --fix
@@ -89,6 +89,7 @@ npx ts-prune
 **Best practice — add a single script to run everything:**
 
 In `package.json` add:
+
 ```json
 "scripts": {
   "check": "tsc --noEmit && eslint . && prettier --check ."
@@ -96,6 +97,7 @@ In `package.json` add:
 ```
 
 In `pyproject.toml` add:
+
 ```toml
 [tool.taskipy.tasks]
 check = "ruff check . && black --check . && mypy ."
@@ -103,11 +105,4 @@ check = "ruff check . && black --check . && mypy ."
 
 Then just run `pnpm check` or `task check` before every Docker build to catch all issues before deployment.
 
-
-
-
-
-
-
-
- docker compose -f backend/docker-compose.yml build frontend && docker compose -f backend/docker-compose.yml up -d frontend
+docker compose -f backend/docker-compose.yml build frontend && docker compose -f backend/docker-compose.yml up -d frontend

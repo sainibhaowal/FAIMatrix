@@ -5,19 +5,22 @@ Based on the current code, here is the practical page-by-page answer.
 **First**
 There is no dedicated `dashboard/settings/page.tsx` right now.
 So “settings page” is effectively split across:
-- [profile page](/home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/profile/page.tsx)
-- [storage page](/home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/storage/page.tsx)
-- [evolution page](/home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/evolution/page.tsx)
-- [providers page](/home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/providers/page.tsx) if model/provider config matters
+
+- [profile page](</home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/profile/page.tsx>)
+- [storage page](</home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/storage/page.tsx>)
+- [evolution page](</home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/evolution/page.tsx>)
+- [providers page](</home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/providers/page.tsx>) if model/provider config matters
 
 ## What to update
 
 **1. Memory Query page**
 Current state:
-- [memory-query page](/home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/memory-query/page.tsx) is still just the chat shell
+
+- [memory-query page](</home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/memory-query/page.tsx>) is still just the chat shell
 - [ChatInterface.tsx](/home/sephi-asi/FAIM/frontend/src/components/memoryquery/ChatInterface.tsx) renders generic assistant text only
 
 Needs:
+
 - show Phase 9 `answer` block
 - show citations
 - show confidence
@@ -34,10 +37,12 @@ This is the highest-value UI gap.
 
 **2. Storage page**
 Current state:
-- [storage page](/home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/storage/page.tsx) is already strong and closest to operational UI
+
+- [storage page](</home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/storage/page.tsx>) is already strong and closest to operational UI
 - it already has provenance concepts and upload/job flows
 
 Needs:
+
 - buttons for backend rebuild/import workflows:
   - canonical semantics rebuild
   - multilingual semantics rebuild
@@ -55,9 +60,11 @@ This page should become the main control plane for Phases 2, 6, 7, 8.
 
 **3. Evolution page**
 Current state:
-- [evolution page](/home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/evolution/page.tsx) is focused on self-evolution diagnostics/jobs
+
+- [evolution page](</home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/evolution/page.tsx>) is focused on self-evolution diagnostics/jobs
 
 Needs:
+
 - show retrieval-health metrics, not only graph evolution metrics
 - add visibility for:
   - graph diffusion active state
@@ -71,9 +78,11 @@ Keep it focused on graph/evolution/runtime health.
 
 **4. API Keys page**
 Current state:
-- [api-keys page](/home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/api-keys/page.tsx) manages key lifecycle well
+
+- [api-keys page](</home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/api-keys/page.tsx>) manages key lifecycle well
 
 Needs:
+
 - review scopes against real backend features
 - if backend supports these actions through API, add scopes for:
   - storage rebuild/import actions
@@ -87,10 +96,12 @@ This page is for access control, not workflow execution.
 
 **5. FIG / Graph page**
 Current state:
-- [graph page](/home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/graph/page.tsx) just mounts `FigViewPage`
+
+- [graph page](</home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/graph/page.tsx>) just mounts `FigViewPage`
 - graph inspectors already show some provenance-related info
 
 Needs:
+
 - display new node/edge kinds cleanly:
   - concept nodes
   - entity / relation / fact / value / time nodes
@@ -108,9 +119,11 @@ This is important because backend graph semantics expanded a lot.
 
 **6. Profile page**
 Current state:
-- [profile page](/home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/profile/page.tsx) is mostly identity/account
+
+- [profile page](</home/sephi-asi/FAIM/frontend/src/app/(app)/dashboard/profile/page.tsx>) is mostly identity/account
 
 Needs:
+
 - probably not much for Phases 1-9 directly
 - if you want a true settings hub, this page can link to:
   - retrieval settings
@@ -127,6 +140,7 @@ Yes, probably **one** new page is justified.
 
 **Recommended new page: `Retrieval / Engine Control`**
 Purpose:
+
 - runtime/operator-facing controls for retrieval stack behavior
 - visibility into enabled features by graph
 - rebuild status summary
@@ -137,6 +151,7 @@ Purpose:
 - multimodal status
 
 Why:
+
 - right now these controls would otherwise be scattered awkwardly
 - storage page can own file-based workflows
 - evolution page can own self-evolution
@@ -144,12 +159,15 @@ Why:
 - this new page can own retrieval system operations
 
 Good route:
+
 - `/dashboard/retrieval`
-or
+  or
 - `/dashboard/engine`
 
 ## What you do **not** need to expose
+
 You do not need UI for every internal mechanism:
+
 - raw BM25 stats
 - every scoring constant
 - every table/model
@@ -157,6 +175,7 @@ You do not need UI for every internal mechanism:
 - every sidecar storage detail
 
 Expose:
+
 - actions users/operators need
 - status they need to trust the system
 - outputs they need to understand results
@@ -183,6 +202,7 @@ Expose:
 Yes, frontend should be updated to support backend workflows.
 
 Most important missing areas:
+
 1. Memory Query UI
 2. Storage operator controls
 3. FIG support for new graph semantics
@@ -190,6 +210,7 @@ Most important missing areas:
 5. One new retrieval/engine operations page
 
 If you want, next I can turn this into an exact implementation plan with:
+
 - which files to change
 - which new page to add
 - which buttons/actions to place on each existing page

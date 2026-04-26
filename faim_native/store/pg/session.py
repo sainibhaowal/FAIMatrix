@@ -26,16 +26,17 @@ from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
+
 def get_default_database_url() -> str:
     """Resolve DB URL from environment at call-time.
 
     Call-time resolution avoids stale process-level defaults when tests or
     runtime reload flows update DATABASE_URL dynamically.
     """
-    return (
+    return str(
         os.getenv("TEST_DATABASE_URL")
         or os.getenv("FAIM_DATABASE_URL")
-        or os.getenv("DATABASE_URL", "sqlite:///:memory:")
+        or os.getenv("DATABASE_URL", "sqlite:///Runtime/faim_test.db")
     )
 
 

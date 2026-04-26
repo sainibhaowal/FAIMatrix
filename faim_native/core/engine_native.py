@@ -48,10 +48,10 @@ except (ImportError, RuntimeError):
     from core.antisym import merge_vectors, opposition_score, should_merge
     from core.operators.inheritance import compute_inheritance_plan
     from core.operators.semantic_typing import (
-        classify_semantic_type,
-        build_semantic_meta,
-        should_create_semantic_edge,
         SEMANTIC_WEIGHTS,
+        build_semantic_meta,
+        classify_semantic_type,
+        should_create_semantic_edge,
     )
     from encoding.vector_schema import FAIMVector
     from store.pg.repos.edge_repo import EdgeRepo
@@ -375,7 +375,7 @@ class FAIMNativeEngine:
         semantic_edges = []
 
         # Classify each parent using cosine similarity and level
-        for parent_id, cosine_sim in zip(plan.parents, plan.similarities):
+        for parent_id, cosine_sim in zip(plan.parents, plan.similarities, strict=False):
             if parent_id not in candidate_map:
                 # Parent not in candidates (shouldn't happen, but be safe)
                 parents_meta.append(None)
