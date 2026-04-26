@@ -25,6 +25,7 @@ except (ImportError, RuntimeError):
         sys.path.insert(0, str(_parent))
     from core.contracts.types import uuid7
     from encoding.vector_schema import FAIMVector
+
     from store.pg.models_faim import NodeModel
 
 
@@ -203,7 +204,9 @@ class NodeRepo:
         except (ValueError, TypeError, AttributeError):
             return None
 
-    def get_by_id(self, graph_id: str, node_id: Union[UUID, str]) -> Optional[NodeModel]:
+    def get_by_id(
+        self, graph_id: str, node_id: Union[UUID, str]
+    ) -> Optional[NodeModel]:
         """Compatibility alias used by API routers."""
         parsed = self._coerce_uuid(node_id)
         if parsed is None:
@@ -322,12 +325,10 @@ class NodeRepo:
         )
         if kind is not None:
             query = query.filter(NodeModel.kind == kind)
-        return (
-            query.order_by(
-                asc(NodeModel.created_at),
-                asc(NodeModel.node_id),
-            ).all()
-        )
+        return query.order_by(
+            asc(NodeModel.created_at),
+            asc(NodeModel.node_id),
+        ).all()
 
     def count_nodes(self, graph_id: str) -> int:
         """Count nodes in graph."""
@@ -445,10 +446,7 @@ class NodeRepo:
             )
             .all()
         )
-        return [
-            (n.node_id, n.v_native, n.level or 0)
-            for n in nodes
-        ]
+        return [(n.node_id, n.v_native, n.level or 0) for n in nodes]
 
 
 # Exports

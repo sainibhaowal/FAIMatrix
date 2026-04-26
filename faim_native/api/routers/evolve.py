@@ -251,7 +251,9 @@ async def evolve_status(
             update_seen_version=False,
         )
 
-        state_repo = SelfEvolutionStateRepo(session=ctx.session, tenant_id=ctx.tenant_id)
+        state_repo = SelfEvolutionStateRepo(
+            session=ctx.session, tenant_id=ctx.tenant_id
+        )
         state = state_repo.get(graph_id=graph_id, session=ctx.session)
 
         active_job = (
@@ -304,10 +306,14 @@ async def evolve_status(
             runtime=EvolveStatusRuntime(
                 self_evolve_enabled=bool(flags.self_evolve_enabled),
                 self_evolve_trigger_mode=str(flags.self_evolve_trigger_mode),
-                self_evolve_min_interval_seconds=int(flags.self_evolve_min_interval_seconds),
+                self_evolve_min_interval_seconds=int(
+                    flags.self_evolve_min_interval_seconds
+                ),
                 self_evolve_min_version_delta=int(flags.self_evolve_min_version_delta),
                 self_evolve_max_actions=int(flags.self_evolve_max_actions),
-                self_evolve_scan_interval_seconds=int(flags.self_evolve_scan_interval_seconds),
+                self_evolve_scan_interval_seconds=int(
+                    flags.self_evolve_scan_interval_seconds
+                ),
                 self_invent_enabled=bool(flags.self_invent_enabled),
                 self_invent_on_evolve=bool(flags.self_invent_on_evolve),
                 jobs_enabled=bool(due.jobs_enabled),
@@ -316,7 +322,9 @@ async def evolve_status(
                 graph_id=graph_id,
                 graph_version=int(due.graph_version or 0),
                 last_seen_version=int(getattr(state, "last_seen_version", 0) or 0),
-                last_evolved_version=int(getattr(state, "last_evolved_version", 0) or 0),
+                last_evolved_version=int(
+                    getattr(state, "last_evolved_version", 0) or 0
+                ),
                 last_evolved_at=_iso(getattr(state, "last_evolved_at", None)),
                 last_enqueued_job_id=(
                     str(getattr(state, "last_enqueued_job_id", ""))

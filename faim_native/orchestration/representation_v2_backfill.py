@@ -92,16 +92,22 @@ def run_representation_v2_backfill(
                     kind="atom",
                 )
                 nodes_by_vector_hash = {
-                    str(node.vector_hash): node for node in existing_nodes if node.vector_hash
+                    str(node.vector_hash): node
+                    for node in existing_nodes
+                    if node.vector_hash
                 }
                 nodes_by_anchor = {
                     _anchor_key(node.anchor_json): node for node in existing_nodes
                 }
 
                 vectors = vectorize_blocks(blocks)
-                reprs_v2 = [build_representation_v2_for_block(block) for block in blocks]
+                reprs_v2 = [
+                    build_representation_v2_for_block(block) for block in blocks
+                ]
 
-                for block, vector, repr_v2 in zip(blocks, vectors, reprs_v2, strict=False):
+                for block, vector, repr_v2 in zip(
+                    blocks, vectors, reprs_v2, strict=False
+                ):
                     node = nodes_by_vector_hash.get(vector.vector_hash)
                     if node is None:
                         node = nodes_by_anchor.get(_anchor_key(block.anchor.to_dict()))

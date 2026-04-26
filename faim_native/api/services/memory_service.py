@@ -7,7 +7,7 @@ import binascii
 import hashlib
 import json
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Optional
 
 
 def decode_base64_payload(payload: str) -> bytes:
@@ -71,4 +71,3 @@ def parse_idempotency_key(
 def redact_error_text(text: Optional[str]) -> str:
     """Normalize and bound error text."""
     return str(text or "memory write failed").strip()[:1024]
-

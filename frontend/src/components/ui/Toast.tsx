@@ -48,8 +48,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const addToast = useCallback(
     (type: ToastType, title: string, description?: string, duration = 5000) => {
       const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      
-      setToasts((prev) => [...prev, { id, type, title, description, duration }]);
+
+      setToasts((prev) => [
+        ...prev,
+        { id, type, title, description, duration },
+      ]);
 
       if (duration > 0) {
         setTimeout(() => {
@@ -57,7 +60,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         }, duration);
       }
     },
-    []
+    [],
   );
 
   const dismiss = useCallback((id: string) => {
@@ -133,7 +136,7 @@ function ToastContainer({
         <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}
     </div>,
-    document.body
+    document.body,
   );
 }
 
@@ -200,8 +203,11 @@ function ToastItem({
       role="alert"
     >
       <div className="flex gap-3">
-        <Icon className={["flex-shrink-0 mt-0.5", styles.icon].join(" ")} size={18} />
-        
+        <Icon
+          className={["flex-shrink-0 mt-0.5", styles.icon].join(" ")}
+          size={18}
+        />
+
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-[var(--text-primary)]">
             {toast.title}
@@ -212,7 +218,7 @@ function ToastItem({
             </p>
           )}
         </div>
-        
+
         <button
           type="button"
           onClick={() => onDismiss(toast.id)}

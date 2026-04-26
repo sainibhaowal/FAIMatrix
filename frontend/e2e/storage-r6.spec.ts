@@ -79,7 +79,13 @@ test.describe("Storage R6", () => {
             total_content_types: 1,
             extensions: [".txt", ".md", ".pdf"],
             content_types: ["text/plain"],
-            categories: { documents: [".pdf"], images: [], code: [], text_data: [".txt"], other: [] },
+            categories: {
+              documents: [".pdf"],
+              images: [],
+              code: [],
+              text_data: [".txt"],
+              other: [],
+            },
             extractor_doc_types: { text: 1 },
             ocr_enabled: false,
             ocr_engine: "tesseract",
@@ -192,7 +198,10 @@ test.describe("Storage R6", () => {
           }),
         });
       }
-      if (path.endsWith("/uploads/r6-upload-job/events") && req.method() === "GET") {
+      if (
+        path.endsWith("/uploads/r6-upload-job/events") &&
+        req.method() === "GET"
+      ) {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -212,16 +221,24 @@ test.describe("Storage R6", () => {
 
     await page.goto("/dashboard/storage");
     await expect(page.getByTestId("storage-page-title")).toBeVisible();
-    await expect(page.locator("text=Requested mode: strict/relaxed")).toBeVisible();
+    await expect(
+      page.locator("text=Requested mode: strict/relaxed"),
+    ).toBeVisible();
 
     await page.setInputFiles('input[type="file"]', [
-      { name: "mode.txt", mimeType: "text/plain", buffer: Buffer.from("mode payload") },
+      {
+        name: "mode.txt",
+        mimeType: "text/plain",
+        buffer: Buffer.from("mode payload"),
+      },
     ]);
 
-    const row = page.locator('[data-testid="storage-queue-item"][data-filename="mode.txt"]').first();
+    const row = page
+      .locator('[data-testid="storage-queue-item"][data-filename="mode.txt"]')
+      .first();
     await expect(row).toBeVisible();
     await expect(row.getByTestId("storage-queue-mode")).toContainText(
-      "Requested strict/relaxed -> Effective strict/relaxed | durability: core_sync_secondary_async"
+      "Requested strict/relaxed -> Effective strict/relaxed | durability: core_sync_secondary_async",
     );
   });
 });

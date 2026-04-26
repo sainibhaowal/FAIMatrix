@@ -48,10 +48,12 @@ class DomainKnowledgeRepo:
                     surface_form=str(row["surface_form"]),
                     canonical_form=str(row["canonical_form"]),
                     kind=str(row["kind"]),
-                    domain_pack=(str(row["domain_pack"]) if row.get("domain_pack") else None),
-                    support_count=int(row.get("support_count", 0)),
+                    domain_pack=(
+                        str(row["domain_pack"]) if row.get("domain_pack") else None
+                    ),
+                    support_count=int(row.get("support_count", 0)),  # type: ignore[call-overload]
                     score=float(row.get("score", 0.0)),
-                    meta=dict(row.get("meta", {})),
+                    meta=dict(row.get("meta", {})),  # type: ignore[call-overload]
                     updated_at=now,
                 )
             )
@@ -77,7 +79,7 @@ class DomainKnowledgeRepo:
                     source_id=str(row["source_id"]),
                     source_kind=str(row["source_kind"]),
                     source_hash=str(row["source_hash"]),
-                    meta=dict(row.get("meta", {})),
+                    meta=dict(row.get("meta", {})),  # type: ignore[call-overload]
                     updated_at=now,
                 )
             )

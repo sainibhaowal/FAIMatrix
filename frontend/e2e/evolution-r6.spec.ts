@@ -47,7 +47,9 @@ async function mockAuthenticatedSession(page: Page, graphId?: string) {
 }
 
 test.describe("Evolution R6", () => {
-  test("shows effective mode from evolve response and event timeline", async ({ page }) => {
+  test("shows effective mode from evolve response and event timeline", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page, "r6-evolution-graph");
 
     await page.route("**/api/v1/**", async (route) => {
@@ -267,22 +269,28 @@ test.describe("Evolution R6", () => {
     });
 
     await page.goto("/dashboard/evolution");
-    await expect(page.getByRole("heading", { name: "Evolution Control Plane" })).toBeVisible();
-    await expect(page.locator("text=Requested mode: strict/relaxed")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Evolution Control Plane" }),
+    ).toBeVisible();
+    await expect(
+      page.locator("text=Requested mode: strict/relaxed"),
+    ).toBeVisible();
 
     await page.getByRole("button", { name: "Run evolve now" }).click();
 
     await expect(
       page
-        .locator("text=Requested strict/relaxed -> Effective fast/strict | durability: sync_strict")
-        .first()
+        .locator(
+          "text=Requested strict/relaxed -> Effective fast/strict | durability: sync_strict",
+        )
+        .first(),
     ).toBeVisible();
     await expect(
       page
         .locator(
-          "text=Completed: merges=2, prunes=1, inventions=1 | mode strict/relaxed -> fast/strict (sync_strict)"
+          "text=Completed: merges=2, prunes=1, inventions=1 | mode strict/relaxed -> fast/strict (sync_strict)",
         )
-        .first()
+        .first(),
     ).toBeVisible();
   });
 });

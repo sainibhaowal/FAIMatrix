@@ -2,7 +2,7 @@
 
 /**
  * Table Component
- * 
+ *
  * Data table with sorting and glass theme.
  * shadcn/ui style.
  */
@@ -42,7 +42,9 @@ export function Table<T extends Record<string, unknown>>({
 
   const handleSort = (key: string) => {
     if (sortKey === key) {
-      setSortDir(sortDir === "asc" ? "desc" : sortDir === "desc" ? null : "asc");
+      setSortDir(
+        sortDir === "asc" ? "desc" : sortDir === "desc" ? null : "asc",
+      );
       if (sortDir === "desc") setSortKey(null);
     } else {
       setSortKey(key);
@@ -52,22 +54,24 @@ export function Table<T extends Record<string, unknown>>({
 
   const sortedData = useMemo(() => {
     if (!sortKey || !sortDir) return data;
-    
+
     return [...data].sort((a, b) => {
       const aVal = a[sortKey];
       const bVal = b[sortKey];
-      
+
       if (aVal === bVal) return 0;
       if (aVal == null) return 1;
       if (bVal == null) return -1;
-      
+
       const cmp = aVal < bVal ? -1 : 1;
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [data, sortKey, sortDir]);
 
   return (
-    <div className={`overflow-x-auto rounded-xl border border-slate-700/50 ${className}`}>
+    <div
+      className={`overflow-x-auto rounded-xl border border-slate-700/50 ${className}`}
+    >
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-700/50 bg-slate-800/30">
@@ -85,9 +89,15 @@ export function Table<T extends Record<string, unknown>>({
                   {col.header}
                   {col.sortable && (
                     <span className="text-slate-500">
-                      {sortKey === col.key && sortDir === "asc" && <ChevronUp className="w-3.5 h-3.5" />}
-                      {sortKey === col.key && sortDir === "desc" && <ChevronDown className="w-3.5 h-3.5" />}
-                      {(sortKey !== col.key || !sortDir) && <ChevronsUpDown className="w-3.5 h-3.5" />}
+                      {sortKey === col.key && sortDir === "asc" && (
+                        <ChevronUp className="w-3.5 h-3.5" />
+                      )}
+                      {sortKey === col.key && sortDir === "desc" && (
+                        <ChevronDown className="w-3.5 h-3.5" />
+                      )}
+                      {(sortKey !== col.key || !sortDir) && (
+                        <ChevronsUpDown className="w-3.5 h-3.5" />
+                      )}
                     </span>
                   )}
                 </span>
@@ -123,7 +133,9 @@ export function Table<T extends Record<string, unknown>>({
                       key={String(col.key)}
                       className={`px-4 py-3 text-slate-200 ${col.className || ""}`}
                     >
-                      {col.render ? col.render(value, row) : String(value ?? "")}
+                      {col.render
+                        ? col.render(value, row)
+                        : String(value ?? "")}
                     </td>
                   );
                 })}

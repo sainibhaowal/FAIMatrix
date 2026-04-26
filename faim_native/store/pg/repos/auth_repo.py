@@ -23,6 +23,7 @@ from runtime.secrets import (
 )
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
+
 from store.pg.models_auth import AdminApiKey, AuthKeyAuditLog, TenantApiKey
 
 
@@ -421,7 +422,9 @@ class AuthRepo:
             if scopes is not None
             else self._normalize_scopes(list(old_record.scopes or []))
         )
-        inherited_expiry = expires_at if expires_at is not None else old_record.expires_at
+        inherited_expiry = (
+            expires_at if expires_at is not None else old_record.expires_at
+        )
 
         new_record, new_plaintext = self.create_tenant_key(
             tenant_id=tenant_id,

@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 from uuid import UUID
 
-from lexical.multilingual_canonicalizer import canonicalize_multilingual_text, load_en_de_lexicon
-
+from lexical.multilingual_canonicalizer import (
+    canonicalize_multilingual_text,
+    load_en_de_lexicon,
+)
 
 MAX_CONCEPT_EDGES_PER_NODE = 6
 
@@ -78,7 +80,11 @@ def build_multilingual_semantics(
             }
         )
 
-    return concept_rows, [lexicon_rows[key] for key in sorted(lexicon_rows)], concept_members
+    return (
+        concept_rows,
+        [lexicon_rows[key] for key in sorted(lexicon_rows)],
+        concept_members,
+    )
 
 
 __all__ = [

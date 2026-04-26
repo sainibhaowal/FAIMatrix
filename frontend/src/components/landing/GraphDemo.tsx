@@ -5,16 +5,96 @@ import { useEffect, useState, useRef } from "react";
 
 // Simulated FAIM graph nodes with real FAIM concepts
 const NODES = [
-  { id: 1, x: 50, y: 28, label: "Security Policy", color: "cyan", size: 18, residual: 0.08 },
-  { id: 2, x: 28, y: 45, label: "Access Control", color: "cyan", size: 14, residual: 0.12 },
-  { id: 3, x: 72, y: 42, label: "Encryption", color: "purple", size: 15, residual: 0.15 },
-  { id: 4, x: 38, y: 68, label: "RBAC Rules", color: "blue", size: 12, residual: 0.31 },
-  { id: 5, x: 62, y: 65, label: "TLS Config", color: "purple", size: 12, residual: 0.28 },
-  { id: 6, x: 50, y: 50, label: "Auth Layer", color: "emerald", size: 16, residual: 0.06 },
-  { id: 7, x: 18, y: 62, label: "JWT Tokens", color: "blue", size: 11, residual: 0.42 },
-  { id: 8, x: 82, y: 58, label: "Certificates", color: "purple", size: 11, residual: 0.35 },
-  { id: 9, x: 50, y: 82, label: "Audit Trail", color: "emerald", size: 13, residual: 0.09 },
-  { id: 10, x: 30, y: 25, label: "Compliance", color: "cyan", size: 13, residual: 0.11 },
+  {
+    id: 1,
+    x: 50,
+    y: 28,
+    label: "Security Policy",
+    color: "cyan",
+    size: 18,
+    residual: 0.08,
+  },
+  {
+    id: 2,
+    x: 28,
+    y: 45,
+    label: "Access Control",
+    color: "cyan",
+    size: 14,
+    residual: 0.12,
+  },
+  {
+    id: 3,
+    x: 72,
+    y: 42,
+    label: "Encryption",
+    color: "purple",
+    size: 15,
+    residual: 0.15,
+  },
+  {
+    id: 4,
+    x: 38,
+    y: 68,
+    label: "RBAC Rules",
+    color: "blue",
+    size: 12,
+    residual: 0.31,
+  },
+  {
+    id: 5,
+    x: 62,
+    y: 65,
+    label: "TLS Config",
+    color: "purple",
+    size: 12,
+    residual: 0.28,
+  },
+  {
+    id: 6,
+    x: 50,
+    y: 50,
+    label: "Auth Layer",
+    color: "emerald",
+    size: 16,
+    residual: 0.06,
+  },
+  {
+    id: 7,
+    x: 18,
+    y: 62,
+    label: "JWT Tokens",
+    color: "blue",
+    size: 11,
+    residual: 0.42,
+  },
+  {
+    id: 8,
+    x: 82,
+    y: 58,
+    label: "Certificates",
+    color: "purple",
+    size: 11,
+    residual: 0.35,
+  },
+  {
+    id: 9,
+    x: 50,
+    y: 82,
+    label: "Audit Trail",
+    color: "emerald",
+    size: 13,
+    residual: 0.09,
+  },
+  {
+    id: 10,
+    x: 30,
+    y: 25,
+    label: "Compliance",
+    color: "cyan",
+    size: 13,
+    residual: 0.11,
+  },
 ];
 
 // Edges with inheritance fractions
@@ -60,7 +140,9 @@ export default function GraphDemo() {
     return () => clearInterval(interval);
   }, []);
 
-  const activeNodeData = activeNode ? NODES.find((n) => n.id === activeNode) : null;
+  const activeNodeData = activeNode
+    ? NODES.find((n) => n.id === activeNode)
+    : null;
   const activeEdges = activeNode
     ? EDGES.filter((e) => e.from === activeNode || e.to === activeNode)
     : [];
@@ -87,8 +169,9 @@ export default function GraphDemo() {
             </h2>
             <p className="mt-6 text-slate-400 leading-relaxed">
               Every edge is a mathematical relationship — not an LLM guess.
-              Hover a node to see its parents, inheritance fractions,
-              and novelty residual. This is real graph structure, not a visualization trick.
+              Hover a node to see its parents, inheritance fractions, and
+              novelty residual. This is real graph structure, not a
+              visualization trick.
             </p>
 
             {/* Active node info */}
@@ -104,30 +187,53 @@ export default function GraphDemo() {
                     className="p-5 rounded-xl border border-slate-800 bg-slate-900/60"
                   >
                     <div className="flex items-center gap-3 mb-3">
-                      <div className={`w-3 h-3 rounded-full bg-gradient-to-br ${GRADIENT_MAP[activeNodeData.color]}`} />
-                      <span className="text-white font-semibold">{activeNodeData.label}</span>
-                      <span className="text-slate-600 text-xs font-mono">node_{activeNodeData.id}</span>
+                      <div
+                        className={`w-3 h-3 rounded-full bg-gradient-to-br ${GRADIENT_MAP[activeNodeData.color]}`}
+                      />
+                      <span className="text-white font-semibold">
+                        {activeNodeData.label}
+                      </span>
+                      <span className="text-slate-600 text-xs font-mono">
+                        node_{activeNodeData.id}
+                      </span>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-sm">
                       <div>
-                        <span className="text-slate-500 text-xs">Residual (Novelty)</span>
-                        <p className="text-white font-mono">{(activeNodeData.residual * 100).toFixed(0)}%</p>
+                        <span className="text-slate-500 text-xs">
+                          Residual (Novelty)
+                        </span>
+                        <p className="text-white font-mono">
+                          {(activeNodeData.residual * 100).toFixed(0)}%
+                        </p>
                       </div>
                       <div>
-                        <span className="text-slate-500 text-xs">Connections</span>
-                        <p className="text-white font-mono">{activeEdges.length}</p>
+                        <span className="text-slate-500 text-xs">
+                          Connections
+                        </span>
+                        <p className="text-white font-mono">
+                          {activeEdges.length}
+                        </p>
                       </div>
                     </div>
                     {activeEdges.length > 0 && (
                       <div className="mt-3 pt-3 border-t border-slate-800">
-                        <span className="text-slate-500 text-xs">Inheritance Fractions</span>
+                        <span className="text-slate-500 text-xs">
+                          Inheritance Fractions
+                        </span>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {activeEdges.slice(0, 3).map((edge, i) => {
-                            const otherNodeId = edge.from === activeNode ? edge.to : edge.from;
-                            const otherNode = NODES.find((n) => n.id === otherNodeId);
+                            const otherNodeId =
+                              edge.from === activeNode ? edge.to : edge.from;
+                            const otherNode = NODES.find(
+                              (n) => n.id === otherNodeId,
+                            );
                             return (
-                              <span key={i} className="px-2 py-1 rounded bg-slate-800 text-xs font-mono text-slate-300">
-                                {otherNode?.label}: {(edge.fraction * 100).toFixed(0)}%
+                              <span
+                                key={i}
+                                className="px-2 py-1 rounded bg-slate-800 text-xs font-mono text-slate-300"
+                              >
+                                {otherNode?.label}:{" "}
+                                {(edge.fraction * 100).toFixed(0)}%
                               </span>
                             );
                           })}
@@ -163,7 +269,8 @@ export default function GraphDemo() {
             <div
               className="absolute inset-0 opacity-20"
               style={{
-                backgroundImage: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)",
+                backgroundImage:
+                  "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)",
                 backgroundSize: "28px 28px",
               }}
             />
@@ -185,7 +292,9 @@ export default function GraphDemo() {
                     y1={`${fromNode.y}%`}
                     x2={`${toNode.x}%`}
                     y2={`${toNode.y}%`}
-                    stroke={isActive ? "#22d3ee" : isPulsing ? "#3b82f6" : "#1e293b"}
+                    stroke={
+                      isActive ? "#22d3ee" : isPulsing ? "#3b82f6" : "#1e293b"
+                    }
                     strokeWidth={isActive ? 2 : isPulsing ? 1.5 : 0.8}
                     strokeDasharray={isPulsing ? "6 4" : "none"}
                     initial={{ pathLength: 0, opacity: 0.4 }}
@@ -207,7 +316,7 @@ export default function GraphDemo() {
                 EDGES.some(
                   (e) =>
                     (e.from === activeNode && e.to === node.id) ||
-                    (e.to === activeNode && e.from === node.id)
+                    (e.to === activeNode && e.from === node.id),
                 );
 
               return (
@@ -215,7 +324,11 @@ export default function GraphDemo() {
                   key={node.id}
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: node.id * 0.08, type: "spring", stiffness: 200 }}
+                  transition={{
+                    delay: node.id * 0.08,
+                    type: "spring",
+                    stiffness: 200,
+                  }}
                   onMouseEnter={() => setActiveNode(node.id)}
                   onMouseLeave={() => setActiveNode(null)}
                   className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group"

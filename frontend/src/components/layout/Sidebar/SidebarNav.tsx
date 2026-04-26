@@ -104,9 +104,9 @@ export function SidebarNav({
 
   const activeHref = useMemo(() => {
     const allItems = NAV_GROUPS.flatMap((g) => g.items);
-    const candidates = allItems.filter((i) => isActive(i.href)).sort(
-      (a, b) => b.href.length - a.href.length,
-    );
+    const candidates = allItems
+      .filter((i) => isActive(i.href))
+      .sort((a, b) => b.href.length - a.href.length);
     return candidates[0]?.href ?? "";
   }, [isActive]);
 
@@ -115,7 +115,11 @@ export function SidebarNav({
     return (
       <div className="w-full">
         {/* NAV - Icons only */}
-        <nav className="space-y-1.5" role="navigation" aria-label="Main navigation">
+        <nav
+          className="space-y-1.5"
+          role="navigation"
+          aria-label="Main navigation"
+        >
           {NAV_GROUPS.flatMap((group) => group.items).map((item) => {
             const active = item.href === activeHref;
             const Icon = item.icon;
@@ -152,17 +156,27 @@ export function SidebarNav({
 
   return (
     <div className="w-full px-3">
-      <div 
+      <div
         className="rounded-[24px] p-2 border shadow-[0_20px_50px_rgba(0,0,0,0.7)] backdrop-blur-3xl overflow-hidden"
         style={{
           borderColor: "rgba(255,255,254,0.1)",
           background: "rgba(10, 15, 25, 0.78)",
-          boxShadow: "0 25px 80px -20px rgba(0,0,0,0.9), inset 0 1px 1px rgba(255,255,255,0.08)"
+          boxShadow:
+            "0 25px 80px -20px rgba(0,0,0,0.9), inset 0 1px 1px rgba(255,255,255,0.08)",
         }}
       >
-        <nav className="space-y-5" role="navigation" aria-label="Main navigation">
+        <nav
+          className="space-y-5"
+          role="navigation"
+          aria-label="Main navigation"
+        >
           {NAV_GROUPS.map((group, gIdx) => (
-            <CollapsibleGroup key={gIdx} group={group} isActive={isActive} activeHref={activeHref} />
+            <CollapsibleGroup
+              key={gIdx}
+              group={group}
+              isActive={isActive}
+              activeHref={activeHref}
+            />
           ))}
         </nav>
       </div>
@@ -191,14 +205,16 @@ function CollapsibleGroup({
         >
           <ChevronRight
             size={10}
-            className={`transition-transform duration-200 ${open ? 'rotate-90 text-primary-400/70' : 'text-slate-600'}`}
+            className={`transition-transform duration-200 ${open ? "rotate-90 text-primary-400/70" : "text-slate-600"}`}
             aria-hidden="true"
           />
           {group.title}
         </button>
       )}
 
-      <div className={`space-y-0.5 mt-1 overflow-hidden transition-all duration-500 ${open ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div
+        className={`space-y-0.5 mt-1 overflow-hidden transition-all duration-500 ${open ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"}`}
+      >
         {group.items.map((item) => {
           const active = item.href === activeHref;
           const Icon = item.icon;
@@ -222,11 +238,15 @@ function CollapsibleGroup({
                 size={17}
                 className={[
                   "relative z-10 transition-colors duration-300",
-                  active ? "text-primary-300" : "text-slate-500 group-hover:text-primary-300",
+                  active
+                    ? "text-primary-300"
+                    : "text-slate-500 group-hover:text-primary-300",
                 ].join(" ")}
               />
 
-              <span className="relative z-10 flex-1 text-sm font-semibold tracking-tight">{item.label}</span>
+              <span className="relative z-10 flex-1 text-sm font-semibold tracking-tight">
+                {item.label}
+              </span>
 
               {active && (
                 <div className="relative z-10 h-1.5 w-1.5 rounded-full bg-primary-400 shadow-[0_0_8px_rgba(34,211,238,0.6)] animate-pulse" />

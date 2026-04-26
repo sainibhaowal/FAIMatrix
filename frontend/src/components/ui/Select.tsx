@@ -284,7 +284,7 @@ export const Select: React.FC<SelectProps> = ({
               })}
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* Helper text / Error */}
@@ -308,7 +308,10 @@ export const Select: React.FC<SelectProps> = ({
    Multi-Select Variant
 ============================================================================= */
 
-export interface MultiSelectProps extends Omit<SelectProps, "value" | "onChange"> {
+export interface MultiSelectProps extends Omit<
+  SelectProps,
+  "value" | "onChange"
+> {
   /** Currently selected values */
   value?: string[];
   /** Callback when selection changes */
@@ -478,7 +481,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
               );
             })}
           </div>,
-          document.body
+          document.body,
         )}
     </div>
   );

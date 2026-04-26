@@ -29,8 +29,14 @@ export function safeNodeTitle(node: FigNode): string {
  * Unknown/unexpected values map to "unknown".
  */
 const KNOWN_STATES = new Set([
-  "active", "historical", "compressed", "deduplicated",
-  "pruned", "cold", "deactivated", "unknown",
+  "active",
+  "historical",
+  "compressed",
+  "deduplicated",
+  "pruned",
+  "cold",
+  "deactivated",
+  "unknown",
 ]);
 
 export function nodeStateClass(node: FigNode): string {
@@ -108,7 +114,11 @@ export function clearStaleGraphState(currentGraphId: string): void {
   const toRemove: string[] = [];
   for (let i = 0; i < window.localStorage.length; i++) {
     const key = window.localStorage.key(i);
-    if (key && key.startsWith(VIEW_STATE_PREFIX) && key !== _storageKey(currentGraphId)) {
+    if (
+      key &&
+      key.startsWith(VIEW_STATE_PREFIX) &&
+      key !== _storageKey(currentGraphId)
+    ) {
       toRemove.push(key);
     }
   }

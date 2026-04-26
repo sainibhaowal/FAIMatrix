@@ -78,11 +78,12 @@ const buttonVariants = cva(
       size: "md",
       fullWidth: false,
     },
-  }
+  },
 );
 
 export interface ButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
+  extends
+    React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   loading?: boolean;
   leftIcon?: React.ReactNode;
@@ -103,12 +104,14 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
     return (
       <button
         ref={ref}
-        className={buttonVariants({ variant, size, fullWidth }) + " " + className}
+        className={
+          buttonVariants({ variant, size, fullWidth }) + " " + className
+        }
         disabled={disabled || loading}
         {...props}
       >
@@ -123,7 +126,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         <span className="absolute bottom-0 left-0 h-[2px] w-0 bg-white/20 transition-all duration-300 group-hover:w-full" />
       </button>
     );
-  }
+  },
 );
 Button.displayName = "Button";
 

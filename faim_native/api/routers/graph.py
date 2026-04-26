@@ -18,7 +18,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, asc, func
+from sqlalchemy import and_, func
 
 _parent = Path(__file__).parent.parent.parent
 if str(_parent) not in sys.path:
@@ -127,7 +127,11 @@ def _resolve_graph_id(
     if not graph_id or not str(graph_id).strip():
         raise HTTPException(status_code=400, detail="missing_graph_id")
     gid = str(graph_id).strip()
-    if x_graph_id is not None and str(x_graph_id).strip() and str(x_graph_id).strip() != gid:
+    if (
+        x_graph_id is not None
+        and str(x_graph_id).strip()
+        and str(x_graph_id).strip() != gid
+    ):
         raise HTTPException(status_code=400, detail="graph_id_mismatch")
     return gid
 
@@ -359,7 +363,9 @@ class PathsExplainBody(BaseModel):
     max_hops: int = Field(default=PATH_HOPS_DEF, ge=1)
     max_paths: int = Field(default=PATH_MAX_DEF, ge=1)
     edge_kinds: List[str] = Field(
-        default_factory=lambda: sorted({"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS)
+        default_factory=lambda: sorted(
+            {"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS
+        )
     )
 
 
@@ -377,14 +383,14 @@ async def graph_paths_explain(
     if na is None or nb is None:
         raise HTTPException(status_code=404, detail="node_not_found")
 
-    max_hops = _clamp_int(
-        body.max_hops, PATH_HOPS_DEF, PATH_HOPS_MIN, PATH_HOPS_MAX
-    )
-    max_paths = _clamp_int(
-        body.max_paths, PATH_MAX_DEF, PATH_MAX_MIN, PATH_MAX_MAX
-    )
+    max_hops = _clamp_int(body.max_hops, PATH_HOPS_DEF, PATH_HOPS_MIN, PATH_HOPS_MAX)
+    max_paths = _clamp_int(body.max_paths, PATH_MAX_DEF, PATH_MAX_MIN, PATH_MAX_MAX)
 
-    allowed = {k for k in body.edge_kinds if k in ({"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS)}
+    allowed = {
+        k
+        for k in body.edge_kinds
+        if k in ({"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS)
+    }
     if not allowed:
         allowed = {"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS
 
@@ -431,9 +437,7 @@ async def graph_paths_explain(
     _ = max_paths
 
     return {
-        "snapshot": _build_snapshot(
-            ctx, graph_id, graph_hash=gh, consistent_read=True
-        ),
+        "snapshot": _build_snapshot(ctx, graph_id, graph_hash=gh, consistent_read=True),
         "from_node_id": str(a),
         "to_node_id": str(b),
         "path_found": True,

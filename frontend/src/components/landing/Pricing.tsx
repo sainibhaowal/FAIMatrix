@@ -9,12 +9,7 @@ const plans = [
     price: "$0",
     period: "forever",
     description: "Perfect for trying FAIMATRIX",
-    features: [
-      "1,000 nodes",
-      "Basic knowledge graph",
-
-      "Community support",
-    ],
+    features: ["1,000 nodes", "Basic knowledge graph", "Community support"],
     cta: "Start Free",
     popular: false,
     gradient: "from-slate-600 to-slate-700",

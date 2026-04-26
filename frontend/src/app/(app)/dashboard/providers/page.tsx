@@ -33,7 +33,8 @@ function ModelDropdown({
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -56,7 +57,9 @@ function ModelDropdown({
               {displayVendor}
             </span>
           )}
-          <span className="text-sm text-slate-200 font-medium truncate">{displayName}</span>
+          <span className="text-sm text-slate-200 font-medium truncate">
+            {displayName}
+          </span>
         </div>
         <ChevronDown
           size={14}
@@ -83,7 +86,10 @@ function ModelDropdown({
                   <button
                     key={m}
                     type="button"
-                    onClick={() => { onChange(m); setOpen(false); }}
+                    onClick={() => {
+                      onChange(m);
+                      setOpen(false);
+                    }}
                     className={[
                       "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-all duration-150",
                       active
@@ -91,18 +97,27 @@ function ModelDropdown({
                         : "hover:bg-white/[0.06] border border-transparent text-slate-300",
                     ].join(" ")}
                   >
-                    <div className={[
-                      "w-2 h-2 rounded-full flex-shrink-0",
-                      active ? "bg-primary-400 shadow-[0_0_6px_rgba(34,211,238,0.5)]" : "bg-slate-700",
-                    ].join(" ")} />
+                    <div
+                      className={[
+                        "w-2 h-2 rounded-full flex-shrink-0",
+                        active
+                          ? "bg-primary-400 shadow-[0_0_6px_rgba(34,211,238,0.5)]"
+                          : "bg-slate-700",
+                      ].join(" ")}
+                    />
                     {mVendor && (
                       <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest bg-slate-800/60 px-1.5 py-0.5 rounded flex-shrink-0">
                         {mVendor}
                       </span>
                     )}
-                    <span className="text-[13px] font-medium truncate">{mName}</span>
+                    <span className="text-[13px] font-medium truncate">
+                      {mName}
+                    </span>
                     {active && (
-                      <Check size={12} className="ml-auto flex-shrink-0 text-primary-400" />
+                      <Check
+                        size={12}
+                        className="ml-auto flex-shrink-0 text-primary-400"
+                      />
                     )}
                   </button>
                 );
@@ -210,7 +225,7 @@ export default function ProvidersPage() {
         formData.baseUrl,
         formData.apiKey || undefined,
         discoveredModels,
-        selectedModel
+        selectedModel,
       );
 
       if (id) {
@@ -237,7 +252,7 @@ export default function ProvidersPage() {
     async (providerId: string) => {
       await discoverModels(providerId);
     },
-    [discoverModels]
+    [discoverModels],
   );
 
   const closeForm = () => {
@@ -272,7 +287,10 @@ export default function ProvidersPage() {
       {/* Metrics Strip */}
       <div
         className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
-        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+        style={{
+          borderColor: "var(--os-stroke)",
+          background: "var(--os-surface-1)",
+        }}
       >
         {[
           {
@@ -295,7 +313,12 @@ export default function ProvidersPage() {
           },
           {
             label: "Connection Status",
-            value: activeProvider?.status === "online" ? "Online" : activeProvider ? "Checking..." : "Offline",
+            value:
+              activeProvider?.status === "online"
+                ? "Online"
+                : activeProvider
+                  ? "Checking..."
+                  : "Offline",
             icon: <AlertCircle size={18} />,
             color:
               activeProvider?.status === "online"
@@ -306,7 +329,9 @@ export default function ProvidersPage() {
           <div
             key={stat.label}
             className="relative flex flex-col justify-center px-6 py-3"
-            style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
+            style={{
+              borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined,
+            }}
           >
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
@@ -314,7 +339,10 @@ export default function ProvidersPage() {
               </p>
               <div className="opacity-20">{stat.icon}</div>
             </div>
-            <p className="font-semibold tabular-nums leading-none" style={{ fontSize: 18 }}>
+            <p
+              className="font-semibold tabular-nums leading-none"
+              style={{ fontSize: 18 }}
+            >
               <span className={stat.color}>{stat.value}</span>
             </p>
           </div>
@@ -342,13 +370,19 @@ export default function ProvidersPage() {
         {providers.length === 0 ? (
           <div
             className="rounded-xl border overflow-hidden p-12 flex flex-col items-center gap-4 text-center"
-            style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
           >
             <Cpu size={32} className="text-slate-500 opacity-40" />
             <div>
-              <h3 className="text-sm font-bold text-slate-400 mb-2">No providers configured</h3>
+              <h3 className="text-sm font-bold text-slate-400 mb-2">
+                No providers configured
+              </h3>
               <p className="text-xs text-slate-500 max-w-md mb-4">
-                Add your first LLM provider (LM Studio local server, OpenAI, or any OpenAI-compatible endpoint) to start querying.
+                Add your first LLM provider (LM Studio local server, OpenAI, or
+                any OpenAI-compatible endpoint) to start querying.
               </p>
               <Button
                 size="sm"
@@ -378,7 +412,9 @@ export default function ProvidersPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="text-sm font-bold text-white truncate">{provider.name}</h3>
+                      <h3 className="text-sm font-bold text-white truncate">
+                        {provider.name}
+                      </h3>
                       {provider.isActive && (
                         <span className="inline-block px-2 py-1 rounded-lg bg-primary-500/20 border border-primary-500/30 text-[10px] font-bold text-primary-300 uppercase tracking-wider whitespace-nowrap">
                           Active
@@ -389,8 +425,8 @@ export default function ProvidersPage() {
                       {provider.type === "local"
                         ? "Local Server"
                         : provider.type === "openai"
-                        ? "OpenAI"
-                        : "Custom Endpoint"}
+                          ? "OpenAI"
+                          : "Custom Endpoint"}
                     </p>
                   </div>
 
@@ -438,7 +474,10 @@ export default function ProvidersPage() {
                       {copiedId === provider.baseUrl ? (
                         <Check size={14} className="text-emerald-400" />
                       ) : (
-                        <Copy size={14} className="text-slate-500 hover:text-slate-300" />
+                        <Copy
+                          size={14}
+                          className="text-slate-500 hover:text-slate-300"
+                        />
                       )}
                     </button>
                   </div>
@@ -467,7 +506,9 @@ export default function ProvidersPage() {
                 ) : (
                   <div className="flex items-center gap-2 text-sm text-slate-500">
                     <AlertCircle size={14} />
-                    <span className="text-[11px]">No models discovered. Check connection.</span>
+                    <span className="text-[11px]">
+                      No models discovered. Check connection.
+                    </span>
                   </div>
                 )}
 
@@ -518,8 +559,12 @@ export default function ProvidersPage() {
             >
               {formStep === "config" && (
                 <>
-                  <h2 className="text-xl font-bold text-white mb-1">Add LLM Provider</h2>
-                  <p className="text-sm text-slate-400 mb-6">Step 1 of 2: Configure provider and test connection</p>
+                  <h2 className="text-xl font-bold text-white mb-1">
+                    Add LLM Provider
+                  </h2>
+                  <p className="text-sm text-slate-400 mb-6">
+                    Step 1 of 2: Configure provider and test connection
+                  </p>
 
                   <div className="space-y-4">
                     <div>
@@ -529,7 +574,9 @@ export default function ProvidersPage() {
                       <input
                         type="text"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({ ...formData, name: e.target.value })
+                        }
                         placeholder="e.g., My LM Studio"
                         className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
                         disabled={formLoading}
@@ -551,7 +598,10 @@ export default function ProvidersPage() {
                               onChange={(e) =>
                                 setFormData({
                                   ...formData,
-                                  type: e.target.value as "local" | "openai" | "custom",
+                                  type: e.target.value as
+                                    | "local"
+                                    | "openai"
+                                    | "custom",
                                 })
                               }
                               disabled={formLoading}
@@ -564,7 +614,11 @@ export default function ProvidersPage() {
                                   : "bg-white/5 border-white/10 text-slate-400 hover:bg-white/10"
                               }`}
                             >
-                              {t === "local" ? "Local" : t === "openai" ? "OpenAI" : "Custom"}
+                              {t === "local"
+                                ? "Local"
+                                : t === "openai"
+                                  ? "OpenAI"
+                                  : "Custom"}
                             </div>
                           </label>
                         ))}
@@ -578,25 +632,31 @@ export default function ProvidersPage() {
                       <input
                         type="text"
                         value={formData.baseUrl}
-                        onChange={(e) => setFormData({ ...formData, baseUrl: e.target.value })}
+                        onChange={(e) =>
+                          setFormData({ ...formData, baseUrl: e.target.value })
+                        }
                         placeholder={
                           formData.type === "local"
                             ? "http://localhost:1234"
                             : formData.type === "openai"
-                            ? "https://api.openai.com/v1"
-                            : "https://your-endpoint.com/v1"
+                              ? "https://api.openai.com/v1"
+                              : "https://your-endpoint.com/v1"
                         }
                         className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
                         disabled={formLoading}
                       />
                       {formData.type === "local" && (
                         <p className="text-[9px] text-slate-500 mt-1.5">
-                          Tip: If running in Docker, use <code className="font-mono">http://host.docker.internal:1234</code>
+                          Tip: If running in Docker, use{" "}
+                          <code className="font-mono">
+                            http://host.docker.internal:1234
+                          </code>
                         </p>
                       )}
                     </div>
 
-                    {(formData.type === "openai" || formData.type === "custom") && (
+                    {(formData.type === "openai" ||
+                      formData.type === "custom") && (
                       <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                           API Key {formData.type === "custom" && "(Optional)"}
@@ -604,7 +664,9 @@ export default function ProvidersPage() {
                         <input
                           type="password"
                           value={formData.apiKey}
-                          onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
+                          onChange={(e) =>
+                            setFormData({ ...formData, apiKey: e.target.value })
+                          }
                           placeholder="sk-... or leave empty"
                           className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
                           disabled={formLoading}
@@ -614,8 +676,13 @@ export default function ProvidersPage() {
 
                     {formError && (
                       <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                        <AlertCircle size={14} className="text-rose-500 flex-shrink-0 mt-0.5" />
-                        <span className="text-[11px] text-rose-500">{formError}</span>
+                        <AlertCircle
+                          size={14}
+                          className="text-rose-500 flex-shrink-0 mt-0.5"
+                        />
+                        <span className="text-[11px] text-rose-500">
+                          {formError}
+                        </span>
                       </div>
                     )}
 
@@ -626,7 +693,13 @@ export default function ProvidersPage() {
                         size="md"
                         onClick={handleTestConnection}
                         disabled={formLoading || !formData.baseUrl.trim()}
-                        leftIcon={formLoading ? <Loader size={14} className="animate-spin" /> : <Download size={14} />}
+                        leftIcon={
+                          formLoading ? (
+                            <Loader size={14} className="animate-spin" />
+                          ) : (
+                            <Download size={14} />
+                          )
+                        }
                       >
                         {formLoading ? "Testing..." : "Test Connection"}
                       </Button>
@@ -652,7 +725,9 @@ export default function ProvidersPage() {
                       <CheckCircle size={16} className="text-primary-400" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold text-white leading-tight">Select Model</h2>
+                      <h2 className="text-lg font-bold text-white leading-tight">
+                        Select Model
+                      </h2>
                       <p className="text-[10px] text-primary-400 font-semibold uppercase tracking-widest">
                         {discoveredModels.length} models found
                       </p>
@@ -660,7 +735,10 @@ export default function ProvidersPage() {
                   </div>
 
                   <p className="text-xs text-slate-500 mb-4">
-                    Step 2 of 2 — Pick the default model for <span className="text-slate-300 font-semibold">{formData.name || "this provider"}</span>
+                    Step 2 of 2 — Pick the default model for{" "}
+                    <span className="text-slate-300 font-semibold">
+                      {formData.name || "this provider"}
+                    </span>
                   </p>
 
                   {/* Model Cards */}
@@ -668,7 +746,8 @@ export default function ProvidersPage() {
                     {discoveredModels.map((m) => {
                       const isSelected = selectedModel === m;
                       const [vendor, ...rest] = m.split("/");
-                      const modelName = rest.length > 0 ? rest.join("/") : vendor;
+                      const modelName =
+                        rest.length > 0 ? rest.join("/") : vendor;
                       const vendorLabel = rest.length > 0 ? vendor : null;
 
                       return (
@@ -684,12 +763,14 @@ export default function ProvidersPage() {
                           ].join(" ")}
                         >
                           {/* Selection indicator */}
-                          <div className={[
-                            "w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all",
-                            isSelected
-                              ? "border-primary-400 bg-primary-400"
-                              : "border-slate-600 group-hover:border-slate-400",
-                          ].join(" ")}>
+                          <div
+                            className={[
+                              "w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition-all",
+                              isSelected
+                                ? "border-primary-400 bg-primary-400"
+                                : "border-slate-600 group-hover:border-slate-400",
+                            ].join(" ")}
+                          >
                             {isSelected && (
                               <div className="w-1.5 h-1.5 rounded-full bg-slate-900" />
                             )}
@@ -698,10 +779,14 @@ export default function ProvidersPage() {
                           {/* Model info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-baseline gap-2">
-                              <span className={[
-                                "text-[13px] font-semibold truncate",
-                                isSelected ? "text-primary-200" : "text-slate-200",
-                              ].join(" ")}>
+                              <span
+                                className={[
+                                  "text-[13px] font-semibold truncate",
+                                  isSelected
+                                    ? "text-primary-200"
+                                    : "text-slate-200",
+                                ].join(" ")}
+                              >
                                 {modelName}
                               </span>
                             </div>
@@ -724,8 +809,13 @@ export default function ProvidersPage() {
 
                   {formError && (
                     <div className="flex items-start gap-2 p-3 rounded-lg bg-rose-500/10 border border-rose-500/20 mb-4">
-                      <AlertCircle size={14} className="text-rose-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-[11px] text-rose-500">{formError}</span>
+                      <AlertCircle
+                        size={14}
+                        className="text-rose-500 flex-shrink-0 mt-0.5"
+                      />
+                      <span className="text-[11px] text-rose-500">
+                        {formError}
+                      </span>
                     </div>
                   )}
 
@@ -735,8 +825,16 @@ export default function ProvidersPage() {
                       variant="primary"
                       size="md"
                       onClick={handleAddProvider}
-                      disabled={formLoading || !formData.name.trim() || !selectedModel}
-                      leftIcon={formLoading ? <Loader size={14} className="animate-spin" /> : <Plus size={14} />}
+                      disabled={
+                        formLoading || !formData.name.trim() || !selectedModel
+                      }
+                      leftIcon={
+                        formLoading ? (
+                          <Loader size={14} className="animate-spin" />
+                        ) : (
+                          <Plus size={14} />
+                        )
+                      }
                     >
                       {formLoading ? "Adding..." : "Add Provider"}
                     </Button>

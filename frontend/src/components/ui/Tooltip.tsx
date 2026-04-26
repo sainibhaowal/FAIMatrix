@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useRef, useEffect, cloneElement, isValidElement } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  cloneElement,
+  isValidElement,
+} from "react";
 import { createPortal } from "react-dom";
 
 /* =============================================================================
@@ -97,15 +103,21 @@ export const Tooltip: React.FC<TooltipProps> = ({
         ref: triggerRef,
         onMouseEnter: (e: React.MouseEvent) => {
           show();
-          (children.props as { onMouseEnter?: React.MouseEventHandler }).onMouseEnter?.(e);
+          (
+            children.props as { onMouseEnter?: React.MouseEventHandler }
+          ).onMouseEnter?.(e);
         },
         onMouseLeave: (e: React.MouseEvent) => {
           hide();
-          (children.props as { onMouseLeave?: React.MouseEventHandler }).onMouseLeave?.(e);
+          (
+            children.props as { onMouseLeave?: React.MouseEventHandler }
+          ).onMouseLeave?.(e);
         },
         onFocus: (e: React.FocusEvent) => {
           show();
-          (children.props as { onFocus?: React.FocusEventHandler }).onFocus?.(e);
+          (children.props as { onFocus?: React.FocusEventHandler }).onFocus?.(
+            e,
+          );
         },
         onBlur: (e: React.FocusEvent) => {
           hide();
@@ -160,7 +172,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
           >
             {content}
           </div>,
-          document.body
+          document.body,
         )}
     </>
   );

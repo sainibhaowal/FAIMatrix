@@ -34,7 +34,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
       children,
       ...props
     },
-    ref
+    ref,
   ) => {
     const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
       if (!glow) return;
@@ -64,22 +64,24 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
           surfaceClass,
 
           /* Glow effect (when enabled) */
-          glow && [
-            "before:absolute before:inset-0 before:pointer-events-none before:rounded-[inherit]",
-            "before:bg-gradient-to-b before:from-cyan-500/5 before:to-transparent",
-            "after:absolute after:inset-0 after:pointer-events-none after:rounded-[inherit]",
-            `after:bg-[radial-gradient(400px_circle_at_var(--gx,50%)_var(--gy,50%),rgba(34,211,238,${glowIntensity}),transparent_60%)]`,
-            "after:opacity-0 hover:after:opacity-100 after:transition-opacity after:duration-300",
-          ].join(" "),
+          glow &&
+            [
+              "before:absolute before:inset-0 before:pointer-events-none before:rounded-[inherit]",
+              "before:bg-gradient-to-b before:from-cyan-500/5 before:to-transparent",
+              "after:absolute after:inset-0 after:pointer-events-none after:rounded-[inherit]",
+              `after:bg-[radial-gradient(400px_circle_at_var(--gx,50%)_var(--gy,50%),rgba(34,211,238,${glowIntensity}),transparent_60%)]`,
+              "after:opacity-0 hover:after:opacity-100 after:transition-opacity after:duration-300",
+            ].join(" "),
 
           /* Interactive styles */
-          interactive && [
-            "cursor-pointer",
-            "hover:border-cyan-500/30",
-            "hover:-translate-y-1",
-            "hover:shadow-[0_0_30px_rgba(34,211,238,0.1)]",
-            "active:scale-[0.99]",
-          ].join(" "),
+          interactive &&
+            [
+              "cursor-pointer",
+              "hover:border-cyan-500/30",
+              "hover:-translate-y-1",
+              "hover:shadow-[0_0_30px_rgba(34,211,238,0.1)]",
+              "active:scale-[0.99]",
+            ].join(" "),
 
           /* Padding */
           !noPadding && "p-5",
@@ -104,7 +106,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
         <div className="relative">{children}</div>
       </div>
     );
-  }
+  },
 );
 Card.displayName = "Card";
 

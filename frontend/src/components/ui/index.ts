@@ -69,7 +69,12 @@ export {
 } from "./Dialog";
 
 // Tabs (animated)
-export { Tabs as AnimatedTabs, TabsList, TabsTrigger, TabsContent } from "./Tabs";
+export {
+  Tabs as AnimatedTabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "./Tabs";
 
 // Table (sortable)
 export { Table } from "./Table";

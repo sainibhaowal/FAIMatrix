@@ -29,7 +29,13 @@ import {
   computeScorecard,
   type FigScorecard,
 } from "@/lib/figViewGraphTransform";
-import type { FigBackendScorecard, FigEdge, FigNode, FigSnapshot, FigTopology } from "@/types/figView";
+import type {
+  FigBackendScorecard,
+  FigEdge,
+  FigNode,
+  FigSnapshot,
+  FigTopology,
+} from "@/types/figView";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -118,7 +124,8 @@ export default function FigMetricsBar({
 
   // Backend-provided scorecard (plan §11: authoritative source when available).
   // The backend embeds this only when cheaply available; otherwise null.
-  const backendScorecard: FigBackendScorecard | null = topology?.scorecard ?? null;
+  const backendScorecard: FigBackendScorecard | null =
+    topology?.scorecard ?? null;
 
   // Full-graph scorecard: prefer backend when provided, fall back to client-computed.
   // Client-computed is derived entirely from backend-authoritative node/edge data,
@@ -139,21 +146,36 @@ export default function FigMetricsBar({
   }, [filteredNodes, filteredEdges]);
 
   // Select which scorecard to display based on mode
-  const displayScorecard = metricsMode === "full" ? fullScorecard : viewScorecard;
-  const displayNodeCount = metricsMode === "full" ? effectiveNodes : (filteredNodeCount ?? effectiveNodes);
-  const displayEdgeCount = metricsMode === "full" ? effectiveEdges : (filteredEdgeCount ?? effectiveEdges);
+  const displayScorecard =
+    metricsMode === "full" ? fullScorecard : viewScorecard;
+  const displayNodeCount =
+    metricsMode === "full"
+      ? effectiveNodes
+      : (filteredNodeCount ?? effectiveNodes);
+  const displayEdgeCount =
+    metricsMode === "full"
+      ? effectiveEdges
+      : (filteredEdgeCount ?? effectiveEdges);
 
   // Source label: "backend" when the backend provided the scorecard and we are
   // showing full-graph mode; "computed" otherwise (client-derived from backend data).
   const scorecardSource: "backend" | "computed" =
-    metricsMode === "full" && backendScorecard !== null ? "backend" : "computed";
+    metricsMode === "full" && backendScorecard !== null
+      ? "backend"
+      : "computed";
 
   return (
     <div className="flex items-stretch rounded-xl border border-slate-700/50 bg-slate-950/85 backdrop-blur-md shadow-[0_4px_20px_rgba(0,0,0,0.4)] overflow-hidden divide-x divide-slate-700/30">
-
       {/* Nodes — updates per mode */}
       <MetricCell
-        icon={<Network size={11} className={metricsMode === "view" ? "text-cyan-400" : "text-slate-500"} />}
+        icon={
+          <Network
+            size={11}
+            className={
+              metricsMode === "view" ? "text-cyan-400" : "text-slate-500"
+            }
+          />
+        }
         value={displayNodeCount}
         label="Nodes"
       />
@@ -162,7 +184,14 @@ export default function FigMetricsBar({
 
       {/* Edges — updates per mode */}
       <MetricCell
-        icon={<GitBranch size={11} className={metricsMode === "view" ? "text-cyan-400" : "text-slate-500"} />}
+        icon={
+          <GitBranch
+            size={11}
+            className={
+              metricsMode === "view" ? "text-cyan-400" : "text-slate-500"
+            }
+          />
+        }
         value={displayEdgeCount}
         label="Edges"
       />
@@ -204,7 +233,9 @@ export default function FigMetricsBar({
         >
           {metricsMode === "full" ? "Full Graph" : "Current View"}
         </span>
-        <span className={`text-[9px] ${metricsMode === "view" ? "text-cyan-600" : "text-slate-600"}`}>
+        <span
+          className={`text-[9px] ${metricsMode === "view" ? "text-cyan-600" : "text-slate-600"}`}
+        >
           ↕
         </span>
       </button>
@@ -226,22 +257,32 @@ export default function FigMetricsBar({
       >
         {[
           {
-            key: "D", value: displayScorecard?.density ?? 0,
-            healthColor: (v: number) => v >= 0.15 ? "#22d3ee" : v >= 0.05 ? "#fbbf24" : "#64748b",
-            healthHint: (v: number) => v >= 0.15 ? "dense" : v >= 0.05 ? "sparse" : "disconnected",
+            key: "D",
+            value: displayScorecard?.density ?? 0,
+            healthColor: (v: number) =>
+              v >= 0.15 ? "#22d3ee" : v >= 0.05 ? "#fbbf24" : "#64748b",
+            healthHint: (v: number) =>
+              v >= 0.15 ? "dense" : v >= 0.05 ? "sparse" : "disconnected",
           },
           {
-            key: "H", value: displayScorecard?.entropy ?? 0,
-            healthColor: (v: number) => v >= 0.8 ? "#a78bfa" : v >= 0.3 ? "#fbbf24" : "#64748b",
-            healthHint: (v: number) => v >= 0.8 ? "diverse" : v >= 0.3 ? "moderate" : "uniform",
+            key: "H",
+            value: displayScorecard?.entropy ?? 0,
+            healthColor: (v: number) =>
+              v >= 0.8 ? "#a78bfa" : v >= 0.3 ? "#fbbf24" : "#64748b",
+            healthHint: (v: number) =>
+              v >= 0.8 ? "diverse" : v >= 0.3 ? "moderate" : "uniform",
           },
           {
-            key: "λ", value: displayScorecard?.spectral_radius ?? 0,
-            healthColor: (v: number) => v >= 2.0 ? "#34d399" : v >= 0.5 ? "#fbbf24" : "#64748b",
-            healthHint: (v: number) => v >= 2.0 ? "clustered" : v >= 0.5 ? "moderate" : "sparse",
+            key: "λ",
+            value: displayScorecard?.spectral_radius ?? 0,
+            healthColor: (v: number) =>
+              v >= 2.0 ? "#34d399" : v >= 0.5 ? "#fbbf24" : "#64748b",
+            healthHint: (v: number) =>
+              v >= 2.0 ? "clustered" : v >= 0.5 ? "moderate" : "sparse",
           },
         ].map(({ key, value, healthColor, healthHint }) => {
-          const valColor = metricsMode === "view" ? "#22d3ee" : healthColor(value);
+          const valColor =
+            metricsMode === "view" ? "#22d3ee" : healthColor(value);
           return (
             <div
               key={key}
@@ -249,11 +290,23 @@ export default function FigMetricsBar({
                 metricsMode === "view" ? "bg-cyan-950/10" : ""
               }`}
             >
-              <span className="font-mono text-[14px] font-bold leading-none transition-colors" style={{ color: valColor }}>
-                {typeof value === "number" && value > 0 ? value.toFixed(2) : value === 0 ? "0" : "—"}
+              <span
+                className="font-mono text-[14px] font-bold leading-none transition-colors"
+                style={{ color: valColor }}
+              >
+                {typeof value === "number" && value > 0
+                  ? value.toFixed(2)
+                  : value === 0
+                    ? "0"
+                    : "—"}
               </span>
-              <span className="text-[8px] uppercase tracking-widest text-slate-500 mt-0.5">{key}</span>
-              <span className="text-[7px] font-mono" style={{ color: valColor, opacity: 0.7 }}>
+              <span className="text-[8px] uppercase tracking-widest text-slate-500 mt-0.5">
+                {key}
+              </span>
+              <span
+                className="text-[7px] font-mono"
+                style={{ color: valColor, opacity: 0.7 }}
+              >
                 {healthHint(value)}
               </span>
             </div>
@@ -263,7 +316,9 @@ export default function FigMetricsBar({
         <div className="flex flex-col items-center justify-end px-2 py-2">
           <span
             className={`text-[7px] font-mono uppercase tracking-widest ${
-              scorecardSource === "backend" ? "text-emerald-600" : "text-slate-700"
+              scorecardSource === "backend"
+                ? "text-emerald-600"
+                : "text-slate-700"
             }`}
           >
             {scorecardSource}
@@ -278,7 +333,9 @@ export default function FigMetricsBar({
         <>
           <Divider />
           <div className="flex flex-col items-center justify-center px-3 py-2 gap-0.5 min-w-[60px]">
-            <span className="font-mono text-[11px] text-slate-400">v{snapshot.graph_version}</span>
+            <span className="font-mono text-[11px] text-slate-400">
+              v{snapshot.graph_version}
+            </span>
             <span
               className={`text-[8px] uppercase tracking-widest ${
                 snapshot.consistent_read ? "text-emerald-600" : "text-amber-600"
@@ -289,7 +346,6 @@ export default function FigMetricsBar({
           </div>
         </>
       )}
-
     </div>
   );
 }

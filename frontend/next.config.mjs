@@ -2,31 +2,32 @@
 const nextConfig = {
   // Turbo rules if needed
   // Keep your current turbo + eslint behavior
-  experimental: { 
+  experimental: {
     turbo: { rules: {} },
   },
   // Output: Standard (Monolithic) for maximum stability
   // PORT MUST BE REMOVED! Next.js only checks hostname against this list.
-  allowedDevOrigins: [
-    "127.0.0.1",
-    "0.0.0.0",
-    "localhost"
+  allowedDevOrigins: ["127.0.0.1", "0.0.0.0", "localhost"],
+  transpilePackages: [
+    "react-force-graph-3d",
+    "react-force-graph-2d",
+    "force-graph",
+    "three",
   ],
-  transpilePackages: ["react-force-graph-3d", "react-force-graph-2d", "force-graph", "three"],
   eslint: { ignoreDuringBuilds: true },
 
   // Force HMR client to use the correct port
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
-        config.infrastructureLogging = {
-            level: 'error',
-        };
-        // Explicitly tell the HMR client where to connect
-        // This fixes the "ws://127.0.0.1:3000" default if the browser sees it differently
-        config.watchOptions = {
-            poll: 1000,
-            aggregateTimeout: 300,
-        };
+      config.infrastructureLogging = {
+        level: "error",
+      };
+      // Explicitly tell the HMR client where to connect
+      // This fixes the "ws://127.0.0.1:3000" default if the browser sees it differently
+      config.watchOptions = {
+        poll: 1000,
+        aggregateTimeout: 300,
+      };
     }
     return config;
   },

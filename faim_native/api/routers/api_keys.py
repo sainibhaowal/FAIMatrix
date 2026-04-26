@@ -174,9 +174,7 @@ def _actor_from_request(request: Request) -> Optional[str]:
 
 def _request_id(ctx: FAIMContext, request: Request) -> str:
     return str(
-        ctx.request_id
-        or getattr(request.state, "request_id", None)
-        or "unknown"
+        ctx.request_id or getattr(request.state, "request_id", None) or "unknown"
     )
 
 
@@ -290,9 +288,7 @@ async def rotate_api_key(
 
     expires_at = _validate_expiry(body.expires_at)
     requested_scopes = (
-        _normalize_scope_list(body.scopes)
-        if body.scopes is not None
-        else None
+        _normalize_scope_list(body.scopes) if body.scopes is not None else None
     )
     actor = _actor_from_request(request)
     request_id = _request_id(ctx, request)
@@ -408,5 +404,6 @@ async def list_api_key_audit(
         )
     except Exception as exc:
         logger.error("API key audit list failed for tenant=%s: %s", ctx.tenant_id, exc)
-        raise HTTPException(status_code=500, detail="Failed to list API key audit") from exc
-
+        raise HTTPException(
+            status_code=500, detail="Failed to list API key audit"
+        ) from exc

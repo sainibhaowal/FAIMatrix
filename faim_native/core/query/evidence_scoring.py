@@ -53,11 +53,7 @@ def compute_evidence_span_score(
 
     score = min(
         1.0,
-        0.30 * coverage
-        + 0.25 * entity
-        + 0.15 * time
-        + 0.15 * value
-        + 0.15 * locality,
+        0.30 * coverage + 0.25 * entity + 0.15 * time + 0.15 * value + 0.15 * locality,
     )
     return round(score, 6), {
         "coverage": round(coverage, 6),

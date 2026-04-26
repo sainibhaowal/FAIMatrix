@@ -16,7 +16,6 @@ declare module "next-auth" {
   }
 
   interface User {
-
     graphId?: string;
   }
 }

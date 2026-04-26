@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
+from typing import Dict, Iterable, List, Sequence, Tuple
 from uuid import UUID
 
 from lexical.alias_miner import mine_alias_candidates
@@ -74,7 +74,9 @@ def mine_terminology(
         )
 
     rows: List[Dict[str, object]] = []
-    for term, count in sorted(support.items(), key=lambda item: (-item[1], item[0]))[:MAX_TERMS]:
+    for term, count in sorted(support.items(), key=lambda item: (-item[1], item[0]))[
+        :MAX_TERMS
+    ]:
         if count < MIN_TERM_SUPPORT:
             continue
         rows.append(
@@ -87,12 +89,21 @@ def mine_terminology(
                 "score": min(1.0, count / max(len(docs), 1)),
                 "meta": {
                     "context_terms": dict(
-                        sorted(contexts[term].items(), key=lambda item: (-item[1], item[0]))[:8]
+                        sorted(
+                            contexts[term].items(), key=lambda item: (-item[1], item[0])
+                        )[:8]
                     )
                 },
             }
         )
-    return sorted(rows + alias_rows, key=lambda row: (str(row["surface_form"]), str(row["kind"]), str(row["canonical_form"])))
+    return sorted(
+        rows + alias_rows,
+        key=lambda row: (
+            str(row["surface_form"]),
+            str(row["kind"]),
+            str(row["canonical_form"]),
+        ),
+    )
 
 
 __all__ = ["DomainDocument", "build_domain_document", "mine_terminology"]

@@ -135,9 +135,7 @@ def _sqlite_rewrite_sql_content(sql_content: str) -> str:
     rewritten = re.sub(r"(?i)::jsonb", "", rewritten)
     rewritten = re.sub(r"::[A-Za-z_][A-Za-z0-9_]*", "", rewritten)
     rewritten = re.sub(r"(?i)\bNOW\(\)", "CURRENT_TIMESTAMP", rewritten)
-    rewritten = re.sub(
-        r"(?i)\s+DEFAULT\s+gen_random_uuid\(\)", "", rewritten
-    )
+    rewritten = re.sub(r"(?i)\s+DEFAULT\s+gen_random_uuid\(\)", "", rewritten)
     rewritten = re.sub(r"(?i)\bUSING\s+GIN\s*\(", "(", rewritten)
     rewritten = re.sub(r"(?i)\s+jsonb_path_ops\b", "", rewritten)
     return rewritten
@@ -203,17 +201,13 @@ def _sqlite_should_ignore_error(exc: Exception, statement: str) -> bool:
 def ensure_migrations_table(session: Session):
     """Ensure the schema_migrations table exists."""
     # Use cross-dialect compatible SQL
-    session.execute(
-        text(
-            """
+    session.execute(text("""
         CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY,
             applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             checksum TEXT NOT NULL
         )
-    """
-        )
-    )
+    """))
     session.commit()
 
 
@@ -393,9 +387,7 @@ def run_up(require_latest: bool = False):
 
             for raw_stmt in statements:
                 stmt_candidates = (
-                    _sqlite_compatible_statements(raw_stmt)
-                    if is_sqlite
-                    else [raw_stmt]
+                    _sqlite_compatible_statements(raw_stmt) if is_sqlite else [raw_stmt]
                 )
                 for stmt in stmt_candidates:
                     stmt = stmt.strip()

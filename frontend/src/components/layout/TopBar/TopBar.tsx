@@ -11,7 +11,7 @@ import {
   GraphSummary,
   fetchGraphsSoft,
   getUniverseIdFromStorage,
-  resolveUniverseIdOnce
+  resolveUniverseIdOnce,
 } from "@/lib/api";
 import { CommandPalette } from "../CommandPalette";
 import { Breadcrumbs } from "../Breadcrumbs";
@@ -27,8 +27,17 @@ import { NotificationCenter } from "./NotificationBell/NotificationCenter";
 function IconSearch(props: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={props.className} fill="none">
-      <path d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M16.5 16.5 21 21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M16.5 16.5 21 21"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -36,7 +45,13 @@ function IconSearch(props: { className?: string }) {
 function IconMenu(props: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={props.className} fill="none">
-      <path d="M3 12h18M3 6h18M3 18h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M3 12h18M3 6h18M3 18h18"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -44,18 +59,34 @@ function IconMenu(props: { className?: string }) {
 function IconSidebar(props: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={props.className} fill="none">
-      <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <rect
+        x="3"
+        y="4"
+        width="18"
+        height="16"
+        rx="2"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
       <path d="M9 4v16" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
 }
 
-
 function IconUser(props: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={props.className} fill="none">
-      <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M4 21a8 8 0 0 1 16 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path
+        d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M4 21a8 8 0 0 1 16 0"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }
@@ -124,7 +155,9 @@ export function TopBar({
   const goAdmin = (tab?: string) => {
     const t = (tab ?? "").trim();
     router.push(
-      !t ? "/dashboard/profile" : `/dashboard/profile?tab=${encodeURIComponent(t)}`,
+      !t
+        ? "/dashboard/profile"
+        : `/dashboard/profile?tab=${encodeURIComponent(t)}`,
     );
   };
 
@@ -150,10 +183,9 @@ export function TopBar({
   // --- UI State ---
   const [openUser, setOpenUser] = useState(false);
   const [openHealth, setOpenHealth] = useState(false);
-  
+
   // --- Avatar State ---
   const [avatarId, setAvatarId] = useState<string | null>(null);
-
 
   // --- Refs ---
   const userRef = useRef<HTMLButtonElement>(null);
@@ -167,7 +199,9 @@ export function TopBar({
         const token = (session as any)?.accessToken;
         const tenantId = (session as any)?.tenantId;
         if (!token) return;
-        const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+        const headers: Record<string, string> = {
+          Authorization: `Bearer ${token}`,
+        };
         if (tenantId) headers["X-Tenant-Id"] = tenantId;
         const res = await fetch("/api/v1/auth/me", { headers });
         if (res.ok) {
@@ -197,7 +231,8 @@ export function TopBar({
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
-  const effectiveGraphId = mounted && universeGraphId ? universeGraphId : graphId;
+  const effectiveGraphId =
+    mounted && universeGraphId ? universeGraphId : graphId;
 
   // Poll Health
   useEffect(() => {
@@ -220,12 +255,10 @@ export function TopBar({
     void tick();
     const id = window.setInterval(tick, 15000);
     return () => {
-        cancelled = true;
-        clearInterval(id);
+      cancelled = true;
+      clearInterval(id);
     };
   }, []);
-
-
 
   // Load Graphs
   useEffect(() => {
@@ -241,14 +274,21 @@ export function TopBar({
       }
 
       // Fallback
-      const universe = getUniverseIdFromStorage() ?? (await resolveUniverseIdOnce());
+      const universe =
+        getUniverseIdFromStorage() ?? (await resolveUniverseIdOnce());
       if (!cancelled && universe) setUniverseGraphId(universe);
 
-      const idToShow = universe ?? (effectiveGraphId.startsWith("U:") ? effectiveGraphId : "U:(resolving)");
+      const idToShow =
+        universe ??
+        (effectiveGraphId.startsWith("U:")
+          ? effectiveGraphId
+          : "U:(resolving)");
       setGraphs([{ id: idToShow, name: "Universe" }]);
       setGraphsLoaded(true);
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -261,9 +301,9 @@ export function TopBar({
         setOpenHealth(false);
       }
       if (e.key === "Escape") {
-         setOpenCmdk(false);
-         setOpenUser(false);
-         setOpenHealth(false);
+        setOpenCmdk(false);
+        setOpenUser(false);
+        setOpenHealth(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -271,14 +311,37 @@ export function TopBar({
   }, []);
 
   const currentGraph = useMemo(() => {
-    return graphs.find((g) => g.id === effectiveGraphId) ?? { id: effectiveGraphId, name: "Universe" };
+    return (
+      graphs.find((g) => g.id === effectiveGraphId) ?? {
+        id: effectiveGraphId,
+        name: "Universe",
+      }
+    );
   }, [graphs, effectiveGraphId]);
 
-  const healthLabel = health === "ok" ? "FAIM Core: OK" : health === "degraded" ? "FAIM Core: Degraded" : health === "down" ? "FAIM Core: DOWN" : "FAIM Core: …";
-  const healthClass = health === "ok" ? "bg-emerald-500/12 text-emerald-300 border-emerald-500/30" : health === "degraded" ? "bg-amber-500/12 text-amber-300 border-amber-500/30" : health === "down" ? "bg-rose-500/12 text-rose-300 border-rose-500/30" : "bg-slate-700/25 text-slate-200 border-slate-500/25";
-  
+  const healthLabel =
+    health === "ok"
+      ? "FAIM Core: OK"
+      : health === "degraded"
+        ? "FAIM Core: Degraded"
+        : health === "down"
+          ? "FAIM Core: DOWN"
+          : "FAIM Core: …";
+  const healthClass =
+    health === "ok"
+      ? "bg-emerald-500/12 text-emerald-300 border-emerald-500/30"
+      : health === "degraded"
+        ? "bg-amber-500/12 text-amber-300 border-amber-500/30"
+        : health === "down"
+          ? "bg-rose-500/12 text-rose-300 border-rose-500/30"
+          : "bg-slate-700/25 text-slate-200 border-slate-500/25";
+
   const gpuActive = !!(gpu?.enabled && gpu?.available);
-  const gpuLabel = gpuActive ? "GPU active" : gpu?.enabled ? "GPU enabled (no CUDA)" : "GPU off";
+  const gpuLabel = gpuActive
+    ? "GPU active"
+    : gpu?.enabled
+      ? "GPU enabled (no CUDA)"
+      : "GPU off";
 
   const formatBytes = (value?: number | null) => {
     if (!value || value <= 0) return "—";
@@ -308,7 +371,7 @@ export function TopBar({
                 <IconSidebar className="h-4 w-4 text-slate-300" />
               </button>
             )}
-            
+
             {/* Mobile Menu Trigger */}
             <button
               onClick={onMobileMenuOpen}
@@ -330,24 +393,25 @@ export function TopBar({
               className="hidden md:flex items-center gap-2 rounded-xl border border-white/10 bg-black/20 py-1.5 pl-2.5 pr-1.5 hover:border-white/20 hover:bg-white/5 transition-colors group"
             >
               <IconSearch className="h-3.5 w-3.5 text-slate-400 group-hover:text-slate-300" />
-              <span className="text-xs text-slate-500 group-hover:text-slate-400">Search...</span>
+              <span className="text-xs text-slate-500 group-hover:text-slate-400">
+                Search...
+              </span>
               <kbd className="hidden lg:inline-flex items-center gap-1 rounded border border-white/10 bg-white/5 px-1.5 font-mono text-[10px] text-slate-500">
                 <span className="text-xs">⌘</span>K
               </kbd>
             </button>
             <button
-               onClick={() => setOpenCmdk(true)}
-               className="md:hidden p-2 text-slate-400 hover:text-white"
+              onClick={() => setOpenCmdk(true)}
+              className="md:hidden p-2 text-slate-400 hover:text-white"
             >
-               <IconSearch className="h-5 w-5" />
+              <IconSearch className="h-5 w-5" />
             </button>
-
 
             {/* Health Status */}
             <div className="relative">
               <button
                 ref={healthRef}
-                 onClick={() => {
+                onClick={() => {
                   setOpenHealth((v) => !v);
                   setOpenUser(false);
                 }}
@@ -357,21 +421,21 @@ export function TopBar({
                 )}
                 title="FAIM backend health"
               >
-                  <span className="h-2 w-2 rounded-full bg-current" />
-                  <span>{healthLabel}</span>
-                  {version && (
-                    <span className="hidden text-[10px] text-slate-300/60 sm:inline">
-                      v{version}
-                    </span>
-                  )}
-                  {gpuActive && (
-                    <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100">
-                      GPU active
-                    </span>
-                  )}
+                <span className="h-2 w-2 rounded-full bg-current" />
+                <span>{healthLabel}</span>
+                {version && (
+                  <span className="hidden text-[10px] text-slate-300/60 sm:inline">
+                    v{version}
+                  </span>
+                )}
+                {gpuActive && (
+                  <span className="rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-100">
+                    GPU active
+                  </span>
+                )}
               </button>
 
-               <Dropdown
+              <Dropdown
                 open={openHealth}
                 anchorRef={healthRef}
                 onClose={() => setOpenHealth(false)}
@@ -417,7 +481,7 @@ export function TopBar({
                       </div>
                     )}
                     {gpu?.mem_total_bytes ? (
-                       <div className="mt-1 flex items-center justify-between">
+                      <div className="mt-1 flex items-center justify-between">
                         <span className="text-slate-400">GPU memory</span>
                         <span className="font-medium text-slate-100">
                           {formatBytes(gpu.mem_free_bytes)} free /{" "}
@@ -426,7 +490,7 @@ export function TopBar({
                       </div>
                     ) : null}
                   </div>
-                  
+
                   <div className="mt-2 grid grid-cols-2 gap-2">
                     <button
                       onClick={() => {
@@ -452,41 +516,43 @@ export function TopBar({
             </div>
 
             {/* Notification Bell */}
-             <NotificationCenter />
+            <NotificationCenter />
 
             {/* User Profile (Simplified) */}
-             <div className="relative">
-               <button
-                 ref={userRef}
-                 onClick={() => {
-                    setOpenUser((v) => !v);
-                    setOpenHealth(false);
-                 }}
-                 className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-xs font-medium text-white/80 hover:border-white/20 transition-colors overflow-hidden"
-               >
-                  {avatarId || session?.user?.image ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img 
-                      src={avatarId ? getAvatarUrl(avatarId) : session!.user!.image!} 
-                      alt={session?.user?.name || "User"} 
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    session?.user?.name?.[0] ?? "U"
-                  )}
-               </button>
-               
-               <Dropdown
-                 open={openUser}
-                 anchorRef={userRef}
-                 onClose={() => setOpenUser(false)}
-               >
-                 <UserDropdownContent
-                   goAdmin={goAdmin}
-                   onClose={() => setOpenUser(false)}
-                 />
-               </Dropdown>
-             </div>
+            <div className="relative">
+              <button
+                ref={userRef}
+                onClick={() => {
+                  setOpenUser((v) => !v);
+                  setOpenHealth(false);
+                }}
+                className="h-8 w-8 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-xs font-medium text-white/80 hover:border-white/20 transition-colors overflow-hidden"
+              >
+                {avatarId || session?.user?.image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={
+                      avatarId ? getAvatarUrl(avatarId) : session!.user!.image!
+                    }
+                    alt={session?.user?.name || "User"}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  (session?.user?.name?.[0] ?? "U")
+                )}
+              </button>
+
+              <Dropdown
+                open={openUser}
+                anchorRef={userRef}
+                onClose={() => setOpenUser(false)}
+              >
+                <UserDropdownContent
+                  goAdmin={goAdmin}
+                  onClose={() => setOpenUser(false)}
+                />
+              </Dropdown>
+            </div>
           </div>
         </div>
       </header>

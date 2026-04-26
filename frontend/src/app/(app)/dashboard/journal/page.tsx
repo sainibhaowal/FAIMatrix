@@ -96,33 +96,138 @@ interface KindMeta {
 // Exact backend kind → meta mapping (uppercase as emitted by backend)
 const KIND_MAP: Record<string, KindMeta> = {
   // Node operations
-  NODE_UPSERT:               { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", description: "Node created or updated in graph" },
-  INVENT_MACRO_NODE:         { color: "text-violet-400",  bg: "bg-violet-500/10 border-violet-500/20",  dot: "bg-violet-400",  description: "Macro node invented from patterns" },
-  PRUNE_NODE:                { color: "text-rose-400",    bg: "bg-rose-500/10 border-rose-500/20",      dot: "bg-rose-400",    description: "Low-value node pruned from graph" },
+  NODE_UPSERT: {
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/10 border-emerald-500/20",
+    dot: "bg-emerald-400",
+    description: "Node created or updated in graph",
+  },
+  INVENT_MACRO_NODE: {
+    color: "text-violet-400",
+    bg: "bg-violet-500/10 border-violet-500/20",
+    dot: "bg-violet-400",
+    description: "Macro node invented from patterns",
+  },
+  PRUNE_NODE: {
+    color: "text-rose-400",
+    bg: "bg-rose-500/10 border-rose-500/20",
+    dot: "bg-rose-400",
+    description: "Low-value node pruned from graph",
+  },
   // Merge
-  MERGE:                     { color: "text-violet-400",  bg: "bg-violet-500/10 border-violet-500/20",  dot: "bg-violet-400",  description: "Nodes merged and consolidated" },
-  EVOLUTION_MERGE:           { color: "text-violet-400",  bg: "bg-violet-500/10 border-violet-500/20",  dot: "bg-violet-400",  description: "Evolution-driven node merge" },
+  MERGE: {
+    color: "text-violet-400",
+    bg: "bg-violet-500/10 border-violet-500/20",
+    dot: "bg-violet-400",
+    description: "Nodes merged and consolidated",
+  },
+  EVOLUTION_MERGE: {
+    color: "text-violet-400",
+    bg: "bg-violet-500/10 border-violet-500/20",
+    dot: "bg-violet-400",
+    description: "Evolution-driven node merge",
+  },
   // Evolution
-  EVOLUTION_COMPLETE:        { color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",    dot: "bg-amber-400",   description: "Evolution cycle completed" },
-  EVOLUTION_SKIPPED:         { color: "text-slate-400",   bg: "bg-slate-500/10 border-slate-500/20",    dot: "bg-slate-400",   description: "Evolution cycle skipped (no changes)" },
-  EVOLUTION_INVENTION_SUMMARY: { color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20",   dot: "bg-amber-400",   description: "Invention summary from evolution" },
-  EVOLUTION_INVENTION_ERROR: { color: "text-rose-400",    bg: "bg-rose-500/10 border-rose-500/20",      dot: "bg-rose-400",    description: "Invention error during evolution" },
+  EVOLUTION_COMPLETE: {
+    color: "text-amber-400",
+    bg: "bg-amber-500/10 border-amber-500/20",
+    dot: "bg-amber-400",
+    description: "Evolution cycle completed",
+  },
+  EVOLUTION_SKIPPED: {
+    color: "text-slate-400",
+    bg: "bg-slate-500/10 border-slate-500/20",
+    dot: "bg-slate-400",
+    description: "Evolution cycle skipped (no changes)",
+  },
+  EVOLUTION_INVENTION_SUMMARY: {
+    color: "text-amber-400",
+    bg: "bg-amber-500/10 border-amber-500/20",
+    dot: "bg-amber-400",
+    description: "Invention summary from evolution",
+  },
+  EVOLUTION_INVENTION_ERROR: {
+    color: "text-rose-400",
+    bg: "bg-rose-500/10 border-rose-500/20",
+    dot: "bg-rose-400",
+    description: "Invention error during evolution",
+  },
   // Graph state
-  GRAPH_VERSION_BUMP:        { color: "text-sky-400",     bg: "bg-sky-500/10 border-sky-500/20",        dot: "bg-sky-400",     description: "Graph version incremented" },
-  INHERITANCE_SET:           { color: "text-blue-400",    bg: "bg-blue-500/10 border-blue-500/20",      dot: "bg-blue-400",    description: "Inheritance edge established" },
-  DIAGNOSTICS_SNAPSHOT:      { color: "text-sky-400",     bg: "bg-sky-500/10 border-sky-500/20",        dot: "bg-sky-400",     description: "Diagnostic snapshot recorded" },
+  GRAPH_VERSION_BUMP: {
+    color: "text-sky-400",
+    bg: "bg-sky-500/10 border-sky-500/20",
+    dot: "bg-sky-400",
+    description: "Graph version incremented",
+  },
+  INHERITANCE_SET: {
+    color: "text-blue-400",
+    bg: "bg-blue-500/10 border-blue-500/20",
+    dot: "bg-blue-400",
+    description: "Inheritance edge established",
+  },
+  DIAGNOSTICS_SNAPSHOT: {
+    color: "text-sky-400",
+    bg: "bg-sky-500/10 border-sky-500/20",
+    dot: "bg-sky-400",
+    description: "Diagnostic snapshot recorded",
+  },
   // Query
-  QUERY_START:               { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      dot: "bg-cyan-400",    description: "Memory query initiated" },
-  QUERY_RERANKED:            { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      dot: "bg-cyan-400",    description: "Query results re-ranked" },
-  QUERY_TOUCH:               { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      dot: "bg-cyan-400",    description: "Memory node touched via query" },
-  QUERY_COMPLETE:            { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      dot: "bg-cyan-400",    description: "Query completed successfully" },
+  QUERY_START: {
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/10 border-cyan-500/20",
+    dot: "bg-cyan-400",
+    description: "Memory query initiated",
+  },
+  QUERY_RERANKED: {
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/10 border-cyan-500/20",
+    dot: "bg-cyan-400",
+    description: "Query results re-ranked",
+  },
+  QUERY_TOUCH: {
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/10 border-cyan-500/20",
+    dot: "bg-cyan-400",
+    description: "Memory node touched via query",
+  },
+  QUERY_COMPLETE: {
+    color: "text-cyan-400",
+    bg: "bg-cyan-500/10 border-cyan-500/20",
+    dot: "bg-cyan-400",
+    description: "Query completed successfully",
+  },
   // Storage
-  STORAGE_RAW_STORED:        { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", description: "Raw file stored to storage" },
-  STORAGE_ENCRYPT_FAILED:    { color: "text-rose-400",    bg: "bg-rose-500/10 border-rose-500/20",      dot: "bg-rose-400",    description: "Storage encryption failed" },
-  storage_upload:            { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", description: "File uploaded to storage" },
+  STORAGE_RAW_STORED: {
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/10 border-emerald-500/20",
+    dot: "bg-emerald-400",
+    description: "Raw file stored to storage",
+  },
+  STORAGE_ENCRYPT_FAILED: {
+    color: "text-rose-400",
+    bg: "bg-rose-500/10 border-rose-500/20",
+    dot: "bg-rose-400",
+    description: "Storage encryption failed",
+  },
+  storage_upload: {
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/10 border-emerald-500/20",
+    dot: "bg-emerald-400",
+    description: "File uploaded to storage",
+  },
   // Ingest
-  ingest_secondary_index:    { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", description: "Secondary index ingested" },
-  evolve:                    { color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",    dot: "bg-amber-400",   description: "Evolution triggered" },
+  ingest_secondary_index: {
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/10 border-emerald-500/20",
+    dot: "bg-emerald-400",
+    description: "Secondary index ingested",
+  },
+  evolve: {
+    color: "text-amber-400",
+    bg: "bg-amber-500/10 border-amber-500/20",
+    dot: "bg-amber-400",
+    description: "Evolution triggered",
+  },
 };
 
 function getKindMeta(kind: string): KindMeta {
@@ -131,21 +236,97 @@ function getKindMeta(kind: string): KindMeta {
 
   // Fallback: substring matching on lowercase for unknown future kinds
   const k = kind.toLowerCase();
-  if (k.includes("upsert") || k.includes("add") || k.includes("ingest") || k.includes("creat") || k.includes("insert") || k.includes("store") || k.includes("upload"))
-    return { color: "text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20", dot: "bg-emerald-400", description: "Creation or ingestion event" };
-  if (k.includes("evolv") || k.includes("updat") || k.includes("modif") || k.includes("bump"))
-    return { color: "text-amber-400",   bg: "bg-amber-500/10 border-amber-500/20",    dot: "bg-amber-400",   description: "Knowledge structure updated" };
+  if (
+    k.includes("upsert") ||
+    k.includes("add") ||
+    k.includes("ingest") ||
+    k.includes("creat") ||
+    k.includes("insert") ||
+    k.includes("store") ||
+    k.includes("upload")
+  )
+    return {
+      color: "text-emerald-400",
+      bg: "bg-emerald-500/10 border-emerald-500/20",
+      dot: "bg-emerald-400",
+      description: "Creation or ingestion event",
+    };
+  if (
+    k.includes("evolv") ||
+    k.includes("updat") ||
+    k.includes("modif") ||
+    k.includes("bump")
+  )
+    return {
+      color: "text-amber-400",
+      bg: "bg-amber-500/10 border-amber-500/20",
+      dot: "bg-amber-400",
+      description: "Knowledge structure updated",
+    };
   if (k.includes("merg") || k.includes("consolid") || k.includes("invent"))
-    return { color: "text-violet-400",  bg: "bg-violet-500/10 border-violet-500/20",  dot: "bg-violet-400",  description: "Memory consolidation event" };
-  if (k.includes("delet") || k.includes("remov") || k.includes("prun") || k.includes("drop") || k.includes("error") || k.includes("fail"))
-    return { color: "text-rose-400",    bg: "bg-rose-500/10 border-rose-500/20",      dot: "bg-rose-400",    description: "Removal or error event" };
-  if (k.includes("touch") || k.includes("recall") || k.includes("quer") || k.includes("read") || k.includes("access"))
-    return { color: "text-cyan-400",    bg: "bg-cyan-500/10 border-cyan-500/20",      dot: "bg-cyan-400",    description: "Context access event" };
-  if (k.includes("edge") || k.includes("link") || k.includes("inherit") || k.includes("connect"))
-    return { color: "text-blue-400",    bg: "bg-blue-500/10 border-blue-500/20",      dot: "bg-blue-400",    description: "Graph edge operation" };
-  if (k.includes("snapshot") || k.includes("backup") || k.includes("version") || k.includes("checkpoint"))
-    return { color: "text-sky-400",     bg: "bg-sky-500/10 border-sky-500/20",        dot: "bg-sky-400",     description: "State snapshot recorded" };
-  return { color: "text-slate-400",    bg: "bg-slate-500/10 border-slate-500/20",    dot: "bg-slate-400",   description: "System event" };
+    return {
+      color: "text-violet-400",
+      bg: "bg-violet-500/10 border-violet-500/20",
+      dot: "bg-violet-400",
+      description: "Memory consolidation event",
+    };
+  if (
+    k.includes("delet") ||
+    k.includes("remov") ||
+    k.includes("prun") ||
+    k.includes("drop") ||
+    k.includes("error") ||
+    k.includes("fail")
+  )
+    return {
+      color: "text-rose-400",
+      bg: "bg-rose-500/10 border-rose-500/20",
+      dot: "bg-rose-400",
+      description: "Removal or error event",
+    };
+  if (
+    k.includes("touch") ||
+    k.includes("recall") ||
+    k.includes("quer") ||
+    k.includes("read") ||
+    k.includes("access")
+  )
+    return {
+      color: "text-cyan-400",
+      bg: "bg-cyan-500/10 border-cyan-500/20",
+      dot: "bg-cyan-400",
+      description: "Context access event",
+    };
+  if (
+    k.includes("edge") ||
+    k.includes("link") ||
+    k.includes("inherit") ||
+    k.includes("connect")
+  )
+    return {
+      color: "text-blue-400",
+      bg: "bg-blue-500/10 border-blue-500/20",
+      dot: "bg-blue-400",
+      description: "Graph edge operation",
+    };
+  if (
+    k.includes("snapshot") ||
+    k.includes("backup") ||
+    k.includes("version") ||
+    k.includes("checkpoint")
+  )
+    return {
+      color: "text-sky-400",
+      bg: "bg-sky-500/10 border-sky-500/20",
+      dot: "bg-sky-400",
+      description: "State snapshot recorded",
+    };
+  return {
+    color: "text-slate-400",
+    bg: "bg-slate-500/10 border-slate-500/20",
+    dot: "bg-slate-400",
+    description: "System event",
+  };
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -174,75 +355,90 @@ export default function JournalPage() {
 
   // ── Fetch latest info ─────────────────────────────────────────────────────
 
-  const fetchLatest = useCallback(async (gid: string): Promise<LatestInfo | null> => {
-    try {
-      const headers = await authHeaders();
-      const res = await fetch(
-        `/api/v1/events/latest?graph_id=${encodeURIComponent(gid)}`,
-        { headers, cache: "no-store" }
-      );
-      if (res.ok) {
-        const data: LatestInfo = await res.json();
-        setLatest(data);
-        return data;
+  const fetchLatest = useCallback(
+    async (gid: string): Promise<LatestInfo | null> => {
+      try {
+        const headers = await authHeaders();
+        const res = await fetch(
+          `/api/v1/events/latest?graph_id=${encodeURIComponent(gid)}`,
+          { headers, cache: "no-store" },
+        );
+        if (res.ok) {
+          const data: LatestInfo = await res.json();
+          setLatest(data);
+          return data;
+        }
+      } catch {
+        /* non-fatal */
       }
-    } catch { /* non-fatal */ }
-    return null;
-  }, []);
+      return null;
+    },
+    [],
+  );
 
   // ── Fetch a page of events ────────────────────────────────────────────────
 
-  const fetchEventsPage = useCallback(async (
-    gid: string,
-    afterSeq: number,
-    limit = PAGE_SIZE
-  ): Promise<{ events: FaimEvent[]; hasMore: boolean }> => {
-    const headers = await authHeaders();
-    const res = await fetch(
-      `/api/v1/events?graph_id=${encodeURIComponent(gid)}&after_seq=${afterSeq}&limit=${limit}`,
-      { headers, cache: "no-store" }
-    );
-    if (!res.ok) throw new Error(`Events request failed (${res.status})`);
-    const data = await res.json();
-    return {
-      events: (data.events ?? []) as FaimEvent[],
-      hasMore: !!(data.has_more),
-    };
-  }, []);
+  const fetchEventsPage = useCallback(
+    async (
+      gid: string,
+      afterSeq: number,
+      limit = PAGE_SIZE,
+    ): Promise<{ events: FaimEvent[]; hasMore: boolean }> => {
+      const headers = await authHeaders();
+      const res = await fetch(
+        `/api/v1/events?graph_id=${encodeURIComponent(gid)}&after_seq=${afterSeq}&limit=${limit}`,
+        { headers, cache: "no-store" },
+      );
+      if (!res.ok) throw new Error(`Events request failed (${res.status})`);
+      const data = await res.json();
+      return {
+        events: (data.events ?? []) as FaimEvent[],
+        hasMore: !!data.has_more,
+      };
+    },
+    [],
+  );
 
   // ── Initial load ──────────────────────────────────────────────────────────
 
-  const initialLoad = useCallback(async (gid: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const info = await fetchLatest(gid);
-      const lastSeq = info?.last_seq ?? 0;
+  const initialLoad = useCallback(
+    async (gid: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const info = await fetchLatest(gid);
+        const lastSeq = info?.last_seq ?? 0;
 
-      // Fetch the most recent PAGE_SIZE events by starting near the end
-      const startSeq = Math.max(0, lastSeq - PAGE_SIZE);
-      const { events: fetched } = await fetchEventsPage(gid, startSeq, PAGE_SIZE);
+        // Fetch the most recent PAGE_SIZE events by starting near the end
+        const startSeq = Math.max(0, lastSeq - PAGE_SIZE);
+        const { events: fetched } = await fetchEventsPage(
+          gid,
+          startSeq,
+          PAGE_SIZE,
+        );
 
-      // Show newest first
-      const sorted = [...fetched].sort((a, b) => b.seq - a.seq);
-      setEvents(sorted);
-      setNewCount(0);
+        // Show newest first
+        const sorted = [...fetched].sort((a, b) => b.seq - a.seq);
+        setEvents(sorted);
+        setNewCount(0);
 
-      if (sorted.length > 0) {
-        latestSeqRef.current = sorted[0].seq;
-        oldestSeqRef.current = sorted[sorted.length - 1].seq;
-      } else {
-        latestSeqRef.current = lastSeq;
-        oldestSeqRef.current = 0;
+        if (sorted.length > 0) {
+          latestSeqRef.current = sorted[0].seq;
+          oldestSeqRef.current = sorted[sorted.length - 1].seq;
+        } else {
+          latestSeqRef.current = lastSeq;
+          oldestSeqRef.current = 0;
+        }
+
+        setHasOlder(startSeq > 0);
+      } catch (e: unknown) {
+        setError(e instanceof Error ? e.message : "Failed to load events");
+      } finally {
+        setLoading(false);
       }
-
-      setHasOlder(startSeq > 0);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load events");
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchLatest, fetchEventsPage]);
+    },
+    [fetchLatest, fetchEventsPage],
+  );
 
   // ── Load older ────────────────────────────────────────────────────────────
 
@@ -258,7 +454,11 @@ export default function JournalPage() {
     try {
       // Fetch events before currentOldest seq
       const startSeq = Math.max(0, currentOldest - 1 - PAGE_SIZE);
-      const { events: fetched } = await fetchEventsPage(graphId, startSeq, PAGE_SIZE);
+      const { events: fetched } = await fetchEventsPage(
+        graphId,
+        startSeq,
+        PAGE_SIZE,
+      );
 
       // Keep only events strictly older than what we have
       const older = fetched
@@ -274,48 +474,52 @@ export default function JournalPage() {
       const newOldest = older[older.length - 1].seq;
       oldestSeqRef.current = newOldest;
       setHasOlder(newOldest > 1);
-    } catch { /* non-fatal */ }
-    finally {
+    } catch {
+      /* non-fatal */
+    } finally {
       setLoadingOlder(false);
     }
   }, [graphId, loadingOlder, fetchEventsPage]);
 
   // ── Live polling for new events ───────────────────────────────────────────
 
-  const pollForNew = useCallback(async (gid: string) => {
-    try {
-      const info = await fetchLatest(gid);
-      if (!info) return;
+  const pollForNew = useCallback(
+    async (gid: string) => {
+      try {
+        const info = await fetchLatest(gid);
+        if (!info) return;
 
-      const serverLastSeq = info.last_seq;
-      if (serverLastSeq <= latestSeqRef.current) return;
+        const serverLastSeq = info.last_seq;
+        if (serverLastSeq <= latestSeqRef.current) return;
 
-      // There are new events — fetch them
-      const { events: fetched } = await fetchEventsPage(
-        gid,
-        latestSeqRef.current,
-        PAGE_SIZE
-      );
-      const newer = fetched
-        .filter((e) => e.seq > latestSeqRef.current)
-        .sort((a, b) => b.seq - a.seq);
+        // There are new events — fetch them
+        const { events: fetched } = await fetchEventsPage(
+          gid,
+          latestSeqRef.current,
+          PAGE_SIZE,
+        );
+        const newer = fetched
+          .filter((e) => e.seq > latestSeqRef.current)
+          .sort((a, b) => b.seq - a.seq);
 
-      if (newer.length === 0) return;
+        if (newer.length === 0) return;
 
-      setEvents((prev) => {
-        const existingIds = new Set(prev.map((e) => e.id));
-        const deduped = newer.filter((e) => !existingIds.has(e.id));
-        if (deduped.length === 0) return prev;
-        setNewCount((c) => c + deduped.length);
-        return [...deduped, ...prev];
-      });
+        setEvents((prev) => {
+          const existingIds = new Set(prev.map((e) => e.id));
+          const deduped = newer.filter((e) => !existingIds.has(e.id));
+          if (deduped.length === 0) return prev;
+          setNewCount((c) => c + deduped.length);
+          return [...deduped, ...prev];
+        });
 
-      latestSeqRef.current = newer[0].seq;
-      setLiveConnected(true);
-    } catch {
-      setLiveConnected(false);
-    }
-  }, [fetchLatest, fetchEventsPage]);
+        latestSeqRef.current = newer[0].seq;
+        setLiveConnected(true);
+      } catch {
+        setLiveConnected(false);
+      }
+    },
+    [fetchLatest, fetchEventsPage],
+  );
 
   // ── Effects ───────────────────────────────────────────────────────────────
 
@@ -334,7 +538,10 @@ export default function JournalPage() {
     if (!graphId || loading || userLoading) return;
 
     setLiveConnected(true);
-    pollTimerRef.current = setInterval(() => pollForNew(graphId), POLL_INTERVAL_MS);
+    pollTimerRef.current = setInterval(
+      () => pollForNew(graphId),
+      POLL_INTERVAL_MS,
+    );
 
     return () => {
       if (pollTimerRef.current) clearInterval(pollTimerRef.current);
@@ -346,12 +553,12 @@ export default function JournalPage() {
 
   const allKinds = useMemo(
     () => Array.from(new Set(events.map((e) => e.kind))).sort(),
-    [events]
+    [events],
   );
 
   const filteredEvents = useMemo(
     () => (kindFilter ? events.filter((e) => e.kind === kindFilter) : events),
-    [events, kindFilter]
+    [events, kindFilter],
   );
 
   // ── Refresh ───────────────────────────────────────────────────────────────
@@ -446,7 +653,9 @@ export default function JournalPage() {
       {!isReady && !userLoading && (
         <div className="flex flex-col items-center justify-center flex-1 gap-3 py-20 text-center">
           <Activity size={40} className="text-slate-700" />
-          <p className="text-sm font-medium text-slate-500">No graph connected</p>
+          <p className="text-sm font-medium text-slate-500">
+            No graph connected
+          </p>
           <p className="text-xs text-slate-600">
             Connect a memory graph to view its audit journal
           </p>
@@ -481,9 +690,7 @@ export default function JournalPage() {
                     ? latest.event_count.toLocaleString()
                     : "—",
                 sub:
-                  newCount > 0
-                    ? `+${newCount} since last refresh`
-                    : "All time",
+                  newCount > 0 ? `+${newCount} since last refresh` : "All time",
                 icon: <Layers size={15} />,
                 color: "text-cyan-300",
               },
@@ -517,10 +724,8 @@ export default function JournalPage() {
                 key={stat.label}
                 className="relative flex flex-col justify-center px-5 py-4"
                 style={{
-                  borderLeft:
-                    i > 0 ? "1px solid var(--os-stroke)" : undefined,
-                  borderTop:
-                    i >= 2 ? "1px solid var(--os-stroke)" : undefined,
+                  borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined,
+                  borderTop: i >= 2 ? "1px solid var(--os-stroke)" : undefined,
                 }}
               >
                 <div className="flex items-center justify-between mb-1.5">
@@ -673,8 +878,7 @@ export default function JournalPage() {
 function EventRow({ event }: { event: FaimEvent }) {
   const [expanded, setExpanded] = useState(false);
   const meta = getKindMeta(event.kind);
-  const hasPayload =
-    event.payload && Object.keys(event.payload).length > 0;
+  const hasPayload = event.payload && Object.keys(event.payload).length > 0;
 
   return (
     <div

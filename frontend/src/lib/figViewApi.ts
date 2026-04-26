@@ -81,9 +81,11 @@ export async function fetchGraphSurface(
   const params = new URLSearchParams({ graph_id: graphId });
   if (opts.nodeLimit != null) params.set("node_limit", String(opts.nodeLimit));
   if (opts.edgeLimit != null) params.set("edge_limit", String(opts.edgeLimit));
-  if (opts.timelineLimit != null) params.set("timeline_limit", String(opts.timelineLimit));
+  if (opts.timelineLimit != null)
+    params.set("timeline_limit", String(opts.timelineLimit));
   if (opts.afterSeq != null) params.set("after_seq", String(opts.afterSeq));
-  if (opts.includeTopology != null) params.set("include_topology", String(opts.includeTopology));
+  if (opts.includeTopology != null)
+    params.set("include_topology", String(opts.includeTopology));
 
   return figRequest<FigSurfaceResponse>(`/api/v1/graph/surface?${params}`);
 }
@@ -92,7 +94,9 @@ export async function fetchGraphSurface(
 // Graph Latest Event
 // ---------------------------------------------------------------------------
 
-export async function fetchGraphLatestEvent(graphId: string): Promise<FigLatestEventResponse> {
+export async function fetchGraphLatestEvent(
+  graphId: string,
+): Promise<FigLatestEventResponse> {
   const params = new URLSearchParams({ graph_id: graphId });
   return figRequest<FigLatestEventResponse>(`/api/v1/events/latest?${params}`);
 }
@@ -119,7 +123,9 @@ export async function fetchGraphNeighborhood(
   if (opts.edgeLimit != null) params.set("edge_limit", String(opts.edgeLimit));
   if (opts.edgeKinds != null) params.set("edge_kinds", opts.edgeKinds);
 
-  return figRequest<FigNeighborhoodResponse>(`/api/v1/graph/neighborhood?${params}`);
+  return figRequest<FigNeighborhoodResponse>(
+    `/api/v1/graph/neighborhood?${params}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -139,15 +145,18 @@ export async function fetchGraphExplain(
   opts: ExplainOpts = {},
 ): Promise<FigExplainResponse> {
   const params = new URLSearchParams({ graph_id: graphId });
-  return figRequest<FigExplainResponse>(`/api/v1/graph/paths/explain?${params}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from_node_id: fromNodeId,
-      to_node_id: toNodeId,
-      ...(opts.maxHops != null ? { max_hops: opts.maxHops } : {}),
-      ...(opts.maxPaths != null ? { max_paths: opts.maxPaths } : {}),
-      ...(opts.edgeKinds ? { edge_kinds: opts.edgeKinds } : {}),
-    }),
-  });
+  return figRequest<FigExplainResponse>(
+    `/api/v1/graph/paths/explain?${params}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from_node_id: fromNodeId,
+        to_node_id: toNodeId,
+        ...(opts.maxHops != null ? { max_hops: opts.maxHops } : {}),
+        ...(opts.maxPaths != null ? { max_paths: opts.maxPaths } : {}),
+        ...(opts.edgeKinds ? { edge_kinds: opts.edgeKinds } : {}),
+      }),
+    },
+  );
 }

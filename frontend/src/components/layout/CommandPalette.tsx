@@ -178,7 +178,7 @@ export function CommandPalette({
 
   // Use portal to render at document root level - MUST be before any early returns!
   const [mounted, setMounted] = useState(false);
-  
+
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -212,22 +212,21 @@ export function CommandPalette({
   };
 
   return createPortal(
-    <div 
+    <div
       className="fixed inset-0 z-[9999] flex items-start justify-center p-4 pt-20"
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
     >
       {/* Backdrop with frosted glass effect - can see through */}
-      <div 
-        className="absolute inset-0 bg-slate-950/10 backdrop-blur-xl" 
-        onClick={onClose} 
-        aria-hidden="true" 
+      <div
+        className="absolute inset-0 bg-slate-950/10 backdrop-blur-xl"
+        onClick={onClose}
+        aria-hidden="true"
       />
-      
+
       {/* Modal - matches FAIM dark slate theme */}
       <div className="relative w-full max-w-[600px] overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 backdrop-blur-xl shadow-[0_25px_80px_-20px_rgba(0,0,0,0.9)]">
-        
         {/* Search input - subtle styling */}
         <div className="relative flex items-center gap-3 border-b border-white/5 px-5 py-4">
           <IconSearch className="h-5 w-5 text-slate-400" />
@@ -276,13 +275,18 @@ export function CommandPalette({
                       <div className="text-sm font-medium text-slate-200">
                         {r.title}
                       </div>
-                      <span className={[
-                        "rounded px-2 py-0.5 text-[10px] font-medium",
-                        r.type === "page" ? "bg-white/5 text-slate-400" :
-                        r.type === "setting" ? "bg-white/5 text-slate-400" :
-                        r.type === "node" ? "bg-white/5 text-slate-400" :
-                        "bg-white/5 text-slate-500"
-                      ].join(" ")}>
+                      <span
+                        className={[
+                          "rounded px-2 py-0.5 text-[10px] font-medium",
+                          r.type === "page"
+                            ? "bg-white/5 text-slate-400"
+                            : r.type === "setting"
+                              ? "bg-white/5 text-slate-400"
+                              : r.type === "node"
+                                ? "bg-white/5 text-slate-400"
+                                : "bg-white/5 text-slate-500",
+                        ].join(" ")}
+                      >
                         {r.type}
                       </span>
                     </div>
@@ -305,17 +309,21 @@ export function CommandPalette({
           </div>
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1">
-              <kbd className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5">↑↓</kbd>
+              <kbd className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5">
+                ↑↓
+              </kbd>
               navigate
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5">⏎</kbd>
+              <kbd className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5">
+                ⏎
+              </kbd>
               select
             </span>
           </div>
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

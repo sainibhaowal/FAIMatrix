@@ -103,7 +103,14 @@ function ThemedSelect<T extends string>({
 
   return (
     <div className={`relative ${className}`}>
-      {label && <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>{label}</p>}
+      {label && (
+        <p
+          className="mb-1.5 text-[10px] font-medium uppercase tracking-wider"
+          style={{ color: "var(--text-tertiary)" }}
+        >
+          {label}
+        </p>
+      )}
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -125,7 +132,10 @@ function ThemedSelect<T extends string>({
       <AnimatePresence>
         {open && (
           <>
-            <div className="fixed inset-0 z-[var(--z-modal)]" onClick={() => setOpen(false)} />
+            <div
+              className="fixed inset-0 z-[var(--z-modal)]"
+              onClick={() => setOpen(false)}
+            />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -251,7 +261,10 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   if (!resp.ok) {
     let message = `Request failed (${resp.status})`;
     try {
-      const payload = (await resp.json()) as { detail?: string; error?: string };
+      const payload = (await resp.json()) as {
+        detail?: string;
+        error?: string;
+      };
       message = payload.detail || payload.error || message;
     } catch {
       // ignore parse errors
@@ -295,7 +308,9 @@ export default function ApiKeysPage() {
   const [isRevealVisible, setIsRevealVisible] = useState(false);
 
   const userName = useMemo(() => {
-    const typed = session as { user?: { email?: string; name?: string } } | null;
+    const typed = session as {
+      user?: { email?: string; name?: string };
+    } | null;
     return typed?.user?.name || typed?.user?.email || "Current user";
   }, [session]);
 
@@ -307,7 +322,8 @@ export default function ApiKeysPage() {
       );
       setKeys(data.items || []);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to load API keys";
+      const msg =
+        err instanceof Error ? err.message : "Failed to load API keys";
       toast.error(msg);
     } finally {
       setLoadingKeys(false);
@@ -322,10 +338,13 @@ export default function ApiKeysPage() {
       if (auditKeyFilter !== "all") {
         params.set("key_id", auditKeyFilter);
       }
-      const data = await apiRequest<ApiKeyAuditResponse>(`/api/v1/api-keys/audit?${params.toString()}`);
+      const data = await apiRequest<ApiKeyAuditResponse>(
+        `/api/v1/api-keys/audit?${params.toString()}`,
+      );
       setAuditItems(data.items || []);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to load API key audit";
+      const msg =
+        err instanceof Error ? err.message : "Failed to load API key audit";
       toast.error(msg);
     } finally {
       setLoadingAudit(false);
@@ -376,11 +395,14 @@ export default function ApiKeysPage() {
         expires_at: computeExpiryIso(expiryPreset),
       };
 
-      const response = await apiRequest<ApiKeyCreateResponse>("/api/v1/api-keys", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const response = await apiRequest<ApiKeyCreateResponse>(
+        "/api/v1/api-keys",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
 
       setReveal({
         keyId: response.key.key_id,
@@ -401,7 +423,9 @@ export default function ApiKeysPage() {
   };
 
   const rotateKey = async (keyId: string) => {
-    const ok = window.confirm(`Rotate key ${keyId}? The old key will be revoked.`);
+    const ok = window.confirm(
+      `Rotate key ${keyId}? The old key will be revoked.`,
+    );
     if (!ok) return;
 
     setBusyKeyId(keyId);
@@ -434,7 +458,9 @@ export default function ApiKeysPage() {
   };
 
   const revokeKey = async (keyId: string) => {
-    const ok = window.confirm(`Revoke key ${keyId}? This action cannot be undone.`);
+    const ok = window.confirm(
+      `Revoke key ${keyId}? This action cannot be undone.`,
+    );
     if (!ok) return;
 
     setBusyKeyId(keyId);
@@ -472,7 +498,7 @@ export default function ApiKeysPage() {
   return (
     <div className="relative min-h-screen space-y-4 pb-8 text-slate-100 px-1">
       <div className="faim-grid" />
-      
+
       <GlassHeader
         title="API Keys"
         subtitle="Manage Secure Access Matrix and Tenant-Scoped Lifecycle"
@@ -496,18 +522,43 @@ export default function ApiKeysPage() {
       {/* --- Metrics Scorecard (Storage Parity) --- */}
       <div
         className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
-        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+        style={{
+          borderColor: "var(--os-stroke)",
+          background: "var(--os-surface-1)",
+        }}
       >
         {[
-          { label: "Total Keys", value: summary.total, icon: KeyRound, color: "text-cyan-200" },
-          { label: "Active Keys", value: summary.active, icon: ShieldCheck, color: "text-emerald-400" },
-          { label: "Revoked", value: summary.revoked, icon: ShieldOff, color: "text-rose-400" },
-          { label: "Expired", value: summary.expired, icon: RotateCcw, color: "text-amber-400" },
+          {
+            label: "Total Keys",
+            value: summary.total,
+            icon: KeyRound,
+            color: "text-cyan-200",
+          },
+          {
+            label: "Active Keys",
+            value: summary.active,
+            icon: ShieldCheck,
+            color: "text-emerald-400",
+          },
+          {
+            label: "Revoked",
+            value: summary.revoked,
+            icon: ShieldOff,
+            color: "text-rose-400",
+          },
+          {
+            label: "Expired",
+            value: summary.expired,
+            icon: RotateCcw,
+            color: "text-amber-400",
+          },
         ].map((stat, i) => (
           <div
             key={stat.label}
             className="relative flex flex-col justify-center px-6 py-3"
-            style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
+            style={{
+              borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined,
+            }}
           >
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
@@ -515,35 +566,54 @@ export default function ApiKeysPage() {
               </p>
               <stat.icon size={18} className="opacity-20" />
             </div>
-            <p className="font-semibold tabular-nums leading-none" style={{ fontSize: 26 }}>
+            <p
+              className="font-semibold tabular-nums leading-none"
+              style={{ fontSize: 26 }}
+            >
               <span className={stat.color}>{stat.value}</span>
             </p>
           </div>
         ))}
       </div>
 
-      <div 
+      <div
         className="overflow-hidden rounded-xl border transition-all duration-500"
         style={{
           borderColor: reveal ? "var(--faim-warning)" : "var(--os-stroke)",
-          background: reveal ? "var(--faim-warning-muted)" : "var(--os-surface-1)",
+          background: reveal
+            ? "var(--faim-warning-muted)"
+            : "var(--os-surface-1)",
         }}
       >
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
+          style={{ borderColor: "var(--os-stroke)" }}
+        >
           <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
             One-time key reveal
           </p>
           <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-            {reveal ? `${reveal.mode === "created" ? "New" : "Rotated"} key: ${reveal.keyId}` : "Awaiting key generation"}
+            {reveal
+              ? `${reveal.mode === "created" ? "New" : "Rotated"} key: ${reveal.keyId}`
+              : "Awaiting key generation"}
           </p>
         </div>
-        <div className={reveal ? "pt-5" : "pt-0 pb-6 opacity-40 transition-all duration-500"}>
+        <div
+          className={
+            reveal ? "pt-5" : "pt-0 pb-6 opacity-40 transition-all duration-500"
+          }
+        >
           <AnimatePresence mode="wait">
             {reveal ? (
               <motion.div
                 key="revealed"
                 initial={{ opacity: 0, height: 0, y: -10, filter: "blur(4px)" }}
-                animate={{ opacity: 1, height: "auto", y: 0, filter: "blur(0px)" }}
+                animate={{
+                  opacity: 1,
+                  height: "auto",
+                  y: 0,
+                  filter: "blur(0px)",
+                }}
                 exit={{ opacity: 0, height: 0, y: -10, filter: "blur(4px)" }}
                 transition={{ duration: 0.4, ease: "easeOut" }}
                 className="space-y-4 overflow-hidden"
@@ -551,29 +621,44 @@ export default function ApiKeysPage() {
                 <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faim-warning-text)]">
                   Save this key now. It will not be shown again.
                 </p>
-                <div className="rounded-xl border p-4 font-mono text-xs break-all text-white shadow-inner" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
-                  {isRevealVisible ? reveal.plaintext : maskSecret(reveal.plaintext)}
+                <div
+                  className="rounded-xl border p-4 font-mono text-xs break-all text-white shadow-inner"
+                  style={{
+                    background: "var(--os-surface-2)",
+                    borderColor: "var(--os-stroke)",
+                  }}
+                >
+                  {isRevealVisible
+                    ? reveal.plaintext
+                    : maskSecret(reveal.plaintext)}
                 </div>
                 <div className="flex gap-3 pb-1">
                   <Button
                     size="sm"
                     variant="outline"
-                    leftIcon={isRevealVisible ? <EyeOff size={14} /> : <Eye size={14} />}
+                    leftIcon={
+                      isRevealVisible ? <EyeOff size={14} /> : <Eye size={14} />
+                    }
                     onClick={() => setIsRevealVisible((prev) => !prev)}
                     className="bg-black/20 border-white/10"
                   >
                     {isRevealVisible ? "Hide key" : "Show key"}
                   </Button>
-                  <Button 
-                    size="sm" 
-                    variant="primary" 
-                    leftIcon={<Copy size={14} />} 
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    leftIcon={<Copy size={14} />}
                     onClick={copyReveal}
                     className="shadow-sm"
                   >
                     Copy key
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setReveal(null)} className="text-slate-400">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setReveal(null)}
+                    className="text-slate-400"
+                  >
                     Dismiss
                   </Button>
                 </div>
@@ -588,7 +673,9 @@ export default function ApiKeysPage() {
                 className="flex flex-col items-center justify-center gap-2 overflow-hidden"
               >
                 <KeyRound size={24} className="text-slate-500" />
-                <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">No unrevealed keys</p>
+                <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">
+                  No unrevealed keys
+                </p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -596,16 +683,23 @@ export default function ApiKeysPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
-        <div 
+        <div
           className="overflow-hidden rounded-xl border flex flex-col h-[520px]"
           style={{
             borderColor: "var(--os-stroke)",
             background: "var(--os-surface-1)",
           }}
         >
-          <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Create API key</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Actor: {userName}</p>
+          <div
+            className="border-b px-5 py-1.5"
+            style={{ borderColor: "var(--os-stroke)" }}
+          >
+            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+              Create API key
+            </p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+              Actor: {userName}
+            </p>
           </div>
           <div className="space-y-5 pt-5 px-5 flex-1">
             <Input
@@ -613,11 +707,16 @@ export default function ApiKeysPage() {
               placeholder="billing-bot / retrieval-agent"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}
+              style={{
+                background: "var(--os-surface-2)",
+                borderColor: "var(--os-stroke)",
+              }}
             />
 
             <div className="space-y-3">
-              <p className="text-[10px] uppercase font-bold tracking-[0.15em] text-slate-500">Scopes</p>
+              <p className="text-[10px] uppercase font-bold tracking-[0.15em] text-slate-500">
+                Scopes
+              </p>
               <div className="flex flex-wrap gap-2">
                 {AVAILABLE_SCOPES.map((scope) => {
                   const selected = selectedScopes.includes(scope);
@@ -659,17 +758,24 @@ export default function ApiKeysPage() {
           </div>
         </div>
 
-        <div 
+        <div
           className="lg:col-span-2 overflow-hidden rounded-xl border flex flex-col h-[520px]"
           style={{
             borderColor: "var(--os-stroke)",
             background: "var(--os-surface-1)",
           }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
+            style={{ borderColor: "var(--os-stroke)" }}
+          >
             <div>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Key Inventory</p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Displaying {summary.total} persistent access identifiers</p>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                Key Inventory
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Displaying {summary.total} persistent access identifiers
+              </p>
             </div>
             <Button
               size="sm"
@@ -681,9 +787,15 @@ export default function ApiKeysPage() {
             </Button>
           </div>
           <div className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
-            {loadingKeys && <p className="text-sm text-slate-500 animate-pulse px-5">Loading secure keys...</p>}
+            {loadingKeys && (
+              <p className="text-sm text-slate-500 animate-pulse px-5">
+                Loading secure keys...
+              </p>
+            )}
             {!loadingKeys && keys.length === 0 && (
-              <p className="py-8 text-center text-sm text-slate-500 italic px-5">No API keys found for this tenant.</p>
+              <p className="py-8 text-center text-sm text-slate-500 italic px-5">
+                No API keys found for this tenant.
+              </p>
             )}
 
             {!loadingKeys && keys.length > 0 && (
@@ -699,32 +811,56 @@ export default function ApiKeysPage() {
                     >
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="space-y-1.5 flex-1 min-w-[200px]">
-                          <p className="font-mono text-sm font-bold text-white tracking-tight">{item.key_prefix}</p>
+                          <p className="font-mono text-sm font-bold text-white tracking-tight">
+                            {item.key_prefix}
+                          </p>
                           <div className="space-y-0.5">
                             <p className="text-[10px] text-slate-500 font-mono break-all leading-relaxed">
-                              KEY_ID: <span className="text-slate-400">{item.key_id}</span>
+                              KEY_ID:{" "}
+                              <span className="text-slate-400">
+                                {item.key_id}
+                              </span>
                             </p>
                             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                              CREATED: <span className="text-slate-400">{formatTs(item.created_at)}</span>
+                              CREATED:{" "}
+                              <span className="text-slate-400">
+                                {formatTs(item.created_at)}
+                              </span>
                             </p>
                             <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                              EXPIRES: <span className="text-slate-400">{formatTs(item.expires_at)}</span> | USED: <span className="text-slate-400">{formatTs(item.last_used_at)}</span>
+                              EXPIRES:{" "}
+                              <span className="text-slate-400">
+                                {formatTs(item.expires_at)}
+                              </span>{" "}
+                              | USED:{" "}
+                              <span className="text-slate-400">
+                                {formatTs(item.last_used_at)}
+                              </span>
                             </p>
                           </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           {status === "active" && (
-                            <Badge variant="success" className="h-5 px-3 uppercase text-[9px] font-black tracking-widest shadow-[0_0_10px_rgba(16,185,129,0.15)]">
+                            <Badge
+                              variant="success"
+                              className="h-5 px-3 uppercase text-[9px] font-black tracking-widest shadow-[0_0_10px_rgba(16,185,129,0.15)]"
+                            >
                               active
                             </Badge>
                           )}
                           {status === "revoked" && (
-                            <Badge variant="error" className="h-5 px-3 uppercase text-[9px] font-black tracking-widest opacity-60">
+                            <Badge
+                              variant="error"
+                              className="h-5 px-3 uppercase text-[9px] font-black tracking-widest opacity-60"
+                            >
                               revoked
                             </Badge>
                           )}
                           {status === "expired" && (
-                            <Badge variant="warning" className="h-5 px-3 uppercase text-[9px] font-black tracking-widest opacity-70">
+                            <Badge
+                              variant="warning"
+                              className="h-5 px-3 uppercase text-[9px] font-black tracking-widest opacity-70"
+                            >
                               expired
                             </Badge>
                           )}
@@ -756,10 +892,16 @@ export default function ApiKeysPage() {
                       </div>
                       <div className="mt-4 flex flex-wrap gap-2">
                         {item.scopes.length === 0 ? (
-                          <Badge variant="default" className="text-[8px] h-4">no scopes</Badge>
+                          <Badge variant="default" className="text-[8px] h-4">
+                            no scopes
+                          </Badge>
                         ) : (
                           item.scopes.map((scope) => (
-                            <Badge key={`${item.key_id}:${scope}`} variant="secondary" className="text-[10px] px-2 py-0 h-5 border-white/5 bg-white/5 text-slate-300">
+                            <Badge
+                              key={`${item.key_id}:${scope}`}
+                              variant="secondary"
+                              className="text-[10px] px-2 py-0 h-5 border-white/5 bg-white/5 text-slate-300"
+                            >
                               {scope}
                             </Badge>
                           ))
@@ -773,18 +915,25 @@ export default function ApiKeysPage() {
           </div>
         </div>
       </div>
-      
-      <div 
+
+      <div
         className="overflow-hidden rounded-xl border flex flex-col h-[400px]"
         style={{
           borderColor: "var(--os-stroke)",
           background: "var(--os-surface-1)",
         }}
       >
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3" style={{ borderColor: "var(--os-stroke)" }}>
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3"
+          style={{ borderColor: "var(--os-stroke)" }}
+        >
           <div>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Key audit timeline</p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Lifecycle events and security signals</p>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+              Key audit timeline
+            </p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+              Lifecycle events and security signals
+            </p>
           </div>
           <div className="w-64">
             <ThemedSelect
@@ -801,9 +950,15 @@ export default function ApiKeysPage() {
           </div>
         </div>
         <div className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
-          {loadingAudit && <p className="text-sm text-slate-500 animate-pulse px-5">Synchronizing audit signals...</p>}
+          {loadingAudit && (
+            <p className="text-sm text-slate-500 animate-pulse px-5">
+              Synchronizing audit signals...
+            </p>
+          )}
           {!loadingAudit && auditItems.length === 0 && (
-            <p className="py-8 text-center text-sm text-slate-500 italic px-5">No security signals recorded.</p>
+            <p className="py-8 text-center text-sm text-slate-500 italic px-5">
+              No security signals recorded.
+            </p>
           )}
           {!loadingAudit && auditItems.length > 0 && (
             <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -814,7 +969,14 @@ export default function ApiKeysPage() {
                   style={{ borderBottom: "1px solid var(--os-stroke)" }}
                 >
                   <div className="flex items-center gap-4">
-                    <Badge variant="outline" className="uppercase text-[9px] font-black tracking-widest px-2.5 h-5 text-slate-300" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+                    <Badge
+                      variant="outline"
+                      className="uppercase text-[9px] font-black tracking-widest px-2.5 h-5 text-slate-300"
+                      style={{
+                        background: "var(--os-surface-2)",
+                        borderColor: "var(--os-stroke)",
+                      }}
+                    >
                       {event.action}
                     </Badge>
                     <div className="flex flex-col gap-0.5">
@@ -822,13 +984,20 @@ export default function ApiKeysPage() {
                         {shortId(event.key_id)}
                       </span>
                       <span className="text-[10px] text-slate-500 tracking-widest font-black uppercase">
-                        ACTOR: <span className="text-slate-400">{event.actor || "system-node"}</span>
+                        ACTOR:{" "}
+                        <span className="text-slate-400">
+                          {event.actor || "system-node"}
+                        </span>
                       </span>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-500 font-mono block mb-0.5">{formatTs(event.created_at)}</span>
-                    <span className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">REQ_ID: {shortId(event.request_id) || "direct_op"}</span>
+                    <span className="text-[10px] text-slate-500 font-mono block mb-0.5">
+                      {formatTs(event.created_at)}
+                    </span>
+                    <span className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">
+                      REQ_ID: {shortId(event.request_id) || "direct_op"}
+                    </span>
                   </div>
                 </div>
               ))}

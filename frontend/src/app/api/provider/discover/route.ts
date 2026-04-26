@@ -52,7 +52,12 @@ interface DiscoverSuccess {
 }
 
 interface DiscoverError {
-  error: "offline" | "timeout" | "invalid_response" | "unauthorized" | "unknown";
+  error:
+    | "offline"
+    | "timeout"
+    | "invalid_response"
+    | "unauthorized"
+    | "unknown";
   message: string;
 }
 
@@ -64,7 +69,7 @@ export async function POST(req: Request): Promise<Response> {
     if (!baseUrl || typeof baseUrl !== "string") {
       return Response.json(
         { error: "unknown", message: "baseUrl is required" } as DiscoverError,
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -106,17 +111,20 @@ export async function POST(req: Request): Promise<Response> {
             error: "timeout",
             message: `Timeout after 8 seconds trying to reach ${modelsUrl}. Is the server running?`,
           } as DiscoverError,
-          { status: 408 }
+          { status: 408 },
         );
       }
 
-      if (error.code === "ECONNREFUSED" || error.message?.includes("ECONNREFUSED")) {
+      if (
+        error.code === "ECONNREFUSED" ||
+        error.message?.includes("ECONNREFUSED")
+      ) {
         return Response.json(
           {
             error: "offline",
             message: `Connection refused: ${modelsUrl}. LM Studio might not be running. Check: (1) Is LM Studio started? (2) Correct port? (3) Is CORS enabled in Server settings?`,
           } as DiscoverError,
-          { status: 503 }
+          { status: 503 },
         );
       }
 
@@ -126,7 +134,7 @@ export async function POST(req: Request): Promise<Response> {
             error: "offline",
             message: `Host not found: ${modelsUrl}. Check the URL is correct.`,
           } as DiscoverError,
-          { status: 503 }
+          { status: 503 },
         );
       }
 
@@ -135,20 +143,28 @@ export async function POST(req: Request): Promise<Response> {
           error: "unknown",
           message: `Network error: ${error.message}`,
         } as DiscoverError,
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     // Check response status
     if (!response.ok) {
-      console.error(`[Provider Discovery] HTTP ${response.status} from ${modelsUrl}`);
+      console.error(
+        `[Provider Discovery] HTTP ${response.status} from ${modelsUrl}`,
+      );
       const responseText = await response.text();
-      console.error(`[Provider Discovery] Response:`, responseText.slice(0, 300));
+      console.error(
+        `[Provider Discovery] Response:`,
+        responseText.slice(0, 300),
+      );
 
       if (response.status === 401 || response.status === 403) {
         return Response.json(
-          { error: "unauthorized", message: "Invalid API key or unauthorized access" } as DiscoverError,
-          { status: 401 }
+          {
+            error: "unauthorized",
+            message: "Invalid API key or unauthorized access",
+          } as DiscoverError,
+          { status: 401 },
         );
       }
 
@@ -157,7 +173,7 @@ export async function POST(req: Request): Promise<Response> {
           error: "invalid_response",
           message: `Server returned HTTP ${response.status}. Expected models list.`,
         } as DiscoverError,
-        { status: response.status }
+        { status: response.status },
       );
     }
 
@@ -165,14 +181,18 @@ export async function POST(req: Request): Promise<Response> {
     let data: any;
     try {
       data = await response.json();
-      console.log(`[Provider Discovery] Got response:`, JSON.stringify(data).slice(0, 200));
+      console.log(
+        `[Provider Discovery] Got response:`,
+        JSON.stringify(data).slice(0, 200),
+      );
     } catch {
       return Response.json(
         {
           error: "invalid_response",
-          message: "Server returned invalid JSON. Expected OpenAI-compatible models response.",
+          message:
+            "Server returned invalid JSON. Expected OpenAI-compatible models response.",
         } as DiscoverError,
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -180,8 +200,12 @@ export async function POST(req: Request): Promise<Response> {
     const models = Array.isArray(data.data)
       ? data.data.map((m: any) => m.id || m.model || m.name).filter(Boolean)
       : Array.isArray(data)
-      ? data.map((m: any) => (typeof m === "string" ? m : m.id || m.model || m.name)).filter(Boolean)
-      : [];
+        ? data
+            .map((m: any) =>
+              typeof m === "string" ? m : m.id || m.model || m.name,
+            )
+            .filter(Boolean)
+        : [];
 
     console.log(`[Provider Discovery] Found ${models.length} models:`, models);
 
@@ -191,7 +215,7 @@ export async function POST(req: Request): Promise<Response> {
           error: "invalid_response",
           message: `No models found. Server returned: ${JSON.stringify(data).slice(0, 100)}`,
         } as DiscoverError,
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -203,7 +227,7 @@ export async function POST(req: Request): Promise<Response> {
         error: "unknown",
         message: `Server error: ${error.message}`,
       } as DiscoverError,
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

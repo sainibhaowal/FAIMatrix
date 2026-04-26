@@ -18,6 +18,7 @@ except (ImportError, RuntimeError):
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import EventRecord
+
     from store.pg.models_faim import EventModel
 
 
@@ -94,12 +95,11 @@ class EventRepo:
         Returns:
             EventRecord if found, None otherwise.
         """
-        model = session.query(EventModel).filter(
-            and_(
-                EventModel.tenant_id == self.tenant_id,
-                EventModel.id == id
-            )
-        ).first()
+        model = (
+            session.query(EventModel)
+            .filter(and_(EventModel.tenant_id == self.tenant_id, EventModel.id == id))
+            .first()
+        )
         return model.to_domain() if model else None
 
     def get_by_seq(
@@ -129,7 +129,7 @@ class EventRepo:
                 and_(
                     EventModel.tenant_id == self.tenant_id,
                     EventModel.graph_id == graph_id,
-                    EventModel.seq > after_seq
+                    EventModel.seq > after_seq,
                 )
             )
             .order_by(asc(EventModel.seq))
@@ -153,7 +153,7 @@ class EventRepo:
             .filter(
                 and_(
                     EventModel.tenant_id == self.tenant_id,
-                    EventModel.graph_id == graph_id
+                    EventModel.graph_id == graph_id,
                 )
             )
             .order_by(EventModel.seq.desc())
@@ -184,8 +184,7 @@ class EventRepo:
         """
         query = session.query(EventModel).filter(
             and_(
-                EventModel.tenant_id == self.tenant_id,
-                EventModel.graph_id == graph_id
+                EventModel.tenant_id == self.tenant_id, EventModel.graph_id == graph_id
             )
         )
 
@@ -206,12 +205,16 @@ class EventRepo:
         Returns:
             Number of events.
         """
-        return session.query(EventModel).filter(
-            and_(
-                EventModel.tenant_id == self.tenant_id,
-                EventModel.graph_id == graph_id
+        return (
+            session.query(EventModel)
+            .filter(
+                and_(
+                    EventModel.tenant_id == self.tenant_id,
+                    EventModel.graph_id == graph_id,
+                )
             )
-        ).count()
+            .count()
+        )
 
     def get_max_seq(self, session: Session, graph_id: str) -> int:
         """Get the highest sequence number for a graph.
@@ -230,7 +233,7 @@ class EventRepo:
             .filter(
                 and_(
                     EventModel.tenant_id == self.tenant_id,
-                    EventModel.graph_id == graph_id
+                    EventModel.graph_id == graph_id,
                 )
             )
             .scalar()

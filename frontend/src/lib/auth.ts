@@ -24,7 +24,9 @@ const API_URL = process.env.API_HOST
 const SIGNING_SECRET = process.env.NEXTAUTH_SECRET;
 
 if (!SIGNING_SECRET) {
-  console.error("CRITICAL: NEXTAUTH_SECRET is not defined in environment variables!");
+  console.error(
+    "CRITICAL: NEXTAUTH_SECRET is not defined in environment variables!",
+  );
 } else {
   console.log(`[Auth] Loaded SIGNING_SECRET (len: ${SIGNING_SECRET.length})`);
 }
@@ -61,12 +63,14 @@ export const authOptions: NextAuthOptions = {
 
           if (!res.ok) {
             const errorText = await res.text();
-            console.error(`[Auth] Verification HTTP ${res.status}: ${errorText}`);
+            console.error(
+              `[Auth] Verification HTTP ${res.status}: ${errorText}`,
+            );
             return null;
           }
 
           const data = await res.json();
-          
+
           if (data.success && data.user) {
             console.log(`[Auth] Verification SUCCESS for ${credentials.email}`);
             return {
@@ -77,7 +81,9 @@ export const authOptions: NextAuthOptions = {
             };
           }
 
-          console.warn(`[Auth] Verification FAILED: ${data.message || "Unknown reason"}`);
+          console.warn(
+            `[Auth] Verification FAILED: ${data.message || "Unknown reason"}`,
+          );
           return null;
         } catch (err: any) {
           console.error(`[Auth] Verification FETCH ERROR: ${err.message}`);
@@ -112,7 +118,7 @@ export const authOptions: NextAuthOptions = {
         token.name = user.name;
         token.graphId = (user as any).graphId;
       }
-      
+
       // 2. Generate/Rotate access token for backend API (HS256)
       if (SIGNING_SECRET) {
         try {
@@ -126,7 +132,7 @@ export const authOptions: NextAuthOptions = {
               type: "access",
             },
             SIGNING_SECRET,
-            { algorithm: "HS256", expiresIn: "30d" }
+            { algorithm: "HS256", expiresIn: "30d" },
           );
         } catch (err: any) {
           console.error(`[Auth] JWT Sign Error: ${err.message}`);

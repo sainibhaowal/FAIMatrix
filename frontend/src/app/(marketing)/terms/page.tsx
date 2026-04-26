@@ -41,9 +41,10 @@ export default function TermsPage() {
                   1. Acceptance of Terms
                 </h2>
                 <p className="text-slate-400 leading-relaxed">
-                  By accessing or using FAIMATRIX, a service operated by Ravinder
-                  Singh, you agree to be bound by these Terms of Service. If you
-                  do not agree to these terms, please do not use our service.
+                  By accessing or using FAIMATRIX, a service operated by
+                  Ravinder Singh, you agree to be bound by these Terms of
+                  Service. If you do not agree to these terms, please do not use
+                  our service.
                 </p>
               </section>
 
@@ -95,9 +96,9 @@ export default function TermsPage() {
                   5. Intellectual Property
                 </h2>
                 <p className="text-slate-400 leading-relaxed">
-                  You retain ownership of all content you upload to FAIMATRIX. By
-                  uploading content, you grant us a license to process and store
-                  it for the purpose of providing our services.
+                  You retain ownership of all content you upload to FAIMATRIX.
+                  By uploading content, you grant us a license to process and
+                  store it for the purpose of providing our services.
                 </p>
               </section>
 
@@ -106,8 +107,8 @@ export default function TermsPage() {
                   6. Limitation of Liability
                 </h2>
                 <p className="text-slate-400 leading-relaxed">
-                  FAIMATRIX is provided &quot;as is&quot; without warranties of any kind.
-                  We are not liable for any indirect, incidental, or
+                  FAIMATRIX is provided &quot;as is&quot; without warranties of
+                  any kind. We are not liable for any indirect, incidental, or
                   consequential damages arising from your use of the service.
                 </p>
               </section>

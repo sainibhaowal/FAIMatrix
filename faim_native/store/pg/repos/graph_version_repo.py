@@ -17,6 +17,7 @@ except (ImportError, RuntimeError):
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import GraphVersion
+
     from store.pg.models_faim import GraphVersionModel
 
 

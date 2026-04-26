@@ -61,13 +61,13 @@ export function NotificationCenter() {
             Notifications
           </div>
           {unreadCount > 0 && (
-              <button
-                onClick={markAllRead}
-                className="text-[10px] text-cyan-400 hover:text-cyan-300"
-              >
-                Mark all read
-              </button>
-            )}
+            <button
+              onClick={markAllRead}
+              className="text-[10px] text-cyan-400 hover:text-cyan-300"
+            >
+              Mark all read
+            </button>
+          )}
         </div>
 
         <div className="max-h-[320px] overflow-y-auto">
@@ -76,7 +76,7 @@ export function NotificationCenter() {
               No new notifications.
             </div>
           ) : (
-             <ul className="divide-y divide-white/5">
+            <ul className="divide-y divide-white/5">
               {notifs.map((n) => (
                 <li
                   key={n.id}
@@ -90,7 +90,7 @@ export function NotificationCenter() {
                         <div className="truncate text-[12px] font-medium text-slate-200">
                           {n.title}
                         </div>
-                         <div className="text-[10px] text-slate-500">
+                        <div className="text-[10px] text-slate-500">
                           {n.time}
                         </div>
                       </div>
@@ -99,31 +99,38 @@ export function NotificationCenter() {
                       </div>
                     </div>
                     {n.unread && (
-                        <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500" />
+                      <div className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500" />
                     )}
                   </div>
-                   <button
+                  <button
                     onClick={(e) => {
-                         e.stopPropagation();
-                         removeNotif(n.id);
+                      e.stopPropagation();
+                      removeNotif(n.id);
                     }}
-                     className="absolute top-2 right-2 hidden p-1 text-slate-500 hover:text-white group-hover:block"
-                     title="Dismiss"
-                   >
-                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                       <path d="M18 6L6 18M6 6l12 12" />
-                     </svg>
-                   </button>
+                    className="absolute top-2 right-2 hidden p-1 text-slate-500 hover:text-white group-hover:block"
+                    title="Dismiss"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
+                      <path d="M18 6L6 18M6 6l12 12" />
+                    </svg>
+                  </button>
                 </li>
               ))}
             </ul>
           )}
         </div>
-        
+
         <div className="border-t border-white/10 px-4 py-2 text-center">
-             <button className="text-[10px] text-slate-500 hover:text-slate-300">
-                 View all
-             </button>
+          <button className="text-[10px] text-slate-500 hover:text-slate-300">
+            View all
+          </button>
         </div>
       </Dropdown>
     </div>

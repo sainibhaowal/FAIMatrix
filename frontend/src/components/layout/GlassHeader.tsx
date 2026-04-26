@@ -39,10 +39,17 @@ export function GlassHeader({
 
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-3">
-            <Icon className="shrink-0 opacity-80" size={20} strokeWidth={2} style={{ color: accentColor }} />
+            <Icon
+              className="shrink-0 opacity-80"
+              size={20}
+              strokeWidth={2}
+              style={{ color: accentColor }}
+            />
             <h1 className="font-bold flex items-baseline gap-[1px] text-white leading-none tracking-tight">
               <span className="text-[22px] font-extrabold">{firstChar}</span>
-              <span className="text-[18px] font-semibold opacity-90">{restChars}</span>
+              <span className="text-[18px] font-semibold opacity-90">
+                {restChars}
+              </span>
             </h1>
           </div>
           <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500/60 leading-tight">
@@ -51,11 +58,7 @@ export function GlassHeader({
         </div>
       </div>
 
-      {actions && (
-        <div className="flex items-center gap-3">
-          {actions}
-        </div>
-      )}
+      {actions && <div className="flex items-center gap-3">{actions}</div>}
     </header>
   );
 }

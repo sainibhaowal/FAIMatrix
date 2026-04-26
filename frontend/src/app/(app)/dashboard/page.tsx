@@ -126,26 +126,31 @@ function relTime(ts: string | null | undefined): string {
 }
 
 const EVENT_KIND_META: Record<string, { label: string; color: string }> = {
-  NODE_UPSERT:           { label: "UPSERT",  color: "text-cyan-400" },
-  INVENT_MACRO_NODE:     { label: "MACRO",   color: "text-violet-400" },
-  PRUNE_NODE:            { label: "PRUNE",   color: "text-rose-400" },
-  MERGE:                 { label: "MERGE",   color: "text-blue-400" },
-  EVOLUTION_MERGE:       { label: "EVOLVE",  color: "text-emerald-400" },
-  EVOLUTION_COMPLETE:    { label: "EVOLVED", color: "text-emerald-300" },
-  EVOLUTION_SKIPPED:     { label: "SKIP",    color: "text-slate-500" },
-  GRAPH_VERSION_BUMP:    { label: "VERSION", color: "text-amber-400" },
-  INHERITANCE_SET:       { label: "INHERIT", color: "text-cyan-300" },
-  DIAGNOSTICS_SNAPSHOT:  { label: "DIAG",   color: "text-slate-400" },
-  QUERY_START:           { label: "QUERY",   color: "text-amber-300" },
-  QUERY_RERANKED:        { label: "RANK",    color: "text-amber-400" },
-  QUERY_TOUCH:           { label: "TOUCH",   color: "text-slate-400" },
-  QUERY_COMPLETE:        { label: "DONE",    color: "text-emerald-400" },
-  STORAGE_RAW_STORED:    { label: "STORE",   color: "text-blue-400" },
-  STORAGE_ENCRYPT_FAILED:{ label: "ERR",     color: "text-rose-500" },
+  NODE_UPSERT: { label: "UPSERT", color: "text-cyan-400" },
+  INVENT_MACRO_NODE: { label: "MACRO", color: "text-violet-400" },
+  PRUNE_NODE: { label: "PRUNE", color: "text-rose-400" },
+  MERGE: { label: "MERGE", color: "text-blue-400" },
+  EVOLUTION_MERGE: { label: "EVOLVE", color: "text-emerald-400" },
+  EVOLUTION_COMPLETE: { label: "EVOLVED", color: "text-emerald-300" },
+  EVOLUTION_SKIPPED: { label: "SKIP", color: "text-slate-500" },
+  GRAPH_VERSION_BUMP: { label: "VERSION", color: "text-amber-400" },
+  INHERITANCE_SET: { label: "INHERIT", color: "text-cyan-300" },
+  DIAGNOSTICS_SNAPSHOT: { label: "DIAG", color: "text-slate-400" },
+  QUERY_START: { label: "QUERY", color: "text-amber-300" },
+  QUERY_RERANKED: { label: "RANK", color: "text-amber-400" },
+  QUERY_TOUCH: { label: "TOUCH", color: "text-slate-400" },
+  QUERY_COMPLETE: { label: "DONE", color: "text-emerald-400" },
+  STORAGE_RAW_STORED: { label: "STORE", color: "text-blue-400" },
+  STORAGE_ENCRYPT_FAILED: { label: "ERR", color: "text-rose-500" },
 };
 
 function eventMeta(kind: string) {
-  return EVENT_KIND_META[kind] ?? { label: kind.slice(0, 7).toUpperCase(), color: "text-slate-400" };
+  return (
+    EVENT_KIND_META[kind] ?? {
+      label: kind.slice(0, 7).toUpperCase(),
+      color: "text-slate-400",
+    }
+  );
 }
 
 function eventSummary(ev: FaimEvent): string {
@@ -202,15 +207,23 @@ function KpiCell({
       style={{ borderLeft: border ? "1px solid var(--os-stroke)" : undefined }}
     >
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">{label}</p>
+        <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+          {label}
+        </p>
         <div className="opacity-20">{icon}</div>
       </div>
       {loading ? (
         <div className="h-7 w-24 rounded animate-pulse bg-slate-700/40 mb-2" />
       ) : (
-        <p className={`font-semibold tabular-nums leading-none text-[26px] ${color}`}>{value}</p>
+        <p
+          className={`font-semibold tabular-nums leading-none text-[26px] ${color}`}
+        >
+          {value}
+        </p>
       )}
-      <p className="mt-2 text-[11px] text-slate-500 uppercase tracking-widest font-bold">{sub}</p>
+      <p className="mt-2 text-[11px] text-slate-500 uppercase tracking-widest font-bold">
+        {sub}
+      </p>
     </div>
   );
 }
@@ -230,7 +243,9 @@ function PanelHeader({
       style={{ borderColor: "var(--os-stroke)" }}
     >
       <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+          {title}
+        </p>
         {subtitle && (
           <p className="text-[10px] text-slate-500 mt-0.5">{subtitle}</p>
         )}
@@ -252,12 +267,22 @@ function ScorecardGauge({
   color: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-0.5 py-3 px-4 rounded-xl border" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+    <div
+      className="flex flex-col items-center justify-center gap-0.5 py-3 px-4 rounded-xl border"
+      style={{
+        background: "var(--os-surface-2)",
+        borderColor: "var(--os-stroke)",
+      }}
+    >
       <span className="font-mono text-[18px] font-bold" style={{ color }}>
         {value > 0 ? value.toFixed(2) : "0"}
       </span>
-      <span className="text-[9px] uppercase tracking-widest text-slate-500">{label}</span>
-      <span className="text-[8px] font-mono" style={{ color, opacity: 0.7 }}>{hint}</span>
+      <span className="text-[9px] uppercase tracking-widest text-slate-500">
+        {label}
+      </span>
+      <span className="text-[8px] font-mono" style={{ color, opacity: 0.7 }}>
+        {hint}
+      </span>
     </div>
   );
 }
@@ -271,8 +296,13 @@ export default function DashboardPage() {
   // ── State ──
   const [scorecard, setScorecard] = useState<ScorecardData | null>(null);
   const [storage, setStorage] = useState<StorageSummary | null>(null);
-  const [evolveStatus, setEvolveStatus] = useState<EvolveStatusResponse | null>(null);
-  const [keyCount, setKeyCount] = useState<{ total: number; active: number } | null>(null);
+  const [evolveStatus, setEvolveStatus] = useState<EvolveStatusResponse | null>(
+    null,
+  );
+  const [keyCount, setKeyCount] = useState<{
+    total: number;
+    active: number;
+  } | null>(null);
   const [health, setHealth] = useState<HealthData | null>(null);
   const [events, setEvents] = useState<FaimEvent[]>([]);
   const [latestInfo, setLatestInfo] = useState<LatestInfo | null>(null);
@@ -292,7 +322,9 @@ export default function DashboardPage() {
     if (!graphId) return;
     try {
       const headers = await authHeaders();
-      const res = await fetch(`/api/v1/metrics/scorecard?graph_id=${graphId}`, { headers });
+      const res = await fetch(`/api/v1/metrics/scorecard?graph_id=${graphId}`, {
+        headers,
+      });
       if (!res.ok) return;
       const data = await res.json();
       setScorecard(data);
@@ -307,7 +339,9 @@ export default function DashboardPage() {
     if (!graphId) return;
     try {
       const headers = await authHeaders();
-      const res = await fetch(`/api/v1/storage/summary?graph_id=${graphId}`, { headers });
+      const res = await fetch(`/api/v1/storage/summary?graph_id=${graphId}`, {
+        headers,
+      });
       if (!res.ok) return;
       const data = await res.json();
       setStorage(data);
@@ -322,7 +356,9 @@ export default function DashboardPage() {
     if (!graphId) return;
     try {
       const headers = await authHeaders();
-      const res = await fetch(`/api/v1/evolve/status?graph_id=${graphId}`, { headers });
+      const res = await fetch(`/api/v1/evolve/status?graph_id=${graphId}`, {
+        headers,
+      });
       if (!res.ok) return;
       const data = await res.json();
       setEvolveStatus(data);
@@ -359,36 +395,47 @@ export default function DashboardPage() {
     }
   }, []);
 
-  const fetchEvents = useCallback(async (since?: number) => {
-    if (!graphId) return;
-    try {
-      const headers = await authHeaders();
-      const latestRes = await fetch(`/api/v1/events/latest?graph_id=${graphId}`, { headers });
-      if (!latestRes.ok) return;
-      const latest: LatestInfo = await latestRes.json();
-      setLatestInfo(latest);
+  const fetchEvents = useCallback(
+    async (since?: number) => {
+      if (!graphId) return;
+      try {
+        const headers = await authHeaders();
+        const latestRes = await fetch(
+          `/api/v1/events/latest?graph_id=${graphId}`,
+          { headers },
+        );
+        if (!latestRes.ok) return;
+        const latest: LatestInfo = await latestRes.json();
+        setLatestInfo(latest);
 
-      const afterSeq = since ?? Math.max(0, latest.last_seq - 30);
-      const res = await fetch(`/api/v1/events?graph_id=${graphId}&after_seq=${afterSeq}&limit=30`, { headers });
-      if (!res.ok) return;
-      const data = await res.json();
-      const fetched: FaimEvent[] = data.events ?? [];
+        const afterSeq = since ?? Math.max(0, latest.last_seq - 30);
+        const res = await fetch(
+          `/api/v1/events?graph_id=${graphId}&after_seq=${afterSeq}&limit=30`,
+          { headers },
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        const fetched: FaimEvent[] = data.events ?? [];
 
-      setEvents((prev) => {
-        if (since === undefined) {
-          return fetched.sort((a, b) => b.seq - a.seq);
-        }
-        const ids = new Set(prev.map((e) => e.id));
-        const newOnes = fetched.filter((e) => !ids.has(e.id));
-        if (!newOnes.length) return prev;
-        return [...newOnes, ...prev].slice(0, 50).sort((a, b) => b.seq - a.seq);
-      });
-    } catch {
-      // silent
-    } finally {
-      setEventsLoading(false);
-    }
-  }, [graphId]);
+        setEvents((prev) => {
+          if (since === undefined) {
+            return fetched.sort((a, b) => b.seq - a.seq);
+          }
+          const ids = new Set(prev.map((e) => e.id));
+          const newOnes = fetched.filter((e) => !ids.has(e.id));
+          if (!newOnes.length) return prev;
+          return [...newOnes, ...prev]
+            .slice(0, 50)
+            .sort((a, b) => b.seq - a.seq);
+        });
+      } catch {
+        // silent
+      } finally {
+        setEventsLoading(false);
+      }
+    },
+    [graphId],
+  );
 
   // ── Initial load ──
 
@@ -400,7 +447,15 @@ export default function DashboardPage() {
     fetchKeys();
     fetchHealth();
     fetchEvents();
-  }, [graphId, fetchScorecard, fetchStorage, fetchEvolveStatus, fetchKeys, fetchHealth, fetchEvents]);
+  }, [
+    graphId,
+    fetchScorecard,
+    fetchStorage,
+    fetchEvolveStatus,
+    fetchKeys,
+    fetchHealth,
+    fetchEvents,
+  ]);
 
   // ── Polling: events every 10s, scorecard+evolve every 30s ──
 
@@ -451,29 +506,32 @@ export default function DashboardPage() {
 
   // ── Upload action ──
 
-  const handleFileUpload = useCallback(async (file: File) => {
-    if (!graphId || uploading) return;
-    setUploading(true);
-    try {
-      const headers = await authHeaders();
-      const form = new FormData();
-      form.append("file", file);
-      form.append("graph_id", graphId);
-      await fetch(`/api/v1/storage/uploads`, {
-        method: "POST",
-        headers,
-        body: form,
-      });
-      setTimeout(() => {
-        fetchStorage();
-        fetchEvents(lastSeqRef.current);
-      }, 1500);
-    } catch {
-      // silent
-    } finally {
-      setTimeout(() => setUploading(false), 2000);
-    }
-  }, [graphId, uploading, fetchStorage, fetchEvents]);
+  const handleFileUpload = useCallback(
+    async (file: File) => {
+      if (!graphId || uploading) return;
+      setUploading(true);
+      try {
+        const headers = await authHeaders();
+        const form = new FormData();
+        form.append("file", file);
+        form.append("graph_id", graphId);
+        await fetch(`/api/v1/storage/uploads`, {
+          method: "POST",
+          headers,
+          body: form,
+        });
+        setTimeout(() => {
+          fetchStorage();
+          fetchEvents(lastSeqRef.current);
+        }, 1500);
+      } catch {
+        // silent
+      } finally {
+        setTimeout(() => setUploading(false), 2000);
+      }
+    },
+    [graphId, uploading, fetchStorage, fetchEvents],
+  );
 
   // ── Derived values ──
 
@@ -505,21 +563,49 @@ export default function DashboardPage() {
     ];
   }, [scorecard]);
 
-  const evolveJobStatus = evolveStatus?.active_job?.status ?? evolveStatus?.last_enqueued_job?.status ?? "idle";
+  const evolveJobStatus =
+    evolveStatus?.active_job?.status ??
+    evolveStatus?.last_enqueued_job?.status ??
+    "idle";
   const evolveIsRunning = evolveStatus?.runtime?.is_running ?? false;
-  const evolveLastRun = evolveStatus?.last_enqueued_job?.completed_at ?? evolveStatus?.last_enqueued_job?.created_at ?? null;
-  const evolveHealthColor =
-    evolveIsRunning ? "text-cyan-400"
-    : evolveJobStatus === "completed" ? "text-emerald-400"
-    : evolveJobStatus === "error" || evolveJobStatus === "failed" ? "text-rose-400"
-    : "text-slate-400";
+  const evolveLastRun =
+    evolveStatus?.last_enqueued_job?.completed_at ??
+    evolveStatus?.last_enqueued_job?.created_at ??
+    null;
+  const evolveHealthColor = evolveIsRunning
+    ? "text-cyan-400"
+    : evolveJobStatus === "completed"
+      ? "text-emerald-400"
+      : evolveJobStatus === "error" || evolveJobStatus === "failed"
+        ? "text-rose-400"
+        : "text-slate-400";
 
   const QUICK_ACTIONS = [
-    { label: "Open FIG View", icon: <Network size={14} />, href: "/dashboard/fig-view" },
-    { label: "Memory Query", icon: <Brain size={14} />, href: "/dashboard/memory-query" },
-    { label: "View Journal", icon: <Activity size={14} />, href: "/dashboard/journal" },
-    { label: "API Keys", icon: <KeyRound size={14} />, href: "/dashboard/api-keys" },
-    { label: "Storage", icon: <HardDrive size={14} />, href: "/dashboard/storage" },
+    {
+      label: "Open FIG View",
+      icon: <Network size={14} />,
+      href: "/dashboard/fig-view",
+    },
+    {
+      label: "Memory Query",
+      icon: <Brain size={14} />,
+      href: "/dashboard/memory-query",
+    },
+    {
+      label: "View Journal",
+      icon: <Activity size={14} />,
+      href: "/dashboard/journal",
+    },
+    {
+      label: "API Keys",
+      icon: <KeyRound size={14} />,
+      href: "/dashboard/api-keys",
+    },
+    {
+      label: "Storage",
+      icon: <HardDrive size={14} />,
+      href: "/dashboard/storage",
+    },
   ];
 
   return (
@@ -557,12 +643,19 @@ export default function DashboardPage() {
       {/* ── Row 1 — KPI Strip ────────────────────────────────────────────── */}
       <div
         className="grid grid-cols-2 xl:grid-cols-4 overflow-hidden rounded-xl border"
-        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+        style={{
+          borderColor: "var(--os-stroke)",
+          background: "var(--os-surface-1)",
+        }}
       >
         <KpiCell
           icon={<Dna size={18} />}
           label="Active Nodes"
-          value={scorecardLoading ? "…" : (scorecard?.node_count ?? 0).toLocaleString()}
+          value={
+            scorecardLoading
+              ? "…"
+              : (scorecard?.node_count ?? 0).toLocaleString()
+          }
           sub={`${scorecard?.edge_count?.toLocaleString() ?? "—"} edges`}
           color="text-cyan-300"
           loading={scorecardLoading}
@@ -589,7 +682,11 @@ export default function DashboardPage() {
           icon={<Zap size={18} />}
           label="System Health"
           value={health ? (healthOk ? "Online" : "Error") : "…"}
-          sub={health?.latency_ms != null ? `${health.latency_ms}ms latency` : "checking…"}
+          sub={
+            health?.latency_ms != null
+              ? `${health.latency_ms}ms latency`
+              : "checking…"
+          }
           color={healthOk ? "text-emerald-400" : "text-rose-400"}
           border
         />
@@ -597,7 +694,6 @@ export default function DashboardPage() {
 
       {/* ── Row 2 — Main Grid ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-
         {/* Activity Feed — 2 cols */}
         <div
           className="lg:col-span-2 flex flex-col rounded-xl border overflow-hidden"
@@ -622,7 +718,11 @@ export default function DashboardPage() {
             {eventsLoading ? (
               <div className="flex flex-col gap-0">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="px-5 py-4 border-b" style={{ borderColor: "var(--os-stroke)" }}>
+                  <div
+                    key={i}
+                    className="px-5 py-4 border-b"
+                    style={{ borderColor: "var(--os-stroke)" }}
+                  >
                     <div className="h-4 w-3/4 rounded animate-pulse bg-slate-700/40" />
                   </div>
                 ))}
@@ -630,7 +730,9 @@ export default function DashboardPage() {
             ) : events.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
                 <Activity size={28} className="opacity-30" />
-                <p className="text-sm">No events yet — ingest data to see activity</p>
+                <p className="text-sm">
+                  No events yet — ingest data to see activity
+                </p>
               </div>
             ) : (
               events.map((ev) => {
@@ -665,18 +767,22 @@ export default function DashboardPage() {
 
         {/* Right column: Graph Health + Quick Actions */}
         <div className="flex flex-col gap-4">
-
           {/* Graph Health */}
           <div
             className="rounded-xl border overflow-hidden"
-            style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
           >
             <PanelHeader
               title="Graph Health"
               subtitle="Topology scorecard — D / H / λ"
               action={
                 scorecard?.graph_version != null && (
-                  <span className="text-[10px] font-mono text-slate-500">v{scorecard.graph_version}</span>
+                  <span className="text-[10px] font-mono text-slate-500">
+                    v{scorecard.graph_version}
+                  </span>
                 )
               }
             />
@@ -684,7 +790,10 @@ export default function DashboardPage() {
               {scorecardLoading ? (
                 <div className="grid grid-cols-3 gap-2">
                   {[0, 1, 2].map((i) => (
-                    <div key={i} className="h-16 rounded-xl animate-pulse bg-slate-700/40" />
+                    <div
+                      key={i}
+                      className="h-16 rounded-xl animate-pulse bg-slate-700/40"
+                    />
                   ))}
                 </div>
               ) : (
@@ -698,12 +807,23 @@ export default function DashboardPage() {
               {/* Evolution status row */}
               <div
                 className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}
+                style={{
+                  background: "var(--os-surface-2)",
+                  borderColor: "var(--os-stroke)",
+                }}
               >
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Evolution</p>
-                  <p className={`text-xs font-semibold mt-0.5 ${evolveHealthColor}`}>
-                    {evolveLoading ? "checking…" : evolveIsRunning ? "running" : (evolveJobStatus)}
+                  <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
+                    Evolution
+                  </p>
+                  <p
+                    className={`text-xs font-semibold mt-0.5 ${evolveHealthColor}`}
+                  >
+                    {evolveLoading
+                      ? "checking…"
+                      : evolveIsRunning
+                        ? "running"
+                        : evolveJobStatus}
                   </p>
                   {evolveLastRun && (
                     <p className="text-[9px] text-slate-600 font-mono mt-0.5">
@@ -728,7 +848,10 @@ export default function DashboardPage() {
           {/* Quick Actions */}
           <div
             className="rounded-xl border overflow-hidden"
-            style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
           >
             <PanelHeader title="Quick Actions" />
             <div className="p-3 space-y-1.5">
@@ -778,11 +901,13 @@ export default function DashboardPage() {
 
       {/* ── Row 3 — Bottom Grid ───────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-
         {/* Storage Summary */}
         <div
           className="rounded-xl border overflow-hidden"
-          style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+          style={{
+            borderColor: "var(--os-stroke)",
+            background: "var(--os-surface-1)",
+          }}
         >
           <PanelHeader
             title="Storage Breakdown"
@@ -799,26 +924,57 @@ export default function DashboardPage() {
             {storageLoading ? (
               <div className="space-y-2">
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="h-10 rounded-lg animate-pulse bg-slate-700/40" />
+                  <div
+                    key={i}
+                    className="h-10 rounded-lg animate-pulse bg-slate-700/40"
+                  />
                 ))}
               </div>
             ) : (
               <>
                 {[
-                  { label: "Total Used", value: fmtBytes(storage?.total_bytes ?? 0), icon: <HardDrive size={13} /> },
-                  { label: "File Count", value: String(storage?.total_files ?? 0), icon: <Activity size={13} /> },
-                  { label: "By Status", value: Object.keys(storage?.by_status ?? {}).join(", ") || "—", icon: <Layers size={13} /> },
-                  { label: "By Type", value: Object.keys(storage?.by_type ?? {}).slice(0, 3).join(", ") || "—", icon: <ShieldCheck size={13} /> },
+                  {
+                    label: "Total Used",
+                    value: fmtBytes(storage?.total_bytes ?? 0),
+                    icon: <HardDrive size={13} />,
+                  },
+                  {
+                    label: "File Count",
+                    value: String(storage?.total_files ?? 0),
+                    icon: <Activity size={13} />,
+                  },
+                  {
+                    label: "By Status",
+                    value:
+                      Object.keys(storage?.by_status ?? {}).join(", ") || "—",
+                    icon: <Layers size={13} />,
+                  },
+                  {
+                    label: "By Type",
+                    value:
+                      Object.keys(storage?.by_type ?? {})
+                        .slice(0, 3)
+                        .join(", ") || "—",
+                    icon: <ShieldCheck size={13} />,
+                  },
                 ].map((row) => (
                   <div
                     key={row.label}
                     className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                    style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}
+                    style={{
+                      background: "var(--os-surface-2)",
+                      borderColor: "var(--os-stroke)",
+                    }}
                   >
-                    <span className="flex items-center gap-2 text-slate-500">{row.icon}
-                      <span className="text-xs text-slate-400">{row.label}</span>
+                    <span className="flex items-center gap-2 text-slate-500">
+                      {row.icon}
+                      <span className="text-xs text-slate-400">
+                        {row.label}
+                      </span>
                     </span>
-                    <span className="text-xs font-mono text-slate-100">{row.value}</span>
+                    <span className="text-xs font-mono text-slate-100">
+                      {row.value}
+                    </span>
                   </div>
                 ))}
               </>
@@ -829,7 +985,10 @@ export default function DashboardPage() {
         {/* Security & Keys */}
         <div
           className="rounded-xl border overflow-hidden"
-          style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+          style={{
+            borderColor: "var(--os-stroke)",
+            background: "var(--os-surface-1)",
+          }}
         >
           <PanelHeader
             title="Security & Keys"
@@ -846,37 +1005,64 @@ export default function DashboardPage() {
             {keysLoading ? (
               <div className="space-y-2">
                 {[0, 1].map((i) => (
-                  <div key={i} className="h-12 rounded-lg animate-pulse bg-slate-700/40" />
+                  <div
+                    key={i}
+                    className="h-12 rounded-lg animate-pulse bg-slate-700/40"
+                  />
                 ))}
               </div>
             ) : (
               <>
                 <div
                   className="flex items-center justify-between px-4 py-3 rounded-xl border"
-                  style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}
+                  style={{
+                    background: "var(--os-surface-2)",
+                    borderColor: "var(--os-stroke)",
+                  }}
                 >
                   <div className="flex items-center gap-3">
                     <KeyRound size={16} className="text-amber-400" />
                     <div>
-                      <p className="text-xs font-semibold text-slate-200">API Keys</p>
-                      <p className="text-[10px] text-slate-500">{keyCount?.active ?? 0} active of {keyCount?.total ?? 0} total</p>
+                      <p className="text-xs font-semibold text-slate-200">
+                        API Keys
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        {keyCount?.active ?? 0} active of {keyCount?.total ?? 0}{" "}
+                        total
+                      </p>
                     </div>
                   </div>
-                  <div className={`h-2 w-2 rounded-full ${(keyCount?.active ?? 0) > 0 ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-slate-600"}`} />
+                  <div
+                    className={`h-2 w-2 rounded-full ${(keyCount?.active ?? 0) > 0 ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-slate-600"}`}
+                  />
                 </div>
 
                 <div
                   className="flex items-center justify-between px-4 py-3 rounded-xl border"
-                  style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}
+                  style={{
+                    background: "var(--os-surface-2)",
+                    borderColor: "var(--os-stroke)",
+                  }}
                 >
                   <div className="flex items-center gap-3">
-                    <Shield size={16} className={healthOk ? "text-emerald-400" : "text-rose-400"} />
+                    <Shield
+                      size={16}
+                      className={
+                        healthOk ? "text-emerald-400" : "text-rose-400"
+                      }
+                    />
                     <div>
-                      <p className="text-xs font-semibold text-slate-200">System Status</p>
-                      <p className="text-[10px] text-slate-500">{health?.status ?? "checking"}</p>
+                      <p className="text-xs font-semibold text-slate-200">
+                        System Status
+                      </p>
+                      <p className="text-[10px] text-slate-500">
+                        {health?.status ?? "checking"}
+                      </p>
                     </div>
                   </div>
-                  <div className={`h-2 w-2 rounded-full ${healthOk ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-rose-400 animate-pulse"}`} />
+                  <div
+                    className={`h-2 w-2 rounded-full ${healthOk ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-rose-400 animate-pulse"}`}
+                  />
                 </div>
 
                 <Button
@@ -896,14 +1082,23 @@ export default function DashboardPage() {
         {/* Evolution Status */}
         <div
           className="rounded-xl border overflow-hidden"
-          style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+          style={{
+            borderColor: "var(--os-stroke)",
+            background: "var(--os-surface-1)",
+          }}
         >
-          <PanelHeader title="Evolution Engine" subtitle="FAIM graph self-organization" />
+          <PanelHeader
+            title="Evolution Engine"
+            subtitle="FAIM graph self-organization"
+          />
           <div className="p-4 space-y-3">
             {evolveLoading ? (
               <div className="space-y-2">
                 {[0, 1, 2].map((i) => (
-                  <div key={i} className="h-10 rounded-lg animate-pulse bg-slate-700/40" />
+                  <div
+                    key={i}
+                    className="h-10 rounded-lg animate-pulse bg-slate-700/40"
+                  />
                 ))}
               </div>
             ) : (
@@ -911,7 +1106,9 @@ export default function DashboardPage() {
                 {[
                   {
                     label: "Status",
-                    value: evolveIsRunning ? "running" : (evolveJobStatus ?? "—"),
+                    value: evolveIsRunning
+                      ? "running"
+                      : (evolveJobStatus ?? "—"),
                     color: evolveHealthColor,
                   },
                   {
@@ -926,17 +1123,30 @@ export default function DashboardPage() {
                   },
                   {
                     label: "Due For Evolution",
-                    value: evolveStatus?.due?.is_due ? "Yes" : (evolveStatus ? "No" : "—"),
-                    color: evolveStatus?.due?.is_due ? "text-amber-400" : "text-emerald-400",
+                    value: evolveStatus?.due?.is_due
+                      ? "Yes"
+                      : evolveStatus
+                        ? "No"
+                        : "—",
+                    color: evolveStatus?.due?.is_due
+                      ? "text-amber-400"
+                      : "text-emerald-400",
                   },
                 ].map((row) => (
                   <div
                     key={row.label}
                     className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                    style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}
+                    style={{
+                      background: "var(--os-surface-2)",
+                      borderColor: "var(--os-stroke)",
+                    }}
                   >
                     <span className="text-xs text-slate-400">{row.label}</span>
-                    <span className={`text-xs font-mono font-semibold ${row.color}`}>{row.value}</span>
+                    <span
+                      className={`text-xs font-mono font-semibold ${row.color}`}
+                    >
+                      {row.value}
+                    </span>
                   </div>
                 ))}
 

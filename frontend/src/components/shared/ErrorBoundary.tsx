@@ -37,7 +37,9 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="flex h-[50vh] w-full items-center justify-center p-4">
           <ErrorState
             title="Something went wrong"
-            message={this.state.error?.message || "An unexpected error occurred."}
+            message={
+              this.state.error?.message || "An unexpected error occurred."
+            }
             onRetry={() => this.setState({ hasError: false })}
             onGoBack={() => window.location.reload()}
           />

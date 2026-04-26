@@ -52,12 +52,25 @@ export function NeuralCoreStatus() {
     <div className="flex items-center gap-4 px-3 py-1.5 rounded-xl bg-slate-900/40 border border-slate-800/50 backdrop-blur-md">
       {/* GPU Badge */}
       <div className="flex items-center gap-1.5">
-        <div className={`p-1 rounded-md ${stats?.gpu_active ? "bg-amber-500/10" : "bg-slate-800"}`}>
-          <Zap size={12} className={stats?.gpu_active ? "text-amber-400 animate-pulse" : "text-slate-500"} />
+        <div
+          className={`p-1 rounded-md ${stats?.gpu_active ? "bg-amber-500/10" : "bg-slate-800"}`}
+        >
+          <Zap
+            size={12}
+            className={
+              stats?.gpu_active
+                ? "text-amber-400 animate-pulse"
+                : "text-slate-500"
+            }
+          />
         </div>
         <div className="flex flex-col">
-          <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Engine</span>
-          <span className={`text-[10px] font-semibold ${stats?.gpu_active ? "text-amber-400" : "text-slate-300"}`}>
+          <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">
+            Engine
+          </span>
+          <span
+            className={`text-[10px] font-semibold ${stats?.gpu_active ? "text-amber-400" : "text-slate-300"}`}
+          >
             {stats?.gpu_active ? "GPU ACCEL" : "CPU OPTIMIZED"}
           </span>
         </div>
@@ -67,13 +80,25 @@ export function NeuralCoreStatus() {
 
       {/* Queue Status */}
       <div className="flex items-center gap-1.5">
-        <div className={`p-1 rounded-md ${stats?.queue_depth && stats.queue_depth > 0 ? "bg-cyan-500/10" : "bg-slate-800"}`}>
-          <Activity size={12} className={stats?.queue_depth && stats.queue_depth > 0 ? "text-cyan-400 animate-pulse" : "text-slate-500"} />
+        <div
+          className={`p-1 rounded-md ${stats?.queue_depth && stats.queue_depth > 0 ? "bg-cyan-500/10" : "bg-slate-800"}`}
+        >
+          <Activity
+            size={12}
+            className={
+              stats?.queue_depth && stats.queue_depth > 0
+                ? "text-cyan-400 animate-pulse"
+                : "text-slate-500"
+            }
+          />
         </div>
         <div className="flex flex-col">
-          <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Throughput</span>
+          <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">
+            Throughput
+          </span>
           <span className="text-[10px] font-semibold text-cyan-400">
-            {stats?.throughput.toFixed(1)} <span className="text-slate-500 font-normal">nodes/s</span>
+            {stats?.throughput.toFixed(1)}{" "}
+            <span className="text-slate-500 font-normal">nodes/s</span>
           </span>
         </div>
       </div>
@@ -86,9 +111,12 @@ export function NeuralCoreStatus() {
           <BarChart3 size={12} />
         </div>
         <div className="flex flex-col">
-          <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Hot Cache</span>
+          <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">
+            Hot Cache
+          </span>
           <span className="text-[10px] font-semibold text-violet-400">
-            {stats?.hot_cache_size} <span className="text-slate-500 font-normal">items</span>
+            {stats?.hot_cache_size}{" "}
+            <span className="text-slate-500 font-normal">items</span>
           </span>
         </div>
       </div>
@@ -98,11 +126,22 @@ export function NeuralCoreStatus() {
       {/* System Health */}
       <div className="flex items-center gap-3">
         <div className="flex flex-col pr-1">
-          <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">Stack</span>
+          <span className="text-[9px] uppercase tracking-wider text-slate-500 font-bold">
+            Stack
+          </span>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <div title="Redis Cache" className={`w-1.5 h-1.5 rounded-full ${stats?.system_health?.redis ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : "bg-red-500"}`} />
-            <div title="Qdrant Vector DB" className={`w-1.5 h-1.5 rounded-full ${stats?.system_health?.qdrant ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : "bg-red-500"}`} />
-            <div title="AES encryption" className={`w-1.5 h-1.5 rounded-full ${stats?.system_health?.encryption ? "bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]" : "bg-slate-700"}`} />
+            <div
+              title="Redis Cache"
+              className={`w-1.5 h-1.5 rounded-full ${stats?.system_health?.redis ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : "bg-red-500"}`}
+            />
+            <div
+              title="Qdrant Vector DB"
+              className={`w-1.5 h-1.5 rounded-full ${stats?.system_health?.qdrant ? "bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]" : "bg-red-500"}`}
+            />
+            <div
+              title="AES encryption"
+              className={`w-1.5 h-1.5 rounded-full ${stats?.system_health?.encryption ? "bg-blue-500 shadow-[0_0_5px_rgba(59,130,246,0.5)]" : "bg-slate-700"}`}
+            />
           </div>
         </div>
       </div>

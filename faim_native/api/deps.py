@@ -207,9 +207,9 @@ def _audit_scope_denied(request: Request, missing: Sequence[str]) -> None:
         actor=f"{getattr(request.state, 'auth_method', 'unknown')}:scope_guard",
         request_id=(
             getattr(request.state, "request_id", None)
-            or getattr(getattr(request, "headers", {}), "get", lambda _k, _d=None: None)(
-                "X-Request-Id"
-            )
+            or getattr(
+                getattr(request, "headers", {}), "get", lambda _k, _d=None: None
+            )("X-Request-Id")
         ),
         meta={
             "missing_scopes": sorted({str(scope) for scope in missing if str(scope)}),

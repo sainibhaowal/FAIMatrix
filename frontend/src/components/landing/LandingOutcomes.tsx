@@ -51,86 +51,123 @@ const AUDIENCE = [
     label: "Platform Teams",
     text: "Integrate via API, control workflows, and keep the stack self-hostable.",
   },
-];
-
-export default function LandingOutcomes() {
+];export default function LandingOutcomes() {
   return (
-    <section className="py-24 px-4 bg-slate-950">
-      <div className="max-w-6xl mx-auto">
+    <section className="py-28 px-4 bg-slate-950 relative overflow-hidden">
+      {/* Background Structures */}
+      <div className="absolute inset-0 faim-grid opacity-20" />
+      <div className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-emerald-500/10 to-transparent" />
+      <div className="absolute top-1/4 -right-20 w-64 h-64 bg-emerald-500/5 blur-[100px] rounded-full" />
+
+      <div className="max-w-6xl mx-auto relative z-10">
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
+          initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-12"
+          transition={{ duration: 0.7, ease: "easeOut" }}
+          className="text-center mb-16"
         >
-          <span className="text-emerald-400 text-sm font-medium tracking-wider uppercase">
+          <motion.span 
+            initial={{ opacity: 0, scale: 0.9 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            className="inline-block px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold tracking-widest uppercase mb-4"
+          >
             Why Teams Adopt FAIM
-          </span>
-          <h2 className="mt-3 text-3xl md:text-4xl font-bold text-white">
-            Real outcomes for production knowledge work
+          </motion.span>
+          <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight">
+            Real outcomes for <br className="hidden md:block" />
+            <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">production knowledge</span> work
           </h2>
-          <p className="mt-4 text-slate-400 max-w-3xl mx-auto">
+          <p className="mt-6 text-slate-400 max-w-3xl mx-auto text-lg leading-relaxed">
             FAIM is built to support the workflows companies actually need:
             upload, inspect, rebuild, query, explain, and operate with confidence.
           </p>
         </motion.div>
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
           {OUTCOMES.map((item, index) => (
             <motion.div
               key={item.title}
-              initial={{ opacity: 0, y: 18 }}
+              initial={{ opacity: 0, y: 40 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-30px" }}
-              transition={{ duration: 0.45, delay: index * 0.06 }}
-              className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6"
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.5, delay: index * 0.05 }}
+              whileHover={{ y: -5, transition: { duration: 0.2 } }}
+              className="group relative rounded-3xl border border-slate-800 bg-slate-900/30 p-8 hover:border-emerald-500/30 hover:bg-slate-900/50 transition-all duration-300"
             >
-              <h3 className="text-lg font-semibold text-white">{item.title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-slate-400">{item.text}</p>
+              <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/5 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+              <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">{item.title}</h3>
+              <p className="mt-4 text-sm leading-relaxed text-slate-500 group-hover:text-slate-400 transition-colors">
+                {item.text}
+              </p>
             </motion.div>
           ))}
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6 mt-8">
+        <div className="grid lg:grid-cols-2 gap-8 mt-12">
+          {/* Typical Workflow */}
           <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-30px" }}
-            transition={{ duration: 0.45 }}
-            className="rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.04] p-6"
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="group rounded-3xl border border-emerald-500/10 bg-emerald-500/[0.02] p-8 hover:border-emerald-500/20 transition-all"
           >
-            <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-cyan-300/80">
-              Typical Workflow
-            </p>
-            <div className="mt-4 space-y-3">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-8 h-px bg-emerald-500/40" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-emerald-400/80">
+                Typical Workflow
+              </p>
+            </div>
+            <div className="space-y-4">
               {WORKFLOWS.map((step, index) => (
-                <div key={step} className="flex items-start gap-3 text-sm text-slate-300">
-                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-cyan-500/30 bg-cyan-500/10 text-[10px] font-semibold text-cyan-300">
+                <motion.div
+                  key={step}
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 * index }}
+                  className="flex items-start gap-4 group/step"
+                >
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-[10px] font-bold text-emerald-400 group-hover/step:bg-emerald-500 group-hover/step:text-slate-950 transition-all">
                     {index + 1}
                   </span>
-                  <span>{step}</span>
-                </div>
+                  <span className="text-sm text-slate-400 group-hover/step:text-slate-200 transition-colors leading-snug">
+                    {step}
+                  </span>
+                </motion.div>
               ))}
             </div>
           </motion.div>
 
+          {/* Built For */}
           <motion.div
-            initial={{ opacity: 0, y: 18 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-30px" }}
-            transition={{ duration: 0.45, delay: 0.06 }}
-            className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] p-6"
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="group rounded-3xl border border-purple-500/10 bg-purple-500/[0.02] p-8 hover:border-purple-500/20 transition-all"
           >
-            <p className="text-[10px] font-medium uppercase tracking-[0.28em] text-purple-300/80">
-              Built For
-            </p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
-              {AUDIENCE.map((item) => (
-                <div key={item.label} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-                  <h3 className="text-sm font-semibold text-white">{item.label}</h3>
-                  <p className="mt-2 text-sm text-slate-400 leading-relaxed">{item.text}</p>
-                </div>
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-8 h-px bg-purple-500/40" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-purple-400/80">
+                Built For
+              </p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-1">
+              {AUDIENCE.map((item, i) => (
+                <motion.div
+                  key={item.label}
+                  whileHover={{ x: 5 }}
+                  className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 hover:border-purple-500/30 transition-all"
+                >
+                  <h3 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                    <div className="w-1 h-1 rounded-full bg-purple-500" />
+                    {item.label}
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed group-hover:text-slate-400 transition-colors">
+                    {item.text}
+                  </p>
+                </motion.div>
               ))}
             </div>
           </motion.div>
