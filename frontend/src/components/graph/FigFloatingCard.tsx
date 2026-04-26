@@ -46,7 +46,10 @@ const STATE_LABELS: Record<FigNodeDisplayState, string> = {
   unknown: "Unknown",
 };
 
-const STATE_BADGE_VARIANT: Record<string, "default" | "secondary" | "outline" | "success" | "warning" | "error"> = {
+const STATE_BADGE_VARIANT: Record<
+  string,
+  "default" | "secondary" | "outline" | "success" | "warning" | "error"
+> = {
   active: "success",
   cold: "secondary",
   historical: "warning",
@@ -101,7 +104,10 @@ export default function FigFloatingCard({ node, x, y }: FigFloatingCardProps) {
       style={{ left, top }}
     >
       {/* State color strip */}
-      <div className="h-0.5 w-full rounded-t-xl" style={{ backgroundColor: stateColor }} />
+      <div
+        className="h-0.5 w-full rounded-t-xl"
+        style={{ backgroundColor: stateColor }}
+      />
 
       <div className="px-3 py-2.5 space-y-2">
         {/* Title */}
@@ -112,23 +118,33 @@ export default function FigFloatingCard({ node, x, y }: FigFloatingCardProps) {
           >
             {title}
           </p>
-          <span className="text-[9px] font-mono text-slate-500 shrink-0">{levelLabel}</span>
+          <span className="text-[9px] font-mono text-slate-500 shrink-0">
+            {levelLabel}
+          </span>
         </div>
 
         {/* Kind + State row */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <Badge size="sm" variant="outline">{node.kind}</Badge>
-          <Badge size="sm" variant={badgeVariant}>{stateLabel}</Badge>
+          <Badge size="sm" variant="outline">
+            {node.kind}
+          </Badge>
+          <Badge size="sm" variant={badgeVariant}>
+            {stateLabel}
+          </Badge>
         </div>
 
         {/* Metrics if available */}
         {node.metrics && (
           <div className="grid grid-cols-2 gap-1 text-[9px] text-slate-500">
             <span>
-              touches: <span className="text-slate-300 font-mono">{node.metrics.touch_count}</span>
+              touches:{" "}
+              <span className="text-slate-300 font-mono">
+                {node.metrics.touch_count}
+              </span>
             </span>
             <span>
-              residual: <span className="text-slate-300 font-mono">
+              residual:{" "}
+              <span className="text-slate-300 font-mono">
                 {typeof node.metrics.residual === "number"
                   ? node.metrics.residual.toFixed(3)
                   : "—"}

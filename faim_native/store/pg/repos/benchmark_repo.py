@@ -1,9 +1,10 @@
 """Repository for benchmark samples — time-series metric storage."""
 
-from typing import Dict, List, Optional
 from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+
+from sqlalchemy import and_, desc, select
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_, desc
 
 from store.pg.models_faim import BenchmarkSampleModel
 
@@ -44,14 +45,19 @@ class BenchmarkRepo:
     ) -> List[BenchmarkSampleModel]:
         """Query samples for a metric, newest first."""
         cutoff = datetime.now() - timedelta(hours=hours_back)
-        query = select(BenchmarkSampleModel).where(
-            and_(
-                BenchmarkSampleModel.tenant_id == tenant_id,
-                BenchmarkSampleModel.graph_id == graph_id,
-                BenchmarkSampleModel.metric_name == metric_name,
-                BenchmarkSampleModel.recorded_at >= cutoff,
+        query = (
+            select(BenchmarkSampleModel)
+            .where(
+                and_(
+                    BenchmarkSampleModel.tenant_id == tenant_id,
+                    BenchmarkSampleModel.graph_id == graph_id,
+                    BenchmarkSampleModel.metric_name == metric_name,
+                    BenchmarkSampleModel.recorded_at >= cutoff,
+                )
             )
-        ).order_by(desc(BenchmarkSampleModel.recorded_at)).limit(limit)
+            .order_by(desc(BenchmarkSampleModel.recorded_at))
+            .limit(limit)
+        )
         return list(session.execute(query).scalars())
 
     def get_latest(
@@ -62,13 +68,18 @@ class BenchmarkRepo:
         metric_name: str,
     ) -> Optional[BenchmarkSampleModel]:
         """Get the single most recent sample for a metric."""
-        query = select(BenchmarkSampleModel).where(
-            and_(
-                BenchmarkSampleModel.tenant_id == tenant_id,
-                BenchmarkSampleModel.graph_id == graph_id,
-                BenchmarkSampleModel.metric_name == metric_name,
+        query = (
+            select(BenchmarkSampleModel)
+            .where(
+                and_(
+                    BenchmarkSampleModel.tenant_id == tenant_id,
+                    BenchmarkSampleModel.graph_id == graph_id,
+                    BenchmarkSampleModel.metric_name == metric_name,
+                )
             )
-        ).order_by(desc(BenchmarkSampleModel.recorded_at)).limit(1)
+            .order_by(desc(BenchmarkSampleModel.recorded_at))
+            .limit(1)
+        )
         return session.execute(query).scalar()
 
     def cleanup_old(
@@ -80,6 +91,7 @@ class BenchmarkRepo:
         """Delete samples older than retention_days. Returns count deleted."""
         cutoff = datetime.now() - timedelta(days=retention_days)
         from sqlalchemy import delete
+
         stmt = delete(BenchmarkSampleModel).where(
             and_(
                 BenchmarkSampleModel.tenant_id == tenant_id,

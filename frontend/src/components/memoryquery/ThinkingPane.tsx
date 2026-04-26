@@ -5,12 +5,16 @@ import { ChevronDown, Brain } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface ThinkingPaneProps {
-  content: string;            // accumulated thinking text
-  durationMs?: number;        // set when thinking is complete
-  isActive: boolean;          // true = still streaming thinking tokens
+  content: string; // accumulated thinking text
+  durationMs?: number; // set when thinking is complete
+  isActive: boolean; // true = still streaming thinking tokens
 }
 
-export function ThinkingPane({ content, durationMs, isActive }: ThinkingPaneProps) {
+export function ThinkingPane({
+  content,
+  durationMs,
+  isActive,
+}: ThinkingPaneProps) {
   const [isExpanded, setIsExpanded] = useState(isActive);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -47,8 +51,8 @@ export function ThinkingPane({ content, durationMs, isActive }: ThinkingPaneProp
   const displayDuration = isActive
     ? `${elapsedSeconds}s`
     : durationMs
-    ? `${(durationMs / 1000).toFixed(1)}s`
-    : null;
+      ? `${(durationMs / 1000).toFixed(1)}s`
+      : null;
 
   return (
     <motion.div

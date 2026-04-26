@@ -69,7 +69,7 @@ export async function POST(req: Request): Promise<Response> {
           error: "invalid_request",
           message: "providerUrl, model, and messages are required",
         }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        { status: 400, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -116,7 +116,7 @@ export async function POST(req: Request): Promise<Response> {
           error: "provider_error",
           message: "Failed to connect to LLM provider",
         }),
-        { status: 502, headers: { "Content-Type": "application/json" } }
+        { status: 502, headers: { "Content-Type": "application/json" } },
       );
     }
 
@@ -132,7 +132,7 @@ export async function POST(req: Request): Promise<Response> {
             error: "unauthorized",
             message: "Invalid API key or unauthorized access to provider",
           }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
+          { status: 401, headers: { "Content-Type": "application/json" } },
         );
       }
 
@@ -141,7 +141,10 @@ export async function POST(req: Request): Promise<Response> {
           error: "provider_error",
           message: `Provider returned HTTP ${upstream.status}`,
         }),
-        { status: upstream.status, headers: { "Content-Type": "application/json" } }
+        {
+          status: upstream.status,
+          headers: { "Content-Type": "application/json" },
+        },
       );
     }
 
@@ -163,7 +166,7 @@ export async function POST(req: Request): Promise<Response> {
         error: "server_error",
         message: "Internal server error",
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
 }

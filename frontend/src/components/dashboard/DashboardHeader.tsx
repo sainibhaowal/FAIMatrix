@@ -35,7 +35,8 @@ export function DashboardHeader({
           )}
         </div>
         <p className="text-[var(--text-secondary)] text-sm mt-1 max-w-lg">
-          FAIM-Native Engine is operational. Multi-tenant isolation is active and hard-scoped to your secure environment.
+          FAIM-Native Engine is operational. Multi-tenant isolation is active
+          and hard-scoped to your secure environment.
         </p>
       </div>
       <div className="flex items-center gap-3">
@@ -53,7 +54,13 @@ export function DashboardHeader({
   );
 }
 
-function HealthBadge({ healthy, version }: { healthy: boolean; version?: string }) {
+function HealthBadge({
+  healthy,
+  version,
+}: {
+  healthy: boolean;
+  version?: string;
+}) {
   return (
     <div
       className={[
@@ -67,11 +74,15 @@ function HealthBadge({ healthy, version }: { healthy: boolean; version?: string 
       <span
         className={[
           "w-2 h-2 rounded-full",
-          healthy ? "bg-[var(--faim-success)] animate-pulse" : "bg-[var(--faim-error)]",
+          healthy
+            ? "bg-[var(--faim-success)] animate-pulse"
+            : "bg-[var(--faim-error)]",
         ].join(" ")}
       />
       {healthy ? "Healthy" : "Offline"}
-      {version && <span className="text-[var(--text-tertiary)]">v{version}</span>}
+      {version && (
+        <span className="text-[var(--text-tertiary)]">v{version}</span>
+      )}
     </div>
   );
 }

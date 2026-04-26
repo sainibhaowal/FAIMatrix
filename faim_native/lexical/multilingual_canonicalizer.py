@@ -6,7 +6,7 @@ import csv
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
+from typing import Dict, List, Mapping, Sequence, Tuple
 
 from lexical.de_light_stemmer import stem_de_tokens
 from lexical.transliteration import transliterate_de
@@ -49,8 +49,14 @@ def _load_lexicon_rows() -> List[Tuple[str, str, str]]:
 def load_en_de_lexicon() -> Dict[str, Dict[str, Tuple[str, str]]]:
     lexicon: Dict[str, Dict[str, Tuple[str, str]]] = {"en": {}, "de": {}}
     for concept_key, en_value, de_value in _load_lexicon_rows():
-        lexicon["en"][normalize_unicode_text(en_value)] = (concept_key, normalize_unicode_text(de_value))
-        lexicon["de"][transliterate_de(de_value)] = (concept_key, normalize_unicode_text(en_value))
+        lexicon["en"][normalize_unicode_text(en_value)] = (
+            concept_key,
+            normalize_unicode_text(de_value),
+        )
+        lexicon["de"][transliterate_de(de_value)] = (
+            concept_key,
+            normalize_unicode_text(en_value),
+        )
     return lexicon
 
 

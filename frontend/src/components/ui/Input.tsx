@@ -48,11 +48,12 @@ const inputVariants = cva(
       size: "md",
       state: "default",
     },
-  }
+  },
 );
 
 export interface InputProps
-  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
+  extends
+    Omit<React.InputHTMLAttributes<HTMLInputElement>, "size">,
     VariantProps<typeof inputVariants> {
   /** Left icon */
   leftIcon?: React.ReactNode;
@@ -92,7 +93,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       value,
       ...props
     },
-    ref
+    ref,
   ) => {
     const hasValue = value !== undefined && value !== "";
     const showClear = clearable && hasValue && onClear;
@@ -104,7 +105,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
             {label}
-            {required && <span className="text-[var(--faim-error)] ml-0.5">*</span>}
+            {required && (
+              <span className="text-[var(--faim-error)] ml-0.5">*</span>
+            )}
           </label>
         )}
 
@@ -153,7 +156,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           <p
             className={[
               "mt-1.5 text-xs",
-              error ? "text-[var(--faim-error)]" : "text-[var(--text-tertiary)]",
+              error
+                ? "text-[var(--faim-error)]"
+                : "text-[var(--text-tertiary)]",
             ].join(" ")}
           >
             {error || helperText}
@@ -161,7 +166,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         )}
       </div>
     );
-  }
+  },
 );
 Input.displayName = "Input";
 
@@ -169,7 +174,10 @@ Input.displayName = "Input";
    Search Input (convenience wrapper)
 ============================================================================= */
 
-export interface SearchInputProps extends Omit<InputProps, "leftIcon" | "type"> {
+export interface SearchInputProps extends Omit<
+  InputProps,
+  "leftIcon" | "type"
+> {
   onSearch?: (value: string) => void;
 }
 
@@ -192,7 +200,7 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
         {...props}
       />
     );
-  }
+  },
 );
 SearchInput.displayName = "SearchInput";
 
@@ -200,8 +208,7 @@ SearchInput.displayName = "SearchInput";
    Textarea
 ============================================================================= */
 
-export interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   /** Error message */
   error?: string;
   /** Helper text */
@@ -225,7 +232,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       required = false,
       ...props
     },
-    ref
+    ref,
   ) => {
     return (
       <div className={["w-full", containerClassName].join(" ")}>
@@ -233,7 +240,9 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         {label && (
           <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
             {label}
-            {required && <span className="text-[var(--faim-error)] ml-0.5">*</span>}
+            {required && (
+              <span className="text-[var(--faim-error)] ml-0.5">*</span>
+            )}
           </label>
         )}
 
@@ -263,7 +272,9 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           <p
             className={[
               "mt-1.5 text-xs",
-              error ? "text-[var(--faim-error)]" : "text-[var(--text-tertiary)]",
+              error
+                ? "text-[var(--faim-error)]"
+                : "text-[var(--text-tertiary)]",
             ].join(" ")}
           >
             {error || helperText}
@@ -271,6 +282,6 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         )}
       </div>
     );
-  }
+  },
 );
 Textarea.displayName = "Textarea";

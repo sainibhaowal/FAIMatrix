@@ -17,7 +17,8 @@ const EVOLUTION_PHASES = [
       { label: "Novelty N", value: "0.31", status: "normal" },
       { label: "Energy E", value: "1.41", status: "normal" },
     ],
-    description: "Engine reads the graph's vital signs. High \u039B (0.72) and high redundancy (0.54) signal: this graph needs to evolve.",
+    description:
+      "Engine reads the graph's vital signs. High \u039B (0.72) and high redundancy (0.54) signal: this graph needs to evolve.",
   },
   {
     id: "adapt",
@@ -30,7 +31,8 @@ const EVOLUTION_PHASES = [
       { label: "Adapted Threshold", value: "0.88", status: "active" },
       { label: "Prune Policy", value: "aggressive", status: "active" },
     ],
-    description: "High redundancy (R=0.54) triggers aggressive mode. Merge threshold drops from 0.95 to 0.88 \u2014 more pairs become merge candidates.",
+    description:
+      "High redundancy (R=0.54) triggers aggressive mode. Merge threshold drops from 0.95 to 0.88 \u2014 more pairs become merge candidates.",
   },
   {
     id: "merge",
@@ -43,7 +45,8 @@ const EVOLUTION_PHASES = [
       { label: "Winner Selection", value: "SHA-256", status: "normal" },
       { label: "Nodes Removed", value: "5", status: "high" },
     ],
-    description: "12 pairs above threshold. 5 merges executed. Each winner selected by lexicographic SHA-256 hash comparison \u2014 deterministic, provable.",
+    description:
+      "12 pairs above threshold. 5 merges executed. Each winner selected by lexicographic SHA-256 hash comparison \u2014 deterministic, provable.",
   },
   {
     id: "prune",
@@ -56,7 +59,8 @@ const EVOLUTION_PHASES = [
       { label: "Redundant Neighbors", value: "Yes", status: "normal" },
       { label: "Nodes Pruned", value: "3", status: "high" },
     ],
-    description: "3 nodes are old, rarely accessed, and have highly similar neighbors. Safe to prune \u2014 no information lost, graph gets leaner.",
+    description:
+      "3 nodes are old, rarely accessed, and have highly similar neighbors. Safe to prune \u2014 no information lost, graph gets leaner.",
   },
   {
     id: "invent",
@@ -69,7 +73,8 @@ const EVOLUTION_PHASES = [
       { label: "Macro Nodes Created", value: "2", status: "active" },
       { label: "Redundancy Reduced", value: "12%", status: "normal" },
     ],
-    description: "4 node groups repeatedly co-activate across documents. 2 qualify for macro-node invention. New level-2 nodes created as semantic summaries. The graph just invented its own concepts.",
+    description:
+      "4 node groups repeatedly co-activate across documents. 2 qualify for macro-node invention. New level-2 nodes created as semantic summaries. The graph just invented its own concepts.",
   },
   {
     id: "verify",
@@ -82,17 +87,51 @@ const EVOLUTION_PHASES = [
       { label: "No Orphan Edges", value: "\u2713", status: "pass" },
       { label: "Energy \u2264 2.0", value: "\u2713 (1.38)", status: "pass" },
     ],
-    description: "After all mutations, every invariant is re-checked. If any fails, the evolution is rejected. Graph version bumped. New graph_hash computed.",
+    description:
+      "After all mutations, every invariant is re-checked. If any fails, the evolution is rejected. Graph version bumped. New graph_hash computed.",
   },
 ];
 
-const colorMap: Record<string, { bg: string; text: string; border: string; dot: string }> = {
-  cyan: { bg: "bg-cyan-500/10", text: "text-cyan-400", border: "border-cyan-500/30", dot: "bg-cyan-400" },
-  amber: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/30", dot: "bg-amber-400" },
-  purple: { bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/30", dot: "bg-purple-400" },
-  rose: { bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/30", dot: "bg-rose-400" },
-  emerald: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/30", dot: "bg-emerald-400" },
-  blue: { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/30", dot: "bg-blue-400" },
+const colorMap: Record<
+  string,
+  { bg: string; text: string; border: string; dot: string }
+> = {
+  cyan: {
+    bg: "bg-cyan-500/10",
+    text: "text-cyan-400",
+    border: "border-cyan-500/30",
+    dot: "bg-cyan-400",
+  },
+  amber: {
+    bg: "bg-amber-500/10",
+    text: "text-amber-400",
+    border: "border-amber-500/30",
+    dot: "bg-amber-400",
+  },
+  purple: {
+    bg: "bg-purple-500/10",
+    text: "text-purple-400",
+    border: "border-purple-500/30",
+    dot: "bg-purple-400",
+  },
+  rose: {
+    bg: "bg-rose-500/10",
+    text: "text-rose-400",
+    border: "border-rose-500/30",
+    dot: "bg-rose-400",
+  },
+  emerald: {
+    bg: "bg-emerald-500/10",
+    text: "text-emerald-400",
+    border: "border-emerald-500/30",
+    dot: "bg-emerald-400",
+  },
+  blue: {
+    bg: "bg-blue-500/10",
+    text: "text-blue-400",
+    border: "border-blue-500/30",
+    dot: "bg-blue-400",
+  },
 };
 
 const statusColors: Record<string, string> = {
@@ -118,7 +157,10 @@ export default function EvolutionShowcase() {
   const c = colorMap[phase.color];
 
   return (
-    <section id="evolution" className="py-28 px-4 bg-gradient-to-b from-[#070a18] to-slate-950 relative overflow-hidden">
+    <section
+      id="evolution"
+      className="py-28 px-4 bg-gradient-to-b from-[#070a18] to-slate-950 relative overflow-hidden"
+    >
       <div className="absolute inset-0 faim-grid" />
 
       <div className="max-w-6xl mx-auto relative">
@@ -140,8 +182,9 @@ export default function EvolutionShowcase() {
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            No human intervention. The engine monitors its own fractal diagnostics,
-            adapts thresholds, merges redundancy, prunes dead weight, and invents new concepts.
+            No human intervention. The engine monitors its own fractal
+            diagnostics, adapts thresholds, merges redundancy, prunes dead
+            weight, and invents new concepts.
           </p>
         </motion.div>
 
@@ -153,16 +196,21 @@ export default function EvolutionShowcase() {
             return (
               <button
                 key={p.id}
-                onClick={() => { setActivePhase(i); setIsPlaying(false); }}
+                onClick={() => {
+                  setActivePhase(i);
+                  setIsPlaying(false);
+                }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-medium transition-all duration-300 ${
                   isActive
                     ? `${pc.border} ${pc.bg} ${pc.text}`
                     : "border-slate-800/50 text-slate-500 hover:border-slate-700"
                 }`}
               >
-                <span className={`w-2 h-2 rounded-full ${isActive ? pc.dot : "bg-slate-600"} ${
-                  isActive ? "animate-pulse" : ""
-                }`} />
+                <span
+                  className={`w-2 h-2 rounded-full ${isActive ? pc.dot : "bg-slate-600"} ${
+                    isActive ? "animate-pulse" : ""
+                  }`}
+                />
                 {p.title}
               </button>
             );
@@ -174,8 +222,18 @@ export default function EvolutionShowcase() {
             aria-label={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6" />
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10 9v6m4-6v6"
+                />
               </svg>
             ) : (
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -196,15 +254,21 @@ export default function EvolutionShowcase() {
             className="grid lg:grid-cols-2 gap-8"
           >
             {/* Left: Description */}
-            <div className={`p-8 rounded-2xl border ${c.border} bg-gradient-to-b from-slate-900/60 to-slate-900/20`}>
+            <div
+              className={`p-8 rounded-2xl border ${c.border} bg-gradient-to-b from-slate-900/60 to-slate-900/20`}
+            >
               <div className="flex items-center gap-3 mb-4">
-                <span className={`inline-flex items-center justify-center w-10 h-10 rounded-xl ${c.bg}`}>
+                <span
+                  className={`inline-flex items-center justify-center w-10 h-10 rounded-xl ${c.bg}`}
+                >
                   <span className={`text-lg font-bold font-mono ${c.text}`}>
                     {String(activePhase + 1).padStart(2, "0")}
                   </span>
                 </span>
                 <div>
-                  <h3 className="text-xl font-bold text-white">{phase.title}</h3>
+                  <h3 className="text-xl font-bold text-white">
+                    {phase.title}
+                  </h3>
                   <p className={`text-xs ${c.text}`}>{phase.subtitle}</p>
                 </div>
               </div>
@@ -216,15 +280,50 @@ export default function EvolutionShowcase() {
               {/* Visual: Evolution flow */}
               {phase.id === "invent" && (
                 <div className="p-4 rounded-lg bg-slate-950 border border-slate-800">
-                  <p className="text-[10px] text-slate-600 font-mono uppercase tracking-wider mb-3">Macro Node Structure</p>
+                  <p className="text-[10px] text-slate-600 font-mono uppercase tracking-wider mb-3">
+                    Macro Node Structure
+                  </p>
                   <div className="text-xs font-mono text-slate-400 space-y-1">
                     <p>{`{`}</p>
-                    <p className="pl-4"><span className="text-purple-400">&quot;kind&quot;</span>: <span className="text-emerald-400">&quot;macro&quot;</span>,</p>
-                    <p className="pl-4"><span className="text-purple-400">&quot;level&quot;</span>: <span className="text-cyan-400">2</span>,</p>
-                    <p className="pl-4"><span className="text-purple-400">&quot;v_native&quot;</span>: <span className="text-slate-500">normalized_mean(members)</span>,</p>
-                    <p className="pl-4"><span className="text-purple-400">&quot;members&quot;</span>: <span className="text-cyan-400">5</span>,</p>
-                    <p className="pl-4"><span className="text-purple-400">&quot;\u039B_at_invention&quot;</span>: <span className="text-amber-400">0.72</span>,</p>
-                    <p className="pl-4"><span className="text-purple-400">&quot;redundancy_reduced&quot;</span>: <span className="text-emerald-400">0.12</span></p>
+                    <p className="pl-4">
+                      <span className="text-purple-400">&quot;kind&quot;</span>:{" "}
+                      <span className="text-emerald-400">
+                        &quot;macro&quot;
+                      </span>
+                      ,
+                    </p>
+                    <p className="pl-4">
+                      <span className="text-purple-400">&quot;level&quot;</span>
+                      : <span className="text-cyan-400">2</span>,
+                    </p>
+                    <p className="pl-4">
+                      <span className="text-purple-400">
+                        &quot;v_native&quot;
+                      </span>
+                      :{" "}
+                      <span className="text-slate-500">
+                        normalized_mean(members)
+                      </span>
+                      ,
+                    </p>
+                    <p className="pl-4">
+                      <span className="text-purple-400">
+                        &quot;members&quot;
+                      </span>
+                      : <span className="text-cyan-400">5</span>,
+                    </p>
+                    <p className="pl-4">
+                      <span className="text-purple-400">
+                        &quot;\u039B_at_invention&quot;
+                      </span>
+                      : <span className="text-amber-400">0.72</span>,
+                    </p>
+                    <p className="pl-4">
+                      <span className="text-purple-400">
+                        &quot;redundancy_reduced&quot;
+                      </span>
+                      : <span className="text-emerald-400">0.12</span>
+                    </p>
                     <p>{`}`}</p>
                   </div>
                 </div>
@@ -232,12 +331,27 @@ export default function EvolutionShowcase() {
 
               {phase.id === "verify" && (
                 <div className="p-4 rounded-lg bg-slate-950 border border-emerald-500/20">
-                  <p className="text-xs font-mono text-emerald-400 mb-2">Evolution Result</p>
+                  <p className="text-xs font-mono text-emerald-400 mb-2">
+                    Evolution Result
+                  </p>
                   <div className="text-xs font-mono text-slate-400 space-y-1">
-                    <p>merges: <span className="text-white">5</span> | prunes: <span className="text-white">3</span> | inventions: <span className="text-white">2</span></p>
-                    <p>graph_version: <span className="text-white">43</span> \u2192 <span className="text-cyan-400">44</span></p>
-                    <p>graph_hash: <span className="text-cyan-400">sha256:b7f2e...</span></p>
-                    <p>invariants: <span className="text-emerald-400">8/8 passed</span></p>
+                    <p>
+                      merges: <span className="text-white">5</span> | prunes:{" "}
+                      <span className="text-white">3</span> | inventions:{" "}
+                      <span className="text-white">2</span>
+                    </p>
+                    <p>
+                      graph_version: <span className="text-white">43</span>{" "}
+                      \u2192 <span className="text-cyan-400">44</span>
+                    </p>
+                    <p>
+                      graph_hash:{" "}
+                      <span className="text-cyan-400">sha256:b7f2e...</span>
+                    </p>
+                    <p>
+                      invariants:{" "}
+                      <span className="text-emerald-400">8/8 passed</span>
+                    </p>
                   </div>
                 </div>
               )}
@@ -258,8 +372,12 @@ export default function EvolutionShowcase() {
                     transition={{ duration: 0.3, delay: i * 0.05 }}
                     className="flex items-center justify-between py-3 border-b border-slate-800/50 last:border-0"
                   >
-                    <span className="text-slate-400 text-sm">{metric.label}</span>
-                    <span className={`font-mono text-sm font-medium ${statusColors[metric.status]}`}>
+                    <span className="text-slate-400 text-sm">
+                      {metric.label}
+                    </span>
+                    <span
+                      className={`font-mono text-sm font-medium ${statusColors[metric.status]}`}
+                    >
                       {metric.value}
                     </span>
                   </motion.div>
@@ -268,15 +386,23 @@ export default function EvolutionShowcase() {
 
               {/* Invention thresholds */}
               <div className="mt-8 p-4 rounded-lg bg-slate-950 border border-slate-800">
-                <p className="text-[10px] text-slate-600 font-mono uppercase tracking-wider mb-2">Invention Thresholds</p>
+                <p className="text-[10px] text-slate-600 font-mono uppercase tracking-wider mb-2">
+                  Invention Thresholds
+                </p>
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div>
-                    <p className="text-white font-mono text-sm font-bold">0.3</p>
-                    <p className="text-slate-600 text-[10px]">\u039B threshold</p>
+                    <p className="text-white font-mono text-sm font-bold">
+                      0.3
+                    </p>
+                    <p className="text-slate-600 text-[10px]">
+                      \u039B threshold
+                    </p>
                   </div>
                   <div>
                     <p className="text-white font-mono text-sm font-bold">3x</p>
-                    <p className="text-slate-600 text-[10px]">min co-activation</p>
+                    <p className="text-slate-600 text-[10px]">
+                      min co-activation
+                    </p>
                   </div>
                   <div>
                     <p className="text-white font-mono text-sm font-bold">1%</p>

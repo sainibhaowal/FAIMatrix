@@ -2,7 +2,7 @@
 
 /**
  * Dialog Component
- * 
+ *
  * Animated modal dialog using Framer Motion.
  * shadcn/ui style with FAIM glass theme.
  */
@@ -52,7 +52,11 @@ export interface DialogContentProps {
   onClose?: () => void;
 }
 
-export function DialogContent({ children, className = "", onClose }: DialogContentProps) {
+export function DialogContent({
+  children,
+  className = "",
+  onClose,
+}: DialogContentProps) {
   return (
     <div
       className={`
@@ -77,15 +81,23 @@ export function DialogContent({ children, className = "", onClose }: DialogConte
   );
 }
 
-export function DialogHeader({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={`mb-4 ${className}`}>
-      {children}
-    </div>
-  );
+export function DialogHeader({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={`mb-4 ${className}`}>{children}</div>;
 }
 
-export function DialogTitle({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function DialogTitle({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <h2 className={`text-lg font-semibold text-slate-100 ${className}`}>
       {children}
@@ -93,18 +105,26 @@ export function DialogTitle({ children, className = "" }: { children: ReactNode;
   );
 }
 
-export function DialogDescription({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function DialogDescription({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <p className={`mt-1 text-sm text-slate-400 ${className}`}>
-      {children}
-    </p>
+    <p className={`mt-1 text-sm text-slate-400 ${className}`}>{children}</p>
   );
 }
 
-export function DialogFooter({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function DialogFooter({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className={`mt-6 flex justify-end gap-3 ${className}`}>
-      {children}
-    </div>
+    <div className={`mt-6 flex justify-end gap-3 ${className}`}>{children}</div>
   );
 }

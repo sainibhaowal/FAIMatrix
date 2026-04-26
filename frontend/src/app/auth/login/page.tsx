@@ -10,13 +10,7 @@ import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import {
-  Loader2,
-  Mail,
-  Lock,
-  ArrowRight,
-  ChevronLeft,
-} from "lucide-react";
+import { Loader2, Mail, Lock, ArrowRight, ChevronLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from "@/components/brand/Logo";
 
@@ -40,13 +34,13 @@ function LoginContent() {
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
+
     // Client-side validation
     if (!validateEmail(email)) {
       setError("Please enter a valid email address");
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -100,25 +94,30 @@ function LoginContent() {
       {/* Dynamic Background */}
       <div className="absolute inset-0 z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-500/10 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+        <div
+          className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 rounded-full blur-[120px] animate-pulse"
+          style={{ animationDelay: "2s" }}
+        />
         <div className="absolute top-[20%] right-[10%] w-[30%] h-[30%] bg-purple-500/5 rounded-full blur-[100px]" />
       </div>
 
       <div className="relative z-10 w-full max-w-md px-6">
         {/* Logo Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="text-center mb-10"
         >
           <div className="flex justify-center mb-4">
-             <Logo size="large" px={100} />
+            <Logo size="large" px={100} />
           </div>
           <h2 className="text-white text-3xl font-bold tracking-tight">
             FAIM<span className="text-cyan-400">ATRIX</span>
           </h2>
-          <p className="text-slate-500 text-sm mt-1 tracking-widest uppercase">Fractal AI Memory</p>
+          <p className="text-slate-500 text-sm mt-1 tracking-widest uppercase">
+            Fractal AI Memory
+          </p>
         </motion.div>
 
         {/* Card */}
@@ -138,7 +137,9 @@ function LoginContent() {
                 transition={{ duration: 0.3 }}
               >
                 <div className="mb-8">
-                  <h1 className="text-2xl font-bold text-white mb-2">Sign In</h1>
+                  <h1 className="text-2xl font-bold text-white mb-2">
+                    Sign In
+                  </h1>
                   <p className="text-slate-400 text-sm">
                     Enter your email to access your neural network.
                   </p>
@@ -164,9 +165,9 @@ function LoginContent() {
                   </div>
 
                   {error && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
+                      animate={{ opacity: 1, height: "auto" }}
                       className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 p-3 rounded-lg flex items-center gap-2"
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
@@ -196,7 +197,7 @@ function LoginContent() {
                 <div className="mt-8 pt-6 border-t border-white/5 text-center">
                   <p className="text-slate-500 text-sm">
                     Don&apos;t have an account?{" "}
-                    <Link 
+                    <Link
                       href="/auth/signup"
                       className="text-cyan-400 font-semibold hover:text-cyan-300 transition-colors"
                     >
@@ -214,7 +215,7 @@ function LoginContent() {
                 transition={{ duration: 0.3 }}
               >
                 <div className="mb-8">
-                  <button 
+                  <button
                     onClick={() => setStep("email")}
                     className="flex items-center gap-1 text-slate-500 hover:text-white transition-colors text-xs mb-4 group"
                   >
@@ -223,7 +224,8 @@ function LoginContent() {
                   </button>
                   <h1 className="text-2xl font-bold text-white mb-2">Verify</h1>
                   <p className="text-slate-400 text-sm">
-                    We&apos;ve sent a 6-digit code to <span className="text-cyan-400 font-medium">{email}</span>
+                    We&apos;ve sent a 6-digit code to{" "}
+                    <span className="text-cyan-400 font-medium">{email}</span>
                   </p>
                 </div>
 
@@ -248,7 +250,7 @@ function LoginContent() {
                   </div>
 
                   {error && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 p-3 rounded-lg"
@@ -276,11 +278,12 @@ function LoginContent() {
                 </form>
 
                 <div className="mt-8 text-center">
-                  <button 
+                  <button
                     onClick={handleRequestOtp}
                     className="text-slate-500 text-xs hover:text-cyan-400 transition-colors"
                   >
-                    Didn&apos;t receive a code? <span className="font-semibold underline">Resend</span>
+                    Didn&apos;t receive a code?{" "}
+                    <span className="font-semibold underline">Resend</span>
                   </button>
                 </div>
               </motion.div>
@@ -289,7 +292,7 @@ function LoginContent() {
         </motion.div>
 
         {/* Footer info */}
-        <motion.p 
+        <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8 }}
@@ -304,11 +307,13 @@ function LoginContent() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#020617]">
-        <Loader2 className="w-10 h-10 animate-spin text-cyan-500" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#020617]">
+          <Loader2 className="w-10 h-10 animate-spin text-cyan-500" />
+        </div>
+      }
+    >
       <LoginContent />
     </Suspense>
   );

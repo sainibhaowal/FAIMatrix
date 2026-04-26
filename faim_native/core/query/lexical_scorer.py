@@ -59,7 +59,9 @@ def _bm25_channel_score(
     return score / (1.0 + score)
 
 
-def _dice_score(query_counts: Mapping[str, int], doc_counts: Mapping[str, int]) -> float:
+def _dice_score(
+    query_counts: Mapping[str, int], doc_counts: Mapping[str, int]
+) -> float:
     if not query_counts or not doc_counts:
         return 0.0
     q_total = sum(query_counts.values())
@@ -98,16 +100,16 @@ def compute_lexical_score(
     word = _bm25_channel_score(
         query_repr.word_counts,
         doc_repr.word_counts,
-        dict(word_stats.get("df_map", {})),
-        doc_count=int(word_stats.get("doc_count", 0)),
+        dict(word_stats.get("df_map", {})),  # type: ignore[call-overload]
+        doc_count=int(word_stats.get("doc_count", 0)),  # type: ignore[call-overload]
         avg_len=float(word_stats.get("avg_len", 0.0)),
         doc_len=int(doc_repr.channel_lengths.get("word", 0)),
     )
     phrase_bm25 = _bm25_channel_score(
         query_repr.phrase_counts,
         doc_repr.phrase_counts,
-        dict(phrase_stats.get("df_map", {})),
-        doc_count=int(phrase_stats.get("doc_count", 0)),
+        dict(phrase_stats.get("df_map", {})),  # type: ignore[call-overload]
+        doc_count=int(phrase_stats.get("doc_count", 0)),  # type: ignore[call-overload]
         avg_len=float(phrase_stats.get("avg_len", 0.0)),
         doc_len=int(doc_repr.channel_lengths.get("phrase", 0)),
     )
@@ -116,8 +118,8 @@ def compute_lexical_score(
     skip = _bm25_channel_score(
         query_repr.skip_counts,
         doc_repr.skip_counts,
-        dict(skip_stats.get("df_map", {})),
-        doc_count=int(skip_stats.get("doc_count", 0)),
+        dict(skip_stats.get("df_map", {})),  # type: ignore[call-overload]
+        doc_count=int(skip_stats.get("doc_count", 0)),  # type: ignore[call-overload]
         avg_len=float(skip_stats.get("avg_len", 0.0)),
         doc_len=int(doc_repr.channel_lengths.get("skip", 0)),
     )

@@ -63,11 +63,12 @@ const badgeVariants = cva(
       variant: "default",
       size: "sm",
     },
-  }
+  },
 );
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLSpanElement>,
+  extends
+    React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {
   /** Show a dot indicator */
   dot?: boolean;
@@ -108,9 +109,23 @@ export const Badge: React.FC<BadgeProps> = ({
    FAIM UI — Status Badge (semantic presets)
 ============================================================================= */
 
-type StatusType = "online" | "offline" | "busy" | "away" | "pending" | "active" | "inactive";
+type StatusType =
+  | "online"
+  | "offline"
+  | "busy"
+  | "away"
+  | "pending"
+  | "active"
+  | "inactive";
 
-const statusConfig: Record<StatusType, { label: string; variant: "success" | "error" | "warning" | "default"; dot: boolean }> = {
+const statusConfig: Record<
+  StatusType,
+  {
+    label: string;
+    variant: "success" | "error" | "warning" | "default";
+    dot: boolean;
+  }
+> = {
   online: { label: "Online", variant: "success", dot: true },
   offline: { label: "Offline", variant: "error", dot: true },
   busy: { label: "Busy", variant: "error", dot: true },

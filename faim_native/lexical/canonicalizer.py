@@ -17,8 +17,12 @@ try:
 except (ImportError, RuntimeError):
     from encoding.porter_stemmer import STOP_WORDS
     from encoding.text_vectorizer import normalize_text
+
     from lexical.lemmatizer_rules import lemmatize_tokens
-    from lexical.phrase_patterns import extract_phrase_labels, extract_phrase_surface_map
+    from lexical.phrase_patterns import (
+        extract_phrase_labels,
+        extract_phrase_surface_map,
+    )
 
 
 _WORD_RE = re.compile(r"[a-z0-9]+(?:[._:/-][a-z0-9]+)*")
@@ -66,7 +70,9 @@ def canonicalize_text(
         for value in lexicon.get(token, ()):
             if value and value not in expansions:
                 expansions.append(value)
-    for surface, canonical in sorted(phrase_map.items(), key=lambda item: (item[0], item[1])):
+    for surface, canonical in sorted(
+        phrase_map.items(), key=lambda item: (item[0], item[1])
+    ):
         for value in lexicon.get(surface, (canonical,)):
             if value and value not in expansions:
                 expansions.append(value)
@@ -92,7 +98,7 @@ def canonicalize_text(
 
 
 def canonical_map_from_entries(
-    rows: Iterable[Tuple[str, str]]
+    rows: Iterable[Tuple[str, str]],
 ) -> Dict[str, Tuple[str, ...]]:
     """Build stable surface->canonical map from row tuples."""
     mapped: Dict[str, List[str]] = {}
@@ -105,4 +111,9 @@ def canonical_map_from_entries(
     return {k: tuple(v) for k, v in sorted(mapped.items(), key=lambda item: item[0])}
 
 
-__all__ = ["CanonicalText", "canonical_map_from_entries", "canonicalize_text", "tokenize_words"]
+__all__ = [
+    "CanonicalText",
+    "canonical_map_from_entries",
+    "canonicalize_text",
+    "tokenize_words",
+]

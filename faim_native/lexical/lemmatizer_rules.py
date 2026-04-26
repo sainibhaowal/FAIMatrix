@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Dict
 
-
 IRREGULAR_LEMMAS: Dict[str, str] = {
     "am": "be",
     "are": "be",

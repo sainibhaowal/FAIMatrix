@@ -7,7 +7,13 @@
  * Threads are persisted to localStorage under "faim.threads".
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useCallback,
+  useEffect,
+} from "react";
 import { getSession } from "next-auth/react";
 import { getActiveProvider } from "@/lib/providers";
 
@@ -19,7 +25,7 @@ export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
-  thinking?: string;           // LLM reasoning/thinking content
+  thinking?: string; // LLM reasoning/thinking content
   thinkingDurationMs?: number; // time spent thinking (ms)
   timestamp: string;
   queryData?: FaimQueryResponse | null;
@@ -183,10 +189,7 @@ function makeTitle(firstMessage: string): string {
 
 function resolveStoredGraphId(): string | null {
   if (typeof window === "undefined") return null;
-  const keys = [
-    "faim.universe_graph_id",
-    "faim_universe_graph_id",
-  ];
+  const keys = ["faim.universe_graph_id", "faim_universe_graph_id"];
   for (const key of keys) {
     const value = window.localStorage.getItem(key);
     if (value?.trim()) return value.trim();
@@ -194,7 +197,9 @@ function resolveStoredGraphId(): string | null {
   return null;
 }
 
-async function buildAuthorizedHeaders(extra?: HeadersInit): Promise<HeadersInit> {
+async function buildAuthorizedHeaders(
+  extra?: HeadersInit,
+): Promise<HeadersInit> {
   const session = await getSession();
   const token = (session as { accessToken?: string } | null)?.accessToken;
   return {
@@ -251,13 +256,17 @@ interface MemoryInventory {
   files: MemoryFileEntry[];
 }
 
-function buildFaimSystemPrompt(queryData: FaimQueryResponse, thinkingEnabled: boolean, inventory?: MemoryInventory): string {
-  const spans   = queryData.answer?.supporting_spans    ?? [];
-  const quotes  = queryData.answer?.quotes              ?? [];
-  const direct  = queryData.answer?.direct_answer       ?? "";
-  const contra  = queryData.answer?.contradiction_notes ?? [];
-  const conf    = queryData.answer?.confidence          ?? 0;
-  const results = queryData.results                     ?? [];
+function buildFaimSystemPrompt(
+  queryData: FaimQueryResponse,
+  thinkingEnabled: boolean,
+  inventory?: MemoryInventory,
+): string {
+  const spans = queryData.answer?.supporting_spans ?? [];
+  const quotes = queryData.answer?.quotes ?? [];
+  const direct = queryData.answer?.direct_answer ?? "";
+  const contra = queryData.answer?.contradiction_notes ?? [];
+  const conf = queryData.answer?.confidence ?? 0;
+  const results = queryData.results ?? [];
 
   // Build rawId → filename map from inventory
   const rawIdToFilename: Record<string, string> = {};
@@ -277,7 +286,9 @@ function buildFaimSystemPrompt(queryData: FaimQueryResponse, thinkingEnabled: bo
     const filename = rawIdToFilename[rawId] ?? rawId;
     const page = anchor.page ?? anchor.page_number;
     const section = anchor.section as string | undefined;
-    const blockType = (anchor.block_type ?? anchor.content_type ?? "text") as string;
+    const blockType = (anchor.block_type ??
+      anchor.content_type ??
+      "text") as string;
     const column = anchor.column as string | undefined;
     const parts: string[] = [filename];
     if (page != null) parts.push(`p.${page}`);
@@ -287,7 +298,7 @@ function buildFaimSystemPrompt(queryData: FaimQueryResponse, thinkingEnabled: bo
   }
 
   function fmtScore(score: number): string {
-    if (score >= 0.80) return `${Math.round(score * 100)}% ▲ high`;
+    if (score >= 0.8) return `${Math.round(score * 100)}% ▲ high`;
     if (score >= 0.55) return `${Math.round(score * 100)}% ◆ moderate`;
     return `${Math.round(score * 100)}% ▼ weak`;
   }
@@ -296,59 +307,97 @@ function buildFaimSystemPrompt(queryData: FaimQueryResponse, thinkingEnabled: bo
 
   // ── Identity ──────────────────────────────────────────────────────────────
   lines.push("You are FAIM SentineL — a retrieval-grounded memory assistant.");
-  lines.push("Every answer you give must be derived exclusively from the FAIM memory nodes below.");
-  lines.push("You have no internet access, no training knowledge, no outside facts.");
-  lines.push("If the answer is not in the nodes below, say so precisely: 'That data is not in your FAIM memory.'");
+  lines.push(
+    "Every answer you give must be derived exclusively from the FAIM memory nodes below.",
+  );
+  lines.push(
+    "You have no internet access, no training knowledge, no outside facts.",
+  );
+  lines.push(
+    "If the answer is not in the nodes below, say so precisely: 'That data is not in your FAIM memory.'",
+  );
   lines.push("");
 
   // ── Memory inventory (document metadata) ─────────────────────────────────
   if (inventory && inventory.totalFiles > 0) {
-    lines.push(`MEMORY INVENTORY — your complete knowledge base has ${inventory.totalFiles} document(s):`);
-    const typeList = Object.entries(inventory.byType).map(([t, n]) => `${t.toUpperCase()} (${n})`).join(", ");
+    lines.push(
+      `MEMORY INVENTORY — your complete knowledge base has ${inventory.totalFiles} document(s):`,
+    );
+    const typeList = Object.entries(inventory.byType)
+      .map(([t, n]) => `${t.toUpperCase()} (${n})`)
+      .join(", ");
     if (typeList) lines.push(`  File types: ${typeList}`);
     inventory.files.forEach((f) => {
-      const when = f.ingested_at ? new Date(f.ingested_at).toLocaleDateString() : (f.uploaded_at ? new Date(f.uploaded_at).toLocaleDateString() : "unknown date");
-      lines.push(`  • ${f.filename} | ${f.node_count} nodes | ingested ${when} | id:${f.raw_id}`);
+      const when = f.ingested_at
+        ? new Date(f.ingested_at).toLocaleDateString()
+        : f.uploaded_at
+          ? new Date(f.uploaded_at).toLocaleDateString()
+          : "unknown date";
+      lines.push(
+        `  • ${f.filename} | ${f.node_count} nodes | ingested ${when} | id:${f.raw_id}`,
+      );
     });
-    lines.push("  → Use this inventory to answer: 'how many docs?', 'what files?', 'when ingested?', 'how many nodes?'");
+    lines.push(
+      "  → Use this inventory to answer: 'how many docs?', 'what files?', 'when ingested?', 'how many nodes?'",
+    );
     lines.push("");
   } else if (inventory && inventory.totalFiles === 0) {
-    lines.push("MEMORY INVENTORY: No documents have been ingested yet. Tell the user to upload files in Storage.");
+    lines.push(
+      "MEMORY INVENTORY: No documents have been ingested yet. Tell the user to upload files in Storage.",
+    );
     lines.push("");
   }
 
   // ── Signal legend ─────────────────────────────────────────────────────────
-  lines.push("SIGNAL LEGEND (FAIM computed these — use them to shape your answer):");
+  lines.push(
+    "SIGNAL LEGEND (FAIM computed these — use them to shape your answer):",
+  );
   lines.push("  CURRENT    → most recent, authoritative version of this fact");
-  lines.push("  SUPERSEDED → an older version exists; a newer node overrides it");
-  lines.push("  CONFLICTED → value contradicts another node; flag both to the user");
+  lines.push(
+    "  SUPERSEDED → an older version exists; a newer node overrides it",
+  );
+  lines.push(
+    "  CONFLICTED → value contradicts another node; flag both to the user",
+  );
   lines.push("  score ≥80% → treat as strong evidence; cite source and page");
   lines.push("  score 55–79% → supporting evidence; note if other nodes agree");
   lines.push("  score <55%  → weak match; qualify with 'weakly supported'");
-  lines.push(`  graph confidence: ${Math.round(conf * 100)}% — your answer certainty ceiling`);
+  lines.push(
+    `  graph confidence: ${Math.round(conf * 100)}% — your answer certainty ceiling`,
+  );
   lines.push("");
 
   // ── Retrieved nodes ───────────────────────────────────────────────────────
   if (spans.length > 0) {
     lines.push("RETRIEVED MEMORY NODES:");
     spans.forEach((s, i) => {
-      const status = s.temporal_status ? ` [${s.temporal_status}]` : " [CURRENT]";
+      const status = s.temporal_status
+        ? ` [${s.temporal_status}]`
+        : " [CURRENT]";
       const meta = fmtNodeMeta(s.node_id);
-      lines.push(`--- Node ${i + 1} | ${fmtScore(s.score)} | ${status} | ${meta}`);
+      lines.push(
+        `--- Node ${i + 1} | ${fmtScore(s.score)} | ${status} | ${meta}`,
+      );
       lines.push(s.text);
     });
     lines.push("");
   } else if (results.length === 0) {
     lines.push("RETRIEVED MEMORY NODES: none");
-    lines.push("→ No nodes matched this query. Respond: 'No memory found for this query — ingest that data first.'");
+    lines.push(
+      "→ No nodes matched this query. Respond: 'No memory found for this query — ingest that data first.'",
+    );
     lines.push("");
   }
 
   // ── FAIM's own direct answer (extractive, pre-LLM) ───────────────────────
   if (direct) {
-    lines.push(`FAIM EXTRACTIVE SUMMARY (score: ${Math.round(conf * 100)}% confidence):`);
+    lines.push(
+      `FAIM EXTRACTIVE SUMMARY (score: ${Math.round(conf * 100)}% confidence):`,
+    );
     lines.push(direct);
-    lines.push("→ Use this as your factual anchor. Expand on it using the nodes above. Do not contradict it.");
+    lines.push(
+      "→ Use this as your factual anchor. Expand on it using the nodes above. Do not contradict it.",
+    );
     lines.push("");
   }
 
@@ -356,7 +405,9 @@ function buildFaimSystemPrompt(queryData: FaimQueryResponse, thinkingEnabled: bo
   if (quotes.length > 0) {
     lines.push("VERBATIM QUOTES FROM DOCUMENTS:");
     quotes.forEach((q) => lines.push(`  "${q}"`));
-    lines.push("→ These are exact document text. Use them directly in your answer when relevant.");
+    lines.push(
+      "→ These are exact document text. Use them directly in your answer when relevant.",
+    );
     lines.push("");
   }
 
@@ -364,18 +415,33 @@ function buildFaimSystemPrompt(queryData: FaimQueryResponse, thinkingEnabled: bo
   if (contra.length > 0) {
     lines.push("CONTRADICTIONS DETECTED BY FAIM:");
     contra.forEach((c) => lines.push(`  ⚠ ${c}`));
-    lines.push("→ Surface these contradictions explicitly to the user. Do not resolve them by guessing.");
+    lines.push(
+      "→ Surface these contradictions explicitly to the user. Do not resolve them by guessing.",
+    );
     lines.push("");
   }
 
   // ── Behavioural contract (minimal, data-tied) ─────────────────────────────
   lines.push("RESPONSE CONTRACT:");
-  lines.push("  1. Cite source + page for every factual claim (format: [filename · p.N])");
-  lines.push("  2. SUPERSEDED nodes: state 'older data — superseded by Node X'");
-  lines.push("  3. CONFLICTED nodes: state both values and the conflict — never pick one silently");
-  lines.push(`  4. If graph confidence is below 40% (current: ${Math.round(conf * 100)}%), open with a confidence caveat`);
-  lines.push("  5. No answer exists in nodes → say exactly what is missing, nothing more");
-  if (thinkingEnabled) lines.push("  6. Reason through node scores and temporal status before composing your answer");
+  lines.push(
+    "  1. Cite source + page for every factual claim (format: [filename · p.N])",
+  );
+  lines.push(
+    "  2. SUPERSEDED nodes: state 'older data — superseded by Node X'",
+  );
+  lines.push(
+    "  3. CONFLICTED nodes: state both values and the conflict — never pick one silently",
+  );
+  lines.push(
+    `  4. If graph confidence is below 40% (current: ${Math.round(conf * 100)}%), open with a confidence caveat`,
+  );
+  lines.push(
+    "  5. No answer exists in nodes → say exactly what is missing, nothing more",
+  );
+  if (thinkingEnabled)
+    lines.push(
+      "  6. Reason through node scores and temporal status before composing your answer",
+    );
 
   return lines.join("\n");
 }
@@ -440,7 +506,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? null;
   const messages = React.useMemo(
     () => activeThread?.messages ?? [],
-    [activeThread]
+    [activeThread],
   );
 
   // ── Thread actions ──────────────────────────────────────────────────────
@@ -485,12 +551,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         return next;
       });
     },
-    [activeThreadId]
+    [activeThreadId],
   );
 
   const renameThread = useCallback((id: string, title: string) => {
     setThreads((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, title: title.trim() || t.title } : t))
+      prev.map((t) =>
+        t.id === id ? { ...t, title: title.trim() || t.title } : t,
+      ),
     );
   }, []);
 
@@ -563,7 +631,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 updatedAt: isoNow(),
               },
               ...prev,
-            ]
+            ],
       );
 
       setIsStreaming(true);
@@ -573,7 +641,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       // Capture history BEFORE we append the new messages (messages is still stale here)
       const historySnapshot = messages
         .slice(-8)
-        .map((m) => ({ role: m.role as "user" | "assistant", content: m.content || "" }))
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content || "",
+        }))
         .filter((m) => m.content.trim());
 
       try {
@@ -600,7 +671,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
           if (!queryRes.ok) {
             const errData = await queryRes.json().catch(() => ({}));
-            throw new Error(errData.detail || errData.message || `HTTP ${queryRes.status}`);
+            throw new Error(
+              errData.detail || errData.message || `HTTP ${queryRes.status}`,
+            );
           }
 
           queryData = (await queryRes.json()) as FaimQueryResponse;
@@ -608,13 +681,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           // Attach queryData so the sources card appears while LLM streams
           setThreads((prev) =>
             prev.map((t) =>
-              t.id !== threadId ? t : {
-                ...t,
-                messages: t.messages.map((m) =>
-                  m.id === assistantId ? { ...m, queryData } : m
-                ),
-              }
-            )
+              t.id !== threadId
+                ? t
+                : {
+                    ...t,
+                    messages: t.messages.map((m) =>
+                      m.id === assistantId ? { ...m, queryData } : m,
+                    ),
+                  },
+            ),
           );
         }
 
@@ -631,13 +706,17 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             : "Hi! Ask me anything about your ingested documents and data.";
           setThreads((prev) =>
             prev.map((t) =>
-              t.id !== threadId ? t : {
-                ...t,
-                messages: t.messages.map((m) =>
-                  m.id === assistantId ? { ...m, content: fallback, queryData } : m
-                ),
-              }
-            )
+              t.id !== threadId
+                ? t
+                : {
+                    ...t,
+                    messages: t.messages.map((m) =>
+                      m.id === assistantId
+                        ? { ...m, content: fallback, queryData }
+                        : m,
+                    ),
+                  },
+            ),
           );
           return;
         }
@@ -646,12 +725,23 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         let inventory: MemoryInventory | undefined;
         try {
           const [summaryRes, filesRes] = await Promise.all([
-            fetch(`/api/v1/storage/summary?graph_id=${encodeURIComponent(graphId)}`, { headers }),
-            fetch(`/api/v1/storage/files?graph_id=${encodeURIComponent(graphId)}&limit=50&status=ready`, { headers }),
+            fetch(
+              `/api/v1/storage/summary?graph_id=${encodeURIComponent(graphId)}`,
+              { headers },
+            ),
+            fetch(
+              `/api/v1/storage/files?graph_id=${encodeURIComponent(graphId)}&limit=50&status=ready`,
+              { headers },
+            ),
           ]);
           if (summaryRes.ok && filesRes.ok) {
-            const summary = await summaryRes.json() as { total_files: number; by_type: Record<string, number> };
-            const filesData = await filesRes.json() as { items?: Array<MemoryFileEntry> };
+            const summary = (await summaryRes.json()) as {
+              total_files: number;
+              by_type: Record<string, number>;
+            };
+            const filesData = (await filesRes.json()) as {
+              items?: Array<MemoryFileEntry>;
+            };
             inventory = {
               totalFiles: summary.total_files ?? 0,
               byType: summary.by_type ?? {},
@@ -687,7 +777,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         if (!chatRes.ok) {
           const errData = await chatRes.json().catch(() => ({}));
-          throw new Error(errData.error || `Provider error (${chatRes.status})`);
+          throw new Error(
+            errData.error || `Provider error (${chatRes.status})`,
+          );
         }
 
         // Stream token by token
@@ -723,59 +815,76 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                   accumulated += delta.content;
                   setThreads((prev) =>
                     prev.map((t) =>
-                      t.id !== threadId ? t : {
-                        ...t,
-                        messages: t.messages.map((m) =>
-                          m.id !== assistantId ? m : {
-                            ...m,
-                            content: accumulated,
-                            queryData,
-                            ...(thinkingAccum ? { thinking: thinkingAccum } : {}),
-                          }
-                        ),
-                      }
-                    )
+                      t.id !== threadId
+                        ? t
+                        : {
+                            ...t,
+                            messages: t.messages.map((m) =>
+                              m.id !== assistantId
+                                ? m
+                                : {
+                                    ...m,
+                                    content: accumulated,
+                                    queryData,
+                                    ...(thinkingAccum
+                                      ? { thinking: thinkingAccum }
+                                      : {}),
+                                  },
+                            ),
+                          },
+                    ),
                   );
                 }
-              } catch { /* skip malformed SSE lines */ }
+              } catch {
+                /* skip malformed SSE lines */
+              }
             }
           }
         }
 
         // Finalise — ensure we always have something
-        const finalContent = accumulated ||
+        const finalContent =
+          accumulated ||
           queryData?.answer?.direct_answer ||
           "I couldn't generate an answer. Please check the source results below.";
 
         setThreads((prev) =>
           prev.map((t) =>
-            t.id !== threadId ? t : {
-              ...t,
-              messages: t.messages.map((m) =>
-                m.id !== assistantId ? m : {
-                  ...m,
-                  content: finalContent,
-                  queryData,
-                  ...(thinkingAccum ? { thinking: thinkingAccum } : {}),
-                }
-              ),
-              updatedAt: isoNow(),
-            }
-          )
+            t.id !== threadId
+              ? t
+              : {
+                  ...t,
+                  messages: t.messages.map((m) =>
+                    m.id !== assistantId
+                      ? m
+                      : {
+                          ...m,
+                          content: finalContent,
+                          queryData,
+                          ...(thinkingAccum ? { thinking: thinkingAccum } : {}),
+                        },
+                  ),
+                  updatedAt: isoNow(),
+                },
+          ),
         );
-
       } catch (e: unknown) {
-        const errorMsg = e instanceof Error ? e.message : "Failed to query FAIM";
+        const errorMsg =
+          e instanceof Error ? e.message : "Failed to query FAIM";
         setError(errorMsg);
         setThreads((prev) =>
           prev.map((t) =>
-            t.id !== threadId ? t : {
-              ...t,
-              messages: t.messages.map((m) =>
-                m.id === assistantId ? { ...m, content: `[Error: ${errorMsg}]` } : m
-              ),
-            }
-          )
+            t.id !== threadId
+              ? t
+              : {
+                  ...t,
+                  messages: t.messages.map((m) =>
+                    m.id === assistantId
+                      ? { ...m, content: `[Error: ${errorMsg}]` }
+                      : m,
+                  ),
+                },
+          ),
         );
       } finally {
         setIsStreaming(false);
@@ -783,7 +892,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setLiveThinkingBuffer("");
       }
     },
-    [activeThreadId, messages, isStreaming, thinkingEnabled]
+    [activeThreadId, messages, isStreaming, thinkingEnabled],
   );
 
   const uploadFiles = useCallback(
@@ -823,7 +932,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                     messages: [...t.messages, assistantMsg],
                     updatedAt: isoNow(),
                   }
-                : t
+                : t,
             )
           : [
               {
@@ -834,7 +943,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 updatedAt: isoNow(),
               },
               ...prev,
-            ]
+            ],
       );
 
       setIsUploading(true);
@@ -858,7 +967,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.detail || errData.message || `HTTP ${res.status}`);
+          throw new Error(
+            errData.detail || errData.message || `HTTP ${res.status}`,
+          );
         }
 
         const batch = (await res.json()) as StorageUploadBatchResponse;
@@ -885,12 +996,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               ? {
                   ...t,
                   messages: t.messages.map((m) =>
-                    m.id === assistantId ? { ...m, content: lines.join("\n") } : m
+                    m.id === assistantId
+                      ? { ...m, content: lines.join("\n") }
+                      : m,
                   ),
                   updatedAt: isoNow(),
                 }
-              : t
-          )
+              : t,
+          ),
         );
       } catch (e: any) {
         const errorMsg = e.message || "Failed to upload files to FAIM storage";
@@ -901,17 +1014,19 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               ? {
                   ...t,
                   messages: t.messages.map((m) =>
-                    m.id === assistantId ? { ...m, content: `[Upload error: ${errorMsg}]` } : m
+                    m.id === assistantId
+                      ? { ...m, content: `[Upload error: ${errorMsg}]` }
+                      : m,
                   ),
                 }
-              : t
-          )
+              : t,
+          ),
         );
       } finally {
         setIsUploading(false);
       }
     },
-    [activeThreadId, isStreaming, isUploading]
+    [activeThreadId, isStreaming, isUploading],
   );
 
   return (

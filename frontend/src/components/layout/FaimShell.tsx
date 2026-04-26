@@ -102,7 +102,10 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Cmd+B or Cmd+\ to toggle sidebar
-      if ((e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === "b" || e.key === "\\")) {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        (e.key.toLowerCase() === "b" || e.key === "\\")
+      ) {
         e.preventDefault();
         setSidebarCollapsed((v) => !v);
       }
@@ -178,18 +181,26 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
           ].join(" ")}
         >
           {/* Unified Branding Header */}
-          <div className={[
-            "px-4 pt-6 pb-4 transition-all duration-300",
-            sidebarCollapsed ? "flex flex-col items-center" : "flex items-center gap-3"
-          ].join(" ")}>
-            <Logo px={sidebarCollapsed ? 44 : 38} className="transition-all duration-500" />
+          <div
+            className={[
+              "px-4 pt-6 pb-4 transition-all duration-300",
+              sidebarCollapsed
+                ? "flex flex-col items-center"
+                : "flex items-center gap-3",
+            ].join(" ")}
+          >
+            <Logo
+              px={sidebarCollapsed ? 44 : 38}
+              className="transition-all duration-500"
+            />
             {!sidebarCollapsed && (
               <div className="animate-in fade-in slide-in-from-left-2 duration-700 flex flex-col">
                 {/* FAIMATRIX Title - Split Color */}
                 <div className="text-lg uppercase tracking-[0.3em] font-black leading-none mb-1.5">
-                  <span className="text-primary-300">FAIM</span><span className="text-secondary-400">ATRIX</span>
+                  <span className="text-primary-300">FAIM</span>
+                  <span className="text-secondary-400">ATRIX</span>
                 </div>
-                
+
                 {/* Tagline */}
                 <div className="text-[10px] uppercase tracking-[0.15em] text-slate-500 font-semibold leading-tight">
                   Fractal Intelligence Core
@@ -199,10 +210,12 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
           </div>
 
           {/* Navigation */}
-          <div className={[
-            "mt-4 overflow-y-auto flex-1",
-            sidebarCollapsed ? "px-2" : "px-4",
-          ].join(" ")}>
+          <div
+            className={[
+              "mt-4 overflow-y-auto flex-1",
+              sidebarCollapsed ? "px-2" : "px-4",
+            ].join(" ")}
+          >
             <SidebarNav showBrand={false} collapsed={sidebarCollapsed} />
           </div>
 
@@ -230,15 +243,25 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
         />
 
         {/* Page body */}
-        <main className={[
-          "flex-1",
-          pathname === "/dashboard/graph" || pathname === "/dashboard/memory-query"
-            ? "overflow-hidden p-0"
-            : "overflow-y-auto px-4 py-6 md:px-6",
-        ].join(" ")}>
-           <div className={pathname === "/dashboard/graph" || pathname === "/dashboard/memory-query" ? "h-full" : "mx-auto max-w-[1400px]"}>
-              {children}
-           </div>
+        <main
+          className={[
+            "flex-1",
+            pathname === "/dashboard/graph" ||
+            pathname === "/dashboard/memory-query"
+              ? "overflow-hidden p-0"
+              : "overflow-y-auto px-4 py-6 md:px-6",
+          ].join(" ")}
+        >
+          <div
+            className={
+              pathname === "/dashboard/graph" ||
+              pathname === "/dashboard/memory-query"
+                ? "h-full"
+                : "mx-auto max-w-[1400px]"
+            }
+          >
+            {children}
+          </div>
         </main>
       </div>
 
@@ -248,11 +271,11 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 flex md:hidden">
           {/* Backdrop */}
-          <div 
+          <div
             className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-[fadeIn_0.2s_ease-out]"
             onClick={() => setMobileMenuOpen(false)}
           />
-          
+
           {/* Drawer Panel */}
           <div className="relative w-[280px] h-full bg-[var(--os-surface-1)] border-r border-white/10 shadow-2xl animate-[slideIn_0.3s_cubic-bezier(0.16,1,0.3,1)]">
             <div className="flex h-full flex-col">
@@ -261,13 +284,23 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <Logo px={32} />
-                    <span className="text-[13px] uppercase tracking-[0.3em] font-black"><span className="text-cyan-300">FAIM</span><span className="text-violet-400">ATRIX</span></span>
+                    <span className="text-[13px] uppercase tracking-[0.3em] font-black">
+                      <span className="text-cyan-300">FAIM</span>
+                      <span className="text-violet-400">ATRIX</span>
+                    </span>
                   </div>
-                  <button 
+                  <button
                     onClick={() => setMobileMenuOpen(false)}
                     className="p-2 text-slate-400 hover:text-white"
                   >
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                    >
                       <path d="M18 6L6 18M6 6l12 12" />
                     </svg>
                   </button>

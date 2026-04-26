@@ -7,7 +7,7 @@ import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Sequence, Set, Tuple
+from typing import Dict, List, Mapping, Sequence, Set, Tuple
 from uuid import UUID
 
 try:
@@ -74,7 +74,9 @@ def build_canonical_document(
     )
 
 
-def _top_context_terms(counter: Counter[str], limit: int = MAX_CONTEXT_TERMS) -> Dict[str, int]:
+def _top_context_terms(
+    counter: Counter[str], limit: int = MAX_CONTEXT_TERMS
+) -> Dict[str, int]:
     pairs = sorted(counter.items(), key=lambda item: (-item[1], item[0]))
     return dict(pairs[:limit])
 
@@ -100,7 +102,12 @@ def _normalized_score(*values: float) -> float:
 
 def _mine_term_stats(
     docs: Sequence[CanonicalDocument],
-) -> Tuple[List[Dict[str, object]], Dict[str, int], Dict[str, Counter[str]], Dict[Tuple[str, str], int]]:
+) -> Tuple[
+    List[Dict[str, object]],
+    Dict[str, int],
+    Dict[str, Counter[str]],
+    Dict[Tuple[str, str], int],
+]:
     doc_count = len(docs)
     df = Counter()
     cf = Counter()
@@ -161,7 +168,9 @@ def _mine_phrase_lexicon(docs: Sequence[CanonicalDocument]) -> List[Dict[str, ob
         for surface, canonical in doc.phrase_surface_map.items():
             support[(surface, canonical)] += 1
     rows: List[Dict[str, object]] = []
-    for (surface, canonical), count in sorted(support.items(), key=lambda item: (item[0][0], item[0][1])):
+    for (surface, canonical), count in sorted(
+        support.items(), key=lambda item: (item[0][0], item[0][1])
+    ):
         rows.append(
             {
                 "surface_form": surface,
@@ -238,8 +247,8 @@ def _mine_distributional_lexicon(
         existing = best_by_surface.get(surface)
         candidate_key = (
             float(row.get("score", 0.0)),
-            int(row.get("support_count", 0)),
-            int(dict(row.get("meta", {})).get("canonical_df", 0)),
+            int(row.get("support_count", 0)),  # type: ignore[call-overload]
+            int(dict(row.get("meta", {})).get("canonical_df", 0)),  # type: ignore[call-overload]
             str(row.get("canonical_form", "")),
         )
         if existing is None:
@@ -247,8 +256,8 @@ def _mine_distributional_lexicon(
             continue
         existing_key = (
             float(existing.get("score", 0.0)),
-            int(existing.get("support_count", 0)),
-            int(dict(existing.get("meta", {})).get("canonical_df", 0)),
+            int(existing.get("support_count", 0)),  # type: ignore[call-overload]
+            int(dict(existing.get("meta", {})).get("canonical_df", 0)),  # type: ignore[call-overload]
             str(existing.get("canonical_form", "")),
         )
         if candidate_key > existing_key:
@@ -272,7 +281,9 @@ def _mine_alias_lexicon(docs: Sequence[CanonicalDocument]) -> List[Dict[str, obj
     return rows
 
 
-def _build_variant_groups(lexicon_rows: Sequence[Mapping[str, object]]) -> Dict[str, Set[str]]:
+def _build_variant_groups(
+    lexicon_rows: Sequence[Mapping[str, object]],
+) -> Dict[str, Set[str]]:
     groups: Dict[str, Set[str]] = defaultdict(set)
     for row in lexicon_rows:
         kind = str(row.get("kind", ""))
@@ -284,17 +295,23 @@ def _build_variant_groups(lexicon_rows: Sequence[Mapping[str, object]]) -> Dict[
             continue
         groups[canonical].add(surface)
         groups[canonical].add(canonical)
-    return {key: set(sorted(values)) for key, values in sorted(groups.items(), key=lambda item: item[0])}
+    return {
+        key: set(sorted(values))
+        for key, values in sorted(groups.items(), key=lambda item: item[0])
+    }
 
 
 def _materialize_canonical_edges(
     docs: Sequence[CanonicalDocument],
     lexicon_rows: Sequence[Mapping[str, object]],
 ) -> List[Dict[str, object]]:
-    docs_by_node = {doc.node_id: doc for doc in docs}
     variant_groups = _build_variant_groups(lexicon_rows)
-    variant_postings: Dict[str, Dict[str, Set[UUID]]] = defaultdict(lambda: defaultdict(set))
-    phrase_postings: Dict[str, Dict[str, Set[UUID]]] = defaultdict(lambda: defaultdict(set))
+    variant_postings: Dict[str, Dict[str, Set[UUID]]] = defaultdict(
+        lambda: defaultdict(set)
+    )
+    phrase_postings: Dict[str, Dict[str, Set[UUID]]] = defaultdict(
+        lambda: defaultdict(set)
+    )
 
     for doc in docs:
         terms = set(doc.lemma_tokens)
@@ -308,8 +325,13 @@ def _materialize_canonical_edges(
     pair_scores: Dict[Tuple[str, UUID, UUID], float] = defaultdict(float)
     pair_meta: Dict[Tuple[str, UUID, UUID], Dict[str, object]] = {}
 
-    for canonical, variants in sorted(variant_postings.items(), key=lambda item: item[0]):
-        variant_items = [(variant, sorted(node_ids, key=str)) for variant, node_ids in sorted(variants.items(), key=lambda item: item[0])]
+    for canonical, variants in sorted(
+        variant_postings.items(), key=lambda item: item[0]
+    ):
+        variant_items = [
+            (variant, sorted(node_ids, key=str))
+            for variant, node_ids in sorted(variants.items(), key=lambda item: item[0])
+        ]
         for i, (left_variant, left_nodes) in enumerate(variant_items):
             for right_variant, right_nodes in variant_items[i + 1 :]:
                 for left_node in left_nodes:
@@ -326,7 +348,10 @@ def _materialize_canonical_edges(
                         }
 
     for label, surfaces in sorted(phrase_postings.items(), key=lambda item: item[0]):
-        surface_items = [(surface, sorted(node_ids, key=str)) for surface, node_ids in sorted(surfaces.items(), key=lambda item: item[0])]
+        surface_items = [
+            (surface, sorted(node_ids, key=str))
+            for surface, node_ids in sorted(surfaces.items(), key=lambda item: item[0])
+        ]
         for i, (left_surface, left_nodes) in enumerate(surface_items):
             for right_surface, right_nodes in surface_items[i + 1 :]:
                 for left_node in left_nodes:
@@ -342,8 +367,13 @@ def _materialize_canonical_edges(
                             "right_surface": right_surface,
                         }
 
-    per_node_rankings: Dict[Tuple[str, UUID], List[Tuple[UUID, float, Dict[str, object]]]] = defaultdict(list)
-    for (kind, left_node, right_node), raw_score in sorted(pair_scores.items(), key=lambda item: (item[0][0], str(item[0][1]), str(item[0][2]))):
+    per_node_rankings: Dict[
+        Tuple[str, UUID], List[Tuple[UUID, float, Dict[str, object]]]
+    ] = defaultdict(list)
+    for (kind, left_node, right_node), raw_score in sorted(
+        pair_scores.items(),
+        key=lambda item: (item[0][0], str(item[0][1]), str(item[0][2])),
+    ):
         if kind == "distributional_synonym":
             weight = min(0.85, 0.60 + 0.08 * raw_score)
         else:
@@ -361,7 +391,9 @@ def _materialize_canonical_edges(
             allowed_pairs.add((kind, a, b))
 
     rows: List[Dict[str, object]] = []
-    for key in sorted(allowed_pairs, key=lambda item: (item[0], str(item[1]), str(item[2]))):
+    for key in sorted(
+        allowed_pairs, key=lambda item: (item[0], str(item[1]), str(item[2]))
+    ):
         kind, left_node, right_node = key
         raw_score = pair_scores.get(key, 0.0)
         if kind == "distributional_synonym":
@@ -380,7 +412,9 @@ def _materialize_canonical_edges(
     return rows
 
 
-def build_canonical_semantics(docs: Sequence[CanonicalDocument]) -> CanonicalSemanticsBuild:
+def build_canonical_semantics(
+    docs: Sequence[CanonicalDocument],
+) -> CanonicalSemanticsBuild:
     """Build graph-scoped canonical stats, lexicon, and additive semantic edges."""
     if not docs:
         return CanonicalSemanticsBuild(term_stats=(), lexicon_entries=(), edge_specs=())
@@ -406,7 +440,9 @@ def build_canonical_semantics(docs: Sequence[CanonicalDocument]) -> CanonicalSem
             str(row["kind"]),
         )
         existing = deduped_lexicon.get(key)
-        if existing is None or float(row.get("score", 0.0)) > float(existing.get("score", 0.0)):
+        if existing is None or float(row.get("score", 0.0)) > float(
+            existing.get("score", 0.0)
+        ):
             deduped_lexicon[key] = dict(row)
     ordered_lexicon = [deduped_lexicon[key] for key in sorted(deduped_lexicon)]
     edge_specs = _materialize_canonical_edges(docs, ordered_lexicon)

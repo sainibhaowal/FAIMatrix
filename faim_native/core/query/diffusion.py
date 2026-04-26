@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Dict, Iterable, List, Mapping, Tuple, TypeVar
-
+from typing import Dict, Iterable, Mapping, Tuple, TypeVar
 
 NodeId = TypeVar("NodeId")
 
@@ -58,7 +57,9 @@ def bounded_path_scores(
                     float(next_frontier.get(neighbor_id, 0.0)),
                     contribution,
                 )
-                totals[neighbor_id] = max(float(totals.get(neighbor_id, 0.0)), contribution)
+                totals[neighbor_id] = max(
+                    float(totals.get(neighbor_id, 0.0)), contribution
+                )
         frontier = dict(next_frontier)
         if not frontier:
             break
@@ -139,8 +140,12 @@ def contradiction_penalties(
     penalties: Dict[NodeId, float] = defaultdict(float)
     for node_id in sorted(contradictions, key=str):
         max_penalty = 0.0
-        for other_id, weight in sorted(contradictions[node_id], key=lambda item: (-float(item[1]), str(item[0]))):
-            max_penalty = max(max_penalty, support_scores.get(other_id, 0.0) * _clamp(weight))
+        for other_id, weight in sorted(
+            contradictions[node_id], key=lambda item: (-float(item[1]), str(item[0]))
+        ):
+            max_penalty = max(
+                max_penalty, support_scores.get(other_id, 0.0) * _clamp(weight)
+            )
         if max_penalty > 0.0:
             penalties[node_id] = _clamp(max_penalty)
     return penalties

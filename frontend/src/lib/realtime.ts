@@ -39,7 +39,6 @@ export type FigDelta = {
   };
 };
 
-
 export type ToastEvent = {
   graph_id: string;
   ts: number;
@@ -72,8 +71,6 @@ export type BenchPoint = {
 };
 
 export type UsedNodeSummary = { id: string; score?: number };
-
-
 
 export type StreamHandlers = {
   onContract?: (c: StreamContract) => void;

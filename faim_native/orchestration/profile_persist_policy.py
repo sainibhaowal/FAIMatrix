@@ -161,9 +161,7 @@ def resolve_profile_persist_policy(
     reasons = [r for r in (profile_reason, persist_reason) if r]
     coercion_reason = ",".join(reasons) if reasons else None
 
-    index_enabled = (
-        op == PolicyOperation.INGEST.value and effective_profile != "strict"
-    )
+    index_enabled = op == PolicyOperation.INGEST.value and effective_profile != "strict"
     evolve_knobs = _evolve_runtime_knobs(
         profile=effective_profile,
         compatibility_mode=bool(compatibility_mode),

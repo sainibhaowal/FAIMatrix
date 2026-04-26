@@ -79,8 +79,9 @@ async def readiness_check():
     close_session_fn = None
     try:
         # Try to get a session and check tables
+        from runtime.context import close_session as close_session_fn
+        from runtime.context import get_session
         from sqlalchemy import text
-        from runtime.context import close_session as close_session_fn, get_session
         from store.pg.migrate import (
             get_latest_applied_version,
             get_latest_local_version,

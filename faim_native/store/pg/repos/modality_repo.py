@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import List, Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, asc
+from sqlalchemy import asc
 from sqlalchemy.orm import Session
 
 try:
@@ -19,6 +19,7 @@ except (ImportError, RuntimeError):
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from encoding.modality_features import ModalityFeatures
+
     from store.pg.models_faim import NodeModalityV1Model
 
 
@@ -80,7 +81,9 @@ class ModalityRepo:
         self.session.flush()
         return "inserted"
 
-    def list_by_node_ids(self, *, graph_id: str, node_ids: Sequence[UUID]) -> List[NodeModalityV1Model]:
+    def list_by_node_ids(
+        self, *, graph_id: str, node_ids: Sequence[UUID]
+    ) -> List[NodeModalityV1Model]:
         if not node_ids:
             return []
         return (

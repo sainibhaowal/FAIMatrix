@@ -6,12 +6,19 @@ without triggering the main faim package initialization.
 
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 from pathlib import Path
 from typing import Generator
 
 import pytest
+
+worker_id = os.environ.get("PYTEST_XDIST_WORKER")
+if worker_id:
+    runtime_dir = Path(__file__).parent.parent / "Runtime"
+    runtime_dir.mkdir(exist_ok=True)
+    os.environ["DATABASE_URL"] = f"sqlite:///{runtime_dir}/faim_test_{worker_id}.db"
 
 # Setup path for isolated imports (avoid triggering faim.__init__)
 _FAIM_NATIVE_ROOT = Path(__file__).parent.parent
@@ -55,12 +62,18 @@ def session_factory() -> Generator[SessionFactory, None, None]:
 
     factory = SessionFactory(url=url)
 
-    # 100% Accuracy: Wipe everything before starting tests on a persistent DB
-    if factory.engine.dialect.name == "postgresql":
-        drop_all_tables(factory.engine)
-
-    # Create all tables (idempotent)
+    # Ensure tables exist first
     create_all_tables(factory.engine)
+
+    # 100% Accuracy: Wipe everything before starting tests on a persistent DB
+    if factory.engine.dialect.name in ("postgresql", "sqlite"):
+        try:
+            from store.pg.models_faim import Base
+            with factory.engine.begin() as conn:
+                for table in reversed(Base.metadata.sorted_tables):
+                    conn.execute(table.delete())
+        except Exception:
+            pass
 
     yield factory
 

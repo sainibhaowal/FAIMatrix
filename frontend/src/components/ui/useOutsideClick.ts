@@ -5,7 +5,7 @@ import { useEffect } from "react";
 export function useOutsideClick(
   refs: React.RefObject<HTMLElement> | React.RefObject<HTMLElement>[],
   handler: (e: MouseEvent | TouchEvent) => void,
-  active = true
+  active = true,
 ) {
   useEffect(() => {
     if (!active) return;
@@ -13,9 +13,11 @@ export function useOutsideClick(
     const listener = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node;
       const refList = Array.isArray(refs) ? refs : [refs];
-      
+
       // If clicking inside any of the refs, do nothing
-      const isInside = refList.some(r => r.current && r.current.contains(target));
+      const isInside = refList.some(
+        (r) => r.current && r.current.contains(target),
+      );
       if (isInside) return;
 
       handler(event);

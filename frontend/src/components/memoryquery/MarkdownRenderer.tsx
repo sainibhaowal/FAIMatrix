@@ -93,7 +93,9 @@ export function MarkdownRenderer({ content }: { content: string }) {
           <ul className="space-y-1.5 mb-3 pl-1">{children}</ul>
         ),
         ol: ({ children }) => (
-          <ol className="space-y-1.5 mb-3 pl-1 list-decimal list-inside">{children}</ol>
+          <ol className="space-y-1.5 mb-3 pl-1 list-decimal list-inside">
+            {children}
+          </ol>
         ),
         li: ({ children }) => (
           <li className="flex items-start gap-2.5 text-[14px] leading-6 text-slate-300">
@@ -117,7 +119,10 @@ export function MarkdownRenderer({ content }: { content: string }) {
         // ── Inline code ───────────────────────────────────────────────────
         code: ({ node, className, children, ...props }: any) => {
           const match = /language-(\w+)/.exec(className || "");
-          const isBlock = match || (typeof children === "string" && (children as string).includes("\n"));
+          const isBlock =
+            match ||
+            (typeof children === "string" &&
+              (children as string).includes("\n"));
 
           if (isBlock) {
             const lang = match?.[1] ?? "text";
@@ -144,7 +149,11 @@ export function MarkdownRenderer({ content }: { content: string }) {
                     lineHeight: "1.7",
                     borderRadius: 0,
                   }}
-                  codeTagProps={{ style: { fontFamily: "var(--font-mono, 'Fira Code', monospace)" } }}
+                  codeTagProps={{
+                    style: {
+                      fontFamily: "var(--font-mono, 'Fira Code', monospace)",
+                    },
+                  }}
                 >
                   {codeString}
                 </SyntaxHighlighter>
@@ -196,15 +205,23 @@ export function MarkdownRenderer({ content }: { content: string }) {
         // ── Tables (GFM) ──────────────────────────────────────────────────
         table: ({ children }) => (
           <div className="overflow-x-auto my-4 rounded-xl border border-white/[0.07] shadow-lg">
-            <table className="w-full text-[13px] border-collapse">{children}</table>
+            <table className="w-full text-[13px] border-collapse">
+              {children}
+            </table>
           </div>
         ),
         thead: ({ children }) => (
-          <thead className="bg-white/[0.05] border-b border-white/10">{children}</thead>
+          <thead className="bg-white/[0.05] border-b border-white/10">
+            {children}
+          </thead>
         ),
-        tbody: ({ children }) => <tbody className="divide-y divide-white/[0.04]">{children}</tbody>,
+        tbody: ({ children }) => (
+          <tbody className="divide-y divide-white/[0.04]">{children}</tbody>
+        ),
         tr: ({ children }) => (
-          <tr className="transition-colors hover:bg-white/[0.03]">{children}</tr>
+          <tr className="transition-colors hover:bg-white/[0.03]">
+            {children}
+          </tr>
         ),
         th: ({ children }) => (
           <th className="px-4 py-2.5 text-left text-[10px] font-black uppercase tracking-widest text-slate-400">
@@ -212,7 +229,9 @@ export function MarkdownRenderer({ content }: { content: string }) {
           </th>
         ),
         td: ({ children }) => (
-          <td className="px-4 py-2.5 text-slate-300 leading-relaxed">{children}</td>
+          <td className="px-4 py-2.5 text-slate-300 leading-relaxed">
+            {children}
+          </td>
         ),
 
         // ── Task list checkboxes (GFM) ────────────────────────────────────

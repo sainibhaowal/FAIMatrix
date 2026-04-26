@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable, List
-
+from typing import List
 
 _CELL_SPLIT_RE = re.compile(r"\s*\|\s*")
 

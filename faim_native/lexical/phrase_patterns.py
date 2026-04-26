@@ -64,7 +64,9 @@ def match_phrase_patterns(tokens: Sequence[str]) -> List[PhraseMatch]:
                 )
             )
 
-    matches.sort(key=lambda item: (item.start, -(item.end - item.start), item.canonical))
+    matches.sort(
+        key=lambda item: (item.start, -(item.end - item.start), item.canonical)
+    )
     deduped: List[PhraseMatch] = []
     occupied = set()
     for match in matches:
@@ -84,7 +86,9 @@ def extract_phrase_labels(tokens: Sequence[str]) -> List[str]:
 
 def extract_phrase_surface_map(tokens: Sequence[str]) -> Dict[str, str]:
     """Return surface phrase -> canonical label mapping for matched phrases."""
-    mapping = {match.surface: match.canonical for match in match_phrase_patterns(tokens)}
+    mapping = {
+        match.surface: match.canonical for match in match_phrase_patterns(tokens)
+    }
     return dict(sorted(mapping.items(), key=lambda item: (item[0], item[1])))
 
 

@@ -24,10 +24,22 @@ async function mockAuthenticatedSession(page: Page, graphId?: string) {
     const req = route.request();
     const path = new URL(req.url()).pathname;
     if (path.endsWith("/session"))
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(sessionPayload(graphId)) });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(sessionPayload(graphId)),
+      });
     if (path.endsWith("/csrf"))
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ csrfToken: "fig-persist-csrf" }) });
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ csrfToken: "fig-persist-csrf" }),
+      });
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    });
   });
 }
 
@@ -38,12 +50,20 @@ function figNode(nodeId: string, title: string) {
     level: 0,
     vector_hash: `${nodeId}-vh`,
     display: { title, title_source: "anchor", state: "active" },
-    metrics: { touch_count: 1, residual: 0.5, last_access: "2026-02-20T10:00:00Z" },
+    metrics: {
+      touch_count: 1,
+      residual: 0.5,
+      last_access: "2026-02-20T10:00:00Z",
+    },
     provenance: { raw_id: `${nodeId}-raw`, block_id: `${nodeId}-block` },
   };
 }
 
-function surfaceResponse(version: number, hash: string, graphId = "fig-persist-graph") {
+function surfaceResponse(
+  version: number,
+  hash: string,
+  graphId = "fig-persist-graph",
+) {
   return {
     snapshot: {
       graph_id: graphId,
@@ -55,26 +75,51 @@ function surfaceResponse(version: number, hash: string, graphId = "fig-persist-g
     nodes: [figNode("node-a", "Alpha"), figNode("node-b", "Beta")],
     edges: [],
     timeline: { after_seq: 0, next_seq: 1, has_more: false, events: [] },
-    topology: { node_count: 2, edge_count: 0, edge_counts_by_kind: {}, scorecard: null },
+    topology: {
+      node_count: 2,
+      edge_count: 0,
+      edge_counts_by_kind: {},
+      scorecard: null,
+    },
     controls: { similarity: { mode: "none", notes: "" } },
     truncated: false,
     truncation_reason: null,
   };
 }
 
-async function mockApiRoutes(page: Page, version: number, hash: string, graphId = "fig-persist-graph") {
+async function mockApiRoutes(
+  page: Page,
+  version: number,
+  hash: string,
+  graphId = "fig-persist-graph",
+) {
   await page.route("**/api/v1/**", async (route) => {
     const req = route.request();
     const path = new URL(req.url()).pathname;
     if (path.endsWith("/graph/surface") && req.method() === "GET")
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(surfaceResponse(version, hash, graphId)) });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(surfaceResponse(version, hash, graphId)),
+      });
     if (path.endsWith("/events/latest") && req.method() === "GET")
       return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ graph_id: graphId, last_seq: 1, last_kind: null, last_ts: null, snapshot_hash: hash, event_count: 1 }),
+        body: JSON.stringify({
+          graph_id: graphId,
+          last_seq: 1,
+          last_kind: null,
+          last_ts: null,
+          snapshot_hash: hash,
+          event_count: 1,
+        }),
       });
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    });
   });
 }
 
@@ -108,10 +153,16 @@ async function writePersistedState(
   payload: Record<string, unknown>,
 ) {
   await page.evaluate(
-    ([key, value]) => window.localStorage.setItem(key as string, value as string),
+    ([key, value]) =>
+      window.localStorage.setItem(key as string, value as string),
     [
       `${STORAGE_KEY_PREFIX}${graphId}`,
-      JSON.stringify({ graphId, graphVersion, savedAt: new Date().toISOString(), payload }),
+      JSON.stringify({
+        graphId,
+        graphVersion,
+        savedAt: new Date().toISOString(),
+        payload,
+      }),
     ],
   );
 }
@@ -121,7 +172,9 @@ async function writePersistedState(
 // ---------------------------------------------------------------------------
 
 test.describe("FIG View — view-state persistence", () => {
-  test("saves view state to localStorage after surface loads", async ({ page }) => {
+  test("saves view state to localStorage after surface loads", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page, "fig-persist-graph");
     await mockApiRoutes(page, 1, "hash-v1");
 
@@ -143,7 +196,9 @@ test.describe("FIG View — view-state persistence", () => {
     expect(stored!.payload.layoutMode).toBe("lineage");
   });
 
-  test("restores persisted layout mode and filters on reload for same graph version", async ({ page }) => {
+  test("restores persisted layout mode and filters on reload for same graph version", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page, "fig-persist-graph");
     await mockApiRoutes(page, 1, "hash-v1");
 
@@ -173,7 +228,9 @@ test.describe("FIG View — view-state persistence", () => {
     await expect(lineageBtn).toHaveClass(/bg-cyan/);
   });
 
-  test("does NOT restore state when graph version changes (stale guard)", async ({ page }) => {
+  test("does NOT restore state when graph version changes (stale guard)", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page, "fig-persist-graph");
     // Surface reports version 2, but saved state was for version 1
     await mockApiRoutes(page, 2, "hash-v2");
@@ -202,7 +259,9 @@ test.describe("FIG View — view-state persistence", () => {
     await expect(exploreBtn).toHaveClass(/bg-cyan/);
   });
 
-  test("clearStaleGraphState removes other graph keys on new graph load", async ({ page }) => {
+  test("clearStaleGraphState removes other graph keys on new graph load", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page, "fig-persist-graph");
     await mockApiRoutes(page, 1, "hash-v1");
 
@@ -210,17 +269,20 @@ test.describe("FIG View — view-state persistence", () => {
     await expect(page.getByText("FIG View")).toBeVisible();
 
     // Inject a stale entry for a different graph
-    await page.evaluate(([key]) => {
-      window.localStorage.setItem(
-        key as string,
-        JSON.stringify({
-          graphId: "other-graph",
-          graphVersion: 5,
-          savedAt: new Date().toISOString(),
-          payload: { layoutMode: "explore" },
-        }),
-      );
-    }, [`${STORAGE_KEY_PREFIX}other-graph`]);
+    await page.evaluate(
+      ([key]) => {
+        window.localStorage.setItem(
+          key as string,
+          JSON.stringify({
+            graphId: "other-graph",
+            graphVersion: 5,
+            savedAt: new Date().toISOString(),
+            payload: { layoutMode: "explore" },
+          }),
+        );
+      },
+      [`${STORAGE_KEY_PREFIX}other-graph`],
+    );
 
     // Reload — clearStaleGraphState runs in loadSurface
     await page.reload();

@@ -87,3 +87,40 @@ export type BenchmarkReport = {
   alerts: BenchmarkAlert[];
   infrastructure: Record<string, unknown>;
 };
+
+export type PublicationLeaderboardRow = {
+  system: string;
+  "recall@5": number;
+  "ndcg@10": number;
+  mrr: number;
+  map: number;
+  task_completion_rate: number;
+};
+
+export type PublicationRun = {
+  run_id: string;
+  graph_id: string;
+  started_at: string;
+  total_duration_sec: number;
+  datasets: string[];
+  faim_track_a: Record<string, unknown>;
+  track_e: Record<string, unknown>;
+  track_f: Record<string, unknown>;
+  baselines: Record<string, Array<Record<string, unknown>>>;
+  mteb: Record<string, unknown>;
+  workflow_checks: Record<string, unknown>;
+  system_comparison: Array<Record<string, unknown>>;
+  leaderboard: PublicationLeaderboardRow[];
+  results_report: Record<string, unknown>;
+  reproducibility_kit: Record<string, unknown>;
+  benchmark_spec: Record<string, unknown>;
+};
+
+export type PublicationJobStatus = {
+  run_id: string;
+  graph_id: string;
+  status: "running" | "completed" | "failed";
+  progress_message: string;
+  total_duration_sec: number;
+  result: PublicationRun | null;
+};

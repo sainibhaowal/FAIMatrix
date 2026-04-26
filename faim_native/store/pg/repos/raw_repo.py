@@ -17,6 +17,7 @@ except (ImportError, RuntimeError):
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import RawRef
+
     from store.pg.models_faim import RawRefModel
 
 
@@ -60,12 +61,11 @@ class RawRepo:
         Returns:
             RawRef if found, None otherwise.
         """
-        model = session.query(RawRefModel).filter(
-            and_(
-                RawRefModel.tenant_id == self.tenant_id,
-                RawRefModel.id == id
-            )
-        ).first()
+        model = (
+            session.query(RawRefModel)
+            .filter(and_(RawRefModel.tenant_id == self.tenant_id, RawRefModel.id == id))
+            .first()
+        )
         return model.to_domain() if model else None
 
     def get_by_sha(self, session: Session, sha256: str) -> Optional[RawRef]:
@@ -78,12 +78,16 @@ class RawRepo:
         Returns:
             RawRef if found, None otherwise.
         """
-        model = session.query(RawRefModel).filter(
-            and_(
-                RawRefModel.tenant_id == self.tenant_id,
-                RawRefModel.sha256 == sha256
+        model = (
+            session.query(RawRefModel)
+            .filter(
+                and_(
+                    RawRefModel.tenant_id == self.tenant_id,
+                    RawRefModel.sha256 == sha256,
+                )
             )
-        ).first()
+            .first()
+        )
         return model.to_domain() if model else None
 
     def list_all(
@@ -112,7 +116,7 @@ class RawRepo:
             query = query.filter(
                 and_(
                     RawRefModel.tenant_id == self.tenant_id,
-                    RawRefModel.graph_id == graph_id
+                    RawRefModel.graph_id == graph_id,
                 )
             )
         else:
@@ -140,12 +144,12 @@ class RawRepo:
             query = query.filter(
                 and_(
                     RawRefModel.tenant_id == self.tenant_id,
-                    RawRefModel.graph_id == graph_id
+                    RawRefModel.graph_id == graph_id,
                 )
             )
         else:
             query = query.filter(RawRefModel.tenant_id == self.tenant_id)
-        
+
         return query.count()
 
     def exists(self, session: Session, sha256: str) -> bool:
@@ -159,12 +163,14 @@ class RawRepo:
             True if exists, False otherwise.
         """
         return (
-            session.query(RawRefModel).filter(
+            session.query(RawRefModel)
+            .filter(
                 and_(
                     RawRefModel.tenant_id == self.tenant_id,
-                    RawRefModel.sha256 == sha256
+                    RawRefModel.sha256 == sha256,
                 )
-            ).first()
+            )
+            .first()
             is not None
         )
 
@@ -174,12 +180,16 @@ class RawRepo:
         Returns:
             True if deleted, False if not found.
         """
-        model = session.query(RawRefModel).filter(
-            and_(
-                RawRefModel.tenant_id == self.tenant_id,
-                RawRefModel.id == id,
+        model = (
+            session.query(RawRefModel)
+            .filter(
+                and_(
+                    RawRefModel.tenant_id == self.tenant_id,
+                    RawRefModel.id == id,
+                )
             )
-        ).first()
+            .first()
+        )
         if model is None:
             return False
         session.delete(model)

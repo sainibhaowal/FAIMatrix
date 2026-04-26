@@ -15,6 +15,7 @@ from typing import Any, Optional
 from uuid import uuid4
 
 from sqlalchemy import Column, DateTime, Index, String, Text
+
 from store.pg.models_faim import Base, JSONBType, UUIDType
 
 
@@ -39,7 +40,9 @@ class TenantApiKey(Base):
     scopes = Column(JSONBType, nullable=False, default=list)
     expires_at = Column(DateTime(timezone=True), nullable=True)
 
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     created_by = Column(Text, nullable=True)
 
     revoked_at = Column(DateTime(timezone=True), nullable=True)
@@ -59,7 +62,7 @@ class TenantApiKey(Base):
         if self.expires_at is None:
             return False
         now = now or datetime.now(timezone.utc)
-        return now >= self.expires_at
+        return bool(now >= self.expires_at)
 
     def is_active(self) -> bool:
         """Check if key is active (not revoked and not expired)."""
@@ -88,7 +91,9 @@ class TenantApiKey(Base):
             "revoked_at": self.revoked_at.isoformat() if self.revoked_at else None,
             "revoked_reason": self.revoked_reason,
             "rotated_from_key_id": self.rotated_from_key_id,
-            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "last_used_at": (
+                self.last_used_at.isoformat() if self.last_used_at else None
+            ),
             "is_active": self.is_active(),
         }
         if include_hash:
@@ -108,7 +113,11 @@ class AuthKeyAuditLog(Base):
     actor = Column(Text, nullable=True)
     request_id = Column(Text, nullable=True)
     meta = Column(JSONBType, nullable=False, default=dict)
-    created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
 
     __table_args__ = (
         Index("ix_auth_key_audit_tenant_key_time", "tenant_id", "key_id", "created_at"),
@@ -143,7 +152,9 @@ class AdminApiKey(Base):
     key_id = Column(Text, nullable=False)
     key_prefix = Column(String(20), nullable=False)
     key_hash = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     revoked_at = Column(DateTime(timezone=True), nullable=True)
 
     __table_args__ = (
@@ -176,7 +187,9 @@ class UserModel(Base):
     id = Column(UUIDType, primary_key=True)
     email = Column(Text, nullable=False, unique=True, index=True)
     full_name = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
     updated_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

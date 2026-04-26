@@ -188,7 +188,14 @@ function ThemedSelect<T extends string>({
 
   return (
     <div className={`relative ${className}`}>
-      {label && <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider" style={{ color: "var(--text-tertiary)" }}>{label}</p>}
+      {label && (
+        <p
+          className="mb-1.5 text-[10px] font-medium uppercase tracking-wider"
+          style={{ color: "var(--text-tertiary)" }}
+        >
+          {label}
+        </p>
+      )}
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -210,7 +217,10 @@ function ThemedSelect<T extends string>({
       <AnimatePresence>
         {open && (
           <>
-            <div className="fixed inset-0 z-[var(--z-modal)]" onClick={() => setOpen(false)} />
+            <div
+              className="fixed inset-0 z-[var(--z-modal)]"
+              onClick={() => setOpen(false)}
+            />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -297,7 +307,8 @@ const MAX_TIMELINE_EVENTS = 260;
 const POLL_INTERVAL_MS = 5000;
 const METRICS_REFRESH_EVERY_POLLS = 3;
 const ENABLE_GRAPH_SWITCH =
-  (process.env.NEXT_PUBLIC_FAIM_ENABLE_GRAPH_SWITCH || "").toLowerCase() === "true";
+  (process.env.NEXT_PUBLIC_FAIM_ENABLE_GRAPH_SWITCH || "").toLowerCase() ===
+  "true";
 
 const EVOLUTION_EVENT_KINDS = new Set([
   "DIAGNOSTICS_SNAPSHOT",
@@ -340,11 +351,11 @@ function asString(value: unknown): string | null {
 function resolveEventModeText(payload: Record<string, unknown>): string {
   const requested = formatModePair(
     asString(payload.requested_profile),
-    asString(payload.requested_persist_mode)
+    asString(payload.requested_persist_mode),
   );
   const effective = formatModePair(
     asString(payload.effective_profile),
-    asString(payload.effective_persist_mode)
+    asString(payload.effective_persist_mode),
   );
   const durability = asString(payload.durability_path);
   if (requested === "-" && effective === "-" && !durability) return "";
@@ -390,20 +401,26 @@ function humanizeDueReason(reason?: string | null): string {
   const text = (reason || "").trim();
   if (!text) return "-";
   if (text.startsWith("not_due_version_delta:")) {
-    return text.replace(
-      "not_due_version_delta:",
-      "Not due: graph version delta below threshold ("
-    ) + ")";
+    return (
+      text.replace(
+        "not_due_version_delta:",
+        "Not due: graph version delta below threshold (",
+      ) + ")"
+    );
   }
   if (text.startsWith("not_due_interval:")) {
-    return text.replace(
-      "not_due_interval:",
-      "Not due: minimum interval not reached ("
-    ) + ")";
+    return (
+      text.replace(
+        "not_due_interval:",
+        "Not due: minimum interval not reached (",
+      ) + ")"
+    );
   }
-  if (text === "active_evolve_job_exists") return "An evolve job is already pending/running.";
+  if (text === "active_evolve_job_exists")
+    return "An evolve job is already pending/running.";
   if (text === "due_enqueued") return "Due and enqueued.";
-  if (text.startsWith("unsupported_source:")) return `Unsupported source trigger (${text.split(":")[1] || "unknown"}).`;
+  if (text.startsWith("unsupported_source:"))
+    return `Unsupported source trigger (${text.split(":")[1] || "unknown"}).`;
   return text;
 }
 
@@ -416,7 +433,10 @@ function dedupeAndSortEvents(events: GraphEvent[]): GraphEvent[] {
   return Array.from(bySeq.values()).sort((a, b) => a.seq - b.seq);
 }
 
-function mergeEvents(current: GraphEvent[], incoming: GraphEvent[]): GraphEvent[] {
+function mergeEvents(
+  current: GraphEvent[],
+  incoming: GraphEvent[],
+): GraphEvent[] {
   const merged = dedupeAndSortEvents([...current, ...incoming]);
   if (merged.length <= MAX_TIMELINE_EVENTS) return merged;
   return merged.slice(-MAX_TIMELINE_EVENTS);
@@ -432,7 +452,7 @@ function resolveInitialGraphId(sessionGraphId?: string): string {
 }
 
 function liveStatusVariant(
-  status: LiveStatus
+  status: LiveStatus,
 ): "default" | "success" | "warning" | "error" | "info" {
   if (status === "live") return "success";
   if (status === "refreshing") return "info";
@@ -441,8 +461,16 @@ function liveStatusVariant(
 }
 
 function eventBadgeVariant(
-  kind: string
-): "default" | "primary" | "secondary" | "success" | "warning" | "error" | "info" | "outline" {
+  kind: string,
+):
+  | "default"
+  | "primary"
+  | "secondary"
+  | "success"
+  | "warning"
+  | "error"
+  | "info"
+  | "outline" {
   if (kind === "EVOLUTION_COMPLETE") return "success";
   if (kind === "EVOLUTION_SKIPPED") return "warning";
   if (kind === "EVOLUTION_INVENTION_ERROR") return "error";
@@ -462,19 +490,26 @@ function eventSummary(event: GraphEvent): string {
   }
 
   if (event.kind === "EVOLUTION_SKIPPED") {
-    const reason = typeof payload.reason === "string" ? payload.reason : "unknown";
+    const reason =
+      typeof payload.reason === "string" ? payload.reason : "unknown";
     return `Skipped: ${reason}${resolveEventModeText(payload)}`;
   }
 
   if (event.kind === "EVOLUTION_MERGE") {
-    const winner = typeof payload.winner_id === "string" ? shortHash(payload.winner_id) : "-";
-    const loser = typeof payload.loser_id === "string" ? shortHash(payload.loser_id) : "-";
+    const winner =
+      typeof payload.winner_id === "string"
+        ? shortHash(payload.winner_id)
+        : "-";
+    const loser =
+      typeof payload.loser_id === "string" ? shortHash(payload.loser_id) : "-";
     return `Merge: ${winner} <- ${loser}`;
   }
 
   if (event.kind === "PRUNE_NODE") {
-    const nodeId = typeof payload.node_id === "string" ? shortHash(payload.node_id) : "-";
-    const reason = typeof payload.reason === "string" ? payload.reason : "prune";
+    const nodeId =
+      typeof payload.node_id === "string" ? shortHash(payload.node_id) : "-";
+    const reason =
+      typeof payload.reason === "string" ? payload.reason : "prune";
     return `Prune: ${nodeId} (${reason})`;
   }
 
@@ -485,7 +520,8 @@ function eventSummary(event: GraphEvent): string {
   }
 
   if (event.kind === "EVOLUTION_INVENTION_ERROR") {
-    const text = typeof payload.error === "string" ? payload.error : "Invention failed";
+    const text =
+      typeof payload.error === "string" ? payload.error : "Invention failed";
     return text;
   }
 
@@ -500,7 +536,8 @@ function eventSummary(event: GraphEvent): string {
     return `Diagnostics: D=${d?.toFixed(3) ?? "-"}, H=${h?.toFixed(3) ?? "-"}, λ=${lambda?.toFixed(3) ?? "-"}`;
   }
 
-  if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
+  if (typeof payload.message === "string" && payload.message.trim())
+    return payload.message;
   return event.kind;
 }
 
@@ -546,10 +583,13 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!response.ok) {
-    throw new ApiError(response.status, normalizeApiError(payload, `Request failed (${response.status})`));
+    throw new ApiError(
+      response.status,
+      normalizeApiError(payload, `Request failed (${response.status})`),
+    );
   }
 
-  return ((payload as T) ?? ({} as T));
+  return (payload as T) ?? ({} as T);
 }
 
 export default function EvolutionPage() {
@@ -562,17 +602,20 @@ export default function EvolutionPage() {
   const [persistMode, setPersistMode] = useState("relaxed");
   const evolveModePolicy = useMemo(
     () => resolveUiModePolicy("evolve", profile, persistMode),
-    [persistMode, profile]
+    [persistMode, profile],
   );
   const selectedModeLabel = useMemo(
     () => formatModePair(profile, persistMode),
-    [persistMode, profile]
+    [persistMode, profile],
   );
 
   const [metrics, setMetrics] = useState<MetricsScorecard | null>(null);
   const [latest, setLatest] = useState<LatestEventResponse | null>(null);
-  const [evolveStatus, setEvolveStatus] = useState<EvolveStatusResponse | null>(null);
-  const [storageSummary, setStorageSummary] = useState<StorageSummaryResponse | null>(null);
+  const [evolveStatus, setEvolveStatus] = useState<EvolveStatusResponse | null>(
+    null,
+  );
+  const [storageSummary, setStorageSummary] =
+    useState<StorageSummaryResponse | null>(null);
   const [storageFiles, setStorageFiles] = useState<StorageFileItem[]>([]);
   const [timelineEvents, setTimelineEvents] = useState<GraphEvent[]>([]);
   const [lastRun, setLastRun] = useState<EvolveResponse | null>(null);
@@ -605,48 +648,79 @@ export default function EvolutionPage() {
     initializedRef.current = true;
   }, [session]);
 
-  const fetchScorecard = useCallback(async (targetGraphId: string): Promise<MetricsScorecard> => {
-    const params = new URLSearchParams({ graph_id: targetGraphId });
-    return apiRequest<MetricsScorecard>(`/api/v1/metrics/scorecard?${params.toString()}`);
-  }, []);
+  const fetchScorecard = useCallback(
+    async (targetGraphId: string): Promise<MetricsScorecard> => {
+      const params = new URLSearchParams({ graph_id: targetGraphId });
+      return apiRequest<MetricsScorecard>(
+        `/api/v1/metrics/scorecard?${params.toString()}`,
+      );
+    },
+    [],
+  );
 
-  const fetchLatest = useCallback(async (targetGraphId: string): Promise<LatestEventResponse> => {
-    const params = new URLSearchParams({ graph_id: targetGraphId });
-    return apiRequest<LatestEventResponse>(`/api/v1/events/latest?${params.toString()}`);
-  }, []);
+  const fetchLatest = useCallback(
+    async (targetGraphId: string): Promise<LatestEventResponse> => {
+      const params = new URLSearchParams({ graph_id: targetGraphId });
+      return apiRequest<LatestEventResponse>(
+        `/api/v1/events/latest?${params.toString()}`,
+      );
+    },
+    [],
+  );
 
-  const fetchEvolveStatus = useCallback(async (targetGraphId: string): Promise<EvolveStatusResponse> => {
-    const params = new URLSearchParams({
-      graph_id: targetGraphId,
-      source: "memory_write",
-    });
-    return apiRequest<EvolveStatusResponse>(`/api/v1/evolve/status?${params.toString()}`);
-  }, []);
+  const fetchEvolveStatus = useCallback(
+    async (targetGraphId: string): Promise<EvolveStatusResponse> => {
+      const params = new URLSearchParams({
+        graph_id: targetGraphId,
+        source: "memory_write",
+      });
+      return apiRequest<EvolveStatusResponse>(
+        `/api/v1/evolve/status?${params.toString()}`,
+      );
+    },
+    [],
+  );
 
-  const fetchStorageSummary = useCallback(async (targetGraphId: string): Promise<StorageSummaryResponse> => {
-    const params = new URLSearchParams({ graph_id: targetGraphId });
-    return apiRequest<StorageSummaryResponse>(`/api/v1/storage/summary?${params.toString()}`);
-  }, []);
+  const fetchStorageSummary = useCallback(
+    async (targetGraphId: string): Promise<StorageSummaryResponse> => {
+      const params = new URLSearchParams({ graph_id: targetGraphId });
+      return apiRequest<StorageSummaryResponse>(
+        `/api/v1/storage/summary?${params.toString()}`,
+      );
+    },
+    [],
+  );
 
-  const fetchStorageFiles = useCallback(async (targetGraphId: string): Promise<StorageFileListResponse> => {
-    const params = new URLSearchParams({
-      graph_id: targetGraphId,
-      limit: "5",
-      offset: "0",
-    });
-    return apiRequest<StorageFileListResponse>(`/api/v1/storage/files?${params.toString()}`);
-  }, []);
+  const fetchStorageFiles = useCallback(
+    async (targetGraphId: string): Promise<StorageFileListResponse> => {
+      const params = new URLSearchParams({
+        graph_id: targetGraphId,
+        limit: "5",
+        offset: "0",
+      });
+      return apiRequest<StorageFileListResponse>(
+        `/api/v1/storage/files?${params.toString()}`,
+      );
+    },
+    [],
+  );
 
   const fetchEvents = useCallback(
-    async (targetGraphId: string, afterSeq: number, limit: number): Promise<GraphEventsResponse> => {
+    async (
+      targetGraphId: string,
+      afterSeq: number,
+      limit: number,
+    ): Promise<GraphEventsResponse> => {
       const params = new URLSearchParams({
         graph_id: targetGraphId,
         after_seq: String(Math.max(0, afterSeq)),
         limit: String(limit),
       });
-      return apiRequest<GraphEventsResponse>(`/api/v1/events?${params.toString()}`);
+      return apiRequest<GraphEventsResponse>(
+        `/api/v1/events?${params.toString()}`,
+      );
     },
-    []
+    [],
   );
 
   const refreshAll = useCallback(
@@ -657,13 +731,14 @@ export default function EvolutionPage() {
       setLoadingTimeline(true);
 
       try {
-        const [scorecardData, latestData, statusData, summaryData, filesData] = await Promise.all([
-          fetchScorecard(targetGraphId),
-          fetchLatest(targetGraphId),
-          fetchEvolveStatus(targetGraphId),
-          fetchStorageSummary(targetGraphId),
-          fetchStorageFiles(targetGraphId),
-        ]);
+        const [scorecardData, latestData, statusData, summaryData, filesData] =
+          await Promise.all([
+            fetchScorecard(targetGraphId),
+            fetchLatest(targetGraphId),
+            fetchEvolveStatus(targetGraphId),
+            fetchStorageSummary(targetGraphId),
+            fetchStorageFiles(targetGraphId),
+          ]);
 
         setMetrics(scorecardData);
         setLatest(latestData);
@@ -672,7 +747,11 @@ export default function EvolutionPage() {
         setStorageFiles(filesData.items || []);
         setLoadingSnapshot(false);
 
-        const eventsData = await fetchEvents(targetGraphId, 0, INITIAL_EVENT_LIMIT);
+        const eventsData = await fetchEvents(
+          targetGraphId,
+          0,
+          INITIAL_EVENT_LIMIT,
+        );
         const normalized = dedupeAndSortEvents(eventsData.events || []);
         const lastSeqValue =
           normalized.length > 0
@@ -682,7 +761,10 @@ export default function EvolutionPage() {
         setLastSeq(lastSeqValue);
         setLiveStatus("live");
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to load evolution data";
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Failed to load evolution data";
         setLiveStatus("error");
         setPollError(message);
         toast.error("Evolution page failed to load", message);
@@ -691,18 +773,33 @@ export default function EvolutionPage() {
         setLoadingTimeline(false);
       }
     },
-    [fetchEvents, fetchEvolveStatus, fetchLatest, fetchScorecard, fetchStorageFiles, fetchStorageSummary, toast]
+    [
+      fetchEvents,
+      fetchEvolveStatus,
+      fetchLatest,
+      fetchScorecard,
+      fetchStorageFiles,
+      fetchStorageSummary,
+      toast,
+    ],
   );
 
   const pollOnce = useCallback(
     async (targetGraphId: string) => {
       try {
-        const eventsData = await fetchEvents(targetGraphId, lastSeqRef.current, POLL_EVENT_LIMIT);
+        const eventsData = await fetchEvents(
+          targetGraphId,
+          lastSeqRef.current,
+          POLL_EVENT_LIMIT,
+        );
         const incoming = eventsData.events || [];
 
         if (incoming.length) {
           setTimelineEvents((current) => mergeEvents(current, incoming));
-          const maxIncomingSeq = incoming.reduce((max, event) => Math.max(max, event.seq || 0), 0);
+          const maxIncomingSeq = incoming.reduce(
+            (max, event) => Math.max(max, event.seq || 0),
+            0,
+          );
           if (maxIncomingSeq > 0) {
             setLastSeq((prev) => Math.max(prev, maxIncomingSeq));
           }
@@ -713,15 +810,21 @@ export default function EvolutionPage() {
         const statusData = await fetchEvolveStatus(targetGraphId);
         setEvolveStatus(statusData);
 
-        const containsEvolutionEvent = incoming.some((event) => EVOLUTION_EVENT_KINDS.has(event.kind));
+        const containsEvolutionEvent = incoming.some((event) =>
+          EVOLUTION_EVENT_KINDS.has(event.kind),
+        );
         pollTickRef.current += 1;
-        if (containsEvolutionEvent || pollTickRef.current % METRICS_REFRESH_EVERY_POLLS === 0) {
-          const [scorecardData, latestData, summaryData, filesData] = await Promise.all([
-            fetchScorecard(targetGraphId),
-            fetchLatest(targetGraphId),
-            fetchStorageSummary(targetGraphId),
-            fetchStorageFiles(targetGraphId),
-          ]);
+        if (
+          containsEvolutionEvent ||
+          pollTickRef.current % METRICS_REFRESH_EVERY_POLLS === 0
+        ) {
+          const [scorecardData, latestData, summaryData, filesData] =
+            await Promise.all([
+              fetchScorecard(targetGraphId),
+              fetchLatest(targetGraphId),
+              fetchStorageSummary(targetGraphId),
+              fetchStorageFiles(targetGraphId),
+            ]);
           setMetrics(scorecardData);
           setLatest(latestData);
           setStorageSummary(summaryData);
@@ -731,12 +834,20 @@ export default function EvolutionPage() {
         setLiveStatus("live");
         setPollError(null);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Evolution polling failed";
+        const message =
+          error instanceof Error ? error.message : "Evolution polling failed";
         setLiveStatus("error");
         setPollError(message);
       }
     },
-    [fetchEvents, fetchEvolveStatus, fetchLatest, fetchScorecard, fetchStorageFiles, fetchStorageSummary]
+    [
+      fetchEvents,
+      fetchEvolveStatus,
+      fetchLatest,
+      fetchScorecard,
+      fetchStorageFiles,
+      fetchStorageSummary,
+    ],
   );
 
   const runEvolve = useCallback(async () => {
@@ -749,7 +860,7 @@ export default function EvolutionPage() {
     if (!modePolicy.supported) {
       toast.warning(
         "Unsupported mode combination",
-        modePolicy.reason || "Choose a supported profile/persist mode."
+        modePolicy.reason || "Choose a supported profile/persist mode.",
       );
       return;
     }
@@ -775,12 +886,13 @@ export default function EvolutionPage() {
         result.requested_persist_mode,
         result.effective_profile,
         result.effective_persist_mode,
-        result.durability_path
+        result.durability_path,
       );
       toast.success("Evolution cycle finished", `${summary} | ${modeText}`);
       await refreshAll(targetGraph);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Evolution request failed";
+      const message =
+        error instanceof Error ? error.message : "Evolution request failed";
       toast.error("Failed to run evolution", message);
     } finally {
       setRunLoading(false);
@@ -836,8 +948,9 @@ export default function EvolutionPage() {
   }, [autoRefresh, graphId, pollOnce]);
 
   const evolutionEvents = useMemo(
-    () => timelineEvents.filter((event) => EVOLUTION_EVENT_KINDS.has(event.kind)),
-    [timelineEvents]
+    () =>
+      timelineEvents.filter((event) => EVOLUTION_EVENT_KINDS.has(event.kind)),
+    [timelineEvents],
   );
 
   const visibleTimeline = useMemo(() => {
@@ -860,7 +973,11 @@ export default function EvolutionPage() {
   const latestEvolutionEvent = useMemo(() => {
     return [...evolutionEvents]
       .reverse()
-      .find((event) => event.kind === "EVOLUTION_COMPLETE" || event.kind === "EVOLUTION_SKIPPED");
+      .find(
+        (event) =>
+          event.kind === "EVOLUTION_COMPLETE" ||
+          event.kind === "EVOLUTION_SKIPPED",
+      );
   }, [evolutionEvents]);
 
   const profileOptions = [
@@ -884,18 +1001,34 @@ export default function EvolutionPage() {
         icon={Dna}
         actions={
           <Badge variant={liveStatusVariant(liveStatus)} size="md">
-            {liveStatus === "refreshing" ? "Refreshing" : liveStatus === "live" ? "Live" : liveStatus === "error" ? "Error" : "Idle"}
+            {liveStatus === "refreshing"
+              ? "Refreshing"
+              : liveStatus === "live"
+                ? "Live"
+                : liveStatus === "error"
+                  ? "Error"
+                  : "Idle"}
           </Badge>
         }
       />
 
-      <div 
+      <div
         className="overflow-hidden rounded-xl border !overflow-visible"
-        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+        style={{
+          borderColor: "var(--os-stroke)",
+          background: "var(--os-surface-1)",
+        }}
       >
-        <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
-          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Run Controls</p>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Manual evolve action plus runtime view controls</p>
+        <div
+          className="border-b px-5 py-1.5"
+          style={{ borderColor: "var(--os-stroke)" }}
+        >
+          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+            Run Controls
+          </p>
+          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+            Manual evolve action plus runtime view controls
+          </p>
         </div>
         <div className="grid gap-4 pt-5 px-5 pb-5 md:grid-cols-5">
           {ENABLE_GRAPH_SWITCH ? (
@@ -911,7 +1044,10 @@ export default function EvolutionPage() {
                   }
                 }}
                 containerClassName="md:col-span-2"
-                style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}
+                style={{
+                  background: "var(--os-surface-2)",
+                  borderColor: "var(--os-stroke)",
+                }}
                 helperText="Universe graph id (for example U:...)."
               />
 
@@ -922,8 +1058,16 @@ export default function EvolutionPage() {
               </div>
             </>
           ) : (
-            <div className="md:col-span-3 rounded-xl border p-3" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">Graph Context</p>
+            <div
+              className="md:col-span-3 rounded-xl border p-3"
+              style={{
+                background: "var(--os-surface-2)",
+                borderColor: "var(--os-stroke)",
+              }}
+            >
+              <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
+                Graph Context
+              </p>
               <p className="mt-1 font-mono text-sm text-cyan-200">{graphId}</p>
               <p className="mt-1 text-[11px] text-slate-400">
                 Auto-bound to your signed-in session.
@@ -980,13 +1124,28 @@ export default function EvolutionPage() {
           <div className="md:col-span-5">
             <div
               className={`rounded-lg border px-3.5 py-2.5 text-[11px] leading-relaxed ${
-                evolveModePolicy.supported ? "" : "border-[var(--faim-error)]/30 bg-[var(--faim-error-muted)]"
+                evolveModePolicy.supported
+                  ? ""
+                  : "border-[var(--faim-error)]/30 bg-[var(--faim-error-muted)]"
               }`}
-              style={evolveModePolicy.supported ? { borderColor: "rgba(99,102,241,0.18)", background: "rgba(99,102,241,0.05)", color: "var(--text-secondary)" } : { color: "var(--faim-error-text)" }}
+              style={
+                evolveModePolicy.supported
+                  ? {
+                      borderColor: "rgba(99,102,241,0.18)",
+                      background: "rgba(99,102,241,0.05)",
+                      color: "var(--text-secondary)",
+                    }
+                  : { color: "var(--faim-error-text)" }
+              }
             >
-              <span style={{ color: "#818cf8", fontWeight: 500 }}>Requested mode: {selectedModeLabel}</span>
-              {" · "}{getProfileHelper(profile)} {getPersistHelper(persistMode)}
-              {" "}{evolveModePolicy.supported ? "Backend will return effective mode and durability for each run." : evolveModePolicy.reason}
+              <span style={{ color: "#818cf8", fontWeight: 500 }}>
+                Requested mode: {selectedModeLabel}
+              </span>
+              {" · "}
+              {getProfileHelper(profile)} {getPersistHelper(persistMode)}{" "}
+              {evolveModePolicy.supported
+                ? "Backend will return effective mode and durability for each run."
+                : evolveModePolicy.reason}
             </div>
           </div>
         </div>
@@ -995,18 +1154,39 @@ export default function EvolutionPage() {
       {/* --- Metrics Scorecard (Storage Parity) --- */}
       <div
         className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
-        style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}
+        style={{
+          borderColor: "var(--os-stroke)",
+          background: "var(--os-surface-1)",
+        }}
       >
         {[
-          { label: "Fractal D", value: formatMetric(metrics?.dimension_D), icon: Activity },
-          { label: "Entropy H", value: formatMetric(metrics?.entropy_H), icon: GitMerge },
-          { label: "Pressure λ", value: formatMetric(metrics?.pressure_lambda), icon: RefreshCw },
-          { label: "Node / Edge", value: `${formatCount(metrics?.node_count)} / ${formatCount(metrics?.edge_count)}`, icon: Hash },
+          {
+            label: "Fractal D",
+            value: formatMetric(metrics?.dimension_D),
+            icon: Activity,
+          },
+          {
+            label: "Entropy H",
+            value: formatMetric(metrics?.entropy_H),
+            icon: GitMerge,
+          },
+          {
+            label: "Pressure λ",
+            value: formatMetric(metrics?.pressure_lambda),
+            icon: RefreshCw,
+          },
+          {
+            label: "Node / Edge",
+            value: `${formatCount(metrics?.node_count)} / ${formatCount(metrics?.edge_count)}`,
+            icon: Hash,
+          },
         ].map((stat, i) => (
           <div
             key={stat.label}
             className="relative flex flex-col justify-center px-6 py-3"
-            style={{ borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined }}
+            style={{
+              borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined,
+            }}
           >
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
@@ -1014,7 +1194,10 @@ export default function EvolutionPage() {
               </p>
               <stat.icon size={18} className="opacity-20" />
             </div>
-            <p className="font-semibold tabular-nums leading-none text-cyan-200" style={{ fontSize: 26 }}>
+            <p
+              className="font-semibold tabular-nums leading-none text-cyan-200"
+              style={{ fontSize: 26 }}
+            >
               {stat.value}
             </p>
           </div>
@@ -1022,14 +1205,24 @@ export default function EvolutionPage() {
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-5">
-        <div 
-          className="lg:col-span-3 flex flex-col h-[600px] lg:h-[850px] overflow-hidden rounded-xl border !overflow-visible" 
-          style={{ background: "var(--os-surface-1)", borderColor: "var(--os-stroke)" }}
+        <div
+          className="lg:col-span-3 flex flex-col h-[600px] lg:h-[850px] overflow-hidden rounded-xl border !overflow-visible"
+          style={{
+            background: "var(--os-surface-1)",
+            borderColor: "var(--os-stroke)",
+          }}
         >
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
+            style={{ borderColor: "var(--os-stroke)" }}
+          >
             <div>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Evolution Timeline</p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Latest graph events and evolve/invention actions</p>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                Evolution Timeline
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Latest graph events and evolve/invention actions
+              </p>
             </div>
             <Badge variant="outline" size="sm">
               {visibleTimeline.length} items
@@ -1037,7 +1230,9 @@ export default function EvolutionPage() {
           </div>
           <div className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
             {visibleTimeline.length === 0 ? (
-              <p className="text-sm text-slate-500 italic px-5 py-4">No events available yet.</p>
+              <p className="text-sm text-slate-500 italic px-5 py-4">
+                No events available yet.
+              </p>
             ) : (
               <div className="flex-1 overflow-y-auto custom-scrollbar">
                 {visibleTimeline.map((event) => (
@@ -1053,9 +1248,13 @@ export default function EvolutionPage() {
                       <Badge variant="outline" size="xs">
                         seq {event.seq}
                       </Badge>
-                      <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{formatTimestamp(event.ts)}</span>
+                      <span className="text-[10px] text-slate-500 font-mono tracking-tighter">
+                        {formatTimestamp(event.ts)}
+                      </span>
                     </div>
-                    <p className="mt-2 text-sm text-slate-200">{eventSummary(event)}</p>
+                    <p className="mt-2 text-sm text-slate-200">
+                      {eventSummary(event)}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -1064,60 +1263,121 @@ export default function EvolutionPage() {
         </div>
 
         <div className="space-y-4 lg:col-span-2 flex flex-col h-[600px] lg:h-[850px] overflow-y-auto custom-scrollbar pr-1 pb-4">
-          <div className="overflow-hidden rounded-xl border shrink-0" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
-            <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Latest Run Outcome</p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Result from manual evolve action</p>
+          <div
+            className="overflow-hidden rounded-xl border shrink-0"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <div
+              className="border-b px-5 py-1.5"
+              style={{ borderColor: "var(--os-stroke)" }}
+            >
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                Latest Run Outcome
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Result from manual evolve action
+              </p>
             </div>
             <div className="space-y-3 pt-4 px-5 pb-5">
               {!lastRun ? (
-                <p className="text-sm text-slate-400 font-medium">No manual evolve run in this session yet.</p>
+                <p className="text-sm text-slate-400 font-medium">
+                  No manual evolve run in this session yet.
+                </p>
               ) : (
                 <>
                   <div className="flex items-center gap-2">
-                    <Badge variant={lastRun.status === "completed" ? "success" : "warning"} size="sm">
+                    <Badge
+                      variant={
+                        lastRun.status === "completed" ? "success" : "warning"
+                      }
+                      size="sm"
+                    >
                       {lastRun.status}
                     </Badge>
-                    <span className="text-xs text-slate-400">v{lastRun.graph_version}</span>
+                    <span className="text-xs text-slate-400">
+                      v{lastRun.graph_version}
+                    </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+                    <div
+                      className="rounded-lg border p-2"
+                      style={{
+                        background: "var(--os-surface-2)",
+                        borderColor: "var(--os-stroke)",
+                      }}
+                    >
                       <p className="text-slate-400">Merges</p>
-                      <p className="font-semibold text-cyan-200">{lastRun.merges}</p>
+                      <p className="font-semibold text-cyan-200">
+                        {lastRun.merges}
+                      </p>
                     </div>
-                    <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+                    <div
+                      className="rounded-lg border p-2"
+                      style={{
+                        background: "var(--os-surface-2)",
+                        borderColor: "var(--os-stroke)",
+                      }}
+                    >
                       <p className="text-slate-400">Prunes</p>
-                      <p className="font-semibold text-cyan-200">{lastRun.prunes}</p>
+                      <p className="font-semibold text-cyan-200">
+                        {lastRun.prunes}
+                      </p>
                     </div>
-                    <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+                    <div
+                      className="rounded-lg border p-2"
+                      style={{
+                        background: "var(--os-surface-2)",
+                        borderColor: "var(--os-stroke)",
+                      }}
+                    >
                       <p className="text-slate-400">Inventions</p>
-                      <p className="font-semibold text-cyan-200">{lastRun.inventions}</p>
+                      <p className="font-semibold text-cyan-200">
+                        {lastRun.inventions}
+                      </p>
                     </div>
                   </div>
-                  <p className="text-xs text-slate-400">Latency: {lastRun.latency_ms} ms</p>
+                  <p className="text-xs text-slate-400">
+                    Latency: {lastRun.latency_ms} ms
+                  </p>
                   <p className="text-xs text-cyan-200">
                     {buildEffectiveModeText(
                       lastRun.requested_profile,
                       lastRun.requested_persist_mode,
                       lastRun.effective_profile,
                       lastRun.effective_persist_mode,
-                      lastRun.durability_path
+                      lastRun.durability_path,
                     )}
                   </p>
                   <p className="text-xs text-slate-400">
-                    completion: {lastRun.completion_mode || "-"} | aggressiveness:{" "}
-                    {lastRun.evolve_aggressiveness || "-"} | state update:{" "}
-                    {lastRun.state_update_status || "-"}
+                    completion: {lastRun.completion_mode || "-"} |
+                    aggressiveness: {lastRun.evolve_aggressiveness || "-"} |
+                    state update: {lastRun.state_update_status || "-"}
                   </p>
                 </>
               )}
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl border shrink-0" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
-            <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Runtime Snapshot</p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Live diagnostics and event stream health</p>
+          <div
+            className="overflow-hidden rounded-xl border shrink-0"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <div
+              className="border-b px-5 py-1.5"
+              style={{ borderColor: "var(--os-stroke)" }}
+            >
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                Runtime Snapshot
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Live diagnostics and event stream health
+              </p>
             </div>
             <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
               <div className="flex items-center justify-between">
@@ -1125,14 +1385,18 @@ export default function EvolutionPage() {
                   <Hash size={14} className="text-cyan-300" />
                   Graph hash
                 </span>
-                <span className="font-mono text-xs text-slate-300">{shortHash(metrics?.graph_hash)}</span>
+                <span className="font-mono text-xs text-slate-300">
+                  {shortHash(metrics?.graph_hash)}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-2 text-slate-300">
                   <Clock3 size={14} className="text-cyan-300" />
                   Last diagnostics
                 </span>
-                <span className="text-xs text-slate-300">{formatTimestamp(metrics?.computed_at)}</span>
+                <span className="text-xs text-slate-300">
+                  {formatTimestamp(metrics?.computed_at)}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-2 text-slate-300">
@@ -1140,35 +1404,76 @@ export default function EvolutionPage() {
                   Last seq / kind
                 </span>
                 <span className="text-xs text-slate-300">
-                  {evolveStatus?.last_event?.last_event_seq ?? latest?.last_seq ?? 0} /{" "}
-                  {evolveStatus?.last_event?.last_event_kind || latest?.last_kind || "-"}
+                  {evolveStatus?.last_event?.last_event_seq ??
+                    latest?.last_seq ??
+                    0}{" "}
+                  /{" "}
+                  {evolveStatus?.last_event?.last_event_kind ||
+                    latest?.last_kind ||
+                    "-"}
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2 pt-1">
-                <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+                <div
+                  className="rounded-lg border p-2"
+                  style={{
+                    background: "var(--os-surface-2)",
+                    borderColor: "var(--os-stroke)",
+                  }}
+                >
                   <p className="text-[11px] text-slate-400">Complete</p>
-                  <p className="font-semibold text-emerald-400">{eventStats.completed}</p>
+                  <p className="font-semibold text-emerald-400">
+                    {eventStats.completed}
+                  </p>
                 </div>
-                <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+                <div
+                  className="rounded-lg border p-2"
+                  style={{
+                    background: "var(--os-surface-2)",
+                    borderColor: "var(--os-stroke)",
+                  }}
+                >
                   <p className="text-[11px] text-slate-400">Skipped</p>
-                  <p className="font-semibold text-amber-400">{eventStats.skipped}</p>
+                  <p className="font-semibold text-amber-400">
+                    {eventStats.skipped}
+                  </p>
                 </div>
-                <div className="rounded-lg border p-2" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+                <div
+                  className="rounded-lg border p-2"
+                  style={{
+                    background: "var(--os-surface-2)",
+                    borderColor: "var(--os-stroke)",
+                  }}
+                >
                   <p className="text-[11px] text-slate-400">Invention</p>
-                  <p className="font-semibold text-violet-400">{eventStats.inventionSummary}</p>
+                  <p className="font-semibold text-violet-400">
+                    {eventStats.inventionSummary}
+                  </p>
                 </div>
               </div>
 
-              <div className="rounded-xl border p-3" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+              <div
+                className="rounded-xl border p-3"
+                style={{
+                  background: "var(--os-surface-2)",
+                  borderColor: "var(--os-stroke)",
+                }}
+              >
                 <p className="text-xs text-slate-400">Latest evolve event</p>
                 {latestEvolutionEvent ? (
                   <>
-                    <p className="mt-1 text-sm text-slate-200">{eventSummary(latestEvolutionEvent)}</p>
-                    <p className="mt-1 text-[11px] text-slate-400">{formatTimestamp(latestEvolutionEvent.ts)}</p>
+                    <p className="mt-1 text-sm text-slate-200">
+                      {eventSummary(latestEvolutionEvent)}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-400">
+                      {formatTimestamp(latestEvolutionEvent.ts)}
+                    </p>
                   </>
                 ) : (
-                  <p className="mt-1 text-sm text-slate-400">No evolve completion/skip event yet.</p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    No evolve completion/skip event yet.
+                  </p>
                 )}
               </div>
 
@@ -1198,14 +1503,29 @@ export default function EvolutionPage() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl border shrink-0" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
-            <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Scheduler State</p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Step B runtime flags, due reason, and evolve job state</p>
+          <div
+            className="overflow-hidden rounded-xl border shrink-0"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <div
+              className="border-b px-5 py-1.5"
+              style={{ borderColor: "var(--os-stroke)" }}
+            >
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                Scheduler State
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Step B runtime flags, due reason, and evolve job state
+              </p>
             </div>
             <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
               {!evolveStatus ? (
-                <p className="text-sm text-slate-400">Loading scheduler state...</p>
+                <p className="text-sm text-slate-400">
+                  Loading scheduler state...
+                </p>
               ) : (
                 <>
                   <div className="flex items-center justify-between">
@@ -1216,32 +1536,56 @@ export default function EvolutionPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Jobs enabled</span>
-                    <Badge variant={evolveStatus.runtime.jobs_enabled ? "success" : "warning"} size="xs">
-                      {evolveStatus.runtime.jobs_enabled ? "enabled" : "disabled"}
+                    <Badge
+                      variant={
+                        evolveStatus.runtime.jobs_enabled
+                          ? "success"
+                          : "warning"
+                      }
+                      size="xs"
+                    >
+                      {evolveStatus.runtime.jobs_enabled
+                        ? "enabled"
+                        : "disabled"}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Self evolve / invent</span>
                     <span className="text-xs text-slate-200">
-                      {evolveStatus.runtime.self_evolve_enabled ? "on" : "off"} /{" "}
+                      {evolveStatus.runtime.self_evolve_enabled ? "on" : "off"}{" "}
+                      /{" "}
                       {evolveStatus.runtime.self_invent_enabled ? "on" : "off"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Due now</span>
-                    <Badge variant={evolveStatus.due.is_due ? "success" : "outline"} size="xs">
+                    <Badge
+                      variant={evolveStatus.due.is_due ? "success" : "outline"}
+                      size="xs"
+                    >
                       {evolveStatus.due.is_due ? "yes" : "no"}
                     </Badge>
                   </div>
-                  <div className="rounded-xl border p-3" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+                  <div
+                    className="rounded-xl border p-3"
+                    style={{
+                      background: "var(--os-surface-2)",
+                      borderColor: "var(--os-stroke)",
+                    }}
+                  >
                     <p className="text-xs text-slate-400">Due reason</p>
-                    <p className="mt-1 text-xs text-slate-200">{humanizeDueReason(evolveStatus.due.reason)}</p>
-                    <p className="mt-1 font-mono text-[11px] text-slate-500">{evolveStatus.due.reason}</p>
+                    <p className="mt-1 text-xs text-slate-200">
+                      {humanizeDueReason(evolveStatus.due.reason)}
+                    </p>
+                    <p className="mt-1 font-mono text-[11px] text-slate-500">
+                      {evolveStatus.due.reason}
+                    </p>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Version delta</span>
                     <span className="text-xs text-slate-200">
-                      {evolveStatus.due.version_delta} / {evolveStatus.due.min_version_delta}
+                      {evolveStatus.due.version_delta} /{" "}
+                      {evolveStatus.due.min_version_delta}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -1268,7 +1612,8 @@ export default function EvolutionPage() {
                   </div>
                   {evolveStatus.last_event.last_skip_reason && (
                     <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-xs text-amber-200">
-                      Last skip reason: {evolveStatus.last_event.last_skip_reason}
+                      Last skip reason:{" "}
+                      {evolveStatus.last_event.last_skip_reason}
                     </div>
                   )}
                 </>
@@ -1276,47 +1621,85 @@ export default function EvolutionPage() {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl border shrink-0" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
-            <div className="border-b px-5 py-1.5" style={{ borderColor: "var(--os-stroke)" }}>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Metric Details</p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Additional scorecard fields</p>
+          <div
+            className="overflow-hidden rounded-xl border shrink-0"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <div
+              className="border-b px-5 py-1.5"
+              style={{ borderColor: "var(--os-stroke)" }}
+            >
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                Metric Details
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Additional scorecard fields
+              </p>
             </div>
             <div className="space-y-2 pt-4 px-5 pb-5 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Redundancy</span>
-                <span className="text-slate-200">{formatMetric(metrics?.redundancy)}</span>
+                <span className="text-slate-200">
+                  {formatMetric(metrics?.redundancy)}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-slate-400">Novelty</span>
-                <span className="text-slate-200">{formatMetric(metrics?.novelty)}</span>
+                <span className="text-slate-200">
+                  {formatMetric(metrics?.novelty)}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="inline-flex items-center gap-2 text-slate-400">
                   <Scissors size={13} className="text-cyan-300" />
                   Energy
                 </span>
-                <span className="text-slate-200">{formatMetric(metrics?.energy)}</span>
+                <span className="text-slate-200">
+                  {formatMetric(metrics?.energy)}
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-xl border shrink-0" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-1)" }}>
-            <div className="border-b px-5 py-3" style={{ borderColor: "var(--os-stroke)" }}>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">Source Coverage</p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Latest ingested files for this graph</p>
+          <div
+            className="overflow-hidden rounded-xl border shrink-0"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <div
+              className="border-b px-5 py-3"
+              style={{ borderColor: "var(--os-stroke)" }}
+            >
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                Source Coverage
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Latest ingested files for this graph
+              </p>
             </div>
             <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
               {!storageSummary ? (
-                <p className="text-sm text-slate-400">Loading source coverage...</p>
+                <p className="text-sm text-slate-400">
+                  Loading source coverage...
+                </p>
               ) : (
                 <>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Files</span>
-                    <span className="text-slate-200">{formatCount(storageSummary.total_files)}</span>
+                    <span className="text-slate-200">
+                      {formatCount(storageSummary.total_files)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Total bytes</span>
-                    <span className="text-slate-200">{formatBytes(storageSummary.total_bytes)}</span>
+                    <span className="text-slate-200">
+                      {formatBytes(storageSummary.total_bytes)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-400">Ingested</span>
@@ -1326,25 +1709,46 @@ export default function EvolutionPage() {
                   </div>
                 </>
               )}
-              <div className="rounded-xl border p-3" style={{ background: "var(--os-surface-2)", borderColor: "var(--os-stroke)" }}>
+              <div
+                className="rounded-xl border p-3"
+                style={{
+                  background: "var(--os-surface-2)",
+                  borderColor: "var(--os-stroke)",
+                }}
+              >
                 <p className="text-xs text-slate-400">Latest files</p>
                 {storageFiles.length === 0 ? (
-                  <p className="mt-1 text-xs text-slate-400">No files indexed for this graph.</p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    No files indexed for this graph.
+                  </p>
                 ) : (
                   <div className="mt-2 max-h-40 space-y-2 overflow-y-auto pr-1">
                     {storageFiles.map((file) => (
                       <div
                         key={file.raw_id}
                         className="flex items-center justify-between gap-2 rounded-lg border px-2 py-1"
-                        style={{ background: "var(--os-surface-3)", borderColor: "var(--os-stroke)" }}
+                        style={{
+                          background: "var(--os-surface-3)",
+                          borderColor: "var(--os-stroke)",
+                        }}
                       >
                         <div className="min-w-0">
-                          <p className="truncate text-xs text-slate-200">{file.filename}</p>
+                          <p className="truncate text-xs text-slate-200">
+                            {file.filename}
+                          </p>
                           <p className="text-[11px] text-slate-400">
-                            nodes {file.node_count} | vectors {file.vector_count}
+                            nodes {file.node_count} | vectors{" "}
+                            {file.vector_count}
                           </p>
                         </div>
-                        <Badge variant={file.ingest_status === "ingested" ? "success" : "outline"} size="xs">
+                        <Badge
+                          variant={
+                            file.ingest_status === "ingested"
+                              ? "success"
+                              : "outline"
+                          }
+                          size="xs"
+                        >
                           {file.ingest_status}
                         </Badge>
                       </div>

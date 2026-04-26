@@ -49,7 +49,8 @@ channels = {
 score = native_score + lexical_score`,
     codeFile: "representation_v2.py",
     gradient: "from-blue-500 to-indigo-500",
-    iconPath: "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 2 0 01-1-1v-6z",
+    iconPath:
+      "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 2 0 01-1-1v-6z",
   },
   {
     number: "03",
@@ -64,7 +65,8 @@ if phrase_rule.matches(text):
     add_semantic_edge("paraphrase")`,
     codeFile: "canonical_semantics.py",
     gradient: "from-indigo-500 to-purple-500",
-    iconPath: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+    iconPath:
+      "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
   },
   {
     number: "04",
@@ -79,7 +81,8 @@ y_next = (1 - alpha) * seed + alpha * P^T * y
 // fixed hops, fixed iterations, deterministic ordering`,
     codeFile: "diffusion.py",
     gradient: "from-purple-500 to-pink-500",
-    iconPath: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
+    iconPath:
+      "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
   },
   {
     number: "05",
@@ -95,22 +98,24 @@ score =
 dominance = suppress_weaker_conflicts(top_n)`,
     codeFile: "reranker_v2.py",
     gradient: "from-emerald-500 to-cyan-500",
-    iconPath: "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
+    iconPath:
+      "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
   },
   {
     number: "06",
     title: "Scale, Multilingual, Multimodal",
-    headline: "Production-oriented retrieval paths beyond plain brute force.",
+    headline: "Hybrid Physics-Based Graph Recall beyond plain brute force.",
     description:
-      "FAIM now includes sparse inverted indexes, deterministic ANN shortlist generation, English/German concept linking, layout/table/image sidecars, and modality-aware reranking. It scales better and handles richer evidence types.",
-    codeSnippet: `// query_flow.py — staged candidate generation
-sparse = inverted_index.shortlist(query)
-dense = deterministic_ann.shortlist(v_native)
+      "FAIM uses a three-layer pipeline: VP-Tree for dense semantic similarity, WAND for sparse lexical precision, and graph-expanded recall for logical context. It scales better and handles richer evidence types while remaining 100% deterministic.",
+    codeSnippet: `// query_flow.py — Hybrid recall pipeline
+sparse = wand.shortlist(query)
+dense = vptree.shortlist(v_native)
 candidates = stable_union(sparse, dense)
-// multilingual + multimodal boosts stay additive`,
+// stage-2: graph-expanded recall + diffusion`,
     codeFile: "query_flow.py",
     gradient: "from-amber-500 to-orange-500",
-    iconPath: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+    iconPath:
+      "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
   },
   {
     number: "07",
@@ -127,7 +132,8 @@ answer = {
 }`,
     codeFile: "answer_synthesis.py",
     gradient: "from-rose-500 to-red-500",
-    iconPath: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
+    iconPath:
+      "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
   },
 ];
 
@@ -159,9 +165,21 @@ function PowerCard({ power, index }: { power: Power; index: number }) {
         <div className="relative z-10">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-4">
-              <div className={`flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br ${power.gradient} bg-opacity-10`}>
-                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={power.iconPath} />
+              <div
+                className={`flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br ${power.gradient} bg-opacity-10`}
+              >
+                <svg
+                  className="w-6 h-6 text-white"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d={power.iconPath}
+                  />
                 </svg>
               </div>
               <div>
@@ -180,11 +198,17 @@ function PowerCard({ power, index }: { power: Power; index: number }) {
               stroke="currentColor"
               strokeWidth={2}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19 9l-7 7-7-7"
+              />
             </motion.svg>
           </div>
 
-          <p className={`text-sm font-medium mb-3 bg-gradient-to-r ${power.gradient} bg-clip-text text-transparent`}>
+          <p
+            className={`text-sm font-medium mb-3 bg-gradient-to-r ${power.gradient} bg-clip-text text-transparent`}
+          >
             {power.headline}
           </p>
 
@@ -209,7 +233,9 @@ function PowerCard({ power, index }: { power: Power; index: number }) {
                   <div className="w-3 h-3 rounded-full bg-yellow-500/60" />
                   <div className="w-3 h-3 rounded-full bg-green-500/60" />
                 </div>
-                <span className="text-slate-600 text-[10px] font-mono">{power.codeFile}</span>
+                <span className="text-slate-600 text-[10px] font-mono">
+                  {power.codeFile}
+                </span>
               </div>
               <pre className="text-xs font-mono text-slate-300 leading-relaxed whitespace-pre-wrap">
                 {power.codeSnippet}
@@ -224,7 +250,10 @@ function PowerCard({ power, index }: { power: Power; index: number }) {
 
 export default function SevenPowers() {
   return (
-    <section id="powers" className="py-28 px-4 bg-gradient-to-b from-slate-950 to-[#070a18]">
+    <section
+      id="powers"
+      className="py-28 px-4 bg-gradient-to-b from-slate-950 to-[#070a18]"
+    >
       <div className="max-w-5xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -244,7 +273,8 @@ export default function SevenPowers() {
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto text-lg">
             The original FAIM core is still intact. These cards show how the
-            retrieval, knowledge, and answer stack now work together in production.
+            retrieval, knowledge, and answer stack now work together in
+            production.
           </p>
         </motion.div>
 

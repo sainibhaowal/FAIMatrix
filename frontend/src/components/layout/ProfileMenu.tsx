@@ -2,20 +2,14 @@
 
 /**
  * ProfileMenu Component
- * 
+ *
  * User avatar dropdown with profile info and logout.
  */
 
 import { useState, useRef, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  User, 
-  LogOut, 
-  Settings, 
-  ChevronDown,
-  Sparkles 
-} from "lucide-react";
+import { User, LogOut, Settings, ChevronDown, Sparkles } from "lucide-react";
 import Link from "next/link";
 
 export function ProfileMenu() {
@@ -55,12 +49,13 @@ export function ProfileMenu() {
     );
   }
 
-  const initials = session.user.name
-    ?.split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2) || "U";
+  const initials =
+    session.user.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "U";
 
   return (
     <div ref={menuRef} className="relative">
@@ -73,8 +68,8 @@ export function ProfileMenu() {
           {initials}
           <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-slate-900" />
         </div>
-        <ChevronDown 
-          className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`} 
+        <ChevronDown
+          className={`w-4 h-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
         />
       </button>
 

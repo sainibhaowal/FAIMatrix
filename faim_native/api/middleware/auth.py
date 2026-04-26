@@ -162,8 +162,8 @@ def append_key_audit_best_effort(
     meta: Optional[dict] = None,
 ) -> None:
     """Append auth-key audit event without breaking request flow."""
-    from store.pg.repos.auth_repo import AuthRepo
     from runtime.context import close_session, get_session
+    from store.pg.repos.auth_repo import AuthRepo
 
     normalized_key_id = str(key_id or "").strip() or "unknown"
     if not tenant_id:
@@ -194,8 +194,8 @@ def _verify_db_tenant_key(
     request_id: Optional[str] = None,
 ) -> AuthDecision:
     """DB-backed key verification returning AuthDecision with denial reason."""
-    from store.pg.repos.auth_repo import AuthRepo
     from runtime.context import close_session, get_session
+    from store.pg.repos.auth_repo import AuthRepo
 
     session = get_session()
     try:
@@ -288,7 +288,9 @@ def authenticate_tenant_key(
             if decision.reason in {"expired", "revoked"}:
                 return decision
         except Exception as exc:
-            logger.warning("DB key verification failed for tenant=%s: %s", tenant_id, exc)
+            logger.warning(
+                "DB key verification failed for tenant=%s: %s", tenant_id, exc
+            )
 
         if env_fallback and _verify_env_tenant_key(tenant_id, api_key):
             return AuthDecision(

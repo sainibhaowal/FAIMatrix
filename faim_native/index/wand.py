@@ -39,8 +39,8 @@ def estimate_term_upper_bounds(
     bounds: Dict[Tuple[str, str], float] = {}
     for channel, terms in _query_terms(query_repr).items():
         channel_stats = stats_by_channel.get(channel, {})
-        doc_count = max(int(channel_stats.get("doc_count", 0)), 1)
-        df_map = dict(channel_stats.get("df_map", {}))
+        doc_count = max(int(channel_stats.get("doc_count", 0)), 1)  # type: ignore[call-overload]
+        df_map = dict(channel_stats.get("df_map", {}))  # type: ignore[call-overload]
         for term in terms:
             postings = index.postings_for(channel, term)
             if not postings:
@@ -79,7 +79,9 @@ def block_max_wand_shortlist(
         ),
         key=lambda item: (-item[2], -item[1], str(item[0])),
     )
-    shortlisted = [(node_id, score) for node_id, score, _bound in ranked[:max_candidates]]
+    shortlisted = [
+        (node_id, score) for node_id, score, _bound in ranked[:max_candidates]
+    ]
     shortlisted.sort(key=lambda item: (-item[1], str(item[0])))
     return tuple(shortlisted[:k])
 

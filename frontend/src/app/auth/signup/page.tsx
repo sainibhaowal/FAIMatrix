@@ -35,7 +35,7 @@ function SignupContent() {
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
+
     // Client-side validation
     if (name.trim().length < 2) {
       setError("Name must be at least 2 characters");
@@ -45,7 +45,7 @@ function SignupContent() {
       setError("Please enter a valid email address");
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -100,24 +100,29 @@ function SignupContent() {
       {/* Dynamic Background */}
       <div className="absolute inset-0 z-0">
         <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+        <div
+          className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] animate-pulse"
+          style={{ animationDelay: "2s" }}
+        />
       </div>
 
       <div className="relative z-10 w-full max-w-md px-6 py-12">
         {/* Logo Section */}
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.6 }}
           className="text-center mb-10"
         >
           <div className="flex justify-center mb-4">
-             <Logo size="large" px={100} />
+            <Logo size="large" px={100} />
           </div>
           <h2 className="text-white text-3xl font-bold tracking-tight">
             FAIM<span className="text-cyan-400">ATRIX</span>
           </h2>
-          <p className="text-slate-500 text-sm mt-1 tracking-widest uppercase">Fractal AI Memory</p>
+          <p className="text-slate-500 text-sm mt-1 tracking-widest uppercase">
+            Fractal AI Memory
+          </p>
         </motion.div>
 
         {/* Card */}
@@ -137,7 +142,9 @@ function SignupContent() {
                 transition={{ duration: 0.3 }}
               >
                 <div className="mb-8">
-                  <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
+                  <h1 className="text-2xl font-bold text-white mb-2">
+                    Create Account
+                  </h1>
                   <p className="text-slate-400 text-sm">
                     Join the next generation of AI management.
                   </p>
@@ -183,9 +190,9 @@ function SignupContent() {
                   </div>
 
                   {error && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
+                      animate={{ opacity: 1, height: "auto" }}
                       className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 p-3 rounded-lg flex items-center gap-2"
                     >
                       <div className="w-1.5 h-1.5 rounded-full bg-red-400" />
@@ -215,7 +222,7 @@ function SignupContent() {
                 <div className="mt-8 pt-6 border-t border-white/5 text-center">
                   <p className="text-slate-500 text-sm">
                     Already have an account?{" "}
-                    <Link 
+                    <Link
                       href="/auth/login"
                       className="text-cyan-400 font-semibold hover:text-cyan-300 transition-colors"
                     >
@@ -233,16 +240,19 @@ function SignupContent() {
                 transition={{ duration: 0.3 }}
               >
                 <div className="mb-8">
-                  <button 
+                  <button
                     onClick={() => setStep("email")}
                     className="flex items-center gap-1 text-slate-500 hover:text-white transition-colors text-xs mb-4 group"
                   >
                     <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
                     Back
                   </button>
-                  <h1 className="text-2xl font-bold text-white mb-2">Verify Email</h1>
+                  <h1 className="text-2xl font-bold text-white mb-2">
+                    Verify Email
+                  </h1>
                   <p className="text-slate-400 text-sm">
-                    Verification code sent to <span className="text-cyan-400 font-medium">{email}</span>
+                    Verification code sent to{" "}
+                    <span className="text-cyan-400 font-medium">{email}</span>
                   </p>
                 </div>
 
@@ -267,7 +277,7 @@ function SignupContent() {
                   </div>
 
                   {error && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 p-3 rounded-lg"
@@ -304,11 +314,13 @@ function SignupContent() {
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#020617]">
-        <Loader2 className="w-10 h-10 animate-spin text-cyan-500" />
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#020617]">
+          <Loader2 className="w-10 h-10 animate-spin text-cyan-500" />
+        </div>
+      }
+    >
       <SignupContent />
     </Suspense>
   );

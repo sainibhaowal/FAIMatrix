@@ -35,27 +35,31 @@ def build_wordnet_synonyms() -> dict:
     """
     try:
         from nltk.corpus import wordnet as wn
-    except ImportError:
+    except ImportError as err:
         raise RuntimeError(
             "NLTK required for WordNet build.\n"
             "Install: pip install nltk\n"
             "Then: python -m nltk.downloader wordnet"
-        )
+        ) from err
 
     synonyms: dict = {}
 
     # Iterate all synsets in WordNet
     for synset in wn.all_synsets():
         # Collect all lemmas at this level
-        lemmas = [l.name().lower().replace("_", " ") for l in synset.lemmas()]
+        lemmas = [lem.name().lower().replace("_", " ") for lem in synset.lemmas()]
 
         # Add hypernym lemmas (broader concepts)
         for hypernym in synset.hypernyms():
-            lemmas.extend(l.name().lower().replace("_", " ") for l in hypernym.lemmas())
+            lemmas.extend(
+                lem.name().lower().replace("_", " ") for lem in hypernym.lemmas()
+            )
 
         # Add hyponym lemmas (narrower concepts)
         for hyponym in synset.hyponyms():
-            lemmas.extend(l.name().lower().replace("_", " ") for l in hyponym.lemmas())
+            lemmas.extend(
+                lem.name().lower().replace("_", " ") for lem in hyponym.lemmas()
+            )
 
         # For each lemma in this synset, record all others as synonyms
         for lemma in synset.lemmas():
@@ -67,9 +71,9 @@ def build_wordnet_synonyms() -> dict:
 
             # Collect other lemmas as synonyms
             others = set(
-                l
-                for l in lemmas
-                if l != word and l.isalpha() and len(l) > 1 and " " not in l
+                lem
+                for lem in lemmas
+                if lem != word and lem.isalpha() and len(lem) > 1 and " " not in lem
             )
 
             if others:

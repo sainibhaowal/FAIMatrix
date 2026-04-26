@@ -137,7 +137,6 @@
 }
 
 @layer utilities {
-
   /* Surface System */
   .os-surface {
     background: var(--os-surface-1);
@@ -270,7 +269,6 @@
 }
 
 @keyframes pulse-glow {
-
   0%,
   100% {
     opacity: 1;

@@ -30,6 +30,7 @@ except (ImportError, RuntimeError):
 # PDF Layout Helpers
 # =============================================================================
 
+
 def _detect_column_boundary(text_blocks: list, page_width: float) -> Optional[float]:
     """Return x split point if page is multi-column, else None.
 
@@ -40,17 +41,15 @@ def _detect_column_boundary(text_blocks: list, page_width: float) -> Optional[fl
         return None
 
     # Collect x-ranges of all text blocks
-    x0_vals = [b[0] for b in text_blocks]
-    x1_vals = [b[2] for b in text_blocks]
 
-    left_blocks  = [b for b in text_blocks if b[0] < page_width * 0.45]
+    left_blocks = [b for b in text_blocks if b[0] < page_width * 0.45]
     right_blocks = [b for b in text_blocks if b[0] >= page_width * 0.45]
 
     if not left_blocks or not right_blocks:
         return None
 
     # Detect gap: max right-edge of left blocks vs min left-edge of right blocks
-    left_max_x1  = max(b[2] for b in left_blocks)
+    left_max_x1 = max(b[2] for b in left_blocks)
     right_min_x0 = min(b[0] for b in right_blocks)
     gap = right_min_x0 - left_max_x1
 
@@ -73,8 +72,12 @@ def _sort_reading_order(text_blocks: list, page_width: float) -> list:
     split_x = _detect_column_boundary(text_blocks, page_width)
 
     if split_x is not None:
-        left  = sorted([b for b in text_blocks if b[0] < split_x],  key=lambda b: (b[1], b[0]))
-        right = sorted([b for b in text_blocks if b[0] >= split_x], key=lambda b: (b[1], b[0]))
+        left = sorted(
+            [b for b in text_blocks if b[0] < split_x], key=lambda b: (b[1], b[0])
+        )
+        right = sorted(
+            [b for b in text_blocks if b[0] >= split_x], key=lambda b: (b[1], b[0])
+        )
         return left + right
 
     # Single column — sort top-to-bottom with minor x tie-break
@@ -97,7 +100,7 @@ def _fitz_extract_tables(page) -> List[Tuple[tuple, str]]:
             for row in rows:
                 cells = [str(c or "").strip().replace("\n", " ") for c in row]
                 lines.append(" | ".join(cells))
-            content = "\n".join(l for l in lines if l.strip())
+            content = "\n".join(line for line in lines if line.strip())
             if content.strip():
                 results.append((tbl.bbox, content))
     except Exception:
@@ -168,13 +171,18 @@ def _bbox_overlaps(b1: tuple, b2: tuple, tolerance: float = 2.0) -> bool:
     """Check if two (x0,y0,x1,y1) bounding boxes overlap."""
     x0a, y0a, x1a, y1a = b1
     x0b, y0b, x1b, y1b = b2
-    return not (x1a + tolerance < x0b or x1b + tolerance < x0a or
-                y1a + tolerance < y0b or y1b + tolerance < y0a)
+    return not (
+        x1a + tolerance < x0b
+        or x1b + tolerance < x0a
+        or y1a + tolerance < y0b
+        or y1b + tolerance < y0a
+    )
 
 
 # =============================================================================
 # PDF Extraction
 # =============================================================================
+
 
 def extract_pdf_blocks(
     file_bytes: bytes,
@@ -207,16 +215,18 @@ def extract_pdf_blocks(
             table_results = _fitz_extract_tables(page)
             table_bboxes = [bbox for bbox, _ in table_results]
 
-            for tbl_idx, (bbox, table_text) in enumerate(table_results):
+            for tbl_idx, (_bbox, table_text) in enumerate(table_results):
                 anchor = BlockAnchor(doc_type="pdf", page=page_num + 1)
-                blocks.append(EvidenceBlock.create(
-                    raw_id=raw_id,
-                    anchor=anchor,
-                    content=table_text,
-                    block_type="table",
-                    confidence=1.0,
-                    metadata={"page_count": page_count, "table_index": tbl_idx},
-                ))
+                blocks.append(
+                    EvidenceBlock.create(
+                        raw_id=raw_id,
+                        anchor=anchor,
+                        content=table_text,
+                        block_type="table",
+                        confidence=1.0,
+                        metadata={"page_count": page_count, "table_index": tbl_idx},
+                    )
+                )
 
             # ── Extract inline figure blocks (type=1 in get_text rawdict) ──
             # These are embedded image regions within text pages — not OCR candidates.
@@ -228,19 +238,25 @@ def extract_pdf_blocks(
                 table_bboxes=table_bboxes,
             )
             blocks.extend(figure_blocks)
-            figure_bboxes = [fb.anchor_json.get("bbox_x0") and
-                             (fb.anchor_json.get("bbox_x0", 0),
-                              fb.anchor_json.get("bbox_y0", 0),
-                              fb.anchor_json.get("bbox_x1", 0),
-                              fb.anchor_json.get("bbox_y1", 0))
-                             for fb in figure_blocks]
+            figure_bboxes = [
+                fb.anchor_json.get("bbox_x0")
+                and (
+                    fb.anchor_json.get("bbox_x0", 0),
+                    fb.anchor_json.get("bbox_y0", 0),
+                    fb.anchor_json.get("bbox_x1", 0),
+                    fb.anchor_json.get("bbox_y1", 0),
+                )
+                for fb in figure_blocks
+            ]
             figure_bboxes = [b for b in figure_bboxes if b]
 
             # ── Extract text blocks with layout-aware ordering ──
             raw_blocks = page.get_text("blocks")  # (x0,y0,x1,y1,text,block_no,type)
             text_blocks = [
-                b for b in raw_blocks
-                if len(b) >= 5 and b[4].strip()
+                b
+                for b in raw_blocks
+                if len(b) >= 5
+                and b[4].strip()
                 and b[6] == 0  # type 0 = text (type 1 = image)
                 and not any(_bbox_overlaps(b[:4], tb) for tb in table_bboxes)
                 and not any(_bbox_overlaps(b[:4], fb) for fb in figure_bboxes)
@@ -251,14 +267,16 @@ def extract_pdf_blocks(
 
             if page_text.strip():
                 anchor = BlockAnchor(doc_type="pdf", page=page_num + 1)
-                blocks.append(EvidenceBlock.create(
-                    raw_id=raw_id,
-                    anchor=anchor,
-                    content=page_text.strip(),
-                    block_type="text",
-                    confidence=1.0,
-                    metadata={"page_count": page_count},
-                ))
+                blocks.append(
+                    EvidenceBlock.create(
+                        raw_id=raw_id,
+                        anchor=anchor,
+                        content=page_text.strip(),
+                        block_type="text",
+                        confidence=1.0,
+                        metadata={"page_count": page_count},
+                    )
+                )
             elif page.get_images():
                 # Pure image page — attempt OCR
                 ocr_block = _extract_pdf_page_ocr_block(
@@ -272,18 +290,20 @@ def extract_pdf_blocks(
                     blocks.append(ocr_block)
                 else:
                     anchor = BlockAnchor(doc_type="pdf", page=page_num + 1)
-                    blocks.append(_image_stub_block(
-                        raw_id=raw_id,
-                        anchor=anchor,
-                        message="[IMAGE_STUB: Page contains image content requiring OCR]",
-                        filename="",
-                        size_bytes=len(file_bytes),
-                        metadata={
-                            "page_count": page_count,
-                            "image_count": len(page.get_images()),
-                            "ocr_pending": True,
-                        },
-                    ))
+                    blocks.append(
+                        _image_stub_block(
+                            raw_id=raw_id,
+                            anchor=anchor,
+                            message="[IMAGE_STUB: Page contains image content requiring OCR]",
+                            filename="",
+                            size_bytes=len(file_bytes),
+                            metadata={
+                                "page_count": page_count,
+                                "image_count": len(page.get_images()),
+                                "ocr_pending": True,
+                            },
+                        )
+                    )
 
         doc.close()
         if blocks:
@@ -303,32 +323,35 @@ def extract_pdf_blocks(
                 # Tables
                 for tbl_idx, table in enumerate(page.extract_tables() or []):
                     lines = [
-                        " | ".join(str(c or "").strip() for c in row)
-                        for row in table
+                        " | ".join(str(c or "").strip() for c in row) for row in table
                     ]
-                    content = "\n".join(l for l in lines if l.strip())
+                    content = "\n".join(line for line in lines if line.strip())
                     if content.strip():
                         anchor = BlockAnchor(doc_type="pdf", page=i + 1)
-                        blocks.append(EvidenceBlock.create(
-                            raw_id=raw_id,
-                            anchor=anchor,
-                            content=content,
-                            block_type="table",
-                            confidence=1.0,
-                            metadata={"table_index": tbl_idx},
-                        ))
+                        blocks.append(
+                            EvidenceBlock.create(
+                                raw_id=raw_id,
+                                anchor=anchor,
+                                content=content,
+                                block_type="table",
+                                confidence=1.0,
+                                metadata={"table_index": tbl_idx},
+                            )
+                        )
 
                 # Text
                 page_text = page.extract_text() or ""
                 if page_text.strip():
                     anchor = BlockAnchor(doc_type="pdf", page=i + 1)
-                    blocks.append(EvidenceBlock.create(
-                        raw_id=raw_id,
-                        anchor=anchor,
-                        content=page_text.strip(),
-                        block_type="text",
-                        confidence=1.0,
-                    ))
+                    blocks.append(
+                        EvidenceBlock.create(
+                            raw_id=raw_id,
+                            anchor=anchor,
+                            content=page_text.strip(),
+                            block_type="text",
+                            confidence=1.0,
+                        )
+                    )
 
         if blocks:
             return blocks
@@ -343,20 +366,22 @@ def extract_pdf_blocks(
         try:
             from pypdf import PdfReader
         except ImportError:
-            from PyPDF2 import PdfReader
+            from PyPDF2 import PdfReader  # type: ignore[no-redef]
 
         reader = PdfReader(io.BytesIO(file_bytes))
         for i, page in enumerate(reader.pages):
             page_text = page.extract_text() or ""
             if page_text.strip():
                 anchor = BlockAnchor(doc_type="pdf", page=i + 1)
-                blocks.append(EvidenceBlock.create(
-                    raw_id=raw_id,
-                    anchor=anchor,
-                    content=page_text.strip(),
-                    block_type="text",
-                    confidence=1.0,
-                ))
+                blocks.append(
+                    EvidenceBlock.create(
+                        raw_id=raw_id,
+                        anchor=anchor,
+                        content=page_text.strip(),
+                        block_type="text",
+                        confidence=1.0,
+                    )
+                )
 
         if blocks:
             return blocks
@@ -365,18 +390,21 @@ def extract_pdf_blocks(
         pass
 
     anchor = BlockAnchor(doc_type="pdf", page=1)
-    return [EvidenceBlock.create(
-        raw_id=raw_id,
-        anchor=anchor,
-        content="[EXTRACTION_FAILED: Could not extract PDF content]",
-        block_type="text",
-        confidence=0.0,
-    )]
+    return [
+        EvidenceBlock.create(
+            raw_id=raw_id,
+            anchor=anchor,
+            content="[EXTRACTION_FAILED: Could not extract PDF content]",
+            block_type="text",
+            confidence=0.0,
+        )
+    ]
 
 
 # =============================================================================
 # DOCX Extraction
 # =============================================================================
+
 
 def extract_docx_blocks(
     file_bytes: bytes,
@@ -390,7 +418,6 @@ def extract_docx_blocks(
 
     try:
         from docx import Document
-        from docx.oxml.ns import qn
 
         doc = Document(io.BytesIO(file_bytes))
 
@@ -416,20 +443,22 @@ def extract_docx_blocks(
                 section=current_section,
             )
 
-            blocks.append(EvidenceBlock.create(
-                raw_id=raw_id,
-                anchor=anchor,
-                content=text,
-                block_type=block_type,
-                confidence=1.0,
-                metadata={"paragraph_index": para_idx, "style": style_name},
-            ))
+            blocks.append(
+                EvidenceBlock.create(
+                    raw_id=raw_id,
+                    anchor=anchor,
+                    content=text,
+                    block_type=block_type,
+                    confidence=1.0,
+                    metadata={"paragraph_index": para_idx, "style": style_name},
+                )
+            )
             char_offset += len(text) + 1
 
         # Tables
         for tbl_idx, table in enumerate(doc.tables):
             rows_data = []
-            for row_idx, row in enumerate(table.rows):
+            for _row_idx, row in enumerate(table.rows):
                 cells = [cell.text.strip() for cell in row.cells]
                 # Detect header row (first row or all-bold cells)
                 rows_data.append(cells)
@@ -444,7 +473,9 @@ def extract_docx_blocks(
                 if row_idx == 0 and len(rows_data) > 1:
                     lines.append("-" * max(10, len(lines[0])))
 
-            content = "\n".join(l for l in lines if l.replace("|", "").replace("-", "").strip())
+            content = "\n".join(
+                line for line in lines if line.replace("|", "").replace("-", "").strip()
+            )
             if content.strip():
                 anchor = BlockAnchor(
                     doc_type="docx",
@@ -452,14 +483,16 @@ def extract_docx_blocks(
                     char_end=char_offset + len(content),
                     section=current_section,
                 )
-                blocks.append(EvidenceBlock.create(
-                    raw_id=raw_id,
-                    anchor=anchor,
-                    content=content,
-                    block_type="table",
-                    confidence=1.0,
-                    metadata={"table_index": tbl_idx, "rows": len(rows_data)},
-                ))
+                blocks.append(
+                    EvidenceBlock.create(
+                        raw_id=raw_id,
+                        anchor=anchor,
+                        content=content,
+                        block_type="table",
+                        confidence=1.0,
+                        metadata={"table_index": tbl_idx, "rows": len(rows_data)},
+                    )
+                )
                 char_offset += len(content) + 1
 
         return blocks if blocks else [_fallback_block(raw_id, "docx")]
@@ -476,6 +509,7 @@ def extract_docx_blocks(
 # PPTX Extraction
 # =============================================================================
 
+
 def extract_pptx_blocks(
     file_bytes: bytes,
     raw_id: str,
@@ -487,8 +521,6 @@ def extract_pptx_blocks(
 
     try:
         from pptx import Presentation
-        from pptx.util import Pt
-        from pptx.enum.shapes import MSO_SHAPE_TYPE
 
         prs = Presentation(io.BytesIO(file_bytes))
 
@@ -525,31 +557,42 @@ def extract_pptx_blocks(
                         lines.append(" | ".join(cells))
                         if row_idx == 0 and len(table.rows) > 1:
                             lines.append("-" * max(10, len(lines[0])))
-                    tbl_content = "\n".join(l for l in lines if l.replace("|", "").replace("-", "").strip())
+                    tbl_content = "\n".join(
+                        line
+                        for line in lines
+                        if line.replace("|", "").replace("-", "").strip()
+                    )
                     if tbl_content:
                         slide_tables.append(tbl_content)
 
             if slide_texts:
                 anchor = BlockAnchor(doc_type="pptx", slide=slide_num)
-                blocks.append(EvidenceBlock.create(
-                    raw_id=raw_id,
-                    anchor=anchor,
-                    content="\n".join(slide_texts),
-                    block_type="text",
-                    confidence=1.0,
-                    metadata={"slide_count": len(prs.slides)},
-                ))
+                blocks.append(
+                    EvidenceBlock.create(
+                        raw_id=raw_id,
+                        anchor=anchor,
+                        content="\n".join(slide_texts),
+                        block_type="text",
+                        confidence=1.0,
+                        metadata={"slide_count": len(prs.slides)},
+                    )
+                )
 
             for tbl_idx, tbl_text in enumerate(slide_tables):
                 anchor = BlockAnchor(doc_type="pptx", slide=slide_num)
-                blocks.append(EvidenceBlock.create(
-                    raw_id=raw_id,
-                    anchor=anchor,
-                    content=tbl_text,
-                    block_type="table",
-                    confidence=1.0,
-                    metadata={"slide_count": len(prs.slides), "table_index": tbl_idx},
-                ))
+                blocks.append(
+                    EvidenceBlock.create(
+                        raw_id=raw_id,
+                        anchor=anchor,
+                        content=tbl_text,
+                        block_type="table",
+                        confidence=1.0,
+                        metadata={
+                            "slide_count": len(prs.slides),
+                            "table_index": tbl_idx,
+                        },
+                    )
+                )
 
             # Speaker notes
             try:
@@ -557,14 +600,16 @@ def extract_pptx_blocks(
                 notes_text = notes_frame.text.strip() if notes_frame else ""
                 if notes_text:
                     anchor = BlockAnchor(doc_type="pptx", slide=slide_num)
-                    blocks.append(EvidenceBlock.create(
-                        raw_id=raw_id,
-                        anchor=anchor,
-                        content=notes_text,
-                        block_type="text",
-                        confidence=1.0,
-                        metadata={"slide_notes": True},
-                    ))
+                    blocks.append(
+                        EvidenceBlock.create(
+                            raw_id=raw_id,
+                            anchor=anchor,
+                            content=notes_text,
+                            block_type="text",
+                            confidence=1.0,
+                            metadata={"slide_notes": True},
+                        )
+                    )
             except Exception:
                 pass
 
@@ -581,6 +626,7 @@ def extract_pptx_blocks(
 # =============================================================================
 # XLSX/CSV Extraction
 # =============================================================================
+
 
 def extract_xlsx_blocks(
     file_bytes: bytes,
@@ -600,18 +646,23 @@ def extract_xlsx_blocks(
             lines.append(line)
             if row_idx == 0 and has_header and len(rows_data) > 1:
                 lines.append("-" * max(10, len(line)))
-        return [l for l in lines if l.replace("|", "").replace("-", "").strip()]
+        return [
+            line for line in lines if line.replace("|", "").replace("-", "").strip()
+        ]
 
     def _looks_like_header(row: list) -> bool:
         if not row:
             return False
-        text_cells = sum(1 for c in row if c is not None and isinstance(c, str) and c.strip())
+        text_cells = sum(
+            1 for c in row if c is not None and isinstance(c, str) and c.strip()
+        )
         return text_cells >= len(row) * 0.6
 
     # CSV
     if ext == ".csv":
         try:
             import csv
+
             text = file_bytes.decode("utf-8", errors="ignore")
             reader = csv.reader(io.StringIO(text))
             rows = list(reader)
@@ -619,19 +670,29 @@ def extract_xlsx_blocks(
             ROWS_PER_BLOCK = 50
 
             for start in range(0, len(rows), ROWS_PER_BLOCK):
-                chunk = rows[start:start + ROWS_PER_BLOCK]
+                chunk = rows[start : start + ROWS_PER_BLOCK]
                 lines = _format_rows(chunk, has_header=(has_header and start == 0))
                 content = "\n".join(lines)
                 if content.strip():
                     anchor = BlockAnchor(
-                        doc_type="xlsx", sheet="Sheet1",
-                        row_start=start + 1, row_end=start + len(chunk),
+                        doc_type="xlsx",
+                        sheet="Sheet1",
+                        row_start=start + 1,
+                        row_end=start + len(chunk),
                     )
-                    blocks.append(EvidenceBlock.create(
-                        raw_id=raw_id, anchor=anchor, content=content,
-                        block_type="table", confidence=1.0,
-                        metadata={"total_rows": len(rows), "has_header": has_header},
-                    ))
+                    blocks.append(
+                        EvidenceBlock.create(
+                            raw_id=raw_id,
+                            anchor=anchor,
+                            content=content,
+                            block_type="table",
+                            confidence=1.0,
+                            metadata={
+                                "total_rows": len(rows),
+                                "has_header": has_header,
+                            },
+                        )
+                    )
             return blocks if blocks else [_fallback_block(raw_id, "xlsx")]
         except Exception:
             pass
@@ -639,7 +700,10 @@ def extract_xlsx_blocks(
     # XLSX
     try:
         import openpyxl
-        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), read_only=True, data_only=True)
+
+        wb = openpyxl.load_workbook(
+            io.BytesIO(file_bytes), read_only=True, data_only=True
+        )
 
         for sheet_name in wb.sheetnames:
             sheet = wb[sheet_name]
@@ -651,23 +715,30 @@ def extract_xlsx_blocks(
             ROWS_PER_BLOCK = 50
 
             for start in range(0, len(rows_data), ROWS_PER_BLOCK):
-                chunk = rows_data[start:start + ROWS_PER_BLOCK]
+                chunk = rows_data[start : start + ROWS_PER_BLOCK]
                 lines = _format_rows(chunk, has_header=(has_header and start == 0))
                 content = "\n".join(lines)
                 if content.strip():
                     anchor = BlockAnchor(
-                        doc_type="xlsx", sheet=sheet_name,
-                        row_start=start + 1, row_end=start + len(chunk),
+                        doc_type="xlsx",
+                        sheet=sheet_name,
+                        row_start=start + 1,
+                        row_end=start + len(chunk),
                     )
-                    blocks.append(EvidenceBlock.create(
-                        raw_id=raw_id, anchor=anchor, content=content,
-                        block_type="table", confidence=1.0,
-                        metadata={
-                            "sheet": sheet_name,
-                            "total_rows": len(rows_data),
-                            "has_header": has_header,
-                        },
-                    ))
+                    blocks.append(
+                        EvidenceBlock.create(
+                            raw_id=raw_id,
+                            anchor=anchor,
+                            content=content,
+                            block_type="table",
+                            confidence=1.0,
+                            metadata={
+                                "sheet": sheet_name,
+                                "total_rows": len(rows_data),
+                                "has_header": has_header,
+                            },
+                        )
+                    )
 
         wb.close()
         return blocks if blocks else [_fallback_block(raw_id, "xlsx")]
@@ -683,6 +754,7 @@ def extract_xlsx_blocks(
 # =============================================================================
 # Text/Code/Markdown Extraction
 # =============================================================================
+
 
 def extract_text_blocks(
     file_bytes: bytes,
@@ -712,16 +784,37 @@ def extract_text_blocks(
         return _extract_markdown_blocks(text, raw_id)
 
     blocks: list[EvidenceBlock] = []
-    CODE_EXTS = {".py", ".js", ".ts", ".java", ".go", ".rs", ".c", ".cpp",
-                 ".h", ".cs", ".rb", ".php", ".swift", ".kt", ".scala", ".sh", ".sql"}
+    CODE_EXTS = {
+        ".py",
+        ".js",
+        ".ts",
+        ".java",
+        ".go",
+        ".rs",
+        ".c",
+        ".cpp",
+        ".h",
+        ".cs",
+        ".rb",
+        ".php",
+        ".swift",
+        ".kt",
+        ".scala",
+        ".sh",
+        ".sql",
+    }
 
     if len(text) < 5000:
         anchor = BlockAnchor(doc_type="text", char_start=0, char_end=len(text))
-        blocks.append(EvidenceBlock.create(
-            raw_id=raw_id, anchor=anchor, content=text,
-            block_type="code" if ext in CODE_EXTS else "text",
-            confidence=1.0,
-        ))
+        blocks.append(
+            EvidenceBlock.create(
+                raw_id=raw_id,
+                anchor=anchor,
+                content=text,
+                block_type="code" if ext in CODE_EXTS else "text",
+                confidence=1.0,
+            )
+        )
     else:
         BLOCK_SIZE = 2000
         paragraphs = text.split("\n\n")
@@ -732,11 +825,20 @@ def extract_text_blocks(
         for para in paragraphs:
             if current_size + len(para) > BLOCK_SIZE and current:
                 content = "\n\n".join(current)
-                anchor = BlockAnchor(doc_type="text", char_start=char_start, char_end=char_start + len(content))
-                blocks.append(EvidenceBlock.create(
-                    raw_id=raw_id, anchor=anchor, content=content,
-                    block_type="text", confidence=1.0,
-                ))
+                anchor = BlockAnchor(
+                    doc_type="text",
+                    char_start=char_start,
+                    char_end=char_start + len(content),
+                )
+                blocks.append(
+                    EvidenceBlock.create(
+                        raw_id=raw_id,
+                        anchor=anchor,
+                        content=content,
+                        block_type="text",
+                        confidence=1.0,
+                    )
+                )
                 char_start += len(content) + 2
                 current, current_size = [], 0
             current.append(para)
@@ -744,11 +846,20 @@ def extract_text_blocks(
 
         if current:
             content = "\n\n".join(current)
-            anchor = BlockAnchor(doc_type="text", char_start=char_start, char_end=char_start + len(content))
-            blocks.append(EvidenceBlock.create(
-                raw_id=raw_id, anchor=anchor, content=content,
-                block_type="text", confidence=1.0,
-            ))
+            anchor = BlockAnchor(
+                doc_type="text",
+                char_start=char_start,
+                char_end=char_start + len(content),
+            )
+            blocks.append(
+                EvidenceBlock.create(
+                    raw_id=raw_id,
+                    anchor=anchor,
+                    content=content,
+                    block_type="text",
+                    confidence=1.0,
+                )
+            )
 
     return blocks if blocks else [_fallback_block(raw_id, "text")]
 
@@ -761,16 +872,22 @@ def _extract_markdown_blocks(text: str, raw_id: str) -> list[EvidenceBlock]:
     current_lines: list[str] = []
     char_start = 0
 
-    def _flush(section: str, content_lines: list[str], offset: int) -> Optional[EvidenceBlock]:
+    def _flush(
+        section: str, content_lines: list[str], offset: int
+    ) -> Optional[EvidenceBlock]:
         content = "\n".join(content_lines).strip()
         if not content:
             return None
         anchor = BlockAnchor(
-            doc_type="text", char_start=offset,
-            char_end=offset + len(content), section=section,
+            doc_type="text",
+            char_start=offset,
+            char_end=offset + len(content),
+            section=section,
         )
         return EvidenceBlock.create(
-            raw_id=raw_id, anchor=anchor, content=content,
+            raw_id=raw_id,
+            anchor=anchor,
+            content=content,
             block_type="heading" if section != "Introduction" else "text",
             confidence=1.0,
         )
@@ -797,6 +914,7 @@ def _extract_markdown_blocks(text: str, raw_id: str) -> list[EvidenceBlock]:
 # Image / OCR
 # =============================================================================
 
+
 def extract_image_stub(
     file_bytes: bytes,
     raw_id: str,
@@ -810,50 +928,70 @@ def extract_image_stub(
     try:
         try:
             from perception.extract.ocr_service import (
-                OCRProcessingError, OCRUnavailableError,
-                extract_text_from_image_bytes, get_ocr_settings,
+                extract_text_from_image_bytes,
+                get_ocr_settings,
             )
         except ImportError:
             from .ocr_service import (
-                OCRProcessingError, OCRUnavailableError,
-                extract_text_from_image_bytes, get_ocr_settings,
+                extract_text_from_image_bytes,
+                get_ocr_settings,
             )
 
         settings = get_ocr_settings()
         ocr_result = extract_text_from_image_bytes(
-            file_bytes, source="image_upload",
-            filename=filename, settings=settings,
+            file_bytes,
+            source="image_upload",
+            filename=filename,
+            settings=settings,
         )
         if ocr_result is not None:
             metadata = dict(ocr_result.metadata or {})
             metadata.setdefault("size_bytes", len(file_bytes))
-            return [EvidenceBlock.create(
-                raw_id=raw_id, anchor=anchor,
-                content=ocr_result.text, block_type="text",
-                confidence=max(0.2, min(1.0, float(ocr_result.confidence))),
-                metadata=metadata,
-            )]
+            return [
+                EvidenceBlock.create(
+                    raw_id=raw_id,
+                    anchor=anchor,
+                    content=ocr_result.text,
+                    block_type="text",
+                    confidence=max(0.2, min(1.0, float(ocr_result.confidence))),
+                    metadata=metadata,
+                )
+            ]
     except Exception as exc:
+        try:
+            from perception.extract.ocr_service import get_ocr_settings
+
+            if get_ocr_settings().fail_closed:
+                raise
+        except ImportError:
+            pass
         ocr_error = str(exc)
 
-    return [_image_stub_block(
-        raw_id=raw_id, anchor=anchor,
-        message=f"[IMAGE_STUB: {filename or 'image'} requires OCR processing]",
-        filename=filename, size_bytes=len(file_bytes),
-        metadata={"ocr_pending": True, "ocr_error": ocr_error},
-    )]
+    return [
+        _image_stub_block(
+            raw_id=raw_id,
+            anchor=anchor,
+            message=f"[IMAGE_STUB: {filename or 'image'} requires OCR processing]",
+            filename=filename,
+            size_bytes=len(file_bytes),
+            metadata={"ocr_pending": True, "ocr_error": ocr_error},
+        )
+    ]
 
 
 # =============================================================================
 # Helpers
 # =============================================================================
 
+
 def _fallback_block(raw_id: str, doc_type: str) -> EvidenceBlock:
     anchor = BlockAnchor(doc_type=doc_type, char_start=0, char_end=0)
     return EvidenceBlock.create(
-        raw_id=raw_id, anchor=anchor,
+        raw_id=raw_id,
+        anchor=anchor,
         content="[EXTRACTION_FAILED: Could not extract content]",
-        block_type="text", confidence=0.0,
+        block_type="text",
+        confidence=0.0,
     )
 
 
@@ -869,26 +1007,34 @@ def _extract_pdf_page_ocr_block(
     try:
         try:
             from perception.extract.ocr_service import (
-                OCRProcessingError, OCRUnavailableError,
-                extract_text_from_pdf_page, get_ocr_settings,
+                extract_text_from_pdf_page,
+                get_ocr_settings,
             )
         except ImportError:
             from .ocr_service import (
-                OCRProcessingError, OCRUnavailableError,
-                extract_text_from_pdf_page, get_ocr_settings,
+                extract_text_from_pdf_page,
+                get_ocr_settings,
             )
 
         settings = get_ocr_settings()
-        ocr_result = extract_text_from_pdf_page(page, page_number=page_number, settings=settings)
+        ocr_result = extract_text_from_pdf_page(
+            page, page_number=page_number, settings=settings
+        )
         if ocr_result is None:
             return None
 
         anchor = BlockAnchor(doc_type="pdf", page=page_number)
-        metadata = {"page_count": page_count, "image_count": image_count, "ocr_pending": False}
+        metadata = {
+            "page_count": page_count,
+            "image_count": image_count,
+            "ocr_pending": False,
+        }
         metadata.update(ocr_result.metadata or {})
         return EvidenceBlock.create(
-            raw_id=raw_id, anchor=anchor,
-            content=ocr_result.text, block_type="text",
+            raw_id=raw_id,
+            anchor=anchor,
+            content=ocr_result.text,
+            block_type="text",
             confidence=max(0.2, min(1.0, float(ocr_result.confidence))),
             metadata=metadata,
         )
@@ -909,7 +1055,10 @@ def _image_stub_block(
     if metadata:
         payload.update(metadata)
     return EvidenceBlock.create(
-        raw_id=raw_id, anchor=anchor,
-        content=message, block_type="image_stub",
-        confidence=0.2, metadata=payload,
+        raw_id=raw_id,
+        anchor=anchor,
+        content=message,
+        block_type="image_stub",
+        confidence=0.2,
+        metadata=payload,
     )

@@ -17,25 +17,25 @@ def _mk_client(monkeypatch, *, compat_mode: str = "false") -> tuple[TestClient, 
     tenant_id = f"tenant_r3_{uuid4().hex[:6]}"
     api_key = "r3_key"
 
-    db_path = tempfile.gettempdir() + f"/faim_r3_{uuid4().hex}.db"
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_path}")
     monkeypatch.setenv("TENANT_KEYS_JSON", f'{{"{tenant_id}":["{api_key}"]}}')
     monkeypatch.setenv("FAIM_ENV", "development")
     monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "false")
     monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
     monkeypatch.setenv("FAIM_ENABLE_JOBS", "true")
     monkeypatch.setenv("FAIM_PROFILE_PERSIST_COMPAT_MODE", compat_mode)
+    
     reset_config()
     reload_tenant_keys()
-
     client = TestClient(create_app())
     headers = {"X-Tenant-Id": tenant_id, "X-Api-Key": api_key}
     return client, headers
 
 
-def test_r3_ingest_relaxed_queues_secondary_index_job(monkeypatch):
+def test_r3_ingest_relaxed_queues_secondary_index_job(monkeypatch, db_session):
     from runtime.context import get_session
     from store.pg.models_faim import JobModel
+    from store.pg.session import SessionFactory
+    from store.pg.models_faim import create_all_tables
 
     client, headers = _mk_client(monkeypatch, compat_mode="false")
     graph_id = f"r3-graph-{uuid4().hex[:8]}"
@@ -80,7 +80,7 @@ def test_r3_ingest_relaxed_queues_secondary_index_job(monkeypatch):
         session.close()
 
 
-def test_r3_ingest_strict_profile_reports_sync_strict_path(monkeypatch):
+def test_r3_ingest_strict_profile_reports_sync_strict_path(monkeypatch, db_session):
     client, headers = _mk_client(monkeypatch, compat_mode="false")
     graph_id = f"r3-graph-{uuid4().hex[:8]}"
 

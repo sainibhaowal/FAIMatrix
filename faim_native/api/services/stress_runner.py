@@ -6,19 +6,20 @@ real latency, throughput, and find saturation points.
 
 from __future__ import annotations
 
+import threading
 import time
 import uuid
-import threading
 from dataclasses import dataclass
-from typing import Dict, List, Any, Optional
-from sqlalchemy.orm import Session
-from orchestration.ingest_flow import run_ingest, FAIMProfile, PersistMode
+from typing import Any, Dict, List, Optional
+
 from core.invariants import check_all_invariants
+from orchestration.ingest_flow import FAIMProfile, PersistMode, run_ingest
 
 
 @dataclass
 class StressResult:
     """Single load level result."""
+
     concurrency: int
     document_count: int
     total_docs_ingested: int
@@ -34,6 +35,7 @@ class StressResult:
 @dataclass
 class StressSuiteResult:
     """Complete stress test results."""
+
     job_id: str
     graph_id: str
     test_config: Dict[str, Any]
@@ -62,9 +64,9 @@ class StressRunner:
 
         # Generate test documents (real content)
         test_docs = {
-            "small": self._generate_test_doc(size=1024),      # 1KB
-            "medium": self._generate_test_doc(size=10240),    # 10KB
-            "large": self._generate_test_doc(size=102400),    # 100KB
+            "small": self._generate_test_doc(size=1024),  # 1KB
+            "medium": self._generate_test_doc(size=10240),  # 10KB
+            "large": self._generate_test_doc(size=102400),  # 100KB
         }
         test_doc = test_docs.get(test_doc_size, test_docs["small"])
 
@@ -149,15 +151,15 @@ class StressRunner:
                                 session=self.ctx.session,
                                 graph_id=graph_id,
                             )
-                        except Exception as inv_err:
+                        except Exception:
                             invariants_passed = False
 
-                except Exception as e:
+                except Exception:
                     error_count += 1
                     latencies.append(0.0)  # Record failed attempt
                     try:
                         self.ctx.session.rollback()
-                    except:
+                    except Exception:
                         pass
 
         # Distribute documents across worker threads
@@ -166,10 +168,13 @@ class StressRunner:
 
         for thread_idx in range(concurrency):
             start_doc = thread_idx * docs_per_thread
-            end_doc = start_doc + docs_per_thread if thread_idx < concurrency - 1 else document_count
+            end_doc = (
+                start_doc + docs_per_thread
+                if thread_idx < concurrency - 1
+                else document_count
+            )
             doc_batch = [
-                (f"{thread_idx}_{i}", test_doc)
-                for i in range(start_doc, end_doc)
+                (f"{thread_idx}_{i}", test_doc) for i in range(start_doc, end_doc)
             ]
 
             thread = threading.Thread(

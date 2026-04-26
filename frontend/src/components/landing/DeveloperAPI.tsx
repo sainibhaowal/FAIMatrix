@@ -144,7 +144,10 @@ export default function DeveloperAPI() {
   const activeExample = CODE_EXAMPLES.find((e) => e.id === activeTab)!;
 
   return (
-    <section id="api" className="py-28 px-4 bg-gradient-to-b from-[#070a18] to-slate-950">
+    <section
+      id="api"
+      className="py-28 px-4 bg-gradient-to-b from-[#070a18] to-slate-950"
+    >
       <div className="max-w-6xl mx-auto">
         {/* Section Header */}
         <motion.div
@@ -272,16 +275,21 @@ export default function DeveloperAPI() {
           transition={{ duration: 0.6, delay: 0.3 }}
           className="mt-10 flex flex-wrap items-center justify-center gap-4"
         >
-          {["REST API", "Python SDK", "TypeScript SDK", "LangChain", "LlamaIndex", "Any LLM"].map(
-            (badge) => (
-              <span
-                key={badge}
-                className="px-4 py-2 rounded-full border border-slate-800 bg-slate-900/30 text-slate-500 text-xs font-medium"
-              >
-                {badge}
-              </span>
-            )
-          )}
+          {[
+            "REST API",
+            "Python SDK",
+            "TypeScript SDK",
+            "LangChain",
+            "LlamaIndex",
+            "Any LLM",
+          ].map((badge) => (
+            <span
+              key={badge}
+              className="px-4 py-2 rounded-full border border-slate-800 bg-slate-900/30 text-slate-500 text-xs font-medium"
+            >
+              {badge}
+            </span>
+          ))}
         </motion.div>
       </div>
     </section>

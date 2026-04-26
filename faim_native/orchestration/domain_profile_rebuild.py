@@ -40,7 +40,10 @@ def run_domain_profile_rebuild(
     max_errors: int = 25,
 ) -> DomainProfileRebuildResult:
     from core.operators.domain_knowledge import load_domain_profile_pack
-    from core.operators.terminology_mining import build_domain_document, mine_terminology
+    from core.operators.terminology_mining import (
+        build_domain_document,
+        mine_terminology,
+    )
     from perception.router import route_extraction
     from store.pg.repos.domain_knowledge_repo import DomainKnowledgeRepo
 
@@ -73,8 +76,12 @@ def run_domain_profile_rebuild(
                 result.blocks_extracted += len(blocks)
                 if not blocks:
                     continue
-                existing_nodes = node_repo.list_by_raw_id(graph_id=graph_id, raw_id=str(row.raw_id), kind="atom")
-                nodes_by_anchor = {_anchor_key(node.anchor_json): node for node in existing_nodes}
+                existing_nodes = node_repo.list_by_raw_id(
+                    graph_id=graph_id, raw_id=str(row.raw_id), kind="atom"
+                )
+                nodes_by_anchor = {
+                    _anchor_key(node.anchor_json): node for node in existing_nodes
+                }
                 for block in blocks:
                     node = nodes_by_anchor.get(_anchor_key(block.anchor.to_dict()))
                     if node is None:
@@ -92,9 +99,13 @@ def run_domain_profile_rebuild(
     dedup = {}
     for row in rows:
         dedup[(row["surface_form"], row["canonical_form"], row["kind"])] = row
-    result.lexicon_written = repo.replace_lexicon(graph_id=graph_id, rows=[dedup[k] for k in sorted(dedup)])
+    result.lexicon_written = repo.replace_lexicon(
+        graph_id=graph_id, rows=[dedup[k] for k in sorted(dedup)]
+    )
     if result.lexicon_written:
-        result.graph_version = gv_repo.bump(session=session, graph_id=graph_id, reason="domain_profile_rebuild")
+        result.graph_version = gv_repo.bump(
+            session=session, graph_id=graph_id, reason="domain_profile_rebuild"
+        )
         if event_repo is not None:
             try:
                 event_repo.emit(

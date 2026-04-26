@@ -442,8 +442,12 @@ class NodeModel(Base):
     level = Column(Integer, nullable=False, default=0)
     touch_count = Column(Integer, nullable=False, default=0)
     last_access = Column(DateTime(timezone=True), nullable=True)
-    long_term = Column(Boolean, nullable=False, default=False)  # 0018: exempt from cold pruning
-    cluster_id = Column(Integer, nullable=True)  # 0019: k-means topic cluster assignment
+    long_term = Column(
+        Boolean, nullable=False, default=False
+    )  # 0018: exempt from cold pruning
+    cluster_id = Column(
+        Integer, nullable=True
+    )  # 0019: k-means topic cluster assignment
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -1115,6 +1119,7 @@ def create_all_tables(engine) -> None:
         engine: SQLAlchemy engine.
     """
     # Ensure optional models are imported into Base metadata.
+    from store.pg import models_auth as _models_auth  # noqa: F401
     from store.pg import models_crypto as _models_crypto  # noqa: F401
 
     Base.metadata.create_all(bind=engine)

@@ -21,7 +21,11 @@ except (ImportError, RuntimeError):
     _parent = Path(__file__).parent.parent.parent.parent
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
-    from store.pg.models_faim import GraphVersionModel, JobModel, SelfEvolutionStateModel
+    from store.pg.models_faim import (
+        GraphVersionModel,
+        JobModel,
+        SelfEvolutionStateModel,
+    )
 
 
 @dataclass(frozen=True)
@@ -173,7 +177,9 @@ class SelfEvolutionStateRepo:
         if normalized_version > int(row.last_seen_version or 0):
             row.last_seen_version = normalized_version
 
-        row.last_evolved_at = self._normalize_dt(evolved_at) or datetime.now(timezone.utc)
+        row.last_evolved_at = self._normalize_dt(evolved_at) or datetime.now(
+            timezone.utc
+        )
         row.updated_at = datetime.now(timezone.utc)
         sess.flush()
         return row
@@ -245,7 +251,9 @@ class SelfEvolutionStateRepo:
             if version_delta < delta_required:
                 continue
 
-            last_evolved_at = self._normalize_dt(getattr(state, "last_evolved_at", None))
+            last_evolved_at = self._normalize_dt(
+                getattr(state, "last_evolved_at", None)
+            )
             if last_evolved_at is not None:
                 elapsed = (now_ts - last_evolved_at).total_seconds()
                 if elapsed < interval_required:
@@ -261,7 +269,9 @@ class SelfEvolutionStateRepo:
                     version_delta=version_delta,
                     last_evolved_at=last_evolved_at,
                     last_enqueued_job_id=(
-                        str(last_job_id_value) if last_job_id_value is not None else None
+                        str(last_job_id_value)
+                        if last_job_id_value is not None
+                        else None
                     ),
                 )
             )

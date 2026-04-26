@@ -69,9 +69,7 @@ export function saveProviders(providers: Provider[]): void {
 /**
  * Add a new provider
  */
-export function addProvider(
-  provider: Omit<Provider, "id">
-): Provider {
+export function addProvider(provider: Omit<Provider, "id">): Provider {
   const newProvider: Provider = {
     ...provider,
     id: crypto.randomUUID(),
@@ -107,7 +105,10 @@ export function removeProvider(id: string): void {
 /**
  * Update a provider (merge with existing)
  */
-export function updateProvider(id: string, updates: Partial<Provider>): Provider | null {
+export function updateProvider(
+  id: string,
+  updates: Partial<Provider>,
+): Provider | null {
   const providers = loadProviders();
   const index = providers.findIndex((p) => p.id === id);
 
@@ -152,7 +153,10 @@ export function setActiveModel(providerId: string, model: string): void {
 /**
  * Update models for a provider (e.g., after discovery)
  */
-export function updateProviderModels(providerId: string, models: string[]): void {
+export function updateProviderModels(
+  providerId: string,
+  models: string[],
+): void {
   const provider = updateProvider(providerId, {
     models,
     activeModel: models[0] || "",

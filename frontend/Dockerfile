@@ -22,9 +22,15 @@ ARG NEXTAUTH_SECRET
 ARG NEXTAUTH_URL=http://localhost:8010
 ARG API_HOST=api:8000
 
+# Configure API base URL for frontend
+# Browser cannot use Docker hostname, so convert faim-api:8000 → http://localhost:8000
+# Browser calls go through Next.js proxy (/api/v1 → API container internally)
+# Use relative path so CORS is never triggered — proxy handles the real host
+RUN printf "\nNEXT_PUBLIC_FAIM_API_BASE_URL=/api/v1\n" >> .env
+
 # Only write to .env if ARG was supplied (leave file-based secret in place otherwise)
 RUN if [ -n "$NEXTAUTH_SECRET" ]; then \
-  printf "\nNEXTAUTH_SECRET=%s\nNEXTAUTH_URL=%s\n" "$NEXTAUTH_SECRET" "$NEXTAUTH_URL" >> .env; \
+  printf "NEXTAUTH_SECRET=%s\nNEXTAUTH_URL=%s\n" "$NEXTAUTH_SECRET" "$NEXTAUTH_URL" >> .env; \
   fi
 
 RUN npm run build

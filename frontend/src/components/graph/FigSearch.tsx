@@ -15,13 +15,7 @@
  *   - No API calls — pure client-side search index
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "@/components/ui";
 import {
@@ -81,7 +75,7 @@ export default function FigSearch({
   // Scroll active item into view
   useEffect(() => {
     const item = listRef.current?.querySelector<HTMLElement>(
-      `[data-idx="${activeIndex}"]`
+      `[data-idx="${activeIndex}"]`,
     );
     item?.scrollIntoView({ block: "nearest" });
   }, [activeIndex]);
@@ -91,7 +85,7 @@ export default function FigSearch({
       onSelectNode(nodeId);
       onClose();
     },
-    [onSelectNode, onClose]
+    [onSelectNode, onClose],
   );
 
   const handleKeyDown = useCallback(
@@ -116,7 +110,7 @@ export default function FigSearch({
         return;
       }
     },
-    [results, activeIndex, handleSelect, onClose]
+    [results, activeIndex, handleSelect, onClose],
   );
 
   return (
@@ -128,7 +122,6 @@ export default function FigSearch({
       }}
     >
       <div className="w-full max-w-[480px] mx-4 rounded-2xl border border-slate-700/70 bg-slate-950/98 shadow-[0_16px_48px_rgba(0,0,0,0.7)] backdrop-blur-md overflow-hidden">
-
         {/* Search input */}
         <div className="flex items-center gap-2 border-b border-slate-800/70 px-4 py-3">
           <svg
@@ -173,7 +166,7 @@ export default function FigSearch({
               const color = node
                 ? nodeColorByState(
                     nodeStateClass(node) as FigNodeDisplayState,
-                    false
+                    false,
                   )
                 : "#475569";
               const isActive = idx === activeIndex;
@@ -185,9 +178,7 @@ export default function FigSearch({
                   onClick={() => handleSelect(entry.node_id)}
                   onMouseEnter={() => setActiveIndex(idx)}
                   className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                    isActive
-                      ? "bg-slate-800/70"
-                      : "hover:bg-slate-800/40"
+                    isActive ? "bg-slate-800/70" : "hover:bg-slate-800/40"
                   }`}
                 >
                   {/* State color dot */}
@@ -238,7 +229,6 @@ export default function FigSearch({
             </span>
           )}
         </div>
-
       </div>
     </div>
   );

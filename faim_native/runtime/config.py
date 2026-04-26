@@ -228,7 +228,9 @@ class FAIMConfig:
             if not self.encryption_fail_closed:
                 errors.append("Production requires FAIM_ENCRYPTION_FAIL_CLOSED=true")
             if self.ocr_enabled and self.ocr_engine != "tesseract":
-                errors.append("Production OCR currently supports only FAIM_OCR_ENGINE=tesseract")
+                errors.append(
+                    "Production OCR currently supports only FAIM_OCR_ENGINE=tesseract"
+                )
             if not self.auth_db_primary:
                 errors.append("Production requires FAIM_AUTH_DB_PRIMARY=true")
             if self.auth_env_fallback_enabled:
@@ -257,9 +259,7 @@ class FAIMConfig:
         if not (0.0 <= self.self_invent_lambda_threshold <= 1.0):
             errors.append("FAIM_SELF_INVENT_LAMBDA_THRESHOLD must be in [0, 1]")
         if not (0.0 <= self.self_invent_min_redundancy_reduction <= 1.0):
-            errors.append(
-                "FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION must be in [0, 1]"
-            )
+            errors.append("FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION must be in [0, 1]")
         trigger_mode = str(self.self_evolve_trigger_mode or "").strip().lower()
         allowed_modes = {"manual", "post_upload", "periodic", "hybrid"}
         if trigger_mode not in allowed_modes:

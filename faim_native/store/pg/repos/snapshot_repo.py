@@ -17,6 +17,7 @@ except (ImportError, RuntimeError):
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import SnapshotRecord
+
     from store.pg.models_faim import SnapshotModel
 
 
@@ -53,12 +54,13 @@ class SnapshotRepo:
         Returns:
             SnapshotRecord if found, None otherwise.
         """
-        model = session.query(SnapshotModel).filter(
-            and_(
-                SnapshotModel.tenant_id == self.tenant_id,
-                SnapshotModel.id == id
+        model = (
+            session.query(SnapshotModel)
+            .filter(
+                and_(SnapshotModel.tenant_id == self.tenant_id, SnapshotModel.id == id)
             )
-        ).first()
+            .first()
+        )
         return model.to_domain() if model else None
 
     def get_latest(self, session: Session, graph_id: str) -> Optional[SnapshotRecord]:
@@ -76,7 +78,7 @@ class SnapshotRepo:
             .filter(
                 and_(
                     SnapshotModel.tenant_id == self.tenant_id,
-                    SnapshotModel.graph_id == graph_id
+                    SnapshotModel.graph_id == graph_id,
                 )
             )
             .order_by(desc(SnapshotModel.created_at))
@@ -110,7 +112,7 @@ class SnapshotRepo:
             .filter(
                 and_(
                     SnapshotModel.tenant_id == self.tenant_id,
-                    SnapshotModel.graph_id == graph_id
+                    SnapshotModel.graph_id == graph_id,
                 )
             )
             .order_by(desc(SnapshotModel.created_at))
@@ -145,7 +147,7 @@ class SnapshotRepo:
                     SnapshotModel.tenant_id == self.tenant_id,
                     SnapshotModel.graph_id == graph_id,
                     SnapshotModel.graph_version >= min_version,
-                    SnapshotModel.graph_version <= max_version
+                    SnapshotModel.graph_version <= max_version,
                 )
             )
             .order_by(asc(SnapshotModel.graph_version))
@@ -168,7 +170,7 @@ class SnapshotRepo:
             .filter(
                 and_(
                     SnapshotModel.tenant_id == self.tenant_id,
-                    SnapshotModel.graph_id == graph_id
+                    SnapshotModel.graph_id == graph_id,
                 )
             )
             .count()
@@ -196,7 +198,7 @@ class SnapshotRepo:
                 and_(
                     SnapshotModel.tenant_id == self.tenant_id,
                     SnapshotModel.graph_id == graph_id,
-                    SnapshotModel.graph_version == graph_version
+                    SnapshotModel.graph_version == graph_version,
                 )
             )
             .first()

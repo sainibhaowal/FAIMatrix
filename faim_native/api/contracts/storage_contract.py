@@ -208,7 +208,9 @@ def _iter_storage_routes(routes: Iterable[object]) -> Iterable[APIRoute]:
             yield route
 
 
-def validate_storage_router_contract(routes: Iterable[object]) -> ContractValidationResult:
+def validate_storage_router_contract(
+    routes: Iterable[object],
+) -> ContractValidationResult:
     """Validate storage route matrix and response model field contracts."""
     errors: List[str] = []
     observed: Set[Tuple[str, str]] = set()

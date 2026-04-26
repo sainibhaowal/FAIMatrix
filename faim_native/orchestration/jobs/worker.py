@@ -314,9 +314,8 @@ class Worker:
         job_id,
     ):
         """Execute async secondary index upsert for relaxed ingest durability."""
-        from sqlalchemy import and_
-
         from index.qdrant_index import FAIMIndex
+        from sqlalchemy import and_
         from store.pg.models_faim import NodeModel
 
         requested_profile = str(payload.get("requested_profile") or "")

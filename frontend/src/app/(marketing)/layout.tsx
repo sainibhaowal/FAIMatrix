@@ -10,9 +10,7 @@ export default function MarketingLayout({
   return (
     <>
       <Navbar />
-      <div className="flex-1">
-        {children}
-      </div>
+      <div className="flex-1">{children}</div>
       <Footer />
       <CookieConsent />
     </>

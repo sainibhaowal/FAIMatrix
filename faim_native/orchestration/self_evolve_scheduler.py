@@ -12,11 +12,10 @@ from datetime import datetime, timezone
 from typing import List, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, asc
-from sqlalchemy.orm import Session
-
 from orchestration.jobs.job_store import JobStore
 from runtime.feature_flags import get_feature_flags
+from sqlalchemy import and_, asc
+from sqlalchemy.orm import Session
 from store.pg.models_faim import GraphVersionModel, JobModel
 from store.pg.repos.graph_version_repo import GraphVersionRepo
 from store.pg.repos.self_evolution_state_repo import SelfEvolutionStateRepo

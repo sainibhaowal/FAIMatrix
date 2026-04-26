@@ -30,7 +30,10 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   if (status === "loading") {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-[var(--bg-deep)] text-[var(--text-primary)]">
-        <Loader2 className="animate-spin text-[var(--accent-primary)] mb-4" size={40} />
+        <Loader2
+          className="animate-spin text-[var(--accent-primary)] mb-4"
+          size={40}
+        />
         <p className="text-sm font-medium tracking-widest uppercase opacity-50">
           Initializing Neural Session...
         </p>

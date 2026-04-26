@@ -5,9 +5,9 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Dict, List, Mapping, Optional, Sequence, Tuple
 
-from sqlalchemy import and_, asc
+from sqlalchemy import asc
 from sqlalchemy.orm import Session
 
 try:
@@ -47,10 +47,10 @@ class CanonicalSemanticsRepo:
                     graph_id=graph_id,
                     channel=str(row["channel"]),
                     term=str(row["term"]),
-                    df=int(row["df"]),
-                    cf=int(row["cf"]),
-                    doc_count=int(row["doc_count"]),
-                    context_terms=dict(row.get("context_terms", {})),
+                    df=int(row["df"]),  # type: ignore[call-overload]
+                    cf=int(row["cf"]),  # type: ignore[call-overload]
+                    doc_count=int(row["doc_count"]),  # type: ignore[call-overload]
+                    context_terms=dict(row.get("context_terms", {})),  # type: ignore[call-overload]
                     updated_at=now,
                 )
             )
@@ -76,9 +76,9 @@ class CanonicalSemanticsRepo:
                     surface_form=str(row["surface_form"]),
                     canonical_form=str(row["canonical_form"]),
                     kind=str(row["kind"]),
-                    support_count=int(row.get("support_count", 0)),
+                    support_count=int(row.get("support_count", 0)),  # type: ignore[call-overload]
                     score=float(row.get("score", 0.0)),
-                    meta=dict(row.get("meta", {})),
+                    meta=dict(row.get("meta", {})),  # type: ignore[call-overload]
                     updated_at=now,
                 )
             )

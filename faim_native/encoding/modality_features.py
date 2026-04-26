@@ -7,7 +7,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 try:
     from faim.Faim_Native.core.contracts.types import EvidenceBlock
@@ -16,7 +16,6 @@ except (ImportError, RuntimeError):
 
 from encoding.image_phash import compute_image_phash
 from encoding.table_linearizer import linearize_table_text
-
 
 _WORD_RE = re.compile(r"[a-z0-9]+(?:[._:/-][a-z0-9]+)*")
 
@@ -69,7 +68,9 @@ def build_modality_features(
 
     filename_tokens = _tokenize(Path(filename).stem)
     caption_tokens = _tokenize(caption)
-    metadata_tokens = _tokenize(" ".join(f"{k} {v}" for k, v in sorted((metadata or {}).items())))
+    metadata_tokens = _tokenize(
+        " ".join(f"{k} {v}" for k, v in sorted((metadata or {}).items()))
+    )
     payload = {
         "ocr_text": "\n".join(ocr_lines).strip(),
         "table_text": "\n".join(table_lines).strip(),

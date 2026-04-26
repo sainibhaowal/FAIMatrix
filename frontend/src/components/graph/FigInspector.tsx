@@ -118,11 +118,12 @@ function NodeRef({
   onNavigate: (id: string) => void;
 }) {
   const n = nodeIndex.get(nodeId);
-  if (!n) return (
-    <div className="flex items-center gap-2 rounded-md bg-slate-900/40 px-2 py-1.5 text-xs text-slate-500">
-      <span className="font-mono">{nodeId.slice(0, 12)}…</span>
-    </div>
-  );
+  if (!n)
+    return (
+      <div className="flex items-center gap-2 rounded-md bg-slate-900/40 px-2 py-1.5 text-xs text-slate-500">
+        <span className="font-mono">{nodeId.slice(0, 12)}…</span>
+      </div>
+    );
   const title = safeNodeTitle(n);
   const state = nodeStateClass(n) as FigNodeDisplayState;
   const color = nodeColorByState(state, false);
@@ -132,9 +133,14 @@ function NodeRef({
       className="flex w-full items-center justify-between gap-2 rounded-md bg-slate-900/40 border border-slate-800/60 px-2 py-1.5 text-xs hover:border-cyan-500/30 hover:bg-slate-900/70 transition-all"
     >
       <div className="flex items-center gap-2 min-w-0">
-        <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+        <span
+          className="h-2 w-2 rounded-full shrink-0"
+          style={{ backgroundColor: color }}
+        />
         <span className="truncate text-slate-200 font-medium">{title}</span>
-        <Badge size="sm" variant="outline">{n.kind}</Badge>
+        <Badge size="sm" variant="outline">
+          {n.kind}
+        </Badge>
       </div>
       <span className="text-[9px] text-slate-500 shrink-0">→</span>
     </button>
@@ -145,7 +151,9 @@ function NodeRef({
 // Lifecycle banner config — shown for terminal/notable states
 // ---------------------------------------------------------------------------
 
-const LIFECYCLE_BANNERS: Partial<Record<string, { title: string; desc: string; cls: string }>> = {
+const LIFECYCLE_BANNERS: Partial<
+  Record<string, { title: string; desc: string; cls: string }>
+> = {
   compressed: {
     title: "Compressed node",
     desc: "This node was merged into a macro node during summarization. Its content is represented by a higher-level ancestor.",
@@ -210,7 +218,7 @@ function LongTermToggle({ node, graphId }: { node: FigNode; graphId: string }) {
       const next = !longTerm;
       const res = await fetch(
         `/api/v1/storage/graphs/${encodeURIComponent(graphId)}/nodes/${encodeURIComponent(node.node_id)}/long-term?long_term=${next}`,
-        { method: "POST" }
+        { method: "POST" },
       );
       if (res.ok) {
         setLongTerm(next);
@@ -225,9 +233,13 @@ function LongTermToggle({ node, graphId }: { node: FigNode; graphId: string }) {
   return (
     <div className="border-t border-slate-800/40 px-3 py-2 flex items-center justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500">Long-term Memory</p>
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-500">
+          Long-term Memory
+        </p>
         <p className="text-[9px] text-slate-600 mt-0.5 leading-tight">
-          {longTerm ? "Protected from cold pruning" : "Eligible for cold pruning"}
+          {longTerm
+            ? "Protected from cold pruning"
+            : "Eligible for cold pruning"}
         </p>
       </div>
       <button
@@ -279,7 +291,9 @@ export default function FigInspector({
   const [showAllChildren, setShowAllChildren] = useState(false);
   // nav cursor — 0-based index into relevantOrder; resets on node change
   const [navIdx, setNavIdx] = useState(0);
-  useEffect(() => { setNavIdx(0); }, [node.node_id]);
+  useEffect(() => {
+    setNavIdx(0);
+  }, [node.node_id]);
 
   const toggleSection = (key: string) =>
     setSections((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -302,17 +316,22 @@ export default function FigInspector({
 
   return (
     <div className="flex flex-col gap-0 text-xs">
-
       {/* ================================================================
           HEADER — title, state, pin, navigation
       ================================================================ */}
       <div className="mb-3 rounded-lg border border-slate-800/60 bg-slate-900/40 px-3 py-2.5">
         {/* Color strip */}
-        <div className="mb-2 h-0.5 rounded-full" style={{ backgroundColor: stateColor }} />
+        <div
+          className="mb-2 h-0.5 rounded-full"
+          style={{ backgroundColor: stateColor }}
+        />
 
         {/* Title + kind */}
         <div className="flex items-start justify-between gap-2">
-          <p className="font-semibold text-slate-100 text-[13px] leading-tight truncate max-w-[200px]" title={title}>
+          <p
+            className="font-semibold text-slate-100 text-[13px] leading-tight truncate max-w-[200px]"
+            title={title}
+          >
             {title}
           </p>
           <button
@@ -330,27 +349,47 @@ export default function FigInspector({
 
         {/* Badges */}
         <div className="mt-1.5 flex flex-wrap gap-1">
-          <Badge size="sm" variant="outline">{node.kind}</Badge>
+          <Badge size="sm" variant="outline">
+            {node.kind}
+          </Badge>
           <span
             className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border"
             style={{ color: stateColor, borderColor: stateColor + "44" }}
           >
             {stateKey}
           </span>
-          <Badge size="sm" variant="secondary">L{node.level}</Badge>
+          <Badge size="sm" variant="secondary">
+            L{node.level}
+          </Badge>
           {node.metrics?.temperature && (
             <span
               className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border"
               style={{
-                color: node.metrics.temperature === "hot" ? "#f97316" : node.metrics.temperature === "warm" ? "#fbbf24" : "#64748b",
-                borderColor: (node.metrics.temperature === "hot" ? "#f97316" : node.metrics.temperature === "warm" ? "#fbbf24" : "#64748b") + "44",
+                color:
+                  node.metrics.temperature === "hot"
+                    ? "#f97316"
+                    : node.metrics.temperature === "warm"
+                      ? "#fbbf24"
+                      : "#64748b",
+                borderColor:
+                  (node.metrics.temperature === "hot"
+                    ? "#f97316"
+                    : node.metrics.temperature === "warm"
+                      ? "#fbbf24"
+                      : "#64748b") + "44",
               }}
             >
-              {node.metrics.temperature === "hot" ? "🔥 hot" : node.metrics.temperature === "warm" ? "◆ warm" : "❄ cold"}
+              {node.metrics.temperature === "hot"
+                ? "🔥 hot"
+                : node.metrics.temperature === "warm"
+                  ? "◆ warm"
+                  : "❄ cold"}
             </span>
           )}
           {node.anchor?.block_type && (
-            <Badge size="sm" variant="outline">{node.anchor.block_type}</Badge>
+            <Badge size="sm" variant="outline">
+              {node.anchor.block_type}
+            </Badge>
           )}
           {node.cluster_id != null && (
             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border border-violet-500/30 bg-violet-500/10 text-violet-400">
@@ -365,82 +404,114 @@ export default function FigInspector({
         </div>
 
         {/* Relevant memory navigation — deterministic prev/next ordering */}
-        {relevantOrder.length > 0 && (() => {
-          const clampedIdx = Math.min(navIdx, relevantOrder.length - 1);
-          const targetId = relevantOrder[clampedIdx]!;
-          const targetNode = nodeIndex.get(targetId);
-          const edge = getBestEdgeToNeighbor(node.node_id, targetId, adj);
-          const stateC = targetNode
-            ? nodeColorByState(nodeStateClass(targetNode) as FigNodeDisplayState, false)
-            : "#64748b";
-          return (
-            <div className="mt-2 border-t border-slate-800/60 pt-2 space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[9px] uppercase tracking-widest text-slate-500">Relevant memories</span>
-                <span className="text-[9px] text-slate-600">
-                  {clampedIdx + 1} / {relevantOrder.length}
-                </span>
-              </div>
-              <div className="flex items-center gap-1">
-                {/* Prev */}
-                <button
-                  onClick={() => setNavIdx(clampedIdx <= 0 ? relevantOrder.length - 1 : clampedIdx - 1)}
-                  title="Previous relevant memory"
-                  className="shrink-0 rounded px-1.5 py-1 text-[10px] border border-slate-700/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-400/30 transition-all"
-                >
-                  ←
-                </button>
-                {/* Node preview — clicking navigates */}
-                <button
-                  onClick={() => targetNode && onNavigateToNode(targetId)}
-                  disabled={!targetNode}
-                  className="flex flex-1 min-w-0 items-center justify-between gap-1.5 rounded-md bg-slate-900/40 border border-slate-800/60 px-2 py-1 hover:border-cyan-500/30 hover:bg-slate-900/70 disabled:opacity-40 transition-all"
-                >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: stateC }} />
-                    <span className="truncate text-[10px] font-medium text-slate-200">
-                      {targetNode ? safeNodeTitle(targetNode).slice(0, 22) : targetId.slice(0, 12)}
-                    </span>
-                  </div>
-                  {edge && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <span className="text-[8px] text-slate-600">{edge.kind.slice(0, 3)}</span>
-                      <span className="font-mono text-[8px] text-slate-500">{edge.weight.toFixed(2)}</span>
+        {relevantOrder.length > 0 &&
+          (() => {
+            const clampedIdx = Math.min(navIdx, relevantOrder.length - 1);
+            const targetId = relevantOrder[clampedIdx]!;
+            const targetNode = nodeIndex.get(targetId);
+            const edge = getBestEdgeToNeighbor(node.node_id, targetId, adj);
+            const stateC = targetNode
+              ? nodeColorByState(
+                  nodeStateClass(targetNode) as FigNodeDisplayState,
+                  false,
+                )
+              : "#64748b";
+            return (
+              <div className="mt-2 border-t border-slate-800/60 pt-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] uppercase tracking-widest text-slate-500">
+                    Relevant memories
+                  </span>
+                  <span className="text-[9px] text-slate-600">
+                    {clampedIdx + 1} / {relevantOrder.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  {/* Prev */}
+                  <button
+                    onClick={() =>
+                      setNavIdx(
+                        clampedIdx <= 0
+                          ? relevantOrder.length - 1
+                          : clampedIdx - 1,
+                      )
+                    }
+                    title="Previous relevant memory"
+                    className="shrink-0 rounded px-1.5 py-1 text-[10px] border border-slate-700/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-400/30 transition-all"
+                  >
+                    ←
+                  </button>
+                  {/* Node preview — clicking navigates */}
+                  <button
+                    onClick={() => targetNode && onNavigateToNode(targetId)}
+                    disabled={!targetNode}
+                    className="flex flex-1 min-w-0 items-center justify-between gap-1.5 rounded-md bg-slate-900/40 border border-slate-800/60 px-2 py-1 hover:border-cyan-500/30 hover:bg-slate-900/70 disabled:opacity-40 transition-all"
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className="h-1.5 w-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: stateC }}
+                      />
+                      <span className="truncate text-[10px] font-medium text-slate-200">
+                        {targetNode
+                          ? safeNodeTitle(targetNode).slice(0, 22)
+                          : targetId.slice(0, 12)}
+                      </span>
                     </div>
-                  )}
-                </button>
-                {/* Next */}
-                <button
-                  onClick={() => setNavIdx(clampedIdx >= relevantOrder.length - 1 ? 0 : clampedIdx + 1)}
-                  title="Next relevant memory"
-                  className="shrink-0 rounded px-1.5 py-1 text-[10px] border border-slate-700/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-400/30 transition-all"
-                >
-                  →
-                </button>
+                    {edge && (
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-[8px] text-slate-600">
+                          {edge.kind.slice(0, 3)}
+                        </span>
+                        <span className="font-mono text-[8px] text-slate-500">
+                          {edge.weight.toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                  {/* Next */}
+                  <button
+                    onClick={() =>
+                      setNavIdx(
+                        clampedIdx >= relevantOrder.length - 1
+                          ? 0
+                          : clampedIdx + 1,
+                      )
+                    }
+                    title="Next relevant memory"
+                    className="shrink-0 rounded px-1.5 py-1 text-[10px] border border-slate-700/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-400/30 transition-all"
+                  >
+                    →
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })()}
+            );
+          })()}
       </div>
 
       {/* ================================================================
           LIFECYCLE BANNER — shown for compressed/deduplicated/pruned/deactivated
       ================================================================ */}
-      {LIFECYCLE_BANNERS[stateKey] && (() => {
-        const b = LIFECYCLE_BANNERS[stateKey]!;
-        return (
-          <div className={`mb-3 rounded-lg border px-3 py-2 ${b.cls}`}>
-            <p className="text-[10px] font-semibold">{b.title}</p>
-            <p className="mt-0.5 text-[9px] opacity-75">{b.desc}</p>
-          </div>
-        );
-      })()}
+      {LIFECYCLE_BANNERS[stateKey] &&
+        (() => {
+          const b = LIFECYCLE_BANNERS[stateKey]!;
+          return (
+            <div className={`mb-3 rounded-lg border px-3 py-2 ${b.cls}`}>
+              <p className="text-[10px] font-semibold">{b.title}</p>
+              <p className="mt-0.5 text-[9px] opacity-75">{b.desc}</p>
+            </div>
+          );
+        })()}
 
       {/* ================================================================
           IDENTITY
       ================================================================ */}
       <div className="border-t border-slate-800/40">
-        <SectionHeader title="Identity" open={sections.identity} onToggle={() => toggleSection("identity")} />
+        <SectionHeader
+          title="Identity"
+          open={sections.identity}
+          onToggle={() => toggleSection("identity")}
+        />
         {sections.identity && (
           <div className="mb-3 space-y-1.5 pl-1">
             <div className="flex items-center justify-between">
@@ -457,7 +528,9 @@ export default function FigInspector({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-500">vector_hash</span>
-              <span className="font-mono text-[9px] text-slate-500">{(node.vector_hash ?? "").slice(0, 12)}…</span>
+              <span className="font-mono text-[9px] text-slate-500">
+                {(node.vector_hash ?? "").slice(0, 12)}…
+              </span>
             </div>
             {/* Safe deep link — node detail API per contract §7 */}
             <a
@@ -478,19 +551,29 @@ export default function FigInspector({
       ================================================================ */}
       {(node.provenance?.raw_id || node.provenance?.block_id) && (
         <div className="border-t border-slate-800/40">
-          <SectionHeader title="Provenance" open={sections.provenance} onToggle={() => toggleSection("provenance")} />
+          <SectionHeader
+            title="Provenance"
+            open={sections.provenance}
+            onToggle={() => toggleSection("provenance")}
+          />
           {sections.provenance && (
             <div className="mb-3 space-y-1.5 pl-1">
               {node.provenance?.raw_id && (
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-slate-500 shrink-0">raw_id</span>
-                  <CopyableValue value={node.provenance.raw_id} label="raw_id" />
+                  <CopyableValue
+                    value={node.provenance.raw_id}
+                    label="raw_id"
+                  />
                 </div>
               )}
               {node.provenance?.block_id && (
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-slate-500 shrink-0">block_id</span>
-                  <CopyableValue value={node.provenance.block_id} label="block_id" />
+                  <CopyableValue
+                    value={node.provenance.block_id}
+                    label="block_id"
+                  />
                 </div>
               )}
               {/* Safe deep link to storage — per contract §7 */}
@@ -516,26 +599,42 @@ export default function FigInspector({
       ================================================================ */}
       {node.metrics && (
         <div className="border-t border-slate-800/40">
-          <SectionHeader title="Memory Signals" open={sections.metrics} onToggle={() => toggleSection("metrics")} />
+          <SectionHeader
+            title="Memory Signals"
+            open={sections.metrics}
+            onToggle={() => toggleSection("metrics")}
+          />
           {sections.metrics && (
             <div className="mb-3 pl-1 space-y-1.5">
               {/* Novelty — from residual [0-1]: high = unique content, low = replicated */}
-              {typeof node.metrics.residual === "number" && (() => {
-                const r = node.metrics!.residual;
-                const c = noveltyColor(r);
-                return (
-                  <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-2.5 py-2">
-                    <div>
-                      <p className="text-[9px] uppercase tracking-widest text-slate-500">Novelty</p>
-                      <p className="mt-0.5 text-[9px] text-slate-600">Uniqueness vs graph average</p>
+              {typeof node.metrics.residual === "number" &&
+                (() => {
+                  const r = node.metrics!.residual;
+                  const c = noveltyColor(r);
+                  return (
+                    <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-2.5 py-2">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-widest text-slate-500">
+                          Novelty
+                        </p>
+                        <p className="mt-0.5 text-[9px] text-slate-600">
+                          Uniqueness vs graph average
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p
+                          className="font-mono text-sm font-semibold"
+                          style={{ color: c }}
+                        >
+                          {r.toFixed(2)}
+                        </p>
+                        <p className="text-[9px]" style={{ color: c }}>
+                          {noveltyLabel(r)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-mono text-sm font-semibold" style={{ color: c }}>{r.toFixed(2)}</p>
-                      <p className="text-[9px]" style={{ color: c }}>{noveltyLabel(r)}</p>
-                    </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
 
               {/* Redundancy signal — from touch_count: high touches = frequently queried */}
               {(() => {
@@ -544,12 +643,23 @@ export default function FigInspector({
                 return (
                   <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-2.5 py-2">
                     <div>
-                      <p className="text-[9px] uppercase tracking-widest text-slate-500">Redundancy</p>
-                      <p className="mt-0.5 text-[9px] text-slate-600">Query access frequency</p>
+                      <p className="text-[9px] uppercase tracking-widest text-slate-500">
+                        Redundancy
+                      </p>
+                      <p className="mt-0.5 text-[9px] text-slate-600">
+                        Query access frequency
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-mono text-sm font-semibold" style={{ color: c }}>{tc}</p>
-                      <p className="text-[9px]" style={{ color: c }}>{redundancyLabel(tc)}</p>
+                      <p
+                        className="font-mono text-sm font-semibold"
+                        style={{ color: c }}
+                      >
+                        {tc}
+                      </p>
+                      <p className="text-[9px]" style={{ color: c }}>
+                        {redundancyLabel(tc)}
+                      </p>
                     </div>
                   </div>
                 );
@@ -558,29 +668,49 @@ export default function FigInspector({
               {/* Recency — from last_access datetime */}
               {(() => {
                 const la = node.metrics!.last_access;
-                if (!la) return (
-                  <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-2.5 py-2">
-                    <div>
-                      <p className="text-[9px] uppercase tracking-widest text-slate-500">Recency</p>
-                      <p className="mt-0.5 text-[9px] text-slate-600">Last query access</p>
+                if (!la)
+                  return (
+                    <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-2.5 py-2">
+                      <div>
+                        <p className="text-[9px] uppercase tracking-widest text-slate-500">
+                          Recency
+                        </p>
+                        <p className="mt-0.5 text-[9px] text-slate-600">
+                          Last query access
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-mono text-sm font-semibold text-slate-500">
+                          —
+                        </p>
+                        <p className="text-[9px] text-slate-600">
+                          never accessed
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-mono text-sm font-semibold text-slate-500">—</p>
-                      <p className="text-[9px] text-slate-600">never accessed</p>
-                    </div>
-                  </div>
-                );
+                  );
                 const days = recencyDays(la);
                 const c = recencyColor(days);
                 return (
                   <div className="flex items-center justify-between rounded-lg bg-slate-900/40 border border-slate-800/60 px-2.5 py-2">
                     <div>
-                      <p className="text-[9px] uppercase tracking-widest text-slate-500">Recency</p>
-                      <p className="mt-0.5 text-[9px] text-slate-600">Last query access</p>
+                      <p className="text-[9px] uppercase tracking-widest text-slate-500">
+                        Recency
+                      </p>
+                      <p className="mt-0.5 text-[9px] text-slate-600">
+                        Last query access
+                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-mono text-sm font-semibold" style={{ color: c }}>{recencyLabel(days)}</p>
-                      <p className="text-[9px] text-slate-500">{new Date(la).toLocaleDateString()}</p>
+                      <p
+                        className="font-mono text-sm font-semibold"
+                        style={{ color: c }}
+                      >
+                        {recencyLabel(days)}
+                      </p>
+                      <p className="text-[9px] text-slate-500">
+                        {new Date(la).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
                 );
@@ -595,30 +725,67 @@ export default function FigInspector({
       ================================================================ */}
       {node.anchor && Object.values(node.anchor).some((v) => v != null) && (
         <div className="border-t border-slate-800/40">
-          <SectionHeader title="Structure" open={sections.structure ?? true} onToggle={() => toggleSection("structure")} />
+          <SectionHeader
+            title="Structure"
+            open={sections.structure ?? true}
+            onToggle={() => toggleSection("structure")}
+          />
           {(sections.structure ?? true) && (
             <div className="mb-3 pl-1 space-y-1">
               {[
-                { label: "Doc Type",   value: node.anchor.doc_type },
+                { label: "Doc Type", value: node.anchor.doc_type },
                 { label: "Block Type", value: node.anchor.block_type },
-                { label: "Page",       value: node.anchor.page != null ? `p.${node.anchor.page}` : null },
-                { label: "Slide",      value: node.anchor.slide != null ? `slide ${node.anchor.slide}` : null },
-                { label: "Sheet",      value: node.anchor.sheet },
-                { label: "Section",    value: node.anchor.section },
-                { label: "Rows",       value: node.anchor.row_start != null ? `${node.anchor.row_start}–${node.anchor.row_end ?? node.anchor.row_start}` : null },
-                { label: "Chars",      value: node.anchor.char_start != null ? `${node.anchor.char_start}–${node.anchor.char_end ?? "?"}` : null },
+                {
+                  label: "Page",
+                  value:
+                    node.anchor.page != null ? `p.${node.anchor.page}` : null,
+                },
+                {
+                  label: "Slide",
+                  value:
+                    node.anchor.slide != null
+                      ? `slide ${node.anchor.slide}`
+                      : null,
+                },
+                { label: "Sheet", value: node.anchor.sheet },
+                { label: "Section", value: node.anchor.section },
+                {
+                  label: "Rows",
+                  value:
+                    node.anchor.row_start != null
+                      ? `${node.anchor.row_start}–${node.anchor.row_end ?? node.anchor.row_start}`
+                      : null,
+                },
+                {
+                  label: "Chars",
+                  value:
+                    node.anchor.char_start != null
+                      ? `${node.anchor.char_start}–${node.anchor.char_end ?? "?"}`
+                      : null,
+                },
               ]
                 .filter((r) => r.value != null && r.value !== "")
                 .map((r) => (
-                  <div key={r.label} className="flex items-center justify-between py-1 border-b border-slate-800/40 last:border-0">
-                    <span className="text-[9px] uppercase tracking-widest text-slate-500">{r.label}</span>
-                    <span className="font-mono text-[10px] text-slate-300">{String(r.value)}</span>
+                  <div
+                    key={r.label}
+                    className="flex items-center justify-between py-1 border-b border-slate-800/40 last:border-0"
+                  >
+                    <span className="text-[9px] uppercase tracking-widest text-slate-500">
+                      {r.label}
+                    </span>
+                    <span className="font-mono text-[10px] text-slate-300">
+                      {String(r.value)}
+                    </span>
                   </div>
                 ))}
               {node.cluster_id != null && (
                 <div className="flex items-center justify-between py-1 border-b border-slate-800/40">
-                  <span className="text-[9px] uppercase tracking-widest text-slate-500">Cluster</span>
-                  <span className="font-mono text-[10px] text-violet-400">#{node.cluster_id}</span>
+                  <span className="text-[9px] uppercase tracking-widest text-slate-500">
+                    Cluster
+                  </span>
+                  <span className="font-mono text-[10px] text-violet-400">
+                    #{node.cluster_id}
+                  </span>
                 </div>
               )}
             </div>
@@ -644,14 +811,21 @@ export default function FigInspector({
           {sections.parents && (
             <div className="mb-3 flex flex-col gap-1 pl-1">
               {shownParents.map((id) => (
-                <NodeRef key={id} nodeId={id} nodeIndex={nodeIndex} onNavigate={onNavigateToNode} />
+                <NodeRef
+                  key={id}
+                  nodeId={id}
+                  nodeIndex={nodeIndex}
+                  onNavigate={onNavigateToNode}
+                />
               ))}
               {parentIds.length > 5 && (
                 <button
                   onClick={() => setShowAllParents((v) => !v)}
                   className="text-[10px] text-slate-500 hover:text-cyan-400 transition-colors"
                 >
-                  {showAllParents ? "Show less" : `+${parentIds.length - 5} more`}
+                  {showAllParents
+                    ? "Show less"
+                    : `+${parentIds.length - 5} more`}
                 </button>
               )}
             </div>
@@ -672,14 +846,21 @@ export default function FigInspector({
           {sections.children && (
             <div className="mb-3 flex flex-col gap-1 pl-1">
               {shownChildren.map((id) => (
-                <NodeRef key={id} nodeId={id} nodeIndex={nodeIndex} onNavigate={onNavigateToNode} />
+                <NodeRef
+                  key={id}
+                  nodeId={id}
+                  nodeIndex={nodeIndex}
+                  onNavigate={onNavigateToNode}
+                />
               ))}
               {childIds.length > 5 && (
                 <button
                   onClick={() => setShowAllChildren((v) => !v)}
                   className="text-[10px] text-slate-500 hover:text-cyan-400 transition-colors"
                 >
-                  {showAllChildren ? "Show less" : `+${childIds.length - 5} more`}
+                  {showAllChildren
+                    ? "Show less"
+                    : `+${childIds.length - 5} more`}
                 </button>
               )}
             </div>
@@ -700,16 +881,36 @@ export default function FigInspector({
           {sections.opposition && (
             <div className="mb-3 flex flex-col gap-1 pl-1">
               {oppositionEdges.map((edge) => {
-                const otherId = edge.src_node_id === node.node_id ? edge.dst_node_id : edge.src_node_id;
+                const otherId =
+                  edge.src_node_id === node.node_id
+                    ? edge.dst_node_id
+                    : edge.src_node_id;
                 return (
-                  <div key={edge.edge_id} className="flex items-center justify-between gap-2 rounded-md bg-red-950/30 border border-red-900/30 px-2 py-1.5">
+                  <div
+                    key={edge.edge_id}
+                    className="flex items-center justify-between gap-2 rounded-md bg-red-950/30 border border-red-900/30 px-2 py-1.5"
+                  >
                     <button
                       onClick={() => onNavigateToNode(otherId)}
                       className="truncate text-red-300 hover:text-red-200 transition-colors text-left min-w-0"
                     >
-                      {safeNodeTitle(nodeIndex.get(otherId) ?? { node_id: otherId, kind: "?", level: 0, vector_hash: "", display: { title: otherId.slice(0, 8), title_source: "node_id", state: "unknown" } })}
+                      {safeNodeTitle(
+                        nodeIndex.get(otherId) ?? {
+                          node_id: otherId,
+                          kind: "?",
+                          level: 0,
+                          vector_hash: "",
+                          display: {
+                            title: otherId.slice(0, 8),
+                            title_source: "node_id",
+                            state: "unknown",
+                          },
+                        },
+                      )}
                     </button>
-                    <span className="shrink-0 text-[9px] font-mono text-red-500">w:{edge.weight.toFixed(2)}</span>
+                    <span className="shrink-0 text-[9px] font-mono text-red-500">
+                      w:{edge.weight.toFixed(2)}
+                    </span>
                   </div>
                 );
               })}
@@ -733,7 +934,9 @@ export default function FigInspector({
               Expand the graph to include nodes reachable from here.
             </p>
             <div className="flex items-center gap-1.5">
-              <span className="text-[9px] uppercase tracking-widest text-slate-500 shrink-0">Depth</span>
+              <span className="text-[9px] uppercase tracking-widest text-slate-500 shrink-0">
+                Depth
+              </span>
               {([1, 2, 3] as const).map((d) => (
                 <button
                   key={d}
@@ -749,7 +952,9 @@ export default function FigInspector({
               ))}
             </div>
             <button
-              onClick={() => onExpandNeighborhood(node.node_id, neighborhoodDepth)}
+              onClick={() =>
+                onExpandNeighborhood(node.node_id, neighborhoodDepth)
+              }
               disabled={neighborhoodLoading}
               className="flex w-full items-center justify-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-950/30 px-3 py-1.5 text-[11px] text-emerald-300 hover:bg-emerald-950/50 disabled:opacity-50 transition-all"
             >
@@ -764,8 +969,14 @@ export default function FigInspector({
             </button>
             {neighborhoodExpansion?.seedNodeId === node.node_id && (
               <div className="rounded-lg border border-emerald-800/40 bg-emerald-950/20 px-2.5 py-2 text-[10px] text-emerald-300 space-y-0.5">
-                <div>+{neighborhoodExpansion.addedNodeCount} node{neighborhoodExpansion.addedNodeCount !== 1 ? "s" : ""} added</div>
-                <div>+{neighborhoodExpansion.addedEdgeCount} edge{neighborhoodExpansion.addedEdgeCount !== 1 ? "s" : ""} added</div>
+                <div>
+                  +{neighborhoodExpansion.addedNodeCount} node
+                  {neighborhoodExpansion.addedNodeCount !== 1 ? "s" : ""} added
+                </div>
+                <div>
+                  +{neighborhoodExpansion.addedEdgeCount} edge
+                  {neighborhoodExpansion.addedEdgeCount !== 1 ? "s" : ""} added
+                </div>
               </div>
             )}
           </div>
@@ -776,27 +987,37 @@ export default function FigInspector({
           EXPLAIN RELATION
       ================================================================ */}
       <div className="border-t border-slate-800/40">
-        <SectionHeader title="Explain Relation" open={sections.explain} onToggle={() => toggleSection("explain")} />
+        <SectionHeader
+          title="Explain Relation"
+          open={sections.explain}
+          onToggle={() => toggleSection("explain")}
+        />
         {sections.explain && (
           <div className="mb-3 pl-1">
             {!pinnedNodeId && (
               <p className="text-[10px] text-slate-500 italic">
-                Pin a node first to explain the relation between it and this node.
+                Pin a node first to explain the relation between it and this
+                node.
               </p>
             )}
             {pinnedNodeId && pinnedNodeId === node.node_id && (
               <p className="text-[10px] text-slate-500 italic">
-                Select a different node to explain the path from the pinned node.
+                Select a different node to explain the path from the pinned
+                node.
               </p>
             )}
             {canExplain && (
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-[10px] text-slate-400">
                   <span className="text-violet-300 font-medium truncate max-w-[100px]">
-                    {pinnedNode ? safeNodeTitle(pinnedNode) : pinnedNodeId!.slice(0, 8)}
+                    {pinnedNode
+                      ? safeNodeTitle(pinnedNode)
+                      : pinnedNodeId!.slice(0, 8)}
                   </span>
                   <span>→</span>
-                  <span className="text-cyan-300 font-medium truncate max-w-[100px]">{title}</span>
+                  <span className="text-cyan-300 font-medium truncate max-w-[100px]">
+                    {title}
+                  </span>
                 </div>
 
                 <button
@@ -821,32 +1042,50 @@ export default function FigInspector({
                         className={`h-2 w-2 rounded-full ${explainResult.path_found ? "bg-emerald-400" : "bg-red-400"}`}
                       />
                       <span className="text-[10px] font-semibold text-slate-200">
-                        {explainResult.path_found ? "Path found" : "No path found"}
+                        {explainResult.path_found
+                          ? "Path found"
+                          : "No path found"}
                       </span>
                     </div>
 
                     {explainResult.path_found && (
                       <>
-                        <p className="text-[10px] text-slate-400">{explainResult.explanation.summary}</p>
+                        <p className="text-[10px] text-slate-400">
+                          {explainResult.explanation.summary}
+                        </p>
                         <div className="flex flex-wrap gap-1">
                           <Badge size="sm" variant="outline">
-                            {explainResult.explanation.hops} hop{explainResult.explanation.hops !== 1 ? "s" : ""}
+                            {explainResult.explanation.hops} hop
+                            {explainResult.explanation.hops !== 1 ? "s" : ""}
                           </Badge>
-                          {explainResult.explanation.edge_kinds_used.map((k) => (
-                            <Badge key={k} size="sm" variant="secondary">{k}</Badge>
-                          ))}
-                          {explainResult.explanation.relation_distance != null && (
+                          {explainResult.explanation.edge_kinds_used.map(
+                            (k) => (
+                              <Badge key={k} size="sm" variant="secondary">
+                                {k}
+                              </Badge>
+                            ),
+                          )}
+                          {explainResult.explanation.relation_distance !=
+                            null && (
                             <Badge size="sm" variant="outline">
-                              dist: {explainResult.explanation.relation_distance}
+                              dist:{" "}
+                              {explainResult.explanation.relation_distance}
                             </Badge>
                           )}
                         </div>
                         {explainResult.paths.map((path, i) => (
-                          <div key={i} className="text-[9px] text-slate-500 font-mono">
-                            {path.node_ids.map((id) => {
-                              const n = nodeIndex.get(id);
-                              return n ? safeNodeTitle(n).slice(0, 10) : id.slice(0, 8);
-                            }).join(" → ")}
+                          <div
+                            key={i}
+                            className="text-[9px] text-slate-500 font-mono"
+                          >
+                            {path.node_ids
+                              .map((id) => {
+                                const n = nodeIndex.get(id);
+                                return n
+                                  ? safeNodeTitle(n).slice(0, 10)
+                                  : id.slice(0, 8);
+                              })
+                              .join(" → ")}
                           </div>
                         ))}
                       </>
@@ -858,7 +1097,6 @@ export default function FigInspector({
           </div>
         )}
       </div>
-
     </div>
   );
 }

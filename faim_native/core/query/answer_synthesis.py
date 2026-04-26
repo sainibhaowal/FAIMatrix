@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Dict, List, Sequence
 
 from core.query.confidence_scoring import compute_confidence
-from core.query.proposition_extractor import extract_propositions, proposition_signature
 from core.query.quote_extraction import extract_quotes
 from core.query.span_selection import CandidateSpan, select_supporting_spans
 
@@ -43,7 +42,7 @@ def _collect_contradictions(ranked_results: Sequence[Dict[str, object]]) -> List
     notes: List[str] = []
     signatures = []
     for item in ranked_results[:5]:
-        explain = dict(item.get("phase4_explain") or {})
+        explain = dict(item.get("phase4_explain") or {})  # type: ignore[call-overload]
         doc_props = explain.get("doc_propositions") or []
         if not doc_props:
             continue
@@ -66,7 +65,9 @@ def _collect_contradictions(ranked_results: Sequence[Dict[str, object]]) -> List
     for key, values in sorted(seen.items()):
         if len(values) > 1:
             entity, relation = key
-            notes.append(f"Conflicting evidence for {entity or 'entity'} / {relation or 'relation'}")
+            notes.append(
+                f"Conflicting evidence for {entity or 'entity'} / {relation or 'relation'}"
+            )
     return notes
 
 
@@ -77,7 +78,9 @@ def synthesize_answer(
     query_hash: str,
     graph_id: str,
 ) -> Dict[str, object]:
-    spans = select_supporting_spans(query_text=query_text, ranked_results=ranked_results, limit=5)
+    spans = select_supporting_spans(
+        query_text=query_text, ranked_results=ranked_results, limit=5
+    )
     contradiction_notes = _collect_contradictions(ranked_results)
     citations = [
         {
@@ -98,7 +101,9 @@ def synthesize_answer(
         }
         for span in spans
     ]
-    confidence = compute_confidence(spans=spans, contradiction_count=len(contradiction_notes))
+    confidence = compute_confidence(
+        spans=spans, contradiction_count=len(contradiction_notes)
+    )
     quotes = extract_quotes(spans)
     answer = SynthesizedAnswer(
         direct_answer=_build_direct_answer(spans),

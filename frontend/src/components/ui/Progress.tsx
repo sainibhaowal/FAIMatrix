@@ -38,7 +38,8 @@ const colorConfig = {
   success: "bg-[var(--faim-success)]",
   warning: "bg-[var(--faim-warning)]",
   error: "bg-[var(--faim-error)]",
-  gradient: "bg-gradient-to-r from-[var(--faim-primary)] via-[var(--faim-secondary)] to-[var(--faim-accent)]",
+  gradient:
+    "bg-gradient-to-r from-[var(--faim-primary)] via-[var(--faim-secondary)] to-[var(--faim-accent)]",
 };
 
 export const Progress: React.FC<ProgressProps> = ({
@@ -61,12 +62,21 @@ export const Progress: React.FC<ProgressProps> = ({
       {(showLabel || label) && (
         <div className="flex justify-between items-center mb-1.5">
           {label && (
-            <span className={["text-[var(--text-secondary)]", config.text].join(" ")}>
+            <span
+              className={["text-[var(--text-secondary)]", config.text].join(
+                " ",
+              )}
+            >
               {label}
             </span>
           )}
           {showLabel && (
-            <span className={["text-[var(--text-primary)] font-medium", config.text].join(" ")}>
+            <span
+              className={[
+                "text-[var(--text-primary)] font-medium",
+                config.text,
+              ].join(" ")}
+            >
               {Math.round(percentage)}%
             </span>
           )}
@@ -90,8 +100,10 @@ export const Progress: React.FC<ProgressProps> = ({
             "h-full rounded-full",
             "transition-all duration-500 ease-out",
             colorClass,
-            animated && "bg-[length:1rem_1rem] animate-[progress-stripe_1s_linear_infinite]",
-            animated && "bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)]",
+            animated &&
+              "bg-[length:1rem_1rem] animate-[progress-stripe_1s_linear_infinite]",
+            animated &&
+              "bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)]",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -147,18 +159,17 @@ export const CircularProgress: React.FC<CircularProgressProps> = ({
 
   return (
     <div
-      className={["relative inline-flex items-center justify-center", className].join(" ")}
+      className={[
+        "relative inline-flex items-center justify-center",
+        className,
+      ].join(" ")}
       style={{ width: size, height: size }}
       role="progressbar"
       aria-valuenow={value}
       aria-valuemin={0}
       aria-valuemax={100}
     >
-      <svg
-        width={size}
-        height={size}
-        className="transform -rotate-90"
-      >
+      <svg width={size} height={size} className="transform -rotate-90">
         {/* Background circle */}
         <circle
           cx={size / 2}

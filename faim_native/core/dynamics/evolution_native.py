@@ -167,9 +167,7 @@ def _resolve_invention_settings(runtime_config: Optional[Any]) -> Dict[str, Any]
 
     return {
         "enabled": bool(getattr(cfg, "self_invent_enabled", defaults["enabled"])),
-        "on_evolve": bool(
-            getattr(cfg, "self_invent_on_evolve", defaults["on_evolve"])
-        ),
+        "on_evolve": bool(getattr(cfg, "self_invent_on_evolve", defaults["on_evolve"])),
         "min_coactivation_count": int(
             getattr(
                 cfg,

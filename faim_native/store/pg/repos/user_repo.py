@@ -10,6 +10,7 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.orm import Session
+
 from store.pg.models_auth import UserModel
 
 logger = logging.getLogger(__name__)
@@ -33,13 +34,11 @@ class UserRepository:
         """Look up a user by their deterministic UUID."""
         return self.session.query(UserModel).filter(UserModel.id == user_id).first()
 
-    def create_user(self, user_id: UUID, email: str, full_name: Optional[str] = None) -> UserModel:
+    def create_user(
+        self, user_id: UUID, email: str, full_name: Optional[str] = None
+    ) -> UserModel:
         """Create a new formal user record."""
-        user = UserModel(
-            id=user_id,
-            email=email.lower().strip(),
-            full_name=full_name
-        )
+        user = UserModel(id=user_id, email=email.lower().strip(), full_name=full_name)
         self.session.add(user)
         try:
             self.session.commit()

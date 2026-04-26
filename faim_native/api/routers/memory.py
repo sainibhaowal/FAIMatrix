@@ -214,7 +214,9 @@ def _profile_enum(value: str) -> FAIMProfile:
     try:
         return FAIMProfile(str(value or "").strip().lower())
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=f"Invalid profile: {value}") from exc
+        raise HTTPException(
+            status_code=400, detail=f"Invalid profile: {value}"
+        ) from exc
 
 
 def _persist_mode_enum(value: str) -> PersistMode:
@@ -510,11 +512,15 @@ async def get_memory_provenance(
                 uri=str(raw_ref.uri),
                 mime_type=str(raw_ref.mime_type),
                 size_bytes=int(raw_ref.size_bytes),
-                created_at=raw_ref.created_at.isoformat() if raw_ref.created_at else None,
+                created_at=(
+                    raw_ref.created_at.isoformat() if raw_ref.created_at else None
+                ),
             )
 
     if raw_uuid is not None and ctx.storage_file_repo:
-        storage_row = ctx.storage_file_repo.get_by_raw_id(ctx.session, raw_uuid, graph_id)
+        storage_row = ctx.storage_file_repo.get_by_raw_id(
+            ctx.session, raw_uuid, graph_id
+        )
         if storage_row and storage_row.packet_hash:
             dedup_record = IngestDedupModel.check_exists(
                 ctx.session,
@@ -823,7 +829,9 @@ async def patch_memory_item(
     if body.kind is not None:
         kind = str(body.kind).strip().lower()
         if kind not in {"atom", "macro"}:
-            raise HTTPException(status_code=422, detail="kind must be 'atom' or 'macro'")
+            raise HTTPException(
+                status_code=422, detail="kind must be 'atom' or 'macro'"
+            )
         node.kind = kind
         changed = True
 
@@ -844,7 +852,9 @@ async def patch_memory_item(
         changed = True
 
     if not changed:
-        raise HTTPException(status_code=400, detail="No mutable fields provided for update")
+        raise HTTPException(
+            status_code=400, detail="No mutable fields provided for update"
+        )
 
     try:
         node.updated_at = datetime.now(timezone.utc)
@@ -897,7 +907,9 @@ async def patch_memory_item(
         .first()
     )
     if reloaded is None:
-        raise HTTPException(status_code=404, detail="Memory item not found after update")
+        raise HTTPException(
+            status_code=404, detail="Memory item not found after update"
+        )
     return _node_to_item(reloaded)
 
 

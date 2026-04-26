@@ -2,7 +2,11 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   darkMode: ["class"],
-  content: ["./src/app/**/*.{ts,tsx}", "./src/components/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
+  content: [
+    "./src/app/**/*.{ts,tsx}",
+    "./src/components/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}",
+  ],
   theme: {
     extend: {
       spacing: {
@@ -94,13 +98,14 @@ const config: Config = {
             primary: "var(--os-text-1)",
             secondary: "var(--os-text-2)",
             tertiary: "var(--os-text-3)",
-          }
+          },
         },
       },
       boxShadow: {
         "os-deep": "var(--os-shadow-deep)",
         "os-line": "var(--os-shadow-line)",
-        "os-pro": "0 0 0 1px rgba(255, 255, 255, 0.05), 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 10px 15px -3px rgba(0, 0, 0, 0.5)",
+        "os-pro":
+          "0 0 0 1px rgba(255, 255, 255, 0.05), 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 10px 15px -3px rgba(0, 0, 0, 0.5)",
       },
       animation: {
         shimmer: "shimmer 2s linear infinite",

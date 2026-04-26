@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, LargeBinary, String
+
 from store.pg.models_faim import Base
 
 

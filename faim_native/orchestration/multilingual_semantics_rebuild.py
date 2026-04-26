@@ -45,13 +45,16 @@ def run_multilingual_semantics_rebuild(
     from core.operators.multilingual_semantics import (
         build_multilingual_document,
         build_multilingual_semantics,
-        concept_node_hash,
         concept_key_to_vector_text,
+        concept_node_hash,
     )
     from encoding.text_vectorizer import vectorize_text
     from store.pg.repos.multilingual_repo import MultilingualRepo
+
     if extract_fn is None:
-        from perception.router import route_extraction as extract_fn
+        from perception.router import route_extraction
+
+        extract_fn = route_extraction
 
     result = MultilingualSemanticsRebuildResult(graph_id=graph_id)
     repo = MultilingualRepo(session=session, tenant_id=tenant_id)
@@ -87,12 +90,16 @@ def run_multilingual_semantics_rebuild(
                     raw_id=str(row.raw_id),
                     kind="atom",
                 )
-                nodes_by_anchor = {_anchor_key(node.anchor_json): node for node in existing_nodes}
+                nodes_by_anchor = {
+                    _anchor_key(node.anchor_json): node for node in existing_nodes
+                }
                 for block in blocks:
                     node = nodes_by_anchor.get(_anchor_key(block.anchor.to_dict()))
                     if node is None:
                         continue
-                    docs.append(build_multilingual_document(node.node_id, block.content))
+                    docs.append(
+                        build_multilingual_document(node.node_id, block.content)
+                    )
                     result.matched_nodes += 1
             except Exception as exc:  # nosec B110
                 result.files_failed += 1
@@ -109,7 +116,9 @@ def run_multilingual_semantics_rebuild(
     )
 
     for concept in concept_rows:
-        vector_res = vectorize_text(concept_key_to_vector_text(str(concept["concept_key"])))
+        vector_res = vectorize_text(
+            concept_key_to_vector_text(str(concept["concept_key"]))
+        )
         concept_node_id = node_repo.upsert_special_node(
             graph_id=graph_id,
             kind="concept",

@@ -30,7 +30,7 @@ export function Breadcrumbs() {
       <Link href="/" className="hover:text-slate-300 transition-colors">
         Home
       </Link>
-      
+
       {parts.map((p, idx) => {
         // Construct href for this segment
         const href = "/" + parts.slice(0, idx + 1).join("/");
@@ -39,13 +39,13 @@ export function Breadcrumbs() {
 
         return (
           <React.Fragment key={href}>
-             <IconChevron className="h-3 w-3 -rotate-90 opacity-40" />
-            
+            <IconChevron className="h-3 w-3 -rotate-90 opacity-40" />
+
             {isLast ? (
               <span className="font-medium text-slate-300">{name}</span>
             ) : (
-              <Link 
-                href={href} 
+              <Link
+                href={href}
                 className="hover:text-slate-300 transition-colors"
               >
                 {name}

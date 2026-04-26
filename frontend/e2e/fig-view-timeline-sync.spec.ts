@@ -108,7 +108,8 @@ function baseSurface(
     controls: {
       similarity: {
         mode: "none",
-        notes: "Exploration filters affect ranking only; they do not mutate graph truth.",
+        notes:
+          "Exploration filters affect ranking only; they do not mutate graph truth.",
       },
     },
     truncated: false,
@@ -162,7 +163,8 @@ test.describe("FIG View timeline live sync", () => {
           body: JSON.stringify({
             graph_id: "fig-sync-graph",
             last_seq: latestSeq,
-            last_kind: latestSeq >= 4 ? "DIAGNOSTICS_SNAPSHOT" : "STORAGE_EXTRACTED",
+            last_kind:
+              latestSeq >= 4 ? "DIAGNOSTICS_SNAPSHOT" : "STORAGE_EXTRACTED",
             last_ts: "2026-02-20T10:00:00Z",
             snapshot_hash: latestSeq >= 4 ? "fig-hash-2" : "fig-hash-1",
             event_count: latestSeq,
@@ -189,7 +191,9 @@ test.describe("FIG View timeline live sync", () => {
     await page.waitForTimeout(3500);
 
     await expect(page.getByText("#4")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Pause live" })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Pause live" }),
+    ).toBeVisible();
 
     const seqTwoMatches = await page.locator("text=#2").count();
     expect(seqTwoMatches).toBeGreaterThanOrEqual(1);

@@ -29,3 +29,9 @@ disable_error_code = ["misc", "valid-type", "assignment", "arg-type", "union-att
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "strict"
+# -n 12 = always run with 12 xdist workers
+# cache_dir = keep .pytest_cache inside Runtime/ (not root)
+addopts = "-n 12 --cache-clear"
+pythonpath = ["faim_native"]
+cache_dir = "Runtime/.pytest_cache"
+tmp_path_retention_policy = "failed"

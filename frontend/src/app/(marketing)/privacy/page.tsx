@@ -41,10 +41,11 @@ export default function PrivacyPage() {
                   1. Introduction
                 </h2>
                 <p className="text-slate-400 leading-relaxed">
-                  FAIMATRIX (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;), operated by Ravinder Singh,
-                  is committed to protecting your privacy. This Privacy Policy
-                  explains how we collect, use, disclose, and safeguard your
-                  information when you use our service.
+                  FAIMATRIX (&quot;we&quot;, &quot;our&quot;, or
+                  &quot;us&quot;), operated by Ravinder Singh, is committed to
+                  protecting your privacy. This Privacy Policy explains how we
+                  collect, use, disclose, and safeguard your information when
+                  you use our service.
                 </p>
               </section>
 

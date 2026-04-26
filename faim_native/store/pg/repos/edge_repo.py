@@ -18,15 +18,16 @@ from sqlalchemy.orm import Session
 # Flexible imports
 try:
     from faim.Faim_Native.core.contracts.types import uuid7
-    from faim.Faim_Native.store.pg.models_faim import EdgeModel
     from faim.Faim_Native.core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
+    from faim.Faim_Native.store.pg.models_faim import EdgeModel
 except (ImportError, RuntimeError):
     _parent = Path(__file__).parent.parent.parent
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import uuid7
-    from store.pg.models_faim import EdgeModel
     from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
+
+    from store.pg.models_faim import EdgeModel
 
 
 class EdgeRepo:
@@ -472,7 +473,9 @@ class EdgeRepo:
                     EdgeModel.meta: meta or {},
                 },
             )
-            returned_edge_id = self.session.execute(stmt.returning(EdgeModel.edge_id)).scalar_one()
+            returned_edge_id = self.session.execute(
+                stmt.returning(EdgeModel.edge_id)
+            ).scalar_one()
             self.session.flush()
             return returned_edge_id
 

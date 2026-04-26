@@ -43,7 +43,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     if (status === "authenticated" && session) {
       let graphId = (session as any).graphId || null;
 
-
       // Initial state from session
       setUserInfo({
         userId: session.user?.id || null,
@@ -56,11 +55,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       });
 
       const accessToken = (session as any).accessToken;
-      
+
       if (!accessToken) {
         return;
       }
-      
+
       fetch("/api/v1/auth/me", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -72,7 +71,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           }
           const contentType = res.headers.get("content-type");
           if (!contentType || !contentType.includes("application/json")) {
-            throw new Error(`Received non-JSON response (${contentType}) from server`);
+            throw new Error(
+              `Received non-JSON response (${contentType}) from server`,
+            );
           }
           return res.json();
         })
@@ -84,8 +85,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           if (backendGid || backendUid) {
             try {
               if (backendGid) {
-                window.localStorage.setItem("faim.universe_graph_id", backendGid);
-                window.localStorage.setItem("faim_universe_graph_id", backendGid);
+                window.localStorage.setItem(
+                  "faim.universe_graph_id",
+                  backendGid,
+                );
+                window.localStorage.setItem(
+                  "faim_universe_graph_id",
+                  backendGid,
+                );
               }
               if (backendUid) {
                 window.localStorage.setItem("faim_user_id", backendUid);

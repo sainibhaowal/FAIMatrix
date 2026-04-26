@@ -45,7 +45,9 @@ def run_multimodal_backfill(
     from store.pg.repos.modality_repo import ModalityRepo
 
     if extract_fn is None:
-        from perception.router import route_extraction as extract_fn
+        from perception.router import route_extraction
+
+        extract_fn = route_extraction
 
     result = MultimodalBackfillResult(graph_id=graph_id)
     repo = ModalityRepo(session=session, tenant_id=tenant_id)
@@ -80,7 +82,9 @@ def run_multimodal_backfill(
                     raw_id=str(row.raw_id),
                     kind="atom",
                 )
-                nodes_by_anchor = {_anchor_key(node.anchor_json): node for node in existing_nodes}
+                nodes_by_anchor = {
+                    _anchor_key(node.anchor_json): node for node in existing_nodes
+                }
                 features = build_modality_features(
                     blocks=blocks,
                     filename=row.filename,

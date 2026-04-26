@@ -474,7 +474,9 @@ def run_invention_cycle(
     signature_counts = _normalize_signature_counts(state.signature_counts)
     # Drop stale signatures that have not been seen in the active window.
     signature_counts = {
-        key: value for key, value in signature_counts.items() if value["last_seq"] >= start_seq
+        key: value
+        for key, value in signature_counts.items()
+        if value["last_seq"] >= start_seq
     }
 
     after_seq = start_seq
@@ -538,7 +540,7 @@ def run_invention_cycle(
         key=lambda item: (-int(item[1].get("count", 0)), item[0]),
     )
 
-    for signature, data in candidates:
+    for _signature, data in candidates:
         if result.macros_created >= max(0, int(max_macros_per_cycle)):
             break
 

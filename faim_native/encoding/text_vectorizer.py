@@ -29,17 +29,18 @@ try:
         BlockAnchor,
         EvidenceBlock,
     )
-    from faim.Faim_Native.encoding.vector_schema import VECTOR_DIMENSION, FAIMVector
     from faim.Faim_Native.encoding.porter_stemmer import stem_text
+    from faim.Faim_Native.encoding.vector_schema import VECTOR_DIMENSION, FAIMVector
     from faim.Faim_Native.lexical.synonym_expander import expand_synonyms_text
 except (ImportError, RuntimeError):
     _parent = Path(__file__).parent.parent
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import EvidenceBlock
-    from encoding.vector_schema import VECTOR_DIMENSION, FAIMVector
-    from encoding.porter_stemmer import stem_text
     from lexical.synonym_expander import expand_synonyms_text
+
+    from encoding.porter_stemmer import stem_text
+    from encoding.vector_schema import VECTOR_DIMENSION, FAIMVector
 
 
 # Constants
@@ -125,6 +126,7 @@ def normalize_text(
         # Remove stop words (Phase 4, if enabled)
         if remove_stopwords:
             from encoding.porter_stemmer import STOP_WORDS
+
             tokens = text.split()
             text = " ".join(t for t in tokens if t not in STOP_WORDS)
         # Apply Porter stemming (Phase 3A, if enabled)

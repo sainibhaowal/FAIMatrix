@@ -189,7 +189,9 @@ export const Modal: React.FC<ModalProps> = ({
         )}
 
         {/* Content */}
-        <div className="relative p-4 max-h-[60vh] overflow-y-auto">{children}</div>
+        <div className="relative p-4 max-h-[60vh] overflow-y-auto">
+          {children}
+        </div>
 
         {/* Footer */}
         {footer && (
@@ -199,7 +201,7 @@ export const Modal: React.FC<ModalProps> = ({
         )}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 };
 

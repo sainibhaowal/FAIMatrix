@@ -35,10 +35,22 @@ async function mockAuth(page: Page, graphId = GRAPH_ID) {
   await page.route("**/api/auth/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith("/session"))
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(sessionPayload(graphId)) });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(sessionPayload(graphId)),
+      });
     if (path.endsWith("/csrf"))
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ csrfToken: "fig-e2e-csrf" }) });
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ csrfToken: "fig-e2e-csrf" }),
+      });
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    });
   });
 }
 
@@ -49,13 +61,29 @@ function figNode(nodeId: string, title: string, kind = "atom") {
     level: 0,
     vector_hash: `${nodeId}-vh`,
     display: { title, title_source: "anchor", state: "active" },
-    metrics: { touch_count: 2, residual: 0.75, last_access: "2026-03-01T10:00:00Z" },
+    metrics: {
+      touch_count: 2,
+      residual: 0.75,
+      last_access: "2026-03-01T10:00:00Z",
+    },
     provenance: { raw_id: `${nodeId}-raw`, block_id: `${nodeId}-block` },
   };
 }
 
-function figEdge(edgeId: string, src: string, dst: string, kind = "inheritance") {
-  return { edge_id: edgeId, src_node_id: src, dst_node_id: dst, kind, weight: 1.0, meta: null };
+function figEdge(
+  edgeId: string,
+  src: string,
+  dst: string,
+  kind = "inheritance",
+) {
+  return {
+    edge_id: edgeId,
+    src_node_id: src,
+    dst_node_id: dst,
+    kind,
+    weight: 1.0,
+    meta: null,
+  };
 }
 
 function standardSurface(graphId = GRAPH_ID) {
@@ -77,9 +105,27 @@ function standardSurface(graphId = GRAPH_ID) {
       next_seq: 3,
       has_more: false,
       events: [
-        { seq: 1, kind: "STORAGE_RAW_STORED", ts: "2026-03-01T09:00:00Z", payload_keys: ["graph_id"], graph_id: graphId },
-        { seq: 2, kind: "STORAGE_EXTRACTED", ts: "2026-03-01T09:01:00Z", payload_keys: ["graph_id"], graph_id: graphId },
-        { seq: 3, kind: "QUERY_COMPLETE", ts: "2026-03-01T10:00:00Z", payload_keys: ["graph_id"], graph_id: graphId },
+        {
+          seq: 1,
+          kind: "STORAGE_RAW_STORED",
+          ts: "2026-03-01T09:00:00Z",
+          payload_keys: ["graph_id"],
+          graph_id: graphId,
+        },
+        {
+          seq: 2,
+          kind: "STORAGE_EXTRACTED",
+          ts: "2026-03-01T09:01:00Z",
+          payload_keys: ["graph_id"],
+          graph_id: graphId,
+        },
+        {
+          seq: 3,
+          kind: "QUERY_COMPLETE",
+          ts: "2026-03-01T10:00:00Z",
+          payload_keys: ["graph_id"],
+          graph_id: graphId,
+        },
       ],
     },
     topology: {
@@ -110,10 +156,22 @@ async function mockStandardApi(page: Page, graphId = GRAPH_ID) {
     const req = route.request();
     const path = new URL(req.url()).pathname;
     if (path.endsWith("/graph/surface") && req.method() === "GET")
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(standardSurface(graphId)) });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(standardSurface(graphId)),
+      });
     if (path.endsWith("/events/latest") && req.method() === "GET")
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(latestEventResponse(graphId)) });
-    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(latestEventResponse(graphId)),
+      });
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    });
   });
 }
 
@@ -129,7 +187,9 @@ async function loadFigPage(page: Page, graphId = GRAPH_ID) {
 // ---------------------------------------------------------------------------
 
 test.describe("FIG View — page load states", () => {
-  test("successful load renders FIG View title, mode tabs, and rail buttons", async ({ page }) => {
+  test("successful load renders FIG View title, mode tabs, and rail buttons", async ({
+    page,
+  }) => {
     await loadFigPage(page);
 
     // Title always present
@@ -141,7 +201,16 @@ test.describe("FIG View — page load states", () => {
     await expect(page.getByText("Lineage")).toBeVisible();
 
     // Eight right-rail buttons by title
-    for (const label of ["Inspector", "Nodes", "Edges", "Relation", "Legend", "Snapshot", "Timeline", "Controls"]) {
+    for (const label of [
+      "Inspector",
+      "Nodes",
+      "Edges",
+      "Relation",
+      "Legend",
+      "Snapshot",
+      "Timeline",
+      "Controls",
+    ]) {
       await expect(page.getByTitle(label)).toBeVisible();
     }
   });
@@ -154,9 +223,23 @@ test.describe("FIG View — page load states", () => {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ ...standardSurface(), nodes: [], edges: [], topology: { node_count: 0, edge_count: 0, edge_counts_by_kind: {}, scorecard: null } }),
+          body: JSON.stringify({
+            ...standardSurface(),
+            nodes: [],
+            edges: [],
+            topology: {
+              node_count: 0,
+              edge_count: 0,
+              edge_counts_by_kind: {},
+              scorecard: null,
+            },
+          }),
         });
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
     });
 
     await page.goto("/dashboard/graph");
@@ -168,8 +251,16 @@ test.describe("FIG View — page load states", () => {
     await page.route("**/api/v1/**", async (route) => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith("/graph/surface"))
-        return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "internal server error" }) });
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+        return route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "internal server error" }),
+        });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
     });
 
     await page.goto("/dashboard/graph");
@@ -184,18 +275,32 @@ test.describe("FIG View — page load states", () => {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ ...standardSurface(), truncated: true, truncation_reason: "node cap reached" }),
+          body: JSON.stringify({
+            ...standardSurface(),
+            truncated: true,
+            truncation_reason: "node cap reached",
+          }),
         });
       if (path.endsWith("/events/latest"))
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(latestEventResponse()) });
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(latestEventResponse()),
+        });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
     });
 
     await page.goto("/dashboard/graph");
     await expect(page.getByText("degraded")).toBeVisible();
   });
 
-  test("retry button on error state re-issues the surface fetch", async ({ page }) => {
+  test("retry button on error state re-issues the surface fetch", async ({
+    page,
+  }) => {
     await mockAuth(page);
     let callCount = 0;
     await page.route("**/api/v1/**", async (route) => {
@@ -203,13 +308,29 @@ test.describe("FIG View — page load states", () => {
       if (path.endsWith("/graph/surface")) {
         callCount += 1;
         if (callCount === 1)
-          return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "temporary error" }) });
+          return route.fulfill({
+            status: 500,
+            contentType: "application/json",
+            body: JSON.stringify({ detail: "temporary error" }),
+          });
         // Second call succeeds
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(standardSurface()) });
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(standardSurface()),
+        });
       }
       if (path.endsWith("/events/latest"))
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(latestEventResponse()) });
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(latestEventResponse()),
+        });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
     });
 
     await page.goto("/dashboard/graph");
@@ -264,13 +385,19 @@ test.describe("FIG View — top mode tabs", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("FIG View — right rail drawers", () => {
-  test("Inspector drawer: placeholder shown when no node is selected", async ({ page }) => {
+  test("Inspector drawer: placeholder shown when no node is selected", async ({
+    page,
+  }) => {
     await loadFigPage(page);
     await page.getByTitle("Inspector").click();
-    await expect(page.getByText("Click a node in the graph to inspect it.")).toBeVisible();
+    await expect(
+      page.getByText("Click a node in the graph to inspect it."),
+    ).toBeVisible();
   });
 
-  test("Nodes drawer: lists loaded nodes with kind badges", async ({ page }) => {
+  test("Nodes drawer: lists loaded nodes with kind badges", async ({
+    page,
+  }) => {
     await loadFigPage(page);
     await page.getByTitle("Nodes").click();
     await expect(page.getByText("Alpha Node")).toBeVisible();
@@ -287,10 +414,16 @@ test.describe("FIG View — right rail drawers", () => {
     await expect(page.getByText("1")).toBeVisible();
   });
 
-  test("Relation drawer: shows node pickers and Find Connection button", async ({ page }) => {
+  test("Relation drawer: shows node pickers and Find Connection button", async ({
+    page,
+  }) => {
     await loadFigPage(page);
     await page.getByTitle("Relation").click();
-    await expect(page.getByText("Select two nodes to find and explain the shortest path between them.")).toBeVisible();
+    await expect(
+      page.getByText(
+        "Select two nodes to find and explain the shortest path between them.",
+      ),
+    ).toBeVisible();
     await expect(page.getByText("Find Connection")).toBeVisible();
   });
 
@@ -301,12 +434,16 @@ test.describe("FIG View — right rail drawers", () => {
     await expect(page.getByText("e2e-hash-abc123")).toBeVisible();
   });
 
-  test("Timeline drawer: shows Live timeline toggle and event list", async ({ page }) => {
+  test("Timeline drawer: shows Live timeline toggle and event list", async ({
+    page,
+  }) => {
     await loadFigPage(page);
     await page.getByTitle("Timeline").click();
     await expect(page.getByText("Live timeline")).toBeVisible();
     // Pause/Resume live button
-    await expect(page.getByRole("button", { name: /pause live/i })).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /pause live/i }),
+    ).toBeVisible();
     // Event seq entries
     await expect(page.getByText("#1")).toBeVisible();
     await expect(page.getByText("#3")).toBeVisible();
@@ -346,7 +483,9 @@ test.describe("FIG View — drawer toggle behaviour", () => {
     await expect(page.getByText("Alpha Node")).not.toBeVisible();
   });
 
-  test("Close button inside drawer header closes the drawer", async ({ page }) => {
+  test("Close button inside drawer header closes the drawer", async ({
+    page,
+  }) => {
     await loadFigPage(page);
 
     await page.getByTitle("Snapshot").click();
@@ -357,7 +496,9 @@ test.describe("FIG View — drawer toggle behaviour", () => {
     await expect(page.getByText("Version 1")).not.toBeVisible();
   });
 
-  test("opening one drawer closes any previously open drawer", async ({ page }) => {
+  test("opening one drawer closes any previously open drawer", async ({
+    page,
+  }) => {
     await loadFigPage(page);
 
     // Open Nodes
@@ -379,15 +520,21 @@ test.describe("FIG View — search overlay", () => {
   test('pressing "/" opens the search overlay', async ({ page }) => {
     await loadFigPage(page);
     await page.keyboard.press("/");
-    await expect(page.getByPlaceholder("Search nodes by title, kind, or ID…")).toBeVisible();
+    await expect(
+      page.getByPlaceholder("Search nodes by title, kind, or ID…"),
+    ).toBeVisible();
   });
 
   test("Escape closes the search overlay", async ({ page }) => {
     await loadFigPage(page);
     await page.keyboard.press("/");
-    await expect(page.getByPlaceholder("Search nodes by title, kind, or ID…")).toBeVisible();
+    await expect(
+      page.getByPlaceholder("Search nodes by title, kind, or ID…"),
+    ).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(page.getByPlaceholder("Search nodes by title, kind, or ID…")).not.toBeVisible();
+    await expect(
+      page.getByPlaceholder("Search nodes by title, kind, or ID…"),
+    ).not.toBeVisible();
   });
 
   test("typing in search filters node results", async ({ page }) => {
@@ -414,7 +561,9 @@ test.describe("FIG View — search overlay", () => {
   test("no-match query shows no-match message", async ({ page }) => {
     await loadFigPage(page);
     await page.keyboard.press("/");
-    await page.getByPlaceholder("Search nodes by title, kind, or ID…").fill("zzznomatch");
+    await page
+      .getByPlaceholder("Search nodes by title, kind, or ID…")
+      .fill("zzznomatch");
     await expect(page.getByText(/No nodes match/)).toBeVisible();
   });
 
@@ -425,10 +574,14 @@ test.describe("FIG View — search overlay", () => {
     await expect(page.getByText("2 results")).toBeVisible();
   });
 
-  test("Search button in top bar also opens the search overlay", async ({ page }) => {
+  test("Search button in top bar also opens the search overlay", async ({
+    page,
+  }) => {
     await loadFigPage(page);
     await page.getByTitle("Search nodes (press /)").click();
-    await expect(page.getByPlaceholder("Search nodes by title, kind, or ID…")).toBeVisible();
+    await expect(
+      page.getByPlaceholder("Search nodes by title, kind, or ID…"),
+    ).toBeVisible();
   });
 });
 
@@ -444,11 +597,23 @@ test.describe("FIG View — refresh button", () => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith("/graph/surface")) {
         surfaceFetchCount += 1;
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(standardSurface()) });
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(standardSurface()),
+        });
       }
       if (path.endsWith("/events/latest"))
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(latestEventResponse()) });
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(latestEventResponse()),
+        });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
     });
 
     await page.goto("/dashboard/graph");
@@ -485,7 +650,9 @@ test.describe("FIG View — graph header", () => {
     await expect(page.getByText("idle")).toBeVisible();
   });
 
-  test("similarity mode badge is shown in Controls drawer", async ({ page }) => {
+  test("similarity mode badge is shown in Controls drawer", async ({
+    page,
+  }) => {
     await loadFigPage(page);
     await page.getByTitle("Controls").click();
     await expect(page.getByText(/similarity: cosine/i)).toBeVisible();
@@ -497,15 +664,29 @@ test.describe("FIG View — graph header", () => {
 // ---------------------------------------------------------------------------
 
 test.describe("FIG View — API non-regression", () => {
-  test("page stays mounted when /events/latest returns 500", async ({ page }) => {
+  test("page stays mounted when /events/latest returns 500", async ({
+    page,
+  }) => {
     await mockAuth(page);
     await page.route("**/api/v1/**", async (route) => {
       const path = new URL(route.request().url()).pathname;
       if (path.endsWith("/graph/surface"))
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(standardSurface()) });
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(standardSurface()),
+        });
       if (path.endsWith("/events/latest"))
-        return route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "journal unavailable" }) });
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+        return route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "journal unavailable" }),
+        });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
     });
 
     await page.goto("/dashboard/graph");
@@ -523,11 +704,28 @@ test.describe("FIG View — API non-regression", () => {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-          body: JSON.stringify({ ...standardSurface(), edges: [], topology: { node_count: 2, edge_count: 0, edge_counts_by_kind: {}, scorecard: null } }),
+          body: JSON.stringify({
+            ...standardSurface(),
+            edges: [],
+            topology: {
+              node_count: 2,
+              edge_count: 0,
+              edge_counts_by_kind: {},
+              scorecard: null,
+            },
+          }),
         });
       if (path.endsWith("/events/latest"))
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(latestEventResponse()) });
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(latestEventResponse()),
+        });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
     });
 
     await page.goto("/dashboard/graph");
@@ -538,7 +736,9 @@ test.describe("FIG View — API non-regression", () => {
     await expect(page.getByText("No edges found")).toBeVisible();
   });
 
-  test("page handles missing topology field without crashing", async ({ page }) => {
+  test("page handles missing topology field without crashing", async ({
+    page,
+  }) => {
     await mockAuth(page);
     await page.route("**/api/v1/**", async (route) => {
       const path = new URL(route.request().url()).pathname;
@@ -549,8 +749,16 @@ test.describe("FIG View — API non-regression", () => {
           body: JSON.stringify({ ...standardSurface(), topology: null }),
         });
       if (path.endsWith("/events/latest"))
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(latestEventResponse()) });
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(latestEventResponse()),
+        });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
     });
 
     await page.goto("/dashboard/graph");
@@ -574,8 +782,16 @@ test.describe("FIG View — API non-regression", () => {
           }),
         });
       if (path.endsWith("/events/latest"))
-        return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(latestEventResponse()) });
-      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({}) });
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(latestEventResponse()),
+        });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      });
     });
 
     await page.goto("/dashboard/graph");

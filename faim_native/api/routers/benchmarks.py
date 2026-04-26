@@ -181,17 +181,22 @@ async def get_benchmark_run(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.exception("benchmark run lookup failed graph=%s run=%s", graph_id, run_id)
+        logger.exception(
+            "benchmark run lookup failed graph=%s run=%s", graph_id, run_id
+        )
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # Phase 4: Golden Signals + Infrastructure Telemetry
 class GoldenSignalsResponse(BaseModel):
     """Google SRE Four Golden Signals."""
+
     latency: Dict[str, float] = Field(default_factory=dict)  # p50, p95, p99
     traffic: Dict[str, float] = Field(default_factory=dict)  # req/sec, nodes/sec
-    errors: Dict[str, float] = Field(default_factory=dict)   # error_rate, failed_checks
-    saturation: Dict[str, float] = Field(default_factory=dict)  # cpu%, mem%, db%, cache%
+    errors: Dict[str, float] = Field(default_factory=dict)  # error_rate, failed_checks
+    saturation: Dict[str, float] = Field(
+        default_factory=dict
+    )  # cpu%, mem%, db%, cache%
 
 
 @router.get("/{graph_id}/golden-signals", response_model=GoldenSignalsResponse)
@@ -201,8 +206,8 @@ async def get_golden_signals(
 ) -> GoldenSignalsResponse:
     """Get Google SRE Golden Signals snapshot with REAL measured data from live system."""
     try:
-        from api.services.infra_telemetry import InfraTelemetry
         from api.middleware.latency_collector import get_latency_collector
+        from api.services.infra_telemetry import InfraTelemetry
 
         session = ctx.session
         infra = InfraTelemetry.get_snapshot(session, redis_client=None)
@@ -234,13 +239,17 @@ async def get_golden_signals(
         # REAL traffic from latency samples (requests per second)
         query_count = len(latency_samples)
         traffic_metrics = {
-            "requests_per_sec": round(query_count / 60.0, 2) if query_count > 0 else 0.0,
+            "requests_per_sec": (
+                round(query_count / 60.0, 2) if query_count > 0 else 0.0
+            ),
             "total_queries_measured": query_count,
         }
 
         # REAL error rate from actual failures
         error_count = sum(1 for s in latency_samples if s.get("status", 200) >= 400)
-        error_rate = round((error_count / len(latency_samples)), 4) if latency_samples else 0.0
+        error_rate = (
+            round((error_count / len(latency_samples)), 4) if latency_samples else 0.0
+        )
 
         error_metrics = {
             "error_rate": error_rate,
@@ -253,15 +262,23 @@ async def get_golden_signals(
             "cpu_percent": round(infra.docker.cpu_utilization_percent, 2),
             "memory_percent": round(infra.docker.memory_utilization_percent, 2),
             "db_connections_percent": round(
-                (infra.postgres.active_connections / infra.postgres.max_connections * 100)
-                if infra.postgres.max_connections > 0 else 0.0,
-                2
+                (
+                    (
+                        infra.postgres.active_connections
+                        / infra.postgres.max_connections
+                        * 100
+                    )
+                    if infra.postgres.max_connections > 0
+                    else 0.0
+                ),
+                2,
             ),
             "db_size_mb": round(infra.postgres.db_size_mb, 2),
-            "cache_utilization_percent": round(
-                (infra.redis.keyspace_hit_rate * 100) if infra.redis else 0.0,
-                2
-            ) if infra.redis else 0.0,
+            "cache_utilization_percent": (
+                round((infra.redis.keyspace_hit_rate * 100) if infra.redis else 0.0, 2)
+                if infra.redis
+                else 0.0
+            ),
         }
 
         return GoldenSignalsResponse(
@@ -278,6 +295,7 @@ async def get_golden_signals(
 # Phase 6: Stress Testing
 class StressTestRequest(BaseModel):
     """Stress test configuration."""
+
     max_concurrency: int = 10
     document_count: int = 100
     test_doc_size: str = "small"
@@ -285,6 +303,7 @@ class StressTestRequest(BaseModel):
 
 class StressTestResponse(BaseModel):
     """Stress test results."""
+
     job_id: str
     graph_id: str
     test_config: Dict[str, Any]
@@ -320,6 +339,7 @@ async def run_stress_test(
 # Phase 8: Anomaly Alerts + Export
 class AlertsResponse(BaseModel):
     """Benchmark alerts."""
+
     alerts: List[Dict[str, Any]] = Field(default_factory=list)
     critical_count: int = 0
     warning_count: int = 0
@@ -333,7 +353,6 @@ async def get_alerts(
     """Get active alerts for graph."""
     try:
         from api.services.benchmark_alerts import BenchmarkAlerts
-        from api.services.benchmark_collector import BenchmarkCollector
 
         collector = _collector(ctx)
         latest = collector.latest_suite(graph_id)
@@ -359,6 +378,7 @@ async def get_alerts(
 
 class ExportReportResponse(BaseModel):
     """Exported benchmark report."""
+
     graph_id: str
     export_timestamp: str
     report_hash: str
@@ -377,9 +397,9 @@ async def export_benchmark_report(
         import hashlib
         import json
         from datetime import datetime
+
         from api.services.benchmark_alerts import BenchmarkAlerts
         from api.services.infra_telemetry import InfraTelemetry
-        from api.services.benchmark_collector import BenchmarkCollector
 
         collector = _collector(ctx)
         latest = collector.latest_suite(graph_id)

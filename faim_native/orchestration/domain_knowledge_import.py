@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable, List, Mapping, Optional, Sequence
+from typing import List, Mapping, Optional, Sequence
 
 
 @dataclass
@@ -60,7 +60,7 @@ def run_domain_knowledge_import(
             aliases=tuple(row.get("aliases", []) or ()),
             source_id=str(row.get("source_id") or source_hash(row)),
             source_kind=str(row.get("source_kind", "kb")),
-            meta=dict(row.get("meta", {}) or {}),
+            meta=dict(row.get("meta", {}) or {}),  # type: ignore[call-overload]
         )
         for row in kb_rows
         if str(row.get("entity", "")).strip()

@@ -59,9 +59,8 @@ export default function KnowledgeGraphPage() {
         Real-Time Updates
       </h3>
       <p className="text-slate-400 mb-6">
-        As you add new documents, watch the graph evolve in
-        real-time. New nodes appear, connections form, and clusters reorganize
-        themselves.
+        As you add new documents, watch the graph evolve in real-time. New nodes
+        appear, connections form, and clusters reorganize themselves.
       </p>
 
       <h3 className="text-xl font-semibold text-white mb-3">

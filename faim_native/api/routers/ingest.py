@@ -88,7 +88,9 @@ def _decode_base64_payload(payload: str) -> bytes:
     try:
         return base64.b64decode(payload, validate=True)
     except (ValueError, binascii.Error) as e:
-        raise HTTPException(status_code=400, detail="Invalid bytes_base64 payload") from e
+        raise HTTPException(
+            status_code=400, detail="Invalid bytes_base64 payload"
+        ) from e
 
 
 def _parse_uuid(raw_id: str) -> UUID:
@@ -96,7 +98,9 @@ def _parse_uuid(raw_id: str) -> UUID:
     try:
         return UUID(str(raw_id).strip())
     except (ValueError, TypeError, AttributeError) as e:
-        raise HTTPException(status_code=400, detail="raw_id must be a valid UUID") from e
+        raise HTTPException(
+            status_code=400, detail="raw_id must be a valid UUID"
+        ) from e
 
 
 def _encryption_enabled() -> bool:
@@ -197,7 +201,9 @@ def _persist_raw_upload(
         _parse_uuid(supplied_raw_id)
 
     if not ctx.raw_repo or not ctx.session:
-        raise HTTPException(status_code=500, detail="Raw storage repository is not available")
+        raise HTTPException(
+            status_code=500, detail="Raw storage repository is not available"
+        )
 
     store = ctx.raw_store
     if store is None:
@@ -245,7 +251,11 @@ def _persist_raw_upload(
     ctx.session.commit()
 
     persisted_raw_id = str(saved_ref.id)
-    if supplied_raw_id and supplied_raw_id.strip() and supplied_raw_id.strip() != persisted_raw_id:
+    if (
+        supplied_raw_id
+        and supplied_raw_id.strip()
+        and supplied_raw_id.strip() != persisted_raw_id
+    ):
         logger.warning(
             "Supplied raw_id does not match persisted raw reference; using persisted raw_id"
         )
@@ -322,9 +332,13 @@ def _track_storage_ingest_result(
                 "raw_id": raw_id,
                 "packet_hash": result.packet_hash,
                 "requested_profile": getattr(result, "requested_profile", None),
-                "requested_persist_mode": getattr(result, "requested_persist_mode", None),
+                "requested_persist_mode": getattr(
+                    result, "requested_persist_mode", None
+                ),
                 "effective_profile": getattr(result, "effective_profile", None),
-                "effective_persist_mode": getattr(result, "effective_persist_mode", None),
+                "effective_persist_mode": getattr(
+                    result, "effective_persist_mode", None
+                ),
                 "durability_path": getattr(result, "durability_path", None),
             },
         )
@@ -337,9 +351,13 @@ def _track_storage_ingest_result(
                 "raw_id": raw_id,
                 "error": result.error,
                 "requested_profile": getattr(result, "requested_profile", None),
-                "requested_persist_mode": getattr(result, "requested_persist_mode", None),
+                "requested_persist_mode": getattr(
+                    result, "requested_persist_mode", None
+                ),
                 "effective_profile": getattr(result, "effective_profile", None),
-                "effective_persist_mode": getattr(result, "effective_persist_mode", None),
+                "effective_persist_mode": getattr(
+                    result, "effective_persist_mode", None
+                ),
                 "durability_path": getattr(result, "durability_path", None),
             },
         )
@@ -421,9 +439,9 @@ async def ingest_file(
         validate_mime_extension_match(filename, request.content_type)
         validate_upload_size(len(file_bytes))
 
-        mime_type = (request.content_type or "application/octet-stream").split(";")[
-            0
-        ].strip()
+        mime_type = (
+            (request.content_type or "application/octet-stream").split(";")[0].strip()
+        )
 
         # Persist raw bytes before orchestration
         raw_id = _persist_raw_upload(
@@ -578,9 +596,9 @@ async def ingest_upload(
         validate_file_extension(filename)
         validate_mime_extension_match(filename, file.content_type)
 
-        mime_type = (file.content_type or "application/octet-stream").split(";")[
-            0
-        ].strip()
+        mime_type = (
+            (file.content_type or "application/octet-stream").split(";")[0].strip()
+        )
 
         # Persist raw bytes before orchestration
         raw_id = _persist_raw_upload(

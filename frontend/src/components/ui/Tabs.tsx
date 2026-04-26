@@ -2,7 +2,7 @@
 
 /**
  * Tabs Component
- * 
+ *
  * Animated tabs with underline indicator.
  * shadcn/ui style with FAIM glass theme.
  */
@@ -33,24 +33,38 @@ export interface TabsProps {
   className?: string;
 }
 
-export function Tabs({ value, defaultValue, onValueChange, children, className = "" }: TabsProps) {
+export function Tabs({
+  value,
+  defaultValue,
+  onValueChange,
+  children,
+  className = "",
+}: TabsProps) {
   const [internalValue, setInternalValue] = useState(defaultValue || "");
   const currentValue = value ?? internalValue;
-  
+
   const handleChange = (newValue: string) => {
     setInternalValue(newValue);
     onValueChange?.(newValue);
   };
 
   return (
-    <TabsContext.Provider value={{ value: currentValue, onValueChange: handleChange }}>
+    <TabsContext.Provider
+      value={{ value: currentValue, onValueChange: handleChange }}
+    >
       <div className={className}>{children}</div>
     </TabsContext.Provider>
   );
 }
 
 // List
-export function TabsList({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function TabsList({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <div
       className={`
@@ -72,7 +86,12 @@ export interface TabsTriggerProps {
   disabled?: boolean;
 }
 
-export function TabsTrigger({ value, children, className = "", disabled }: TabsTriggerProps) {
+export function TabsTrigger({
+  value,
+  children,
+  className = "",
+  disabled,
+}: TabsTriggerProps) {
   const { value: currentValue, onValueChange } = useTabsContext();
   const isActive = currentValue === value;
 
@@ -86,9 +105,10 @@ export function TabsTrigger({ value, children, className = "", disabled }: TabsT
       className={`
         relative px-3 py-1.5 text-sm font-medium rounded-md
         transition-colors duration-200
-        ${isActive
-          ? "text-slate-100"
-          : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
+        ${
+          isActive
+            ? "text-slate-100"
+            : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/30"
         }
         ${disabled ? "opacity-50 cursor-not-allowed" : ""}
         ${className}
@@ -113,9 +133,13 @@ export interface TabsContentProps {
   className?: string;
 }
 
-export function TabsContent({ value, children, className = "" }: TabsContentProps) {
+export function TabsContent({
+  value,
+  children,
+  className = "",
+}: TabsContentProps) {
   const { value: currentValue } = useTabsContext();
-  
+
   if (currentValue !== value) return null;
 
   return (

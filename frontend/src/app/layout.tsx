@@ -108,7 +108,11 @@ export default function RootLayout({
         </a>
         <Providers>
           <div className="min-h-screen bg-slate-950 flex flex-col">
-            <main id="main-content" tabIndex={-1} className="flex-1 flex flex-col">
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className="flex-1 flex flex-col"
+            >
               {children}
             </main>
           </div>

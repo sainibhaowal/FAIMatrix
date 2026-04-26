@@ -13,7 +13,13 @@ import { Button } from "./Button";
 
 export interface EmptyStateProps {
   /** Icon to display (or preset name) */
-  icon?: React.ReactNode | "documents" | "search" | "upload" | "inbox" | "error";
+  icon?:
+    | React.ReactNode
+    | "documents"
+    | "search"
+    | "upload"
+    | "inbox"
+    | "error";
   /** Title text */
   title: string;
   /** Description text */
@@ -77,7 +83,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   className = "",
 }) => {
   const config = sizeConfig[size];
-  
+
   // Resolve icon
   let IconNode: React.ReactNode;
   if (typeof icon === "string" && icon in presetIcons) {

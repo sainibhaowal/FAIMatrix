@@ -18,6 +18,7 @@ except (ImportError, RuntimeError):
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
     from core.contracts.types import EventRecord
+
     from store.pg.repos.event_repo import EventRepo
 
 

@@ -47,7 +47,9 @@ async function mockAuthenticatedSession(page: Page, graphId?: string) {
 }
 
 test.describe("Storage Phase F Validation", () => {
-  test("queue supports per-file cancel/retry lifecycle transitions", async ({ page }) => {
+  test("queue supports per-file cancel/retry lifecycle transitions", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page, "phase-f-queue");
 
     let uploadCount = 0;
@@ -168,18 +170,18 @@ test.describe("Storage Phase F Validation", () => {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-            body: JSON.stringify({
-              job_id: "job-cancel",
-              graph_id: "phase-f-queue",
-              status: "running",
-              requested_profile: "strict",
-              requested_persist_mode: "relaxed",
-              effective_profile: "strict",
-              effective_persist_mode: "relaxed",
-              durability_path: "core_sync_secondary_async",
-              requested_files: 1,
-              processed_files: 0,
-              success_files: 0,
+          body: JSON.stringify({
+            job_id: "job-cancel",
+            graph_id: "phase-f-queue",
+            status: "running",
+            requested_profile: "strict",
+            requested_persist_mode: "relaxed",
+            effective_profile: "strict",
+            effective_persist_mode: "relaxed",
+            durability_path: "core_sync_secondary_async",
+            requested_files: 1,
+            processed_files: 0,
+            success_files: 0,
             failed_files: 0,
             dedup_hits: 0,
             cancelled_files: 0,
@@ -188,37 +190,37 @@ test.describe("Storage Phase F Validation", () => {
                 filename: "cancel.txt",
                 status: "ingesting",
                 raw_id: "22222222-2222-2222-2222-222222222222",
-                  packet_hash: null,
-                  node_count: 0,
-                  vector_count: 0,
-                  error: null,
-                  requested_profile: "strict",
-                  requested_persist_mode: "relaxed",
-                  effective_profile: "strict",
-                  effective_persist_mode: "relaxed",
-                  durability_path: "core_sync_secondary_async",
-                },
-              ],
-            }),
-          });
+                packet_hash: null,
+                node_count: 0,
+                vector_count: 0,
+                error: null,
+                requested_profile: "strict",
+                requested_persist_mode: "relaxed",
+                effective_profile: "strict",
+                effective_persist_mode: "relaxed",
+                durability_path: "core_sync_secondary_async",
+              },
+            ],
+          }),
+        });
       }
 
       if (path.endsWith("/uploads/job-retry") && req.method() === "GET") {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-            body: JSON.stringify({
-              job_id: "job-retry",
-              graph_id: "phase-f-queue",
-              status: "failed",
-              requested_profile: "strict",
-              requested_persist_mode: "relaxed",
-              effective_profile: "strict",
-              effective_persist_mode: "relaxed",
-              durability_path: "core_sync_secondary_async",
-              requested_files: 1,
-              processed_files: 1,
-              success_files: 0,
+          body: JSON.stringify({
+            job_id: "job-retry",
+            graph_id: "phase-f-queue",
+            status: "failed",
+            requested_profile: "strict",
+            requested_persist_mode: "relaxed",
+            effective_profile: "strict",
+            effective_persist_mode: "relaxed",
+            durability_path: "core_sync_secondary_async",
+            requested_files: 1,
+            processed_files: 1,
+            success_files: 0,
             failed_files: 1,
             dedup_hits: 0,
             cancelled_files: 0,
@@ -250,23 +252,25 @@ test.describe("Storage Phase F Validation", () => {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
-            body: JSON.stringify({
-              job_id: "job-cancel",
-              graph_id: "phase-f-queue",
-              status: cancelRequestedForJob ? "cancelled" : "running",
-              requested_profile: "strict",
-              requested_persist_mode: "relaxed",
-              effective_profile: "strict",
-              effective_persist_mode: "relaxed",
-              durability_path: "core_sync_secondary_async",
-              requested_files: 1,
-              processed_files: cancelRequestedForJob ? 1 : 0,
-              success_files: 0,
+          body: JSON.stringify({
+            job_id: "job-cancel",
+            graph_id: "phase-f-queue",
+            status: cancelRequestedForJob ? "cancelled" : "running",
+            requested_profile: "strict",
+            requested_persist_mode: "relaxed",
+            effective_profile: "strict",
+            effective_persist_mode: "relaxed",
+            durability_path: "core_sync_secondary_async",
+            requested_files: 1,
+            processed_files: cancelRequestedForJob ? 1 : 0,
+            success_files: 0,
             failed_files: 0,
             dedup_hits: 0,
             cancelled_files: cancelRequestedForJob ? 1 : 0,
             cancel_requested: cancelRequestedForJob,
-            cancel_reason: cancelRequestedForJob ? "Requested from storage UI" : null,
+            cancel_reason: cancelRequestedForJob
+              ? "Requested from storage UI"
+              : null,
             files: [
               {
                 raw_id: "22222222-2222-2222-2222-222222222222",
@@ -275,7 +279,9 @@ test.describe("Storage Phase F Validation", () => {
                 mime_type: "text/plain",
                 size_bytes: 24,
                 sha256: "sha-cancel",
-                ingest_status: cancelRequestedForJob ? "cancelled" : "ingesting",
+                ingest_status: cancelRequestedForJob
+                  ? "cancelled"
+                  : "ingesting",
                 packet_hash: null,
                 node_count: 0,
                 vector_count: 0,
@@ -290,14 +296,22 @@ test.describe("Storage Phase F Validation", () => {
         });
       }
 
-      if (path.endsWith("/uploads/job-retry/events") && req.method() === "GET") {
+      if (
+        path.endsWith("/uploads/job-retry/events") &&
+        req.method() === "GET"
+      ) {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
             job_id: "job-retry",
             events: [
-              { seq: 1, kind: "step_start", ts: "2026-02-11T00:00:00Z", payload: { message: "started" } },
+              {
+                seq: 1,
+                kind: "step_start",
+                ts: "2026-02-11T00:00:00Z",
+                payload: { message: "started" },
+              },
               {
                 seq: 2,
                 kind: "step_progress",
@@ -309,26 +323,40 @@ test.describe("Storage Phase F Validation", () => {
         });
       }
 
-      if (path.endsWith("/uploads/job-cancel/events") && req.method() === "GET") {
+      if (
+        path.endsWith("/uploads/job-cancel/events") &&
+        req.method() === "GET"
+      ) {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
           body: JSON.stringify({
             job_id: "job-cancel",
             events: [
-              { seq: 1, kind: "step_start", ts: "2026-02-11T00:00:00Z", payload: { message: "started" } },
+              {
+                seq: 1,
+                kind: "step_start",
+                ts: "2026-02-11T00:00:00Z",
+                payload: { message: "started" },
+              },
               {
                 seq: 2,
                 kind: "step_progress",
                 ts: "2026-02-11T00:00:01Z",
-                payload: { status: cancelRequestedForJob ? "cancelled" : "ingesting", message: "running" },
+                payload: {
+                  status: cancelRequestedForJob ? "cancelled" : "ingesting",
+                  message: "running",
+                },
               },
             ],
           }),
         });
       }
 
-      if (path.endsWith("/uploads/job-cancel/cancel") && req.method() === "POST") {
+      if (
+        path.endsWith("/uploads/job-cancel/cancel") &&
+        req.method() === "POST"
+      ) {
         cancelRequestedForJob = true;
         return route.fulfill({
           status: 200,
@@ -393,16 +421,26 @@ test.describe("Storage Phase F Validation", () => {
 
     await page.goto("/dashboard/storage");
     await expect(page.getByTestId("storage-page-title")).toBeVisible();
-    await expect(page.getByTestId("storage-supported-types-open")).toContainText(
-      "Supported Files (45)"
-    );
+    await expect(
+      page.getByTestId("storage-supported-types-open"),
+    ).toContainText("Supported Files (45)");
     await page.getByTestId("storage-supported-types-open").click();
-    await expect(page.getByTestId("storage-supported-types-panel")).toBeVisible();
+    await expect(
+      page.getByTestId("storage-supported-types-panel"),
+    ).toBeVisible();
     await page.keyboard.press("Escape");
 
     await page.setInputFiles('input[type="file"]', [
-      { name: "retry.txt", mimeType: "text/plain", buffer: Buffer.from("retry payload") },
-      { name: "cancel.txt", mimeType: "text/plain", buffer: Buffer.from("cancel payload") },
+      {
+        name: "retry.txt",
+        mimeType: "text/plain",
+        buffer: Buffer.from("retry payload"),
+      },
+      {
+        name: "cancel.txt",
+        mimeType: "text/plain",
+        buffer: Buffer.from("cancel payload"),
+      },
     ]);
 
     const retryRow = page
@@ -411,7 +449,7 @@ test.describe("Storage Phase F Validation", () => {
     await expect(retryRow).toBeVisible();
     await expect(retryRow).toContainText("failed");
     await expect(retryRow.getByTestId("storage-queue-mode")).toContainText(
-      "Requested strict/relaxed -> Effective strict/relaxed"
+      "Requested strict/relaxed -> Effective strict/relaxed",
     );
 
     await retryRow.getByTestId("storage-queue-retry").click();
@@ -422,13 +460,15 @@ test.describe("Storage Phase F Validation", () => {
       .first();
     await expect(cancelRow).toBeVisible();
     await expect(cancelRow.getByTestId("storage-queue-mode")).toContainText(
-      "Requested strict/relaxed -> Effective strict/relaxed"
+      "Requested strict/relaxed -> Effective strict/relaxed",
     );
     await cancelRow.getByTestId("storage-queue-cancel").click();
     await expect(cancelRow).toContainText("cancelled");
   });
 
-  test("provenance panel loads inspect details from backend contract", async ({ page }) => {
+  test("provenance panel loads inspect details from backend contract", async ({
+    page,
+  }) => {
     await mockAuthenticatedSession(page, "phase-f-provenance");
 
     await page.route("**/api/v1/storage/**", async (route) => {
@@ -517,7 +557,12 @@ test.describe("Storage Phase F Validation", () => {
           }),
         });
       }
-      if (path.endsWith("/files/33333333-3333-3333-3333-333333333333/provenance") && req.method() === "GET") {
+      if (
+        path.endsWith(
+          "/files/33333333-3333-3333-3333-333333333333/provenance",
+        ) &&
+        req.method() === "GET"
+      ) {
         return route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -565,7 +610,14 @@ test.describe("Storage Phase F Validation", () => {
                 created_at: "2026-02-11T00:00:01Z",
               },
             ],
-            events: [{ seq: 1, kind: "INGEST_COMPLETED", ts: "2026-02-11T00:00:01Z", payload_keys: ["raw_id"] }],
+            events: [
+              {
+                seq: 1,
+                kind: "INGEST_COMPLETED",
+                ts: "2026-02-11T00:00:01Z",
+                payload_keys: ["raw_id"],
+              },
+            ],
           }),
         });
       }
@@ -583,9 +635,13 @@ test.describe("Storage Phase F Validation", () => {
     await page.getByTestId("storage-file-inspect").first().click();
 
     await expect(page.getByTestId("storage-provenance-panel")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Provenance Inspect" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Provenance Inspect" }),
+    ).toBeVisible();
     await expect(page.locator("text=filename:").first()).toBeVisible();
     await expect(page.locator("text=prov.txt").first()).toBeVisible();
-    await expect(page.locator("text=dedup_record_found:").first()).toBeVisible();
+    await expect(
+      page.locator("text=dedup_record_found:").first(),
+    ).toBeVisible();
   });
 });

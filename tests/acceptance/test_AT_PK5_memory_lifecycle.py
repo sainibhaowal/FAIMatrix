@@ -24,7 +24,7 @@ def _mk_client(monkeypatch, tenant_id: str, api_key: str, database_url: str | No
     return TestClient(app), {"X-Tenant-Id": tenant_id, "X-Api-Key": api_key}
 
 
-def test_phase_k5_memory_write_search_get_provenance_patch(monkeypatch, tmp_path):
+def test_phase_k5_memory_write_search_get_provenance_patch(monkeypatch, tmp_path, db_session):
     tenant_id = "tenant_pk5"
     graph_id = f"pk5-memory-{uuid4().hex[:8]}"
     db_path = tmp_path / f"pk5_{uuid4().hex}.db"

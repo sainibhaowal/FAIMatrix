@@ -7,5 +7,5 @@
  */
 
 export default async function globalTeardown(): Promise<void> {
-  console.log('[e2e-teardown] Done — E2E graph data retained for next run.');
+  console.log("[e2e-teardown] Done — E2E graph data retained for next run.");
 }

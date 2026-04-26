@@ -39,7 +39,9 @@ export const Spinner: React.FC<SpinnerProps> = ({
     <div
       role="status"
       aria-label={label}
-      className={["inline-flex items-center justify-center", className].join(" ")}
+      className={["inline-flex items-center justify-center", className].join(
+        " ",
+      )}
     >
       <svg
         className="animate-spin"

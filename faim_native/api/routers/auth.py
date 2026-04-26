@@ -82,11 +82,13 @@ def _verify_otp_hash(stored_hash: str, otp: str, email: str) -> bool:
 # Persistent Auth Store (Redis-Backed)
 # =============================================================================
 
+
 class RedisAuthStore:
     """Shared authentication state store using Redis.
-    
+
     Ensures OTPs, rate limits, and lockouts are consistent across all workers.
     """
+
     def __init__(self):
         self._url = os.getenv("REDIS_URL")
         self._client = None
@@ -97,11 +99,14 @@ class RedisAuthStore:
             return None
         if self._client is None:
             if not self._url:
-                logger.warning("REDIS_URL not set, falling back to in-memory (UNSTABLE for multiple workers)")
+                logger.warning(
+                    "REDIS_URL not set, falling back to in-memory (UNSTABLE for multiple workers)"
+                )
                 self._available = False
                 return None
             try:
                 import redis
+
                 self._client = redis.from_url(self._url)
                 self._client.ping()
                 self._available = True
@@ -123,7 +128,7 @@ class RedisAuthStore:
                 logger.warning(f"Redis set_otp failed, falling back to memory: {e}")
         _OTP_STORE[email_hash] = {
             "otp_hash": otp_hash,
-            "expiry": datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes)
+            "expiry": datetime.now(timezone.utc) + timedelta(minutes=expiry_minutes),
         }
 
     def get_otp(self, email_hash: str) -> Optional[str]:
@@ -161,7 +166,9 @@ class RedisAuthStore:
                     return False
                 return True
             except Exception as e:
-                logger.warning(f"Redis check_rate_limit failed, falling back to memory: {e}")
+                logger.warning(
+                    f"Redis check_rate_limit failed, falling back to memory: {e}"
+                )
         # In-memory fallback
         now = datetime.now(timezone.utc)
         requests = _RATE_LIMIT_STORE.get(email_hash, [])
@@ -181,7 +188,9 @@ class RedisAuthStore:
                     pipe.execute()
                 return
             except Exception as e:
-                logger.warning(f"Redis record_rate_limit failed, falling back to memory: {e}")
+                logger.warning(
+                    f"Redis record_rate_limit failed, falling back to memory: {e}"
+                )
         if email_hash not in _RATE_LIMIT_STORE:
             _RATE_LIMIT_STORE[email_hash] = []
         _RATE_LIMIT_STORE[email_hash].append(datetime.now(timezone.utc))
@@ -197,14 +206,22 @@ class RedisAuthStore:
                     return int(client.ttl(f"auth:lock:{email_hash}"))
                 return None
             except Exception as e:
-                logger.warning(f"Redis check_lockout failed, falling back to memory: {e}")
+                logger.warning(
+                    f"Redis check_lockout failed, falling back to memory: {e}"
+                )
         # In-memory fallback
         record = _FAILED_ATTEMPTS.get(email_hash)
-        if record and record.get("locked_until") and datetime.now(timezone.utc) < record["locked_until"]:
+        if (
+            record
+            and record.get("locked_until")
+            and datetime.now(timezone.utc) < record["locked_until"]
+        ):
             return (record["locked_until"] - datetime.now(timezone.utc)).seconds
         return None
 
-    def record_failed_attempt(self, email: str, max_attempts: int, lockout_minutes: int) -> int:
+    def record_failed_attempt(
+        self, email: str, max_attempts: int, lockout_minutes: int
+    ) -> int:
         client = self._get_client()
         email_hash = _hash_email(email)
         if client:
@@ -213,18 +230,24 @@ class RedisAuthStore:
                 count = client.incr(fail_key)
                 client.expire(fail_key, lockout_minutes * 60)
                 if count >= max_attempts:
-                    client.setex(f"auth:lock:{email_hash}", lockout_minutes * 60, "true")
+                    client.setex(
+                        f"auth:lock:{email_hash}", lockout_minutes * 60, "true"
+                    )
                     logger.warning(f"Account locked (Redis): {email_hash[:8]}")
                 return count
             except Exception as e:
-                logger.warning(f"Redis record_failed_attempt failed, falling back to memory: {e}")
+                logger.warning(
+                    f"Redis record_failed_attempt failed, falling back to memory: {e}"
+                )
         # In-memory fallback
         if email_hash not in _FAILED_ATTEMPTS:
             _FAILED_ATTEMPTS[email_hash] = {"count": 0, "locked_until": None}
         _FAILED_ATTEMPTS[email_hash]["count"] += 1
         count = _FAILED_ATTEMPTS[email_hash]["count"]
         if count >= max_attempts:
-            _FAILED_ATTEMPTS[email_hash]["locked_until"] = datetime.now(timezone.utc) + timedelta(minutes=lockout_minutes)
+            _FAILED_ATTEMPTS[email_hash]["locked_until"] = datetime.now(
+                timezone.utc
+            ) + timedelta(minutes=lockout_minutes)
         return count
 
     def clear_failed_attempts(self, email: str):
@@ -249,16 +272,22 @@ store = RedisAuthStore()
 
 
 def _check_rate_limit(email: str) -> bool:
-    return store.check_rate_limit(email, RATE_LIMIT_WINDOW_MINUTES, RATE_LIMIT_MAX_REQUESTS)
+    return store.check_rate_limit(
+        email, RATE_LIMIT_WINDOW_MINUTES, RATE_LIMIT_MAX_REQUESTS
+    )
+
 
 def _record_rate_limit(email: str) -> None:
     store.record_rate_limit(email, RATE_LIMIT_WINDOW_MINUTES)
 
+
 def _check_lockout(email: str) -> Optional[int]:
     return store.check_lockout(email)
 
+
 def _record_failed_attempt(email: str) -> int:
     return store.record_failed_attempt(email, MAX_FAILED_ATTEMPTS, LOCKOUT_MINUTES)
+
 
 def _clear_failed_attempts(email: str) -> None:
     store.clear_failed_attempts(email)
@@ -393,12 +422,12 @@ async def request_otp(body: OTPRequestBody, request: Request):
     # --- Enterprise Flow Check ---
     from runtime.context import get_session
     from store.pg.repos.user_repo import UserRepository
-    
+
     session = get_session()
     try:
         repo = UserRepository(session)
         user = repo.get_by_email(email)
-        
+
         if mode == "login" and not user:
             # Check for "Soft Migration": Is this the user whose email matches FAIM_ADMIN_EMAIL?
             admin_email = os.getenv("FAIM_ADMIN_EMAIL")
@@ -407,15 +436,13 @@ async def request_otp(body: OTPRequestBody, request: Request):
             else:
                 logger.warning(f"Login attempt for unregistered email: {email}")
                 raise HTTPException(
-                    status_code=404,
-                    detail="Account not found. Please sign up first."
+                    status_code=404, detail="Account not found. Please sign up first."
                 )
-        
+
         if mode == "signup" and user:
             logger.warning(f"Signup attempt for existing user: {email}")
             raise HTTPException(
-                status_code=409,
-                detail="Account already exists. Please log in instead."
+                status_code=409, detail="Account already exists. Please log in instead."
             )
     finally:
         session.close()
@@ -435,14 +462,14 @@ async def request_otp(body: OTPRequestBody, request: Request):
 
     # Generate secure OTP
     code = _generate_otp()
-    
+
     # DEV/DEBUG: Log OTP so user can login without email
     logger.info(f"🔓 LOGIN OTP for {email}: {code}")
 
     # Store OTP hash (NEVER store plaintext)
     email_hash = _hash_email(email)
     otp_hash = _hash_otp(code, email)
-    
+
     # Store in Shared Store (handles TTL automatically)
     store.set_otp(email_hash, otp_hash, OTP_EXPIRY_MINUTES)
 
@@ -458,7 +485,7 @@ async def request_otp(body: OTPRequestBody, request: Request):
     if not success:
         logger.warning(f"Failed to send email to {email}. Use the OTP logged above.")
         # Proceed as success so user can enter the code from logs
-    
+
     return OTPRequestResponse(
         success=True,
         message="Verification code sent (check server logs if email fails)",
@@ -523,18 +550,14 @@ async def verify_otp(body: OTPVerifyBody):
     # --- Enterprise Registration Persistence ---
     from runtime.context import get_session
     from store.pg.repos.user_repo import UserRepository
-    
+
     session = get_session()
     try:
         repo = UserRepository(session)
         user_record = repo.get_by_email(email)
         if not user_record:
             # Formalize the registration on first successful OTP verify (or sync name)
-            repo.create_user(
-                user_id=user_id_raw,
-                email=email,
-                full_name=body.full_name
-            )
+            repo.create_user(user_id=user_id_raw, email=email, full_name=body.full_name)
         elif body.full_name and not user_record.full_name:
             # Fill in name if missing
             repo.update_profile(user_id_raw, body.full_name)
@@ -625,6 +648,7 @@ async def delete_account(request: Request):
 
         # --- ENTERPRISE: Purge from Identity Registry ---
         from store.pg.models_auth import UserModel
+
         session.query(UserModel).filter_by(id=user_id).delete()
 
         session.commit()
@@ -632,7 +656,9 @@ async def delete_account(request: Request):
     except Exception as e:
         session.rollback()
         logger.error(f"❌ SQL purge failed for {tenant_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to purge database records")
+        raise HTTPException(
+            status_code=500, detail="Failed to purge database records"
+        ) from e
     finally:
         session.close()
 

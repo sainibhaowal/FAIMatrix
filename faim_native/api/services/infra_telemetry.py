@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-import os
-import psutil
 from dataclasses import dataclass
-from typing import Dict, Any, Optional
-from sqlalchemy.orm import Session
+from typing import Any, Dict, Optional
+
+import psutil
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 
 @dataclass
 class ProcessMetrics:
     """Current process CPU and memory."""
+
     cpu_percent: float
     memory_rss_mb: float
     memory_peak_mb: float
@@ -21,6 +22,7 @@ class ProcessMetrics:
 @dataclass
 class PostgresMetrics:
     """PostgreSQL health metrics."""
+
     active_connections: int
     max_connections: int
     db_size_mb: float
@@ -30,6 +32,7 @@ class PostgresMetrics:
 @dataclass
 class RedisMetrics:
     """Redis memory and hit rate."""
+
     memory_used_mb: float
     connected_clients: int
     keyspace_hit_rate: float
@@ -39,6 +42,7 @@ class RedisMetrics:
 @dataclass
 class DockerMetrics:
     """Docker container limits and usage."""
+
     cpu_limit_cores: float
     memory_limit_mb: int
     cpu_utilization_percent: float
@@ -48,6 +52,7 @@ class DockerMetrics:
 @dataclass
 class InfrastructureSnapshot:
     """Complete infrastructure telemetry."""
+
     process: ProcessMetrics
     postgres: PostgresMetrics
     redis: Optional[RedisMetrics]
@@ -74,14 +79,19 @@ class InfraTelemetry:
             )
         except Exception as e:
             print(f"[InfraTelemetry] process metrics failed: {e}")
-            return ProcessMetrics(cpu_percent=0.0, memory_rss_mb=0.0, memory_peak_mb=0.0)
+            return ProcessMetrics(
+                cpu_percent=0.0, memory_rss_mb=0.0, memory_peak_mb=0.0
+            )
 
     @staticmethod
     def get_postgres_metrics(session: Session) -> PostgresMetrics:
         """Get PostgreSQL metrics from current connection."""
         try:
             # Active connections
-            result = session.execute(text("SELECT count(*) FROM pg_stat_activity")).scalar() or 0
+            result = (
+                session.execute(text("SELECT count(*) FROM pg_stat_activity")).scalar()
+                or 0
+            )
             active_connections = int(result)
 
             # Max connections
@@ -89,15 +99,25 @@ class InfraTelemetry:
             max_connections = int(result)
 
             # Database size in MB
-            result = session.execute(
-                text("SELECT sum(pg_database_size(datname)) / 1024.0 / 1024.0 FROM pg_database")
-            ).scalar() or 0
+            result = (
+                session.execute(
+                    text(
+                        "SELECT sum(pg_database_size(datname)) / 1024.0 / 1024.0 FROM pg_database"
+                    )
+                ).scalar()
+                or 0
+            )
             db_size_mb = float(result)
 
             # Table count
-            result = session.execute(
-                text("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'")
-            ).scalar() or 0
+            result = (
+                session.execute(
+                    text(
+                        "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'"
+                    )
+                ).scalar()
+                or 0
+            )
             total_tables = int(result)
 
             return PostgresMetrics(
@@ -154,7 +174,7 @@ class InfraTelemetry:
                     period = int(f.read().strip())
                 if quota > 0 and period > 0:
                     cpu_limit_cores = quota / period
-            except:
+            except Exception:
                 pass
 
             # Memory limit from cgroup
@@ -163,13 +183,15 @@ class InfraTelemetry:
                 with open("/sys/fs/cgroup/memory/memory.limit_in_bytes") as f:
                     limit = int(f.read().strip())
                 memory_limit_mb = limit // (1024 * 1024)
-            except:
+            except Exception:
                 pass
 
             # Current process usage
             process_metrics = InfraTelemetry.get_process_metrics()
             cpu_utilization = min(100.0, process_metrics.cpu_percent)
-            memory_utilization = min(100.0, (process_metrics.memory_rss_mb / memory_limit_mb) * 100)
+            memory_utilization = min(
+                100.0, (process_metrics.memory_rss_mb / memory_limit_mb) * 100
+            )
 
             return DockerMetrics(
                 cpu_limit_cores=float(cpu_limit_cores),
@@ -187,7 +209,9 @@ class InfraTelemetry:
             )
 
     @staticmethod
-    def get_snapshot(session: Session, redis_client: Optional[Any] = None) -> InfrastructureSnapshot:
+    def get_snapshot(
+        session: Session, redis_client: Optional[Any] = None
+    ) -> InfrastructureSnapshot:
         """Get complete infrastructure snapshot."""
         return InfrastructureSnapshot(
             process=InfraTelemetry.get_process_metrics(),
@@ -211,12 +235,16 @@ class InfraTelemetry:
                 "db_size_mb": snapshot.postgres.db_size_mb,
                 "total_tables": snapshot.postgres.total_tables,
             },
-            "redis": {
-                "memory_used_mb": snapshot.redis.memory_used_mb,
-                "connected_clients": snapshot.redis.connected_clients,
-                "keyspace_hit_rate": snapshot.redis.keyspace_hit_rate,
-                "evicted_keys": snapshot.redis.evicted_keys,
-            } if snapshot.redis else None,
+            "redis": (
+                {
+                    "memory_used_mb": snapshot.redis.memory_used_mb,
+                    "connected_clients": snapshot.redis.connected_clients,
+                    "keyspace_hit_rate": snapshot.redis.keyspace_hit_rate,
+                    "evicted_keys": snapshot.redis.evicted_keys,
+                }
+                if snapshot.redis
+                else None
+            ),
             "docker": {
                 "cpu_limit_cores": snapshot.docker.cpu_limit_cores,
                 "memory_limit_mb": snapshot.docker.memory_limit_mb,

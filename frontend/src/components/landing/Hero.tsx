@@ -43,7 +43,14 @@ export default function Hero() {
       />
 
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {["D\u0302", "H\u0302", "\u039B\u0302", "\u03C6\u207B\u00B9", "\u2211=1", "E\u22642.0"].map((sym, i) => (
+        {[
+          "D\u0302",
+          "H\u0302",
+          "\u039B\u0302",
+          "\u03C6\u207B\u00B9",
+          "\u2211=1",
+          "E\u22642.0",
+        ].map((sym, i) => (
           <motion.span
             key={sym}
             className="absolute text-cyan-500/[0.07] font-mono select-none"
@@ -68,7 +75,10 @@ export default function Hero() {
         ))}
       </div>
 
-      <motion.div style={{ opacity }} className="relative z-10 text-center px-4 max-w-5xl mx-auto">
+      <motion.div
+        style={{ opacity }}
+        className="relative z-10 text-center px-4 max-w-5xl mx-auto"
+      >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -102,12 +112,12 @@ export default function Hero() {
           transition={{ duration: 0.7, delay: 0.3 }}
           className="mt-6 text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed"
         >
-          FAIMATRIX is a deterministic memory, retrieval, and answer engine.
-          It combines native 256-dimensional vectors, sparse lexical sidecars,
-          graph diffusion, proposition-aware reranking, multilingual concept links,
-          multimodal indexing, domain knowledge, citation-first answers, and
-          real product workflows for Memory Query and Storage without giving up
-          FAIM&apos;s core invariants.
+          FAIMATRIX is a deterministic memory, retrieval, and answer engine. It
+          combines native 256-dimensional vectors, sparse lexical sidecars,
+          graph diffusion, proposition-aware reranking, multilingual concept
+          links, multimodal indexing, domain knowledge, citation-first answers,
+          and real product workflows for Memory Query and Storage without giving
+          up FAIM&apos;s core invariants.
         </motion.p>
 
         <motion.div
@@ -122,8 +132,18 @@ export default function Hero() {
           >
             <span className="relative z-10 flex items-center gap-2">
               Start Building
-              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              <svg
+                className="w-5 h-5 group-hover:translate-x-1 transition-transform"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                />
               </svg>
             </span>
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-400 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
@@ -159,7 +179,9 @@ export default function Hero() {
                   </span>
                 )}
               </p>
-              <p className="text-xs md:text-sm text-slate-500 mt-1">{stat.label}</p>
+              <p className="text-xs md:text-sm text-slate-500 mt-1">
+                {stat.label}
+              </p>
             </motion.div>
           ))}
         </motion.div>

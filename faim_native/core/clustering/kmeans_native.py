@@ -15,22 +15,22 @@ from __future__ import annotations
 import hashlib
 import math
 import random
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Dict, List, Optional
 from uuid import UUID
-
 
 # ---------------------------------------------------------------------------
 # Types
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class ClusterResult:
     k: int
     iterations: int
-    assignments: Dict[UUID, int]       # node_id → cluster_id
-    centers: List[List[float]]         # cluster_id → centroid vector
-    cluster_sizes: Dict[int, int]      # cluster_id → node count
+    assignments: Dict[UUID, int]  # node_id → cluster_id
+    centers: List[List[float]]  # cluster_id → centroid vector
+    cluster_sizes: Dict[int, int]  # cluster_id → node count
     converged: bool
 
 
@@ -38,8 +38,9 @@ class ClusterResult:
 # Math helpers
 # ---------------------------------------------------------------------------
 
+
 def _dot(a: List[float], b: List[float]) -> float:
-    return sum(x * y for x, y in zip(a, b))
+    return sum(x * y for x, y in zip(a, b, strict=False))
 
 
 def _norm(a: List[float]) -> float:
@@ -77,6 +78,7 @@ def _mean_vector(vectors: List[List[float]]) -> List[float]:
 # k selection
 # ---------------------------------------------------------------------------
 
+
 def choose_k(n_nodes: int) -> int:
     """Heuristic: sqrt(N/2), clamped to [2, 20]."""
     if n_nodes < 4:
@@ -88,6 +90,7 @@ def choose_k(n_nodes: int) -> int:
 # ---------------------------------------------------------------------------
 # k-means++ initialisation
 # ---------------------------------------------------------------------------
+
 
 def _kmeans_plus_plus_init(
     vectors: List[List[float]],
@@ -104,7 +107,7 @@ def _kmeans_plus_plus_init(
         dists = []
         for v in vectors:
             min_d = min(cosine_dist(v, c) for c in centers)
-            dists.append(min_d ** 2)  # square for probability weighting
+            dists.append(min_d**2)  # square for probability weighting
 
         total = sum(dists)
         if total == 0.0:
@@ -129,6 +132,7 @@ def _kmeans_plus_plus_init(
 # Core k-means
 # ---------------------------------------------------------------------------
 
+
 def _assign(vectors: List[List[float]], centers: List[List[float]]) -> List[int]:
     """Assign each vector to its nearest center by cosine distance."""
     assignments = []
@@ -151,7 +155,7 @@ def _recompute_centers(
 ) -> List[List[float]]:
     """Recompute centroid for each cluster."""
     groups: Dict[int, List[List[float]]] = {i: [] for i in range(k)}
-    for v, a in zip(vectors, assignments):
+    for v, a in zip(vectors, assignments, strict=False):
         groups[a].append(v)
 
     centers = []
@@ -165,13 +169,15 @@ def _recompute_centers(
     return centers
 
 
-def _centers_equal(a: List[List[float]], b: List[List[float]], tol: float = 1e-6) -> bool:
+def _centers_equal(
+    a: List[List[float]], b: List[List[float]], tol: float = 1e-6
+) -> bool:
     if len(a) != len(b):
         return False
-    for ca, cb in zip(a, b):
+    for ca, cb in zip(a, b, strict=False):
         if len(ca) != len(cb):
             return False
-        if any(abs(x - y) > tol for x, y in zip(ca, cb)):
+        if any(abs(x - y) > tol for x, y in zip(ca, cb, strict=False)):
             return False
     return True
 
@@ -179,6 +185,7 @@ def _centers_equal(a: List[List[float]], b: List[List[float]], tol: float = 1e-6
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def run_kmeans(
     node_ids: List[UUID],
@@ -201,7 +208,14 @@ def run_kmeans(
     """
     n = len(vectors)
     if n == 0:
-        return ClusterResult(k=0, iterations=0, assignments={}, centers=[], cluster_sizes={}, converged=True)
+        return ClusterResult(
+            k=0,
+            iterations=0,
+            assignments={},
+            centers=[],
+            cluster_sizes={},
+            converged=True,
+        )
 
     if k is None:
         k = choose_k(n)
@@ -241,7 +255,7 @@ def run_kmeans(
     # Build result
     assignment_map: Dict[UUID, int] = {
         node_id: cluster_id
-        for node_id, cluster_id in zip(node_ids, assignments)
+        for node_id, cluster_id in zip(node_ids, assignments, strict=False)
     }
     cluster_sizes: Dict[int, int] = {}
     for cid in assignments:

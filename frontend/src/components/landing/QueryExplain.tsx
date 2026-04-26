@@ -13,19 +13,99 @@ interface ScoreComponent {
 }
 
 const SCORE_COMPONENTS: ScoreComponent[] = [
-  { name: "Char / Native", weight: "0.12", value: 0.86, type: "positive", color: "bg-cyan-500", description: "Base deterministic vector and character-level match" },
-  { name: "Word / Phrase", weight: "0.20", value: 0.91, type: "positive", color: "bg-blue-500", description: "Representation V2 sparse lexical score" },
-  { name: "Entity / Concept", weight: "0.14", value: 0.77, type: "positive", color: "bg-indigo-500", description: "Entity, alias, concept, and domain linking support" },
-  { name: "Graph", weight: "0.16", value: 0.74, type: "positive", color: "bg-purple-500", description: "Semantic traversal, diffusion, and neighborhood score" },
-  { name: "Temporal", weight: "0.08", value: 0.82, type: "positive", color: "bg-emerald-500", description: "Recency and temporal consistency weighting" },
-  { name: "Evidence", weight: "0.14", value: 0.88, type: "positive", color: "bg-fuchsia-500", description: "Evidence density, proposition overlap, and span quality" },
-  { name: "Opposition", weight: "0.09", value: 0.06, type: "negative", color: "bg-red-500", description: "Contradiction-aware suppression during traversal and rerank" },
-  { name: "Redundancy", weight: "0.07", value: 0.11, type: "negative", color: "bg-orange-500", description: "Duplicate or already-covered information penalty" },
-  { name: "Modality", weight: "0.05", value: 0.53, type: "positive", color: "bg-amber-500", description: "OCR, table, layout, and metadata-aware boost" },
-  { name: "Domain", weight: "0.05", value: 0.79, type: "positive", color: "bg-rose-500", description: "KB, terminology, and profile-pack support" },
+  {
+    name: "Char / Native",
+    weight: "0.12",
+    value: 0.86,
+    type: "positive",
+    color: "bg-cyan-500",
+    description: "Deterministic VP-Tree vector and character-level match",
+  },
+  {
+    name: "Word / Phrase",
+    weight: "0.20",
+    value: 0.91,
+    type: "positive",
+    color: "bg-blue-500",
+    description: "WAND-based sparse lexical and Representation V2 score",
+  },
+  {
+    name: "Entity / Concept",
+    weight: "0.14",
+    value: 0.77,
+    type: "positive",
+    color: "bg-indigo-500",
+    description: "Entity, alias, concept, and domain linking support",
+  },
+  {
+    name: "Graph",
+    weight: "0.16",
+    value: 0.74,
+    type: "positive",
+    color: "bg-purple-500",
+    description: "Semantic traversal, diffusion, and neighborhood score",
+  },
+  {
+    name: "Temporal",
+    weight: "0.08",
+    value: 0.82,
+    type: "positive",
+    color: "bg-emerald-500",
+    description: "Recency and temporal consistency weighting",
+  },
+  {
+    name: "Evidence",
+    weight: "0.14",
+    value: 0.88,
+    type: "positive",
+    color: "bg-fuchsia-500",
+    description: "Evidence density, proposition overlap, and span quality",
+  },
+  {
+    name: "Opposition",
+    weight: "0.09",
+    value: 0.06,
+    type: "negative",
+    color: "bg-red-500",
+    description: "Contradiction-aware suppression during traversal and rerank",
+  },
+  {
+    name: "Redundancy",
+    weight: "0.07",
+    value: 0.11,
+    type: "negative",
+    color: "bg-orange-500",
+    description: "Duplicate or already-covered information penalty",
+  },
+  {
+    name: "Modality",
+    weight: "0.05",
+    value: 0.53,
+    type: "positive",
+    color: "bg-amber-500",
+    description: "OCR, table, layout, and metadata-aware boost",
+  },
+  {
+    name: "Domain",
+    weight: "0.05",
+    value: 0.79,
+    type: "positive",
+    color: "bg-rose-500",
+    description: "KB, terminology, and profile-pack support",
+  },
 ];
 
-function AnimatedBar({ value, color, delay, isInView }: { value: number; color: string; delay: number; isInView: boolean }) {
+function AnimatedBar({
+  value,
+  color,
+  delay,
+  isInView,
+}: {
+  value: number;
+  color: string;
+  delay: number;
+  isInView: boolean;
+}) {
   return (
     <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
       <motion.div
@@ -48,7 +128,7 @@ export default function QueryExplain() {
     const timer = setTimeout(() => {
       const score =
         0.12 * 0.86 +
-        0.20 * 0.91 +
+        0.2 * 0.91 +
         0.14 * 0.77 +
         0.16 * 0.74 +
         0.08 * 0.82 +
@@ -84,9 +164,9 @@ export default function QueryExplain() {
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto text-lg">
-            Every query result includes a full scoring breakdown. Not a black-box
-            confidence score. The deterministic retrieval stack exposes the
-            signals that actually produced the result.
+            Not a black-box confidence score. The Hybrid Physics-Based Graph
+            Recall stack exposes the signals that actually produced the
+            result.
           </p>
         </motion.div>
 
@@ -118,16 +198,23 @@ export default function QueryExplain() {
                 <div key={comp.name}>
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-mono px-1.5 py-0.5 rounded ${
-                        comp.type === "positive"
-                          ? "bg-emerald-500/10 text-emerald-400"
-                          : "bg-red-500/10 text-red-400"
-                      }`}>
-                        {comp.type === "positive" ? "+" : "\u2212"}{comp.weight}
+                      <span
+                        className={`text-xs font-mono px-1.5 py-0.5 rounded ${
+                          comp.type === "positive"
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : "bg-red-500/10 text-red-400"
+                        }`}
+                      >
+                        {comp.type === "positive" ? "+" : "\u2212"}
+                        {comp.weight}
                       </span>
-                      <span className="text-sm text-white font-medium">{comp.name}</span>
+                      <span className="text-sm text-white font-medium">
+                        {comp.name}
+                      </span>
                     </div>
-                    <span className="text-sm font-mono text-slate-400">{comp.value.toFixed(2)}</span>
+                    <span className="text-sm font-mono text-slate-400">
+                      {comp.value.toFixed(2)}
+                    </span>
                   </div>
                   <AnimatedBar
                     value={comp.value}
@@ -135,7 +222,9 @@ export default function QueryExplain() {
                     delay={0.15 + i * 0.1}
                     isInView={isInView}
                   />
-                  <p className="text-[11px] text-slate-600 mt-1">{comp.description}</p>
+                  <p className="text-[11px] text-slate-600 mt-1">
+                    {comp.description}
+                  </p>
                 </div>
               ))}
             </div>
