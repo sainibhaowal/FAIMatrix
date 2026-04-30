@@ -740,33 +740,36 @@ export default function StoragePage() {
     return counts;
   }, [queueItems]);
 
-  async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-    const headers = await authHeaders(init?.headers);
-    const response = await fetch(url, {
-      ...init,
-      headers,
-      cache: "no-store",
-    });
+  const fetchJson = useCallback(
+    async <T,>(url: string, init?: RequestInit): Promise<T> => {
+      const headers = await authHeaders(init?.headers);
+      const response = await fetch(url, {
+        ...init,
+        headers,
+        cache: "no-store",
+      });
 
-    let payload: unknown = null;
-    const text = await response.text();
-    if (text) {
-      try {
-        payload = JSON.parse(text);
-      } catch {
-        payload = text;
+      let payload: unknown = null;
+      const text = await response.text();
+      if (text) {
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          payload = text;
+        }
       }
-    }
 
-    if (!response.ok) {
-      throw new ApiError(
-        response.status,
-        normalizeApiError(payload, `Request failed (${response.status})`),
-      );
-    }
+      if (!response.ok) {
+        throw new ApiError(
+          response.status,
+          normalizeApiError(payload, `Request failed (${response.status})`),
+        );
+      }
 
-    return (payload as T) || ({} as T);
-  }
+      return (payload as T) || ({} as T);
+    },
+    [],
+  );
 
   const fetchFilesInternal = useCallback(async () => {
     setLoadingFiles(true);
@@ -807,7 +810,7 @@ export default function StoragePage() {
     } finally {
       setLoadingFiles(false);
     }
-  }, [activeGraphId, page, query, statusFilter, throttledToast]);
+  }, [activeGraphId, fetchJson, page, query, statusFilter, throttledToast]);
 
   const fetchSummaryInternal = useCallback(async () => {
     setLoadingSummary(true);
@@ -841,7 +844,7 @@ export default function StoragePage() {
     } finally {
       setLoadingSummary(false);
     }
-  }, [activeGraphId, throttledToast]);
+  }, [activeGraphId, fetchJson, throttledToast]);
 
   const fetchMaintenanceHistoryInternal = useCallback(async () => {
     setLoadingMaintenanceHistory(true);
@@ -871,7 +874,7 @@ export default function StoragePage() {
     } finally {
       setLoadingMaintenanceHistory(false);
     }
-  }, [activeGraphId, throttledToast]);
+  }, [activeGraphId, fetchJson, throttledToast]);
 
   const fetchSupportedTypesInternal = useCallback(async () => {
     setSupportedTypesLoading(true);
@@ -901,7 +904,7 @@ export default function StoragePage() {
     } finally {
       setSupportedTypesLoading(false);
     }
-  }, [throttledToast]);
+  }, [fetchJson, throttledToast]);
 
   const openSupportedTypes = useCallback(() => {
     setSupportedTypesOpen(true);
@@ -1061,7 +1064,7 @@ export default function StoragePage() {
         }));
       }
     },
-    [appendQueueEvents, patchQueueItem, refreshViews],
+    [appendQueueEvents, fetchJson, patchQueueItem, refreshViews],
   );
 
   const enqueueFiles = useCallback(
@@ -1367,7 +1370,7 @@ export default function StoragePage() {
         }));
       }
     },
-    [patchQueueItem, refreshViews],
+    [fetchJson, patchQueueItem, refreshViews],
   );
 
   const retryQueueItem = useCallback(
@@ -1488,6 +1491,7 @@ export default function StoragePage() {
     [
       activeGraphId,
       extractorMode,
+      fetchJson,
       patchQueueItem,
       persistMode,
       profile,
@@ -1570,7 +1574,15 @@ export default function StoragePage() {
         setActionRawId(null);
       }
     },
-    [activeGraphId, extractorMode, persistMode, profile, refreshViews, toast],
+    [
+      activeGraphId,
+      extractorMode,
+      fetchJson,
+      persistMode,
+      profile,
+      refreshViews,
+      toast,
+    ],
   );
 
   const downloadStorageFile = useCallback(
@@ -1643,7 +1655,7 @@ export default function StoragePage() {
         setProvenanceLoading(false);
       }
     },
-    [activeGraphId, toast],
+    [activeGraphId, fetchJson, toast],
   );
 
   const applyGraphScope = useCallback(() => {

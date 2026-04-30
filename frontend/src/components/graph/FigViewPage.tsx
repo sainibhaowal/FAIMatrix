@@ -127,8 +127,8 @@ function FloatingDrawer({
 }) {
   if (!open) return null;
   return (
-    <div className="absolute right-14 top-14 bottom-4 z-30 w-[360px] max-w-[90vw]">
-      <div className="relative h-full overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/85 shadow-[0_10px_40px_rgba(0,0,0,0.55)] backdrop-blur-md">
+    <div className="absolute right-0 sm:right-14 top-0 sm:top-14 bottom-0 sm:bottom-4 z-30 w-full sm:w-[360px] max-w-[90vw] sm:max-w-none p-4 sm:p-0">
+      <div className="relative h-full overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/95 sm:bg-slate-950/85 shadow-[0_10px_40px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:backdrop-blur-md">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/60">
           <span className="text-xs font-semibold text-slate-300 uppercase tracking-widest">
             {title}
@@ -186,14 +186,19 @@ function StatsPill({ data }: { data?: FigSurfaceResponse | null }) {
   ];
 
   return (
-    <div className="flex items-center gap-0 rounded-xl border border-slate-700/60 bg-slate-950/80 backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.4)] overflow-hidden divide-x divide-slate-700/40">
+    <div className="flex flex-wrap items-center gap-0 rounded-xl border border-slate-700/60 bg-slate-950/80 backdrop-blur-md shadow-[0_4px_24px_rgba(0,0,0,0.4)] overflow-hidden divide-x divide-slate-700/40">
       {stats.map((s) => (
-        <div key={s.label} className="flex items-center gap-2 px-4 py-2">
+        <div
+          key={s.label}
+          className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2"
+        >
           {s.icon}
-          <span className={`font-mono text-[13px] font-semibold ${s.color}`}>
+          <span
+            className={`font-mono text-[11px] sm:text-[13px] font-semibold ${s.color}`}
+          >
             {s.value > 0 ? s.value : s.value === 0 ? "0" : "—"}
           </span>
-          <span className="text-[9px] uppercase tracking-widest text-slate-500">
+          <span className="text-[8px] sm:text-[9px] uppercase tracking-widest text-slate-500">
             {s.label}
           </span>
         </div>
@@ -310,6 +315,7 @@ export default function FigViewPage() {
   const timelinePollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const pollTimelineRef = useRef<() => void>(() => {});
   const timelineLiveEnabledRef = useRef(true);
   const timelineVisibleRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -690,7 +696,7 @@ export default function FigViewPage() {
     }
     timelinePollTimerRef.current = setTimeout(() => {
       timelinePollTimerRef.current = null;
-      void pollTimeline();
+      pollTimelineRef.current();
     }, delayMs);
   }, []);
 
@@ -824,7 +830,13 @@ export default function FigViewPage() {
     } finally {
       timelinePollInFlightRef.current = false;
     }
-  }, [graphId, timelineLiveEnabled, timelineVisible, scheduleTimelinePoll]);
+  }, [scheduleTimelinePoll]);
+
+  useEffect(() => {
+    pollTimelineRef.current = () => {
+      void pollTimeline();
+    };
+  }, [pollTimeline]);
 
   useEffect(() => {
     if (!timelineVisible) {

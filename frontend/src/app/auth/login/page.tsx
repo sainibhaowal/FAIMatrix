@@ -22,6 +22,10 @@ function LoginContent() {
 
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [factorType, setFactorType] = useState<
+    "email_otp" | "totp" | "recovery_code"
+  >("email_otp");
+  const [totpAvailable, setTotpAvailable] = useState(false);
   const [step, setStep] = useState<"email" | "code">("email");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -53,6 +57,9 @@ function LoginContent() {
       const data = await res.json();
 
       if (res.ok && data.success) {
+        setTotpAvailable(Boolean(data.totp_enabled));
+        setFactorType("email_otp");
+        setCode("");
         setStep("code");
       } else {
         setError(data.detail || "Failed to send code");
@@ -73,6 +80,7 @@ function LoginContent() {
       const result = await signIn("credentials", {
         email,
         code,
+        factor_type: factorType,
         redirect: false,
         callbackUrl,
       });
@@ -143,6 +151,18 @@ function LoginContent() {
                   <p className="text-slate-400 text-sm">
                     Enter your email to access your neural network.
                   </p>
+                  {totpAvailable && factorType === "email_otp" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCode("");
+                        setFactorType("totp");
+                      }}
+                      className="mt-3 text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors"
+                    >
+                      Use authenticator app instead
+                    </button>
+                  )}
                 </div>
 
                 <form onSubmit={handleRequestOtp} className="space-y-6">
@@ -155,6 +175,8 @@ function LoginContent() {
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                       <input
                         type="email"
+                        name="email"
+                        autoComplete="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="name@company.com"
@@ -224,8 +246,28 @@ function LoginContent() {
                   </button>
                   <h1 className="text-2xl font-bold text-white mb-2">Verify</h1>
                   <p className="text-slate-400 text-sm">
-                    We&apos;ve sent a 6-digit code to{" "}
-                    <span className="text-cyan-400 font-medium">{email}</span>
+                    {factorType === "totp" ? (
+                      <>
+                        Enter the 6-digit code from your authenticator app for{" "}
+                        <span className="text-cyan-400 font-medium">
+                          {email}
+                        </span>
+                      </>
+                    ) : factorType === "recovery_code" ? (
+                      <>
+                        Enter one recovery code for{" "}
+                        <span className="text-cyan-400 font-medium">
+                          {email}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        We&apos;ve sent a 6-digit code to{" "}
+                        <span className="text-cyan-400 font-medium">
+                          {email}
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
 
@@ -239,12 +281,18 @@ function LoginContent() {
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                       <input
                         type="text"
+                        name="code"
+                        autoComplete="one-time-code"
                         value={code}
-                        onChange={(e) => setCode(e.target.value)}
-                        placeholder="000 000"
+                        onChange={(e) => setCode(e.target.value.toUpperCase())}
+                        placeholder={
+                          factorType === "recovery_code"
+                            ? "RECOVERY CODE"
+                            : "000 000"
+                        }
                         required
-                        maxLength={6}
-                        className="relative w-full pl-12 pr-4 py-4 bg-slate-800/40 border border-white/5 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all text-center text-lg tracking-[0.5em] font-mono"
+                        maxLength={factorType === "recovery_code" ? 14 : 6}
+                        className="relative w-full pl-12 pr-4 py-4 bg-slate-800/40 border border-white/5 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-cyan-500/50 transition-all text-center text-lg tracking-[0.35em] font-mono"
                       />
                     </div>
                   </div>
@@ -261,7 +309,12 @@ function LoginContent() {
 
                   <button
                     type="submit"
-                    disabled={loading || code.length < 6}
+                    disabled={
+                      loading ||
+                      (factorType === "recovery_code"
+                        ? code.replace(/[-\s]/g, "").length < 8
+                        : code.length < 6)
+                    }
                     className="w-full group relative py-4 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl text-white font-bold text-sm tracking-wide overflow-hidden shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="relative flex items-center justify-center gap-2">
@@ -280,11 +333,30 @@ function LoginContent() {
                 <div className="mt-8 text-center">
                   <button
                     onClick={handleRequestOtp}
+                    disabled={loading || factorType !== "email_otp"}
                     className="text-slate-500 text-xs hover:text-cyan-400 transition-colors"
                   >
-                    Didn&apos;t receive a code?{" "}
-                    <span className="font-semibold underline">Resend</span>
+                    {factorType === "email_otp" ? (
+                      <>
+                        Didn&apos;t receive a code?{" "}
+                        <span className="font-semibold underline">Resend</span>
+                      </>
+                    ) : (
+                      "Email OTP remains your default login method."
+                    )}
                   </button>
+                  {factorType === "totp" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCode("");
+                        setFactorType("recovery_code");
+                      }}
+                      className="mt-3 block w-full text-slate-500 text-xs hover:text-cyan-400 transition-colors"
+                    >
+                      Use a recovery code
+                    </button>
+                  )}
                 </div>
               </motion.div>
             )}

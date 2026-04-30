@@ -30,6 +30,9 @@ node_modules/
 /frontend/.next/
 /frontend/out/
 /frontend/build/
+/frontend/playwright-report/
+/frontend/test-results/
+/frontend/tsconfig.tsbuildinfo
 /native-ui/dist/
 /native-ui/node_modules/
 .npm
@@ -44,6 +47,7 @@ docs/simulation_run*.txt
 .DS_Store
 .vscode/
 .idea/
+.claude/
 
 # FAIM Specific
 *.canvas
@@ -52,7 +56,7 @@ docs/simulation_run*.txt
 .env*
 !.env.example
 frontend/.env*
-frontend/env.example
+!frontend/env.example
 
 # Runtime & Data
 Runtime/
@@ -60,6 +64,16 @@ Runtime/
 node_modules/
 **/node_modules/
 Docker_cmd.md
+
+# Tool caches
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
 # Development (keep local, not in repo)
 tests/
 scripts/
+frontend/Docs/
+frontend/tests/
+faim_native/Docs/
+faim_native/store/raw/blobs/

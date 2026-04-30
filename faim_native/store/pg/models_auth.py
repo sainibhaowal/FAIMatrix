@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import uuid4
 
-from sqlalchemy import Column, DateTime, Index, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Index, String, Text
 
 from store.pg.models_faim import Base, JSONBType, UUIDType
 
@@ -187,6 +187,10 @@ class UserModel(Base):
     id = Column(UUIDType, primary_key=True)
     email = Column(Text, nullable=False, unique=True, index=True)
     full_name = Column(Text, nullable=True)
+    totp_enabled = Column(Boolean, nullable=False, default=False)
+    totp_secret_encrypted = Column(Text, nullable=True)
+    totp_confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    recovery_code_hashes = Column(JSONBType, nullable=False, default=list)
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
@@ -202,5 +206,6 @@ class UserModel(Base):
             "id": str(self.id),
             "email": self.email,
             "name": self.full_name,
+            "totp_enabled": bool(self.totp_enabled),
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
