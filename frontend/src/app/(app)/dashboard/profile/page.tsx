@@ -46,6 +46,16 @@ type TotpStatus = {
   recovery_codes_remaining: number;
 };
 
+async function readJsonSafely<T>(res: Response): Promise<T | null> {
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return null;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 export default function ProfilePage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -79,7 +89,10 @@ export default function ProfilePage() {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
-          const data = await res.json();
+          const data = await readJsonSafely<{ user?: { avatar_id?: string } }>(
+            res,
+          );
+          if (!data) return;
           if (data.user?.avatar_id) setAvatarId(data.user.avatar_id);
         }
       } catch {}
@@ -98,7 +111,11 @@ export default function ProfilePage() {
         headers: authHeaders(),
       });
       if (!res.ok) return;
-      const data = await res.json();
+      const data = await readJsonSafely<{
+        enabled?: boolean;
+        recovery_codes_remaining?: number;
+      }>(res);
+      if (!data) return;
       setTotpStatus({
         enabled: Boolean(data.enabled),
         recovery_codes_remaining: data.recovery_codes_remaining || 0,
@@ -121,9 +138,21 @@ export default function ProfilePage() {
         method: "POST",
         headers: authHeaders(),
       });
-      const data = await res.json();
+      const data = await readJsonSafely<{
+        success?: boolean;
+        detail?: string;
+        message?: string;
+        secret?: string;
+        otpauth_url?: string;
+      }>(res);
+      if (!data) {
+        throw new Error("Unexpected response from authenticator setup");
+      }
       if (!res.ok || !data.success) {
         throw new Error(data.detail || data.message || "Failed to start setup");
+      }
+      if (!data.secret || !data.otpauth_url) {
+        throw new Error("Authenticator setup response was incomplete");
       }
       const qr = await QRCode.toDataURL(data.otpauth_url, {
         margin: 1,
@@ -153,7 +182,15 @@ export default function ProfilePage() {
         headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ code: totpCode }),
       });
-      const data = await res.json();
+      const data = await readJsonSafely<{
+        success?: boolean;
+        detail?: string;
+        message?: string;
+        recovery_codes?: string[];
+      }>(res);
+      if (!data) {
+        throw new Error("Unexpected response from authenticator confirmation");
+      }
       if (!res.ok || !data.success) {
         throw new Error(
           data.detail || data.message || "Invalid authenticator code",
@@ -183,7 +220,15 @@ export default function ProfilePage() {
         headers: { ...authHeaders(), "Content-Type": "application/json" },
         body: JSON.stringify({ code: totpCode }),
       });
-      const data = await res.json();
+      const data = await readJsonSafely<{
+        success?: boolean;
+        detail?: string;
+        message?: string;
+        recovery_codes?: string[];
+      }>(res);
+      if (!data) {
+        throw new Error("Unexpected response from recovery code regeneration");
+      }
       if (!res.ok || !data.success) {
         throw new Error(
           data.detail || data.message || "Invalid authenticator code",
@@ -213,7 +258,14 @@ export default function ProfilePage() {
           factor_type: totpDisableFactor,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonSafely<{
+        success?: boolean;
+        detail?: string;
+        message?: string;
+      }>(res);
+      if (!data) {
+        throw new Error("Unexpected response from authenticator disable");
+      }
       if (!res.ok || !data.success) {
         throw new Error(
           data.detail || data.message || "Invalid authenticator code",

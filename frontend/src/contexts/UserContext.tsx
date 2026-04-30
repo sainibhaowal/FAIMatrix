@@ -30,6 +30,16 @@ const defaultContext: UserContextType = {
 
 const UserContext = createContext<UserContextType>(defaultContext);
 
+async function readJsonSafely<T>(res: Response): Promise<T | null> {
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return null;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const [userInfo, setUserInfo] = useState<UserContextType>(defaultContext);
@@ -69,13 +79,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           if (!res.ok) {
             throw new Error(`Sync failed with status: ${res.status}`);
           }
-          const contentType = res.headers.get("content-type");
-          if (!contentType || !contentType.includes("application/json")) {
+          const data = await readJsonSafely<{
+            user?: { graph_id?: string; id?: string };
+            graph_id?: string;
+            user_id?: string;
+          }>(res);
+          if (!data) {
             throw new Error(
-              `Received non-JSON response (${contentType}) from server`,
+              `Received non-JSON response (${res.headers.get("content-type")}) from server`,
             );
           }
-          return res.json();
+          return data;
         })
         .then((data) => {
           // AGGRESSIVE SYNC: Always override with backend technical ID
