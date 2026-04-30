@@ -240,7 +240,7 @@ export default function ProvidersPage() {
     } finally {
       setFormLoading(false);
     }
-  }, [formData, selectedModel, addProvider]);
+  }, [addProvider, discoveredModels, formData, selectedModel]);
 
   const handleCopyUrl = (url: string) => {
     navigator.clipboard.writeText(url);

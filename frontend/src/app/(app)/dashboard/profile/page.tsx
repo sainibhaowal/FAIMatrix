@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import QRCode from "qrcode";
 import { useUser } from "@/contexts/UserContext";
 import {
   User,
@@ -13,6 +14,8 @@ import {
   Clock,
   ShieldCheck,
   LogOut,
+  KeyRound,
+  Smartphone,
 } from "lucide-react";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Button } from "@/components/ui/Button";
@@ -38,6 +41,11 @@ function getAvatarUrl(avatarId: string): string {
   return `https://api.dicebear.com/7.x/${avatar.style}/svg?seed=${avatar.seed}&backgroundColor=${avatar.bg}&size=256`;
 }
 
+type TotpStatus = {
+  enabled: boolean;
+  recovery_codes_remaining: number;
+};
+
 export default function ProfilePage() {
   const { data: session } = useSession();
   const router = useRouter();
@@ -46,6 +54,20 @@ export default function ProfilePage() {
   const [deleteConfirmStep, setDeleteConfirmStep] = useState(0); // 0: none, 1: warning, 2: type confirm
   const [deleteInput, setDeleteInput] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [totpStatus, setTotpStatus] = useState<TotpStatus | null>(null);
+  const [totpSetup, setTotpSetup] = useState<{
+    secret: string;
+    otpauth_url: string;
+    qr: string;
+  } | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+  const [totpDisableFactor, setTotpDisableFactor] = useState<
+    "totp" | "recovery_code"
+  >("totp");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [totpBusy, setTotpBusy] = useState(false);
+  const [totpMessage, setTotpMessage] = useState<string | null>(null);
+  const [totpError, setTotpError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -64,6 +86,151 @@ export default function ProfilePage() {
     };
     loadProfile();
   }, [session]);
+
+  const authHeaders = useCallback((): Record<string, string> => {
+    const token = (session as any)?.accessToken;
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, [session]);
+
+  const loadTotpStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/v1/auth/totp/status", {
+        headers: authHeaders(),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setTotpStatus({
+        enabled: Boolean(data.enabled),
+        recovery_codes_remaining: data.recovery_codes_remaining || 0,
+      });
+    } catch {}
+  }, [authHeaders]);
+
+  useEffect(() => {
+    if (!session) return;
+    void loadTotpStatus();
+  }, [session, loadTotpStatus]);
+
+  const startTotpSetup = async () => {
+    setTotpBusy(true);
+    setTotpError(null);
+    setTotpMessage(null);
+    setRecoveryCodes([]);
+    try {
+      const res = await fetch("/api/v1/auth/totp/setup", {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.detail || data.message || "Failed to start setup");
+      }
+      const qr = await QRCode.toDataURL(data.otpauth_url, {
+        margin: 1,
+        width: 180,
+        color: { dark: "#020617", light: "#ffffff" },
+      });
+      setTotpSetup({
+        secret: data.secret,
+        otpauth_url: data.otpauth_url,
+        qr,
+      });
+      setTotpMessage("Scan the QR code, then enter one authenticator code.");
+    } catch (err: any) {
+      setTotpError(err.message || "Failed to start setup");
+    } finally {
+      setTotpBusy(false);
+    }
+  };
+
+  const confirmTotpSetup = async () => {
+    setTotpBusy(true);
+    setTotpError(null);
+    setTotpMessage(null);
+    try {
+      const res = await fetch("/api/v1/auth/totp/confirm", {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ code: totpCode }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(
+          data.detail || data.message || "Invalid authenticator code",
+        );
+      }
+      setRecoveryCodes(data.recovery_codes || []);
+      setTotpSetup(null);
+      setTotpCode("");
+      setTotpMessage(
+        "Authenticator login is enabled. Save your recovery codes now.",
+      );
+      await loadTotpStatus();
+    } catch (err: any) {
+      setTotpError(err.message || "Failed to enable authenticator login");
+    } finally {
+      setTotpBusy(false);
+    }
+  };
+
+  const regenerateRecoveryCodes = async () => {
+    setTotpBusy(true);
+    setTotpError(null);
+    setTotpMessage(null);
+    try {
+      const res = await fetch("/api/v1/auth/totp/recovery-codes/regenerate", {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ code: totpCode }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(
+          data.detail || data.message || "Invalid authenticator code",
+        );
+      }
+      setRecoveryCodes(data.recovery_codes || []);
+      setTotpCode("");
+      setTotpMessage("New recovery codes generated. Save them now.");
+      await loadTotpStatus();
+    } catch (err: any) {
+      setTotpError(err.message || "Failed to regenerate recovery codes");
+    } finally {
+      setTotpBusy(false);
+    }
+  };
+
+  const disableTotp = async () => {
+    setTotpBusy(true);
+    setTotpError(null);
+    setTotpMessage(null);
+    try {
+      const res = await fetch("/api/v1/auth/totp", {
+        method: "DELETE",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: totpCode,
+          factor_type: totpDisableFactor,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(
+          data.detail || data.message || "Invalid authenticator code",
+        );
+      }
+      setTotpCode("");
+      setTotpDisableFactor("totp");
+      setTotpSetup(null);
+      setRecoveryCodes([]);
+      setTotpMessage("Authenticator login disabled. Email OTP remains active.");
+      await loadTotpStatus();
+    } catch (err: any) {
+      setTotpError(err.message || "Failed to disable authenticator login");
+    } finally {
+      setTotpBusy(false);
+    }
+  };
 
   const handleDeleteAccount = async () => {
     if (deleteInput.toLowerCase() !== "delete") return;
@@ -286,6 +453,214 @@ export default function ProfilePage() {
                   {graphId}
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Authenticator Security */}
+          <div
+            className="rounded-xl border overflow-hidden"
+            style={{
+              borderColor: "rgba(34, 211, 238, 0.22)",
+              background: "rgba(8, 47, 73, 0.14)",
+            }}
+          >
+            <div
+              className="border-b px-5 py-3 flex items-center justify-between gap-3"
+              style={{ borderColor: "rgba(34, 211, 238, 0.14)" }}
+            >
+              <div className="flex items-center gap-2">
+                <KeyRound size={14} className="text-cyan-300" />
+                <p className="text-[10px] font-medium uppercase tracking-widest text-cyan-300">
+                  Authenticator Login
+                </p>
+              </div>
+              <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                {totpStatus?.enabled ? "Enabled" : "Optional"}
+              </div>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_auto]">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
+                      <Smartphone size={18} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-100">
+                        {totpStatus?.enabled
+                          ? "Authenticator app is active"
+                          : "Use Google Authenticator, Authy, or another app"}
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        Email OTP stays as the default. Once enabled, you can
+                        sign in faster with a 6-digit authenticator code.
+                      </p>
+                    </div>
+                  </div>
+
+                  {totpStatus?.enabled && (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div className="rounded-lg border border-white/10 bg-black/20 px-4 py-3">
+                        <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                          Recovery Codes
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-cyan-200">
+                          {totpStatus.recovery_codes_remaining}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-black/20 px-4 py-3">
+                        <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                          Default Login
+                        </div>
+                        <div className="mt-1 text-lg font-semibold text-slate-200">
+                          Email OTP
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {!totpStatus?.enabled && !totpSetup && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={startTotpSetup}
+                    disabled={totpBusy}
+                    leftIcon={<KeyRound size={14} />}
+                  >
+                    Enable
+                  </Button>
+                )}
+              </div>
+
+              {totpSetup && (
+                <div className="grid grid-cols-1 gap-6 rounded-xl border border-white/10 bg-black/20 p-5 md:grid-cols-[auto_1fr]">
+                  <div className="rounded-lg bg-white p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={totpSetup.qr}
+                      alt="Authenticator setup QR code"
+                      className="h-[180px] w-[180px]"
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                        Manual Secret
+                      </div>
+                      <div className="mt-2 break-all rounded border border-cyan-400/10 bg-cyan-400/5 px-3 py-2 font-mono text-[11px] text-cyan-200">
+                        {totpSetup.secret}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                      <input
+                        type="text"
+                        value={totpCode}
+                        onChange={(e) => setTotpCode(e.target.value)}
+                        placeholder="000000"
+                        maxLength={6}
+                        className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-center font-mono tracking-[0.35em] text-slate-100 outline-none transition-all focus:border-cyan-400/50"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={confirmTotpSetup}
+                        disabled={totpBusy || totpCode.length < 6}
+                      >
+                        Confirm
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {totpStatus?.enabled && (
+                <div className="rounded-xl border border-white/10 bg-black/20 p-5">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_auto_auto]">
+                    <input
+                      type="text"
+                      value={totpCode}
+                      onChange={(e) => setTotpCode(e.target.value)}
+                      placeholder={
+                        totpDisableFactor === "recovery_code"
+                          ? "Recovery code"
+                          : "Authenticator code"
+                      }
+                      maxLength={totpDisableFactor === "recovery_code" ? 14 : 6}
+                      className="min-w-0 rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-center font-mono tracking-[0.25em] text-slate-100 outline-none transition-all focus:border-cyan-400/50"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={regenerateRecoveryCodes}
+                      disabled={
+                        totpBusy ||
+                        totpDisableFactor !== "totp" ||
+                        totpCode.length < 6
+                      }
+                    >
+                      Regenerate Codes
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-rose-500/30 text-rose-400 hover:bg-rose-500 hover:text-white"
+                      onClick={disableTotp}
+                      disabled={
+                        totpBusy ||
+                        (totpDisableFactor === "recovery_code"
+                          ? totpCode.replace(/[-\s]/g, "").length < 8
+                          : totpCode.length < 6)
+                      }
+                    >
+                      Disable
+                    </Button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTotpCode("");
+                      setTotpDisableFactor(
+                        totpDisableFactor === "totp" ? "recovery_code" : "totp",
+                      );
+                    }}
+                    className="mt-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500 transition-colors hover:text-cyan-300"
+                  >
+                    {totpDisableFactor === "totp"
+                      ? "Use recovery code to disable"
+                      : "Use authenticator code to disable"}
+                  </button>
+                </div>
+              )}
+
+              {recoveryCodes.length > 0 && (
+                <div className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-5">
+                  <div className="mb-4 text-[10px] uppercase tracking-widest text-amber-300">
+                    Save These Recovery Codes Now
+                  </div>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    {recoveryCodes.map((code) => (
+                      <div
+                        key={code}
+                        className="rounded border border-white/10 bg-black/30 px-3 py-2 font-mono text-xs tracking-widest text-slate-100"
+                      >
+                        {code}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(totpMessage || totpError) && (
+                <div
+                  className={`rounded-lg border px-4 py-3 text-xs ${
+                    totpError
+                      ? "border-rose-500/20 bg-rose-500/10 text-rose-300"
+                      : "border-cyan-400/20 bg-cyan-400/10 text-cyan-200"
+                  }`}
+                >
+                  {totpError || totpMessage}
+                </div>
+              )}
             </div>
           </div>
 

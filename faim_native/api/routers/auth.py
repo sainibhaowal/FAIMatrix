@@ -21,9 +21,12 @@ import logging
 import os
 import secrets
 import string
+import time
 import uuid
+from base64 import b32decode, b32encode
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, EmailStr
@@ -47,6 +50,12 @@ LOCKOUT_MINUTES = 30
 
 # OTP expiry: 10 minutes
 OTP_EXPIRY_MINUTES = 10
+TOTP_ISSUER = "FAIMATRIX"
+TOTP_PERIOD_SECONDS = 30
+TOTP_DIGITS = 6
+TOTP_WINDOW = 1
+RECOVERY_CODE_COUNT = 10
+RECOVERY_CODE_LENGTH = 10
 
 
 # Encryption key for OTP storage (derived from NEXTAUTH_SECRET)
@@ -76,6 +85,115 @@ def _verify_otp_hash(stored_hash: str, otp: str, email: str) -> bool:
     """Verify OTP using constant-time comparison."""
     computed = _hash_otp(otp, email)
     return hmac.compare_digest(stored_hash, computed)
+
+
+def _encrypt_secret(plaintext: str) -> str:
+    """Encrypt a user secret for database storage."""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    key = _get_encryption_key()
+    nonce = secrets.token_bytes(12)
+    ciphertext = AESGCM(key).encrypt(nonce, plaintext.encode("utf-8"), None)
+    return f"v1:{nonce.hex()}:{ciphertext.hex()}"
+
+
+def _decrypt_secret(encrypted: str) -> str:
+    """Decrypt a user secret from database storage."""
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+    try:
+        version, nonce_hex, ciphertext_hex = encrypted.split(":", 2)
+        if version != "v1":
+            raise ValueError("Unsupported secret version")
+        plaintext = AESGCM(_get_encryption_key()).decrypt(
+            bytes.fromhex(nonce_hex), bytes.fromhex(ciphertext_hex), None
+        )
+        return plaintext.decode("utf-8")
+    except Exception as exc:
+        raise ValueError("Invalid encrypted secret") from exc
+
+
+def _generate_totp_secret() -> str:
+    """Generate a Base32 TOTP seed compatible with authenticator apps."""
+    return b32encode(secrets.token_bytes(20)).decode("ascii").rstrip("=")
+
+
+def _normalize_code(code: str) -> str:
+    return "".join(ch for ch in (code or "") if ch.isdigit())
+
+
+def _totp_at(secret: str, counter: int) -> str:
+    key = b32decode(secret.upper() + "=" * ((8 - len(secret) % 8) % 8))
+    msg = counter.to_bytes(8, "big")
+    digest = hmac.new(key, msg, hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    dynamic = int.from_bytes(digest[offset : offset + 4], "big") & 0x7FFFFFFF
+    return str(dynamic % (10**TOTP_DIGITS)).zfill(TOTP_DIGITS)
+
+
+def _verify_totp(secret: str, code: str, now: Optional[int] = None) -> bool:
+    """Verify an RFC 6238 TOTP code with a small clock-skew window."""
+    normalized = _normalize_code(code)
+    if len(normalized) != TOTP_DIGITS:
+        return False
+    current_counter = int((now or int(time.time())) / TOTP_PERIOD_SECONDS)
+    for offset in range(-TOTP_WINDOW, TOTP_WINDOW + 1):
+        expected = _totp_at(secret, current_counter + offset)
+        if hmac.compare_digest(expected, normalized):
+            return True
+    return False
+
+
+def _build_otpauth_uri(email: str, secret: str) -> str:
+    label = quote(f"{TOTP_ISSUER}:{email}")
+    issuer = quote(TOTP_ISSUER)
+    return (
+        f"otpauth://totp/{label}?secret={secret}&issuer={issuer}"
+        f"&algorithm=SHA1&digits={TOTP_DIGITS}&period={TOTP_PERIOD_SECONDS}"
+    )
+
+
+def _generate_recovery_codes() -> list[str]:
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return [
+        "".join(secrets.choice(alphabet) for _ in range(RECOVERY_CODE_LENGTH))
+        for _ in range(RECOVERY_CODE_COUNT)
+    ]
+
+
+def _hash_recovery_codes(codes: list[str]) -> list[str]:
+    from runtime.secrets import hash_api_key
+
+    return [hash_api_key(code) for code in codes]
+
+
+def _consume_recovery_code(user, code: str) -> bool:  # noqa: ANN001
+    from runtime.secrets import verify_api_key
+
+    supplied = (code or "").replace("-", "").replace(" ", "").upper()
+    if not supplied:
+        return False
+    remaining = []
+    matched = False
+    for stored_hash in list(user.recovery_code_hashes or []):
+        if not matched and verify_api_key(supplied, stored_hash):
+            matched = True
+            continue
+        remaining.append(stored_hash)
+    if matched:
+        user.recovery_code_hashes = remaining
+    return matched
+
+
+def _user_response(email: str, full_name: Optional[str] = None) -> dict:
+    user_id_raw = uuid.uuid5(uuid.NAMESPACE_DNS, email)
+    user_id = str(user_id_raw)
+    return {
+        "id": user_id,
+        "email": email,
+        "name": full_name or email.split("@")[0],
+        "graph_id": f"U:{user_id[:8]}",
+    }
 
 
 # =============================================================================
@@ -310,6 +428,8 @@ class OTPRequestResponse(BaseModel):
 
     success: bool
     message: str
+    method: str = "email_otp"
+    totp_enabled: bool = False
 
 
 class OTPVerifyBody(BaseModel):
@@ -318,6 +438,7 @@ class OTPVerifyBody(BaseModel):
     email: EmailStr
     code: str
     full_name: Optional[str] = None
+    factor_type: Optional[str] = "email_otp"
 
 
 class OTPVerifyResponse(BaseModel):
@@ -326,6 +447,41 @@ class OTPVerifyResponse(BaseModel):
     success: bool
     user: Optional[dict] = None
     message: Optional[str] = None
+
+
+class TOTPStatusResponse(BaseModel):
+    success: bool
+    enabled: bool
+    recovery_codes_remaining: int = 0
+    message: Optional[str] = None
+
+
+class TOTPSetupResponse(BaseModel):
+    success: bool
+    secret: str
+    otpauth_url: str
+    message: str
+
+
+class TOTPConfirmBody(BaseModel):
+    code: str
+
+
+class TOTPConfirmResponse(BaseModel):
+    success: bool
+    recovery_codes: list[str]
+    message: str
+
+
+class TOTPDisableBody(BaseModel):
+    code: str
+    factor_type: Optional[str] = "totp"
+
+
+class RecoveryCodesResponse(BaseModel):
+    success: bool
+    recovery_codes: list[str]
+    message: str
 
 
 # =============================================================================
@@ -423,6 +579,7 @@ async def request_otp(body: OTPRequestBody, request: Request):
     from runtime.context import get_session
     from store.pg.repos.user_repo import UserRepository
 
+    totp_enabled = False
     session = get_session()
     try:
         repo = UserRepository(session)
@@ -444,6 +601,8 @@ async def request_otp(body: OTPRequestBody, request: Request):
             raise HTTPException(
                 status_code=409, detail="Account already exists. Please log in instead."
             )
+
+        totp_enabled = bool(user and user.totp_enabled and mode == "login")
     finally:
         session.close()
 
@@ -488,6 +647,8 @@ async def request_otp(body: OTPRequestBody, request: Request):
 
     return OTPRequestResponse(
         success=True,
+        method="email_otp",
+        totp_enabled=totp_enabled,
         message="Verification code sent (check server logs if email fails)",
     )
 
@@ -504,6 +665,7 @@ async def verify_otp(body: OTPVerifyBody):
     """
     email = body.email.lower().strip()
     email_hash = _hash_email(email)
+    factor_type = (body.factor_type or "email_otp").strip().lower()
 
     # Check lockout
     lockout_remaining = _check_lockout(email)
@@ -513,40 +675,6 @@ async def verify_otp(body: OTPVerifyBody):
             detail=f"Account temporarily locked. Please try again in {lockout_remaining // 60} minutes.",
         )
 
-    # Check if OTP exists and is valid
-    stored_otp_hash = store.get_otp(email_hash)
-    if not stored_otp_hash:
-        _record_failed_attempt(email)
-        return OTPVerifyResponse(
-            success=False,
-            message="Invalid or expired verification code.",
-        )
-
-    # Verify OTP hash (constant-time comparison)
-    if not _verify_otp_hash(stored_otp_hash, body.code, email):
-        attempts = _record_failed_attempt(email)
-        remaining = MAX_FAILED_ATTEMPTS - attempts
-
-        if remaining <= 0:
-            return OTPVerifyResponse(
-                success=False,
-                message=f"Account locked for {LOCKOUT_MINUTES} minutes due to too many failed attempts.",
-            )
-
-        return OTPVerifyResponse(
-            success=False,
-            message=f"Invalid verification code. {remaining} attempts remaining.",
-        )
-
-    # Success - clear OTP and failed attempts
-    store.delete_otp(email_hash)
-    _clear_failed_attempts(email)
-
-    # Create user with the original ID format
-    user_id_raw = uuid.uuid5(uuid.NAMESPACE_DNS, email)
-    user_id = str(user_id_raw)
-    graph_id = f"U:{user_id[:8]}"
-
     # --- Enterprise Registration Persistence ---
     from runtime.context import get_session
     from store.pg.repos.user_repo import UserRepository
@@ -555,12 +683,94 @@ async def verify_otp(body: OTPVerifyBody):
     try:
         repo = UserRepository(session)
         user_record = repo.get_by_email(email)
+
+        if factor_type == "totp":
+            if not user_record or not user_record.totp_enabled:
+                _record_failed_attempt(email)
+                return OTPVerifyResponse(
+                    success=False,
+                    message="Invalid verification code.",
+                )
+            try:
+                secret = _decrypt_secret(user_record.totp_secret_encrypted or "")
+            except ValueError as exc:
+                logger.error("Stored TOTP secret could not be decrypted")
+                raise HTTPException(status_code=500, detail="TOTP unavailable") from exc
+            if not _verify_totp(secret, body.code):
+                attempts = _record_failed_attempt(email)
+                remaining = MAX_FAILED_ATTEMPTS - attempts
+                return OTPVerifyResponse(
+                    success=False,
+                    message=(
+                        f"Invalid verification code. {remaining} attempts remaining."
+                        if remaining > 0
+                        else f"Account locked for {LOCKOUT_MINUTES} minutes due to too many failed attempts."
+                    ),
+                )
+            _clear_failed_attempts(email)
+
+        elif factor_type == "recovery_code":
+            if not user_record or not user_record.totp_enabled:
+                _record_failed_attempt(email)
+                return OTPVerifyResponse(
+                    success=False,
+                    message="Invalid recovery code.",
+                )
+            if not _consume_recovery_code(user_record, body.code):
+                attempts = _record_failed_attempt(email)
+                remaining = MAX_FAILED_ATTEMPTS - attempts
+                return OTPVerifyResponse(
+                    success=False,
+                    message=(
+                        f"Invalid recovery code. {remaining} attempts remaining."
+                        if remaining > 0
+                        else f"Account locked for {LOCKOUT_MINUTES} minutes due to too many failed attempts."
+                    ),
+                )
+            session.commit()
+            _clear_failed_attempts(email)
+
+        else:
+            # Check if OTP exists and is valid
+            stored_otp_hash = store.get_otp(email_hash)
+            if not stored_otp_hash:
+                _record_failed_attempt(email)
+                return OTPVerifyResponse(
+                    success=False,
+                    message="Invalid or expired verification code.",
+                )
+
+            # Verify OTP hash (constant-time comparison)
+            if not _verify_otp_hash(stored_otp_hash, body.code, email):
+                attempts = _record_failed_attempt(email)
+                remaining = MAX_FAILED_ATTEMPTS - attempts
+
+                if remaining <= 0:
+                    return OTPVerifyResponse(
+                        success=False,
+                        message=f"Account locked for {LOCKOUT_MINUTES} minutes due to too many failed attempts.",
+                    )
+
+                return OTPVerifyResponse(
+                    success=False,
+                    message=f"Invalid verification code. {remaining} attempts remaining.",
+                )
+
+            # Success - clear OTP and failed attempts
+            store.delete_otp(email_hash)
+            _clear_failed_attempts(email)
+
+        user_id_raw = uuid.uuid5(uuid.NAMESPACE_DNS, email)
         if not user_record:
             # Formalize the registration on first successful OTP verify (or sync name)
             repo.create_user(user_id=user_id_raw, email=email, full_name=body.full_name)
-        elif body.full_name and not user_record.full_name:
-            # Fill in name if missing
-            repo.update_profile(user_id_raw, body.full_name)
+            display_name = body.full_name
+        else:
+            display_name = user_record.full_name
+            if body.full_name and not user_record.full_name:
+                # Fill in name if missing
+                repo.update_profile(user_id_raw, body.full_name)
+                display_name = body.full_name
     finally:
         session.close()
 
@@ -568,12 +778,168 @@ async def verify_otp(body: OTPVerifyBody):
 
     return OTPVerifyResponse(
         success=True,
-        user={
-            "id": user_id,
-            "email": email,
-            "name": body.full_name or email.split("@")[0],
-            "graph_id": graph_id,
-        },
+        user=_user_response(email, display_name),
+    )
+
+
+def _current_user_id(request: Request) -> uuid.UUID:
+    user = getattr(request.state, "user", None)
+    if not user or not user.get("id"):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return uuid.UUID(str(user["id"]))
+
+
+@router.get("/totp/status", response_model=TOTPStatusResponse)
+async def get_totp_status(request: Request):
+    """Return current user's authenticator-app status."""
+    user_id = _current_user_id(request)
+    from runtime.context import get_session
+    from store.pg.repos.user_repo import UserRepository
+
+    session = get_session()
+    try:
+        record = UserRepository(session).get_by_id(user_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="User not found")
+        return TOTPStatusResponse(
+            success=True,
+            enabled=bool(record.totp_enabled),
+            recovery_codes_remaining=len(record.recovery_code_hashes or []),
+        )
+    finally:
+        session.close()
+
+
+@router.post("/totp/setup", response_model=TOTPSetupResponse)
+async def setup_totp(request: Request):
+    """Create a pending TOTP seed for the authenticated user."""
+    user_id = _current_user_id(request)
+    user = getattr(request.state, "user", {})
+    email = str(user.get("email") or "").lower().strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="User email missing")
+
+    secret = _generate_totp_secret()
+    encrypted_secret = _encrypt_secret(secret)
+
+    from runtime.context import get_session
+    from store.pg.repos.user_repo import UserRepository
+
+    session = get_session()
+    try:
+        repo = UserRepository(session)
+        record = repo.get_by_id(user_id)
+        if not record:
+            raise HTTPException(status_code=404, detail="User not found")
+        if record.totp_enabled:
+            raise HTTPException(status_code=409, detail="TOTP is already enabled")
+        repo.set_totp_pending(user_id, encrypted_secret)
+    finally:
+        session.close()
+
+    return TOTPSetupResponse(
+        success=True,
+        secret=secret,
+        otpauth_url=_build_otpauth_uri(email, secret),
+        message="Scan the QR code and confirm one authenticator code to enable TOTP.",
+    )
+
+
+@router.post("/totp/confirm", response_model=TOTPConfirmResponse)
+async def confirm_totp(body: TOTPConfirmBody, request: Request):
+    """Verify pending TOTP setup and return one-time recovery codes."""
+    user_id = _current_user_id(request)
+    from runtime.context import get_session
+    from store.pg.repos.user_repo import UserRepository
+
+    session = get_session()
+    try:
+        repo = UserRepository(session)
+        record = repo.get_by_id(user_id)
+        if not record or not record.totp_secret_encrypted:
+            raise HTTPException(status_code=400, detail="No pending TOTP setup")
+        if record.totp_enabled:
+            raise HTTPException(status_code=409, detail="TOTP is already enabled")
+        secret = _decrypt_secret(record.totp_secret_encrypted)
+        if not _verify_totp(secret, body.code):
+            raise HTTPException(status_code=400, detail="Invalid authenticator code")
+        recovery_codes = _generate_recovery_codes()
+        repo.enable_totp(
+            user_id,
+            record.totp_secret_encrypted,
+            _hash_recovery_codes(recovery_codes),
+        )
+    finally:
+        session.close()
+
+    return TOTPConfirmResponse(
+        success=True,
+        recovery_codes=recovery_codes,
+        message="TOTP enabled. Save these recovery codes now; they are shown only once.",
+    )
+
+
+@router.post("/totp/recovery-codes/regenerate", response_model=RecoveryCodesResponse)
+async def regenerate_recovery_codes(body: TOTPConfirmBody, request: Request):
+    """Regenerate one-time recovery codes after current TOTP confirmation."""
+    user_id = _current_user_id(request)
+    from runtime.context import get_session
+    from store.pg.repos.user_repo import UserRepository
+
+    session = get_session()
+    try:
+        repo = UserRepository(session)
+        record = repo.get_by_id(user_id)
+        if not record or not record.totp_enabled or not record.totp_secret_encrypted:
+            raise HTTPException(status_code=400, detail="TOTP is not enabled")
+        secret = _decrypt_secret(record.totp_secret_encrypted)
+        if not _verify_totp(secret, body.code):
+            raise HTTPException(status_code=400, detail="Invalid authenticator code")
+        recovery_codes = _generate_recovery_codes()
+        repo.set_recovery_code_hashes(user_id, _hash_recovery_codes(recovery_codes))
+    finally:
+        session.close()
+
+    return RecoveryCodesResponse(
+        success=True,
+        recovery_codes=recovery_codes,
+        message="Recovery codes regenerated. Save them now; they are shown only once.",
+    )
+
+
+@router.delete("/totp", response_model=TOTPStatusResponse)
+async def disable_totp(body: TOTPDisableBody, request: Request):
+    """Disable TOTP after a valid authenticator or recovery code."""
+    user_id = _current_user_id(request)
+    from runtime.context import get_session
+    from store.pg.repos.user_repo import UserRepository
+
+    session = get_session()
+    try:
+        repo = UserRepository(session)
+        record = repo.get_by_id(user_id)
+        if not record or not record.totp_enabled:
+            raise HTTPException(status_code=400, detail="TOTP is not enabled")
+        factor_type = (body.factor_type or "totp").strip().lower()
+        valid = False
+        if factor_type == "recovery_code":
+            valid = _consume_recovery_code(record, body.code)
+            if valid:
+                session.commit()
+        else:
+            secret = _decrypt_secret(record.totp_secret_encrypted or "")
+            valid = _verify_totp(secret, body.code)
+        if not valid:
+            raise HTTPException(status_code=400, detail="Invalid verification code")
+        repo.disable_totp(user_id)
+    finally:
+        session.close()
+
+    return TOTPStatusResponse(
+        success=True,
+        enabled=False,
+        recovery_codes_remaining=0,
+        message="TOTP disabled.",
     )
 
 

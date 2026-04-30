@@ -1,0 +1,15 @@
+.next/
+out/
+build/
+dist/
+coverage/
+node_modules/
+playwright-report/
+test-results/
+tsconfig.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+*.log

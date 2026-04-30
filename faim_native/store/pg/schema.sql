@@ -542,11 +542,16 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY,                    -- UUID5 deterministic (email-based)
     email TEXT NOT NULL UNIQUE,             -- Verified email address
     full_name TEXT,                         -- Display name
+    totp_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    totp_secret_encrypted TEXT,
+    totp_confirmed_at TIMESTAMPTZ,
+    recovery_code_hashes JSONB NOT NULL DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_users_totp_enabled ON users(totp_enabled);
 
 COMMENT ON TABLE users IS 'Formal user registry for identity management (Enterprise Hardening)';
 
