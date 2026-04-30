@@ -95,6 +95,16 @@ function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
 }
 
+async function readJsonSafely<T>(res: Response): Promise<T | null> {
+  const contentType = res.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return null;
+  try {
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
 // Beautiful avatar collection using DiceBear API (same as admin profile page)
 const AVATARS = [
   { id: "avatar_01", style: "adventurer", seed: "Felix", bg: "b6e3f4" },
@@ -205,7 +215,8 @@ export function TopBar({
         if (tenantId) headers["X-Tenant-Id"] = tenantId;
         const res = await fetch("/api/v1/auth/me", { headers });
         if (res.ok) {
-          const data = await res.json();
+          const data = await readJsonSafely<{ avatar_id?: string }>(res);
+          if (!data) return;
           if (data.avatar_id) setAvatarId(data.avatar_id);
         }
       } catch {}
