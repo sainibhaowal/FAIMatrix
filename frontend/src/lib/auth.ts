@@ -39,6 +39,7 @@ export const authOptions: NextAuthOptions = {
       credentials: {
         email: { label: "Email", type: "email" },
         code: { label: "Code", type: "text" },
+        factor_type: { label: "Factor Type", type: "text" },
         full_name: { label: "Name", type: "text" }, // Support signup name passthrough
       },
       async authorize(credentials) {
@@ -57,6 +58,7 @@ export const authOptions: NextAuthOptions = {
             body: JSON.stringify({
               email: credentials.email,
               code: credentials.code,
+              factor_type: (credentials as any).factor_type || "email_otp",
               full_name: (credentials as any).full_name,
             }),
           });

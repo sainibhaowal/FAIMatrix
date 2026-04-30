@@ -10,6 +10,7 @@ httpx
 orjson
 pyjwt>=2.12.0
 argon2-cffi
+cryptography
 email-validator
 Pillow
 pytesseract
