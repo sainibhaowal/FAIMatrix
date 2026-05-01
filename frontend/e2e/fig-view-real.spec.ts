@@ -70,8 +70,7 @@ test.describe("Real backend — graph surface", () => {
     await injectSession(page);
     await page.goto("/dashboard/graph");
 
-    // Page chrome is always visible — use nth(2) to target the graph-page header span
-    await expect(page.getByText("FIG View").nth(2)).toBeVisible({
+    await expect(page.getByTestId("fig-view-page-title")).toBeVisible({
       timeout: 10000,
     });
 
