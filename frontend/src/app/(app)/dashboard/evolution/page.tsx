@@ -999,6 +999,7 @@ export default function EvolutionPage() {
         title="Evolution Control Plane"
         subtitle={`Observe diagnostics, run evolve cycles, and inspect self-invention for graph ${graphId}`}
         icon={Dna}
+        titleTestId="evolution-page-title"
         actions={
           <Badge variant={liveStatusVariant(liveStatus)} size="md">
             {liveStatus === "refreshing"

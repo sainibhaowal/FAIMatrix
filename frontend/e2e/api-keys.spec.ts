@@ -278,7 +278,7 @@ test.describe("API Keys Page", () => {
     });
 
     await page.goto("/dashboard/api-keys");
-    await expect(page.getByRole("heading", { name: "API Keys" })).toBeVisible();
+    await expect(page.getByTestId("api-keys-page-title")).toBeVisible();
     await expect(page.getByText("faim_0001")).toBeVisible();
 
     await page.getByRole("button", { name: "Create key" }).click();
