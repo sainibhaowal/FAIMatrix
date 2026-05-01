@@ -503,6 +503,7 @@ export default function ApiKeysPage() {
         title="API Keys"
         subtitle="Manage Secure Access Matrix and Tenant-Scoped Lifecycle"
         icon={KeyRound}
+        titleTestId="api-keys-page-title"
         actions={
           <Button
             variant="outline"

@@ -937,7 +937,10 @@ export default function FigViewPage() {
       <div className="absolute top-0 left-0 right-0 z-30 flex items-center justify-between gap-2 px-6 py-4 pointer-events-none">
         <div className="flex items-center gap-3 min-w-0 pointer-events-auto">
           <div className="flex flex-col leading-tight">
-            <span className="text-[13px] font-semibold text-slate-100 tracking-wide flex items-center gap-1.5">
+            <span
+              data-testid="fig-view-page-title"
+              className="text-[13px] font-semibold text-slate-100 tracking-wide flex items-center gap-1.5"
+            >
               FIG View
               {state.status === "degraded" && (
                 <span className="text-[9px] text-amber-400 border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 rounded-full">

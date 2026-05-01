@@ -269,9 +269,7 @@ test.describe("Evolution R6", () => {
     });
 
     await page.goto("/dashboard/evolution");
-    await expect(
-      page.getByRole("heading", { name: "Evolution Control Plane" }),
-    ).toBeVisible();
+    await expect(page.getByTestId("evolution-page-title")).toBeVisible();
     await expect(
       page.locator("text=Requested mode: strict/relaxed"),
     ).toBeVisible();

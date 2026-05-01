@@ -23,7 +23,7 @@ import { expect, test, type Page } from "@playwright/test";
 const GRAPH_ID = "fig-e2e-test-graph-0001";
 
 function figViewTitle(page: Page) {
-  return page.locator("main").getByText("FIG View", { exact: true }).last();
+  return page.getByTestId("fig-view-page-title");
 }
 
 function railButton(page: Page, label: string) {
