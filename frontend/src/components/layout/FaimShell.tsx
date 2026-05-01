@@ -308,7 +308,7 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
               </div>
 
               {/* Nav */}
-              <div className="flex-1 overflow-y-auto px-4 py-4">
+              <div className="flex-1 overflow-y-auto py-4">
                 <SidebarNav showBrand={false} />
               </div>
 

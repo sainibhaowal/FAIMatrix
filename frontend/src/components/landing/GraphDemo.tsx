@@ -174,8 +174,8 @@ export default function GraphDemo() {
               visualization trick.
             </p>
 
-            {/* Active node info */}
-            <div className="mt-8 min-h-[140px]">
+            {/* Active node info — Fixed height to prevent layout jumps on mobile */}
+            <div className="mt-6 sm:mt-8 min-h-[180px] sm:min-h-[160px] relative">
               <AnimatePresence mode="wait">
                 {activeNodeData ? (
                   <motion.div
@@ -263,7 +263,7 @@ export default function GraphDemo() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="relative h-[450px] rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden"
+            className="relative h-[350px] sm:h-[450px] rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden touch-none"
           >
             {/* Dot grid */}
             <div
@@ -326,24 +326,29 @@ export default function GraphDemo() {
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{
                     delay: node.id * 0.08,
-                    type: "spring",
-                    stiffness: 200,
+                    type: "tween",
+                    ease: "easeOut",
                   }}
                   onMouseEnter={() => setActiveNode(node.id)}
                   onMouseLeave={() => setActiveNode(null)}
-                  className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group"
+                  onPointerDown={() => setActiveNode(node.id)}
+                  className="absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer group p-2"
                   style={{ left: `${node.x}%`, top: `${node.y}%` }}
                 >
                   <motion.div
                     animate={{
-                      scale: isActive ? 1.4 : isConnected ? 1.15 : 1,
+                      scale: isActive ? 1.2 : isConnected ? 1.1 : 1,
                       boxShadow: isActive
-                        ? `0 0 24px ${COLOR_MAP[node.color]}50`
+                        ? `0 0 20px ${COLOR_MAP[node.color]}40`
                         : isConnected
-                          ? `0 0 12px ${COLOR_MAP[node.color]}30`
+                          ? `0 0 10px ${COLOR_MAP[node.color]}20`
                           : "0 0 0px transparent",
                     }}
-                    transition={{ duration: 0.25 }}
+                    transition={{
+                      type: "tween",
+                      ease: "easeOut",
+                      duration: 0.2,
+                    }}
                     style={{ width: node.size, height: node.size }}
                     className={`rounded-full bg-gradient-to-br ${GRADIENT_MAP[node.color]} shadow-md`}
                   />

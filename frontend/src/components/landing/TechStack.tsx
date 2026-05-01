@@ -30,7 +30,7 @@ export default function TechStack() {
           Built on the Foundations of Modern Infrastructure
         </motion.p>
 
-        <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12">
+        <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 md:gap-12">
           {TECH_ITEMS.map((tech, index) => (
             <motion.div
               key={tech.name}
@@ -38,16 +38,16 @@ export default function TechStack() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.4, delay: index * 0.05 }}
-              className="flex items-center gap-3 group"
+              className="flex items-center gap-3 group min-w-[140px]"
             >
-              <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl group-hover:border-slate-700 transition-colors">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-lg sm:text-xl group-hover:border-slate-700 transition-colors shrink-0">
                 {tech.icon}
               </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-bold text-slate-300 group-hover:text-white transition-colors">
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs sm:text-sm font-bold text-slate-300 group-hover:text-white transition-colors truncate">
                   {tech.name}
                 </span>
-                <span className="text-[10px] text-slate-600 font-medium whitespace-nowrap">
+                <span className="text-[9px] sm:text-[10px] text-slate-600 font-medium">
                   {tech.desc}
                 </span>
               </div>

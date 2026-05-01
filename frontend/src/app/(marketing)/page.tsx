@@ -60,34 +60,88 @@ export default function LandingPage() {
         FAIMATRIX — Deterministic Memory, Retrieval, and Answer Engine
       </h1>
       <SectionTracker />
-      
-      <div id="hero"><Hero /></div>
-      <div id="stack"><TechStack /></div>
-      <div id="highlights"><LandingProductHighlights /></div>
-      <div id="outcomes"><LandingOutcomes /></div>
-      <div id="architecture"><Architecture /></div>
-      <div id="recall"><HybridRecall /></div>
-      <div id="comparison"><RAGComparison /></div>
-      <div id="pillars"><EnterprisePillars /></div>
-      <div id="engine"><SevenPowers /></div>
-      <div id="graph-demo"><GraphDemo /></div>
-      <div id="integrations"><IntegrationMap /></div>
-      <div id="pipeline"><IngestionPipeline /></div>
-      <div id="quickstart"><QuickStart /></div>
-      <div id="math"><MathProof /></div>
-      <div id="query-logic"><QueryExplain /></div>
-      <div id="evolution"><EvolutionShowcase /></div>
-      <div id="figview"><FigViewShowcase /></div>
-      <div id="manifesto"><Manifesto /></div>
-      <div id="benchmarks"><BenchmarksShowcase /></div>
-      <div id="how-it-works"><HowItWorks /></div>
-      <div id="api"><DeveloperAPI /></div>
-      <div id="security"><SecurityKeys /></div>
-      <div id="use-cases"><UseCases /></div>
-      <div id="roadmap"><Roadmap /></div>
-      <div id="specs"><TechSpecs /></div>
-      <div id="faq"><FAQ /></div>
-      <div id="cta"><CTA /></div>
+
+      <div id="hero">
+        <Hero />
+      </div>
+      <div id="stack">
+        <TechStack />
+      </div>
+      <div id="highlights">
+        <LandingProductHighlights />
+      </div>
+      <div id="outcomes">
+        <LandingOutcomes />
+      </div>
+      <div id="architecture">
+        <Architecture />
+      </div>
+      <div id="recall">
+        <HybridRecall />
+      </div>
+      <div id="comparison">
+        <RAGComparison />
+      </div>
+      <div id="pillars">
+        <EnterprisePillars />
+      </div>
+      <div id="engine">
+        <SevenPowers />
+      </div>
+      <div id="graph-demo">
+        <GraphDemo />
+      </div>
+      <div id="integrations">
+        <IntegrationMap />
+      </div>
+      <div id="pipeline">
+        <IngestionPipeline />
+      </div>
+      <div id="quickstart">
+        <QuickStart />
+      </div>
+      <div id="math">
+        <MathProof />
+      </div>
+      <div id="query-logic">
+        <QueryExplain />
+      </div>
+      <div id="evolution">
+        <EvolutionShowcase />
+      </div>
+      <div id="figview">
+        <FigViewShowcase />
+      </div>
+      <div id="manifesto">
+        <Manifesto />
+      </div>
+      <div id="benchmarks">
+        <BenchmarksShowcase />
+      </div>
+      <div id="how-it-works">
+        <HowItWorks />
+      </div>
+      <div id="api">
+        <DeveloperAPI />
+      </div>
+      <div id="security">
+        <SecurityKeys />
+      </div>
+      <div id="use-cases">
+        <UseCases />
+      </div>
+      <div id="roadmap">
+        <Roadmap />
+      </div>
+      <div id="specs">
+        <TechSpecs />
+      </div>
+      <div id="faq">
+        <FAQ />
+      </div>
+      <div id="cta">
+        <CTA />
+      </div>
     </>
   );
 }
