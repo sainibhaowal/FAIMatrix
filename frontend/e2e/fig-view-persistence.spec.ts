@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
+function figViewTitle(page: Page) {
+  return page.locator("main").getByText("FIG View", { exact: true }).last();
+}
+
 /**
  * FIG View — graph view-state persistence tests.
  *
@@ -181,7 +185,7 @@ test.describe("FIG View — view-state persistence", () => {
     await page.goto("/dashboard/graph");
 
     // Wait for the graph to render
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
 
     // Click the Lineage tab to change layoutMode from default "explore"
     await page.getByText("Lineage").click();
@@ -203,7 +207,7 @@ test.describe("FIG View — view-state persistence", () => {
     await mockApiRoutes(page, 1, "hash-v1");
 
     await page.goto("/dashboard/graph");
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
 
     // Pre-seed localStorage with a saved state that has "lineage" layout and hidden node kinds
     await writePersistedState(page, "fig-persist-graph", 1, {
@@ -219,7 +223,7 @@ test.describe("FIG View — view-state persistence", () => {
 
     // Reload — loadSurface will run and restore the saved state
     await page.reload();
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
 
     // The Lineage tab should be active (bg-cyan class applied)
     const lineageBtn = page.getByText("Lineage");
@@ -236,7 +240,7 @@ test.describe("FIG View — view-state persistence", () => {
     await mockApiRoutes(page, 2, "hash-v2");
 
     await page.goto("/dashboard/graph");
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
 
     // Pre-seed state for version 1
     await writePersistedState(page, "fig-persist-graph", 1, {
@@ -251,7 +255,7 @@ test.describe("FIG View — view-state persistence", () => {
     });
 
     await page.reload();
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
 
     // "lineage" should NOT be active — default "explore" should be
     const exploreBtn = page.getByText("Explore");
@@ -266,7 +270,7 @@ test.describe("FIG View — view-state persistence", () => {
     await mockApiRoutes(page, 1, "hash-v1");
 
     await page.goto("/dashboard/graph");
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
 
     // Inject a stale entry for a different graph
     await page.evaluate(
@@ -286,13 +290,12 @@ test.describe("FIG View — view-state persistence", () => {
 
     // Reload — clearStaleGraphState runs in loadSurface
     await page.reload();
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
 
-    // The stale key should be gone
-    const staleEntry = await page.evaluate(
-      ([key]) => window.localStorage.getItem(key as string),
+    // The stale key should be gone after the surface reload cleanup runs.
+    await page.waitForFunction(
+      ([key]) => window.localStorage.getItem(key as string) === null,
       [`${STORAGE_KEY_PREFIX}other-graph`],
     );
-    expect(staleEntry).toBeNull();
   });
 });

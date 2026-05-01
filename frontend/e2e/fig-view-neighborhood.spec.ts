@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
+function figViewTitle(page: Page) {
+  return page.locator("main").getByText("FIG View", { exact: true }).last();
+}
+
 function sessionPayload(graphId = "fig-nbhd-graph") {
   return {
     user: {
@@ -311,7 +315,7 @@ test.describe("FIG View neighborhood expansion", () => {
     await page.goto("/dashboard/graph");
 
     // FIG View should still be visible after a neighborhood 500
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
 
     // Trigger the failing neighborhood call directly
     const resp = await page.evaluate(async () => {
@@ -324,6 +328,6 @@ test.describe("FIG View neighborhood expansion", () => {
 
     // Error is surfaced as HTTP 500 — page does not crash
     expect(resp.status).toBe(500);
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
   });
 });

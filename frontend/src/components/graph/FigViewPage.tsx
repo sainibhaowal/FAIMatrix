@@ -1016,6 +1016,8 @@ export default function FigViewPage() {
           </button>
           <button
             onClick={() => loadSurface(graphId)}
+            aria-label="Refresh graph"
+            title="Refresh graph"
             className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-700/60 bg-slate-950/60 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/30 transition-all backdrop-blur"
           >
             <RefreshCw size={13} />

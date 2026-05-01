@@ -53,7 +53,7 @@ export function ChatComposer() {
   };
 
   return (
-    <div className="w-full relative px-6 pb-3 pt-2 bg-transparent pointer-events-none">
+    <div className="w-full relative px-4 sm:px-6 pb-3 pt-2 bg-transparent pointer-events-none">
       <input
         ref={fileInputRef}
         type="file"
@@ -62,7 +62,7 @@ export function ChatComposer() {
         onChange={handleFileChange}
       />
       {/* Floating thinking toggle button */}
-      <div className="absolute top-[-44px] left-6 pointer-events-auto">
+      <div className="absolute top-[-44px] left-4 sm:left-6 pointer-events-auto z-20">
         <button
           onClick={toggleThinking}
           className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${

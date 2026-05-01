@@ -166,9 +166,9 @@ export default function FigViewShowcase() {
       className="py-28 px-4 bg-slate-950 relative overflow-hidden"
     >
       <div className="absolute inset-0 faim-grid opacity-30" />
-      
+
       {/* Background Radar Scanning Effect */}
-      <motion.div 
+      <motion.div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] border border-purple-500/5 rounded-full pointer-events-none"
         animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
         transition={{ duration: 10, repeat: Infinity }}
@@ -212,7 +212,9 @@ export default function FigViewShowcase() {
                       : "border-slate-800 bg-slate-900/30 hover:border-slate-700"
                   }`}
                 >
-                  <div className={`absolute left-0 top-0 w-1 h-full bg-purple-500 transition-transform ${isActive ? "scale-y-100" : "scale-y-0"}`} />
+                  <div
+                    className={`absolute left-0 top-0 w-1 h-full bg-purple-500 transition-transform ${isActive ? "scale-y-100" : "scale-y-0"}`}
+                  />
                   <h3
                     className={`font-bold text-sm tracking-wide ${isActive ? "text-purple-400" : "text-slate-400 group-hover:text-slate-300"}`}
                   >
@@ -233,7 +235,7 @@ export default function FigViewShowcase() {
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.5 }}
-              className="relative h-[480px] rounded-3xl border border-slate-800 bg-slate-950 overflow-hidden shadow-2xl"
+              className="relative h-[300px] sm:h-[400px] md:h-[480px] rounded-3xl border border-slate-800 bg-slate-950 overflow-hidden shadow-2xl"
             >
               {/* Starry Grid Background */}
               <div
@@ -244,9 +246,9 @@ export default function FigViewShowcase() {
                   backgroundSize: "32px 32px",
                 }}
               />
-              
+
               {/* Radar Line - Behind Nodes */}
-              <motion.div 
+              <motion.div
                 className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-purple-500/50 to-transparent z-0 pointer-events-none"
                 animate={{ top: ["0%", "100%", "0%"] }}
                 transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
@@ -254,96 +256,175 @@ export default function FigViewShowcase() {
 
               {/* Mode-Specific Graph Simulation */}
               <svg className="absolute inset-0 w-full h-full p-12 overflow-visible z-10 pointer-events-none">
-                 <defs>
-                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feGaussianBlur stdDeviation="3" result="blur"/>
-                      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-                    </filter>
-                 </defs>
-                 
+                <defs>
+                  <filter
+                    id="glow"
+                    x="-20%"
+                    y="-20%"
+                    width="140%"
+                    height="140%"
+                  >
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feComposite
+                      in="SourceGraphic"
+                      in2="blur"
+                      operator="over"
+                    />
+                  </filter>
+                </defs>
+
                 {/* Dynamic Edges */}
-                {activeMode === "explore" && [
-                  [30, 25, 55, 40], [55, 40, 75, 30], [55, 40, 50, 65],
-                  [30, 25, 20, 50], [20, 50, 50, 65], [75, 30, 80, 55],
-                  [80, 55, 50, 65], [50, 65, 35, 80], [35, 80, 20, 50],
-                  [75, 30, 60, 15]
-                ].map(([x1, y1, x2, y2], i) => (
-                  <motion.line
-                    key={`e-exp-${i}`}
-                    x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}
-                    stroke="#475569" strokeWidth="0.8" opacity="0.3"
-                  />
-                ))}
+                {activeMode === "explore" &&
+                  [
+                    [30, 25, 55, 40],
+                    [55, 40, 75, 30],
+                    [55, 40, 50, 65],
+                    [30, 25, 20, 50],
+                    [20, 50, 50, 65],
+                    [75, 30, 80, 55],
+                    [80, 55, 50, 65],
+                    [50, 65, 35, 80],
+                    [35, 80, 20, 50],
+                    [75, 30, 60, 15],
+                  ].map(([x1, y1, x2, y2], i) => (
+                    <motion.line
+                      key={`e-exp-${i}`}
+                      x1={`${x1}%`}
+                      y1={`${y1}%`}
+                      x2={`${x2}%`}
+                      y2={`${y2}%`}
+                      stroke="#475569"
+                      strokeWidth="0.8"
+                      opacity="0.3"
+                    />
+                  ))}
 
-                {activeMode === "analyze" && [
-                  [20, 20, 50, 50], [80, 20, 50, 50], [50, 80, 50, 50],
-                  [20, 20, 80, 20], [80, 20, 80, 80], [80, 80, 20, 80], [20, 80, 20, 20]
-                ].map(([x1, y1, x2, y2], i) => (
-                  <motion.line
-                    key={`e-ana-${i}`}
-                    x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}
-                    stroke="#a855f7" strokeWidth="1" strokeDasharray="4 4" opacity="0.4"
-                  />
-                ))}
+                {activeMode === "analyze" &&
+                  [
+                    [20, 20, 50, 50],
+                    [80, 20, 50, 50],
+                    [50, 80, 50, 50],
+                    [20, 20, 80, 20],
+                    [80, 20, 80, 80],
+                    [80, 80, 20, 80],
+                    [20, 80, 20, 20],
+                  ].map(([x1, y1, x2, y2], i) => (
+                    <motion.line
+                      key={`e-ana-${i}`}
+                      x1={`${x1}%`}
+                      y1={`${y1}%`}
+                      x2={`${x2}%`}
+                      y2={`${y2}%`}
+                      stroke="#a855f7"
+                      strokeWidth="1"
+                      strokeDasharray="4 4"
+                      opacity="0.4"
+                    />
+                  ))}
 
-                {activeMode === "lineage" && [
-                  [50, 15, 30, 40], [50, 15, 70, 40],
-                  [30, 40, 15, 75], [30, 40, 45, 75],
-                  [70, 40, 85, 75]
-                ].map(([x1, y1, x2, y2], i) => (
-                  <motion.line
-                    key={`e-lin-${i}`}
-                    x1={`${x1}%`} y1={`${y1}%`} x2={`${x2}%`} y2={`${y2}%`}
-                    stroke="#3b82f6" strokeWidth="1.5" opacity="0.5"
-                  />
-                ))}
+                {activeMode === "lineage" &&
+                  [
+                    [50, 15, 30, 40],
+                    [50, 15, 70, 40],
+                    [30, 40, 15, 75],
+                    [30, 40, 45, 75],
+                    [70, 40, 85, 75],
+                  ].map(([x1, y1, x2, y2], i) => (
+                    <motion.line
+                      key={`e-lin-${i}`}
+                      x1={`${x1}%`}
+                      y1={`${y1}%`}
+                      x2={`${x2}%`}
+                      y2={`${y2}%`}
+                      stroke="#3b82f6"
+                      strokeWidth="1.5"
+                      opacity="0.5"
+                    />
+                  ))}
 
                 {/* Dynamic Nodes */}
-                {activeMode === "explore" && [
-                  { cx: 30, cy: 25, r: 6, fill: "#22d3ee" },
-                  { cx: 55, cy: 40, r: 10, fill: "#a855f7" },
-                  { cx: 75, cy: 30, r: 7, fill: "#3b82f6" },
-                  { cx: 50, cy: 65, r: 9, fill: "#22d3ee" },
-                  { cx: 20, cy: 50, r: 6, fill: "#10b981" },
-                  { cx: 80, cy: 55, r: 5, fill: "#3b82f6" },
-                  { cx: 35, cy: 80, r: 7, fill: "#a855f7" },
-                  { cx: 60, cy: 15, r: 5, fill: "#10b981" },
-                ].map((n, i) => (
-                  <g key={`n-exp-${i}`}>
-                    <circle cx={`${n.cx}%`} cy={`${n.cy}%`} r={n.r} fill={n.fill} filter="url(#glow)" />
-                    <circle cx={`${n.cx}%`} cy={`${n.cy}%`} r={n.r + 4} fill={n.fill} opacity="0.1" />
-                  </g>
-                ))}
+                {activeMode === "explore" &&
+                  [
+                    { cx: 30, cy: 25, r: 6, fill: "#22d3ee" },
+                    { cx: 55, cy: 40, r: 10, fill: "#a855f7" },
+                    { cx: 75, cy: 30, r: 7, fill: "#3b82f6" },
+                    { cx: 50, cy: 65, r: 9, fill: "#22d3ee" },
+                    { cx: 20, cy: 50, r: 6, fill: "#10b981" },
+                    { cx: 80, cy: 55, r: 5, fill: "#3b82f6" },
+                    { cx: 35, cy: 80, r: 7, fill: "#a855f7" },
+                    { cx: 60, cy: 15, r: 5, fill: "#10b981" },
+                  ].map((n, i) => (
+                    <g key={`n-exp-${i}`}>
+                      <circle
+                        cx={`${n.cx}%`}
+                        cy={`${n.cy}%`}
+                        r={n.r}
+                        fill={n.fill}
+                        filter="url(#glow)"
+                      />
+                      <circle
+                        cx={`${n.cx}%`}
+                        cy={`${n.cy}%`}
+                        r={n.r + 4}
+                        fill={n.fill}
+                        opacity="0.1"
+                      />
+                    </g>
+                  ))}
 
-                {activeMode === "analyze" && [
-                  { cx: 50, cy: 50, r: 14, fill: "#a855f7" },
-                  { cx: 20, cy: 20, r: 8, fill: "#22d3ee" },
-                  { cx: 80, cy: 20, r: 8, fill: "#22d3ee" },
-                  { cx: 80, cy: 80, r: 8, fill: "#22d3ee" },
-                  { cx: 20, cy: 80, r: 8, fill: "#22d3ee" },
-                ].map((n, i) => (
-                  <g key={`n-ana-${i}`}>
-                    <circle cx={`${n.cx}%`} cy={`${n.cy}%`} r={n.r} fill={n.fill} filter="url(#glow)" />
-                    <motion.circle 
-                      cx={`${n.cx}%`} cy={`${n.cy}%`} r={n.r + 8} fill={n.fill} opacity="0.05"
-                      animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2, repeat: Infinity }}
-                    />
-                  </g>
-                ))}
+                {activeMode === "analyze" &&
+                  [
+                    { cx: 50, cy: 50, r: 14, fill: "#a855f7" },
+                    { cx: 20, cy: 20, r: 8, fill: "#22d3ee" },
+                    { cx: 80, cy: 20, r: 8, fill: "#22d3ee" },
+                    { cx: 80, cy: 80, r: 8, fill: "#22d3ee" },
+                    { cx: 20, cy: 80, r: 8, fill: "#22d3ee" },
+                  ].map((n, i) => (
+                    <g key={`n-ana-${i}`}>
+                      <circle
+                        cx={`${n.cx}%`}
+                        cy={`${n.cy}%`}
+                        r={n.r}
+                        fill={n.fill}
+                        filter="url(#glow)"
+                      />
+                      <motion.circle
+                        cx={`${n.cx}%`}
+                        cy={`${n.cy}%`}
+                        r={n.r + 8}
+                        fill={n.fill}
+                        opacity="0.05"
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      />
+                    </g>
+                  ))}
 
-                {activeMode === "lineage" && [
-                  { cx: 50, cy: 15, r: 12, fill: "#a855f7" },
-                  { cx: 30, cy: 40, r: 9, fill: "#3b82f6" },
-                  { cx: 70, cy: 40, r: 9, fill: "#3b82f6" },
-                  { cx: 15, cy: 75, r: 7, fill: "#22d3ee" },
-                  { cx: 45, cy: 75, r: 7, fill: "#22d3ee" },
-                  { cx: 85, cy: 75, r: 7, fill: "#22d3ee" },
-                ].map((n, i) => (
-                  <g key={`n-lin-${i}`}>
-                    <circle cx={`${n.cx}%`} cy={`${n.cy}%`} r={n.r} fill={n.fill} filter="url(#glow)" />
-                    <path d={`M ${n.cx}% ${n.cy}% l 0 15`} stroke="#334155" strokeWidth="1" strokeDasharray="2 2" />
-                  </g>
-                ))}
+                {activeMode === "lineage" &&
+                  [
+                    { cx: 50, cy: 15, r: 12, fill: "#a855f7" },
+                    { cx: 30, cy: 40, r: 9, fill: "#3b82f6" },
+                    { cx: 70, cy: 40, r: 9, fill: "#3b82f6" },
+                    { cx: 15, cy: 75, r: 7, fill: "#22d3ee" },
+                    { cx: 45, cy: 75, r: 7, fill: "#22d3ee" },
+                    { cx: 85, cy: 75, r: 7, fill: "#22d3ee" },
+                  ].map((n, i) => (
+                    <g key={`n-lin-${i}`}>
+                      <circle
+                        cx={`${n.cx}%`}
+                        cy={`${n.cy}%`}
+                        r={n.r}
+                        fill={n.fill}
+                        filter="url(#glow)"
+                      />
+                      <path
+                        d={`M ${n.cx}% ${n.cy}% l 0 15`}
+                        stroke="#334155"
+                        strokeWidth="1"
+                        strokeDasharray="2 2"
+                      />
+                    </g>
+                  ))}
               </svg>
 
               <div className="absolute top-6 left-6 flex items-center gap-3">
@@ -358,10 +439,10 @@ export default function FigViewShowcase() {
 
               <div className="absolute bottom-6 right-6 flex flex-col items-end gap-1">
                 <div className="px-3 py-1 bg-slate-900/80 border border-slate-800 rounded-lg text-[9px] font-mono text-slate-400 backdrop-blur-sm">
-                   STATUS: STABLE (E=1.618)
+                  STATUS: STABLE (E=1.618)
                 </div>
                 <div className="px-3 py-1 bg-slate-900/80 border border-slate-800 rounded-lg text-[9px] font-mono text-slate-400 backdrop-blur-sm">
-                   NODES: 142 | EDGES: 384
+                  NODES: 142 | EDGES: 384
                 </div>
               </div>
             </motion.div>

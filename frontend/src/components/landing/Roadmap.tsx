@@ -48,9 +48,13 @@ export default function Roadmap() {
               className="relative p-8 rounded-2xl border border-slate-800 bg-slate-900/10 group overflow-hidden"
             >
               {/* Vertical line indicator */}
-              <div className={`absolute top-0 left-0 w-1 h-full bg-${phase.color}-500/30 group-hover:bg-${phase.color}-500 transition-colors`} />
+              <div
+                className={`absolute top-0 left-0 w-1 h-full bg-${phase.color}-500/30 group-hover:bg-${phase.color}-500 transition-colors`}
+              />
 
-              <span className={`text-[10px] font-bold text-${phase.color}-400 uppercase tracking-widest block mb-4`}>
+              <span
+                className={`text-[10px] font-bold text-${phase.color}-400 uppercase tracking-widest block mb-4`}
+              >
                 {phase.tag} — {phase.status}
               </span>
               <h3 className="text-white font-bold mb-2">{phase.title}</h3>
