@@ -63,7 +63,9 @@ export default function QuickStart() {
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <span className={`text-sm font-bold ${activeStep === i ? "text-purple-400" : "text-slate-600"}`}>
+                    <span
+                      className={`text-sm font-bold ${activeStep === i ? "text-purple-400" : "text-slate-600"}`}
+                    >
                       0{i + 1}
                     </span>
                     <h3 className="text-white font-bold">{step.title}</h3>

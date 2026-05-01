@@ -165,8 +165,7 @@ export default function QueryExplain() {
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto text-lg">
             Not a black-box confidence score. The Hybrid Physics-Based Graph
-            Recall stack exposes the signals that actually produced the
-            result.
+            Recall stack exposes the signals that actually produced the result.
           </p>
         </motion.div>
 

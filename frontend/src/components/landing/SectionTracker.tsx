@@ -51,7 +51,7 @@ export default function SectionTracker() {
           }
         });
       },
-      { threshold: 0.5 }
+      { threshold: 0.5 },
     );
 
     SECTIONS.forEach(({ id }) => {
@@ -80,14 +80,14 @@ export default function SectionTracker() {
   };
 
   return (
-    <div 
-      className="fixed right-0 top-1/2 -translate-y-1/2 z-50 hidden xl:flex flex-col items-end px-4 py-8 gap-1.5 group h-fit"
+    <div
+      className="fixed right-0 top-1/2 -translate-y-1/2 z-50 flex flex-col items-end px-1 sm:px-4 py-4 sm:py-8 gap-1 sm:gap-1.5 group h-fit max-h-[90vh] overflow-y-auto sm:overflow-visible custom-scrollbar"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
       {SECTIONS.map((section, i) => {
         const isActive = activeSection === section.id;
-        
+
         // Liquid Proximity Calculation
         let proximityScale = 1;
         if (mouseY !== null) {
@@ -97,7 +97,7 @@ export default function SectionTracker() {
             const centerY = rect.top + rect.height / 2;
             const dist = Math.abs(mouseY - centerY);
             // Gaussian-like falloff: max effect at dist=0, fades by 100px
-            proximityScale = Math.max(1, 2.5 - (dist / 60));
+            proximityScale = Math.max(1, 2.5 - dist / 60);
           }
         }
 
@@ -106,7 +106,7 @@ export default function SectionTracker() {
             key={section.id}
             id={`nav-dot-${section.id}`}
             onClick={() => scrollTo(section.id)}
-            className="relative flex items-center justify-end h-3 w-16 outline-none group/item"
+            className="relative flex items-center justify-end h-3 w-8 sm:w-16 outline-none group/item"
           >
             {/* Label */}
             <span
@@ -122,8 +122,12 @@ export default function SectionTracker() {
               animate={{
                 width: isActive ? 32 * proximityScale : 12 * proximityScale,
                 height: isActive ? 3 : 1.5,
-                backgroundColor: isActive ? "#22d3ee" : (mouseY !== null && proximityScale > 1.2 ? "#64748b" : "#334155"),
-                x: proximityScale > 1 ? -(proximityScale - 1) * 10 : 0
+                backgroundColor: isActive
+                  ? "#22d3ee"
+                  : mouseY !== null && proximityScale > 1.2
+                    ? "#64748b"
+                    : "#334155",
+                x: proximityScale > 1 ? -(proximityScale - 1) * 10 : 0,
               }}
               transition={{ type: "spring", stiffness: 300, damping: 20 }}
               className={`rounded-full ${

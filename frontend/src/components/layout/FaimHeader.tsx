@@ -49,7 +49,7 @@ export function FaimHeader() {
         } as React.CSSProperties
       }
       className={[
-        "group relative overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4 flex items-center justify-between",
+        "group relative overflow-hidden rounded-2xl border border-slate-800/70 bg-slate-950/55 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4",
         "before:pointer-events-none before:absolute before:inset-0 before:opacity-0 before:transition-opacity before:duration-200",
         "before:[background:radial-gradient(420px_circle_at_var(--mx)_var(--my),rgba(34,211,238,0.14),transparent_62%)]",
         "before:opacity-[var(--gvis)]",
@@ -60,13 +60,13 @@ export function FaimHeader() {
       ].join(" ")}
     >
       <div className="relative z-[1] space-y-1">
-        <div className="text-[10px] uppercase tracking-[0.24em] text-cyan-400/80">
+        <div className="text-[9px] sm:text-[10px] uppercase tracking-[0.24em] text-cyan-400/80">
           FAIMATRIX
         </div>
-        <div className="text-lg font-semibold text-slate-50">
+        <div className="text-base sm:text-lg font-semibold text-slate-50 leading-tight">
           Fractal Antisymmetric Inheritance Memory
         </div>
-        <div className="text-[11px] text-slate-400">
+        <div className="text-[10px] sm:text-[11px] text-slate-400">
           FIG · Antisym · Evolution · CR · R · Drift
         </div>
       </div>

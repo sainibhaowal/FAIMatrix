@@ -161,6 +161,8 @@ function SignupContent() {
                       <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                       <input
                         type="text"
+                        name="name"
+                        autoComplete="name"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         placeholder="John Doe"
@@ -180,6 +182,8 @@ function SignupContent() {
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                       <input
                         type="email"
+                        name="email"
+                        autoComplete="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@example.com"
@@ -266,6 +270,8 @@ function SignupContent() {
                       <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                       <input
                         type="text"
+                        name="code"
+                        autoComplete="one-time-code"
                         value={code}
                         onChange={(e) => setCode(e.target.value)}
                         placeholder="000 000"

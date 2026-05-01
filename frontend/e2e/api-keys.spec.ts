@@ -306,6 +306,7 @@ test.describe("API Keys Page", () => {
     await expect(
       page.getByText("Create key blocked by mock policy"),
     ).toBeVisible();
-    await expect(page.getByText("One-time key reveal")).toHaveCount(0);
+    await expect(page.getByText("Awaiting key generation")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Show key" })).toHaveCount(0);
   });
 });

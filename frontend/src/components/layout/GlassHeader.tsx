@@ -10,6 +10,7 @@ interface GlassHeaderProps {
   icon: LucideIcon;
   accentColor?: string;
   actions?: React.ReactNode;
+  titleTestId?: string;
 }
 
 export function GlassHeader({
@@ -18,6 +19,7 @@ export function GlassHeader({
   icon: Icon,
   accentColor = "var(--faim-primary)",
   actions,
+  titleTestId,
 }: GlassHeaderProps) {
   // Split title into first character and the rest for custom sizing (16px / 14px)
   const firstChar = title.charAt(0).toUpperCase();
@@ -45,7 +47,11 @@ export function GlassHeader({
               strokeWidth={2}
               style={{ color: accentColor }}
             />
-            <h1 className="font-bold flex items-baseline gap-[1px] text-white leading-none tracking-tight">
+            <h1
+              aria-label={title}
+              data-testid={titleTestId}
+              className="font-bold flex items-baseline gap-[1px] text-white leading-none tracking-tight"
+            >
               <span className="text-[22px] font-extrabold">{firstChar}</span>
               <span className="text-[18px] font-semibold opacity-90">
                 {restChars}

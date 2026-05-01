@@ -57,15 +57,22 @@ export default function RAGComparison() {
             FAIM vs. <span className="text-slate-500">Standard RAG</span>
           </h2>
           <p className="text-slate-400">
-            Why leading engineering teams are moving away from simple vector databases.
+            Why leading engineering teams are moving away from simple vector
+            databases.
           </p>
         </motion.div>
 
         <div className="rounded-2xl border border-slate-800 bg-slate-900/20 overflow-hidden backdrop-blur-sm">
           <div className="grid grid-cols-3 gap-4 px-6 py-4 border-b border-slate-800 bg-slate-900/50">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Feature</span>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center">Standard RAG</span>
-            <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest text-center">FAIM-Native</span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+              Feature
+            </span>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest text-center">
+              Standard RAG
+            </span>
+            <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest text-center">
+              FAIM-Native
+            </span>
           </div>
 
           <div className="divide-y divide-slate-800/50">
@@ -78,8 +85,12 @@ export default function RAGComparison() {
                 transition={{ delay: i * 0.05 }}
                 className="grid grid-cols-3 gap-4 px-6 py-5 items-center hover:bg-slate-800/10 transition-colors"
               >
-                <span className="text-sm font-medium text-slate-300">{row.feature}</span>
-                <span className="text-xs text-slate-500 text-center">{row.standard}</span>
+                <span className="text-sm font-medium text-slate-300">
+                  {row.feature}
+                </span>
+                <span className="text-xs text-slate-500 text-center">
+                  {row.standard}
+                </span>
                 <div className="flex flex-col items-center">
                   <span className="text-xs text-cyan-300 font-bold text-center">
                     {row.faim}
@@ -101,7 +112,8 @@ export default function RAGComparison() {
           viewport={{ once: true }}
           className="mt-8 text-center text-xs text-slate-600 italic"
         >
-          * Standard RAG refers to vanilla vector search using HNSW indices and flat document chunking.
+          * Standard RAG refers to vanilla vector search using HNSW indices and
+          flat document chunking.
         </motion.p>
       </div>
     </section>

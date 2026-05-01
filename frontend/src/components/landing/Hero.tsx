@@ -77,14 +77,14 @@ export default function Hero() {
 
       <motion.div
         style={{ opacity }}
-        className="relative z-10 text-center px-4 max-w-5xl mx-auto"
+        className="relative z-10 text-center px-4 sm:px-6 max-w-5xl mx-auto"
       >
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <span className="inline-flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.06] text-cyan-300 text-xs font-medium tracking-wider uppercase">
+          <span className="inline-flex items-center gap-2.5 px-4 sm:px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.06] text-cyan-300 text-[10px] sm:text-xs font-medium tracking-wider uppercase">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
@@ -97,7 +97,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.15 }}
-          className="mt-8 text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-[1.05] tracking-tight"
+          className="mt-4 sm:mt-8 text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-[1.05] tracking-tight"
         >
           Memory That Thinks
           <br />
@@ -110,27 +110,25 @@ export default function Hero() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.3 }}
-          className="mt-6 text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed"
+          className="mt-4 sm:mt-6 text-base md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed"
         >
           FAIMATRIX is a deterministic memory, retrieval, and answer engine. It
           combines native 256-dimensional vectors, sparse lexical sidecars,
-          graph diffusion, proposition-aware reranking, multilingual concept
-          links, multimodal indexing, domain knowledge, citation-first answers,
-          and real product workflows for Memory Query and Storage without giving
-          up FAIM&apos;s core invariants.
+          graph diffusion, proposition-aware reranking, and domain knowledge
+          without giving up FAIM&apos;s core invariants.
         </motion.p>
 
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.45 }}
-          className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
+          className="mt-6 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
         >
           <Link
             href="/auth/signup"
-            className="group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl text-white font-semibold text-lg shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-300 hover:scale-[1.03]"
+            className="w-full sm:w-auto group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl text-white font-semibold text-lg shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-300 hover:scale-[1.03]"
           >
-            <span className="relative z-10 flex items-center gap-2">
+            <span className="relative z-10 flex items-center justify-center gap-2">
               Start Building
               <svg
                 className="w-5 h-5 group-hover:translate-x-1 transition-transform"
@@ -151,7 +149,7 @@ export default function Hero() {
 
           <Link
             href="#architecture"
-            className="px-8 py-4 border border-slate-700/80 rounded-xl text-slate-300 font-medium text-lg hover:border-slate-500 hover:bg-white/[0.03] transition-all duration-300"
+            className="w-full sm:w-auto px-8 py-4 border border-slate-700/80 rounded-xl text-slate-300 font-medium text-lg hover:border-slate-500 hover:bg-white/[0.03] transition-all duration-300 text-center"
           >
             Explore the Engine
           </Link>
@@ -161,7 +159,7 @@ export default function Hero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.7 }}
-          className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-0 md:divide-x md:divide-slate-800"
+          className="mt-12 sm:mt-20 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-0 md:divide-x md:divide-slate-800"
         >
           {HERO_STATS.map((stat, i) => (
             <motion.div
@@ -171,15 +169,15 @@ export default function Hero() {
               transition={{ duration: 0.5, delay: 0.8 + i * 0.1 }}
               className="flex flex-col items-center px-6"
             >
-              <p className="text-2xl md:text-3xl font-bold text-white font-mono tracking-tight">
+              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-white font-mono tracking-tight">
                 {stat.value}
                 {stat.unit && (
-                  <span className="text-sm md:text-base text-cyan-400 ml-1 font-sans font-medium">
+                  <span className="text-xs sm:text-sm md:text-base text-cyan-400 ml-0.5 sm:ml-1 font-sans font-medium">
                     {stat.unit}
                   </span>
                 )}
               </p>
-              <p className="text-xs md:text-sm text-slate-500 mt-1">
+              <p className="text-[10px] sm:text-xs md:text-sm text-slate-500 mt-1">
                 {stat.label}
               </p>
             </motion.div>
@@ -190,9 +188,9 @@ export default function Hero() {
           initial={{ opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.95 }}
-          className="mt-10 grid gap-4 sm:grid-cols-2 max-w-4xl mx-auto"
+          className="mt-8 sm:mt-10 grid gap-3 sm:gap-4 sm:grid-cols-2 max-w-4xl mx-auto"
         >
-          <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.04] px-5 py-4 text-left">
+          <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">
             <p className="text-[10px] font-medium uppercase tracking-widest text-cyan-300/80">
               Memory Query
             </p>
@@ -201,7 +199,7 @@ export default function Hero() {
               source files directly into the same FAIM graph.
             </p>
           </div>
-          <div className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] px-5 py-4 text-left">
+          <div className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">
             <p className="text-[10px] font-medium uppercase tracking-widest text-purple-300/80">
               Storage Control
             </p>

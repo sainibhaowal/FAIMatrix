@@ -163,9 +163,9 @@ export default function HybridRecall() {
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed">
                 Vector search alone often returns results that sound similar but
-                are factually wrong. By forcing a **Sparse/Lexical check (WAND)**,
-                FAIM ensures that specific names, dates, and entities are
-                respected.
+                are factually wrong. By forcing a **Sparse/Lexical check
+                (WAND)**, FAIM ensures that specific names, dates, and entities
+                are respected.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 {[
@@ -191,9 +191,10 @@ export default function HybridRecall() {
               </p>
               <div className="h-px w-full bg-gradient-to-r from-cyan-500/50 to-transparent" />
               <p className="text-xs text-slate-500 leading-relaxed">
-                This architecture solves the &ldquo;lost in the middle&rdquo; and
-                context blindness problems inherent in standard vector databases
-                by leveraging graph inheritance and physics-based scoring.
+                This architecture solves the &ldquo;lost in the middle&rdquo;
+                and context blindness problems inherent in standard vector
+                databases by leveraging graph inheritance and physics-based
+                scoring.
               </p>
             </div>
           </div>

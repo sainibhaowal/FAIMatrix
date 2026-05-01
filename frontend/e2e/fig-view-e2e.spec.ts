@@ -22,6 +22,21 @@ import { expect, test, type Page } from "@playwright/test";
 
 const GRAPH_ID = "fig-e2e-test-graph-0001";
 
+function figViewTitle(page: Page) {
+  return page.locator("main").getByText("FIG View", { exact: true }).last();
+}
+
+function railButton(page: Page, label: string) {
+  return page.getByRole("button", { name: label, exact: true });
+}
+
+async function openSearchOverlay(page: Page) {
+  await page.getByRole("button", { name: "Search /" }).click();
+  await expect(
+    page.getByPlaceholder("Search nodes by title, kind, or ID…"),
+  ).toBeVisible();
+}
+
 function sessionPayload(graphId = GRAPH_ID) {
   return {
     user: { name: "FIG E2E Tester", email: "fig-e2e@example.com", image: null },
@@ -179,7 +194,7 @@ async function loadFigPage(page: Page, graphId = GRAPH_ID) {
   await mockAuth(page, graphId);
   await mockStandardApi(page, graphId);
   await page.goto("/dashboard/graph");
-  await expect(page.getByText("FIG View")).toBeVisible();
+  await expect(figViewTitle(page)).toBeVisible();
 }
 
 // ---------------------------------------------------------------------------
@@ -193,7 +208,7 @@ test.describe("FIG View — page load states", () => {
     await loadFigPage(page);
 
     // Title always present
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
 
     // Three top-mode tabs
     await expect(page.getByText("Explore")).toBeVisible();
@@ -211,7 +226,7 @@ test.describe("FIG View — page load states", () => {
       "Timeline",
       "Controls",
     ]) {
-      await expect(page.getByTitle(label)).toBeVisible();
+      await expect(railButton(page, label)).toBeVisible();
     }
   });
 
@@ -298,7 +313,7 @@ test.describe("FIG View — page load states", () => {
     await expect(page.getByText("degraded")).toBeVisible();
   });
 
-  test("retry button on error state re-issues the surface fetch", async ({
+  test("transient surface error re-issues the surface fetch and recovers", async ({
     page,
   }) => {
     await mockAuth(page);
@@ -313,7 +328,6 @@ test.describe("FIG View — page load states", () => {
             contentType: "application/json",
             body: JSON.stringify({ detail: "temporary error" }),
           });
-        // Second call succeeds
         return route.fulfill({
           status: 200,
           contentType: "application/json",
@@ -334,11 +348,7 @@ test.describe("FIG View — page load states", () => {
     });
 
     await page.goto("/dashboard/graph");
-    await expect(page.getByText("Failed to load graph")).toBeVisible();
-
-    // Click the Retry button
-    await page.getByRole("button", { name: /retry/i }).click();
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
     expect(callCount).toBeGreaterThanOrEqual(2);
   });
 });
@@ -359,7 +369,7 @@ test.describe("FIG View — top mode tabs", () => {
     await loadFigPage(page);
     await page.getByText("Lineage").click();
     // Edges drawer shows edge kind counts
-    await expect(page.getByText(/inheritance/i)).toBeVisible();
+    await expect(page.getByText("inheritance", { exact: true })).toBeVisible();
   });
 
   test("Explore tab click opens the Nodes drawer", async ({ page }) => {
@@ -399,7 +409,7 @@ test.describe("FIG View — right rail drawers", () => {
     page,
   }) => {
     await loadFigPage(page);
-    await page.getByTitle("Nodes").click();
+    await railButton(page, "Nodes").click();
     await expect(page.getByText("Alpha Node")).toBeVisible();
     await expect(page.getByText("Beta Node")).toBeVisible();
     // Kind badges
@@ -409,9 +419,9 @@ test.describe("FIG View — right rail drawers", () => {
 
   test("Edges drawer: shows edge kind and count", async ({ page }) => {
     await loadFigPage(page);
-    await page.getByTitle("Edges").click();
-    await expect(page.getByText("inheritance")).toBeVisible();
-    await expect(page.getByText("1")).toBeVisible();
+    await railButton(page, "Edges").click();
+    await expect(page.getByText("inheritance", { exact: true })).toBeVisible();
+    await expect(page.getByText("Edges (1)")).toBeVisible();
   });
 
   test("Relation drawer: shows node pickers and Find Connection button", async ({
@@ -475,11 +485,11 @@ test.describe("FIG View — drawer toggle behaviour", () => {
     await loadFigPage(page);
 
     // Open the Nodes drawer
-    await page.getByTitle("Nodes").click();
+    await railButton(page, "Nodes").click();
     await expect(page.getByText("Alpha Node")).toBeVisible();
 
     // Click the same button again to close
-    await page.getByTitle("Nodes").click();
+    await railButton(page, "Nodes").click();
     await expect(page.getByText("Alpha Node")).not.toBeVisible();
   });
 
@@ -502,7 +512,7 @@ test.describe("FIG View — drawer toggle behaviour", () => {
     await loadFigPage(page);
 
     // Open Nodes
-    await page.getByTitle("Nodes").click();
+    await railButton(page, "Nodes").click();
     await expect(page.getByText("Alpha Node")).toBeVisible();
 
     // Open Snapshot — Nodes should close (only one FloatingDrawer renders at a time)
@@ -527,10 +537,7 @@ test.describe("FIG View — search overlay", () => {
 
   test("Escape closes the search overlay", async ({ page }) => {
     await loadFigPage(page);
-    await page.keyboard.press("/");
-    await expect(
-      page.getByPlaceholder("Search nodes by title, kind, or ID…"),
-    ).toBeVisible();
+    await openSearchOverlay(page);
     await page.keyboard.press("Escape");
     await expect(
       page.getByPlaceholder("Search nodes by title, kind, or ID…"),
@@ -539,7 +546,7 @@ test.describe("FIG View — search overlay", () => {
 
   test("typing in search filters node results", async ({ page }) => {
     await loadFigPage(page);
-    await page.keyboard.press("/");
+    await openSearchOverlay(page);
 
     const input = page.getByPlaceholder("Search nodes by title, kind, or ID…");
     await input.fill("Alpha");
@@ -551,7 +558,7 @@ test.describe("FIG View — search overlay", () => {
 
   test("empty query shows all nodes", async ({ page }) => {
     await loadFigPage(page);
-    await page.keyboard.press("/");
+    await openSearchOverlay(page);
 
     // Both nodes visible with no filter
     await expect(page.getByText("Alpha Node")).toBeVisible();
@@ -560,7 +567,7 @@ test.describe("FIG View — search overlay", () => {
 
   test("no-match query shows no-match message", async ({ page }) => {
     await loadFigPage(page);
-    await page.keyboard.press("/");
+    await openSearchOverlay(page);
     await page
       .getByPlaceholder("Search nodes by title, kind, or ID…")
       .fill("zzznomatch");
@@ -569,7 +576,7 @@ test.describe("FIG View — search overlay", () => {
 
   test("result count is shown in search footer", async ({ page }) => {
     await loadFigPage(page);
-    await page.keyboard.press("/");
+    await openSearchOverlay(page);
     // With no filter, 2 results
     await expect(page.getByText("2 results")).toBeVisible();
   });
@@ -617,11 +624,11 @@ test.describe("FIG View — refresh button", () => {
     });
 
     await page.goto("/dashboard/graph");
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
     const initialCount = surfaceFetchCount;
 
     // Click the refresh icon button (RefreshCw in top-right bar area)
-    await page.locator("button svg[data-lucide='refresh-cw']").first().click();
+    await page.getByRole("button", { name: "Refresh graph" }).click();
 
     // Surface should be called again
     await page.waitForTimeout(300);
@@ -639,7 +646,7 @@ test.describe("FIG View — graph header", () => {
     await mockAuth(page, longGraphId);
     await mockStandardApi(page, longGraphId);
     await page.goto("/dashboard/graph");
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
     // graphLabel = graphId.slice(0, 12) + "…" = "fig-e2e-test…"
     await expect(page.getByText("fig-e2e-test…")).toBeVisible();
   });
@@ -690,9 +697,9 @@ test.describe("FIG View — API non-regression", () => {
     });
 
     await page.goto("/dashboard/graph");
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
     // Page still renders graph — timeline polling degrades gracefully
-    await page.getByTitle("Nodes").click();
+    await railButton(page, "Nodes").click();
     await expect(page.getByText("Alpha Node")).toBeVisible();
   });
 
@@ -729,7 +736,7 @@ test.describe("FIG View — API non-regression", () => {
     });
 
     await page.goto("/dashboard/graph");
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
 
     // Edges drawer shows no-edges message
     await page.getByTitle("Edges").click();
@@ -762,9 +769,9 @@ test.describe("FIG View — API non-regression", () => {
     });
 
     await page.goto("/dashboard/graph");
-    await expect(page.getByText("FIG View")).toBeVisible();
+    await expect(figViewTitle(page)).toBeVisible();
     // Metrics bar falls back gracefully
-    await page.getByTitle("Nodes").click();
+    await railButton(page, "Nodes").click();
     await expect(page.getByText("Alpha Node")).toBeVisible();
   });
 

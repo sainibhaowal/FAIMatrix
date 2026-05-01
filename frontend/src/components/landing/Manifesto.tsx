@@ -45,8 +45,8 @@ export default function Manifesto() {
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            We are building the engine for teams who can&apos;t afford to guess. No
-            hallucinations, no jitter, no context blindness.
+            We are building the engine for teams who can&apos;t afford to guess.
+            No hallucinations, no jitter, no context blindness.
           </p>
         </motion.div>
 

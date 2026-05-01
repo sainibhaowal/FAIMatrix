@@ -51,7 +51,8 @@ const AUDIENCE = [
     label: "Platform Teams",
     text: "Integrate via API, control workflows, and keep the stack self-hostable.",
   },
-];export default function LandingOutcomes() {
+];
+export default function LandingOutcomes() {
   return (
     <section className="py-28 px-4 bg-slate-950 relative overflow-hidden">
       {/* Background Structures */}
@@ -67,7 +68,7 @@ const AUDIENCE = [
           transition={{ duration: 0.7, ease: "easeOut" }}
           className="text-center mb-16"
         >
-          <motion.span 
+          <motion.span
             initial={{ opacity: 0, scale: 0.9 }}
             whileInView={{ opacity: 1, scale: 1 }}
             className="inline-block px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold tracking-widest uppercase mb-4"
@@ -76,11 +77,15 @@ const AUDIENCE = [
           </motion.span>
           <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight">
             Real outcomes for <br className="hidden md:block" />
-            <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">production knowledge</span> work
+            <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
+              production knowledge
+            </span>{" "}
+            work
           </h2>
           <p className="mt-6 text-slate-400 max-w-3xl mx-auto text-lg leading-relaxed">
             FAIM is built to support the workflows companies actually need:
-            upload, inspect, rebuild, query, explain, and operate with confidence.
+            upload, inspect, rebuild, query, explain, and operate with
+            confidence.
           </p>
         </motion.div>
 
@@ -96,7 +101,9 @@ const AUDIENCE = [
               className="group relative rounded-3xl border border-slate-800 bg-slate-900/30 p-8 hover:border-emerald-500/30 hover:bg-slate-900/50 transition-all duration-300"
             >
               <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/5 blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
-              <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">{item.title}</h3>
+              <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">
+                {item.title}
+              </h3>
               <p className="mt-4 text-sm leading-relaxed text-slate-500 group-hover:text-slate-400 transition-colors">
                 {item.text}
               </p>

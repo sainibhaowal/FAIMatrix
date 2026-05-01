@@ -191,7 +191,7 @@ function KpiCell({
   sub,
   color,
   loading,
-  border,
+  className,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -199,12 +199,11 @@ function KpiCell({
   sub: string;
   color: string;
   loading?: boolean;
-  border?: boolean;
+  className?: string;
 }) {
   return (
     <div
-      className="relative flex flex-col justify-center px-6 py-4"
-      style={{ borderLeft: border ? "1px solid var(--os-stroke)" : undefined }}
+      className={`relative flex flex-col justify-center px-4 sm:px-6 py-4 border-slate-800/50 ${className}`}
     >
       <div className="flex items-center justify-between mb-2">
         <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
@@ -268,19 +267,25 @@ function ScorecardGauge({
 }) {
   return (
     <div
-      className="flex flex-col items-center justify-center gap-0.5 py-3 px-4 rounded-xl border"
+      className="flex flex-col items-center justify-center gap-0.5 py-3 px-2 sm:px-4 rounded-xl border text-center"
       style={{
         background: "var(--os-surface-2)",
         borderColor: "var(--os-stroke)",
       }}
     >
-      <span className="font-mono text-[18px] font-bold" style={{ color }}>
+      <span
+        className="font-mono text-[16px] sm:text-[18px] font-bold"
+        style={{ color }}
+      >
         {value > 0 ? value.toFixed(2) : "0"}
       </span>
-      <span className="text-[9px] uppercase tracking-widest text-slate-500">
+      <span className="text-[8px] sm:text-[9px] uppercase tracking-widest text-slate-500">
         {label}
       </span>
-      <span className="text-[8px] font-mono" style={{ color, opacity: 0.7 }}>
+      <span
+        className="text-[7px] sm:text-[8px] font-mono"
+        style={{ color, opacity: 0.7 }}
+      >
         {hint}
       </span>
     </div>
@@ -667,7 +672,7 @@ export default function DashboardPage() {
           sub={`${storage?.total_files ?? "—"} files`}
           color="text-emerald-400"
           loading={storageLoading}
-          border
+          className="border-l"
         />
         <KpiCell
           icon={<Shield size={18} />}
@@ -676,7 +681,7 @@ export default function DashboardPage() {
           sub={`${keyCount?.active ?? "—"} active`}
           color="text-amber-400"
           loading={keysLoading}
-          border
+          className="border-t xl:border-t-0 xl:border-l"
         />
         <KpiCell
           icon={<Zap size={18} />}
@@ -688,7 +693,7 @@ export default function DashboardPage() {
               : "checking…"
           }
           color={healthOk ? "text-emerald-400" : "text-rose-400"}
-          border
+          className="border-t xl:border-t-0 border-l"
         />
       </div>
 
@@ -797,7 +802,7 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {scorecardGauges.map((g) => (
                     <ScorecardGauge key={g.label} {...g} />
                   ))}

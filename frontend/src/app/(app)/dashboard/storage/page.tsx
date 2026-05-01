@@ -1900,6 +1900,7 @@ export default function StoragePage() {
 
       <GlassHeader
         title="Storage Control"
+        titleTestId="storage-page-title"
         subtitle={`Immutable Provenance & Ingest Lifecycle · Graph Scope: ${activeGraphId}`}
         icon={Database}
         actions={

@@ -124,13 +124,24 @@ export default function MathProof() {
       {/* Structural Geometry Background */}
       <div className="absolute inset-0 faim-grid opacity-20" />
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden opacity-30">
-        <svg className="absolute top-[-10%] right-[-10%] w-[600px] h-[600px] text-cyan-500/10">
+        <svg className="absolute top-[-10%] right-[-10%] w-[300px] sm:w-[600px] h-[300px] sm:h-[600px] text-cyan-500/10">
+          <motion.path
+            d="M 150, 150 m -125, 0 a 125,125 0 1,0 250,0 a 125,125 0 1,0 -250,0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="0.5"
+            strokeDasharray="4 4"
+            className="sm:hidden"
+            animate={{ rotate: 360 }}
+            transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
+          />
           <motion.path
             d="M 300, 300 m -250, 0 a 250,250 0 1,0 500,0 a 250,250 0 1,0 -500,0"
             fill="none"
             stroke="currentColor"
             strokeWidth="0.5"
             strokeDasharray="4 4"
+            className="hidden sm:block"
             animate={{ rotate: 360 }}
             transition={{ duration: 60, repeat: Infinity, ease: "linear" }}
           />
@@ -145,7 +156,7 @@ export default function MathProof() {
           transition={{ duration: 0.7 }}
           className="text-center mb-20"
         >
-          <motion.span 
+          <motion.span
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             className="text-cyan-400 text-[10px] font-bold tracking-[0.3em] uppercase mb-4 block"
@@ -160,7 +171,8 @@ export default function MathProof() {
           </h2>
           <p className="mt-6 text-slate-400 max-w-2xl mx-auto text-lg leading-relaxed">
             8 mathematical invariants verified on every write operation. Not
-            &ldquo;best effort&rdquo; — mathematically enforced at the core layer.
+            &ldquo;best effort&rdquo; — mathematically enforced at the core
+            layer.
           </p>
         </motion.div>
 
@@ -178,12 +190,14 @@ export default function MathProof() {
               <div
                 className={`w-12 h-12 rounded-xl ${inv.bg} flex items-center justify-center mb-4 relative overflow-hidden`}
               >
-                <motion.div 
+                <motion.div
                   className="absolute inset-0 bg-white/5"
                   animate={{ scale: [1, 1.2, 1], opacity: [0.1, 0.2, 0.1] }}
                   transition={{ duration: 3, repeat: Infinity }}
                 />
-                <span className={`text-xl font-bold font-mono ${inv.color} relative z-10`}>
+                <span
+                  className={`text-xl font-bold font-mono ${inv.color} relative z-10`}
+                >
                   {inv.symbol}
                 </span>
               </div>
@@ -207,7 +221,10 @@ export default function MathProof() {
           <div className="flex items-center gap-4 mb-12">
             <div className="h-px flex-1 bg-gradient-to-r from-transparent to-slate-800" />
             <h3 className="text-2xl font-bold text-white whitespace-nowrap">
-              Fractal Physics <span className="text-slate-500 font-normal">&mdash; Measurable Reality</span>
+              Fractal Physics{" "}
+              <span className="text-slate-500 font-normal">
+                &mdash; Measurable Reality
+              </span>
             </h3>
             <div className="h-px flex-1 bg-gradient-to-l from-transparent to-slate-800" />
           </div>
@@ -223,7 +240,9 @@ export default function MathProof() {
                 className="p-8 rounded-3xl border border-slate-800 bg-slate-900/20 hover:border-slate-700 transition-all group relative overflow-hidden"
               >
                 <div className="absolute top-0 right-0 p-4 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity">
-                  <span className="text-6xl font-bold text-white font-mono">{i + 1}</span>
+                  <span className="text-6xl font-bold text-white font-mono">
+                    {i + 1}
+                  </span>
                 </div>
                 <h4 className="text-white font-bold mb-3">{metric.name}</h4>
                 <div className="px-3 py-1.5 rounded-lg bg-slate-950/80 border border-slate-800 inline-block mb-4">
@@ -231,7 +250,9 @@ export default function MathProof() {
                     {metric.formula}
                   </code>
                 </div>
-                <p className="text-slate-400 text-sm leading-relaxed mb-4">{metric.meaning}</p>
+                <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                  {metric.meaning}
+                </p>
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                   <p className="text-slate-600 text-[10px] font-mono tracking-widest uppercase">
@@ -249,47 +270,65 @@ export default function MathProof() {
           whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="mt-16 p-10 rounded-[2.5rem] border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.05] via-slate-950 to-transparent relative overflow-hidden group"
+          className="mt-16 p-6 sm:p-10 rounded-[1.5rem] sm:rounded-[2.5rem] border border-amber-500/20 bg-gradient-to-br from-amber-500/[0.05] via-slate-950 to-transparent relative overflow-hidden group"
         >
           <div className="absolute -right-20 -top-20 w-64 h-64 border border-amber-500/10 rounded-full animate-pulse pointer-events-none" />
-          
+
           <div className="flex flex-col md:flex-row items-center gap-12 relative z-10">
             <div className="flex-1 text-center md:text-left">
               <span className="text-amber-500/80 text-[10px] font-bold uppercase tracking-[0.4em] mb-4 block">
                 Stability Equilibrium
               </span>
-              <p className="text-5xl md:text-7xl font-bold text-amber-400 font-mono mb-6 tracking-tighter">
+              <p className="text-4xl sm:text-5xl md:text-7xl font-bold text-amber-400 font-mono mb-6 tracking-tighter break-words">
                 s = 1/&phi; &approx; 0.618
               </p>
               <p className="text-slate-400 text-base max-w-xl leading-relaxed">
                 The golden ratio reciprocal isn&apos;t decoration. It&apos;s the
-                fixed point of <code className="text-amber-200/50">s = 1/(1+s)</code>,
-                guaranteeing self-similar scaling across hierarchy levels. Energy is
-                bounded because the physics demands it.
+                fixed point of{" "}
+                <code className="text-amber-200/50">s = 1/(1+s)</code>,
+                guaranteeing self-similar scaling across hierarchy levels.
+                Energy is bounded because the physics demands it.
               </p>
             </div>
-            
+
             <div className="w-48 h-48 md:w-64 md:h-64 relative shrink-0">
-               {/* Simplified SVG Spiral representing phi */}
-               <svg viewBox="0 0 100 100" className="w-full h-full text-amber-500/20">
-                  <motion.path 
-                    d="M 50,50 m -40,0 a 40,40 0 1,0 80,0 a 40,40 0 1,0 -80,0"
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="0.5"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                  />
-                  <motion.path 
-                    d="M 50,50 m -25,0 a 25,25 0 1,0 50,0 a 25,25 0 1,0 -50,0"
-                    fill="none" 
-                    stroke="currentColor" 
-                    strokeWidth="1"
-                    animate={{ rotate: -360 }}
-                    transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-                  />
-                  <circle cx="50" cy="50" r="2" fill="currentColor" className="text-amber-500/50" />
-               </svg>
+              {/* Simplified SVG Spiral representing phi */}
+              <svg
+                viewBox="0 0 100 100"
+                className="w-full h-full text-amber-500/20"
+              >
+                <motion.path
+                  d="M 50,50 m -40,0 a 40,40 0 1,0 80,0 a 40,40 0 1,0 -80,0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="0.5"
+                  animate={{ rotate: 360 }}
+                  transition={{
+                    duration: 10,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                />
+                <motion.path
+                  d="M 50,50 m -25,0 a 25,25 0 1,0 50,0 a 25,25 0 1,0 -50,0"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  animate={{ rotate: -360 }}
+                  transition={{
+                    duration: 15,
+                    repeat: Infinity,
+                    ease: "linear",
+                  }}
+                />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="2"
+                  fill="currentColor"
+                  className="text-amber-500/50"
+                />
+              </svg>
             </div>
           </div>
         </motion.div>
