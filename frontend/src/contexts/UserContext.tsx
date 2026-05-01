@@ -9,6 +9,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { readJsonSafely } from "@/lib/safeFetch";
 
 interface UserContextType {
   userId: string | null;
@@ -29,16 +30,6 @@ const defaultContext: UserContextType = {
 };
 
 const UserContext = createContext<UserContextType>(defaultContext);
-
-async function readJsonSafely<T>(res: Response): Promise<T | null> {
-  const contentType = res.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) return null;
-  try {
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
-}
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from "@/components/brand/Logo";
+import { readJsonSafely } from "@/lib/safeFetch";
 
 function SignupContent() {
   const router = useRouter();
@@ -55,7 +56,14 @@ function SignupContent() {
         body: JSON.stringify({ email, mode: "signup" }),
       });
 
-      const data = await res.json();
+      const data = await readJsonSafely<{
+        success?: boolean;
+        detail?: string;
+      }>(res);
+      if (!data) {
+        setError("Unexpected response from server");
+        return;
+      }
 
       if (res.ok && data.success) {
         setStep("code");
