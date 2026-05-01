@@ -5,6 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import { useUser } from "@/contexts/UserContext";
+import { readJsonSafely } from "@/lib/safeFetch";
 import {
   User,
   Settings,
@@ -45,16 +46,6 @@ type TotpStatus = {
   enabled: boolean;
   recovery_codes_remaining: number;
 };
-
-async function readJsonSafely<T>(res: Response): Promise<T | null> {
-  const contentType = res.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) return null;
-  try {
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
-}
 
 export default function ProfilePage() {
   const { data: session } = useSession();

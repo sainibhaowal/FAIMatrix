@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { API_BASE_URL } from "@/lib/api-client";
+import { readJsonSafely } from "@/lib/safeFetch";
 
 function cx(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(" ");
@@ -24,7 +25,7 @@ async function searchSoft(graphId: string, q: string): Promise<SearchResult[]> {
       { cache: "no-store" },
     );
     if (!res.ok) return [];
-    const data = (await res.json()) as any;
+    const data = (await readJsonSafely<any>(res)) ?? {};
     const arr = Array.isArray(data)
       ? data
       : Array.isArray(data?.results)
