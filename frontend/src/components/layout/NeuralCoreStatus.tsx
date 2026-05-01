@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Zap, Cpu, Activity, BarChart3 } from "lucide-react";
 import { getSession } from "next-auth/react";
+import { readJsonSafely } from "@/lib/safeFetch";
 
 interface PipelineStats {
   gpu_available: boolean;
@@ -31,7 +32,8 @@ export function NeuralCoreStatus() {
 
         const res = await fetch("/api/v1/pipeline/stats", { headers });
         if (res.ok) {
-          const data = await res.json();
+          const data = await readJsonSafely<PipelineStats>(res);
+          if (!data) return;
           setStats(data);
         }
       } catch (e) {

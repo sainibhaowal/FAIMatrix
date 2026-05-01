@@ -13,6 +13,7 @@ import Link from "next/link";
 import { Loader2, Mail, Lock, ArrowRight, ChevronLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from "@/components/brand/Logo";
+import { readJsonSafely } from "@/lib/safeFetch";
 
 function LoginContent() {
   const router = useRouter();
@@ -54,7 +55,15 @@ function LoginContent() {
         body: JSON.stringify({ email, mode: "login" }),
       });
 
-      const data = await res.json();
+      const data = await readJsonSafely<{
+        success?: boolean;
+        detail?: string;
+        totp_enabled?: boolean;
+      }>(res);
+      if (!data) {
+        setError("Unexpected response from server");
+        return;
+      }
 
       if (res.ok && data.success) {
         setTotpAvailable(Boolean(data.totp_enabled));
