@@ -25,6 +25,7 @@ import {
   updateProviderModels,
   normalizeBaseUrl,
 } from "@/lib/providers";
+import { discoverProviderModels } from "@/lib/providerDiscovery";
 
 interface ProviderContextType {
   providers: Provider[];
@@ -89,17 +90,9 @@ export function ProviderProvider({ children }: { children: React.ReactNode }) {
         let resolvedActiveModel = activeModel ?? "";
 
         if (resolvedModels.length === 0) {
-          // Fallback: discover models now
-          const res = await fetch("/api/provider/discover", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ baseUrl: normalized, apiKey }),
-          });
-          if (res.ok) {
-            const data = await res.json();
-            resolvedModels = data.models ?? [];
-            resolvedActiveModel = resolvedModels[0] ?? "";
-          }
+          const discovery = await discoverProviderModels(normalized, apiKey);
+          resolvedModels = discovery.models;
+          resolvedActiveModel = resolvedModels[0] ?? "";
         }
 
         const newProvider: Omit<Provider, "id"> = {
@@ -177,22 +170,10 @@ export function ProviderProvider({ children }: { children: React.ReactNode }) {
           return false;
         }
 
-        const res = await fetch("/api/provider/discover", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            baseUrl: provider.baseUrl,
-            apiKey: provider.apiKey,
-          }),
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          setError(errData.message || `Discovery failed (${res.status})`);
-          return false;
-        }
-
-        const { models } = await res.json();
+        const { models } = await discoverProviderModels(
+          provider.baseUrl,
+          provider.apiKey,
+        );
 
         // Update provider with discovered models
         updateProviderModels(providerId, models);

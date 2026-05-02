@@ -7,6 +7,7 @@ declare module "next-auth" {
    */
   interface Session {
     accessToken?: string;
+    isAdmin?: boolean;
 
     graphId?: string;
     user: {
@@ -25,6 +26,7 @@ declare module "next-auth/jwt" {
   interface JWT {
     accessToken?: string;
     userId?: string;
+    isAdmin?: boolean;
 
     graphId?: string;
   }

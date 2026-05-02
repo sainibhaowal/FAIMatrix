@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Dropdown } from "../Dropdown";
 import { useOutsideClick } from "@/components/ui/useOutsideClick";
 
@@ -24,7 +26,10 @@ const MOCK_NOTIFS: any[] = [];
 export function NotificationCenter() {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLButtonElement>(null);
+  const router = useRouter();
+  const { data: session } = useSession();
   const [notifs, setNotifs] = useState(MOCK_NOTIFS);
+  const isAdmin = Boolean((session as { isAdmin?: boolean } | null)?.isAdmin);
 
   const unreadCount = notifs.filter((n) => n.unread).length;
 
@@ -128,8 +133,15 @@ export function NotificationCenter() {
         </div>
 
         <div className="border-t border-white/10 px-4 py-2 text-center">
-          <button className="text-[10px] text-slate-500 hover:text-slate-300">
-            View all
+          <button
+            onClick={() => {
+              if (isAdmin) {
+                router.push("/dashboard/admin#alerts");
+              }
+            }}
+            className="text-[10px] text-slate-500 hover:text-slate-300"
+          >
+            {isAdmin ? "View admin alerts" : "View all"}
           </button>
         </div>
       </Dropdown>

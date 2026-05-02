@@ -100,6 +100,27 @@ export default withAuth(
       return NextResponse.next();
     }
 
+    if (req.nextUrl.pathname.startsWith("/dashboard/admin")) {
+      if (!token?.isAdmin) {
+        return NextResponse.redirect(new URL("/dashboard", req.url));
+      }
+    }
+
+    if (req.nextUrl.pathname.startsWith("/api/admin/")) {
+      if (!token?.isAdmin) {
+        return new NextResponse(
+          JSON.stringify({
+            error: "Forbidden",
+            message: "Admin access required.",
+          }),
+          {
+            status: 403,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+      }
+    }
+
     // 2. If it's a protected API route and we have NO token (cookie), then return 401 JSON
     if (
       !token &&
@@ -111,18 +132,11 @@ export default withAuth(
         JSON.stringify({
           error: "Unauthorized",
           message: "No valid session token found. Please log in again.",
-          debug: {
-            path: req.nextUrl.pathname,
-            hasCookie:
-              !!req.cookies.get("next-auth.session-token") ||
-              !!req.cookies.get("__Secure-next-auth.session-token"),
-          },
         }),
         {
           status: 401,
           headers: {
             "Content-Type": "application/json",
-            "X-FAIM-Debug": "Middleware-No-Token",
           },
         },
       );
@@ -149,6 +163,12 @@ export default withAuth(
 
         // Only require authorized=true for PAGES (dashboard)
         // API routes are handled manually above to return JSON
+        if (req.nextUrl.pathname.startsWith("/dashboard/admin")) {
+          return !!token?.isAdmin;
+        }
+        if (req.nextUrl.pathname.startsWith("/api/admin/")) {
+          return !!token?.isAdmin;
+        }
         if (req.nextUrl.pathname.startsWith("/api/")) return true;
         return !!token;
       },

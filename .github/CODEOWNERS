@@ -1,0 +1,6 @@
+# Default ownership for the repository. Replace with real GitHub handles if needed.
+* @sephi-asi
+
+/deploy/ @sephi-asi
+/faim_native/api/middleware/ @sephi-asi
+/faim_native/store/pg/migrations/ @sephi-asi

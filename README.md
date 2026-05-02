@@ -26,11 +26,48 @@ All services are aligned to the `80x0` port range for consistency and to avoid c
 
 ```bash
 # Start Development Environment
-./dev.sh
+npm run faim:up
+
+# Rebuild after pulling updates
+git pull --ff-only && docker compose build
 
 # Run Tests
 cd faim_native
 pytest
+```
+
+## Release Hygiene
+
+- Pull requests are expected to pass CI before merge.
+- Keep `main` protected; do not push directly to it.
+
+## Local Production
+
+```bash
+# Bring up the local production stack
+npm run faim:localprod:up
+
+# Smoke test the edge, health, and readiness endpoints
+npm run faim:localprod:smoke
+
+# Capture DB + raw-data backups
+npm run faim:localprod:backup
+```
+
+The restricted admin section is available at `/dashboard/admin` for
+allowlisted admin emails only.
+
+## VPS Production
+
+```bash
+# Sync the repo to the VPS
+npm run faim:vps:sync
+
+# Bring up the VPS production stack
+npm run faim:vps:up
+
+# Smoke test the public domain
+npm run faim:vps:smoke
 ```
 
 ## Tech Stack

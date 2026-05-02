@@ -31,6 +31,7 @@ import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { useUser } from "@/contexts/UserContext";
+import { readJsonSafely } from "@/lib/safeFetch";
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
 
@@ -331,7 +332,8 @@ export default function DashboardPage() {
         headers,
       });
       if (!res.ok) return;
-      const data = await res.json();
+      const data = await readJsonSafely<any>(res);
+      if (!data) return;
       setScorecard(data);
     } catch {
       // silent
@@ -348,7 +350,8 @@ export default function DashboardPage() {
         headers,
       });
       if (!res.ok) return;
-      const data = await res.json();
+      const data = await readJsonSafely<any>(res);
+      if (!data) return;
       setStorage(data);
     } catch {
       // silent
@@ -365,7 +368,8 @@ export default function DashboardPage() {
         headers,
       });
       if (!res.ok) return;
-      const data = await res.json();
+      const data = await readJsonSafely<any>(res);
+      if (!data) return;
       setEvolveStatus(data);
     } catch {
       // silent
@@ -379,7 +383,8 @@ export default function DashboardPage() {
       const headers = await authHeaders();
       const res = await fetch("/api/v1/api-keys", { headers });
       if (!res.ok) return;
-      const data: ApiKeyListResponse = await res.json();
+      const data = await readJsonSafely<ApiKeyListResponse>(res);
+      if (!data) return;
       const active = data.items.filter((k) => k.is_active).length;
       setKeyCount({ total: data.total, active });
     } catch {
@@ -393,7 +398,8 @@ export default function DashboardPage() {
     try {
       const res = await fetch("/api/health");
       if (!res.ok) return;
-      const data = await res.json();
+      const data = await readJsonSafely<any>(res);
+      if (!data) return;
       setHealth(data);
     } catch {
       // silent
@@ -410,7 +416,8 @@ export default function DashboardPage() {
           { headers },
         );
         if (!latestRes.ok) return;
-        const latest: LatestInfo = await latestRes.json();
+        const latest = await readJsonSafely<LatestInfo>(latestRes);
+        if (!latest) return;
         setLatestInfo(latest);
 
         const afterSeq = since ?? Math.max(0, latest.last_seq - 30);
@@ -419,7 +426,8 @@ export default function DashboardPage() {
           { headers },
         );
         if (!res.ok) return;
-        const data = await res.json();
+        const data = await readJsonSafely<{ events?: FaimEvent[] }>(res);
+        if (!data) return;
         const fetched: FaimEvent[] = data.events ?? [];
 
         setEvents((prev) => {

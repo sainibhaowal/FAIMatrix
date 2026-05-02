@@ -14,6 +14,53 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import jwt from "jsonwebtoken";
 
+function parseAdminEmails(): Set<string> {
+  const candidates = [
+    process.env.FAIM_ADMIN_EMAILS_JSON,
+    process.env.ADMIN_EMAILS_JSON,
+  ];
+  const emails = new Set<string>();
+
+  for (const raw of candidates) {
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        for (const value of parsed) {
+          const email = String(value || "").trim().toLowerCase();
+          if (email) emails.add(email);
+        }
+      } else if (parsed && typeof parsed === "object") {
+        for (const value of Object.values(parsed as Record<string, unknown>)) {
+          const email = String(value || "").trim().toLowerCase();
+          if (email) emails.add(email);
+        }
+      } else if (typeof parsed === "string") {
+        const email = parsed.trim().toLowerCase();
+        if (email) emails.add(email);
+      }
+    } catch {
+      for (const value of raw.split(",")) {
+        const email = value.trim().toLowerCase();
+        if (email) emails.add(email);
+      }
+    }
+  }
+
+  const singleAdmin = process.env.FAIM_ADMIN_EMAIL;
+  if (singleAdmin) {
+    emails.add(singleAdmin.trim().toLowerCase());
+  }
+
+  return emails;
+}
+
+function isAdminEmail(email?: string | null): boolean {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized) return false;
+  return parseAdminEmails().has(normalized);
+}
+
 // Backend API URL
 const API_URL = process.env.API_HOST
   ? `http://${process.env.API_HOST}`
@@ -121,6 +168,8 @@ export const authOptions: NextAuthOptions = {
         token.graphId = (user as any).graphId;
       }
 
+      token.isAdmin = isAdminEmail(token.email);
+
       // 2. Generate/Rotate access token for backend API (HS256)
       if (SIGNING_SECRET) {
         try {
@@ -154,6 +203,7 @@ export const authOptions: NextAuthOptions = {
         };
         (session as any).graphId = token.graphId;
         (session as any).accessToken = token.accessToken;
+        (session as any).isAdmin = Boolean((token as any).isAdmin);
       }
       return session;
     },

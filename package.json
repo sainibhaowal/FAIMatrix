@@ -4,14 +4,25 @@
   "description": "FAIM-Native Root Management",
   "scripts": {
     "faim:up": "docker compose up -d",
-    "faim:update": "./update_faim.sh",
+    "faim:update": "git pull --ff-only && docker compose build",
     "faim:down": "docker compose down",
     "faim:logs": "docker compose logs -f",
     "faim:ps": "docker compose ps",
     "faim:accel:up": "docker compose --profile accel up -d",
+    "faim:localprod:up": "./scripts/localprod_up.sh",
+    "faim:localprod:down": "./scripts/localprod_down.sh",
+    "faim:localprod:smoke": "./scripts/localprod_smoke.sh",
+    "faim:localprod:backup": "./scripts/localprod_backup.sh",
+    "faim:localprod:restore": "./scripts/localprod_restore.sh",
+    "faim:vps:sync": "./scripts/vps_sync.sh",
+    "faim:vps:up": "./scripts/vps_up.sh",
+    "faim:vps:down": "./scripts/vps_down.sh",
+    "faim:vps:smoke": "./scripts/vps_smoke.sh",
+    "faim:vps:backup": "./scripts/vps_backup.sh",
+    "faim:vps:restore": "./scripts/vps_restore.sh",
     "faim:cleanup": "docker system prune -f",
-    "tsc": "cd frontend && pnpm exec tsc",
-    "eslint": "cd frontend && pnpm exec eslint",
-    "prettier": "cd frontend && pnpm exec prettier"
+    "tsc": "cd frontend && npm run typecheck",
+    "eslint": "cd frontend && npm run lint",
+    "prettier": "cd frontend && npm run format:check"
   }
 }

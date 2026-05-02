@@ -6,8 +6,10 @@ FastAPI app with all routers and middleware.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,6 +55,64 @@ for handler in logging.root.handlers:
 logger = logging.getLogger(__name__)
 
 
+def _normalize_origin(value: str) -> str:
+    raw = value.strip()
+    if not raw:
+        return ""
+
+    parsed = urlparse(raw)
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return raw.rstrip("/")
+
+
+def _split_origin_list(raw: str) -> list[str]:
+    parts: list[str] = []
+    for chunk in raw.replace(" ", ",").split(","):
+        origin = _normalize_origin(chunk)
+        if origin and origin not in parts:
+            parts.append(origin)
+    return parts
+
+
+def _get_cors_origins() -> list[str]:
+    explicit = os.getenv("FAIM_CORS_ALLOW_ORIGINS", "").strip()
+    if explicit:
+        origins = _split_origin_list(explicit)
+        if not origins:
+            raise RuntimeError("FAIM_CORS_ALLOW_ORIGINS is set but empty")
+        return origins
+
+    mode = (os.getenv("FAIM_MODE") or os.getenv("FAIM_ENV") or "").strip().lower()
+    production = mode in {"prod", "production"}
+
+    candidates: list[str] = []
+    for env_name in ("FAIM_PUBLIC_ORIGIN", "NEXTAUTH_URL", "FRONTEND_URL"):
+        origin = _normalize_origin(os.getenv(env_name, ""))
+        if origin and origin not in candidates:
+            candidates.append(origin)
+
+    if production:
+        if not candidates:
+            raise RuntimeError(
+                "Production requires FAIM_CORS_ALLOW_ORIGINS or a public origin "
+                "via FAIM_PUBLIC_ORIGIN/NEXTAUTH_URL/FRONTEND_URL"
+            )
+        return candidates
+
+    defaults = [
+        "http://localhost:8010",
+        "http://127.0.0.1:8010",
+        "http://localhost:8011",
+        "http://127.0.0.1:8011",
+    ]
+    for origin in defaults:
+        if origin not in candidates:
+            candidates.append(origin)
+
+    return candidates
+
+
 # =============================================================================
 # Create FastAPI App
 # =============================================================================
@@ -92,7 +152,7 @@ def create_app() -> FastAPI:
     # CORS
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
+        allow_origins=_get_cors_origins(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
