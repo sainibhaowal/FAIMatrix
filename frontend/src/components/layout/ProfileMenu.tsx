@@ -9,7 +9,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, LogOut, Settings, ChevronDown, Sparkles } from "lucide-react";
+import {
+  User,
+  LogOut,
+  Settings,
+  ChevronDown,
+  Sparkles,
+  ShieldAlert,
+} from "lucide-react";
 import Link from "next/link";
 
 export function ProfileMenu() {
@@ -119,6 +126,26 @@ export function ProfileMenu() {
                   <Settings className="w-4 h-4" />
                   Settings
                 </Link>
+                {Boolean((session as { isAdmin?: boolean } | null)?.isAdmin) && (
+                  <>
+                    <Link
+                      href="/dashboard/admin"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 transition-colors"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      Admin
+                    </Link>
+                    <Link
+                      href="/dashboard/admin#alerts"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-rose-300 hover:bg-rose-500/10 hover:text-rose-200 transition-colors"
+                    >
+                      <ShieldAlert className="w-4 h-4" />
+                      Alerts
+                    </Link>
+                  </>
+                )}
                 <div className="my-2 border-t border-slate-700/50" />
                 <button
                   onClick={handleLogout}

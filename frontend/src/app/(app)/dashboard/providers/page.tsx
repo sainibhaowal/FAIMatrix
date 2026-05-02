@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Button } from "@/components/ui/Button";
 import { useProviders } from "@/contexts/ProviderContext";
+import { discoverProviderModels } from "@/lib/providerDiscovery";
 
 function ModelDropdown({
   models,
@@ -171,21 +172,10 @@ export default function ProvidersPage() {
     }
 
     try {
-      const res = await fetch("/api/provider/discover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: formData.baseUrl,
-          apiKey: formData.apiKey || undefined,
-        }),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || `HTTP ${res.status}`);
-      }
-
-      const { models } = await res.json();
+      const { models } = await discoverProviderModels(
+        formData.baseUrl,
+        formData.apiKey || undefined,
+      );
       setDiscoveredModels(models);
 
       if (models.length > 0) {

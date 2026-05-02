@@ -60,20 +60,14 @@ frontend/.env*
 
 # Runtime & Data
 Runtime/
-/docs/
 node_modules/
 **/node_modules/
-Docker_cmd.md
 
 # Tool caches
 .ruff_cache/
 .mypy_cache/
 .pytest_cache/
 
-# Development (keep local, not in repo)
-tests/
-scripts/
-frontend/Docs/
+# Development
 frontend/tests/
-faim_native/Docs/
 faim_native/store/raw/blobs/

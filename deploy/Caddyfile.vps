@@ -1,0 +1,24 @@
+faimatrix.com {
+  encode gzip zstd
+
+  header {
+    Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "DENY"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    -Server
+  }
+
+  @backend_health path /health /ready /version
+  handle @backend_health {
+    reverse_proxy api:8000
+  }
+
+  handle {
+    reverse_proxy frontend:8010
+  }
+}
+
+www.faimatrix.com {
+  redir https://faimatrix.com{uri} permanent
+}

@@ -155,6 +155,14 @@ export function TopBar({
 
   const goAdmin = (tab?: string) => {
     const t = (tab ?? "").trim();
+    if (t === "admin") {
+      router.push("/dashboard/admin");
+      return;
+    }
+    if (t === "alerts") {
+      router.push("/dashboard/admin#alerts");
+      return;
+    }
     router.push(
       !t
         ? "/dashboard/profile"

@@ -79,14 +79,10 @@ def verify_jwt(token: str) -> Optional[dict]:
         return claims
 
     except jwt.ExpiredSignatureError:
-        logger.warning(
-            f"[JWT] Token EXPIRED. Secret len: {len(secret) if secret else 0}"
-        )
+        logger.warning("[JWT] Token expired")
         return None
     except jwt.InvalidTokenError as e:
-        logger.warning(
-            f"[JWT] Invalid Token: {e}. Secret len: {len(secret) if secret else 0}. Token preview: {token[:10]}...{token[-10:]}"
-        )
+        logger.warning(f"[JWT] Invalid token: {e}")
         return None
     except Exception as e:
         logger.error(

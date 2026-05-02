@@ -23,6 +23,7 @@ import { getSession } from "next-auth/react";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { readJsonSafely } from "@/lib/safeFetch";
 import { useUser } from "@/contexts/UserContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -364,7 +365,8 @@ export default function JournalPage() {
           { headers, cache: "no-store" },
         );
         if (res.ok) {
-          const data: LatestInfo = await res.json();
+          const data = await readJsonSafely<LatestInfo>(res);
+          if (!data) return null;
           setLatest(data);
           return data;
         }
@@ -390,7 +392,10 @@ export default function JournalPage() {
         { headers, cache: "no-store" },
       );
       if (!res.ok) throw new Error(`Events request failed (${res.status})`);
-      const data = await res.json();
+      const data = await readJsonSafely<{ events?: FaimEvent[]; has_more?: boolean }>(
+        res,
+      );
+      if (!data) throw new Error("Invalid events response");
       return {
         events: (data.events ?? []) as FaimEvent[],
         hasMore: !!data.has_more,

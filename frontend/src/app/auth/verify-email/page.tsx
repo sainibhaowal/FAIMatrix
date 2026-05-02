@@ -10,6 +10,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Loader2, CheckCircle, XCircle, Mail } from "lucide-react";
+import { readJsonSafely } from "@/lib/safeFetch";
 
 function VerifyContent() {
   const router = useRouter();
@@ -36,9 +37,13 @@ function VerifyContent() {
           body: JSON.stringify({ token }),
         });
 
-        const data = await res.json();
+        const data = await readJsonSafely<{
+          success?: boolean;
+          message?: string;
+          detail?: string;
+        }>(res);
 
-        if (res.ok && data.success) {
+        if (res.ok && data?.success) {
           setStatus("success");
           setMessage(data.message || "Email verified successfully!");
           // Redirect to login after 3 seconds
@@ -46,7 +51,7 @@ function VerifyContent() {
         } else {
           setStatus("error");
           setMessage(
-            data.detail || "Verification failed. The link may be expired.",
+            data?.detail || "Verification failed. The link may be expired.",
           );
         }
       } catch (err) {

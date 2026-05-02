@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { API_BASE_URL } from "@/lib/api-client";
 import { readJsonSafely } from "@/lib/safeFetch";
 
@@ -97,6 +98,7 @@ export function CommandPalette({
   graphId: string;
 }) {
   const router = useRouter();
+  const { data: session } = useSession();
   const inputRef = useRef<HTMLInputElement>(null);
   const [q, setQ] = useState("");
   const [remote, setRemote] = useState<SearchResult[]>([]);
@@ -123,14 +125,24 @@ export function CommandPalette({
         actionId: "open_settings",
         subtitle: "Quick toggles and preferences",
       },
-      {
-        type: "setting",
-        title: "Open Admin",
-        actionId: "open_admin",
-        subtitle: "Account & governance (future)",
-      },
+      ...(session?.isAdmin
+        ? [
+            {
+              type: "setting" as const,
+              title: "Open Admin",
+              actionId: "open_admin",
+              subtitle: "Admin control plane",
+            },
+            {
+              type: "setting" as const,
+              title: "Open Alerts",
+              actionId: "open_admin_alerts",
+              subtitle: "Admin alerts and email delivery",
+            },
+          ]
+        : []),
     ],
-    [],
+    [session?.isAdmin],
   );
 
   const results = useMemo(() => {
@@ -196,7 +208,10 @@ export function CommandPalette({
     }
     if (r.type === "setting") {
       if (r.actionId === "open_settings") router.push("/dashboard/profile");
-      if (r.actionId === "open_admin") router.push("/dashboard/profile");
+      if (r.actionId === "open_admin") router.push("/dashboard/admin");
+      if (r.actionId === "open_admin_alerts") {
+        router.push("/dashboard/admin#alerts");
+      }
       onClose();
       return;
     }
