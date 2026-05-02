@@ -10,6 +10,7 @@ POST /v1/admin/replay/verify
 
 from __future__ import annotations
 
+import os
 import logging
 import sys
 from datetime import datetime, timezone
@@ -17,7 +18,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -42,12 +43,303 @@ class AdminRequest(BaseModel):
     graph_id: str
 
 
+class AdminStatusResponse(BaseModel):
+    """Admin status snapshot."""
+
+    status: str
+    health: Dict[str, Any]
+    readiness: Dict[str, Any]
+    version: Dict[str, Any]
+    runtime: Dict[str, Any]
+    alerts: list[Dict[str, Any]]
+    alert_delivery: Dict[str, Any]
+    backups: list[Dict[str, Any]]
+
+
 class AdminResponse(BaseModel):
     """Admin response."""
 
     status: str
     message: str
     details: Optional[Dict[str, Any]] = None
+
+
+def _backup_dir() -> Path:
+    return Path(os.getenv("FAIM_BACKUP_DIR", "/tmp/faim/backups"))  # nosec B108
+
+
+def _list_backups() -> list[Dict[str, Any]]:
+    backup_dir = _backup_dir()
+    if not backup_dir.exists():
+        return []
+
+    files = sorted(
+        [
+            *backup_dir.glob("backup_faim_*.sql"),
+            *backup_dir.glob("backup_faim_*.sql.gz"),
+            *backup_dir.glob("raw_*.tar.gz"),
+        ],
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+
+    items: list[Dict[str, Any]] = []
+    for file_path in files:
+        stat = file_path.stat()
+        name = file_path.name
+        kind = "raw" if name.startswith("raw_") else "database"
+        compressed = name.endswith(".gz")
+        items.append(
+            {
+                "name": name,
+                "kind": kind,
+                "compressed": compressed,
+                "path": str(file_path),
+                "size_bytes": stat.st_size,
+                "modified_at": datetime.fromtimestamp(
+                    stat.st_mtime, tz=timezone.utc
+                ).isoformat(),
+            }
+        )
+    return items
+
+
+def _build_readiness_snapshot() -> Dict[str, Any]:
+    from runtime.context import close_session, get_session
+    from sqlalchemy import text
+    from store.pg.migrate import (
+        get_latest_applied_version,
+        get_latest_local_version,
+    )
+
+    session = None
+    try:
+        session = get_session()
+        session.execute(text("SELECT 1")).fetchone()
+        latest_local = get_latest_local_version()
+        try:
+            latest_applied = get_latest_applied_version(session)
+        except Exception:
+            latest_applied = 0
+
+        if session.bind.dialect.name == "sqlite":
+            table_check = session.execute(
+                text("SELECT name FROM sqlite_master WHERE type='table'")
+            )
+        else:
+            table_check = session.execute(
+                text(
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+                )
+            )
+
+        existing_tables = {row[0] for row in table_check.fetchall()}
+        missing = [t for t in REQUIRED_TABLES if t not in existing_tables]
+        tables_ok = len(missing) == 0
+        migrations_ok = latest_applied >= latest_local
+        status = "ready" if tables_ok and migrations_ok else "not_ready"
+
+        return {
+            "status": status,
+            "db_connected": True,
+            "tables_ok": tables_ok,
+            "migrations_ok": migrations_ok,
+            "latest_migration": latest_local,
+            "applied_migration": latest_applied,
+            "missing_tables": missing,
+        }
+    except Exception as exc:
+        logger.warning("Admin readiness snapshot failed: %s", exc)
+        return {
+            "status": "not_ready",
+            "db_connected": False,
+            "tables_ok": False,
+            "migrations_ok": False,
+            "latest_migration": 0,
+            "applied_migration": 0,
+            "missing_tables": list(REQUIRED_TABLES),
+        }
+    finally:
+        if session is not None:
+            try:
+                close_session(session)
+            except Exception:  # nosec B110
+                pass
+
+
+def _runtime_snapshot(config: Any) -> Dict[str, Any]:
+    return {
+        "env": os.getenv("FAIM_ENV", os.getenv("FAIM_MODE", "development")),
+        "mode": os.getenv("FAIM_MODE", "development"),
+        "public_origin": os.getenv("FAIM_PUBLIC_ORIGIN", ""),
+        "cors_origins": [
+            origin.strip()
+            for origin in os.getenv("FAIM_CORS_ALLOW_ORIGINS", "").split(",")
+            if origin.strip()
+        ],
+        "backup_dir": str(_backup_dir()),
+        "raw_store_path": os.getenv("FAIM_RAW_STORE_PATH", ""),
+        "auth_db_primary": bool(config.auth_db_primary),
+        "auth_scope_enforcement_enabled": bool(config.auth_scope_enforcement_enabled),
+        "enable_cache": bool(config.enable_cache),
+        "enable_index": bool(config.enable_index),
+        "enable_jobs": bool(config.enable_jobs),
+        "admin_key_configured": bool(os.getenv("FAIM_ADMIN_KEY")),
+    }
+
+
+class AdminAlertSendResponse(BaseModel):
+    """Alert send response."""
+
+    status: str
+    message: str
+    provider: Optional[str] = None
+    recipients: list[str] = Field(default_factory=list)
+    sent: bool = False
+    details: Optional[Dict[str, Any]] = None
+
+
+class AdminAlertsResponse(BaseModel):
+    """Alert inbox response."""
+
+    status: str
+    summary: Dict[str, int]
+    delivery: Dict[str, Any]
+    alerts: list[Dict[str, Any]]
+
+
+@router.get("/status", response_model=AdminStatusResponse)
+async def admin_status(
+    admin: str = Depends(require_admin),
+) -> AdminStatusResponse:
+    """Return a compact control-plane snapshot for admin staff."""
+    from api.routers.health import health_check, version_info
+    from runtime.config import get_config
+    from api.services.admin_alerts import (
+        build_delivery_snapshot,
+        build_operational_alerts,
+    )
+
+    health = await health_check()
+    version = await version_info()
+    readiness = _build_readiness_snapshot()
+    config = get_config()
+    runtime = _runtime_snapshot(config)
+    alerts = build_operational_alerts(
+        health=dict(health),
+        readiness=readiness,
+        runtime=runtime,
+        backups=_list_backups(),
+    )
+
+    return AdminStatusResponse(
+        status="ok" if readiness["status"] == "ready" else "degraded",
+        health=dict(health),
+        readiness=readiness,
+        version=dict(version),
+        runtime=runtime,
+        alerts=alerts,
+        alert_delivery=build_delivery_snapshot(),
+        backups=_list_backups(),
+    )
+
+
+class AdminBackupsResponse(BaseModel):
+    """Backup inventory response."""
+
+    backup_dir: str
+    backups: list[Dict[str, Any]]
+
+
+@router.get("/backups", response_model=AdminBackupsResponse)
+async def admin_backups(
+    admin: str = Depends(require_admin),
+) -> AdminBackupsResponse:
+    return AdminBackupsResponse(backup_dir=str(_backup_dir()), backups=_list_backups())
+
+
+@router.get("/alerts", response_model=AdminAlertsResponse)
+async def admin_alerts(
+    admin: str = Depends(require_admin),
+) -> AdminAlertsResponse:
+    from api.routers.health import health_check
+    from api.services.admin_alerts import (
+        build_delivery_snapshot,
+        build_operational_alerts,
+        summarize_alerts,
+    )
+
+    health = await health_check()
+    readiness = _build_readiness_snapshot()
+    config = get_config()
+    runtime = _runtime_snapshot(config)
+    alerts = build_operational_alerts(
+        health=dict(health),
+        readiness=readiness,
+        runtime=runtime,
+        backups=_list_backups(),
+    )
+    return AdminAlertsResponse(
+        status="ok",
+        summary=summarize_alerts(alerts),
+        delivery=build_delivery_snapshot(),
+        alerts=alerts,
+    )
+
+
+@router.post("/alerts/send", response_model=AdminAlertSendResponse)
+async def admin_alerts_send(
+    admin: str = Depends(require_admin),
+) -> AdminAlertSendResponse:
+    from api.routers.health import health_check
+    from api.services.admin_alerts import (
+        build_delivery_snapshot,
+        build_operational_alerts,
+        send_admin_alert_email,
+    )
+
+    health = await health_check()
+    readiness = _build_readiness_snapshot()
+    config = get_config()
+    runtime = _runtime_snapshot(config)
+    alerts = build_operational_alerts(
+        health=dict(health),
+        readiness=readiness,
+        runtime=runtime,
+        backups=_list_backups(),
+    )
+    delivery = build_delivery_snapshot()
+    result = send_admin_alert_email(alerts=alerts, delivery=delivery, test_mode=False)
+    return AdminAlertSendResponse(
+        status=result.get("status", "error"),
+        message=result.get("message", "Alert send completed."),
+        provider=result.get("provider"),
+        recipients=list(result.get("recipients") or []),
+        sent=bool(result.get("sent")),
+        details={
+            "alerts": alerts,
+            "delivery": delivery,
+            **{k: v for k, v in result.items() if k not in {"status", "message", "provider", "recipients", "sent"}},
+        },
+    )
+
+
+@router.post("/alerts/test", response_model=AdminAlertSendResponse)
+async def admin_alerts_test(
+    admin: str = Depends(require_admin),
+) -> AdminAlertSendResponse:
+    from api.services.admin_alerts import build_delivery_snapshot, send_admin_alert_email
+
+    delivery = build_delivery_snapshot()
+    result = send_admin_alert_email(alerts=[], delivery=delivery, test_mode=True)
+    return AdminAlertSendResponse(
+        status=result.get("status", "error"),
+        message=result.get("message", "Test email completed."),
+        provider=result.get("provider"),
+        recipients=list(result.get("recipients") or []),
+        sent=bool(result.get("sent")),
+        details=delivery,
+    )
 
 
 # =============================================================================

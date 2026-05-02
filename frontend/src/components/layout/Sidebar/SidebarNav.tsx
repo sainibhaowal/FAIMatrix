@@ -13,12 +13,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React, { useCallback, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   BarChart3,
   LayoutDashboard,
   MessageSquare,
   Network,
   Shield,
+  ShieldAlert,
   HardDrive,
   CreditCard,
   Dna,
@@ -94,21 +96,41 @@ export function SidebarNav({
 }) {
   const pathname = usePathname();
   const onMove = useGlowVars();
+  const { data: session } = useSession();
 
   const isActive = useCallback(
     (href: string) => {
-      return pathname === href || pathname.startsWith(`${href}/`);
+      const normalized = href.split(/[?#]/)[0];
+      return pathname === normalized || pathname.startsWith(`${normalized}/`);
     },
     [pathname],
   );
 
+  const navGroups = useMemo(() => {
+    if (!session?.isAdmin) return NAV_GROUPS;
+    return [
+      ...NAV_GROUPS,
+      {
+        title: "Control",
+        items: [
+          { href: "/dashboard/admin", label: "Admin", icon: Shield },
+          {
+            href: "/dashboard/admin#alerts",
+            label: "Alerts",
+            icon: ShieldAlert,
+          },
+        ],
+      },
+    ];
+  }, [session?.isAdmin]);
+
   const activeHref = useMemo(() => {
-    const allItems = NAV_GROUPS.flatMap((g) => g.items);
+    const allItems = navGroups.flatMap((g) => g.items);
     const candidates = allItems
       .filter((i) => isActive(i.href))
       .sort((a, b) => b.href.length - a.href.length);
     return candidates[0]?.href ?? "";
-  }, [isActive]);
+  }, [isActive, navGroups]);
 
   // Collapsed mode: Show only icons with tooltips
   if (collapsed) {
@@ -120,7 +142,7 @@ export function SidebarNav({
           role="navigation"
           aria-label="Main navigation"
         >
-          {NAV_GROUPS.flatMap((group) => group.items).map((item) => {
+          {navGroups.flatMap((group) => group.items).map((item) => {
             const active = item.href === activeHref;
             const Icon = item.icon;
 
@@ -170,7 +192,7 @@ export function SidebarNav({
           role="navigation"
           aria-label="Main navigation"
         >
-          {NAV_GROUPS.map((group, gIdx) => (
+          {navGroups.map((group, gIdx) => (
             <CollapsibleGroup
               key={gIdx}
               group={group}

@@ -7,11 +7,19 @@
 --   3. Update schema comment on edges.kind to document new semantic kinds
 --
 -- Notes:
---   - NO ALTER TABLE needed: kind VARCHAR(32) and meta JSONB already exist
+--   - `edges.meta` started as JSON in the earliest migration; convert it to
+--     JSONB here so the GIN index can be created safely on fresh and existing DBs.
 --   - The unique constraint uq_edges_tenant_graph_src_dst_kind already partitions
 --     semantic edges (kind="synonym") from inheritance edges correctly
 --   - This migration is idempotent: CREATE INDEX IF NOT EXISTS
 -- =============================================================================
+
+ALTER TABLE edges
+    ALTER COLUMN meta TYPE JSONB
+    USING CASE
+        WHEN meta IS NULL THEN NULL
+        ELSE meta::jsonb
+    END;
 
 -- GIN index on meta JSONB for fast semantic_type queries (Layer A)
 CREATE INDEX IF NOT EXISTS idx_edges_meta_semantic_type

@@ -8,6 +8,8 @@
     "start": "next start -p 8010",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
     "test:e2e": "playwright test"
   },
   "dependencies": {

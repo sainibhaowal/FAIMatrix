@@ -40,7 +40,6 @@ export { default as FeaturePageLayout } from "./landing/FeaturePageLayout";
 export { Providers } from "./shared/Providers";
 export { default as AuthGuard } from "./shared/AuthGuard";
 export { ErrorBoundary } from "./shared/ErrorBoundary";
-export { default as CookieConsent } from "./shared/CookieConsent";
 
 // Dashboard (Home) - Purified
 export { DashboardHeader } from "./dashboard/DashboardHeader";

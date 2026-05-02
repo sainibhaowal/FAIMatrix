@@ -46,9 +46,31 @@ export function UserDropdownContent({
             goAdmin("billing");
           }}
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-slate-300 hover:bg-white/5 hover:text-white"
-        >
+          >
           Billing & Usage
         </button>
+        {Boolean((session as { isAdmin?: boolean } | null)?.isAdmin) && (
+          <>
+            <button
+              onClick={() => {
+                onClose();
+                goAdmin("admin");
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200"
+            >
+              Admin Control
+            </button>
+            <button
+              onClick={() => {
+                onClose();
+                goAdmin("alerts");
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+            >
+              Admin Alerts
+            </button>
+          </>
+        )}
         <div className="my-1 h-px bg-white/10" />
         <button
           onClick={() => signOut({ callbackUrl: "/" })}
