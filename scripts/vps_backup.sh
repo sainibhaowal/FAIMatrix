@@ -9,9 +9,18 @@ TS="$(date +%Y%m%d_%H%M%S)"
 
 cd "$PROJECT_ROOT"
 
+ENV_FILE="deploy/env.vpsprod"
+if [[ ! -f "$ENV_FILE" ]]; then
+  echo "Missing $ENV_FILE."
+  echo "Copy deploy/env.vpsprod.example to deploy/env.vpsprod and fill in the VPS-production secrets."
+  exit 1
+fi
+
+export FAIM_ENV_FILE="$ENV_FILE"
+
 mkdir -p "$BACKUP_DIR" "$RAW_DIR"
 
-docker compose -f docker-compose.yml -f docker-compose.vps.yml --profile accel exec -T \
+docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.vps.yml --profile accel exec -T \
   -e FAIM_BACKUP_DIR=/var/lib/faim/backups \
   api python -m orchestration.jobs.backup --compress --keep 14
 

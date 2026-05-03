@@ -26,6 +26,7 @@ if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
 from api.deps import FAIMContext, get_faim_context, require_admin  # noqa: E402
+from api.routers.health import REQUIRED_TABLES  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,15 @@ class AdminResponse(BaseModel):
 
 def _backup_dir() -> Path:
     return Path(os.getenv("FAIM_BACKUP_DIR", "/tmp/faim/backups"))  # nosec B108
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return default
 
 
 def _list_backups() -> list[Dict[str, Any]]:
@@ -167,7 +177,7 @@ def _build_readiness_snapshot() -> Dict[str, Any]:
                 pass
 
 
-def _runtime_snapshot(config: Any) -> Dict[str, Any]:
+def _runtime_snapshot() -> Dict[str, Any]:
     return {
         "env": os.getenv("FAIM_ENV", os.getenv("FAIM_MODE", "development")),
         "mode": os.getenv("FAIM_MODE", "development"),
@@ -179,11 +189,13 @@ def _runtime_snapshot(config: Any) -> Dict[str, Any]:
         ],
         "backup_dir": str(_backup_dir()),
         "raw_store_path": os.getenv("FAIM_RAW_STORE_PATH", ""),
-        "auth_db_primary": bool(config.auth_db_primary),
-        "auth_scope_enforcement_enabled": bool(config.auth_scope_enforcement_enabled),
-        "enable_cache": bool(config.enable_cache),
-        "enable_index": bool(config.enable_index),
-        "enable_jobs": bool(config.enable_jobs),
+        "auth_db_primary": _env_bool("FAIM_AUTH_DB_PRIMARY", True),
+        "auth_scope_enforcement_enabled": _env_bool(
+            "FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED", False
+        ),
+        "enable_cache": _env_bool("FAIM_ENABLE_CACHE", False),
+        "enable_index": _env_bool("FAIM_ENABLE_INDEX", False),
+        "enable_jobs": _env_bool("FAIM_ENABLE_JOBS", False),
         "admin_key_configured": bool(os.getenv("FAIM_ADMIN_KEY")),
     }
 
@@ -214,7 +226,6 @@ async def admin_status(
 ) -> AdminStatusResponse:
     """Return a compact control-plane snapshot for admin staff."""
     from api.routers.health import health_check, version_info
-    from runtime.config import get_config
     from api.services.admin_alerts import (
         build_delivery_snapshot,
         build_operational_alerts,
@@ -223,8 +234,7 @@ async def admin_status(
     health = await health_check()
     version = await version_info()
     readiness = _build_readiness_snapshot()
-    config = get_config()
-    runtime = _runtime_snapshot(config)
+    runtime = _runtime_snapshot()
     alerts = build_operational_alerts(
         health=dict(health),
         readiness=readiness,
@@ -271,8 +281,7 @@ async def admin_alerts(
 
     health = await health_check()
     readiness = _build_readiness_snapshot()
-    config = get_config()
-    runtime = _runtime_snapshot(config)
+    runtime = _runtime_snapshot()
     alerts = build_operational_alerts(
         health=dict(health),
         readiness=readiness,
@@ -300,8 +309,7 @@ async def admin_alerts_send(
 
     health = await health_check()
     readiness = _build_readiness_snapshot()
-    config = get_config()
-    runtime = _runtime_snapshot(config)
+    runtime = _runtime_snapshot()
     alerts = build_operational_alerts(
         health=dict(health),
         readiness=readiness,

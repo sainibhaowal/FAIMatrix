@@ -386,6 +386,12 @@ AUTH_PATH_PREFIXES = [
     "/v1/auth",
 ]
 
+# Admin control-plane routes are authenticated separately via X-Admin-Key.
+ADMIN_PATH_PREFIXES = [
+    "/api/v1/admin",
+    "/v1/admin",
+]
+
 
 def is_exempt_path(path: str) -> bool:
     """Check if path is exempt from auth."""
@@ -393,6 +399,9 @@ def is_exempt_path(path: str) -> bool:
         return True
     # Exempt auth endpoints
     for prefix in AUTH_PATH_PREFIXES:
+        if path.startswith(prefix):
+            return True
+    for prefix in ADMIN_PATH_PREFIXES:
         if path.startswith(prefix):
             return True
     return False

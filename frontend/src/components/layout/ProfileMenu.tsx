@@ -137,7 +137,7 @@ export function ProfileMenu() {
                       Admin
                     </Link>
                     <Link
-                      href="/dashboard/admin#alerts"
+                      href="/dashboard/admin/alerts"
                       onClick={() => setOpen(false)}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-rose-300 hover:bg-rose-500/10 hover:text-rose-200 transition-colors"
                     >

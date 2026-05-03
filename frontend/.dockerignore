@@ -19,11 +19,14 @@ build_v4.txt
 .git
 .gitignore
 
-# Environment (secrets)
-.env
-.env.local
-.env.*.local
-
 # IDE
 .idea
 .vscode
+
+# Local docs / tests / reports - not needed in the frontend image
+Docs/
+e2e/
+tests/
+playwright-report/
+test-results/
+*.tsbuildinfo

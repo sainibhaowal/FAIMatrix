@@ -87,7 +87,7 @@ services:
     container_name: faim-migrate
     entrypoint: ["python"]
     command: ["-m", "store.pg.migrate", "up"]
-    env_file: .env
+    env_file: ${FAIM_ENV_FILE:?FAIM_ENV_FILE required}
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
       FAIM_AUTO_MIGRATE: "true"
@@ -117,7 +117,7 @@ services:
         "--port",
         "8000",
       ]
-    env_file: .env
+    env_file: ${FAIM_ENV_FILE:?FAIM_ENV_FILE required}
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
       FAIM_RAW_STORE_PATH: /var/lib/faim/raw/blobs
@@ -194,7 +194,7 @@ services:
       dockerfile: Dockerfile
     container_name: faim-worker
     command: ["python", "-m", "orchestration.jobs.worker"]
-    env_file: .env
+    env_file: ${FAIM_ENV_FILE:?FAIM_ENV_FILE required}
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
       REDIS_URL: ${REDIS_URL:-}
@@ -241,7 +241,7 @@ services:
       args:
         - API_HOST=faim-api:8000
     container_name: faim-frontend
-    env_file: ./frontend/.env
+    env_file: ${FAIM_ENV_FILE:?FAIM_ENV_FILE required}
     ports:
       - "8010:8010"
     environment:

@@ -33,6 +33,7 @@ def run_domain_knowledge_import(
     gv_repo,
     event_repo=None,
 ) -> DomainKnowledgeImportResult:
+    domain_pack = None
     from core.operators.domain_knowledge import (
         KBFact,
         build_kb_lexicon_rows,

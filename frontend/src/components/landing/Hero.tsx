@@ -192,7 +192,7 @@ export default function Hero() {
         >
           <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">
             <p className="text-[10px] font-medium uppercase tracking-widest text-cyan-300/80">
-              Memory Query
+              FAIM Cortex
             </p>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed">
               Ask questions, get cited answers, inspect provenance, and upload
