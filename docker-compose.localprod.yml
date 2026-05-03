@@ -28,9 +28,9 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:?RESEND_API_KEY required}
       FAIM_BACKUP_DIR: /var/lib/faim/backups
       FAIM_RAW_STORE_PATH: /var/lib/faim/raw/blobs
-      FAIM_PUBLIC_ORIGIN: https://faimatrix.localhost:8443
-      FAIM_CORS_ALLOW_ORIGINS: https://faimatrix.localhost:8443
-      NEXTAUTH_URL: https://faimatrix.localhost:8443
+      FAIM_PUBLIC_ORIGIN: ${FAIM_PUBLIC_ORIGIN:-https://faimatrix.localhost:8443}
+      FAIM_CORS_ALLOW_ORIGINS: ${FAIM_CORS_ALLOW_ORIGINS:-https://faimatrix.localhost:8443}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://faimatrix.localhost:8443}
       FAIM_ENABLE_CACHE: ${FAIM_ENABLE_CACHE:-true}
       FAIM_ENABLE_INDEX: ${FAIM_ENABLE_INDEX:-true}
       FAIM_ENCRYPTION_AT_REST: ${FAIM_ENCRYPTION_AT_REST:-true}
@@ -69,11 +69,11 @@ services:
     build:
       args:
         NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET required}
-        NEXTAUTH_URL: https://faimatrix.localhost:8443
+        NEXTAUTH_URL: ${NEXTAUTH_URL:-https://faimatrix.localhost:8443}
         API_HOST: faim-api:8000
     environment:
       API_HOST: faim-api:8000
-      NEXTAUTH_URL: https://faimatrix.localhost:8443
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://faimatrix.localhost:8443}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET required}
       FAIM_ADMIN_KEY: ${FAIM_ADMIN_KEY:?FAIM_ADMIN_KEY required}
       FAIM_ADMIN_EMAILS_JSON: ${FAIM_ADMIN_EMAILS_JSON:-[]}

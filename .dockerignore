@@ -80,7 +80,10 @@ qdrant_data/
 redis_data/
 docs/
 tests/
+faim_native/faim-m/
+faim_native/store/raw/blobs/
 faim_native/full_test_log.txt
+scripts/pdf-generator/
 package.json
 package-lock.json
 pyproject.toml

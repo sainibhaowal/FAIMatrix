@@ -13,10 +13,19 @@ ssh "$VPS_HOST" "mkdir -p '$VPS_PATH'"
 
 rsync -az --delete \
   --exclude '.git' \
+  --exclude '.codex' \
+  --exclude '.github' \
+  --exclude '.vscode' \
+  --exclude '.ruff_cache' \
+  --exclude '__pycache__' \
+  --exclude '.cache' \
+  --exclude '.pytest_cache' \
   --exclude '.env' \
   --exclude '.env.localprod' \
   --exclude '.env.localprod.example' \
+  --exclude 'deploy/env*.example' \
   --exclude 'deploy/env.vpsprod' \
+  --exclude 'deploy/ssl' \
   --exclude '.venv' \
   --exclude 'node_modules' \
   --exclude 'frontend/node_modules' \
@@ -26,13 +35,18 @@ rsync -az --delete \
   --exclude 'frontend/playwright-report' \
   --exclude 'frontend/test-results' \
   --exclude 'frontend/tsconfig.tsbuildinfo' \
-  --exclude 'docs' \
-  --exclude 'frontend/Docs' \
-  --exclude 'faim_native/Docs' \
-  --exclude 'tests' \
   --exclude 'frontend/tests' \
   --exclude 'frontend/e2e' \
+  --exclude 'docs' \
+  --exclude 'Docs' \
+  --exclude 'frontend/Docs' \
+  --exclude 'faim_native/Docs' \
+  --exclude 'faim_native/faim-m' \
+  --exclude 'faim_native/store/raw/blobs' \
+  --exclude 'tests' \
   --exclude 'Runtime' \
+  --exclude 'storage_prototype.html' \
   --exclude 'faim_native/full_test_log.txt' \
+  --exclude 'scripts/pdf-generator' \
   --exclude 'docs/simulation_run*.txt' \
   ./ "$VPS_HOST:$VPS_PATH/"

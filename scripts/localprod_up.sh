@@ -14,9 +14,34 @@ if [[ ! -f "$ENV_FILE" ]]; then
 fi
 
 export FAIM_ENV_FILE="$ENV_FILE"
+chmod 600 "$ENV_FILE"
 
 mkdir -p Runtime/localprod/{postgres,redis,qdrant,raw,backups,caddy_data,caddy_config}
 "$PROJECT_ROOT/scripts/localprod_ssl.sh"
 
-docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.localprod.yml --profile accel run --rm --build migrate
-docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.localprod.yml --profile accel up -d --build
+SERVICES=("$@")
+
+if [[ ${#SERVICES[@]} -eq 0 ]]; then
+  docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.localprod.yml --profile accel run --rm --build migrate
+  docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.localprod.yml --profile accel up -d --build
+  exit 0
+fi
+
+BUILD_SERVICES=()
+RUN_MIGRATE=false
+for svc in "${SERVICES[@]}"; do
+  if [[ "$svc" == "migrate" ]]; then
+    RUN_MIGRATE=true
+  else
+    BUILD_SERVICES+=("$svc")
+  fi
+done
+
+if $RUN_MIGRATE; then
+  docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.localprod.yml --profile accel run --rm --build migrate
+fi
+
+if [[ ${#BUILD_SERVICES[@]} -gt 0 ]]; then
+  docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.localprod.yml --profile accel build "${BUILD_SERVICES[@]}"
+  docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.localprod.yml --profile accel up -d --no-deps "${BUILD_SERVICES[@]}"
+fi
