@@ -82,7 +82,7 @@ export function HistoryPanel() {
         <div className="flex items-center gap-2">
           <Clock size={13} className="text-primary-400" />
           <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-white">
-            Neural Threads
+            Cortex Sessions
           </h2>
           <span className="text-[9px] font-bold text-slate-600 tabular-nums">
             {threads.length}
@@ -103,13 +103,13 @@ export function HistoryPanel() {
           <div className="flex flex-col items-center justify-center h-full gap-3 py-12">
             <MessageSquare size={22} className="text-slate-700" />
             <p className="text-[10px] text-slate-600 uppercase tracking-widest text-center">
-              No threads yet
+              No sessions yet
             </p>
             <button
               onClick={newThread}
               className="text-[9px] font-bold text-primary-500 hover:text-primary-300 uppercase tracking-widest transition-colors"
             >
-              Start a conversation
+              Start a memory session
             </button>
           </div>
         ) : (
@@ -224,9 +224,9 @@ export function HistoryPanel() {
       >
         {confirmPurge ? (
           <div className="space-y-2">
-            <p className="text-[9px] text-rose-400 font-bold uppercase tracking-widest text-center">
-              Delete all {threads.length} threads?
-            </p>
+              <p className="text-[9px] text-rose-400 font-bold uppercase tracking-widest text-center">
+              Delete all {threads.length} sessions?
+              </p>
             <div className="flex gap-2">
               <button
                 onClick={() => {

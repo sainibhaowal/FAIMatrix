@@ -34,7 +34,7 @@ const WORKFLOWS = [
   "FAIM Native extractor — multi-column, tables, scanned OCR, zero ML",
   "Inspect provenance and download originals",
   "Rebuild canonical, multilingual, multimodal, or domain layers",
-  "Ask Memory Query and get cited answers",
+  "Ask FAIM Cortex and get cited answers",
   "Use FIG View for lineage and graph tracing",
 ];
 

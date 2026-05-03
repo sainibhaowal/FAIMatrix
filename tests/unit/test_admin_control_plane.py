@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone, timedelta
+
 import jwt
 from fastapi.testclient import TestClient
 
 
 def _mint_access_token(secret: str, *, user_id: str, graph_id: str) -> str:
+    now = datetime.now(timezone.utc)
     return jwt.encode(
         {
             "sub": user_id,
@@ -13,6 +16,8 @@ def _mint_access_token(secret: str, *, user_id: str, graph_id: str) -> str:
             "graphId": graph_id,
             "email": "admin@example.com",
             "name": "Admin",
+            "iat": int(now.timestamp()),
+            "exp": int((now + timedelta(hours=12)).timestamp()),
         },
         secret,
         algorithm="HS256",
@@ -30,6 +35,8 @@ def _mk_client(monkeypatch, tmp_path):
     monkeypatch.setenv("TENANT_KEYS_JSON", '{"tenant_admin":["tenant_key"]}')
     monkeypatch.setenv("NEXTAUTH_SECRET", secret)
     monkeypatch.setenv("FAIM_ADMIN_KEY", "super-admin-key")
+    monkeypatch.setenv("FAIM_ADMIN_EMAIL", "admin@example.com")
+    monkeypatch.setenv("FAIM_ADMIN_EMAILS_JSON", '["admin@example.com"]')
     monkeypatch.setenv("RESEND_API_KEY", "resend-test-key")
     monkeypatch.setenv("FAIM_BACKUP_DIR", str(tmp_path / "backups"))
     reset_config()
@@ -127,6 +134,16 @@ def test_admin_status_reports_runtime_snapshot(monkeypatch, tmp_path):
     assert body["runtime"]["admin_key_configured"] is True
     assert body["backups"]
     assert body["backups"][0]["name"].startswith(("backup_faim_", "raw_"))
+
+
+def test_admin_status_only_requires_admin_key(monkeypatch, tmp_path):
+    client, _, _ = _mk_client(monkeypatch, tmp_path)
+    headers = {"X-Admin-Key": "super-admin-key"}
+
+    resp = client.get("/api/v1/admin/status", headers=headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["runtime"]["admin_key_configured"] is True
 
 
 def test_admin_snapshot_create_uses_admin_bridge(monkeypatch, tmp_path):

@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Search,
   Cpu,
+  ServerCog,
 } from "lucide-react";
 
 import Logo from "@/components/brand/Logo";
@@ -48,7 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Core",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/memory-query", label: "Memory Query", icon: Search },
+      { href: "/dashboard/memory-query", label: "FAIM Cortex", icon: Search },
       { href: "/dashboard/graph", label: "FIG View", icon: Network },
     ],
   },
@@ -60,6 +61,11 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/evolution", label: "Evolution", icon: Dna },
       { href: "/dashboard/api-keys", label: "API Keys", icon: Shield },
       { href: "/dashboard/storage", label: "Storage", icon: HardDrive },
+      {
+        href: "/dashboard/control-plane",
+        label: "Control Plane",
+        icon: ServerCog,
+      },
       { href: "/dashboard/providers", label: "Providers", icon: Cpu },
     ],
   },
@@ -114,11 +120,7 @@ export function SidebarNav({
         title: "Control",
         items: [
           { href: "/dashboard/admin", label: "Admin", icon: Shield },
-          {
-            href: "/dashboard/admin#alerts",
-            label: "Alerts",
-            icon: ShieldAlert,
-          },
+          { href: "/dashboard/admin/alerts", label: "Alerts", icon: ShieldAlert },
         ],
       },
     ];

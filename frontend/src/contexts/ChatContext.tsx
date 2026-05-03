@@ -21,15 +21,29 @@ import { getActiveProvider } from "@/lib/providers";
 // Types
 // ---------------------------------------------------------------------------
 
+export type AnswerMode =
+  | "direct"
+  | "timeline"
+  | "contradiction"
+  | "provenance";
+
 export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  answerMode?: AnswerMode;
   thinking?: string; // LLM reasoning/thinking content
   thinkingDurationMs?: number; // time spent thinking (ms)
   timestamp: string;
   queryData?: FaimQueryResponse | null;
 }
+
+export const ANSWER_MODE_LABELS: Record<AnswerMode, string> = {
+  direct: "Direct",
+  timeline: "Timeline",
+  contradiction: "Contradiction",
+  provenance: "Provenance",
+};
 
 export interface FaimQueryAnswerCitation {
   node_id: string;
@@ -139,6 +153,8 @@ interface ChatContextType {
   // Thinking/Reasoning
   thinkingEnabled: boolean;
   toggleThinking: () => void;
+  answerMode: AnswerMode;
+  setAnswerMode: (mode: AnswerMode) => void;
   isThinking: boolean;
   liveThinkingBuffer: string;
 }
@@ -148,6 +164,7 @@ interface ChatContextType {
 // ---------------------------------------------------------------------------
 
 const LS_KEY = "faim.threads";
+const LS_MODE_KEY = "faim.memory.answer_mode";
 
 function loadThreads(): Thread[] {
   if (typeof window === "undefined") return [];
@@ -231,10 +248,50 @@ function isConversationalMessage(text: string): boolean {
 
 function buildConversationalSystemPrompt(): string {
   return [
-    "You are FAIM SentineL — a memory assistant. The user sent a conversational message, not a memory query.",
-    "Respond briefly and naturally. Remind them they can ask questions about their ingested documents, data, or memory.",
-    "Do not make up information. Do not mention retrieving data — none was retrieved for this message.",
+    "You are FAIM Cortex — a deterministic memory synthesis engine.",
+    "The user sent a conversational message, not a memory-grounded question.",
+    "Respond naturally and briefly, in full sentences or short paragraphs, but do not drift into generic chatbot behavior.",
+    "Do not invent facts. If the message is just a greeting or small talk, answer naturally and keep the door open for memory-grounded questions.",
+    "Do not mention retrieval — none was performed for this message.",
   ].join("\n");
+}
+
+function buildAnswerModeGuidance(answerMode: AnswerMode): string[] {
+  switch (answerMode) {
+    case "timeline":
+      return [
+        "ANSWER MODE: Timeline",
+        "Reconstruct events chronologically in one connected narrative.",
+        "Lead with what changed, then what came before, then what is current.",
+        "Use explicit dates, temporal status, and sequence markers whenever they appear in the memory nodes.",
+        "Do not collapse historical and current facts into one sentence.",
+      ];
+    case "contradiction":
+      return [
+        "ANSWER MODE: Contradiction-aware",
+        "Open with the disagreement or ambiguity if one exists.",
+        "Present both sides in fluent prose, with their sources and why they conflict.",
+        "Never hide a conflict by picking one side silently.",
+        "If the evidence favors one side, say that cautiously and explain the basis.",
+      ];
+    case "provenance":
+      return [
+        "ANSWER MODE: Provenance-first",
+        "Lead with the source trail: which files, pages, sections, and anchors support the answer.",
+        "Explain why these memories were selected before giving the conclusion.",
+        "Keep the answer readable prose, but privilege traceability and evidence lineage.",
+        "Mention confidence and source coverage when it helps the user trust the answer.",
+      ];
+    case "direct":
+    default:
+      return [
+        "ANSWER MODE: Direct",
+        "Lead with the answer first, then expand with the most relevant evidence in the same narrative flow.",
+        "Use fluent prose instead of a retrieval dump.",
+        "Keep the response compact unless the question needs a fuller explanation.",
+        "Do not use tables unless the user explicitly asks for one.",
+      ];
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -259,6 +316,7 @@ interface MemoryInventory {
 function buildFaimSystemPrompt(
   queryData: FaimQueryResponse,
   thinkingEnabled: boolean,
+  answerMode: AnswerMode,
   inventory?: MemoryInventory,
 ): string {
   const spans = queryData.answer?.supporting_spans ?? [];
@@ -306,16 +364,38 @@ function buildFaimSystemPrompt(
   const lines: string[] = [];
 
   // ── Identity ──────────────────────────────────────────────────────────────
-  lines.push("You are FAIM SentineL — a retrieval-grounded memory assistant.");
+  lines.push("You are FAIM Cortex — a deterministic memory synthesis engine.");
   lines.push(
-    "Every answer you give must be derived exclusively from the FAIM memory nodes below.",
+    "Write fluent, grounded prose from the FAIM memory nodes below; do not sound like a template, a dump of snippets, a table, or a generic chat assistant.",
   );
   lines.push(
-    "You have no internet access, no training knowledge, no outside facts.",
+    "Use full sentences and paragraphs first. Use bullets only when they genuinely improve clarity. Do not output tables unless the user explicitly asks for one.",
+  );
+  lines.push(
+    "You have no internet access, no training knowledge, and no outside facts.",
   );
   lines.push(
     "If the answer is not in the nodes below, say so precisely: 'That data is not in your FAIM memory.'",
   );
+  lines.push(
+    "Treat the retrieved nodes as working memory, the inventory as long-term memory context, and the graph metadata as evidence about structure and time.",
+  );
+  lines.push(
+    "Synthesize across multiple nodes into one coherent answer when the evidence belongs to the same memory thread.",
+  );
+  lines.push(
+    "Write one connected narrative. Use inline citations in the prose, and avoid a separate citation dump unless the user explicitly asks for one.",
+  );
+  lines.push(
+    "Prefer paragraph flow over headings or section titles unless the question requires a timeline or a conflict breakdown.",
+  );
+  lines.push(
+    "Natural language is allowed and expected, but every sentence must stay tethered to FAIM evidence, memory state, or explicit inference from those nodes.",
+  );
+  lines.push(
+    "Do not roleplay, do not be chatty, and do not produce generic assistant filler.",
+  );
+  buildAnswerModeGuidance(answerMode).forEach((line) => lines.push(line));
   lines.push("");
 
   // ── Memory inventory (document metadata) ─────────────────────────────────
@@ -424,23 +504,32 @@ function buildFaimSystemPrompt(
   // ── Behavioural contract (minimal, data-tied) ─────────────────────────────
   lines.push("RESPONSE CONTRACT:");
   lines.push(
-    "  1. Cite source + page for every factual claim (format: [filename · p.N])",
+    "  1. Keep the answer prose-first; use bullets only when they help.",
   );
   lines.push(
-    "  2. SUPERSEDED nodes: state 'older data — superseded by Node X'",
+    "  2. Cite source + page for every factual claim (format: [filename · p.N])",
   );
   lines.push(
-    "  3. CONFLICTED nodes: state both values and the conflict — never pick one silently",
+    "  3. SUPERSEDED nodes: state 'older data — superseded by Node X'",
   );
   lines.push(
-    `  4. If graph confidence is below 40% (current: ${Math.round(conf * 100)}%), open with a confidence caveat`,
+    "  4. CONFLICTED nodes: state both values and the conflict — never pick one silently",
   );
   lines.push(
-    "  5. No answer exists in nodes → say exactly what is missing, nothing more",
+    `  5. If graph confidence is below 40% (current: ${Math.round(conf * 100)}%), open with a confidence caveat`,
+  );
+  lines.push(
+    "  6. No answer exists in nodes → say exactly what is missing, nothing more",
   );
   if (thinkingEnabled)
     lines.push(
-      "  6. Reason through node scores and temporal status before composing your answer",
+      "  7. Reason through node scores and temporal status before composing your answer",
+    );
+  lines.push(
+    "  8. Never use tables unless the user explicitly asks for a table.",
+  );
+  lines.push(
+    "  9. If a claim is an inference or prediction, label it as such and explain the basis.",
     );
 
   return lines.join("\n");
@@ -483,6 +572,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
+  const [answerMode, setAnswerModeState] = useState<AnswerMode>(() => {
+    if (typeof window === "undefined") return "direct";
+    const raw = window.localStorage.getItem(LS_MODE_KEY) || "";
+    if (raw === "timeline" || raw === "contradiction" || raw === "provenance") {
+      return raw;
+    }
+    return "direct";
+  });
   const [isThinking, setIsThinking] = useState(false);
   const [liveThinkingBuffer, setLiveThinkingBuffer] = useState("");
 
@@ -502,6 +599,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [threads]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(LS_MODE_KEY, answerMode);
+    } catch {
+      // ignore
+    }
+  }, [answerMode]);
+
   // Derived: messages of the active thread
   const activeThread = threads.find((t) => t.id === activeThreadId) ?? null;
   const messages = React.useMemo(
@@ -518,6 +624,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const toggleThinking = useCallback(() => {
     setThinkingEnabled((p) => !p);
+  }, []);
+
+  const setAnswerMode = useCallback((mode: AnswerMode) => {
+    setAnswerModeState(mode);
   }, []);
 
   const newThread = useCallback(() => {
@@ -605,6 +715,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         id: assistantId,
         role: "assistant",
         content: "",
+        answerMode,
         timestamp: now(),
         queryData: null,
       };
@@ -754,7 +865,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         // ── Step 4: Build system prompt ────────────────────────────────────
         const systemPrompt = queryData
-          ? buildFaimSystemPrompt(queryData, thinkingEnabled, inventory)
+          ? buildFaimSystemPrompt(
+              queryData,
+              thinkingEnabled,
+              answerMode,
+              inventory,
+            )
           : buildConversationalSystemPrompt();
 
         // ── Step 4: Call LLM provider and stream response ──────────────────
@@ -822,14 +938,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                             messages: t.messages.map((m) =>
                               m.id !== assistantId
                                 ? m
-                                : {
-                                    ...m,
-                                    content: accumulated,
-                                    queryData,
-                                    ...(thinkingAccum
-                                      ? { thinking: thinkingAccum }
-                                      : {}),
-                                  },
+                              : {
+                                  ...m,
+                                  content: accumulated,
+                                  queryData,
+                                  answerMode,
+                                  ...(thinkingAccum
+                                    ? { thinking: thinkingAccum }
+                                    : {}),
+                                },
                             ),
                           },
                     ),
@@ -861,6 +978,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                           ...m,
                           content: finalContent,
                           queryData,
+                          answerMode,
                           ...(thinkingAccum ? { thinking: thinkingAccum } : {}),
                         },
                   ),
@@ -892,7 +1010,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setLiveThinkingBuffer("");
       }
     },
-    [activeThreadId, messages, isStreaming, thinkingEnabled],
+    [activeThreadId, messages, isStreaming, thinkingEnabled, answerMode],
   );
 
   const uploadFiles = useCallback(
@@ -920,6 +1038,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         id: assistantId,
         role: "assistant",
         content: `Uploading ${files.length} file${files.length === 1 ? "" : "s"} into FAIM storage...`,
+        answerMode: "direct",
         timestamp: now(),
       };
 
@@ -1046,6 +1165,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         uploadFiles,
         thinkingEnabled,
         toggleThinking,
+        answerMode,
+        setAnswerMode,
         isThinking,
         liveThinkingBuffer,
       }}

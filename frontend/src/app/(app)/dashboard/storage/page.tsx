@@ -18,8 +18,10 @@ import {
   Activity,
   Key,
   Download,
+  ServerCog,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Link from "next/link";
 import { getSession, useSession } from "next-auth/react";
 import React, {
   useCallback,
@@ -274,22 +276,6 @@ type StorageSupportedTypesResponse = {
   ocr_capable_extensions: string[];
 };
 
-type StorageMaintenanceHistoryItem = {
-  seq: number;
-  kind: string;
-  ts?: string | null;
-  status: string;
-  summary: string;
-  graph_version?: number | null;
-  payload: Record<string, unknown>;
-};
-
-type StorageMaintenanceHistoryResponse = {
-  graph_id: string;
-  total: number;
-  items: StorageMaintenanceHistoryItem[];
-};
-
 type StorageProvenanceRawRef = {
   raw_id: string;
   sha256: string;
@@ -506,51 +492,6 @@ function extractorModeLabel(_mode?: string | null): string {
   return "FAIM Native";
 }
 
-function maintenanceActionSummary(
-  action:
-    | "canonical"
-    | "multilingual"
-    | "multimodal"
-    | "domain_profile"
-    | "domain_knowledge"
-    | "repr_v2"
-    | "prune_cold_dry"
-    | "prune_cold_live"
-    | "cluster",
-  response: Record<string, unknown>,
-): string {
-  const n = (value: unknown): number => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
-
-  if (action === "canonical") {
-    return `Canonical rebuild: files ${n(response.files_scanned)}, terms ${n(response.term_stats_written)}, edges ${n(response.edges_written)}`;
-  }
-  if (action === "multilingual") {
-    return `Multilingual rebuild: files ${n(response.files_scanned)}, concepts ${n(response.concept_nodes_written)}, edges ${n(response.concept_edges_written)}`;
-  }
-  if (action === "multimodal") {
-    return `Multimodal backfill: files ${n(response.files_scanned)}, inserted ${n(response.inserted)}, updated ${n(response.updated)}`;
-  }
-  if (action === "domain_profile") {
-    return `Domain profile: files ${n(response.files_scanned)}, terms ${n(response.lexicon_written)}`;
-  }
-  if (action === "repr_v2") {
-    return `Memory index rebuild: scanned ${n(response.files_scanned)} files, matched ${n(response.matched_nodes)} nodes, updated ${n(response.updated)}, inserted ${n(response.inserted)}, skipped ${n(response.skipped_nodes)}`;
-  }
-  if (action === "prune_cold_dry") {
-    return `Prune preview (dry run): ${n(response.scanned)} cold candidates found — run live prune to delete them`;
-  }
-  if (action === "prune_cold_live") {
-    return `Pruned ${n(response.pruned)} cold nodes (age >${n(response.cold_age_days)}d, never accessed)`;
-  }
-  if (action === "cluster") {
-    return `Clustering complete: k=${n(response.k)}, ${n(response.nodes_clustered)} nodes assigned, ${n(response.iterations)} iterations${response.converged ? " (converged)" : ""}`;
-  }
-  return `Domain knowledge import: entities ${n(response.entity_nodes_written)}, facts ${n(response.fact_nodes_written)}, edges ${n(response.edges_written)}`;
-}
-
 async function authHeaders(extra?: HeadersInit): Promise<HeadersInit> {
   const session = await getSession();
   const token = (session as { accessToken?: string } | null)?.accessToken;
@@ -605,8 +546,11 @@ function trimQueue(items: QueueItem[]): QueueItem[] {
 }
 
 export default function StoragePage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const { toast } = useToast();
+  const accessToken = (session as { accessToken?: string } | null)?.accessToken;
+  const isAuthenticated =
+    sessionStatus === "authenticated" && Boolean(accessToken);
 
   const sessionGraphId =
     (session as { graphId?: string } | null)?.graphId || "default";
@@ -618,9 +562,6 @@ export default function StoragePage() {
   const [backends, setBackends] = useState<StorageBackends | null>(null);
   const [supportedTypes, setSupportedTypes] =
     useState<StorageSupportedTypesResponse | null>(null);
-  const [maintenanceHistory, setMaintenanceHistory] = useState<
-    StorageMaintenanceHistoryItem[]
-  >([]);
   const [total, setTotal] = useState(0);
 
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
@@ -628,29 +569,7 @@ export default function StoragePage() {
 
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(true);
-  const [loadingMaintenanceHistory, setLoadingMaintenanceHistory] =
-    useState(false);
   const [actionRawId, setActionRawId] = useState<string | null>(null);
-  const [maintenanceBusy, setMaintenanceBusy] = useState<string | null>(null);
-  const [domainPack, setDomainPack] = useState("finance");
-  const [domainKnowledgeText, setDomainKnowledgeText] = useState(
-    JSON.stringify(
-      [
-        {
-          entity: "Acme Corp",
-          relation: "headquartered_in",
-          value: "Berlin",
-          time: "",
-          aliases: ["Acme"],
-          source_id: "acme-corp-hq",
-          source_kind: "manual",
-          meta: { confidence: 0.9 },
-        },
-      ],
-      null,
-      2,
-    ),
-  );
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [query, setQuery] = useState("");
@@ -846,36 +765,6 @@ export default function StoragePage() {
     }
   }, [activeGraphId, fetchJson, throttledToast]);
 
-  const fetchMaintenanceHistoryInternal = useCallback(async () => {
-    setLoadingMaintenanceHistory(true);
-    try {
-      const data = await fetchJson<StorageMaintenanceHistoryResponse>(
-        `/api/v1/storage/maintenance/history?graph_id=${encodeURIComponent(activeGraphId)}&limit=10`,
-      );
-      setMaintenanceHistory(data.items || []);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      if (error instanceof ApiError && error.status === 429) {
-        throttledToast(
-          "warning",
-          "Maintenance history rate-limited",
-          message,
-          "storage-maintenance-429",
-        );
-      } else {
-        throttledToast(
-          "warning",
-          "Maintenance history unavailable",
-          message,
-          "storage-maintenance-error",
-          20000,
-        );
-      }
-    } finally {
-      setLoadingMaintenanceHistory(false);
-    }
-  }, [activeGraphId, fetchJson, throttledToast]);
-
   const fetchSupportedTypesInternal = useCallback(async () => {
     setSupportedTypesLoading(true);
     try {
@@ -920,16 +809,23 @@ export default function StoragePage() {
       await Promise.all([
         fetchFilesInternal(),
         fetchSummaryInternal(),
-        fetchMaintenanceHistoryInternal(),
       ]);
     } finally {
       refreshLockRef.current = false;
     }
   }, [
     fetchFilesInternal,
-    fetchMaintenanceHistoryInternal,
     fetchSummaryInternal,
   ]);
+
+  const applyGraphScope = useCallback(() => {
+    const next = graphScopeInput.trim() || sessionGraphId;
+    if (next === graphScope) return;
+    setGraphScope(next);
+    setPage(0);
+    setQueueItems([]);
+    toast.info("Graph scope updated", `Storage now targets ${next}`);
+  }, [graphScope, graphScopeInput, sessionGraphId, toast]);
 
   const patchQueueItem = useCallback(
     (itemId: string, updater: (item: QueueItem) => QueueItem) => {
@@ -1658,157 +1554,37 @@ export default function StoragePage() {
     [activeGraphId, fetchJson, toast],
   );
 
-  const applyGraphScope = useCallback(() => {
-    const next = graphScopeInput.trim() || sessionGraphId;
-    if (next === graphScope) return;
-    setGraphScope(next);
-    setPage(0);
-    setQueueItems([]);
-    setMaintenanceHistory([]);
-    toast.info(
-      "Graph scope updated",
-      `Storage control plane now targets ${next}`,
-    );
-  }, [graphScope, graphScopeInput, sessionGraphId, toast]);
-
-  type MaintenanceActionKey =
-    | "canonical"
-    | "multilingual"
-    | "multimodal"
-    | "domain_profile"
-    | "domain_knowledge"
-    | "repr_v2"
-    | "prune_cold_dry"
-    | "prune_cold_live"
-    | "cluster";
-
-  const runMaintenanceAction = useCallback(
-    async (action: MaintenanceActionKey) => {
-      if (maintenanceBusy) return;
-      setMaintenanceBusy(action);
-      try {
-        let response: Record<string, unknown> = {};
-
-        if (action === "canonical") {
-          response = await fetchJson<Record<string, unknown>>(
-            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/canonical-semantics/rebuild`,
-            { method: "POST" },
-          );
-        } else if (action === "multilingual") {
-          response = await fetchJson<Record<string, unknown>>(
-            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/multilingual-semantics/rebuild`,
-            { method: "POST" },
-          );
-        } else if (action === "multimodal") {
-          response = await fetchJson<Record<string, unknown>>(
-            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/multimodal/rebuild`,
-            { method: "POST" },
-          );
-        } else if (action === "domain_profile") {
-          const params = new URLSearchParams();
-          if (domainPack.trim()) params.set("domain_pack", domainPack.trim());
-          response = await fetchJson<Record<string, unknown>>(
-            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/domain-profile/rebuild${
-              params.toString() ? `?${params.toString()}` : ""
-            }`,
-            { method: "POST" },
-          );
-        } else if (action === "repr_v2") {
-          response = await fetchJson<Record<string, unknown>>(
-            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/representation-v2/rebuild`,
-            { method: "POST" },
-          );
-        } else if (action === "prune_cold_dry") {
-          response = await fetchJson<Record<string, unknown>>(
-            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/prune-cold-nodes?dry_run=true&cold_age_days=90`,
-            { method: "POST" },
-          );
-        } else if (action === "prune_cold_live") {
-          response = await fetchJson<Record<string, unknown>>(
-            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/prune-cold-nodes?dry_run=false&cold_age_days=90`,
-            { method: "POST" },
-          );
-        } else if (action === "cluster") {
-          response = await fetchJson<Record<string, unknown>>(
-            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/cluster`,
-            { method: "POST" },
-          );
-        } else if (action === "domain_knowledge") {
-          let kbRows: unknown;
-          try {
-            kbRows = JSON.parse(domainKnowledgeText);
-          } catch (error) {
-            throw new Error("Domain knowledge input must be valid JSON.");
-          }
-          if (!Array.isArray(kbRows)) {
-            throw new Error(
-              "Domain knowledge input must be a JSON array of rows.",
-            );
-          }
-          response = await fetchJson<Record<string, unknown>>(
-            `/api/v1/storage/graphs/${encodeURIComponent(activeGraphId)}/domain-knowledge/import`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                domain_pack: domainPack.trim() || null,
-                kb_rows: kbRows,
-              }),
-            },
-          );
-        }
-
-        const summary = maintenanceActionSummary(action, response);
-        toast.success("Maintenance completed", summary);
-        await refreshViews();
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown error";
-        toast.error("Maintenance failed", message);
-      } finally {
-        setMaintenanceBusy(null);
-      }
-    },
-    [
-      activeGraphId,
-      domainKnowledgeText,
-      domainPack,
-      fetchJson,
-      maintenanceBusy,
-      refreshViews,
-      toast,
-    ],
-  );
-
   useEffect(() => {
+    if (!isAuthenticated) return;
     setGraphScopeInput(sessionGraphId);
     setGraphScope(sessionGraphId);
-  }, [sessionGraphId]);
+  }, [isAuthenticated, sessionGraphId]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     fetchFilesInternal();
-  }, [fetchFilesInternal]);
+  }, [fetchFilesInternal, isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     fetchSummaryInternal();
-  }, [fetchSummaryInternal]);
+  }, [fetchSummaryInternal, isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     void fetchSupportedTypesInternal();
-  }, [fetchSupportedTypesInternal]);
+  }, [fetchSupportedTypesInternal, isAuthenticated]);
 
   useEffect(() => {
-    void fetchMaintenanceHistoryInternal();
-  }, [fetchMaintenanceHistoryInternal]);
-
-  useEffect(() => {
+    if (!isAuthenticated) return;
     const interval = window.setInterval(() => {
       fetchSummaryInternal();
     }, 15000);
     return () => window.clearInterval(interval);
-  }, [fetchSummaryInternal]);
+  }, [fetchSummaryInternal, isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     const activeUploads = queueItems.filter(
       (item) => item.status === "uploading" || item.status === "ingesting",
     ).length;
@@ -1821,9 +1597,10 @@ export default function StoragePage() {
     for (const item of queued) {
       void startQueueUpload(item.id);
     }
-  }, [queueItems, startQueueUpload]);
+  }, [isAuthenticated, queueItems, startQueueUpload]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     const pollTargets = queueItems.filter(
       (item) => item.jobId && !TERMINAL_QUEUE_STATUS.has(item.status),
     );
@@ -1839,7 +1616,7 @@ export default function StoragePage() {
     poll();
     const timer = window.setInterval(poll, JOB_POLL_INTERVAL_MS);
     return () => window.clearInterval(timer);
-  }, [queueItems, refreshQueueJob]);
+  }, [isAuthenticated, queueItems, refreshQueueJob]);
 
   useEffect(() => {
     if (!provenanceOpen) return;
@@ -1904,24 +1681,41 @@ export default function StoragePage() {
         subtitle={`Immutable Provenance & Ingest Lifecycle · Graph Scope: ${activeGraphId}`}
         icon={Database}
         actions={
-          <label
-            className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/5 px-5 h-10 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
-            style={{ color: "var(--text-primary)" }}
-          >
-            <UploadCloud size={14} className="opacity-80" />
-            Upload Matrix
-            <input
-              type="file"
-              multiple
-              className="hidden"
-              onChange={onInputFiles}
-              disabled={!ingestModePolicy.supported}
-            />
-          </label>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/control-plane"
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/5 bg-white/5 px-4 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
+              style={{ color: "var(--text-primary)" }}
+            >
+              <ServerCog size={14} className="opacity-80" />
+              Control Plane
+            </Link>
+            <label
+              className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/5 px-5 h-10 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
+              style={{ color: "var(--text-primary)" }}
+            >
+              <UploadCloud size={14} className="opacity-80" />
+              Upload Matrix
+              <input
+                type="file"
+                multiple
+                className="hidden"
+                onChange={onInputFiles}
+                disabled={!ingestModePolicy.supported}
+              />
+            </label>
+          </div>
         }
       />
 
-      {/* ── Control Plane ───────────────────────────────────── */}
+      {!isAuthenticated && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          Storage requires an active signed-in session. Sign out and sign back
+          in if the page shows token errors or stale data.
+        </div>
+      )}
+
+      {/* ── Graph Scope ─────────────────────────────────────── */}
       <div
         className="overflow-hidden rounded-xl border"
         style={{
@@ -1937,313 +1731,69 @@ export default function StoragePage() {
             className="text-[10px] font-medium uppercase tracking-widest"
             style={{ color: "var(--text-tertiary)" }}
           >
-            Retrieval Control Plane
+            Graph Scope
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge size="xs" variant="success">
-              FAIM Native Extractor
-            </Badge>
-            <Badge size="xs" variant="info">
-              Multi-column · Tables · Scanned PDFs · OCR
-            </Badge>
-          </div>
+          <Link
+            href="/dashboard/control-plane"
+            className="inline-flex h-8 items-center justify-center gap-2 rounded-lg border border-white/5 bg-white/5 px-3 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10"
+            style={{ color: "var(--text-primary)" }}
+          >
+            <ServerCog size={13} className="opacity-80" />
+            Open Control Plane
+          </Link>
         </div>
 
-        <div className="grid gap-4 px-5 py-4 xl:grid-cols-[1.15fr_.85fr]">
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-3">
-              <div>
-                <p
-                  className="mb-1.5 text-[10px] font-medium uppercase tracking-wider"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
-                  Graph Scope
-                </p>
-                <Input
-                  value={graphScopeInput}
-                  onChange={(e) => setGraphScopeInput(e.target.value)}
-                  placeholder={sessionGraphId}
-                />
-              </div>
-              <div className="flex items-end gap-2">
-                <Button size="sm" variant="outline" onClick={applyGraphScope}>
-                  Apply Scope
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setGraphScopeInput(sessionGraphId);
-                    setGraphScope(sessionGraphId);
-                    setPage(0);
-                    setQueueItems([]);
-                  }}
-                >
-                  Reset
-                </Button>
-              </div>
-              <div
-                className="rounded-lg border px-3 py-2 text-xs"
-                style={{
-                  borderColor: "var(--os-stroke)",
-                  background: "var(--os-surface-2)",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                <p
-                  className="text-[10px] uppercase tracking-widest"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
-                  Scope summary
-                </p>
-                <p
-                  className="mt-1 font-medium"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  {activeGraphId}
-                </p>
-              </div>
-            </div>
-
-            {maintenanceBusy && (
-              <div
-                className="flex items-center gap-2 rounded-lg border px-3 py-2 text-xs"
-                style={{
-                  borderColor: "rgba(99,102,241,0.25)",
-                  background: "rgba(99,102,241,0.08)",
-                  color: "var(--text-secondary)",
-                }}
-              >
-                <Activity size={14} className="animate-spin" />
-                Running {maintenanceBusy.replace("_", " ")} on {activeGraphId}{" "}
-                ...
-              </div>
-            )}
-
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {[
-                { key: "cluster" as const, label: "Run Topic Clustering" },
-                { key: "repr_v2" as const, label: "Rebuild Memory Index" },
-                {
-                  key: "prune_cold_dry" as const,
-                  label: "Preview Cold Prune (dry run)",
-                },
-                {
-                  key: "prune_cold_live" as const,
-                  label: "Prune Cold Nodes (live)",
-                },
-                {
-                  key: "canonical" as const,
-                  label: "Canonical semantics rebuild",
-                },
-                {
-                  key: "multilingual" as const,
-                  label: "Multilingual semantics rebuild",
-                },
-                {
-                  key: "multimodal" as const,
-                  label: "Multimodal backfill/rebuild",
-                },
-                {
-                  key: "domain_profile" as const,
-                  label: "Domain profile rebuild",
-                },
-                {
-                  key: "domain_knowledge" as const,
-                  label: "Domain knowledge import",
-                },
-              ].map((action) => (
-                <Button
-                  key={action.key}
-                  size="sm"
-                  variant="outline"
-                  className="justify-start"
-                  disabled={!!maintenanceBusy}
-                  onClick={() => {
-                    void runMaintenanceAction(action.key);
-                  }}
-                >
-                  {maintenanceBusy === action.key ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Activity size={12} className="animate-spin" />
-                      Running...
-                    </span>
-                  ) : (
-                    action.label
-                  )}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <p
-                className="mb-1.5 text-[10px] font-medium uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Domain Pack
-              </p>
-              <ThemedSelect
-                value={domainPack}
-                onChange={setDomainPack}
-                options={[
-                  { value: "finance", label: "finance" },
-                  { value: "general", label: "general" },
-                  { value: "", label: "auto" },
-                ]}
-              />
-            </div>
-
-            <div>
-              <p
-                className="mb-1.5 text-[10px] font-medium uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Domain Knowledge JSON
-              </p>
-              <textarea
-                value={domainKnowledgeText}
-                onChange={(e) => setDomainKnowledgeText(e.target.value)}
-                className="min-h-[170px] w-full rounded-xl border px-3 py-2 text-xs outline-none transition-colors"
-                style={{
-                  borderColor: "var(--os-stroke)",
-                  background: "var(--os-surface-2)",
-                  color: "var(--text-primary)",
-                }}
-              />
-              <p
-                className="mt-1 text-[11px]"
-                style={{ color: "var(--text-tertiary)" }}
-              >
-                Paste a JSON array of `
-                {
-                  "{ entity, relation, value, time, aliases?, source_id?, source_kind?, meta? }"
-                }
-                ` rows.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!!maintenanceBusy}
-                onClick={() => {
-                  setDomainKnowledgeText(
-                    JSON.stringify(
-                      [
-                        {
-                          entity: "Acme Corp",
-                          relation: "headquartered_in",
-                          value: "Berlin",
-                          time: "",
-                          aliases: ["Acme"],
-                          source_id: "acme-corp-hq",
-                          source_kind: "manual",
-                          meta: { confidence: 0.9 },
-                        },
-                      ],
-                      null,
-                      2,
-                    ),
-                  );
-                }}
-              >
-                Load sample
-              </Button>
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={!!maintenanceBusy}
-                onClick={() => {
-                  void runMaintenanceAction("domain_knowledge");
-                }}
-              >
-                Import KB rows
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <div
-          className="border-t px-5 py-4"
-          style={{ borderColor: "var(--os-stroke)" }}
-        >
-          <div className="flex items-center justify-between gap-3">
+        <div className="grid gap-3 px-5 py-4 md:grid-cols-3">
+          <div>
             <p
-              className="text-[10px] font-medium uppercase tracking-widest"
+              className="mb-1.5 text-[10px] font-medium uppercase tracking-wider"
               style={{ color: "var(--text-tertiary)" }}
             >
-              Maintenance History
+              Graph Scope
             </p>
-            <span
-              className="text-[11px]"
+            <Input
+              value={graphScopeInput}
+              onChange={(e) => setGraphScopeInput(e.target.value)}
+              placeholder={sessionGraphId}
+            />
+          </div>
+          <div className="flex items-end gap-2">
+            <Button size="sm" variant="outline" onClick={applyGraphScope}>
+              Apply Scope
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setGraphScopeInput(sessionGraphId);
+                setGraphScope(sessionGraphId);
+                setPage(0);
+                setQueueItems([]);
+              }}
+            >
+              Reset
+            </Button>
+          </div>
+          <div
+            className="rounded-lg border px-3 py-2 text-xs"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-2)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            <p
+              className="text-[10px] uppercase tracking-widest"
               style={{ color: "var(--text-tertiary)" }}
             >
-              {loadingMaintenanceHistory
-                ? "Refreshing..."
-                : `${maintenanceHistory.length} recent run(s)`}
-            </span>
-          </div>
-          <div className="mt-3 grid gap-3 xl:grid-cols-2">
-            {maintenanceHistory.length === 0 ? (
-              <div
-                className="rounded-lg border px-3 py-3 text-xs"
-                style={{
-                  borderColor: "var(--os-stroke)",
-                  background: "var(--os-surface-2)",
-                  color: "var(--text-tertiary)",
-                }}
-              >
-                No maintenance runs recorded for this graph yet.
-              </div>
-            ) : (
-              maintenanceHistory.map((item) => (
-                <div
-                  key={`${item.kind}-${item.seq}`}
-                  className="rounded-lg border px-3 py-3 text-xs"
-                  style={{
-                    borderColor: "var(--os-stroke)",
-                    background: "var(--os-surface-2)",
-                  }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <p
-                      className="font-medium"
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      {item.kind.replaceAll("_", " ").toLowerCase()}
-                    </p>
-                    <Badge
-                      size="xs"
-                      variant={
-                        item.status === "completed"
-                          ? "success"
-                          : item.status === "failed"
-                            ? "error"
-                            : "default"
-                      }
-                    >
-                      {item.status}
-                    </Badge>
-                  </div>
-                  <p
-                    className="mt-1 text-[11px]"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    {item.ts ? new Date(item.ts).toLocaleString() : "-"} · v
-                    {item.graph_version ?? "—"}
-                  </p>
-                  <p
-                    className="mt-2"
-                    style={{ color: "var(--text-secondary)" }}
-                  >
-                    {item.summary}
-                  </p>
-                </div>
-              ))
-            )}
+              Scope summary
+            </p>
+            <p
+              className="mt-1 font-medium"
+              style={{ color: "var(--text-primary)" }}
+            >
+              {activeGraphId}
+            </p>
           </div>
         </div>
       </div>

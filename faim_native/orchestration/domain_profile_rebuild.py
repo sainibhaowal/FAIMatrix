@@ -39,6 +39,7 @@ def run_domain_profile_rebuild(
     page_size: int = 100,
     max_errors: int = 25,
 ) -> DomainProfileRebuildResult:
+    domain_pack = None
     from core.operators.domain_knowledge import load_domain_profile_pack
     from core.operators.terminology_mining import (
         build_domain_document,
