@@ -14,6 +14,8 @@ Run all commands from repo root:
 cd /home/sephi-asi/FAIM
 ```
 
+The env files are self-describing, so `docker compose --env-file ...` works directly.
+
 ## 1) Prepare Env Files
 
 Create the real env file for the target you are running:

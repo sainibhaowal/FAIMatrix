@@ -15,11 +15,12 @@
  *   9. FIG View — 3D graph visualization showcase
  *  10. Pipeline — high-level 5-step flow
  *  11. Developer API — code examples for integration
- *  12. Security — API keys, scopes, middleware stack
- *  13. Use Cases — 6 industries
- *  14. Tech Specs — real numbers from code
- *  15. FAQ — common questions
- *  16. CTA — final call to action
+ *  12. Docs & Operations — public docs, Cortex, deployment runbooks
+ *  13. Security — API keys, scopes, middleware stack
+ *  14. Use Cases — 6 industries
+ *  15. Tech Specs — real numbers from code
+ *  16. FAQ — common questions
+ *  17. CTA — final call to action
  */
 
 import {
@@ -41,6 +42,7 @@ import {
   SecurityKeys,
   UseCases,
   TechSpecs,
+  DocsOperations,
   TechStack,
   Manifesto,
   IntegrationMap,
@@ -99,6 +101,9 @@ export default function LandingPage() {
       </div>
       <div id="quickstart">
         <QuickStart />
+      </div>
+      <div id="docs-ops">
+        <DocsOperations />
       </div>
       <div id="math">
         <MathProof />
@@ -252,7 +257,7 @@ function BenchmarksShowcase() {
                 ))}
               </ol>
               <Link
-                href="/docs/benchmarks"
+                href="/benchmarks"
                 className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 transition-all font-medium"
               >
                 Learn More →

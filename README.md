@@ -25,16 +25,25 @@ All services are aligned to the `80x0` port range for consistency and to avoid c
 ## Quick Start
 
 ```bash
-# Start Development Environment
-npm run faim:up
+# Start the local production mirror
+npm run faim:localprod:up
 
-# Rebuild after pulling updates
-git pull --ff-only && docker compose build
+# Smoke test the local production stack
+npm run faim:localprod:smoke
+
+# Rebuild only the service that changed
+npm run faim:localprod:up frontend
+npm run faim:localprod:up api
+npm run faim:localprod:up worker
+npm run faim:localprod:up migrate api worker
 
 # Run Tests
 cd faim_native
 pytest
 ```
+
+The public docs portal lives at `/docs` and includes the current system map,
+FAIM Cortex, deployment, and benchmark references.
 
 ## Release Hygiene
 

@@ -13,6 +13,7 @@ const NAV_GROUPS = [
     group: "Overview",
     items: [
       { id: "what-is-faim", label: "What is FAIM?" },
+      { id: "current-state", label: "Current State" },
       { id: "quickstart", label: "Quick Start" },
       { id: "why-faim", label: "Why FAIM?" },
     ],
@@ -24,6 +25,7 @@ const NAV_GROUPS = [
       { id: "memory", label: "Memory System" },
       { id: "graph", label: "Knowledge Graph" },
       { id: "retrieval", label: "Retrieval Engine" },
+      { id: "cortex", label: "FAIM Cortex" },
     ],
   },
   {
@@ -39,6 +41,7 @@ const NAV_GROUPS = [
       { id: "fig-view", label: "FIG View" },
       { id: "security", label: "Security" },
       { id: "benchmarks", label: "Engine Benchmarks" },
+      { id: "deployment", label: "Deployment" },
       { id: "capabilities", label: "Full Capabilities" },
       { id: "roadmap", label: "Roadmap" },
     ],
@@ -202,6 +205,56 @@ function SectionWhatIsFaim() {
           ))}
         </div>
       </Card>
+    </div>
+  );
+}
+
+function SectionCurrentState() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Current State</h2>
+        <p className="text-slate-400 leading-relaxed">
+          This section is the short version of what is now live in the repo and
+          on the site: the deterministic FAIM core is still the source of
+          truth, and the newer product surfaces sit on top of it.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="What Is Live Now" color="cyan">
+          <ul className="space-y-2 text-sm text-slate-400">
+            {[
+              "FAIM Cortex now synthesizes prose-first answers with Direct, Timeline, Contradiction-aware, and Provenance-first modes.",
+              "Local production uses one env file: .env.localprod.",
+              "VPS production uses one env file: deploy/env.vpsprod.",
+              "Selective rebuilds exist for frontend, api, worker, and migrate instead of full rebuilds every time.",
+              "The /docs portal is now the public docs surface for system, query, deployment, and benchmarks.",
+            ].map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="text-cyan-400 shrink-0">→</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card title="What Stayed Stable" color="purple">
+          <ul className="space-y-2 text-sm text-slate-400">
+            {[
+              "The 256-dim native core remains unchanged and deterministic.",
+              "Graph edges, inheritance, opposition, and hot/warm/cold memory tiers stay in place.",
+              "Tenant isolation, auth, and auditability are still mandatory.",
+              "FIG View, storage, benchmarks, and retrieval continue to operate on the same memory graph.",
+              "No new ML dependency was added to the core engine.",
+            ].map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="text-purple-400 shrink-0">→</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
     </div>
   );
 }
@@ -1033,6 +1086,78 @@ function SectionRetrieval() {
   );
 }
 
+function SectionCortex() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">FAIM Cortex</h2>
+        <p className="text-slate-400 leading-relaxed">
+          FAIM Cortex is the memory synthesis surface. It is not generic chat.
+          It turns retrieved FAIM memory into prose-first answers while staying
+          grounded in evidence, provenance, and contradictions.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Answer Modes" color="cyan">
+          <ul className="space-y-2 text-sm text-slate-400">
+            {[
+              "Direct — compact answer with the strongest retrieved evidence.",
+              "Timeline — order facts by time and separate current from historical truth.",
+              "Contradiction-aware — surface conflicts instead of hiding them.",
+              "Provenance-first — prioritize source traceability and anchors.",
+            ].map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="text-cyan-400 shrink-0">→</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card title="Generation Contract" color="purple">
+          <ul className="space-y-2 text-sm text-slate-400">
+            {[
+              "Natural prose is expected, but every claim stays tied to retrieved memory nodes.",
+              "Inline evidence cues should stay visible in the answer body.",
+              "Tables are avoided unless the user explicitly asks for them.",
+              "The response should explain why memory was selected when provenance matters.",
+            ].map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="text-purple-400 shrink-0">→</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
+
+      <Card title="Where It Lives" color="emerald">
+        <div className="grid md:grid-cols-2 gap-4 text-sm text-slate-400">
+          <div>
+            <p className="text-emerald-300 font-mono text-xs mb-2">
+              Dashboard Surface
+            </p>
+            <p>
+              The current entry point is Dashboard → FAIM Cortex, where users
+              can ask grounded questions and switch answer modes without
+              leaving the memory graph.
+            </p>
+          </div>
+          <div>
+            <p className="text-emerald-300 font-mono text-xs mb-2">
+              Site Surface
+            </p>
+            <p>
+              The public product copy now points users at /docs, /benchmarks,
+              and the memory query surface so the docs and UI stay aligned.
+            </p>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function SectionDocIntel() {
   return (
     <div className="space-y-6">
@@ -1625,6 +1750,94 @@ function SectionSecurity() {
   );
 }
 
+function SectionDeployment() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Deployment</h2>
+        <p className="text-slate-400 leading-relaxed">
+          Production now uses one real env file per target. Local prod and VPS
+          prod mirror the same stack, but they stay isolated so the deploy path
+          is deterministic and clean.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Local Production" color="cyan">
+          <ul className="space-y-2 text-sm text-slate-400">
+            {[
+              ".env.localprod is the single local-prod source of truth.",
+              "npm run faim:localprod:up brings up the production-like stack.",
+              "npm run faim:localprod:up frontend, api, worker, or migrate supports selective rebuilds.",
+              "npm run faim:localprod:smoke checks the edge, readiness, and health endpoints.",
+            ].map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="text-cyan-400 shrink-0">→</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+        <Card title="VPS Production" color="purple">
+          <ul className="space-y-2 text-sm text-slate-400">
+            {[
+              "deploy/env.vpsprod is copied separately to the VPS and not synced by rsync.",
+              "scripts/vps_sync.sh excludes docs, tests, the root Runtime/ scratch folder, and secret env files.",
+              "npm run faim:vps:up uses docker-compose.vps.yml with the VPS env file.",
+              "Selective rebuilds keep frontend, api, worker, and migrate rebuilds small.",
+            ].map((item) => (
+              <li key={item} className="flex gap-2">
+                <span className="text-purple-400 shrink-0">→</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      </div>
+
+      <Card title="Deployment Rules" color="emerald">
+        <div className="grid md:grid-cols-2 gap-4 text-sm text-slate-400">
+          <div>
+            <p className="text-emerald-300 font-mono text-xs mb-2">
+              Keep These Safe
+            </p>
+            <ul className="space-y-2">
+              {[
+                "Do not use git pull on the VPS deploy path.",
+                "Do not treat frontend env files as a separate production source.",
+                "Only full rebuild when Dockerfile, compose files, or dependencies change.",
+              ].map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="text-emerald-400 shrink-0">→</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="text-emerald-300 font-mono text-xs mb-2">
+              What to Check
+            </p>
+            <ul className="space-y-2">
+              {[
+                "docker compose config before up",
+                "docker compose ps after rebuild",
+                "curl /api/v1/health/live and /api/v1/health/ready after deploy",
+                "logs for api, worker, frontend, and caddy if anything fails",
+              ].map((item) => (
+                <li key={item} className="flex gap-2">
+                  <span className="text-emerald-400 shrink-0">→</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function SectionCapabilities() {
   const groups = [
     {
@@ -1777,6 +1990,11 @@ function SectionCapabilities() {
         [
           "Memory inventory in prompt",
           "Total docs, file types, file names, node counts for meta-queries",
+          "done",
+        ],
+        [
+          "FAIM Cortex answer modes",
+          "Direct, Timeline, Contradiction-aware, and Provenance-first prose synthesis",
           "done",
         ],
         [
@@ -2269,17 +2487,20 @@ function SectionRoadmap() {
 // ---------------------------------------------------------------------------
 const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   "what-is-faim": SectionWhatIsFaim,
+  "current-state": SectionCurrentState,
   quickstart: SectionQuickStart,
   "why-faim": SectionWhyFaim,
   architecture: SectionArchitecture,
   memory: SectionMemory,
   graph: SectionGraph,
   retrieval: SectionRetrieval,
+  cortex: SectionCortex,
   "document-intel": SectionDocIntel,
   ingestion: SectionIngestion,
   "fig-view": SectionFigView,
   security: SectionSecurity,
   benchmarks: SectionBenchmarks,
+  deployment: SectionDeployment,
   capabilities: SectionCapabilities,
   roadmap: SectionRoadmap,
 };

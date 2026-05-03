@@ -114,8 +114,9 @@ export default function Hero() {
         >
           FAIMATRIX is a deterministic memory, retrieval, and answer engine. It
           combines native 256-dimensional vectors, sparse lexical sidecars,
-          graph diffusion, proposition-aware reranking, and domain knowledge
-          without giving up FAIM&apos;s core invariants.
+          graph diffusion, proposition-aware reranking, FAIM Cortex prose
+          synthesis, and domain knowledge without giving up FAIM&apos;s core
+          invariants.
         </motion.p>
 
         <motion.div
@@ -152,6 +153,12 @@ export default function Hero() {
             className="w-full sm:w-auto px-8 py-4 border border-slate-700/80 rounded-xl text-slate-300 font-medium text-lg hover:border-slate-500 hover:bg-white/[0.03] transition-all duration-300 text-center"
           >
             Explore the Engine
+          </Link>
+          <Link
+            href="/docs"
+            className="w-full sm:w-auto px-8 py-4 border border-cyan-500/30 rounded-xl text-cyan-200 font-medium text-lg hover:border-cyan-400/60 hover:bg-cyan-500/[0.04] transition-all duration-300 text-center"
+          >
+            Read Docs
           </Link>
         </motion.div>
 
@@ -195,8 +202,8 @@ export default function Hero() {
               FAIM Cortex
             </p>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-              Ask questions, get cited answers, inspect provenance, and upload
-              source files directly into the same FAIM graph.
+              Ask questions in Direct, Timeline, Contradiction, or Provenance
+              mode, get cited prose answers, and inspect the memory trace.
             </p>
           </div>
           <div className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">

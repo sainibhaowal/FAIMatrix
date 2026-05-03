@@ -13,10 +13,15 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-export FAIM_ENV_FILE="$ENV_FILE"
 chmod 600 "$ENV_FILE"
 
 mkdir -p Runtime/vps/{postgres,redis,qdrant,raw,backups,caddy_data,caddy_config}
+
+docker run --rm \
+  -u root \
+  -v "$PROJECT_ROOT/Runtime/vps/postgres:/var/lib/postgresql/data" \
+  postgres:15 \
+  bash -lc 'chown -R 999:999 /var/lib/postgresql/data && chmod -R u+rwX,go-rwx /var/lib/postgresql/data'
 
 SERVICES=("$@")
 

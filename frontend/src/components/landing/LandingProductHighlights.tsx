@@ -6,7 +6,7 @@ const HIGHLIGHTS = [
   {
     title: "FAIM Cortex",
     tag: "Grounded Answers",
-    text: "Ask questions against your own memory and get cited answers you can inspect, trust, and share.",
+    text: "Ask questions in Direct, Timeline, Contradiction, or Provenance mode and get cited prose you can inspect, trust, and share.",
   },
   {
     title: "Storage Control",

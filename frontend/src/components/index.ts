@@ -12,6 +12,7 @@ export { default as QueryExplain } from "./landing/QueryExplain";
 export { default as HybridRecall } from "./landing/HybridRecall";
 export { default as RAGComparison } from "./landing/RAGComparison";
 export { default as QuickStart } from "./landing/QuickStart";
+export { default as DocsOperations } from "./landing/DocsOperations";
 export { default as EnterprisePillars } from "./landing/EnterprisePillars";
 export { default as TechStack } from "./landing/TechStack";
 export { default as Manifesto } from "./landing/Manifesto";
