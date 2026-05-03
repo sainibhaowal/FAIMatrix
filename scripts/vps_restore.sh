@@ -15,8 +15,6 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-export FAIM_ENV_FILE="$ENV_FILE"
-
 DB_BACKUP="${1:-}"
 RAW_BACKUP="${2:-}"
 

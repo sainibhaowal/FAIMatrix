@@ -18,12 +18,16 @@ services:
       - ./Runtime/vps/qdrant:/qdrant/storage
 
   migrate:
+    env_file:
+      - deploy/env.vpsprod
     container_name: faim-migrate-vps
     volumes:
       - ./Runtime/vps/raw:/var/lib/faim/raw
       - ./Runtime/vps/backups:/var/lib/faim/backups
 
   api:
+    env_file:
+      - deploy/env.vpsprod
     container_name: faim-api-vps
     ports: !reset []
     environment:
@@ -52,6 +56,8 @@ services:
       - ./Runtime/vps/backups:/var/lib/faim/backups
 
   worker:
+    env_file:
+      - deploy/env.vpsprod
     container_name: faim-worker-vps
     ports: !reset []
     environment:
@@ -73,6 +79,8 @@ services:
       - ./Runtime/vps/raw:/var/lib/faim/raw
 
   frontend:
+    env_file:
+      - deploy/env.vpsprod
     container_name: faim-frontend-vps
     ports: !reset []
     build:

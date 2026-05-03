@@ -36,6 +36,8 @@ Example values:
 This repo is a single monorepo, so sync the repo root once. Do not split the
 backend and frontend into separate deploy roots.
 
+The VPS env file is self-describing, so direct `docker compose --env-file ...` commands work without a manual export.
+
 ## 2. One-Way Deploy Flow
 
 Follow this exact order:
