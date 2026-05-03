@@ -13,8 +13,19 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/Button";
-import { useChat } from "@/contexts/ChatContext";
+import {
+  ANSWER_MODE_LABELS,
+  type AnswerMode,
+  useChat,
+} from "@/contexts/ChatContext";
 import { useProviders } from "@/contexts/ProviderContext";
+
+const ANSWER_MODES: AnswerMode[] = [
+  "direct",
+  "timeline",
+  "contradiction",
+  "provenance",
+];
 
 export function ChatComposer() {
   const [value, setValue] = useState("");
@@ -28,6 +39,8 @@ export function ChatComposer() {
     newThread,
     thinkingEnabled,
     toggleThinking,
+    answerMode,
+    setAnswerMode,
   } = useChat();
   const { activeProvider } = useProviders();
 
@@ -87,6 +100,29 @@ export function ChatComposer() {
         </button>
       </div>
 
+      <div className="max-w-4xl mx-auto mb-2 flex flex-wrap items-center gap-2 px-1 pointer-events-auto">
+        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-600">
+          Answer mode
+        </span>
+        {ANSWER_MODES.map((mode) => {
+          const active = mode === answerMode;
+          return (
+            <button
+              key={mode}
+              onClick={() => setAnswerMode(mode)}
+              className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.22em] transition-all duration-200 ${
+                active
+                  ? "bg-primary-500/15 border-primary-500/35 text-primary-200 shadow-[0_0_16px_rgba(34,211,238,0.15)]"
+                  : "bg-white/[0.03] border-white/5 text-slate-500 hover:text-slate-200 hover:border-white/10 hover:bg-white/5"
+              }`}
+              title={`Generate a ${ANSWER_MODE_LABELS[mode].toLowerCase()} answer`}
+            >
+              {ANSWER_MODE_LABELS[mode]}
+            </button>
+          );
+        })}
+      </div>
+
       <div
         className="max-w-4xl mx-auto flex items-center gap-3 p-2.5 rounded-[32px] border-[1px] shadow-[0_30px_70px_rgba(0,0,0,0.7)] backdrop-blur-3xl pointer-events-auto transition-all duration-500 relative"
         style={{
@@ -140,7 +176,7 @@ export function ChatComposer() {
                   className="flex items-center gap-3 px-3 py-2.5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 hover:text-white hover:bg-white/5 rounded-xl transition-all"
                 >
                   <MessageSquarePlus size={15} className="text-primary-400" />
-                  New Thread
+                  New Session
                 </button>
                 <button
                   onClick={handleAttachClick}
@@ -164,7 +200,7 @@ export function ChatComposer() {
                 handleSend();
               }
             }}
-            placeholder="Query FAIM contextual graph..."
+            placeholder="Ask FAIM Cortex to synthesize grounded prose from memory..."
             className="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-slate-100 px-2 py-3 text-[14px] placeholder:text-slate-600 resize-none max-h-[200px] custom-scrollbar selection:bg-primary-500/30 transition-all font-medium"
             rows={1}
             style={{ minHeight: "26px" }}
@@ -175,7 +211,7 @@ export function ChatComposer() {
           <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-primary-500/8 border border-primary-500/15">
             <Database size={12} className="text-primary-300" />
             <span className="text-[10px] font-semibold uppercase tracking-widest text-primary-300">
-              FAIM Query
+              FAIM Cortex
             </span>
           </div>
           {error && (

@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 const HIGHLIGHTS = [
   {
-    title: "Memory Query",
+    title: "FAIM Cortex",
     tag: "Grounded Answers",
     text: "Ask questions against your own memory and get cited answers you can inspect, trust, and share.",
   },
@@ -76,7 +76,7 @@ export default function LandingProductHighlights() {
             , not just chat
           </h2>
           <p className="mt-4 sm:mt-6 text-slate-400 max-w-3xl mx-auto text-base sm:text-lg leading-relaxed">
-            Memory Query, Storage, FIG View, and deterministic answers all live
+            FAIM Cortex, Storage, FIG View, and deterministic answers all live
             in the product now. Every claim is backed by the core engine.
           </p>
         </motion.div>

@@ -252,10 +252,10 @@ function SectionQuickStart() {
         </ol>
       </Card>
 
-      <Card title="Step 3 — Run a Memory Query" color="emerald">
+      <Card title="Step 3 — Run FAIM Cortex" color="emerald">
         <ol className="space-y-3">
           {[
-            "Go to Dashboard → Memory Query tab",
+            "Go to Dashboard → FAIM Cortex tab",
             "Type any question about the documents you uploaded",
             "FAIM retrieves the most relevant nodes, re-ranks them, and returns a grounded answer",
             "Every answer shows which document + page + section it came from",

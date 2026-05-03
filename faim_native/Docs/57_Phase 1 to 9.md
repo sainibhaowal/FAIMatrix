@@ -584,7 +584,7 @@ Main files:
 - [domain_profile_rebuild.py](/home/sephi-asi/FAIM/faim_native/orchestration/domain_profile_rebuild.py)
 - [domain_knowledge_repo.py](/home/sephi-asi/FAIM/faim_native/store/pg/repos/domain_knowledge_repo.py)
 - [0017_domain_knowledge.sql](/home/sephi-asi/FAIM/faim_native/store/pg/migrations/0017_domain_knowledge.sql)
-- [finance.tsv](/home/sephi-asi/FAIM/faim_native/lexical/domain_profiles/finance.tsv)
+- Auto-only terminology mining; no domain profile packs are enabled in the current control plane.
 
 What changed in FAIM:
 - before: knowledge was whatever existed in ingested corpus plus semantic graph adaptation

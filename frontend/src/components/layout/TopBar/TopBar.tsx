@@ -160,7 +160,7 @@ export function TopBar({
       return;
     }
     if (t === "alerts") {
-      router.push("/dashboard/admin#alerts");
+      router.push("/dashboard/admin/alerts");
       return;
     }
     router.push(

@@ -44,6 +44,9 @@ pytest
 ## Local Production
 
 ```bash
+# Create the single local-prod env file used by API + worker + frontend
+cp .env.localprod.example .env.localprod
+
 # Bring up the local production stack
 npm run faim:localprod:up
 
@@ -60,6 +63,9 @@ allowlisted admin emails only.
 ## VPS Production
 
 ```bash
+# Create the single VPS env file used by API + worker + frontend
+cp deploy/env.vpsprod.example deploy/env.vpsprod
+
 # Sync the repo to the VPS
 npm run faim:vps:sync
 

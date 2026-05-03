@@ -47,6 +47,7 @@ def mine_terminology(
     *,
     domain_pack: str | None = None,
 ) -> List[Dict[str, object]]:
+    domain_pack = None
     support = Counter()
     contexts: Dict[str, Counter[str]] = defaultdict(Counter)
     alias_rows: List[Dict[str, object]] = []

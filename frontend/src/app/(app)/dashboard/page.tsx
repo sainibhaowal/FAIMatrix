@@ -600,7 +600,7 @@ export default function DashboardPage() {
       href: "/dashboard/fig-view",
     },
     {
-      label: "Memory Query",
+      label: "FAIM Cortex",
       icon: <Brain size={14} />,
       href: "/dashboard/memory-query",
     },

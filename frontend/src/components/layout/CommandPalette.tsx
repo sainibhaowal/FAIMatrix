@@ -210,7 +210,7 @@ export function CommandPalette({
       if (r.actionId === "open_settings") router.push("/dashboard/profile");
       if (r.actionId === "open_admin") router.push("/dashboard/admin");
       if (r.actionId === "open_admin_alerts") {
-        router.push("/dashboard/admin#alerts");
+        router.push("/dashboard/admin/alerts");
       }
       onClose();
       return;

@@ -13,11 +13,10 @@ RUN npm config set fetch-retry-maxtimeout 120000 && \
   npm config set fetch-retries 5 && \
   npm install --legacy-peer-deps
 
-# Copy code (env files included so NEXTAUTH_SECRET is available at build time)
+# Copy code. Build args provide the production env values needed at build time.
 COPY . .
 
-# Build — Next.js needs NEXTAUTH_SECRET during page data collection
-# The .env file is already copied above; override only if passed as build-arg.
+# Build — Next.js needs NEXTAUTH_SECRET during page data collection.
 ARG NEXTAUTH_SECRET
 ARG NEXTAUTH_URL=http://localhost:8010
 ARG API_HOST=api:8000
@@ -28,7 +27,7 @@ ARG API_HOST=api:8000
 # Use relative path so CORS is never triggered — proxy handles the real host
 RUN printf "\nNEXT_PUBLIC_FAIM_API_BASE_URL=/api/v1\n" >> .env
 
-# Only write to .env if ARG was supplied (leave file-based secret in place otherwise)
+# Generate a temporary build-time .env from the supplied build args.
 RUN if [ -n "$NEXTAUTH_SECRET" ]; then \
   printf "NEXTAUTH_SECRET=%s\nNEXTAUTH_URL=%s\n" "$NEXTAUTH_SECRET" "$NEXTAUTH_URL" >> .env; \
   fi

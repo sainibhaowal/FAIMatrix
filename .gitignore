@@ -42,6 +42,7 @@ node_modules/
 *.log
 faim_native/full_test_log.txt
 docs/simulation_run*.txt
+docs/
 
 # OS / IDE
 .DS_Store
@@ -55,13 +56,18 @@ docs/simulation_run*.txt
 # Environments & Configs
 .env*
 !.env.example
-frontend/.env*
-!frontend/env.example
+!.env.localprod.example
+deploy/env.vpsprod
 
 # Runtime & Data
 Runtime/
 node_modules/
 **/node_modules/
+deploy/ssl/
+*.pem
+*.key
+*.crt
+*.p12
 
 # Tool caches
 .ruff_cache/
@@ -69,5 +75,5 @@ node_modules/
 .pytest_cache/
 
 # Development
-frontend/tests/
+frontend/Docs/
 faim_native/store/raw/blobs/

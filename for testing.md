@@ -26,7 +26,7 @@ We built a local production mode that behaves like real production, but runs on 
 Files:
 - [docker-compose.localprod.yml](/home/sephi-asi/FAIM/docker-compose.localprod.yml)
 - [deploy/Caddyfile.localprod](/home/sephi-asi/FAIM/deploy/Caddyfile.localprod)
-- [deploy/env.localprod.example](/home/sephi-asi/FAIM/deploy/env.localprod.example)
+- [.env.localprod.example](/home/sephi-asi/FAIM/.env.localprod.example)
 - [scripts/localprod_up.sh](/home/sephi-asi/FAIM/scripts/localprod_up.sh)
 - [scripts/localprod_smoke.sh](/home/sephi-asi/FAIM/scripts/localprod_smoke.sh)
 - [scripts/localprod_backup.sh](/home/sephi-asi/FAIM/scripts/localprod_backup.sh)
@@ -54,7 +54,7 @@ We built a separate VPS deployment path for the real public server.
 Files:
 - [docker-compose.vps.yml](/home/sephi-asi/FAIM/docker-compose.vps.yml)
 - [deploy/Caddyfile.vps](/home/sephi-asi/FAIM/deploy/Caddyfile.vps)
-- [deploy/env.vps.example](/home/sephi-asi/FAIM/deploy/env.vps.example)
+- [deploy/env.vpsprod.example](/home/sephi-asi/FAIM/deploy/env.vpsprod.example)
 - [scripts/vps_sync.sh](/home/sephi-asi/FAIM/scripts/vps_sync.sh)
 - [scripts/vps_up.sh](/home/sephi-asi/FAIM/scripts/vps_up.sh)
 - [scripts/vps_smoke.sh](/home/sephi-asi/FAIM/scripts/vps_smoke.sh)
@@ -71,7 +71,7 @@ What it does:
 
 How it works:
 - sync code from your workstation to the server
-- set the VPS `.env`
+- set the VPS `deploy/env.vpsprod`
 - run `npm run faim:vps:up`
 - migrations run first
 - containers build and start
@@ -250,7 +250,7 @@ What it does:
 
 ### VPS production flow
 1. You sync code to the VPS
-2. You set the VPS `.env`
+2. You set the VPS `deploy/env.vpsprod`
 3. You run `npm run faim:vps:up`
 4. Docker builds and starts the VPS stack
 5. Caddy serves `faimatrix.com`

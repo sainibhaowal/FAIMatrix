@@ -14,6 +14,14 @@ Use this when you want latest Postgres/Redis/Qdrant images.
 docker compose -f docker-compose.yml --profile accel pull postgres redis qdrant
 ```
 
+Before running the local-prod or VPS stacks, create the single env file for
+that target. The same file feeds the API, worker, and frontend containers:
+
+```bash
+cp .env.localprod.example .env.localprod
+cp deploy/env.vpsprod.example deploy/env.vpsprod
+```
+
 
 
 ## 2) Full build (all app images)

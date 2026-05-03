@@ -59,6 +59,7 @@ docker-compose*
 docs
 *.md
 !README.md
+faim_native/Docs/
 
 # Tests
 tests
@@ -79,3 +80,16 @@ qdrant_data/
 redis_data/
 docs/
 tests/
+faim_native/full_test_log.txt
+package.json
+package-lock.json
+pyproject.toml
+pyrightconfig.json
+storage_prototype.html
+
+# Optional backend image cleanup
+.github/
+.codex/
+deploy/
+README.md
+env.template

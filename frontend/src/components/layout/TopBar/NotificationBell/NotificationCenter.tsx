@@ -136,7 +136,7 @@ export function NotificationCenter() {
           <button
             onClick={() => {
               if (isAdmin) {
-                router.push("/dashboard/admin#alerts");
+                router.push("/dashboard/admin/alerts");
               }
             }}
             className="text-[10px] text-slate-500 hover:text-slate-300"

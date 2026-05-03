@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import csv
 import hashlib
 import json
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Dict, List, Mapping, Optional, Sequence, Tuple
-
-_PROFILE_DIR = Path(__file__).parent.parent.parent / "lexical" / "domain_profiles"
 
 
 @dataclass(frozen=True)
@@ -61,27 +57,7 @@ def source_hash(row: Mapping[str, object]) -> str:
 
 
 def load_domain_profile_pack(domain_pack: Optional[str]) -> List[Dict[str, object]]:
-    if not domain_pack:
-        return []
-    path = _PROFILE_DIR / f"{domain_pack}.tsv"
-    if not path.exists():
-        return []
-    rows: List[Dict[str, object]] = []
-    with path.open("r", encoding="utf-8") as handle:
-        reader = csv.DictReader(handle, delimiter="\t")
-        for row in reader:
-            rows.append(
-                {
-                    "surface_form": _norm(row.get("surface_form", "")),
-                    "canonical_form": _norm(row.get("canonical_form", "")),
-                    "kind": row.get("kind", "domain_term"),
-                    "domain_pack": domain_pack,
-                    "support_count": int(row.get("support_count", 1) or 1),
-                    "score": float(row.get("score", 1.0) or 1.0),
-                    "meta": {"source": "domain_profile"},
-                }
-            )
-    return [row for row in rows if row["surface_form"] and row["canonical_form"]]
+    return []
 
 
 def build_kb_lexicon_rows(
@@ -89,6 +65,7 @@ def build_kb_lexicon_rows(
     *,
     domain_pack: Optional[str] = None,
 ) -> List[Dict[str, object]]:
+    domain_pack = None
     rows: Dict[Tuple[str, str, str], Dict[str, object]] = {}
     for fact in facts:
         e_key = entity_key(fact.entity)
