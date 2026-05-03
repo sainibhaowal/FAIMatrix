@@ -69,6 +69,9 @@ cp deploy/env.vpsprod.example deploy/env.vpsprod
 # Sync the repo to the VPS
 npm run faim:vps:sync
 
+# Copy the real VPS env file separately
+scp deploy/env.vpsprod root@144.91.118.196:/opt/faim/FAIM/deploy/env.vpsprod
+
 # Bring up the VPS production stack
 npm run faim:vps:up
 
