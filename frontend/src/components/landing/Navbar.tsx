@@ -10,6 +10,7 @@ const navLinks = [
   { href: "#powers", label: "Engine" },
   { href: "#proof", label: "Math" },
   { href: "#how-it-works", label: "Pipeline" },
+  { href: "#docs-ops", label: "Docs & Ops" },
   { href: "#use-cases", label: "Use Cases" },
   { href: "#specs", label: "Specs" },
   { href: "/docs", label: "Docs" },

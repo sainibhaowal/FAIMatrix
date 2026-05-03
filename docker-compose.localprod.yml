@@ -15,11 +15,15 @@ services:
       - ./Runtime/localprod/qdrant:/qdrant/storage
 
   migrate:
+    env_file:
+      - .env.localprod
     volumes:
       - ./Runtime/localprod/raw:/var/lib/faim/raw
       - ./Runtime/localprod/backups:/var/lib/faim/backups
 
   api:
+    env_file:
+      - .env.localprod
     ports: !reset []
     environment:
       FAIM_MODE: production
@@ -46,6 +50,8 @@ services:
       - ./Runtime/localprod/backups:/var/lib/faim/backups
 
   worker:
+    env_file:
+      - .env.localprod
     ports: !reset []
     environment:
       FAIM_MODE: production
@@ -65,6 +71,8 @@ services:
       - ./Runtime/localprod/raw:/var/lib/faim/raw
 
   frontend:
+    env_file:
+      - .env.localprod
     ports: !reset []
     build:
       args:

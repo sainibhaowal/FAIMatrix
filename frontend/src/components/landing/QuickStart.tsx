@@ -5,23 +5,19 @@ import { useState } from "react";
 
 const STEPS = [
   {
-    title: "1. Install Core",
-    code: "pip install faim-native",
-    desc: "Single binary engine. No external vector DB required.",
+    title: "1. Prepare Local Prod",
+    code: "cp .env.localprod.example .env.localprod",
+    desc: "One local-prod env file powers API, worker, frontend, Postgres, Redis, and Qdrant.",
   },
   {
-    title: "2. Boot Engine",
-    code: "faim server start --port 8080",
-    desc: "Initializes local deterministic graph and API layer.",
+    title: "2. Start the Stack",
+    code: "npm run faim:localprod:up",
+    desc: "Starts the local production mirror with the repo's production compose flow.",
   },
   {
-    title: "3. Ingest & Query",
-    code: `from faim import FaimClient
-
-client = FaimClient("http://localhost:8080")
-client.ingest("./legal_report.pdf")
-answer = client.query("When is the deadline?")`,
-    desc: "Automatic layout analysis, graph expansion, and answer synthesis.",
+    title: "3. Smoke Check + Cortex",
+    code: "npm run faim:localprod:smoke",
+    desc: "Verify health endpoints first, then open Dashboard → FAIM Cortex for grounded memory queries.",
   },
 ];
 
@@ -48,7 +44,8 @@ export default function QuickStart() {
             </h2>
             <p className="text-slate-400 mb-10 text-lg">
               FAIM is built for engineers who need to ship accurate AI features
-              without managing complex infrastructure stacks.
+              without managing complex infrastructure stacks or fragile
+              retrieval wrappers.
             </p>
 
             <div className="space-y-4">

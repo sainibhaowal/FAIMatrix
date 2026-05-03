@@ -17,6 +17,7 @@ const SECTIONS = [
   { id: "integrations", label: "Integration Map" },
   { id: "pipeline", label: "Ingestion Pipeline" },
   { id: "quickstart", label: "Quick Start" },
+  { id: "docs-ops", label: "Docs & Ops" },
   { id: "math", label: "Math Proof" },
   { id: "query-logic", label: "Query Logic" },
   { id: "evolution", label: "Self-Evolution" },

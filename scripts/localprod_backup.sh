@@ -16,8 +16,6 @@ if [[ ! -f "$ENV_FILE" ]]; then
   exit 1
 fi
 
-export FAIM_ENV_FILE="$ENV_FILE"
-
 mkdir -p "$BACKUP_DIR" "$RAW_DIR"
 
 docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.localprod.yml --profile accel exec -T \
