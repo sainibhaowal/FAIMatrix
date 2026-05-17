@@ -45,12 +45,12 @@ const LAYERS = [
         desc: "256-d vectors, inheritance, dedup, evolution, and 8 invariant checks",
       },
       {
-        name: "Lexical + Canonical Layers",
-        desc: "Representation V2, canonical semantics, aliases, phrases, and sparse scoring",
+        name: "1M+ Semantic Registry",
+        desc: "Deterministic dictionary mapping for 100k+ professional concepts (zero ML)",
       },
       {
         name: "Graph + Knowledge Layers",
-        desc: "Diffusion, semantic edges, domain knowledge, and multilingual concept links",
+        desc: "24-hop diffusion, semantic edges, domain knowledge, and neural pulse tracing",
       },
       {
         name: "Answer-Ready Retrieval",

@@ -27,6 +27,7 @@ type FigLegendProps = {
   hiddenEdgeKinds: Set<string>;
   onToggleNodeKind: (kind: string) => void;
   onToggleEdgeKind: (kind: string) => void;
+  overlayMode?: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -80,6 +81,57 @@ const NODE_STATES: {
     desc: "Explicitly deactivated by operator",
   },
   { state: "unknown", label: "Unknown", desc: "State not yet determined" },
+];
+
+const COGNITIVE_STATES = [
+  {
+    type: "fact",
+    label: "Fact",
+    color: "#3b82f6",
+    desc: "Declarative knowledge (what is)",
+  },
+  {
+    type: "event",
+    label: "Event",
+    color: "#22c55e",
+    desc: "Episodic experiences (what happened)",
+  },
+  {
+    type: "procedure",
+    label: "Procedure",
+    color: "#f97316",
+    desc: "Skills and workflows (how to)",
+  },
+  {
+    type: "prediction",
+    label: "Prediction",
+    color: "#eab308",
+    desc: "Hypotheses and forecasts (what might be)",
+  },
+  {
+    type: "contradiction",
+    label: "Contradiction",
+    color: "#ef4444",
+    desc: "Conflicts and uncertainty (what conflicts)",
+  },
+  {
+    type: "source",
+    label: "Source",
+    color: "#f8fafc",
+    desc: "Raw document reference (where from)",
+  },
+  {
+    type: "work",
+    label: "Work",
+    color: "#a855f7",
+    desc: "Professional/project context",
+  },
+  {
+    type: "unknown",
+    label: "Unknown",
+    color: "#64748b",
+    desc: "Unclassified memory fragment",
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -165,6 +217,7 @@ export default function FigLegend({
   hiddenEdgeKinds,
   onToggleNodeKind,
   onToggleEdgeKind,
+  overlayMode = "none",
 }: FigLegendProps) {
   return (
     <div className="flex flex-col gap-4 text-xs">
@@ -172,24 +225,43 @@ export default function FigLegend({
           NODE STATES — visual reference only (not filterable by state)
       ================================================================ */}
       <LegendSection title="Node States">
-        {NODE_STATES.map(({ state, label, desc }) => (
-          <div
-            key={state}
-            className="flex items-start gap-2.5 px-2 py-0.5"
-            title={desc}
-          >
-            <span
-              className="h-2.5 w-2.5 rounded-full shrink-0 mt-0.5"
-              style={{ backgroundColor: nodeColorByState(state, false) }}
-            />
-            <div className="min-w-0">
-              <span className="text-[11px] text-slate-400">{label}</span>
-              <p className="text-[8px] text-slate-600 leading-tight mt-0.5">
-                {desc}
-              </p>
-            </div>
-          </div>
-        ))}
+        {overlayMode === "cognitive"
+          ? COGNITIVE_STATES.map(({ type, label, color, desc }) => (
+              <div
+                key={type}
+                className="flex items-start gap-2.5 px-2 py-0.5"
+                title={desc}
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full shrink-0 mt-0.5"
+                  style={{ backgroundColor: color }}
+                />
+                <div className="min-w-0">
+                  <span className="text-[11px] text-slate-400">{label}</span>
+                  <p className="text-[8px] text-slate-600 leading-tight mt-0.5">
+                    {desc}
+                  </p>
+                </div>
+              </div>
+            ))
+          : NODE_STATES.map(({ state, label, desc }) => (
+              <div
+                key={state}
+                className="flex items-start gap-2.5 px-2 py-0.5"
+                title={desc}
+              >
+                <span
+                  className="h-2.5 w-2.5 rounded-full shrink-0 mt-0.5"
+                  style={{ backgroundColor: nodeColorByState(state, false) }}
+                />
+                <div className="min-w-0">
+                  <span className="text-[11px] text-slate-400">{label}</span>
+                  <p className="text-[8px] text-slate-600 leading-tight mt-0.5">
+                    {desc}
+                  </p>
+                </div>
+              </div>
+            ))}
       </LegendSection>
 
       <div className="h-px bg-slate-800/60" />

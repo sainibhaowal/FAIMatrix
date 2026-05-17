@@ -129,15 +129,15 @@ export function CommandPalette({
         ? [
             {
               type: "setting" as const,
-              title: "Open Admin",
-              actionId: "open_admin",
-              subtitle: "Admin control plane",
+              title: "Open Control Center",
+              actionId: "open_control_center",
+              subtitle: "Platform operations console",
             },
             {
               type: "setting" as const,
-              title: "Open Alerts",
-              actionId: "open_admin_alerts",
-              subtitle: "Admin alerts and email delivery",
+              title: "Open Incidents",
+              actionId: "open_incidents",
+              subtitle: "Incident workflow and operator queue",
             },
           ]
         : []),
@@ -208,9 +208,11 @@ export function CommandPalette({
     }
     if (r.type === "setting") {
       if (r.actionId === "open_settings") router.push("/dashboard/profile");
-      if (r.actionId === "open_admin") router.push("/dashboard/admin");
-      if (r.actionId === "open_admin_alerts") {
-        router.push("/dashboard/admin/alerts");
+      if (r.actionId === "open_control_center") {
+        router.push("/dashboard/control-plane");
+      }
+      if (r.actionId === "open_incidents") {
+        router.push("/dashboard/control-plane?section=incidents");
       }
       onClose();
       return;

@@ -46,6 +46,7 @@ class QueryRequest(BaseModel):
     k: int = Field(10, ge=1, le=100, description="Number of results")
     profile: str = Field("STRICT", description="STRICT, BALANCED, or FAST")
     return_explain: bool = Field(False, description="Include explain payload")
+    include_historical: bool = Field(True, description="Include soft-suppressed historical nodes in contradiction resolution")
 
 
 class ScoreComponents(BaseModel):
@@ -79,6 +80,8 @@ class QueryResultItem(BaseModel):
     level: int
     touch_count: int
     temporal_status: Optional[str] = None
+    supersedes: Optional[List[str]] = None
+    superseded_by: Optional[str] = None
     evidence: Optional[EvidenceInfo] = None
     explain: Optional[Dict[str, Any]] = None
 
@@ -205,6 +208,7 @@ async def query_graph(
             return_explain=request.return_explain,
             index=ctx.index if profile != FAIMProfile.STRICT else None,
             cache=ctx.cache,
+            include_historical=request.include_historical,
         )
         # Query flow updates touch_count / query events, so persist changes.
         ctx.session.commit()
@@ -229,6 +233,8 @@ async def query_graph(
                     level=r["level"],
                     touch_count=r["touch_count"],
                     temporal_status=r.get("temporal_status"),
+                    supersedes=r.get("supersedes"),
+                    superseded_by=r.get("superseded_by"),
                     evidence=evidence,
                     explain=r.get("explain"),
                 )

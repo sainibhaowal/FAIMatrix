@@ -62,4 +62,3 @@ def test_query_flow_uses_cache_get_and_set():
     assert "cache.get(" in source
     assert "cache.set(" in source
     assert "graph_version=graph_version" in source
-

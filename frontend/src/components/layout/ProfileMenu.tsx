@@ -126,23 +126,25 @@ export function ProfileMenu() {
                   <Settings className="w-4 h-4" />
                   Settings
                 </Link>
-                {Boolean((session as { isAdmin?: boolean } | null)?.isAdmin) && (
+                {Boolean(
+                  (session as { isAdmin?: boolean } | null)?.isAdmin,
+                ) && (
                   <>
                     <Link
-                      href="/dashboard/admin"
+                      href="/dashboard/control-plane"
                       onClick={() => setOpen(false)}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 transition-colors"
                     >
                       <Sparkles className="w-4 h-4" />
-                      Admin
+                      Control Center
                     </Link>
                     <Link
-                      href="/dashboard/admin/alerts"
+                      href="/dashboard/control-plane?section=incidents"
                       onClick={() => setOpen(false)}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-rose-300 hover:bg-rose-500/10 hover:text-rose-200 transition-colors"
                     >
                       <ShieldAlert className="w-4 h-4" />
-                      Alerts
+                      Incidents
                     </Link>
                   </>
                 )}

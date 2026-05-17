@@ -30,7 +30,9 @@ def test_tenant_dek_manager_roundtrip(monkeypatch, session_factory):
         assert rows[0].dek_wrapped
 
 
-def test_encrypted_raw_store_stores_ciphertext(monkeypatch, tmp_blob_dir, session_factory):
+def test_encrypted_raw_store_stores_ciphertext(
+    monkeypatch, tmp_blob_dir, session_factory
+):
     """EncryptedRawStore should persist ciphertext while returning plaintext on load."""
     from store.raw.crypto import EnvelopeCipher
     from store.raw.encrypted_payload_store import EncryptedRawStore
@@ -39,7 +41,9 @@ def test_encrypted_raw_store_stores_ciphertext(monkeypatch, tmp_blob_dir, sessio
     monkeypatch.setenv("FAIM_MASTER_KEY", "22" * 32)
 
     inner = RawStore(tmp_blob_dir)
-    cipher = EnvelopeCipher(tenant_id="tenant_beta", session_factory=session_factory.create)
+    cipher = EnvelopeCipher(
+        tenant_id="tenant_beta", session_factory=session_factory.create
+    )
     store = EncryptedRawStore(inner=inner, cipher=cipher, graph_id="tenant_beta")
 
     payload = b"secret-bytes-for-p2"

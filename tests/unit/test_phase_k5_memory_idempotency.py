@@ -4,10 +4,9 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+from api.services.memory_service import build_write_request_hash, parse_idempotency_key
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
-from api.services.memory_service import build_write_request_hash, parse_idempotency_key
 from store.pg.models_faim import MemoryWriteRequestModel
 from store.pg.repos.memory_write_idempotency_repo import MemoryWriteIdempotencyRepo
 
@@ -59,7 +58,7 @@ def test_k5_parse_idempotency_key_priority_and_validation():
 
     try:
         parse_idempotency_key(header_value="a", body_value="b")
-        assert False, "expected ValueError"
+        raise AssertionError("expected ValueError")
     except ValueError as exc:
         assert "mismatch" in str(exc).lower()
 

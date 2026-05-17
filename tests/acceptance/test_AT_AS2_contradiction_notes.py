@@ -13,7 +13,12 @@ def test_answer_synthesis_surfaces_contradiction_notes():
                 "evidence": {"raw_id": "raw-1", "block_id": "b1", "anchor": {}},
                 "phase4_explain": {
                     "doc_propositions": [
-                        {"entity": "atlas", "relation": "rel:about", "value": "berlin", "time": ""}
+                        {
+                            "entity": "atlas",
+                            "relation": "rel:about",
+                            "value": "berlin",
+                            "time": "",
+                        }
                     ]
                 },
                 "temporal_status": "CURRENT",
@@ -25,7 +30,12 @@ def test_answer_synthesis_surfaces_contradiction_notes():
                 "evidence": {"raw_id": "raw-2", "block_id": "b2", "anchor": {}},
                 "phase4_explain": {
                     "doc_propositions": [
-                        {"entity": "atlas", "relation": "rel:about", "value": "munich", "time": ""}
+                        {
+                            "entity": "atlas",
+                            "relation": "rel:about",
+                            "value": "munich",
+                            "time": "",
+                        }
                     ]
                 },
                 "temporal_status": "CURRENT",

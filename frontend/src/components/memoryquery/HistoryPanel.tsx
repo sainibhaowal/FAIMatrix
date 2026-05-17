@@ -9,9 +9,18 @@ import {
   Check,
   X,
   Plus,
+  Brain,
+  ChevronRight,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { useChat } from "@/contexts/ChatContext";
+import {
+  buildAuthorizedHeaders,
+  resolveActiveGraphId,
+  useChat,
+  type FaimCortexSessionSummary,
+  type FaimCortexTurnSummary,
+} from "@/contexts/ChatContext";
 
 export function HistoryPanel() {
   const {
@@ -24,6 +33,11 @@ export function HistoryPanel() {
     purgeAllThreads,
   } = useChat();
 
+  const [brainSessions, setBrainSessions] = useState<
+    FaimCortexSessionSummary[]
+  >([]);
+  const [brainTurns, setBrainTurns] = useState<FaimCortexTurnSummary[]>([]);
+  const [loadingBrain, setLoadingBrain] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const [confirmPurge, setConfirmPurge] = useState(false);
@@ -35,6 +49,65 @@ export function HistoryPanel() {
       inputRef.current.select();
     }
   }, [editingId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadSessions() {
+      setLoadingBrain(true);
+      try {
+        const graphId = await resolveActiveGraphId();
+        if (!graphId) return;
+        const headers = await buildAuthorizedHeaders();
+        const res = await fetch(
+          `/api/v1/cortex/sessions?graph_id=${encodeURIComponent(graphId)}&limit=8`,
+          { headers },
+        );
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          items?: FaimCortexSessionSummary[];
+        };
+        if (!cancelled) setBrainSessions(data.items ?? []);
+      } catch {
+        if (!cancelled) setBrainSessions([]);
+      } finally {
+        if (!cancelled) setLoadingBrain(false);
+      }
+    }
+    loadSessions();
+    return () => {
+      cancelled = true;
+    };
+  }, [threads.length]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTurns() {
+      try {
+        const graphId = await resolveActiveGraphId();
+        if (!graphId || !activeThreadId) {
+          if (!cancelled) setBrainTurns([]);
+          return;
+        }
+        const headers = await buildAuthorizedHeaders();
+        const res = await fetch(
+          `/api/v1/cortex/sessions/${encodeURIComponent(activeThreadId)}/turns?graph_id=${encodeURIComponent(graphId)}&limit=6`,
+          { headers },
+        );
+        if (!res.ok) {
+          if (!cancelled) setBrainTurns([]);
+          return;
+        }
+        const data = (await res.json()) as { items?: FaimCortexTurnSummary[] };
+        if (!cancelled) setBrainTurns(data.items ?? []);
+      } catch {
+        if (!cancelled) setBrainTurns([]);
+      }
+    }
+    loadTurns();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeThreadId, threads.length]);
 
   const startEdit = (id: string, title: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -80,12 +153,12 @@ export function HistoryPanel() {
         }}
       >
         <div className="flex items-center gap-2">
-          <Clock size={13} className="text-primary-400" />
+          <Brain size={13} className="text-primary-400" />
           <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-white">
-            Cortex Sessions
+            Cortex Brain
           </h2>
           <span className="text-[9px] font-bold text-slate-600 tabular-nums">
-            {threads.length}
+            {brainSessions.length || threads.length}
           </span>
         </div>
         <button
@@ -99,6 +172,88 @@ export function HistoryPanel() {
 
       {/* Thread List */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-0.5">
+        <div className="mb-2 rounded-xl border border-primary-500/15 bg-primary-500/[0.04] p-3">
+          <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.24em] text-primary-300">
+            <Layers size={12} />
+            Session Memory
+          </div>
+          <div className="mt-2 space-y-2">
+            {loadingBrain && (
+              <p className="text-[10px] text-slate-500">
+                Loading session brain...
+              </p>
+            )}
+            {!loadingBrain && brainSessions.length === 0 && (
+              <p className="text-[10px] text-slate-500">
+                No persisted Cortex sessions yet.
+              </p>
+            )}
+            {!loadingBrain &&
+              brainSessions.slice(0, 4).map((session) => {
+                const isActive = session.session_id === activeThreadId;
+                return (
+                  <button
+                    key={session.session_id}
+                    onClick={() => switchThread(session.session_id)}
+                    className={[
+                      "w-full rounded-lg border px-3 py-2 text-left transition-all",
+                      isActive
+                        ? "border-primary-500/25 bg-primary-500/10"
+                        : "border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.04]",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-semibold text-slate-200 line-clamp-1">
+                        {session.title || "Untitled session"}
+                      </span>
+                      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-600">
+                        {session.turn_count} turns
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-[8px] uppercase tracking-[0.18em] text-slate-500">
+                      <Clock size={9} className="text-primary-300" />
+                      {session.last_task_type || "idle"}
+                      {session.last_confidence != null && (
+                        <span>
+                          · {Math.round((session.last_confidence ?? 0) * 100)}%
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+
+        {brainTurns.length > 0 && (
+          <div className="mb-3 rounded-xl border border-white/[0.05] bg-white/[0.02] p-3">
+            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
+              <ChevronRight size={11} />
+              Active Turn Trail
+            </div>
+            <div className="mt-2 space-y-2">
+              {brainTurns.map((turn) => (
+                <div
+                  key={turn.turn_id}
+                  className="rounded-lg border border-white/[0.05] bg-black/15 px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-slate-200 line-clamp-1">
+                      {turn.query_text}
+                    </span>
+                    <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-600">
+                      {Math.round((turn.confidence ?? 0) * 100)}%
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[10px] text-slate-500 line-clamp-2">
+                    {turn.narrative || "No narrative stored."}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {threads.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 py-12">
             <MessageSquare size={22} className="text-slate-700" />
@@ -224,9 +379,9 @@ export function HistoryPanel() {
       >
         {confirmPurge ? (
           <div className="space-y-2">
-              <p className="text-[9px] text-rose-400 font-bold uppercase tracking-widest text-center">
+            <p className="text-[9px] text-rose-400 font-bold uppercase tracking-widest text-center">
               Delete all {threads.length} sessions?
-              </p>
+            </p>
             <div className="flex gap-2">
               <button
                 onClick={() => {

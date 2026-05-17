@@ -7,9 +7,11 @@ from faim_native.core.contracts.types import BlockAnchor, EvidenceBlock
 from faim_native.core.engine_native import FAIMNativeEngine
 from faim_native.encoding.representation_v2 import build_representation_v2_for_block
 from faim_native.encoding.text_vectorizer import vectorize_blocks
-from faim_native.orchestration.domain_knowledge_import import run_domain_knowledge_import
-from faim_native.orchestration.query_flow import run_query
+from faim_native.orchestration.domain_knowledge_import import (
+    run_domain_knowledge_import,
+)
 from faim_native.orchestration.ingest_flow import FAIMProfile
+from faim_native.orchestration.query_flow import run_query
 from faim_native.store.pg.models_faim import Base
 from faim_native.store.pg.repos.edge_repo import EdgeRepo
 from faim_native.store.pg.repos.event_repo import EventRepo
@@ -48,7 +50,15 @@ def test_query_uses_domain_knowledge_scores():
             session=session,
             tenant_id=tenant_id,
             graph_id=graph_id,
-            kb_rows=[{"entity": "Acme", "relation": "revenue", "value": "10M", "time": "2026", "source_id": "kb-1"}],
+            kb_rows=[
+                {
+                    "entity": "Acme",
+                    "relation": "revenue",
+                    "value": "10M",
+                    "time": "2026",
+                    "source_id": "kb-1",
+                }
+            ],
             domain_pack="finance",
             node_repo=NodeRepo(session=session, tenant_id=tenant_id),
             edge_repo=EdgeRepo(session=session, tenant_id=tenant_id),

@@ -37,7 +37,10 @@ def test_validate_feature_flags_requires_jobs_for_hard_delete(monkeypatch):
     flags = FeatureFlags(storage_hard_delete_enabled=True)
     errors, warnings = validate_feature_flags(flags)
 
-    assert any("FAIM_STORAGE_HARD_DELETE_ENABLED requires FAIM_ENABLE_JOBS=true" in e for e in errors)
+    assert any(
+        "FAIM_STORAGE_HARD_DELETE_ENABLED requires FAIM_ENABLE_JOBS=true" in e
+        for e in errors
+    )
     assert isinstance(warnings, list)
 
 

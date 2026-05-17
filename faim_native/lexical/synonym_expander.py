@@ -1,6 +1,6 @@
-"""Runtime synonym expansion using embedded WordNet data.
+"""Runtime synonym expansion using embedded ConceptNet Omni-Lexicon data.
 
-Loads from data/wordnet_synonyms.json.gz — zero runtime dependencies.
+Loads from data/conceptnet_synonyms.json.gz (8M+ words) — zero runtime dependencies.
 If data file is missing, gracefully falls back to original text (FAIM still works).
 
 Thread-safe singleton loading pattern.
@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Dict, Optional, Set
 
 # Path to embedded synonym data
-_DATA_PATH = Path(__file__).parent / "data" / "wordnet_synonyms.json.gz"
+_DATA_PATH = Path(__file__).parent / "data" / "conceptnet_synonyms.json.gz"
 
 # Singleton state (thread-safe)
 _synonyms: Optional[Dict[str, list]] = None
@@ -54,7 +54,7 @@ def _load() -> bool:
 
 def is_available() -> bool:
     """
-    Check if WordNet synonym data is available.
+    Check if ConceptNet synonym data is available.
 
     Returns:
         True if data loaded successfully, False if missing or corrupted
@@ -79,9 +79,9 @@ def get_synonyms(word: str) -> Set[str]:
 
 def expand_synonyms_text(text: str, max_synonyms_per_word: int = 5) -> str:
     """
-    Expand text with WordNet synonyms.
+    Expand text with ConceptNet synonyms.
 
-    Appends synonyms after each word. If WordNet data unavailable,
+    Appends synonyms after each word. If ConceptNet data unavailable,
     returns original text unchanged (graceful fallback).
 
     Order of words is preserved: [word, syn1, syn2, ...] for each word.

@@ -1,5 +1,6 @@
 "use client";
 
+import * as THREE from "three";
 import dynamic from "next/dynamic";
 import {
   forwardRef,
@@ -15,7 +16,6 @@ import type { FigNode } from "@/types/figView";
 
 import {
   applyLayout,
-  DEFAULT_CAMERA,
   edgeColorByKind,
   getLayoutConfig,
   nodeColorByCausality,
@@ -28,7 +28,42 @@ import {
   nodeSizeByLevel,
   nodeSizeByRetrievalBoost,
 } from "@/lib/figViewLayout";
-import type { LayoutMode, OverlayMode } from "@/lib/figViewLayout";
+import type { LayoutMode } from "@/lib/figViewLayout";
+
+export const DEFAULT_CAMERA = { x: 0, y: 0, z: 300 } as const;
+
+// Extended overlay mode with cognitive constellation support
+type OverlayMode =
+  | "none"
+  | "retrieval"
+  | "evolution"
+  | "temporal"
+  | "causality"
+  | "cognitive";
+
+// Neural constellation color mapping by cognitive type
+const COGNITIVE_COLORS: Record<string, string> = {
+  fact: "#3b82f6", // blue-500
+  event: "#22c55e", // green-500
+  procedure: "#f97316", // orange-500
+  prediction: "#eab308", // yellow-500
+  contradiction: "#ef4444", // red-500
+  source: "#f8fafc", // slate-50 (white-ish)
+  work: "#a855f7", // purple-500
+  unknown: "#64748b", // slate-500
+};
+
+function nodeColorByCognitiveType(
+  cognitiveType: string,
+  isSelected: boolean,
+): string {
+  const baseColor = COGNITIVE_COLORS[cognitiveType] || COGNITIVE_COLORS.unknown;
+  if (isSelected) {
+    // Lighten for selected nodes
+    return "#ffffff";
+  }
+  return baseColor;
+}
 import { safeNodeTitle } from "@/lib/figViewSafety";
 import type { FigEdge, FigSurfaceResponse } from "@/types/figView";
 
@@ -110,6 +145,17 @@ type FigCanvasProps = {
 // Component
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Reusable 3D Assets (Prevent GPU Memory Leaks)
+// ---------------------------------------------------------------------------
+const GLOW_GEOM = new THREE.SphereGeometry(1, 16, 16);
+const GLOW_MAT = new THREE.MeshBasicMaterial({
+  color: "#fbbf24",
+  transparent: true,
+  opacity: 0.3,
+});
+const EMPTY_GROUP = new THREE.Group();
+
 const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
   function FigCanvas(
     {
@@ -135,6 +181,9 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
     const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
     const prevLayoutRef = useRef<LayoutMode>(layoutMode);
     const [canvasReady, setCanvasReady] = useState(false);
+    // Set to true when leaving a DAG mode (Lineage) so handleEngineStop can
+    // re-fit the camera once the scattered nodes have settled.
+    const needsCameraFitRef = useRef(false);
 
     // -------------------------------------------------------------------------
     // Graph Adjacency / Lineage Mapping
@@ -260,8 +309,29 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
         canvasReady
       ) {
         const layoutConfig = getLayoutConfig(layoutMode);
-        applyLayout(fgRef, layoutConfig);
+        const prevConfig = prevLayoutRef.current
+          ? getLayoutConfig(prevLayoutRef.current)
+          : undefined;
         prevLayoutRef.current = layoutMode;
+
+        const leavingDag =
+          prevConfig !== undefined &&
+          prevConfig.dagMode !== null &&
+          layoutConfig.dagMode === null;
+
+        if (leavingDag) {
+          // Flag that the camera needs re-fitting once the simulation settles.
+          // The actual zoomToFit is triggered in handleEngineStop so the camera
+          // moves AFTER the nodes have found their new 3D positions, not before.
+          needsCameraFitRef.current = true;
+          // Wait one rAF frame so React has committed dagMode=undefined to
+          // ForceGraph3D before we touch node positions.
+          requestAnimationFrame(() => {
+            applyLayout(fgRef, layoutConfig, prevConfig);
+          });
+        } else {
+          applyLayout(fgRef, layoutConfig, prevConfig);
+        }
       }
     }, [layoutMode, canvasReady]);
 
@@ -287,24 +357,22 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
     }, []);
 
     // -------------------------------------------------------------------------
-    // Expose handle: fitGraph, centerOnNode, resetCamera, zoomIn, zoomOut
+    // Shared Camera Logic (High Performance)
     // -------------------------------------------------------------------------
+    const fitGraph = useCallback(() => {
+      try {
+        if (!fgRef.current) return;
+        if (typeof fgRef.current.zoomToFit === "function") {
+          fgRef.current.zoomToFit(800, 80);
+        }
+        fgRef.current.controls?.().update?.();
+      } catch (err) {
+        console.error("fitGraph error:", err);
+      }
+    }, []);
 
     useImperativeHandle(ref, () => ({
-      fitGraph() {
-        try {
-          if (!fgRef.current) return;
-          // Prefer built-in zoomToFit; fall back to resetting the camera if it
-          // no-ops (e.g. when called before the force engine has positioned nodes).
-          if (typeof fgRef.current.zoomToFit === "function") {
-            fgRef.current.zoomToFit(400, 80);
-          }
-          // Force a controls update so the change is applied immediately.
-          fgRef.current.controls?.().update?.();
-        } catch (err) {
-          console.error("fitGraph error:", err);
-        }
-      },
+      fitGraph,
       centerOnNode(nodeId: string) {
         try {
           if (!fgRef.current) return;
@@ -336,7 +404,6 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
       zoomIn() {
         try {
           if (!fgRef.current) return;
-          // Move camera toward its OrbitControls target (dolly in).
           const controls = fgRef.current.controls?.();
           const cam = fgRef.current.camera?.();
           if (!cam?.position) return;
@@ -344,7 +411,7 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
           const dx = cam.position.x - target.x;
           const dy = cam.position.y - target.y;
           const dz = cam.position.z - target.z;
-          const factor = 0.7; // 30% closer
+          const factor = 0.7;
           fgRef.current.cameraPosition(
             {
               x: target.x + dx * factor,
@@ -368,7 +435,7 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
           const dx = cam.position.x - target.x;
           const dy = cam.position.y - target.y;
           const dz = cam.position.z - target.z;
-          const factor = 1.4; // 40% farther
+          const factor = 1.4;
           fgRef.current.cameraPosition(
             {
               x: target.x + dx * factor,
@@ -417,9 +484,44 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
       onNodeSelect(null);
     }, [onNodeSelect]);
 
+    const engineStopTimerRef = useRef<NodeJS.Timeout | null>(null);
     const handleEngineStop = useCallback(() => {
       setCanvasReady(true);
+      if (needsCameraFitRef.current) {
+        if (engineStopTimerRef.current) clearTimeout(engineStopTimerRef.current);
+        engineStopTimerRef.current = setTimeout(() => {
+          fitGraph();
+          needsCameraFitRef.current = false;
+          engineStopTimerRef.current = null;
+        }, 150);
+      }
+    }, [fitGraph]);
+
+    useEffect(() => {
+      return () => {
+        if (engineStopTimerRef.current) clearTimeout(engineStopTimerRef.current);
+      };
     }, []);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const nodeThreeObject = useCallback(
+      (node: any) => {
+        const inPath = explainPath?.nodeIdSet.has(node.id);
+        if (inPath) {
+          const size = nodeSizeByLevel(node.level) * 1.5;
+          const glow = new THREE.Mesh(GLOW_GEOM, GLOW_MAT);
+          glow.scale.set(size, size, size);
+          // -----------------------------------------------------------------
+          // OPTIMIZATION: Disable raycasting on the glow so it doesn't 
+          // interfere with the native elastic dragging of the atom.
+          // -----------------------------------------------------------------
+          glow.raycast = () => {}; 
+          return glow;
+        }
+        return EMPTY_GROUP;
+      },
+      [explainPath],
+    );
 
     // -------------------------------------------------------------------------
     // Computed colors/sizes for nodes and edges
@@ -443,6 +545,17 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
         // ------------------------------------------------------------------
         if (explainPath?.nodeIdSet.has(figNode.id)) {
           return isSelected ? "#fde68a" : "#f59e0b"; // amber-200 selected / amber-400 path
+        }
+
+        // ------------------------------------------------------------------
+        // COGNITIVE MODE — neural constellation coloring by memory type.
+        // Takes highest priority for brain map visualization.
+        // ------------------------------------------------------------------
+        if (overlayMode === "cognitive") {
+          return nodeColorByCognitiveType(
+            figNode.cognitive_type ?? "unknown",
+            isSelected,
+          );
         }
 
         // ------------------------------------------------------------------
@@ -668,6 +781,8 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
           onNodeHover={handleNodeHover}
           onBackgroundClick={handleBackgroundClick}
           onEngineStop={handleEngineStop}
+          nodeThreeObject={nodeThreeObject}
+          nodeThreeObjectExtend={true}
         />
       </div>
     );

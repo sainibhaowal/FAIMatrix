@@ -134,6 +134,8 @@ def _serialize_node(node: NodeModel) -> Dict[str, Any]:
         },
         "long_term": getattr(node, "long_term", False),
         "cluster_id": getattr(node, "cluster_id", None),
+        "cognitive_type": getattr(node, "cognitive_type", None),
+        "galaxy_id": getattr(node, "galaxy_id", None),
         # created_at exposed for client-side timeline stepping (graph-at-time visualization).
         "created_at": node.created_at.isoformat() if node.created_at else None,
     }

@@ -45,7 +45,7 @@ const CODE_EXAMPLES: CodeExample[] = [
   },
   {
     id: "query",
-    label: "Query + Explain",
+    label: "Deep Query",
     language: "bash",
     code: `curl -X POST https://api.faimatrix.com/api/v1/query \\
   -H "X-Tenant-Id: your-tenant" \\
@@ -53,32 +53,26 @@ const CODE_EXAMPLES: CodeExample[] = [
   -d '{
     "graph_id": "my-project",
     "query": "container security best practices",
-    "top_k": 5,
+    "hop_depth": 24,
     "explain": true
   }'
-
-# Response includes full scoring breakdown:
+ 
+# Response includes 24-hop reasoning path:
 # {
 #   "answer": {
 #     "direct_answer": "Pods should not run as root.",
 #     "confidence": 0.83,
+#     "reasoning_path": ["n_8f3a", "n_2b1c", "n_9d4f", "..."],
 #     "citations": [{ "node_id": "n_8f3a..." }]
 #   },
-#   "results": [{
-#     "node_id": "n_8f3a...",
-#     "score": 0.847,
-#     "explain": {
-#       "lexical": 0.91,
-#       "graph": 0.74,
-#       "entity": 0.77,
-#       "evidence": 0.88,
-#       "opposition": 0.03,
-#       "domain": 0.61
-#     }
-#   }]
+#   "intent": {
+#     "classification": "BestPractices",
+#     "confidence": 1.0,
+#     "registry_match": "security-protocol-v2"
+#   }
 # }`,
     description:
-      "Query returns deterministic ranking, an explain payload, and a citation-first answer block. Ask WHY any memory ranked — get the actual retrieval signals, not a black box.",
+      "Query returns deterministic ranking with 24-hop deep graph reasoning. The 1M+ Semantic Registry maps intent in <10ms, providing full explainability for every retrieval signal.",
   },
   {
     id: "evolve",
@@ -243,9 +237,9 @@ export default function DeveloperAPI() {
                 )}
                 {activeTab === "query" && (
                   <>
-                    <Highlight text="Lexical, graph, entity, evidence, and domain signals" />
-                    <Highlight text="Citation-first answer block on request" />
-                    <Highlight text="Deterministic ranking and explainability" />
+                    <Highlight text="24-hop deep graph reasoning path" />
+                    <Highlight text="1M+ Semantic Registry intent classification" />
+                    <Highlight text="Deterministic ranking with full explainability" />
                   </>
                 )}
                 {activeTab === "evolve" && (

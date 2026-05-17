@@ -21,7 +21,9 @@ def _mk_client(monkeypatch, tenant_id: str, api_key: str):
 
 
 def test_supported_types_endpoint_returns_expected_contract(monkeypatch):
-    client, headers = _mk_client(monkeypatch, "tenant_pi_supported_types", "pi_types_key")
+    client, headers = _mk_client(
+        monkeypatch, "tenant_pi_supported_types", "pi_types_key"
+    )
 
     response = client.get("/api/v1/storage/supported-types", headers=headers)
     assert response.status_code == 200

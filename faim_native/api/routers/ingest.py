@@ -24,12 +24,13 @@ if str(_parent) not in sys.path:
 
 from api.deps import FAIMContext, get_faim_context  # noqa: E402
 from api.validators import (  # noqa: E402
-    sanitize_filename,
+    MAX_BATCH_TOTAL_SIZE,
+    validate_batch_total_size,
     validate_content_type,
     validate_file_extension,
     validate_mime_extension_match,
     validate_upload_file,
-    validate_upload_size,
+    validate_batch_total_size,
 )
 
 logger = logging.getLogger(__name__)
@@ -437,7 +438,7 @@ async def ingest_file(
         validate_file_extension(filename)
         validate_content_type(request.content_type)
         validate_mime_extension_match(filename, request.content_type)
-        validate_upload_size(len(file_bytes))
+        validate_batch_total_size(len(file_bytes))
 
         mime_type = (
             (request.content_type or "application/octet-stream").split(";")[0].strip()
@@ -590,7 +591,7 @@ async def ingest_upload(
         )
         await validate_upload_file(file)
         file_bytes = await file.read()
-        validate_upload_size(len(file_bytes))
+        validate_batch_total_size(len(file_bytes))
 
         filename = sanitize_filename(file.filename or "upload")
         validate_file_extension(filename)

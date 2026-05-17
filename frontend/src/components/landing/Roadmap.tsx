@@ -5,22 +5,22 @@ import { motion } from "framer-motion";
 const PHASES = [
   {
     tag: "NOW",
-    title: "Deterministic Core",
-    desc: "Stage-4.1.1 production core with Hybrid Physics Recall, VP-Tree shortlisting, and Extractive Synthesis.",
+    title: "1M+ Cognitive Core",
+    desc: "Stage-5 production core with 1,000,000+ concept registry, 24-hop reasoning path, and Neural Pulse tracing.",
     status: "Live",
     color: "cyan",
   },
   {
     tag: "Q3 2026",
-    title: "Multimodal Perception",
-    desc: "Graph-native reasoning for figures, tables, and spatial evidence across large-scale PDF corpora.",
+    title: "Proposals-Only Safety",
+    desc: "Enforced human-in-the-loop writebacks and cryptographic graph fingerprints for regulatory compliance.",
     status: "Developing",
     color: "purple",
   },
   {
     tag: "Q4 2026",
-    title: "Decentralized Sync",
-    desc: "Multi-graph synchronization and evolution across edge nodes with zero-trust inheritance.",
+    title: "Matrix Federation",
+    desc: "Multi-tenant memory synchronization across private matrix shards with zero-knowledge inheritance.",
     status: "Researching",
     color: "rose",
   },

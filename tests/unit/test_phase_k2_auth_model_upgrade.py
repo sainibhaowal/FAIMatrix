@@ -22,7 +22,15 @@ def test_tenant_api_key_model_has_phase_k2_columns():
 
 def test_auth_key_audit_model_exists():
     cols = set(AuthKeyAuditLog.__table__.columns.keys())
-    assert {"tenant_id", "key_id", "action", "actor", "request_id", "meta", "created_at"} <= cols
+    assert {
+        "tenant_id",
+        "key_id",
+        "action",
+        "actor",
+        "request_id",
+        "meta",
+        "created_at",
+    } <= cols
 
 
 def test_tenant_key_active_state_checks_expiry_and_revocation():
@@ -95,7 +103,9 @@ def test_auth_repo_create_tenant_key_adds_scopes_and_audit():
 
 
 def test_phase_k2_migration_and_schema_markers_present():
-    migration_file = Path("faim_native/store/pg/migrations/0008_auth_key_scopes_audit.sql")
+    migration_file = Path(
+        "faim_native/store/pg/migrations/0008_auth_key_scopes_audit.sql"
+    )
     assert migration_file.exists()
 
     schema = Path("faim_native/store/pg/schema.sql").read_text(encoding="utf-8")
@@ -160,7 +170,9 @@ def test_k6_verify_tenant_key_with_reason_valid(monkeypatch):
     session = _FakeSessionVerify(rows)
     repo = auth_repo_module.AuthRepo(session)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(auth_repo_module, "verify_api_key", lambda key, key_hash: key == key_hash)
+    monkeypatch.setattr(
+        auth_repo_module, "verify_api_key", lambda key, key_hash: key == key_hash
+    )
     monkeypatch.setattr(auth_repo_module, "needs_rehash", lambda _hash: False)
 
     result = repo.verify_tenant_key_with_reason("tenant_a", "valid_key")
@@ -185,7 +197,9 @@ def test_k6_verify_tenant_key_with_reason_expired(monkeypatch):
     session = _FakeSessionVerify(rows)
     repo = auth_repo_module.AuthRepo(session)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(auth_repo_module, "verify_api_key", lambda key, key_hash: key == key_hash)
+    monkeypatch.setattr(
+        auth_repo_module, "verify_api_key", lambda key, key_hash: key == key_hash
+    )
     monkeypatch.setattr(auth_repo_module, "needs_rehash", lambda _hash: False)
 
     result = repo.verify_tenant_key_with_reason("tenant_a", "expired_key")
@@ -209,7 +223,9 @@ def test_k6_verify_tenant_key_with_reason_revoked(monkeypatch):
     session = _FakeSessionVerify(rows)
     repo = auth_repo_module.AuthRepo(session)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(auth_repo_module, "verify_api_key", lambda key, key_hash: key == key_hash)
+    monkeypatch.setattr(
+        auth_repo_module, "verify_api_key", lambda key, key_hash: key == key_hash
+    )
     monkeypatch.setattr(auth_repo_module, "needs_rehash", lambda _hash: False)
 
     result = repo.verify_tenant_key_with_reason("tenant_a", "revoked_key")
@@ -232,7 +248,9 @@ def test_k6_verify_tenant_key_with_reason_invalid(monkeypatch):
     session = _FakeSessionVerify(rows)
     repo = auth_repo_module.AuthRepo(session)  # type: ignore[arg-type]
 
-    monkeypatch.setattr(auth_repo_module, "verify_api_key", lambda key, key_hash: key == key_hash)
+    monkeypatch.setattr(
+        auth_repo_module, "verify_api_key", lambda key, key_hash: key == key_hash
+    )
     monkeypatch.setattr(auth_repo_module, "needs_rehash", lambda _hash: False)
 
     result = repo.verify_tenant_key_with_reason("tenant_a", "missing")

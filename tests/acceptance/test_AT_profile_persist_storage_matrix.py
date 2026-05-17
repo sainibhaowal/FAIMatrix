@@ -108,7 +108,9 @@ def test_r7_storage_upload_matrix_requested_effective_and_events(
     assert status_body["effective_persist_mode"] == persist_mode
     assert status_body["durability_path"] == expected_durability
 
-    events = client.get(f"/api/v1/storage/uploads/{body['job_id']}/events", headers=headers)
+    events = client.get(
+        f"/api/v1/storage/uploads/{body['job_id']}/events", headers=headers
+    )
     assert events.status_code == 200, events.text
     events_body = events.json()
     assert events_body["events"], "expected upload job events"
@@ -123,5 +125,6 @@ def test_r7_storage_upload_matrix_requested_effective_and_events(
         ),
         None,
     )
-    assert enriched is not None, "expected mode metadata in at least one job event payload"
-
+    assert (
+        enriched is not None
+    ), "expected mode metadata in at least one job event payload"

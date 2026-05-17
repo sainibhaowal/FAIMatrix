@@ -135,7 +135,9 @@ export function ControlPlanePanel() {
   const { data: session, status: sessionStatus } = useSession();
   const { toast } = useToast();
   const sessionGraphId = useMemo(() => {
-    return String((session as { graphId?: string } | null)?.graphId || "default").trim();
+    return String(
+      (session as { graphId?: string } | null)?.graphId || "default",
+    ).trim();
   }, [session]);
   const accessToken = (session as { accessToken?: string } | null)?.accessToken;
   const isAuthenticated =
@@ -308,10 +310,13 @@ export function ControlPlanePanel() {
   );
 
   return (
-    <div className="overflow-hidden rounded-xl border" style={{
-      borderColor: "var(--os-stroke)",
-      background: "var(--os-surface-1)",
-    }}>
+    <div
+      className="overflow-hidden rounded-xl border"
+      style={{
+        borderColor: "var(--os-stroke)",
+        background: "var(--os-surface-1)",
+      }}
+    >
       <div
         className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
         style={{ borderColor: "var(--os-stroke)" }}
@@ -464,11 +469,14 @@ export function ControlPlanePanel() {
         </div>
 
         <div className="space-y-3">
-          <div className="rounded-xl border px-3 py-3 text-xs" style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-2)",
-            color: "var(--text-tertiary)",
-          }}>
+          <div
+            className="rounded-xl border px-3 py-3 text-xs"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-2)",
+              color: "var(--text-tertiary)",
+            }}
+          >
             Auto mode is enforced here. Domain packs are disabled.
           </div>
 
@@ -495,7 +503,9 @@ export function ControlPlanePanel() {
             >
               Paste a JSON array of{" "}
               <code className="font-mono text-[11px] text-slate-300">
-                {"{ entity, relation, value, time, aliases?, source_id?, source_kind?, meta? }"}
+                {
+                  "{ entity, relation, value, time, aliases?, source_id?, source_kind?, meta? }"
+                }
               </code>{" "}
               rows.
             </p>
@@ -614,7 +624,9 @@ export function ControlPlanePanel() {
                 <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
                   <span>seq {item.seq}</span>
                   <span>{formatWhen(item.ts)}</span>
-                  {item.graph_version ? <span>gv {item.graph_version}</span> : null}
+                  {item.graph_version ? (
+                    <span>gv {item.graph_version}</span>
+                  ) : null}
                 </div>
               </div>
             ))

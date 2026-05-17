@@ -40,4 +40,3 @@ def test_self_invention_config_knobs(monkeypatch):
     assert cfg.self_invent_min_coactivation_count == 4
     assert abs(cfg.self_invent_lambda_threshold - 0.15) < 1e-9
     assert abs(cfg.self_invent_min_redundancy_reduction - 0.05) < 1e-9
-

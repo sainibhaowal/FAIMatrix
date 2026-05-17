@@ -144,7 +144,9 @@ def test_s5_run_evolve_passes_config_and_request_flags(monkeypatch):
 
     try:
         monkeypatch.setattr("runtime.config.get_config", _fake_get_config)
-        monkeypatch.setattr("core.dynamics.evolution_native.evolve_once", _fake_evolve_once)
+        monkeypatch.setattr(
+            "core.dynamics.evolution_native.evolve_once", _fake_evolve_once
+        )
 
         result = run_evolve(
             graph_id="graph_s5_flow",

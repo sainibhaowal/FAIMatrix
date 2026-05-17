@@ -11,7 +11,7 @@ def test_validate_upload_size_rejects_oversize():
 
     try:
         validate_upload_size(MAX_UPLOAD_SIZE + 1)
-        assert False, "Expected oversize rejection"
+        raise AssertionError("Expected oversize rejection")
     except HTTPException as exc:
         assert exc.status_code == 413
 
@@ -29,7 +29,7 @@ def test_sanitize_filename_rejects_path_traversal_variants():
     for name in invalid:
         try:
             sanitize_filename(name)
-            assert False, f"Expected filename rejection for {name!r}"
+            raise AssertionError(f"Expected filename rejection for {name!r}")
         except HTTPException as exc:
             assert exc.status_code == 400
 
@@ -39,7 +39,7 @@ def test_validate_mime_extension_match_rejects_mismatch():
 
     try:
         validate_mime_extension_match("report.pdf", "text/plain")
-        assert False, "Expected MIME/extension mismatch rejection"
+        raise AssertionError("Expected MIME/extension mismatch rejection")
     except HTTPException as exc:
         assert exc.status_code == 415
         assert "does not match file extension" in str(exc.detail)

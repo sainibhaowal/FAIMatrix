@@ -4,39 +4,27 @@ import { motion } from "framer-motion";
 
 const COMPARISONS = [
   {
+    feature: "Reasoning Depth",
+    standard: "1-Hop (Flat Summary)",
+    faim: "24-Hop Graph Traversal",
+    faimBetter: true,
+  },
+  {
+    feature: "Intent Mapping",
+    standard: "Black-box LLM Prompting",
+    faim: "1M+ Semantic Alias Registry",
+    faimBetter: true,
+  },
+  {
     feature: "Retrieval Logic",
     standard: "Approximate (ANN) Vector Search",
-    faim: "Deterministic Physics-Based Graph Recall",
+    faim: "Deterministic Multi-hop Recall",
     faimBetter: true,
   },
   {
-    feature: "Accuracy Mode",
-    standard: "Semantic 'Vibes' & Similarity",
-    faim: "Logical Inheritance & Fact-Checking",
-    faimBetter: true,
-  },
-  {
-    feature: "Context Depth",
-    standard: "Lost in the middle (flat chunks)",
-    faim: "Deep Graph Diffusion (K-hop aware)",
-    faimBetter: true,
-  },
-  {
-    feature: "Stability",
-    standard: "Jittery results as index grows",
-    faim: "100% Repeatable & Stable",
-    faimBetter: true,
-  },
-  {
-    feature: "Answer Style",
-    standard: "Generative (risk of hallucination)",
-    faim: "Extractive (citation-first truth)",
-    faimBetter: true,
-  },
-  {
-    feature: "LLM Dependency",
-    standard: "Mandatory for every query",
-    faim: "Optional (Engine is self-sufficient)",
+    feature: "Memory Safety",
+    standard: "Direct Un-reviewed Writes",
+    faim: "Proposals-Only Review Flow",
     faimBetter: true,
   },
 ];

@@ -43,6 +43,9 @@ class NodeRepo:
         self,
         graph_id: str,
         vector: FAIMVector,
+        *,
+        cognitive_type: Optional[str] = None,
+        galaxy_id: Optional[str] = None,
     ) -> UUID:
         """Upsert an atom node from FAIMVector.
 
@@ -52,6 +55,8 @@ class NodeRepo:
         Args:
             graph_id: Graph identifier.
             vector: FAIMVector to store.
+            cognitive_type: Cognitive classification (fact, event, procedure, etc.)
+            galaxy_id: Source document/galaxy grouping ID.
 
         Returns:
             node_id of upserted node.
@@ -64,10 +69,15 @@ class NodeRepo:
             existing.touch_count += 1
             existing.last_access = now
             existing.updated_at = now
+            # Update cognitive fields if newly provided
+            if cognitive_type and not existing.cognitive_type:
+                existing.cognitive_type = cognitive_type
+            if galaxy_id and not existing.galaxy_id:
+                existing.galaxy_id = galaxy_id
             self.session.flush()
             return existing.node_id
 
-        # Create new node
+        # Create new node with cognitive classification
         node = NodeModel(
             node_id=uuid7(),
             tenant_id=self.tenant_id,
@@ -83,6 +93,8 @@ class NodeRepo:
             level=vector.level,
             touch_count=1,
             last_access=now,
+            cognitive_type=cognitive_type,
+            galaxy_id=galaxy_id,
             created_at=now,
             updated_at=now,
         )
@@ -98,6 +110,8 @@ class NodeRepo:
         opp_signature: Dict[str, float],
         level: int = 1,
         residual: float = 0.0,
+        cognitive_type: Optional[str] = None,
+        galaxy_id: Optional[str] = None,
     ) -> UUID:
         """Create a macro node (level > 0).
 
@@ -108,6 +122,8 @@ class NodeRepo:
             opp_signature: Opposition signature.
             level: Hierarchy level (default 1).
             residual: Residual value.
+            cognitive_type: Cognitive classification (fact, event, procedure, etc.)
+            galaxy_id: Source document/galaxy grouping ID.
 
         Returns:
             node_id of created node.
@@ -128,6 +144,8 @@ class NodeRepo:
             level=level,
             touch_count=1,
             last_access=now,
+            cognitive_type=cognitive_type,
+            galaxy_id=galaxy_id,
             created_at=now,
             updated_at=now,
         )
@@ -145,6 +163,8 @@ class NodeRepo:
         opp_signature: Dict[str, float],
         residual: float = 0.0,
         level: int = 1,
+        cognitive_type: Optional[str] = None,
+        galaxy_id: Optional[str] = None,
     ) -> UUID:
         """Upsert a non-atom deterministic node such as a concept node."""
         existing = self.get_by_vector_hash(graph_id, vector_hash)
@@ -155,6 +175,11 @@ class NodeRepo:
             existing.opp_signature = opp_signature
             existing.residual = int(residual * 1e9)
             existing.level = level
+            # Update cognitive fields if newly provided
+            if cognitive_type and not existing.cognitive_type:
+                existing.cognitive_type = cognitive_type
+            if galaxy_id and not existing.galaxy_id:
+                existing.galaxy_id = galaxy_id
             existing.updated_at = now
             self.session.flush()
             return existing.node_id
@@ -173,6 +198,8 @@ class NodeRepo:
             level=level,
             touch_count=0,
             last_access=now,
+            cognitive_type=cognitive_type,
+            galaxy_id=galaxy_id,
             created_at=now,
             updated_at=now,
         )

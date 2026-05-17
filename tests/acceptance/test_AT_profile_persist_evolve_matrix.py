@@ -164,4 +164,3 @@ def test_r7_memory_write_idempotency_consistency_unaffected(monkeypatch):
     assert second_body["effective_profile"] == first_body["effective_profile"]
     assert second_body["effective_persist_mode"] == first_body["effective_persist_mode"]
     assert second_body["durability_path"] == first_body["durability_path"]
-

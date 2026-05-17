@@ -10,11 +10,9 @@ JOURNEY:
 4. Evolve: Witness the graph "dreaming" to refine the memory.
 """
 
-import json
 import logging
 import os
 import sys
-import time
 from pathlib import Path
 
 # Setup logging to be "User Friendly"
@@ -28,10 +26,10 @@ _parent = Path(__file__).parent.parent
 if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
-from orchestration.evolve_flow import run_evolve
-from orchestration.ingest_flow import FAIMProfile, PersistMode, run_ingest
-from orchestration.query_flow import run_query
-from runtime.context import get_repos
+from orchestration.evolve_flow import run_evolve  # noqa: E402
+from orchestration.ingest_flow import FAIMProfile, PersistMode, run_ingest  # noqa: E402
+from orchestration.query_flow import run_query  # noqa: E402
+from runtime.context import get_repos  # noqa: E402
 
 # Configuration
 TENANT_ID = "SimUser-01"

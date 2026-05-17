@@ -292,6 +292,7 @@ def run_query(
     return_explain: bool = False,
     index=None,
     cache=None,
+    include_historical: bool = True,
 ) -> QueryResult:
     """Execute a FAIM-native query.
 
@@ -647,6 +648,7 @@ def run_query(
         domain_scores=domain_scores,
         query_text=canonical_query_text,
         query_repr_v2=query_repr_v2,
+        include_historical=include_historical,
     )
 
     # Emit QUERY_RERANKED
@@ -672,6 +674,8 @@ def run_query(
             "level": r["level"],
             "touch_count": r["touch_count"],
             "temporal_status": r.get("temporal_status"),
+            "supersedes": [str(x) for x in r.get("supersedes", [])],
+            "superseded_by": str(r["superseded_by"]) if r.get("superseded_by") else None,
         }
 
         # Add evidence info

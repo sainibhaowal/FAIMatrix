@@ -8,7 +8,6 @@ Ensures:
 """
 
 import unittest
-from unittest.mock import MagicMock, patch
 
 from runtime.secrets import (
     constant_time_compare,

@@ -1,0 +1,98 @@
+services:
+  postgres-test:
+    image: postgres:15
+    container_name: faim-postgres-test
+    environment:
+      POSTGRES_USER: faim
+      POSTGRES_PASSWORD: faim_test_password
+      POSTGRES_DB: faim_native
+    ports:
+      - "8021:8020"
+    command: ["postgres", "-p", "8020"]
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U faim -d faim_native -p 8020"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [faim-test-net]
+    restart: unless-stopped
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: faim-redis-test
+    ports:
+      - "8031:8030"
+    command:
+      [
+        "redis-server",
+        "--port",
+        "8030",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "faim_test_password",
+        "--stop-writes-on-bgsave-error",
+        "no",
+      ]
+    volumes:
+      - redis_test_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "8030", "-a", "faim_test_password", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [faim-test-net]
+    restart: unless-stopped
+
+  api-test:
+    image: faim-api-test:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: faim-api-test
+    command:
+      [
+        "uvicorn",
+        "api.app:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
+    environment:
+      DATABASE_URL: postgresql://faim:faim_test_password@postgres-test:8020/faim_native
+      FAIM_RAW_STORE_PATH: /var/lib/faim/raw/blobs
+      FAIM_AUTO_MIGRATE: "true"
+      NEXTAUTH_SECRET: playwright-e2e-secret
+      REDIS_URL: redis://:faim_test_password@redis-test:8030/0
+    volumes:
+      - raw_test_data:/var/lib/faim/raw
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8000/ready | grep -q 'status'",
+        ]
+      interval: 10s
+      timeout: 8s
+      retries: 30
+    networks: [faim-test-net]
+    restart: unless-stopped
+
+volumes:
+  postgres_test_data:
+  redis_test_data:
+  raw_test_data:
+
+networks:
+  faim-test-net:
+    driver: bridge

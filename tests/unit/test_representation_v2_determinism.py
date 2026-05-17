@@ -32,7 +32,9 @@ class TestRepresentationV2Determinism:
     def test_block_layout_tokens_are_deterministic(self):
         block = EvidenceBlock.create(
             raw_id="raw-1",
-            anchor=BlockAnchor(doc_type="text", char_start=0, char_end=120, section="Intro"),
+            anchor=BlockAnchor(
+                doc_type="text", char_start=0, char_end=120, section="Intro"
+            ),
             content="Invoice INV-2026 was issued on 2026-04-12.",
             block_type="text",
         )

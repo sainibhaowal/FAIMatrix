@@ -10,13 +10,13 @@ from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from faim_native.core.contracts.types import BlockAnchor
 from faim_native.core.engine_native import FAIMNativeEngine
 from faim_native.core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
 from faim_native.encoding.vector_schema import FAIMVector
-from faim_native.store.pg.models_faim import Base, EdgeModel, NodeModel
+from faim_native.store.pg.models_faim import Base, EdgeModel
 from faim_native.store.pg.repos.edge_repo import EdgeRepo
 from faim_native.store.pg.repos.event_repo import EventRepo
 from faim_native.store.pg.repos.graph_version_repo import GraphVersionRepo
@@ -81,7 +81,9 @@ def create_test_vector(
 class TestSemanticEdgesEndToEnd:
     """End-to-end test of semantic edge creation and usage."""
 
-    def test_write_similar_atoms_creates_semantic_edges(self, engine, repos, in_memory_db):
+    def test_write_similar_atoms_creates_semantic_edges(
+        self, engine, repos, in_memory_db
+    ):
         """Writing highly similar atoms should create semantic edges."""
         graph_id = "test_graph"
 
@@ -105,7 +107,7 @@ class TestSemanticEdgesEndToEnd:
         vec2_norm = tuple(x / norm2 for x in vec2)
 
         # Compute cosine similarity
-        cosine_sim = sum(a * b for a, b in zip(vec1_norm, vec2_norm))
+        cosine_sim = sum(a * b for a, b in zip(vec1_norm, vec2_norm, strict=False))
         print(f"Cosine similarity: {cosine_sim}")
 
         # Write vectors
@@ -148,7 +150,7 @@ class TestSemanticEdgesEndToEnd:
         )
 
         # Write vectors
-        result = engine.write_atoms(graph_id, [vector1, vector2])
+        engine.write_atoms(graph_id, [vector1, vector2])
 
         # Verify semantic edges created (Layer B)
         semantic_edges = (
@@ -164,9 +166,7 @@ class TestSemanticEdgesEndToEnd:
         # Note: actual threshold depends on vector values and cosine computation
         print(f"Semantic edges created: {len(semantic_edges)}")
 
-    def test_semantic_metadata_stored_on_inheritance(
-        self, engine, repos, in_memory_db
-    ):
+    def test_semantic_metadata_stored_on_inheritance(self, engine, repos, in_memory_db):
         """Inheritance edges should have semantic metadata (Layer A)."""
         graph_id = "test_graph"
 
@@ -182,7 +182,7 @@ class TestSemanticEdgesEndToEnd:
             block_id="b2",
         )
 
-        result = engine.write_atoms(graph_id, [vector1, vector2])
+        engine.write_atoms(graph_id, [vector1, vector2])
 
         # Find inheritance edges
         inheritance_edges = (
@@ -237,7 +237,7 @@ class TestSemanticEdgesEndToEnd:
         )
 
         # First write
-        result1 = engine.write_atoms(graph_id, [vector1, vector2])
+        engine.write_atoms(graph_id, [vector1, vector2])
         semantic_count_1 = (
             in_memory_db.query(EdgeModel)
             .filter(
@@ -248,7 +248,7 @@ class TestSemanticEdgesEndToEnd:
         )
 
         # Re-ingest same vectors
-        result2 = engine.write_atoms(graph_id, [vector1, vector2])
+        engine.write_atoms(graph_id, [vector1, vector2])
         semantic_count_2 = (
             in_memory_db.query(EdgeModel)
             .filter(
@@ -265,9 +265,7 @@ class TestSemanticEdgesEndToEnd:
 class TestSemanticWeightsIntegration:
     """Test that semantic weights integrate with inheritance blending."""
 
-    def test_semantic_weight_modifies_inheritance_fraction(
-        self, repos, in_memory_db
-    ):
+    def test_semantic_weight_modifies_inheritance_fraction(self, repos, in_memory_db):
         """Semantic weight should modify effective inheritance fraction."""
         graph_id = "test_graph"
         parent_id = uuid4()

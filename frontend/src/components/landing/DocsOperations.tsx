@@ -5,27 +5,27 @@ import Link from "next/link";
 
 const CARDS = [
   {
-    title: "FAIM Docs",
-    tag: "System map",
-    text: "The /docs portal now covers the core engine, FAIM Cortex, deployment, benchmarks, and the public product surface in one place.",
+    title: "1M+ Semantic Registry",
+    tag: "Deterministic Intel",
+    text: "Deterministic classification of 100k+ professional concepts. No black-boxes, just structured knowledge at scale.",
     href: "/docs",
-    cta: "Open Docs",
+    cta: "Read Spec",
     accent: "cyan",
   },
   {
     title: "FAIM Cortex",
     tag: "Memory synthesis",
-    text: "Memory queries now synthesize prose-first answers with Direct, Timeline, Contradiction-aware, and Provenance-first modes.",
+    text: "Multi-hop reasoning (up to 24 hops) with real-time neural pulse tracing and memory writeback proposals.",
     href: "/dashboard/memory-query",
     cta: "Open Cortex",
     accent: "purple",
   },
   {
-    title: "Production Deploy",
-    tag: "Local prod + VPS",
-    text: "Single-source env files, selective rebuilds, and one-way VPS rsync keep container builds clean and reproducible.",
+    title: "Matrix Billing",
+    tag: "Scale-Ready",
+    text: "4-tier professional subscription matrix metered by cognitive capacity (Nodes & Hops). Transparent resource allocation.",
     href: "/docs",
-    cta: "Read Runbook",
+    cta: "View Tiers",
     accent: "emerald",
   },
 ] as const;
@@ -38,7 +38,8 @@ const ACCENT_STYLES: Record<
     border: "border-cyan-500/20",
     bg: "bg-cyan-500/[0.04]",
     text: "text-cyan-300/70",
-    button: "border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20",
+    button:
+      "border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20",
   },
   purple: {
     border: "border-purple-500/20",
@@ -98,7 +99,9 @@ export default function DocsOperations() {
                 transition={{ duration: 0.5, delay: index * 0.08 }}
                 className={`rounded-3xl border ${styles.border} ${styles.bg} p-6 sm:p-7`}
               >
-                <p className={`text-[10px] font-bold uppercase tracking-[0.2em] ${styles.text}`}>
+                <p
+                  className={`text-[10px] font-bold uppercase tracking-[0.2em] ${styles.text}`}
+                >
                   {card.tag}
                 </p>
                 <h3 className="mt-3 text-2xl font-bold text-white">

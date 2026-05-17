@@ -146,9 +146,38 @@ class FAIMNativeEngine:
             tenant_id=self.node_repo.tenant_id,
         )
 
+        # Import cognitive typing for neural constellation classification
+        try:
+            from faim.Faim_Native.core.cognitive.cognitive_typing import (
+                classify_for_constellation,
+            )
+        except ImportError:
+            from core.cognitive.cognitive_typing import (
+                classify_for_constellation,
+            )
+
         for idx, vector in enumerate(vectors):
-            # 1. Upsert atom node
-            node_id = self.node_repo.upsert_atom_node(graph_id, vector)
+            # 1. Classify cognitive type for neural constellation view
+            # Extract text from anchor_dict for classification
+            text_content = ""
+            if vector.anchor_dict:
+                text_content = vector.anchor_dict.get("text", "")
+                if not text_content and "canonical" in vector.anchor_dict:
+                    text_content = vector.anchor_dict.get("canonical", "")
+
+            classification = classify_for_constellation(
+                text=text_content,
+                raw_id=raw_id or "unknown",
+                context={"source_type": "document"},
+            )
+
+            # 2. Upsert atom node with cognitive classification
+            node_id = self.node_repo.upsert_atom_node(
+                graph_id,
+                vector,
+                cognitive_type=classification.cognitive_type.value,
+                galaxy_id=classification.galaxy_id,
+            )
             result.node_ids.append(node_id)
             result.nodes_written += 1
 

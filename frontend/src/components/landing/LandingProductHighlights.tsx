@@ -4,24 +4,24 @@ import { motion } from "framer-motion";
 
 const HIGHLIGHTS = [
   {
-    title: "FAIM Cortex",
-    tag: "Grounded Answers",
-    text: "Ask questions in Direct, Timeline, Contradiction, or Provenance mode and get cited prose you can inspect, trust, and share.",
+    title: "1M+ Semantic Registry",
+    tag: "Scale-Ready",
+    text: "Deterministic classification of 100k+ professional concepts. Zero-latency, zero-ML overhead, and 100% predictable.",
   },
   {
-    title: "Storage Control",
-    tag: "Extractor + Rebuild",
-    text: "Upload once, choose the extractor, and keep derived knowledge layers fresh without reworking the whole system.",
+    title: "Deterministic Intel",
+    tag: "Pure Math Core",
+    text: "No neural network black-boxes. Core retrieval and reasoning powered by 256-dim deterministic invariants.",
   },
   {
-    title: "Graph Intelligence",
-    tag: "Deterministic Retrieval",
-    text: "Dense retrieval, sparse signals, and graph structure work together without black-box embeddings.",
+    title: "24-Hop Reasoning",
+    tag: "Deep Inference",
+    text: "Trace complex evidence chains across 24 cognitive hops. Follow path logic with confidence decay tracking.",
   },
   {
-    title: "FIG View",
-    tag: "Graph Trace",
-    text: "Inspect lineage, contradictions, and evidence paths in a graph surface built for operators.",
+    title: "Proposals Only",
+    tag: "Safety Protocol",
+    text: "Memory writes require human approval. Review Cortex proposals in the 3D FIG graph before persistence.",
   },
   {
     title: "Explainability",
@@ -42,6 +42,36 @@ const HIGHLIGHTS = [
     title: "No ML / LLM Required",
     tag: "Pure FAIM",
     text: "Core memory, retrieval, and answers stay deterministic, explainable, and self-hostable.",
+  },
+  {
+    title: "Deep Reasoning",
+    tag: "Multi-hop Inference",
+    text: "Follows chains of evidence across your knowledge graph to answer complex 'why' questions. Traces connections up to 3 hops with confidence decay tracking.",
+  },
+  {
+    title: "Intelligent Planning",
+    tag: "Query Optimization",
+    text: "Automatically decomposes complex questions into executable sub-queries. Handles comparisons, trend analysis, and exploratory searches.",
+  },
+  {
+    title: "Knowledge Synthesis",
+    tag: "Cross-document",
+    text: "Finds correlations, contradictions, and trends across multiple documents. Weaves scattered information into unified insights.",
+  },
+  {
+    title: "Continuous Learning",
+    tag: "Adaptive",
+    text: "Improves from user feedback and ratings. Tracks reasoning pattern success and adjusts confidence thresholds automatically.",
+  },
+  {
+    title: "Temporal Analysis",
+    tag: "Time-aware",
+    text: "Understands sequences, timelines, and temporal relationships. Analyzes 'before', 'after', and 'during' for trend and deadline insights.",
+  },
+  {
+    title: "Quality Intelligence",
+    tag: "Monitoring",
+    text: "Built-in quality dashboard tracks user satisfaction, confidence distribution, and system health. Provides actionable improvement recommendations.",
   },
 ];
 
@@ -81,7 +111,7 @@ export default function LandingProductHighlights() {
           </p>
         </motion.div>
 
-        <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {HIGHLIGHTS.map((item, index) => (
             <motion.div
               key={item.title}

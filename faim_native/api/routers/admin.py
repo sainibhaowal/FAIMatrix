@@ -10,8 +10,8 @@ POST /v1/admin/replay/verify
 
 from __future__ import annotations
 
-import os
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -196,6 +196,8 @@ def _runtime_snapshot() -> Dict[str, Any]:
         "enable_cache": _env_bool("FAIM_ENABLE_CACHE", False),
         "enable_index": _env_bool("FAIM_ENABLE_INDEX", False),
         "enable_jobs": _env_bool("FAIM_ENABLE_JOBS", False),
+        "encryption_at_rest": _env_bool("FAIM_ENCRYPTION_AT_REST", False),
+        "encryption_fail_closed": _env_bool("FAIM_ENCRYPTION_FAIL_CLOSED", False),
         "admin_key_configured": bool(os.getenv("FAIM_ADMIN_KEY")),
     }
 
@@ -327,7 +329,11 @@ async def admin_alerts_send(
         details={
             "alerts": alerts,
             "delivery": delivery,
-            **{k: v for k, v in result.items() if k not in {"status", "message", "provider", "recipients", "sent"}},
+            **{
+                k: v
+                for k, v in result.items()
+                if k not in {"status", "message", "provider", "recipients", "sent"}
+            },
         },
     )
 
@@ -336,7 +342,10 @@ async def admin_alerts_send(
 async def admin_alerts_test(
     admin: str = Depends(require_admin),
 ) -> AdminAlertSendResponse:
-    from api.services.admin_alerts import build_delivery_snapshot, send_admin_alert_email
+    from api.services.admin_alerts import (
+        build_delivery_snapshot,
+        send_admin_alert_email,
+    )
 
     delivery = build_delivery_snapshot()
     result = send_admin_alert_email(alerts=[], delivery=delivery, test_mode=True)

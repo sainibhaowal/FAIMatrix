@@ -34,4 +34,3 @@ def test_build_modality_features_deterministic():
     assert first == second
     assert first.image_phash
     assert first.table_text
-

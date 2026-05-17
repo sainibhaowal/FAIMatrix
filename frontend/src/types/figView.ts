@@ -86,6 +86,10 @@ export type FigNode = {
   cluster_id?: number | null;
   /** ISO datetime when this node was first created. Used for timeline step filtering. */
   created_at?: string | null;
+  /** Cognitive type classification for neural constellation view (fact, event, procedure, etc.). */
+  cognitive_type?: string | null;
+  /** Galaxy ID - source document grouping for constellation visualization. */
+  galaxy_id?: string | null;
 };
 
 // ---------------------------------------------------------------------------

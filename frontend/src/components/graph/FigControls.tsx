@@ -17,12 +17,22 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui";
-import type { LayoutMode, OverlayMode } from "@/lib/figViewLayout";
+import type { LayoutMode } from "@/lib/figViewLayout";
 import type { FigNode, FigTopology } from "@/types/figView";
+import FigProposals, { type WritebackProposal } from "./FigProposals";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+// Extended overlay mode with neural constellation support
+type OverlayMode =
+  | "none"
+  | "retrieval"
+  | "evolution"
+  | "temporal"
+  | "causality"
+  | "cognitive";
 
 type FigControlsProps = {
   layoutMode: LayoutMode;
@@ -51,6 +61,9 @@ type FigControlsProps = {
   onOverlayChange: (mode: OverlayMode) => void;
   topology?: FigTopology | null;
   nodes?: FigNode[];
+  proposals?: WritebackProposal[];
+  onApproveProposal?: (id: string) => void;
+  onRejectProposal?: (id: string) => void;
 };
 
 // ---------------------------------------------------------------------------
@@ -77,6 +90,12 @@ const OVERLAYS: Array<{ key: OverlayMode; label: string; title: string }> = [
     key: "none",
     label: "None",
     title: "No overlay — use layout mode coloring",
+  },
+  {
+    key: "cognitive",
+    label: "Cognitive",
+    title:
+      "Neural constellation view — colors by memory type (fact/event/procedure/prediction/contradiction)",
   },
   {
     key: "retrieval",
@@ -149,6 +168,9 @@ export default function FigControls({
   onOverlayChange,
   topology,
   nodes = [],
+  proposals = [],
+  onApproveProposal,
+  onRejectProposal,
 }: FigControlsProps) {
   const quality = useMemo(() => {
     if (!nodes.length) return null;
@@ -286,13 +308,13 @@ export default function FigControls({
         <span className="text-[9px] uppercase tracking-widest text-slate-500 px-1">
           Overlay
         </span>
-        <div className="flex items-center rounded-lg bg-slate-800/60 p-0.5">
+        <div className="grid grid-cols-3 gap-0.5 rounded-lg bg-slate-800/60 p-0.5">
           {OVERLAYS.map((o) => (
             <button
               key={o.key}
               onClick={() => onOverlayChange(o.key)}
               title={o.title}
-              className={`flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+              className={`flex items-center justify-center rounded-md px-2 py-1 text-xs font-medium transition-colors ${
                 overlayMode === o.key
                   ? "bg-violet-900/60 text-violet-300"
                   : "text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
@@ -463,9 +485,20 @@ export default function FigControls({
           )}
         </div>
       )}
+
+      <Separator />
+
+      <div className="w-full mt-2">
+        <FigProposals
+          proposals={proposals || []}
+          onApprove={onApproveProposal || (() => {})}
+          onReject={onRejectProposal || (() => {})}
+        />
+      </div>
     </div>
   );
 }
+
 
 // ---------------------------------------------------------------------------
 // Sub-components

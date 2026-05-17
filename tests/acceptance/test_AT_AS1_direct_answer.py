@@ -60,7 +60,7 @@ def test_query_returns_phase9_answer_block():
                 return_explain=True,
                 index=None,
                 cache=None,
-        )
+            )
         assert result.answer is not None
         assert "berlin" in result.answer["direct_answer"].lower()
         assert "2026" in result.answer["direct_answer"].lower()

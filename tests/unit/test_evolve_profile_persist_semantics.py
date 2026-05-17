@@ -188,7 +188,10 @@ def test_r7_evolve_requested_vs_effective_mode_fields_and_start_event_payload(
     assert result.effective_persist_mode == persist_mode
     assert result.durability_path == expected_durability
 
-    start = next((payload for kind, payload in event_repo.events if kind == "EVOLUTION_START"), None)
+    start = next(
+        (payload for kind, payload in event_repo.events if kind == "EVOLUTION_START"),
+        None,
+    )
     assert start is not None
     assert start["requested_profile"] == profile
     assert start["requested_persist_mode"] == persist_mode
@@ -216,7 +219,9 @@ def test_r7_evolve_strict_persist_fails_when_state_update_fails(monkeypatch):
     monkeypatch.setattr(
         evolve_flow,
         "_mark_self_evolved_state",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("state_update_failure_r7")),
+        lambda **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("state_update_failure_r7")
+        ),
     )
 
     session = _DummySession()
@@ -246,4 +251,3 @@ def test_r7_evolve_strict_persist_fails_when_state_update_fails(monkeypatch):
     assert result.completion_mode == "sync_strict"
     assert result.state_update_status == "error"
     assert "state_update_failure_r7" in (result.error or "")
-

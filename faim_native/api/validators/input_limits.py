@@ -20,8 +20,8 @@ from fastapi import HTTPException, UploadFile
 # Configuration
 # =============================================================================
 
-# Maximum upload file size (10 MB default)
-MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+# Maximum total upload size per batch (100 MB total)
+MAX_BATCH_TOTAL_SIZE = 100 * 1024 * 1024
 
 # Maximum request body size for JSON (1 MB)
 MAX_JSON_BODY_SIZE = 1 * 1024 * 1024
@@ -188,20 +188,20 @@ _dangerous_patterns = [re.compile(p) for p in DANGEROUS_FILENAME_PATTERNS]
 # =============================================================================
 
 
-def validate_upload_size(size: int) -> None:
+def validate_batch_total_size(total_size: int) -> None:
     """
-    Validate upload file size.
+    Validate total batch upload size.
 
     Args:
-        size: File size in bytes.
+        total_size: Total size of all files in bytes.
 
     Raises:
-        HTTPException: If file is too large.
+        HTTPException: If total batch size exceeds limit.
     """
-    if size > MAX_UPLOAD_SIZE:
+    if total_size > MAX_BATCH_TOTAL_SIZE:
         raise HTTPException(
             status_code=413,
-            detail=f"File too large. Maximum size is {MAX_UPLOAD_SIZE // (1024*1024)} MB.",
+            detail=f"Total upload size too large. Maximum is {MAX_BATCH_TOTAL_SIZE // (1024*1024)} MB per batch.",
         )
 
 
@@ -424,12 +424,12 @@ def validate_nested_depth(
 # =============================================================================
 
 __all__ = [
-    "MAX_UPLOAD_SIZE",
+    "MAX_BATCH_TOTAL_SIZE",
     "MAX_JSON_BODY_SIZE",
     "MAX_FIELD_SIZE",
     "ALLOWED_CONTENT_TYPES",
     "ALLOWED_EXTENSIONS",
-    "validate_upload_size",
+    "validate_batch_total_size",
     "validate_content_type",
     "sanitize_filename",
     "validate_file_extension",

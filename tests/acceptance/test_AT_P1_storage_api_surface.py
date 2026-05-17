@@ -39,7 +39,9 @@ def test_app_includes_storage_router_source():
 
 
 def test_storage_migration_exists():
-    migration_path = pathlib.Path("faim_native/store/pg/migrations/0005_storage_files.sql")
+    migration_path = pathlib.Path(
+        "faim_native/store/pg/migrations/0005_storage_files.sql"
+    )
     assert migration_path.exists()
 
     content = migration_path.read_text()

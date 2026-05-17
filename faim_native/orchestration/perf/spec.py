@@ -10,6 +10,7 @@ Key changes for Stage-5:
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Optional
@@ -41,6 +42,69 @@ class PersistMode(Enum):
 
     RELAXED = "relaxed"
     STRICT = "strict"
+
+
+class WritebackMode(Enum):
+    """Writeback approval mode for Cortex memory consolidation."""
+
+    MANUAL = "manual"  # All candidates require human approval (default)
+    SEMI_AUTO = "semi_auto"  # Auto-approve high confidence, manual for contradictions
+    AUTO = "auto"  # Auto-approve all (except explicit contradictions)
+
+
+@dataclass(frozen=True)
+class WritebackConfig:
+    """Configuration for Cortex writeback behavior.
+
+    Controls when and how memory candidates are persisted to the graph.
+    All values can be overridden via environment variables for production flexibility.
+    """
+
+    mode: WritebackMode = WritebackMode.SEMI_AUTO
+
+    # Confidence threshold for auto-approval (0.0 - 1.0)
+    # Candidates above this threshold are auto-approved (in SEMI_AUTO mode)
+    auto_approve_threshold: float = 0.90
+
+    # Whether to require manual approval for candidates with contradictions
+    require_manual_for_contradictions: bool = True
+
+    # Maximum number of candidates to auto-approve per turn (safety limit)
+    max_auto_approve_per_turn: int = 3
+
+    # Minimum candidate confidence to even be considered (filtering threshold)
+    min_candidate_confidence: float = 0.50
+
+    @classmethod
+    def from_env(cls) -> "WritebackConfig":
+        """Build config from environment variables with safe defaults."""
+        mode_str = os.getenv("FAIM_WRITEBACK_MODE", "semi_auto").lower()
+
+        mode_map = {
+            "manual": WritebackMode.MANUAL,
+            "semi_auto": WritebackMode.SEMI_AUTO,
+            "auto": WritebackMode.AUTO,
+        }
+
+        # Parse threshold with bounds checking
+        try:
+            threshold = float(os.getenv("FAIM_WRITEBACK_AUTO_THRESHOLD", "0.90"))
+            threshold = max(0.0, min(1.0, threshold))  # Clamp to [0, 1]
+        except ValueError:
+            threshold = 0.90
+
+        return cls(
+            mode=mode_map.get(mode_str, WritebackMode.SEMI_AUTO),
+            auto_approve_threshold=threshold,
+            require_manual_for_contradictions=os.getenv(
+                "FAIM_WRITEBACK_REQUIRE_MANUAL_CONTRADICTION", "true"
+            ).lower()
+            != "false",
+            max_auto_approve_per_turn=int(os.getenv("FAIM_WRITEBACK_MAX_AUTO", "3")),
+            min_candidate_confidence=float(
+                os.getenv("FAIM_WRITEBACK_MIN_CONFIDENCE", "0.50")
+            ),
+        )
 
 
 class FaimSpeedProfile(str, Enum):
@@ -360,6 +424,8 @@ def get_memory_info() -> Dict[str, int]:
 
 __all__ = [
     "PersistMode",
+    "WritebackMode",
+    "WritebackConfig",
     "FaimSpeedProfile",
     "SpeedBudget",
     "SPEED_PROFILES",

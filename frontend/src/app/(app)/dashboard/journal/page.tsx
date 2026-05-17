@@ -392,9 +392,10 @@ export default function JournalPage() {
         { headers, cache: "no-store" },
       );
       if (!res.ok) throw new Error(`Events request failed (${res.status})`);
-      const data = await readJsonSafely<{ events?: FaimEvent[]; has_more?: boolean }>(
-        res,
-      );
+      const data = await readJsonSafely<{
+        events?: FaimEvent[];
+        has_more?: boolean;
+      }>(res);
       if (!data) throw new Error("Invalid events response");
       return {
         events: (data.events ?? []) as FaimEvent[],

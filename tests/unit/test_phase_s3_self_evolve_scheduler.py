@@ -4,13 +4,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, create_engine
-from sqlalchemy.orm import sessionmaker
-
 from orchestration.self_evolve_scheduler import (
     enqueue_self_evolve_if_due,
     evaluate_self_evolve_due,
 )
+from sqlalchemy import and_, create_engine
+from sqlalchemy.orm import sessionmaker
 from store.pg.models_faim import JobModel, SelfEvolutionStateModel, create_all_tables
 from store.pg.repos.graph_version_repo import GraphVersionRepo
 from store.pg.repos.self_evolution_state_repo import SelfEvolutionStateRepo
@@ -23,7 +22,9 @@ def _new_session():
     return SessionLocal()
 
 
-def _seed_graph_version(session, *, tenant_id: str, graph_id: str, version: int) -> None:
+def _seed_graph_version(
+    session, *, tenant_id: str, graph_id: str, version: int
+) -> None:
     gv_repo = GraphVersionRepo(session=session, tenant_id=tenant_id)
     gv_repo.set_version(session, graph_id, version, "seed")
     session.commit()
@@ -75,11 +76,14 @@ def test_s3_skips_when_self_evolve_disabled(monkeypatch):
         assert result.status == "skipped"
         assert result.reason == "self_evolve_disabled"
         assert result.job_id is None
-        assert _count_evolve_jobs(
-            session,
-            tenant_id="tenant_s3",
-            graph_id="graph_s3_disabled",
-        ) == 0
+        assert (
+            _count_evolve_jobs(
+                session,
+                tenant_id="tenant_s3",
+                graph_id="graph_s3_disabled",
+            )
+            == 0
+        )
     finally:
         session.close()
 
@@ -106,11 +110,14 @@ def test_s3_keeps_storage_legacy_followup_compat(monkeypatch):
         )
         assert result.status == "enqueued"
         assert result.job_id is not None
-        assert _count_evolve_jobs(
-            session,
-            tenant_id="tenant_s3",
-            graph_id="graph_s3_storage_compat",
-        ) == 1
+        assert (
+            _count_evolve_jobs(
+                session,
+                tenant_id="tenant_s3",
+                graph_id="graph_s3_storage_compat",
+            )
+            == 1
+        )
     finally:
         session.close()
 

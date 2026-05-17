@@ -32,7 +32,7 @@ from api.validators import (  # noqa: E402
     validate_content_type,
     validate_file_extension,
     validate_mime_extension_match,
-    validate_upload_size,
+    validate_batch_total_size,
 )
 from orchestration.ingest_flow import FAIMProfile, PersistMode, run_ingest  # noqa: E402
 from store.pg.models_faim import IngestDedupModel, NodeModel  # noqa: E402
@@ -277,7 +277,7 @@ def _resolve_write_payload(body: MemoryWriteRequest) -> tuple[str, str, bytes]:
     validate_file_extension(filename)
     validate_content_type(base_type)
     validate_mime_extension_match(filename, base_type)
-    validate_upload_size(len(payload_bytes))
+    validate_batch_total_size(len(payload_bytes))
 
     return filename, base_type, payload_bytes
 

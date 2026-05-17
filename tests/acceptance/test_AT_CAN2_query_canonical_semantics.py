@@ -5,7 +5,9 @@ from __future__ import annotations
 from uuid import uuid4
 
 
-def _configure_isolated_runtime(monkeypatch, tmp_path, tenant_id: str, api_key: str) -> str:
+def _configure_isolated_runtime(
+    monkeypatch, tmp_path, tenant_id: str, api_key: str
+) -> str:
     db_url = f"sqlite:///{tmp_path / ('faim_can_query_' + uuid4().hex + '.db')}"
 
     monkeypatch.setenv("DATABASE_URL", db_url)
@@ -30,7 +32,9 @@ def _configure_isolated_runtime(monkeypatch, tmp_path, tenant_id: str, api_key: 
     return db_url
 
 
-def _ingest_payload(repos, tenant_id: str, graph_id: str, filename: str, payload: bytes):
+def _ingest_payload(
+    repos, tenant_id: str, graph_id: str, filename: str, payload: bytes
+):
     from core.engine_native import FAIMNativeEngine
     from encoding.text_vectorizer import vectorize_blocks
     from perception.router import route_extraction
@@ -40,7 +44,9 @@ def _ingest_payload(repos, tenant_id: str, graph_id: str, filename: str, payload
     from store.pg.repos.node_repo import NodeRepo
 
     session = repos["session"]
-    raw_ref = repos["raw_store"].store(payload, mime_type="text/plain", graph_id=graph_id)
+    raw_ref = repos["raw_store"].store(
+        payload, mime_type="text/plain", graph_id=graph_id
+    )
     saved = repos["raw_repo"].create(session, raw_ref)
     repos["storage_file_repo"].upsert_upload(
         session,
@@ -78,7 +84,9 @@ def _ingest_payload(repos, tenant_id: str, graph_id: str, filename: str, payload
 
 def test_query_uses_canonical_semantics_alias_expansion(monkeypatch, tmp_path):
     from lexical.canonicalizer import canonicalize_text
-    from orchestration.canonical_semantics_rebuild import run_canonical_semantics_rebuild
+    from orchestration.canonical_semantics_rebuild import (
+        run_canonical_semantics_rebuild,
+    )
     from orchestration.ingest_flow import FAIMProfile
     from orchestration.query_flow import run_query
     from runtime.context import close_session, get_repos

@@ -5,48 +5,67 @@ import Link from "next/link";
 
 const plans = [
   {
-    name: "Free",
+    name: "Explorer",
     price: "$0",
     period: "forever",
-    description: "Perfect for trying FAIMATRIX",
-    features: ["1,000 nodes", "Basic knowledge graph", "Community support"],
-    cta: "Start Free",
+    description: "Personal cognitive mapping",
+    features: [
+      "1,000 Nodes",
+      "1-Hop Reasoning",
+      "Standard 3D Globe",
+      "Basic Semantic Search"
+    ],
+    cta: "Start Explorer",
     popular: false,
     gradient: "from-slate-600 to-slate-700",
   },
   {
-    name: "Pro",
+    name: "Architect",
     price: "$29",
     period: "/month",
-    description: "For power users and teams",
+    description: "Deep structured knowledge",
     features: [
-      "Unlimited nodes",
-      "Advanced graph visualization",
-
-      "Document ingestion (PDF, DOC)",
-      "Priority support",
-      "API access",
+      "10,000 Nodes",
+      "4-Hop Reasoning",
+      "Semantic Alias Engine",
+      "Graph Snapshots",
+      "API Access"
     ],
-    cta: "Start Pro Trial",
+    cta: "Start Architect",
     popular: true,
     gradient: "from-cyan-500 to-blue-500",
   },
   {
-    name: "Enterprise",
+    name: "Neural",
+    price: "$99",
+    period: "/month",
+    description: "Elite intelligence synthesis",
+    features: [
+      "100,000 Nodes",
+      "24-Hop Reasoning",
+      "Cross-Graph Synthesis",
+      "Real-time Evolution",
+      "Priority Workers"
+    ],
+    cta: "Go Neural",
+    popular: false,
+    gradient: "from-purple-500 to-blue-500",
+  },
+  {
+    name: "Matrix",
     price: "Custom",
     period: "",
-    description: "For organizations at scale",
+    description: "Enterprise sovereign memory",
     features: [
-      "Everything in Pro",
-      "SSO & SAML",
-      "Custom integrations",
-      "Dedicated support",
-      "On-premise option",
-      "SLA guarantee",
+      "Unlimited Nodes/Hops",
+      "Private Memory Shards",
+      "Dedicated GPU Workers",
+      "SSO & 24/7 Support",
+      "On-premise Option"
     ],
     cta: "Contact Sales",
     popular: false,
-    gradient: "from-purple-500 to-pink-500",
+    gradient: "from-purple-600 to-pink-600",
   },
 ];
 
@@ -71,7 +90,7 @@ export default function Pricing() {
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {plans.map((plan, index) => (
             <motion.div
               key={plan.name}

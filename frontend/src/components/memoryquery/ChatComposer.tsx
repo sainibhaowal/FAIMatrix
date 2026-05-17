@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import {
   Plus,
   Send,
@@ -10,6 +10,7 @@ import {
   MessageSquarePlus,
   Brain,
   Database,
+  Sparkles,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/Button";
@@ -21,11 +22,25 @@ import {
 import { useProviders } from "@/contexts/ProviderContext";
 
 const ANSWER_MODES: AnswerMode[] = [
+  "auto",
   "direct",
   "timeline",
   "contradiction",
   "provenance",
 ];
+
+// Cortex auto-classified task type labels
+const TASK_TYPE_LABELS: Record<string, string> = {
+  answer: "Answer",
+  timeline: "Timeline",
+  contradiction: "Contradiction",
+  provenance: "Provenance",
+  compare: "Compare",
+  predict: "Predict",
+  investigate: "Investigate",
+  consolidate: "Consolidate",
+  ask_follow_up: "Ask Follow-up",
+};
 
 export function ChatComposer() {
   const [value, setValue] = useState("");
@@ -41,8 +56,14 @@ export function ChatComposer() {
     toggleThinking,
     answerMode,
     setAnswerMode,
+    messages,
   } = useChat();
   const { activeProvider } = useProviders();
+
+  const currentTaskType = [...messages]
+    .reverse()
+    .find((m) => m.role === "assistant" && m.cortexData?.task_type)?.cortexData
+    ?.task_type;
 
   const handleSend = async () => {
     if (!value.trim() || isStreaming) return;
@@ -101,26 +122,62 @@ export function ChatComposer() {
       </div>
 
       <div className="max-w-4xl mx-auto mb-2 flex flex-wrap items-center gap-2 px-1 pointer-events-auto">
-        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-600">
-          Answer mode
-        </span>
-        {ANSWER_MODES.map((mode) => {
-          const active = mode === answerMode;
-          return (
-            <button
-              key={mode}
-              onClick={() => setAnswerMode(mode)}
-              className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.22em] transition-all duration-200 ${
-                active
-                  ? "bg-primary-500/15 border-primary-500/35 text-primary-200 shadow-[0_0_16px_rgba(34,211,238,0.15)]"
-                  : "bg-white/[0.03] border-white/5 text-slate-500 hover:text-slate-200 hover:border-white/10 hover:bg-white/5"
-              }`}
-              title={`Generate a ${ANSWER_MODE_LABELS[mode].toLowerCase()} answer`}
-            >
-              {ANSWER_MODE_LABELS[mode]}
-            </button>
-          );
-        })}
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-600">
+            Answer mode
+          </span>
+          {ANSWER_MODES.map((mode) => {
+            const active = mode === answerMode;
+            return (
+              <button
+                key={mode}
+                onClick={() => setAnswerMode(mode)}
+                className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-[0.22em] transition-all duration-300 relative overflow-hidden group/mode ${
+                  active
+                    ? mode === "auto"
+                      ? "bg-gradient-to-br from-primary-500/20 to-violet-500/20 border-primary-400/50 text-white shadow-[0_0_20px_rgba(34,211,238,0.3)]"
+                      : "bg-primary-500/15 border-primary-500/35 text-primary-200 shadow-[0_0_16px_rgba(34,211,238,0.15)]"
+                    : "bg-white/[0.03] border-white/5 text-slate-500 hover:text-slate-200 hover:border-white/10 hover:bg-white/5"
+                }`}
+                title={`Generate a ${ANSWER_MODE_LABELS[mode].toLowerCase()} answer`}
+              >
+                {mode === "auto" && active && (
+                  <motion.div
+                    layoutId="mode-glow"
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"
+                  />
+                )}
+                {ANSWER_MODE_LABELS[mode]}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 ml-auto animate-in fade-in slide-in-from-right-4 duration-500">
+          <span className="text-[9px] font-black uppercase tracking-[0.3em] text-slate-500/50">
+            {currentTaskType ? "Auto-classified" : "Cortex Standby"}
+          </span>
+          <div
+            className={`px-2.5 py-1.5 rounded-xl border transition-all duration-500 flex items-center gap-1.5 ${
+              currentTaskType
+                ? "border-amber-500/30 bg-amber-500/5 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.05)]"
+                : "border-slate-800 bg-slate-900/20 text-slate-500"
+            }`}
+            title={
+              currentTaskType
+                ? `Cortex auto-classified this as: ${currentTaskType}`
+                : "Cortex is ready for your first query"
+            }
+          >
+            <Sparkles
+              size={11}
+              className={currentTaskType ? "text-amber-400/70" : "text-slate-600"}
+            />
+            {currentTaskType
+              ? TASK_TYPE_LABELS[currentTaskType] || currentTaskType
+              : "Ready"}
+          </div>
+        </div>
       </div>
 
       <div
@@ -200,7 +257,7 @@ export function ChatComposer() {
                 handleSend();
               }
             }}
-            placeholder="Ask FAIM Cortex to synthesize grounded prose from memory..."
+            placeholder="Ask FAIM Cortex to run a structured brain turn over memory..."
             className="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-slate-100 px-2 py-3 text-[14px] placeholder:text-slate-600 resize-none max-h-[200px] custom-scrollbar selection:bg-primary-500/30 transition-all font-medium"
             rows={1}
             style={{ minHeight: "26px" }}
@@ -239,8 +296,8 @@ export function ChatComposer() {
             variant="outline"
             title={
               activeProvider
-                ? "Send query to FAIM and active provider context"
-                : "Send query to FAIM"
+                ? "Send Cortex turn; small talk still uses the active provider"
+                : "Send Cortex turn"
             }
           >
             {isStreaming ? (

@@ -9,7 +9,6 @@ Ensures:
 
 import logging
 import unittest
-from io import StringIO
 
 from runtime.logging import (
     RedactingFilter,

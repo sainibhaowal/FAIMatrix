@@ -158,8 +158,8 @@ class TestEncodingDeterminism:
         """Empty text should produce consistent result."""
         v_res1 = vectorize_text("")
         v_res2 = vectorize_text("")
-        v1, s1, o1 = v_res1.v_native, v_res1.stats, v_res1.opp_signature
-        v2, s2, o2 = v_res2.v_native, v_res2.stats, v_res2.opp_signature
+        v1, _s1, _o1 = v_res1.v_native, v_res1.stats, v_res1.opp_signature
+        v2, _s2, _o2 = v_res2.v_native, v_res2.stats, v_res2.opp_signature
 
         assert v1 == v2
         assert len(v1) == VECTOR_DIMENSION

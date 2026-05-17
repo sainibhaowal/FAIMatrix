@@ -62,6 +62,8 @@ This folder documents current storage/ingestion behavior and the implementation 
 56. `64_FAIM_MHVC_Research_Paper.md`
 57. `65_FAIM_MHVC_8SPACE_IMPLEMENTATION_PLAN.md`
 58. `66_FAIM_MHVC_8SPACE_VALIDATION_AND_ROLLOUT.md`
+59. `67_FAIM_CORTEX_RUNTIME_ARCHITECTURE.md`
+60. `68_FAIM_CORTEX_IMPLEMENTATION_COMPLETION_REPORT.md`
 
 ## Intent
 
@@ -115,6 +117,8 @@ This folder documents current storage/ingestion behavior and the implementation 
 - Full-repo production-readiness revalidation after final fixes is documented in 54.
 - Evolution page runtime alignment for metrics/scheduler/timeline/source-coverage UX is documented in 55.
 - Use these docs as the source of truth before building Storage page and related APIs.
+- Use the FAIM Cortex runtime doc as the source of truth before wiring the memory-query UI to the new turn API.
+- Use the Cortex completion report as the source of truth for what was implemented, validated, and left for future work.
 
 ## Key Outcome
 

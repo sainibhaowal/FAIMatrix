@@ -448,6 +448,12 @@ class NodeModel(Base):
     cluster_id = Column(
         Integer, nullable=True
     )  # 0019: k-means topic cluster assignment
+    cognitive_type = Column(
+        String(16), nullable=True, index=True
+    )  # 0024: cognitive classification (fact, event, procedure, prediction, contradiction, source)
+    galaxy_id = Column(
+        String(64), nullable=True, index=True
+    )  # 0024: source document/galaxy grouping
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -477,6 +483,8 @@ class NodeModel(Base):
             "last_access": self.last_access.isoformat() if self.last_access else None,
             "long_term": self.long_term,
             "cluster_id": self.cluster_id,
+            "cognitive_type": self.cognitive_type,
+            "galaxy_id": self.galaxy_id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -1031,6 +1039,161 @@ class SelfEvolutionStateModel(Base):
     last_evolved_at = Column(DateTime(timezone=True), nullable=True)
     last_enqueued_job_id = Column(UUIDType, nullable=True)
     updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+# -----------------------------------------------------------------------------
+# Cortex runtime state (Phase 3)
+# -----------------------------------------------------------------------------
+
+
+class CortexSessionModel(Base):
+    """Durable Cortex session state."""
+
+    __tablename__ = "cortex_sessions"
+
+    session_id = Column(String(64), primary_key=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    title = Column(Text, nullable=False, default="")
+    turn_count = Column(Integer, nullable=False, default=0)
+    last_turn_id = Column(String(64), nullable=True)
+    last_task_type = Column(String(32), nullable=True)
+    last_query_hash = Column(String(64), nullable=True)
+    last_confidence = Column(Float, nullable=True)
+    last_turn_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "session_id": self.session_id,
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "title": self.title,
+            "turn_count": self.turn_count,
+            "last_turn_id": self.last_turn_id,
+            "last_task_type": self.last_task_type,
+            "last_query_hash": self.last_query_hash,
+            "last_confidence": self.last_confidence,
+            "last_turn_at": (
+                self.last_turn_at.isoformat() if self.last_turn_at else None
+            ),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class CortexTurnModel(Base):
+    """Durable Cortex turn snapshot."""
+
+    __tablename__ = "cortex_turns"
+
+    turn_id = Column(String(64), primary_key=True)
+    session_id = Column(String(64), nullable=False, index=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    query_text = Column(Text, nullable=False)
+    answer_mode = Column(String(32), nullable=False)
+    task_type = Column(String(32), nullable=False)
+    query_hash = Column(String(64), nullable=False, index=True)
+    graph_version = Column(Integer, nullable=False, default=0)
+    graph_hash = Column(String(64), nullable=False, default="")
+    confidence = Column(Float, nullable=False, default=0.0)
+    narrative = Column(Text, nullable=False, default="")
+    answer_json = Column(JSONBType, nullable=False, default=dict)
+    brain_state_json = Column(JSONBType, nullable=False, default=dict)
+    reasoning_count = Column(Integer, nullable=False, default=0)
+    open_question_count = Column(Integer, nullable=False, default=0)
+    contradiction_count = Column(Integer, nullable=False, default=0)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "turn_id": self.turn_id,
+            "session_id": self.session_id,
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "query_text": self.query_text,
+            "answer_mode": self.answer_mode,
+            "task_type": self.task_type,
+            "query_hash": self.query_hash,
+            "graph_version": self.graph_version,
+            "graph_hash": self.graph_hash,
+            "confidence": self.confidence,
+            "narrative": self.narrative,
+            "answer_json": self.answer_json or {},
+            "brain_state_json": self.brain_state_json or {},
+            "reasoning_count": self.reasoning_count,
+            "open_question_count": self.open_question_count,
+            "contradiction_count": self.contradiction_count,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class CortexReasoningNodeModel(Base):
+    """Structured reasoning node emitted by Cortex."""
+
+    __tablename__ = "cortex_reasoning_nodes"
+
+    node_id = Column(String(64), primary_key=True)
+    turn_id = Column(String(64), nullable=False, index=True)
+    session_id = Column(String(64), nullable=False, index=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    branch = Column(String(64), nullable=False)
+    title = Column(String(128), nullable=False)
+    summary = Column(Text, nullable=False)
+    evidence_node_ids = Column(JSONBType, nullable=False, default=list)
+    confidence = Column(Float, nullable=False, default=0.0)
+    depends_on = Column(JSONBType, nullable=False, default=list)
+    output_json = Column(JSONBType, nullable=False, default=dict)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
+class CortexWritebackCandidateModel(Base):
+    """Proposed memory writeback from Cortex."""
+
+    __tablename__ = "cortex_writeback_candidates"
+
+    # Use Integer for SQLite compatibility in tests; Postgres still maps this
+    # to an auto-incrementing identity/serial style primary key.
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    turn_id = Column(String(64), nullable=False, index=True)
+    session_id = Column(String(64), nullable=False, index=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    kind = Column(String(64), nullable=False)
+    status = Column(String(32), nullable=False, default="proposed")
+    reason = Column(Text, nullable=False, default="")
+    payload_json = Column(JSONBType, nullable=False, default=dict)
+    confidence = Column(Float, nullable=False, default=0.0)
+    created_at = Column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import tempfile
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
@@ -23,7 +22,7 @@ def _mk_client(monkeypatch, *, compat_mode: str = "false") -> tuple[TestClient, 
     monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
     monkeypatch.setenv("FAIM_ENABLE_JOBS", "true")
     monkeypatch.setenv("FAIM_PROFILE_PERSIST_COMPAT_MODE", compat_mode)
-    
+
     reset_config()
     reload_tenant_keys()
     client = TestClient(create_app())
@@ -34,8 +33,6 @@ def _mk_client(monkeypatch, *, compat_mode: str = "false") -> tuple[TestClient, 
 def test_r3_ingest_relaxed_queues_secondary_index_job(monkeypatch, db_session):
     from runtime.context import get_session
     from store.pg.models_faim import JobModel
-    from store.pg.session import SessionFactory
-    from store.pg.models_faim import create_all_tables
 
     client, headers = _mk_client(monkeypatch, compat_mode="false")
     graph_id = f"r3-graph-{uuid4().hex[:8]}"

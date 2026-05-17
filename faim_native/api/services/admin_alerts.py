@@ -8,7 +8,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Sequence
+from typing import Any, Dict, Sequence
 
 import httpx
 
@@ -150,9 +150,7 @@ def build_operational_alerts(
     if readiness_status != "ready":
         missing_tables = readiness.get("missing_tables") or []
         missing_fragment = (
-            f" Missing tables: {', '.join(missing_tables)}."
-            if missing_tables
-            else ""
+            f" Missing tables: {', '.join(missing_tables)}." if missing_tables else ""
         )
         alerts.append(
             _alert(
@@ -211,7 +209,9 @@ def build_operational_alerts(
         latest = backups[0]
         latest_at = _parse_iso_timestamp(str(latest.get("modified_at") or ""))
         if latest_at is not None:
-            age_hours = (datetime.now(timezone.utc) - latest_at).total_seconds() / 3600.0
+            age_hours = (
+                datetime.now(timezone.utc) - latest_at
+            ).total_seconds() / 3600.0
             if age_hours >= ALERT_STALE_BACKUP_HOURS:
                 alerts.append(
                     _alert(
@@ -252,8 +252,7 @@ def _render_alert_rows(alerts: Sequence[Dict[str, Any]]) -> str:
         message = html.escape(str(alert.get("message") or ""))
         created_at = html.escape(str(alert.get("created_at") or ""))
         source = html.escape(str(alert.get("source") or ""))
-        rows.append(
-            f"""
+        rows.append(f"""
             <tr>
               <td style="padding:14px 16px;border-bottom:1px solid #1f2937;">
                 <div style="font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:#94a3b8;margin-bottom:6px;">
@@ -270,8 +269,7 @@ def _render_alert_rows(alerts: Sequence[Dict[str, Any]]) -> str:
                 </div>
               </td>
             </tr>
-            """
-        )
+            """)
     return "".join(rows)
 
 
@@ -288,9 +286,7 @@ def render_alert_email(
         else f"[FAIM] {summary['critical']} critical, {summary['warning']} warning alerts"
     )
     headline = (
-        "Admin alert delivery test"
-        if test_mode
-        else "Operational alerts from FAIM"
+        "Admin alert delivery test" if test_mode else "Operational alerts from FAIM"
     )
     intro = (
         "This is a test message confirming alert delivery."
@@ -298,7 +294,9 @@ def render_alert_email(
         else "The current control-plane snapshot has generated the following alerts."
     )
     rows = _render_alert_rows(alerts)
-    recipients = ", ".join(html.escape(email) for email in delivery.get("recipients", []))
+    recipients = ", ".join(
+        html.escape(email) for email in delivery.get("recipients", [])
+    )
 
     html_body = f"""
     <div style="background:#020617;color:#e2e8f0;font-family:Inter,system-ui,sans-serif;padding:32px 0;">

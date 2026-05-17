@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from core.contracts.types import uuid7
 from orchestration.evolve_flow import run_evolve
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from store.pg.models_faim import NodeModel, create_all_tables
 from store.pg.repos.edge_repo import EdgeRepo
 from store.pg.repos.event_repo import EventRepo

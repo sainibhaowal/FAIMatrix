@@ -27,4 +27,3 @@ def test_perf_layer_marked_isolated():
     from orchestration.perf import PERF_LAYER_STATUS
 
     assert PERF_LAYER_STATUS == "isolated_legacy"
-

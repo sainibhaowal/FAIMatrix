@@ -28,7 +28,9 @@ from store.pg.repos.edge_repo import EdgeRepo  # noqa: E402
 from store.pg.repos.event_repo import EventRepo  # noqa: E402
 from store.pg.repos.graph_version_repo import GraphVersionRepo  # noqa: E402
 from store.pg.repos.node_repo import NodeRepo  # noqa: E402
-from store.pg.repos.self_invention_state_repo import SelfInventionStateRepo  # noqa: E402
+from store.pg.repos.self_invention_state_repo import (  # noqa: E402
+    SelfInventionStateRepo,  # noqa: E402
+)
 
 
 @pytest.fixture

@@ -27,6 +27,22 @@ const OUTCOMES = [
     title: "It works without ML dependency",
     text: "The core memory and retrieval path remains deterministic, explainable, and offline-friendly.",
   },
+  {
+    title: "Complex questions get deep answers",
+    text: "Deep reasoning follows chains of evidence to answer 'why' questions. Traces connections across documents with full provenance.",
+  },
+  {
+    title: "Disconnected documents become unified insights",
+    text: "Knowledge synthesis finds correlations and contradictions across sources. Weaves scattered information into coherent understanding.",
+  },
+  {
+    title: "The system learns from every interaction",
+    text: "Continuous learning improves answer quality over time. Tracks feedback patterns and adjusts confidence automatically.",
+  },
+  {
+    title: "Quality is visible and measurable",
+    text: "Built-in quality intelligence tracks satisfaction, confidence distribution, and system health. Provides actionable recommendations.",
+  },
 ];
 
 const WORKFLOWS = [
@@ -36,6 +52,12 @@ const WORKFLOWS = [
   "Rebuild canonical, multilingual, multimodal, or domain layers",
   "Ask FAIM Cortex and get cited answers",
   "Use FIG View for lineage and graph tracing",
+  "Deep reasoning — ask 'why' and follow causal chains across documents",
+  "Knowledge synthesis — connect insights across disparate sources",
+  "Intelligent planning — complex questions automatically optimized",
+  "Continuous learning — feedback improves future answer quality",
+  "Temporal analysis — understand sequences, trends, and deadlines",
+  "Quality monitoring — track satisfaction and system health in real-time",
 ];
 
 const AUDIENCE = [

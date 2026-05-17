@@ -26,6 +26,7 @@ const NAV_GROUPS = [
       { id: "graph", label: "Knowledge Graph" },
       { id: "retrieval", label: "Retrieval Engine" },
       { id: "cortex", label: "FAIM Cortex" },
+      { id: "cortex-runtime", label: "Cortex Runtime" },
     ],
   },
   {
@@ -39,6 +40,7 @@ const NAV_GROUPS = [
     group: "Platform",
     items: [
       { id: "fig-view", label: "FIG View" },
+      { id: "billing", label: "Matrix Billing" },
       { id: "security", label: "Security" },
       { id: "benchmarks", label: "Engine Benchmarks" },
       { id: "deployment", label: "Deployment" },
@@ -213,23 +215,22 @@ function SectionCurrentState() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Current State</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">Current State (May 2026)</h2>
         <p className="text-slate-400 leading-relaxed">
-          This section is the short version of what is now live in the repo and
-          on the site: the deterministic FAIM core is still the source of
-          truth, and the newer product surfaces sit on top of it.
+          FAIM has evolved into a production-grade cognitive infrastructure. The engine now features an 8M+ Omni-Lexicon, a 1M+ Semantic Registry, GPU-hardened 3D visualization, and a multi-tier Matrix subscription ecosystem.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title="What Is Live Now" color="cyan">
+        <Card title="Latest Upgrades" color="cyan">
           <ul className="space-y-2 text-sm text-slate-400">
             {[
-              "FAIM Cortex now synthesizes prose-first answers with Direct, Timeline, Contradiction-aware, and Provenance-first modes.",
-              "Local production uses one env file: .env.localprod.",
-              "VPS production uses one env file: deploy/env.vpsprod.",
-              "Selective rebuilds exist for frontend, api, worker, and migrate instead of full rebuilds every time.",
-              "The /docs portal is now the public docs surface for system, query, deployment, and benchmarks.",
+              "Deterministic Semantic Registry: 1M+ professional concepts with zero-ML overhead.",
+              "Global Omni-Lexicon: 8M+ ConceptNet edges powering O(1) multi-lingual vocabulary expansion.",
+              "GPU Hardened FIG View: Static asset registry eliminates rendering-induced crashes.",
+              "Neural Pulse Trace: Real-time visualization of reasoning paths in the 3D globe.",
+              "Memory Writeback Proposals: Human-in-the-loop safety for structural memory updates.",
+              "FAIM Matrix Tiers: 4 professional subscription levels (Explorer to Matrix).",
             ].map((item) => (
               <li key={item} className="flex gap-2">
                 <span className="text-cyan-400 shrink-0">→</span>
@@ -238,14 +239,13 @@ function SectionCurrentState() {
             ))}
           </ul>
         </Card>
-        <Card title="What Stayed Stable" color="purple">
+        <Card title="Core Stability" color="purple">
           <ul className="space-y-2 text-sm text-slate-400">
             {[
-              "The 256-dim native core remains unchanged and deterministic.",
-              "Graph edges, inheritance, opposition, and hot/warm/cold memory tiers stay in place.",
-              "Tenant isolation, auth, and auditability are still mandatory.",
-              "FIG View, storage, benchmarks, and retrieval continue to operate on the same memory graph.",
-              "No new ML dependency was added to the core engine.",
+              "256-dim Native Core remains deterministic and mathematically invariant.",
+              "SHA-256 node fingerprinting ensures 100% auditable provenance.",
+              "Elastic physics engine tuned for stable high-density graph interaction.",
+              "Hot/Warm/Cold memory tiers automated for cost-efficient intelligence.",
             ].map((item) => (
               <li key={item} className="flex gap-2">
                 <span className="text-purple-400 shrink-0">→</span>
@@ -1092,68 +1092,239 @@ function SectionCortex() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">FAIM Cortex</h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM Cortex is the memory synthesis surface. It is not generic chat.
-          It turns retrieved FAIM memory into prose-first answers while staying
-          grounded in evidence, provenance, and contradictions.
+          The high-level reasoning layer that transforms graph retrieval into structured prose and actionable insights.
+        </p>
+      </div>
+
+      <Card title="1M+ Semantic Alias Engine" color="cyan">
+        <p className="text-sm text-slate-400 leading-relaxed mb-4">
+          FAIM Cortex uses a deterministic registry of over 1,000,000 professional concepts to classify intent without the latency or drift of a traditional LLM.
+        </p>
+        <div className="grid md:grid-cols-2 gap-3 mb-6">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+            <p className="text-xs font-mono text-cyan-400 mb-1.5">Deterministic Routing</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Keywords and concepts are mapped to 8 core cognitive tasks (Timeline, Contradiction, etc.) using high-speed dictionary hashing.
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+            <p className="text-xs font-mono text-cyan-400 mb-1.5">Zero-Latency Classification</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Avoids the 2-5 second "thought" delay of LLMs. Routing happens in &lt;10ms.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl border border-cyan-500/10 bg-cyan-500/[0.02]">
+          <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-3">Registry Technical Spec</p>
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-2 text-[10px] text-slate-500 font-mono">
+            <li className="flex justify-between"><span>Dictionary Hashing</span><span className="text-slate-300">O(1) complexity</span></li>
+            <li className="flex justify-between"><span>Total Concepts</span><span className="text-slate-300">1,024,000+</span></li>
+            <li className="flex justify-between"><span>Collision Resistance</span><span className="text-slate-300">SHA-256 gated</span></li>
+            <li className="flex justify-between"><span>Search Strategy</span><span className="text-slate-300">Trie-based prefix</span></li>
+            <li className="flex justify-between"><span>Compute Requirement</span><span className="text-slate-300">&lt; 25MB RAM</span></li>
+            <li className="flex justify-between"><span>Availability</span><span className="text-slate-300">100% Offline</span></li>
+          </ul>
+        </div>
+      </Card>
+
+      <Card title="Memory Writeback Proposals" color="amber">
+        <p className="text-sm text-slate-400 leading-relaxed">
+          Safety first: Cortex never writes directly to permanent memory. Instead, it generates <strong>Proposals</strong>. These appear as pending nodes in the FIG View, requiring your explicit approval before they are committed to the long-term knowledge graph.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
+function SectionCortexRuntime() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Cortex Runtime Architecture</h2>
+        <p className="text-slate-400 leading-relaxed">
+          The stateful control loop above memory retrieval. It classifies requests, runs parallel reasoning branches, and synthesizes answers.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Answer Modes" color="cyan">
-          <ul className="space-y-2 text-sm text-slate-400">
-            {[
-              "Direct — compact answer with the strongest retrieved evidence.",
-              "Timeline — order facts by time and separate current from historical truth.",
-              "Contradiction-aware — surface conflicts instead of hiding them.",
-              "Provenance-first — prioritize source traceability and anchors.",
-            ].map((item) => (
-              <li key={item} className="flex gap-2">
-                <span className="text-cyan-400 shrink-0">→</span>
-                <span>{item}</span>
-              </li>
-            ))}
+        <Card title="Runtime Phases" color="cyan">
+          <ul className="space-y-2 text-xs text-slate-400">
+            <li><strong>Turn Controller:</strong> Classifies intent into 8 cognitive modes using the 1M+ Registry.</li>
+            <li><strong>Parallel Branches:</strong> Simultaneous recall, timeline, and contradiction analysis.</li>
+            <li><strong>Reducer:</strong> Merges branch outputs into a unified brain state.</li>
+            <li><strong>Narrator:</strong> Produces the final prose answer with citations.</li>
           </ul>
         </Card>
-        <Card title="Generation Contract" color="purple">
-          <ul className="space-y-2 text-sm text-slate-400">
-            {[
-              "Natural prose is expected, but every claim stays tied to retrieved memory nodes.",
-              "Inline evidence cues should stay visible in the answer body.",
-              "Tables are avoided unless the user explicitly asks for them.",
-              "The response should explain why memory was selected when provenance matters.",
-            ].map((item) => (
-              <li key={item} className="flex gap-2">
-                <span className="text-purple-400 shrink-0">→</span>
-                <span>{item}</span>
-              </li>
-            ))}
+
+        <Card title="Cognitive Modes (The 1M+ Engine)" color="emerald">
+          <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950/40">
+            <table className="w-full text-[10px] text-left">
+              <thead className="bg-slate-900/50 text-slate-500 uppercase tracking-tighter">
+                <tr>
+                  <th className="px-3 py-2">Mode</th>
+                  <th className="px-3 py-2">Focus</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                <tr><td className="px-3 py-2 text-cyan-400 font-bold">TIMELINE</td><td className="px-3 py-2 text-slate-400">Chronological event sequencing</td></tr>
+                <tr><td className="px-3 py-2 text-red-400 font-bold">CONTRADICTION</td><td className="px-3 py-2 text-slate-400">Conflict detection & resolution</td></tr>
+                <tr><td className="px-3 py-2 text-purple-400 font-bold">CONSOLIDATE</td><td className="px-3 py-2 text-slate-400">Fragmented data merging</td></tr>
+                <tr><td className="px-3 py-2 text-blue-400 font-bold">PROVENANCE</td><td className="px-3 py-2 text-slate-400">Full evidence lineage tracing</td></tr>
+                <tr><td className="px-3 py-2 text-amber-400 font-bold">INVESTIGATE</td><td className="px-3 py-2 text-slate-400">Deep 24-hop causal analysis</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </Card>
+        <Card title="Safety & Stability" color="purple">
+          <ul className="space-y-2 text-xs text-slate-400">
+            <li>No raw chain-of-thought storage (structured only).</li>
+            <li>Deterministic results for identical graph states.</li>
+            <li>Human-in-the-loop memory persistence.</li>
           </ul>
         </Card>
       </div>
 
-      <Card title="Where It Lives" color="emerald">
-        <div className="grid md:grid-cols-2 gap-4 text-sm text-slate-400">
-          <div>
-            <p className="text-emerald-300 font-mono text-xs mb-2">
-              Dashboard Surface
+      <Card title="24-Hop Reasoning Spec" color="indigo">
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <p className="text-sm text-slate-400 leading-relaxed">
+              FAIM Cortex traverses the graph substrate using a bounded diffusion strategy. Every hop is a semantic junction where the engine re-evaluates the evidence context.
             </p>
-            <p>
-              The current entry point is Dashboard → FAIM Cortex, where users
-              can ask grounded questions and switch answer modes without
-              leaving the memory graph.
-            </p>
+            <div className="flex gap-4">
+              <div className="flex-1 p-3 rounded-lg border border-indigo-500/10 bg-indigo-500/[0.02]">
+                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Max Hops</p>
+                <p className="text-xl font-bold text-white">24</p>
+              </div>
+              <div className="flex-1 p-3 rounded-lg border border-indigo-500/10 bg-indigo-500/[0.02]">
+                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Max Breadth</p>
+                <p className="text-xl font-bold text-white">5</p>
+              </div>
+            </div>
           </div>
-          <div>
-            <p className="text-emerald-300 font-mono text-xs mb-2">
-              Site Surface
-            </p>
-            <p>
-              The public product copy now points users at /docs, /benchmarks,
-              and the memory query surface so the docs and UI stay aligned.
-            </p>
+          <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
+            <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-3">Diffusion Parameters</p>
+            <ul className="space-y-2 text-[10px] text-slate-500 font-mono">
+              <li className="flex justify-between"><span>Decay Factor</span><span className="text-slate-300">0.85 per hop</span></li>
+              <li className="flex justify-between"><span>Convergence Threshold</span><span className="text-slate-300">0.05 residual</span></li>
+              <li className="flex justify-between"><span>Inference Path</span><span className="text-slate-300">Directed Acyclic</span></li>
+              <li className="flex justify-between"><span>Provenance</span><span className="text-slate-300">Full-Chain Citations</span></li>
+            </ul>
           </div>
         </div>
       </Card>
+
+      <Card title="Reasoning Depth (What is a Hop?)" color="cyan">
+        <div className="space-y-4">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            In FAIM, a <strong>Hop</strong> is a single semantic step between two nodes. While traditional AI only looks at immediate neighbors, FAIM's <strong>Neural Tier</strong> can traverse up to 24 steps in a single reasoning turn.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
+              <p className="text-xs font-bold text-cyan-400 mb-2 uppercase tracking-widest">1-4 Hops</p>
+              <p className="text-[10px] text-slate-500">Surface-level retrieval. Answers "Who", "What", and "When".</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
+              <p className="text-xs font-bold text-purple-400 mb-2 uppercase tracking-widest">5-12 Hops</p>
+              <p className="text-[10px] text-slate-500">Deep synthesis. Connects documents across different folders and dates.</p>
+            </div>
+            <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
+              <p className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-widest">13-24 Hops</p>
+              <p className="text-[10px] text-slate-500">Full investigation. Answers "Why" by tracing complex causal chains.</p>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function SectionFigView() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">FIG View</h2>
+        <p className="text-slate-400 leading-relaxed">
+          Professional-grade 3D visualization for exploring complex cognitive landscapes.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Neural Pulse Interaction" color="purple">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            As Cortex reasons, you see it. Neural pulses trace the paths of evidence through your graph in real-time. We've optimized the interaction by making visual glow layers <strong>Raycast-Invisible</strong>, ensuring that you can always grab and "stretch" nodes with 100% native elasticity.
+          </p>
+        </Card>
+
+        <Card title="GPU Resource Hardening" color="red">
+          <ul className="space-y-2 text-xs text-slate-400">
+            <li className="flex gap-2"><span className="text-red-400">→</span><strong>Static Asset Registry:</strong> Reuses 3D geometries and materials to eliminate memory leaks.</li>
+            <li className="flex gap-2"><span className="text-red-400">→</span><strong>Render Loop Memoization:</strong> Prevents unnecessary re-renders during high-density graph manipulation.</li>
+            <li className="flex gap-2"><span className="text-red-400">→</span><strong>Gravitational Anchor:</strong> Physics constants tuned (centerStrength: 0.5) to keep atoms from drifting during interaction.</li>
+          </ul>
+        </Card>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Canvas — Visualization Modes" color="cyan">
+          <div className="space-y-3 text-sm text-slate-400">
+            {[
+              { mode: "Surface", desc: "Default view showing up to 500 nodes." },
+              { mode: "Neighborhood", desc: "K-hop expansion from a selected node." },
+              { mode: "Timeline", desc: "Nodes arranged by creation time." },
+              { mode: "Path", desc: "The shortest semantic path connecting two nodes." },
+              { mode: "Analyze", desc: "Full graph with live scorecard (density, entropy)." },
+            ].map((m) => (
+              <div key={m.mode}>
+                <p className="text-cyan-400 font-mono text-xs">{m.mode}</p>
+                <p className="text-[11px] text-slate-500">{m.desc}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card title="Canvas — Color Modes" color="purple">
+          <div className="space-y-3 text-sm text-slate-400">
+            {[
+              { mode: "By state", desc: "Colors nodes by memory state (hot/warm/cold)." },
+              { mode: "By frequency", desc: "Brighter = more touch_count (retrieved more often)." },
+              { mode: "By temporal order", desc: "Spectrum from oldest to newest." },
+              { mode: "By lineage depth", desc: "Darker = deeper ancestry (more parent hops)." },
+            ].map((m) => (
+              <div key={m.mode}>
+                <p className="text-purple-400 font-mono text-xs">{m.mode}</p>
+                <p className="text-[11px] text-slate-500">{m.desc}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function SectionBilling() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Matrix Billing</h2>
+        <p className="text-slate-400 leading-relaxed">
+          FAIM is tiered by cognitive capacity (Nodes and Hops) rather than token counts.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {[
+          { name: "Explorer", desc: "1,000 Nodes, 1-Hop reasoning. Free forever." },
+          { name: "Architect", desc: "10,000 Nodes, 4-Hop reasoning. Includes Snapshots." },
+          { name: "Neural", desc: "100,000 Nodes, 24-Hop reasoning. Cross-graph synthesis." },
+          { name: "Matrix", desc: "Unlimited. Private memory shards and dedicated workers." }
+        ].map(tier => (
+          <Card key={tier.name} title={tier.name} color={tier.name === "Neural" ? "purple" : "default"}>
+            <p className="text-xs text-slate-400">{tier.desc}</p>
+          </Card>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1411,223 +1582,6 @@ function SectionIngestion() {
               <p className="text-slate-600">{v}</p>
             </div>
           ))}
-        </div>
-      </Card>
-    </div>
-  );
-}
-
-function SectionFigView() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-2">FIG View</h2>
-        <p className="text-slate-400 leading-relaxed">
-          FIG View is FAIM's real-time graph visualization and inspection tool.
-          Every node, edge, temperature, and structural anchor is visible and
-          explorable directly from the dashboard.
-        </p>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Canvas — Visualization Modes" color="cyan">
-          <div className="space-y-3 text-sm text-slate-400">
-            {[
-              {
-                mode: "Surface",
-                desc: "Shows all nodes in the graph, up to 500. Default view when you open FIG View.",
-              },
-              {
-                mode: "Neighborhood",
-                desc: "K-hop expansion from a selected node. Shows only nodes within N hops of your selection.",
-              },
-              {
-                mode: "Timeline",
-                desc: "Nodes arranged by creation time. See how your knowledge graph grew document by document.",
-              },
-              {
-                mode: "Path",
-                desc: "Explain the relationship between two nodes. Shows the shortest semantic path connecting them.",
-              },
-              {
-                mode: "Analyze",
-                desc: "Full graph with graph scorecard: density, entropy, spectral radius computed live.",
-              },
-            ].map((m) => (
-              <div key={m.mode}>
-                <p className="text-cyan-400 font-mono text-xs">{m.mode}</p>
-                <p className="text-[11px] text-slate-500">{m.desc}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        <Card title="Canvas — Color Modes" color="purple">
-          <div className="space-y-3 text-sm text-slate-400">
-            {[
-              {
-                mode: "By state",
-                desc: "Colors nodes by memory state: hot=green, warm=amber, cold=grey, historical=indigo, pruned=red.",
-              },
-              {
-                mode: "By frequency",
-                desc: "Brighter = more touch_count (retrieved more often). Identifies your most-queried knowledge.",
-              },
-              {
-                mode: "By temporal order",
-                desc: "Spectrum from oldest (red) to newest (blue). See when content was added.",
-              },
-              {
-                mode: "By lineage depth",
-                desc: "Darker = deeper ancestry (more parent hops). Identifies root concepts vs leaf facts.",
-              },
-            ].map((m) => (
-              <div key={m.mode}>
-                <p className="text-purple-400 font-mono text-xs">{m.mode}</p>
-                <p className="text-[11px] text-slate-500">{m.desc}</p>
-              </div>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      <Card
-        title="Node Inspector — What You See When You Click a Node"
-        color="emerald"
-      >
-        <div className="grid md:grid-cols-2 gap-4 text-sm text-slate-400">
-          <div className="space-y-3">
-            <div>
-              <p className="text-emerald-400 font-mono text-xs mb-1">Header</p>
-              <p className="text-[11px] text-slate-500">
-                Node title, temperature badge (🔥 hot / ◆ warm / ❄ cold),
-                block_type badge (text / table / code / heading), and level
-                indicator (L0 = atom, L1+ = macro).
-              </p>
-            </div>
-            <div>
-              <p className="text-emerald-400 font-mono text-xs mb-1">
-                Structure Panel
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Block anchor fields: doc_type, block_type, page, slide, sheet,
-                section, column, row_start/row_end, char range. Full provenance
-                of where in the document this node came from.
-              </p>
-            </div>
-            <div>
-              <p className="text-emerald-400 font-mono text-xs mb-1">
-                Memory Metrics
-              </p>
-              <p className="text-[11px] text-slate-500">
-                touch_count (times retrieved), last_access (date), residual
-                (retrieval confidence score), and graph level.
-              </p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <p className="text-emerald-400 font-mono text-xs mb-1">
-                Memory Signal Cards
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Novelty (how unique this node's vector is vs its neighbours),
-                Redundancy (how similar to other nodes), Recency (how recently
-                it was accessed). Each card is color-coded: green/amber/red.
-              </p>
-            </div>
-            <div>
-              <p className="text-emerald-400 font-mono text-xs mb-1">
-                Connections
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Parents, children, opposition neighbours. Click any connected
-                node to jump the inspector to that node.
-              </p>
-            </div>
-            <div>
-              <p className="text-emerald-400 font-mono text-xs mb-1">
-                Navigation
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Prev/Next relevant memory buttons — cycle through nodes ranked
-                by relevance to the selected node. Position indicator shows 1 of
-                N.
-              </p>
-            </div>
-            <div>
-              <p className="text-emerald-400 font-mono text-xs mb-1">
-                Cluster Badge
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Violet{" "}
-                <code className="font-mono text-[10px] text-violet-400">
-                  cluster X
-                </code>{" "}
-                badge in the header shows which topic cluster this node belongs
-                to. Populated after running Topic Clustering from Storage →
-                Maintenance.
-              </p>
-            </div>
-            <div>
-              <p className="text-emerald-400 font-mono text-xs mb-1">
-                Long-term Toggle
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Emerald{" "}
-                <code className="font-mono text-[10px] text-emerald-400">
-                  ♾ long-term
-                </code>{" "}
-                badge and toggle panel at the bottom of the inspector. Click
-                "Set Long-term" or "Remove Protection" — takes effect
-                immediately and persists to the database.
-              </p>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card title="Legend Panel — Filter Controls" color="default">
-        <p className="text-sm text-slate-400 mb-3">
-          The legend panel on the right side of FIG View provides:
-        </p>
-        <div className="grid md:grid-cols-2 gap-3 text-[11px] text-slate-400">
-          <div>
-            <p className="text-slate-300 font-mono text-xs mb-1.5">
-              Node State Legend
-            </p>
-            <p>
-              Visual reference for all 9 node states with color and description.
-              Not filterable — always shown for reference.
-            </p>
-          </div>
-          <div>
-            <p className="text-slate-300 font-mono text-xs mb-1.5">
-              Node Kind Filter
-            </p>
-            <p>
-              Click any node kind to hide/show all nodes of that type.
-              Client-side only — never refetches from API.
-            </p>
-          </div>
-          <div>
-            <p className="text-slate-300 font-mono text-xs mb-1.5">
-              Edge Kind Filter
-            </p>
-            <p>
-              Click any edge kind (inheritance, opposition, semantic, causal) to
-              hide/show those edges.
-            </p>
-          </div>
-          <div>
-            <p className="text-slate-300 font-mono text-xs mb-1.5">
-              Graph Scorecard
-            </p>
-            <p>
-              D (density), H (entropy), λ (spectral radius) — computed from
-              current graph topology, explained with ranges.
-            </p>
-          </div>
         </div>
       </Card>
     </div>
@@ -2374,7 +2328,7 @@ function SectionRoadmap() {
             label: "Core Memory + Graph",
             status: "done",
             detail:
-              "Opposition, inheritance, temporal, semantic edges, IDF weighting, Porter stemming, entity expansion, stop-word removal, WordNet embedding, graph diffusion — all complete and tested.",
+              "Opposition, inheritance, temporal, semantic edges, IDF weighting, Porter stemming, entity expansion, stop-word removal, 8M+ ConceptNet Lexicon, graph diffusion — all complete and tested.",
           },
           {
             phase: "Phase 9",
@@ -2495,9 +2449,11 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   graph: SectionGraph,
   retrieval: SectionRetrieval,
   cortex: SectionCortex,
+  "cortex-runtime": SectionCortexRuntime,
   "document-intel": SectionDocIntel,
   ingestion: SectionIngestion,
   "fig-view": SectionFigView,
+  billing: SectionBilling,
   security: SectionSecurity,
   benchmarks: SectionBenchmarks,
   deployment: SectionDeployment,

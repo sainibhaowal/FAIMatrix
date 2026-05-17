@@ -8,12 +8,11 @@ const SPEC_GROUPS = [
     color: "cyan",
     borderColor: "border-cyan-500/20",
     specs: [
+      { label: "Semantic Registry", value: "1,000,000+", unit: "deterministic" },
       { label: "Vector Dimension", value: "256", unit: "fixed" },
       { label: "Encoding", value: "Deterministic", unit: "native" },
-      { label: "Hash Algorithm", value: "SHA-256", unit: "" },
       { label: "Idempotency", value: "SHA-256 dedup", unit: "per write" },
       { label: "Memory Tiers", value: "Hot · Warm · Cold", unit: "auto" },
-      { label: "Cold Pruning", value: "90d", unit: "configurable" },
     ],
   },
   {
@@ -21,33 +20,24 @@ const SPEC_GROUPS = [
     color: "purple",
     borderColor: "border-purple-500/20",
     specs: [
+      { label: "Max Reasoning Depth", value: "24", unit: "hops" },
       { label: "Representation V2", value: "Dense + Sparse", unit: "" },
-      { label: "Canonical Semantics", value: "PMI + Rules", unit: "" },
-      { label: "Graph Expansion", value: "K-hop", unit: "bounded" },
-      {
-        label: "Reranker V2",
-        value: "Deterministic",
-        unit: "proposition-aware",
-      },
+      { label: "Canonical Semantics", value: "Registry Hashing", unit: "" },
+      { label: "Graph Expansion", value: "Bounded Diffusion", unit: "" },
     ],
   },
   {
-    title: "Knowledge + Answers",
+    title: "Knowledge + Safety",
     color: "blue",
     borderColor: "border-blue-500/20",
     specs: [
-      { label: "Multilingual", value: "EN + DE", unit: "concept-linked" },
+      { label: "Memory Writes", value: "Proposals Only", unit: "human-in-the-loop" },
       {
         label: "Extraction",
-        value: "PDF · DOCX · PPTX · XLSX · Images · Code",
+        value: "PDF · DOCX · PPTX · XLSX · Images",
         unit: "FAIM Native",
       },
-      {
-        label: "PDF Layout",
-        value: "Multi-column · Tables · Scanned OCR",
-        unit: "zero ML",
-      },
-      { label: "Domain Knowledge", value: "Offline KB", unit: "graph-scoped" },
+      { label: "Multilingual", value: "EN + DE", unit: "concept-linked" },
       { label: "Answer Mode", value: "Extractive", unit: "citation-first" },
     ],
   },
@@ -56,10 +46,10 @@ const SPEC_GROUPS = [
     color: "emerald",
     borderColor: "border-emerald-500/20",
     specs: [
+      { label: "GPU Hardening", value: "Static Asset Registry", unit: "" },
+      { label: "LLM Required", value: "Optional", unit: "" },
+      { label: "Sovereign Hosting", value: "Air-gapped Ready", unit: "" },
       { label: "Tenant Isolation", value: "Built-in", unit: "" },
-      { label: "LLM Required", value: "No", unit: "" },
-      { label: "Cloud Required", value: "No", unit: "" },
-      { label: "Scale Path", value: "Inverted Index + ANN", unit: "" },
     ],
   },
 ];

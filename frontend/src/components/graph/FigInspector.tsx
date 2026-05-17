@@ -204,6 +204,17 @@ function recencyLabel(days: number): string {
   return `${days}d ago`;
 }
 
+const COGNITIVE_COLORS: Record<string, string> = {
+  fact: "#3b82f6",
+  event: "#22c55e",
+  procedure: "#f97316",
+  prediction: "#eab308",
+  contradiction: "#ef4444",
+  source: "#f8fafc",
+  work: "#a855f7",
+  unknown: "#64748b",
+};
+
 // ---------------------------------------------------------------------------
 // Long-term toggle sub-component
 // ---------------------------------------------------------------------------
@@ -399,6 +410,20 @@ export default function FigInspector({
           {node.long_term && (
             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
               ♾ long-term
+            </span>
+          )}
+          {node.cognitive_type && (
+            <span
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-semibold border"
+              style={{
+                color: COGNITIVE_COLORS[node.cognitive_type] || "#64748b",
+                borderColor:
+                  (COGNITIVE_COLORS[node.cognitive_type] || "#64748b") + "44",
+                backgroundColor:
+                  (COGNITIVE_COLORS[node.cognitive_type] || "#64748b") + "11",
+              }}
+            >
+              🧠 {node.cognitive_type}
             </span>
           )}
         </div>

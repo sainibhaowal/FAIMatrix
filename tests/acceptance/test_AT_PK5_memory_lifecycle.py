@@ -5,7 +5,9 @@ from __future__ import annotations
 from uuid import uuid4
 
 
-def _mk_client(monkeypatch, tenant_id: str, api_key: str, database_url: str | None = None):
+def _mk_client(
+    monkeypatch, tenant_id: str, api_key: str, database_url: str | None = None
+):
     from api.app import create_app
     from api.middleware.auth import reload_tenant_keys
     from fastapi.testclient import TestClient
@@ -24,7 +26,9 @@ def _mk_client(monkeypatch, tenant_id: str, api_key: str, database_url: str | No
     return TestClient(app), {"X-Tenant-Id": tenant_id, "X-Api-Key": api_key}
 
 
-def test_phase_k5_memory_write_search_get_provenance_patch(monkeypatch, tmp_path, db_session):
+def test_phase_k5_memory_write_search_get_provenance_patch(
+    monkeypatch, tmp_path, db_session
+):
     tenant_id = "tenant_pk5"
     graph_id = f"pk5-memory-{uuid4().hex[:8]}"
     db_path = tmp_path / f"pk5_{uuid4().hex}.db"

@@ -4,10 +4,10 @@ import React from "react";
 import { useSession, signOut } from "next-auth/react";
 
 export function UserDropdownContent({
-  goAdmin,
+  goControl,
   onClose,
 }: {
-  goAdmin: (tab?: string) => void;
+  goControl: (tab?: string) => void;
   onClose: () => void;
 }) {
   const { data: session } = useSession();
@@ -34,7 +34,7 @@ export function UserDropdownContent({
         <button
           onClick={() => {
             onClose();
-            goAdmin("account");
+            goControl("account");
           }}
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-slate-300 hover:bg-white/5 hover:text-white"
         >
@@ -43,10 +43,10 @@ export function UserDropdownContent({
         <button
           onClick={() => {
             onClose();
-            goAdmin("billing");
+            goControl("billing");
           }}
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-slate-300 hover:bg-white/5 hover:text-white"
-          >
+        >
           Billing & Usage
         </button>
         {Boolean((session as { isAdmin?: boolean } | null)?.isAdmin) && (
@@ -54,20 +54,20 @@ export function UserDropdownContent({
             <button
               onClick={() => {
                 onClose();
-                goAdmin("admin");
+                goControl("control");
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200"
             >
-              Admin Control
+              Control Center
             </button>
             <button
               onClick={() => {
                 onClose();
-                goAdmin("alerts");
+                goControl("incidents");
               }}
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
             >
-              Admin Alerts
+              Incidents
             </button>
           </>
         )}

@@ -7,7 +7,6 @@ from uuid import uuid4
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-
 from store.pg.models_faim import JobModel, create_all_tables
 from store.pg.repos.graph_version_repo import GraphVersionRepo
 from store.pg.repos.self_evolution_state_repo import SelfEvolutionStateRepo
@@ -162,4 +161,3 @@ def test_select_due_graphs_is_tenant_isolated():
         assert due_a_ids == ["graph_a"]
     finally:
         session.close()
-

@@ -128,7 +128,9 @@ def test_s6_end_to_end_self_evolve_chain(monkeypatch, tmp_path):
         assert "DIAGNOSTICS_SNAPSHOT" in kinds
         assert ("EVOLUTION_COMPLETE" in kinds) or ("EVOLUTION_SKIPPED" in kinds)
 
-        complete_events = [event for event in events if event.kind == "EVOLUTION_COMPLETE"]
+        complete_events = [
+            event for event in events if event.kind == "EVOLUTION_COMPLETE"
+        ]
         if complete_events:
             payload = complete_events[-1].payload or {}
             assert "merges" in payload
@@ -136,4 +138,3 @@ def test_s6_end_to_end_self_evolve_chain(monkeypatch, tmp_path):
             assert "inventions" in payload
     finally:
         verify_session.close()
-

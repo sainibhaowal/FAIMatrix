@@ -20,7 +20,6 @@ import {
   MessageSquare,
   Network,
   Shield,
-  ShieldAlert,
   HardDrive,
   CreditCard,
   Dna,
@@ -61,11 +60,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/evolution", label: "Evolution", icon: Dna },
       { href: "/dashboard/api-keys", label: "API Keys", icon: Shield },
       { href: "/dashboard/storage", label: "Storage", icon: HardDrive },
-      {
-        href: "/dashboard/control-plane",
-        label: "Control Plane",
-        icon: ServerCog,
-      },
       { href: "/dashboard/providers", label: "Providers", icon: Cpu },
     ],
   },
@@ -119,8 +113,11 @@ export function SidebarNav({
       {
         title: "Control",
         items: [
-          { href: "/dashboard/admin", label: "Admin", icon: Shield },
-          { href: "/dashboard/admin/alerts", label: "Alerts", icon: ShieldAlert },
+          {
+            href: "/dashboard/control-plane",
+            label: "Control Center",
+            icon: ServerCog,
+          },
         ],
       },
     ];
@@ -144,35 +141,37 @@ export function SidebarNav({
           role="navigation"
           aria-label="Main navigation"
         >
-          {navGroups.flatMap((group) => group.items).map((item) => {
-            const active = item.href === activeHref;
-            const Icon = item.icon;
+          {navGroups
+            .flatMap((group) => group.items)
+            .map((item) => {
+              const active = item.href === activeHref;
+              const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                title={item.label}
-                aria-label={item.label}
-                className={[
-                  "group relative flex items-center justify-center w-11 h-11 rounded-xl mx-auto overflow-hidden",
-                  "transition-all duration-300",
-                  active
-                    ? "bg-primary-500/15 text-primary-300 shadow-[0_0_12px_rgba(34,211,238,0.15)]"
-                    : "text-slate-400 hover:text-white hover:bg-white/5",
-                ].join(" ")}
-              >
-                {/* Light Sweep Effect (Collapsed Mode) */}
-                <span className="absolute inset-0 z-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={item.label}
+                  aria-label={item.label}
+                  className={[
+                    "group relative flex items-center justify-center w-11 h-11 rounded-xl mx-auto overflow-hidden",
+                    "transition-all duration-300",
+                    active
+                      ? "bg-primary-500/15 text-primary-300 shadow-[0_0_12px_rgba(34,211,238,0.15)]"
+                      : "text-slate-400 hover:text-white hover:bg-white/5",
+                  ].join(" ")}
+                >
+                  {/* Light Sweep Effect (Collapsed Mode) */}
+                  <span className="absolute inset-0 z-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-gradient-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
 
-                {/* Active indicator */}
-                {active && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[2px] rounded-r-full bg-gradient-to-b from-primary-400 to-secondary-400" />
-                )}
-                <Icon size={20} className="relative z-10" />
-              </Link>
-            );
-          })}
+                  {/* Active indicator */}
+                  {active && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-[2px] rounded-r-full bg-gradient-to-b from-primary-400 to-secondary-400" />
+                  )}
+                  <Icon size={20} className="relative z-10" />
+                </Link>
+              );
+            })}
         </nav>
       </div>
     );

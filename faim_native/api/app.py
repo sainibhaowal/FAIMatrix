@@ -226,6 +226,7 @@ def create_app() -> FastAPI:
         api_keys_router,
         auth_router,
         benchmarks_router,
+        cortex_router,
         events_router,
         evolve_router,
         graph_router,
@@ -246,6 +247,7 @@ def create_app() -> FastAPI:
     prefix = "/api/v1"
     app.include_router(auth_router, prefix=prefix)
     app.include_router(benchmarks_router, prefix=prefix)
+    app.include_router(cortex_router, prefix=prefix)
     app.include_router(events_router, prefix=prefix)
     app.include_router(ingest_router, prefix=prefix)
     app.include_router(query_router, prefix=prefix)

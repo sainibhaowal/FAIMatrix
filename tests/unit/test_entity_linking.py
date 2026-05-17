@@ -37,7 +37,14 @@ def test_build_domain_candidate_scores_adds_fact_support():
     entity_id = uuid4()
     fact_id = uuid4()
     linked = [SimpleNamespace(node_id=entity_id, kind="entity_alias", score=1.0)]
-    edges = [SimpleNamespace(src_node_id=entity_id, dst_node_id=fact_id, kind="entity_relation", weight=int(0.9 * 1e9))]
+    edges = [
+        SimpleNamespace(
+            src_node_id=entity_id,
+            dst_node_id=fact_id,
+            kind="entity_relation",
+            weight=int(0.9 * 1e9),
+        )
+    ]
     candidates, scores = build_domain_candidate_scores(
         edge_repo=_EdgeRepo(edges),
         graph_id="g",

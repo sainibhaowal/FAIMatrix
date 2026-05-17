@@ -21,7 +21,14 @@ def _session():
     return SessionLocal()
 
 
-def _node(*, tenant_id: str, graph_id: str, vector_hash: str, raw_id: str, created_at: datetime):
+def _node(
+    *,
+    tenant_id: str,
+    graph_id: str,
+    vector_hash: str,
+    raw_id: str,
+    created_at: datetime,
+):
     return NodeModel(
         node_id=uuid4(),
         tenant_id=tenant_id,

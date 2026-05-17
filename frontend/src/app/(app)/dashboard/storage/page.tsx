@@ -262,8 +262,8 @@ type StorageIngestActionResponse = {
 };
 
 type StorageSupportedTypesResponse = {
-  max_upload_size_bytes: number;
-  max_upload_size_mb: number;
+  max_batch_total_bytes: number;
+  max_batch_total_mb: number;
   total_extensions: number;
   total_content_types: number;
   extensions: string[];
@@ -806,17 +806,11 @@ export default function StoragePage() {
     if (refreshLockRef.current) return;
     refreshLockRef.current = true;
     try {
-      await Promise.all([
-        fetchFilesInternal(),
-        fetchSummaryInternal(),
-      ]);
+      await Promise.all([fetchFilesInternal(), fetchSummaryInternal()]);
     } finally {
       refreshLockRef.current = false;
     }
-  }, [
-    fetchFilesInternal,
-    fetchSummaryInternal,
-  ]);
+  }, [fetchFilesInternal, fetchSummaryInternal]);
 
   const applyGraphScope = useCallback(() => {
     const next = graphScopeInput.trim() || sessionGraphId;
@@ -1688,7 +1682,7 @@ export default function StoragePage() {
               style={{ color: "var(--text-primary)" }}
             >
               <ServerCog size={14} className="opacity-80" />
-              Control Plane
+              Control Center
             </Link>
             <label
               className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/5 px-5 h-10 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
@@ -1739,7 +1733,7 @@ export default function StoragePage() {
             style={{ color: "var(--text-primary)" }}
           >
             <ServerCog size={13} className="opacity-80" />
-            Open Control Plane
+            Open Control Center
           </Link>
         </div>
 
@@ -2735,8 +2729,13 @@ export default function StoragePage() {
                   </h4>
                   <div className="grid grid-cols-1 gap-2 text-xs text-slate-300 sm:grid-cols-2">
                     <p>
-                      <span className="text-slate-500">max upload:</span>{" "}
-                      {supportedTypes.max_upload_size_mb} MB
+                      <span className="text-slate-500">max batch total:</span>{" "}
+                      {supportedTypes.max_batch_total_mb} MB
+                    </p>
+                    <p>
+                      <span className="text-slate-500">file count:</span>{" "}
+                      unlimited (total must be ≤{" "}
+                      {supportedTypes.max_batch_total_mb} MB)
                     </p>
                     <p>
                       <span className="text-slate-500">extensions:</span>{" "}

@@ -33,4 +33,3 @@ def test_inverted_index_build_and_match_deterministic():
     assert matched_1 == matched_2
     assert row_a.node_id in matched_1
     assert row_b.node_id not in matched_1
-
