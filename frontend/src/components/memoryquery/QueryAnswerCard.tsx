@@ -35,13 +35,7 @@ function fileLabel(
   return page ? `${source} · ${page}` : source;
 }
 
-function TraceRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
+function TraceRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2">
       <span className="text-[9px] font-black uppercase tracking-[0.24em] text-slate-600">
@@ -63,9 +57,18 @@ export function MemoryTraceFooter({
 }) {
   const [open, setOpen] = useState(false);
 
-  const citations = queryData.answer?.citations ?? [];
-  const spans = queryData.answer?.supporting_spans ?? [];
-  const contradictions = queryData.answer?.contradiction_notes ?? [];
+  const citations = useMemo(
+    () => queryData.answer?.citations ?? [],
+    [queryData.answer?.citations],
+  );
+  const spans = useMemo(
+    () => queryData.answer?.supporting_spans ?? [],
+    [queryData.answer?.supporting_spans],
+  );
+  const contradictions = useMemo(
+    () => queryData.answer?.contradiction_notes ?? [],
+    [queryData.answer?.contradiction_notes],
+  );
   const confidence = queryData.answer?.confidence ?? 0;
   const ms = queryData.duration_ms ? Math.round(queryData.duration_ms) : null;
   const provenance = queryData.answer?.provenance ?? {};
@@ -81,8 +84,8 @@ export function MemoryTraceFooter({
       nodeId: citation.node_id,
       label: fileLabel(resultMap, citation.node_id),
       score: citation.score,
-      temporalStatus:
-        resultMap[citation.node_id]?.temporal_status ?? null,
+      temporalStatus: resultMap[citation.node_id]?.temporal_status ?? null,
+      supersededBy: resultMap[citation.node_id]?.superseded_by ?? null,
     }));
     if (fromCitations.length > 0) return fromCitations;
 
@@ -92,6 +95,7 @@ export function MemoryTraceFooter({
         label: fileLabel(resultMap, result.node_id),
         score: result.score,
         temporalStatus: result.temporal_status ?? null,
+        supersededBy: result.superseded_by ?? null,
       }));
     }
 
@@ -100,8 +104,9 @@ export function MemoryTraceFooter({
       label: fileLabel(resultMap, span.node_id),
       score: span.score,
       temporalStatus: span.temporal_status ?? null,
+      supersededBy: resultMap[span.node_id]?.superseded_by ?? null,
     }));
-  }, [citations, spans, resultMap]);
+  }, [citations, spans, resultMap, queryData.results]);
 
   const temporalTags = useMemo(() => {
     const tags = new Set<string>();
@@ -112,7 +117,8 @@ export function MemoryTraceFooter({
     return Array.from(tags).slice(0, 3);
   }, [spans]);
 
-  const anchorCount = citations.length || spans.length || queryData.results.length;
+  const anchorCount =
+    citations.length || spans.length || queryData.results.length;
 
   return (
     <footer className="mt-4 border-t border-white/[0.06] pt-4">
@@ -152,18 +158,31 @@ export function MemoryTraceFooter({
       </button>
 
       <div className="mt-2 flex flex-wrap gap-2">
-        {topAnchors.map((anchor) => (
-          <span
-            key={`${anchor.nodeId}-${anchor.label}`}
-            className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-2.5 py-1 text-[10px] text-slate-400"
-          >
-            <FileText size={10} className="text-slate-500" />
-            <span className="truncate">{anchor.label}</span>
-            <span className="text-slate-600">
-              {Math.round(anchor.score * 100)}%
+        {topAnchors.map((anchor) => {
+          const isHistorical = anchor.temporalStatus === "HISTORICAL";
+          return (
+            <span
+              key={`${anchor.nodeId}-${anchor.label}`}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] transition-all duration-300 hover:scale-105 ${
+                isHistorical
+                  ? "border-amber-500/20 bg-amber-500/[0.04] text-amber-300/80 line-through decoration-amber-500/40"
+                  : "border-white/[0.06] bg-white/[0.03] text-slate-400 hover:border-primary-500/30 hover:bg-primary-500/[0.02]"
+              }`}
+              title={isHistorical && anchor.supersededBy ? `Superseded by node ${anchor.supersededBy.slice(0, 8)}...` : undefined}
+            >
+              <FileText size={10} className={isHistorical ? "text-amber-500/60" : "text-slate-500"} />
+              <span className="truncate">{anchor.label}</span>
+              <span className={isHistorical ? "text-amber-500/50" : "text-slate-600"}>
+                {Math.round(anchor.score * 100)}%
+              </span>
+              {isHistorical && (
+                <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[7px] font-black uppercase tracking-wider text-amber-400 no-underline">
+                  Historical
+                </span>
+              )}
             </span>
-          </span>
-        ))}
+          );
+        })}
       </div>
 
       {open && (

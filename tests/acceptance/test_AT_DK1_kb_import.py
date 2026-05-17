@@ -3,7 +3,9 @@ from __future__ import annotations
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from faim_native.orchestration.domain_knowledge_import import run_domain_knowledge_import
+from faim_native.orchestration.domain_knowledge_import import (
+    run_domain_knowledge_import,
+)
 from faim_native.store.pg.models_faim import Base, EdgeModel, NodeModel
 from faim_native.store.pg.repos.edge_repo import EdgeRepo
 from faim_native.store.pg.repos.event_repo import EventRepo
@@ -44,9 +46,15 @@ def test_domain_knowledge_import_materializes_nodes_edges_and_lexicon():
             event_repo=EventRepo(session=session, tenant_id=tenant_id),
         )
         assert result.lexicon_written >= 1
-        kinds = {row.kind for row in session.query(NodeModel).filter_by(graph_id=graph_id).all()}
+        kinds = {
+            row.kind
+            for row in session.query(NodeModel).filter_by(graph_id=graph_id).all()
+        }
         assert {"entity", "relation", "fact", "value", "time"} <= kinds
-        edge_kinds = {row.kind for row in session.query(EdgeModel).filter_by(graph_id=graph_id).all()}
+        edge_kinds = {
+            row.kind
+            for row in session.query(EdgeModel).filter_by(graph_id=graph_id).all()
+        }
         assert "entity_relation" in edge_kinds
         assert "fact_value" in edge_kinds
     finally:

@@ -349,6 +349,12 @@ test.describe("FIG View — page load states", () => {
 
     await page.goto("/dashboard/graph");
     await expect(figViewTitle(page)).toBeVisible();
+    
+    // The initial load fails, wait for the ErrorState retry button and click it
+    await page.getByRole("button", { name: /try again|retry/i }).click();
+
+    // Wait for the node to appear after retry
+    await expect(page.getByText("Alpha Node")).toBeVisible({ timeout: 10000 });
     expect(callCount).toBeGreaterThanOrEqual(2);
   });
 });

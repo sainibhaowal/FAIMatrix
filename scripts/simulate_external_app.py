@@ -11,7 +11,7 @@ import base64
 import os
 import sys
 import uuid
-from typing import Any, Dict
+from typing import Dict
 
 import httpx
 

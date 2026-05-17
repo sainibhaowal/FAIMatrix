@@ -73,6 +73,7 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+  const isControlPlane = pathname.startsWith("/dashboard/control-plane");
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -249,7 +250,9 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
             pathname === "/dashboard/graph" ||
             pathname === "/dashboard/memory-query"
               ? "overflow-hidden p-0"
-              : "overflow-y-auto px-4 py-6 md:px-6",
+              : isControlPlane
+                ? "overflow-y-auto px-2 py-4 md:px-4 lg:px-6"
+                : "overflow-y-auto px-4 py-6 md:px-6",
           ].join(" ")}
         >
           <div
@@ -257,7 +260,9 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
               pathname === "/dashboard/graph" ||
               pathname === "/dashboard/memory-query"
                 ? "h-full"
-                : "mx-auto max-w-[1400px]"
+                : isControlPlane
+                  ? "w-full max-w-none"
+                  : "mx-auto max-w-[1400px]"
             }
           >
             {children}

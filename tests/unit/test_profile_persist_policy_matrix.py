@@ -9,17 +9,45 @@ import pytest
     "operation,profile,persist,expected_index,expected_durability,expected_aggressiveness",
     [
         ("ingest", "strict", "strict", False, "sync_strict", "conservative"),
-        ("ingest", "strict", "relaxed", False, "core_sync_secondary_async", "conservative"),
+        (
+            "ingest",
+            "strict",
+            "relaxed",
+            False,
+            "core_sync_secondary_async",
+            "conservative",
+        ),
         ("ingest", "fast", "strict", True, "sync_strict", "performance"),
         ("ingest", "fast", "relaxed", True, "core_sync_secondary_async", "performance"),
         ("ingest", "relaxed", "strict", True, "sync_strict", "adaptive"),
         ("ingest", "relaxed", "relaxed", True, "core_sync_secondary_async", "adaptive"),
         ("evolve", "strict", "strict", False, "sync_strict", "conservative"),
-        ("evolve", "strict", "relaxed", False, "core_sync_secondary_async", "conservative"),
+        (
+            "evolve",
+            "strict",
+            "relaxed",
+            False,
+            "core_sync_secondary_async",
+            "conservative",
+        ),
         ("evolve", "fast", "strict", False, "sync_strict", "performance"),
-        ("evolve", "fast", "relaxed", False, "core_sync_secondary_async", "performance"),
+        (
+            "evolve",
+            "fast",
+            "relaxed",
+            False,
+            "core_sync_secondary_async",
+            "performance",
+        ),
         ("evolve", "relaxed", "strict", False, "sync_strict", "adaptive"),
-        ("evolve", "relaxed", "relaxed", False, "core_sync_secondary_async", "adaptive"),
+        (
+            "evolve",
+            "relaxed",
+            "relaxed",
+            False,
+            "core_sync_secondary_async",
+            "adaptive",
+        ),
     ],
 )
 def test_r7_policy_matrix_all_combinations(
@@ -37,9 +65,7 @@ def test_r7_policy_matrix_all_combinations(
 
     policy = resolve_profile_persist_policy(
         operation=(
-            PolicyOperation.INGEST
-            if operation == "ingest"
-            else PolicyOperation.EVOLVE
+            PolicyOperation.INGEST if operation == "ingest" else PolicyOperation.EVOLVE
         ),
         requested_profile=profile,
         requested_persist_mode=persist,
@@ -94,7 +120,9 @@ def test_r7_policy_evolve_knob_matrix_when_compat_disabled(
     assert policy.evolve_merge_threshold == pytest.approx(expected_merge)
     assert policy.evolve_prune_min_age_days == pytest.approx(expected_age)
     assert policy.evolve_prune_max_touch_count == expected_touch
-    assert policy.evolve_prune_similarity_threshold == pytest.approx(expected_similarity)
+    assert policy.evolve_prune_similarity_threshold == pytest.approx(
+        expected_similarity
+    )
     assert policy.evolve_invention_mode == expected_invent_mode
     assert policy.evolve_invention_requested_default is expected_default
     assert policy.evolve_invention_max_macros_cap == expected_cap
@@ -133,7 +161,13 @@ def test_r7_policy_compat_mode_keeps_legacy_evolve_knob_envelope(profile, persis
     [
         ("invalid", "relaxed", "strict", "relaxed", "invalid_profile"),
         ("strict", "invalid", "strict", "relaxed", "invalid_persist_mode"),
-        ("INVALID", "INVALID", "strict", "relaxed", "invalid_profile,invalid_persist_mode"),
+        (
+            "INVALID",
+            "INVALID",
+            "strict",
+            "relaxed",
+            "invalid_profile,invalid_persist_mode",
+        ),
     ],
 )
 def test_r7_policy_coercion_requested_vs_effective(
@@ -161,4 +195,3 @@ def test_r7_policy_coercion_requested_vs_effective(
     assert policy.effective_persist_mode == expected_persist
     assert policy.coerced is True
     assert policy.coercion_reason == expected_reason
-

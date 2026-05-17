@@ -16,12 +16,15 @@ def test_runtime_config_requires_encryption_and_fail_closed_in_production(monkey
     try:
         try:
             load_config()
-            assert False, "Expected production policy validation failure"
+            raise AssertionError("Expected production policy validation failure")
         except ValueError as exc:
             message = str(exc)
             assert "Production requires FAIM_ENCRYPTION_AT_REST=true" in message
             assert "Production requires FAIM_ENCRYPTION_FAIL_CLOSED=true" in message
-            assert "Production requires FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED=true" in message
+            assert (
+                "Production requires FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED=true"
+                in message
+            )
     finally:
         reset_config()
 
@@ -38,7 +41,9 @@ def test_runtime_context_rejects_plain_raw_store_in_production(monkeypatch):
 
     try:
         runtime_context._get_raw_store("tenant_secure")
-        assert False, "Expected RuntimeError for plaintext raw store in production"
+        raise AssertionError(
+            "Expected RuntimeError for plaintext raw store in production"
+        )
     except RuntimeError as exc:
         assert "requires encrypted raw store" in str(exc)
 
@@ -59,6 +64,8 @@ def test_runtime_context_fails_closed_on_cipher_init_error_in_production(monkeyp
 
     try:
         runtime_context._get_raw_store("tenant_secure")
-        assert False, "Expected RuntimeError when envelope cipher initialization fails"
+        raise AssertionError(
+            "Expected RuntimeError when envelope cipher initialization fails"
+        )
     except RuntimeError as exc:
         assert "Encryption-at-rest initialization failed" in str(exc)

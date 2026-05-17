@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 import jwt
 from fastapi.testclient import TestClient
@@ -79,7 +79,9 @@ def _mk_client(monkeypatch, tmp_path):
             self.items.append(snapshot)
 
     class _FakeEventRepo:
-        def get_by_seq(self, session, graph_id: str, after_seq: int, limit: int):  # noqa: ANN001
+        def get_by_seq(
+            self, session, graph_id: str, after_seq: int, limit: int
+        ):  # noqa: ANN001
             return []
 
     class _FakeSession:

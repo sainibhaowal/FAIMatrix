@@ -746,6 +746,7 @@ def rerank_faim(
     domain_scores: Optional[Dict[UUID, Dict[str, float]]] = None,
     query_text: str = "",
     query_repr_v2=None,
+    include_historical: bool = True,
 ) -> List[Dict[str, Any]]:
     """Re-rank candidates using FAIM physics scoring.
 
@@ -911,78 +912,156 @@ def rerank_faim(
     # Stable sort: by score desc, then by node_id for determinism
     scored.sort(key=lambda x: (-x["score"], str(x["node_id"])))
 
-    # --- PHASE 1 + PHASE 6: Opposition edge suppression + Temporal contradiction resolution ---
-    # Query actual opposition edges between candidates and apply temporal labeling
+    # --- PHASE 1 + PHASE 6: Advanced Opposition Suppression & Transitive Temporal Contradiction Resolution ---
     temporal_labels: Dict[UUID, str] = {}  # node_id → "CURRENT" | "HISTORICAL"
+    superseded_by_map: Dict[UUID, UUID] = {}  # node_id → newer_node_id
+    supersedes_map: Dict[UUID, List[UUID]] = {}  # node_id → list of older_node_ids
 
     if len(candidate_ids) > 1:
         from store.pg.models_faim import EdgeModel, NodeModel
+        from collections import defaultdict
 
-        opp_edges = (
+        # 1. Resolve Ancestors for each candidate (up to 2-hop inheritance paths)
+        ancestors: Dict[UUID, set] = {cid: {cid} for cid in candidate_ids}
+
+        # Hop 1 of inheritance lookup
+        hop1_edges = (
             session.query(EdgeModel)
             .filter(
                 EdgeModel.tenant_id == tenant_id,
                 EdgeModel.graph_id == graph_id,
-                EdgeModel.kind == "opposition",
-                EdgeModel.src_node_id.in_(candidate_ids),
+                EdgeModel.kind == "inheritance",
                 EdgeModel.dst_node_id.in_(candidate_ids),
             )
             .all()
         )
 
-        if opp_edges:
-            # Load created_at timestamps for all nodes involved in opposition
-            opp_node_ids = set()
-            for edge in opp_edges:
-                opp_node_ids.add(edge.src_node_id)
-                opp_node_ids.add(edge.dst_node_id)
+        hop1_parents = defaultdict(set)
+        for edge in hop1_edges:
+            hop1_parents[edge.dst_node_id].add(edge.src_node_id)
+            ancestors[edge.dst_node_id].add(edge.src_node_id)
 
-            ts_rows = (
-                session.query(NodeModel.node_id, NodeModel.created_at)
-                .filter(NodeModel.node_id.in_(list(opp_node_ids)))
+        # Hop 2 of inheritance lookup
+        hop1_parent_ids = list({pid for parents in hop1_parents.values() for pid in parents})
+        if hop1_parent_ids:
+            hop2_edges = (
+                session.query(EdgeModel)
+                .filter(
+                    EdgeModel.tenant_id == tenant_id,
+                    EdgeModel.graph_id == graph_id,
+                    EdgeModel.kind == "inheritance",
+                    EdgeModel.dst_node_id.in_(hop1_parent_ids),
+                )
                 .all()
             )
-            created_at_map = {row.node_id: row.created_at for row in ts_rows}
-            score_map = {r["node_id"]: r["score"] for r in scored}
+            hop2_parents = defaultdict(set)
+            for edge in hop2_edges:
+                hop2_parents[edge.dst_node_id].add(edge.src_node_id)
 
-            to_suppress: set = set()
-            for edge in opp_edges:
-                a, b = edge.src_node_id, edge.dst_node_id
-                if a in to_suppress or b in to_suppress:
-                    continue
+            # Map second hop to original candidates
+            for cid in candidate_ids:
+                for p1 in hop1_parents[cid]:
+                    for p2 in hop2_parents[p1]:
+                        ancestors[cid].add(p2)
 
-                a_ts = created_at_map.get(a)
-                b_ts = created_at_map.get(b)
+        # Collect all unique ancestors to perform a single batch query for opposition
+        all_ancestors = set()
+        for cid in candidate_ids:
+            all_ancestors.update(ancestors[cid])
 
-                # Determine CURRENT vs HISTORICAL by created_at (newer = CURRENT)
-                if a_ts and b_ts:
-                    if a_ts >= b_ts:
-                        temporal_labels[a] = "CURRENT"
-                        temporal_labels[b] = "HISTORICAL"
-                        to_suppress.add(b)  # still suppress lower to keep top-k clean
+        # 2. Query opposition edges among all ancestors in the candidate space
+        opp_edges = []
+        if len(all_ancestors) > 1:
+            opp_edges = (
+                session.query(EdgeModel)
+                .filter(
+                    EdgeModel.tenant_id == tenant_id,
+                    EdgeModel.graph_id == graph_id,
+                    EdgeModel.kind == "opposition",
+                    EdgeModel.src_node_id.in_(list(all_ancestors)),
+                    EdgeModel.dst_node_id.in_(list(all_ancestors)),
+                )
+                .all()
+            )
+
+        if opp_edges:
+            opp_pairs = {(edge.src_node_id, edge.dst_node_id) for edge in opp_edges}
+            opp_pairs.update({(edge.dst_node_id, edge.src_node_id) for edge in opp_edges})
+
+            # 3. Detect contradictions between candidate pairs
+            contradictions = []
+            for i in range(len(candidate_ids)):
+                for j in range(i + 1, len(candidate_ids)):
+                    ci = candidate_ids[i]
+                    cj = candidate_ids[j]
+                    conflicting = False
+                    for anc_i in ancestors[ci]:
+                        for anc_j in ancestors[cj]:
+                            if (anc_i, anc_j) in opp_pairs:
+                                conflicting = True
+                                break
+                        if conflicting:
+                            break
+                    if conflicting:
+                        contradictions.append((ci, cj))
+
+            if contradictions:
+                # Load created_at timestamps for all involved candidates
+                opp_node_ids = set()
+                for ci, cj in contradictions:
+                    opp_node_ids.add(ci)
+                    opp_node_ids.add(cj)
+
+                ts_rows = (
+                    session.query(NodeModel.node_id, NodeModel.created_at)
+                    .filter(NodeModel.node_id.in_(list(opp_node_ids)))
+                    .all()
+                )
+                created_at_map = {row.node_id: row.created_at for row in ts_rows}
+                score_map = {r["node_id"]: r["score"] for r in scored}
+
+                to_suppress: set = set()
+                for ci, cj in contradictions:
+                    # Skip if either is already marked for hard suppression (only if hard suppression is active)
+                    if not include_historical and (ci in to_suppress or cj in to_suppress):
+                        continue
+
+                    ts_i = created_at_map.get(ci)
+                    ts_j = created_at_map.get(cj)
+
+                    # Determine CURRENT vs HISTORICAL (newer = CURRENT)
+                    is_i_newer = True
+                    if ts_i and ts_j:
+                        is_i_newer = (ts_i >= ts_j)
                     else:
-                        temporal_labels[b] = "CURRENT"
-                        temporal_labels[a] = "HISTORICAL"
-                        to_suppress.add(a)
-                else:
-                    # Fallback to score-based if timestamps unavailable
-                    a_score = score_map.get(a, -999.0)
-                    b_score = score_map.get(b, -999.0)
-                    if a_score >= b_score:
-                        temporal_labels[a] = "CURRENT"
-                        temporal_labels[b] = "HISTORICAL"
-                        to_suppress.add(b)
+                        is_i_newer = (score_map.get(ci, -999.0) >= score_map.get(cj, -999.0))
+
+                    if is_i_newer:
+                        current_node, historical_node = ci, cj
                     else:
-                        temporal_labels[b] = "CURRENT"
-                        temporal_labels[a] = "HISTORICAL"
-                        to_suppress.add(a)
+                        current_node, historical_node = cj, ci
 
-            if to_suppress:
-                scored = [r for r in scored if r["node_id"] not in to_suppress]
+                    temporal_labels[current_node] = "CURRENT"
+                    temporal_labels[historical_node] = "HISTORICAL"
+                    superseded_by_map[historical_node] = current_node
+                    if current_node not in supersedes_map:
+                        supersedes_map[current_node] = []
+                    if historical_node not in supersedes_map[current_node]:
+                        supersedes_map[current_node].append(historical_node)
 
-    # Apply temporal labels to remaining scored results
+                    # Suppress older contradiction results only if include_historical is False
+                    if not include_historical:
+                        to_suppress.add(historical_node)
+
+                if to_suppress:
+                    scored = [r for r in scored if r["node_id"] not in to_suppress]
+
+    # Apply temporal status and lineage mapping
     for r in scored:
-        r["temporal_status"] = temporal_labels.get(r["node_id"])
+        nid = r["node_id"]
+        r["temporal_status"] = temporal_labels.get(nid)
+        r["superseded_by"] = superseded_by_map.get(nid)
+        r["supersedes"] = supersedes_map.get(nid, [])
         r.pop("repr_v2", None)
     # --- END PHASE 1 + PHASE 6 ---
 

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import pytest
-
 
 @dataclass
 class _FakeWriteResult:
@@ -59,9 +57,13 @@ def _install_ingest_mocks(monkeypatch):
     )
     monkeypatch.setattr(
         "perception.packetize.create_packet",
-        lambda _raw_id, _blocks: type("Packet", (), {"packet_hash": "packet-r7-hash"})(),
+        lambda _raw_id, _blocks: type(
+            "Packet", (), {"packet_hash": "packet-r7-hash"}
+        )(),
     )
-    monkeypatch.setattr("perception.validate.assert_valid", lambda _packet, _blocks: None)
+    monkeypatch.setattr(
+        "perception.validate.assert_valid", lambda _packet, _blocks: None
+    )
     monkeypatch.setattr(
         "encoding.vectorize_blocks",
         lambda blocks: [_FakeVector(i) for i, _ in enumerate(blocks)],
@@ -84,13 +86,7 @@ def _install_ingest_mocks(monkeypatch):
         IngestDedupModel,
         "record_ingest",
         classmethod(
-            lambda cls,
-            _session,
-            _tenant_id,
-            _graph_id,
-            _packet_hash,
-            _raw_id,
-            _node_count: None
+            lambda cls, _session, _tenant_id, _graph_id, _packet_hash, _raw_id, _node_count: None
         ),
     )
 
@@ -211,4 +207,3 @@ def test_r7_ingest_fast_profile_relaxed_persist_sync_fallback_when_jobs_disabled
     assert result.secondary_task_status == "completed_sync_fallback"
     assert result.secondary_task_job_id is None
     assert any(kind == "INDEX_UPSERTED" for kind, _ in event_repo.events)
-

@@ -10,10 +10,19 @@ def test_answer_synthesis_returns_citation_first_answer():
             {
                 "node_id": "n1",
                 "answer_text": "Atlas lives in Berlin in 2026.",
-                "evidence": {"raw_id": "raw-1", "block_id": "b1", "anchor": {"page": 1}},
+                "evidence": {
+                    "raw_id": "raw-1",
+                    "block_id": "b1",
+                    "anchor": {"page": 1},
+                },
                 "phase4_explain": {
                     "doc_propositions": [
-                        {"entity": "atlas", "relation": "rel:about", "value": "berlin", "time": "year:2026"}
+                        {
+                            "entity": "atlas",
+                            "relation": "rel:about",
+                            "value": "berlin",
+                            "time": "year:2026",
+                        }
                     ]
                 },
                 "temporal_status": "CURRENT",

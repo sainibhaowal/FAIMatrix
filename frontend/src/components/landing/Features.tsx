@@ -7,33 +7,21 @@ const features = [
   {
     id: "memory-engine",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-8 h-8"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
+      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
         <circle cx="12" cy="12" r="3" />
         <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
       </svg>
     ),
-    title: "Structured Memory Engine",
+    title: "1M+ Semantic Registry",
     description:
-      "Deterministic 256-dim vectors with SHA-256 fingerprints. Hot/warm/cold memory tiering, opposition suppression, inheritance weighting, and idempotent ingestion — no ML, no drift.",
+      "Instant classification of intent via a deterministic 1,000,000+ concept registry. Zero-latency routing into 8 cognitive tasks without the overhead or drift of LLMs.",
     gradient: "from-cyan-500 to-blue-500",
     link: "/features/memory-engine",
   },
   {
     id: "knowledge-graph",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-8 h-8"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
+      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
         <circle cx="12" cy="12" r="2" />
         <circle cx="6" cy="6" r="2" />
         <circle cx="18" cy="6" r="2" />
@@ -42,9 +30,9 @@ const features = [
         <path d="M12 10V8M8 8l2-2M14 8l2-2M12 14v2M8 16l2 2M14 16l2 2" />
       </svg>
     ),
-    title: "FIG View — Graph Intelligence",
+    title: "24-Hop Graph Reasoning",
     description:
-      "Inspect every node's block type, page, section, and memory temperature (hot/warm/cold). Trace inheritance, opposition, and semantic paths. Prune cold nodes directly from the UI.",
+      "Trace deep evidence chains across 24 semantic layers. Visualize real-time reasoning pulses in the FIG View with 100% citation integrity and native interaction elasticity.",
     gradient: "from-purple-500 to-pink-500",
     link: "/features/knowledge-graph",
   },

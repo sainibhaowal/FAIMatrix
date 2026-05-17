@@ -43,7 +43,6 @@ from api.validators import (  # noqa: E402
     validate_file_extension,
     validate_mime_extension_match,
     validate_upload_file,
-    validate_upload_size,
 )
 
 logger = logging.getLogger(__name__)
@@ -920,6 +919,10 @@ async def create_upload_batch(
     if not files:
         raise HTTPException(status_code=400, detail="At least one file is required")
 
+    # Validate total batch size (max 100 MB total)
+    from api.validators.input_limits import (
+        validate_batch_total_size,
+    )
     from orchestration.jobs.job_store import JobStore
     from orchestration.profile_persist_policy import (
         PolicyOperation,
@@ -962,6 +965,7 @@ async def create_upload_batch(
     failed = 0
     dedup_hits = 0
     cancelled = 0
+    total_batch_size = 0
     cancel_triggered = False
     followup_evolve_job_id: Optional[str] = None
     _storage_lifecycle_log(
@@ -1027,7 +1031,8 @@ async def create_upload_batch(
                 validate_file_extension(filename)
 
                 file_bytes = await upload.read()
-                validate_upload_size(len(file_bytes))
+                total_batch_size += len(file_bytes)
+                validate_batch_total_size(total_batch_size)
 
                 mime_type = (
                     (upload.content_type or "application/octet-stream")
@@ -2472,7 +2477,7 @@ async def get_storage_supported_types(
     from api.validators.input_limits import (
         ALLOWED_CONTENT_TYPES,
         ALLOWED_EXTENSIONS,
-        MAX_UPLOAD_SIZE,
+        MAX_BATCH_TOTAL_SIZE,
     )
     from perception.router import EXTENSION_DOC_TYPE
 
@@ -2555,8 +2560,8 @@ async def get_storage_supported_types(
     )
 
     return StorageSupportedTypesResponse(
-        max_upload_size_bytes=int(MAX_UPLOAD_SIZE),
-        max_upload_size_mb=round(float(MAX_UPLOAD_SIZE) / (1024 * 1024), 2),
+        max_upload_size_bytes=int(MAX_BATCH_TOTAL_SIZE),
+        max_upload_size_mb=round(float(MAX_BATCH_TOTAL_SIZE) / (1024 * 1024), 2),
         total_extensions=len(ALLOWED_EXTENSIONS),
         total_content_types=len(ALLOWED_CONTENT_TYPES),
         extensions=sorted(ALLOWED_EXTENSIONS),

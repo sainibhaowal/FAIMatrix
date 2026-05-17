@@ -7,6 +7,7 @@ import { ANSWER_MODE_LABELS, useChat } from "@/contexts/ChatContext";
 import { MarkdownRenderer } from "./MarkdownRenderer";
 import { ThinkingPane } from "./ThinkingPane";
 import { MemoryTraceFooter } from "./QueryAnswerCard";
+import { CortexStatePanel } from "./CortexStatePanel";
 
 export function ChatInterface() {
   const {
@@ -42,7 +43,7 @@ export function ChatInterface() {
             </h3>
             <p className="text-[12px] text-slate-500 leading-relaxed">
               {
-                "Type a message below to ask FAIM Cortex to synthesize natural prose from your memory graph. Switch the answer mode to Direct, Timeline, Contradiction, or Provenance for different prose styles. Answers stay grounded in citations, provenance, and contradiction notes from the backend result set."
+                "Type a message below to ask FAIM Cortex to run a structured brain turn over your memory graph. Switch the answer mode to Direct, Timeline, Contradiction, or Provenance for different reasoning styles. Answers stay grounded in citations, provenance, contradiction notes, and the Cortex state tree."
               }
             </p>
           </div>
@@ -86,10 +87,37 @@ export function ChatInterface() {
                   <span className="rounded-full border border-primary-500/15 bg-primary-500/5 px-2.5 py-1 text-[8px] text-primary-300">
                     {ANSWER_MODE_LABELS[msg.answerMode ?? "direct"]}
                   </span>
+                  {msg.cortexData?.task_type && (
+                    <span className="rounded-full border border-violet-500/15 bg-violet-500/5 px-2.5 py-1 text-[8px] text-violet-300">
+                      {msg.cortexData.task_type}
+                    </span>
+                  )}
                   <span className="text-slate-600 tracking-tighter">
                     {msg.timestamp}
                   </span>
                 </div>
+
+                {msg.cortexData?.brain_state ? (
+                  <div className="mt-3 grid gap-2 rounded-2xl border border-white/8 bg-white/[0.02] p-3 text-[10px] text-slate-400 sm:grid-cols-3">
+                    <div>
+                      <div className="text-[8px] font-black uppercase tracking-[0.24em] text-slate-600">
+                        Session Turns
+                      </div>
+                      <div className="mt-1 text-slate-200">
+                        {msg.cortexData.brain_state.session_turn_count}
+                      </div>
+                    </div>
+                    <div className="sm:col-span-2">
+                      <div className="text-[8px] font-black uppercase tracking-[0.24em] text-slate-600">
+                        Session Summary
+                      </div>
+                      <div className="mt-1 text-slate-200 leading-6">
+                        {msg.cortexData.brain_state.session_summary ||
+                          "Single-turn session so far."}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 {msg.thinking || (isThinking && i === messages.length - 1) ? (
                   <div className="mt-4">
@@ -116,6 +144,9 @@ export function ChatInterface() {
                         ▌
                       </motion.span>
                     )
+                  )}
+                  {msg.cortexData && (
+                    <CortexStatePanel cortexData={msg.cortexData} />
                   )}
                   {msg.queryData && (
                     <MemoryTraceFooter

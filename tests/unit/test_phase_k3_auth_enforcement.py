@@ -43,7 +43,9 @@ def test_authenticate_tenant_key_env_fallback_only_when_enabled(monkeypatch):
             reason="invalid_credentials",
         ),
     )
-    monkeypatch.setattr(auth_module, "_verify_env_tenant_key", lambda tenant_id, api_key: True)
+    monkeypatch.setattr(
+        auth_module, "_verify_env_tenant_key", lambda tenant_id, api_key: True
+    )
 
     monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "true")
     monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "false")
@@ -69,7 +71,9 @@ def test_authenticate_tenant_key_does_not_env_fallback_for_revoked(monkeypatch):
             reason="revoked",
         ),
     )
-    monkeypatch.setattr(auth_module, "_verify_env_tenant_key", lambda tenant_id, api_key: True)
+    monkeypatch.setattr(
+        auth_module, "_verify_env_tenant_key", lambda tenant_id, api_key: True
+    )
     monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "true")
     monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
 
@@ -81,7 +85,11 @@ def test_authenticate_tenant_key_does_not_env_fallback_for_revoked(monkeypatch):
 def test_validate_tenant_key_wrapper_returns_bool(monkeypatch):
     from api.middleware import auth as auth_module
 
-    monkeypatch.setattr(auth_module, "authenticate_tenant_key", lambda tenant_id, api_key: auth_module.AuthDecision(valid=True))
+    monkeypatch.setattr(
+        auth_module,
+        "authenticate_tenant_key",
+        lambda tenant_id, api_key: auth_module.AuthDecision(valid=True),
+    )
     assert auth_module.validate_tenant_key("tenant_a", "key") is True
 
 
@@ -117,7 +125,9 @@ def test_require_scopes_allows_when_scope_present(monkeypatch):
 
     dep = require_scopes(["memory.read"])
     request = SimpleNamespace(
-        state=SimpleNamespace(auth_method="api_key_db", auth_scopes=["memory.read", "keys.read"])
+        state=SimpleNamespace(
+            auth_method="api_key_db", auth_scopes=["memory.read", "keys.read"]
+        )
     )
     asyncio.run(dep(request))
 
@@ -159,11 +169,10 @@ def test_require_scopes_emits_scope_denied_audit(monkeypatch):
 
 
 def test_tenant_auth_middleware_propagates_context(monkeypatch):
-    from fastapi import FastAPI
-    from fastapi.testclient import TestClient
-
     from api.middleware import auth as auth_module
     from api.middleware.auth import TenantAuthMiddleware
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
 
     monkeypatch.setattr(
         auth_module,
@@ -221,5 +230,7 @@ def test_rate_limit_category_classification_is_method_aware():
 
     assert classify_endpoint_category("POST", "/api/v1/api-keys") == "api_keys_write"
     assert classify_endpoint_category("GET", "/api/v1/api-keys") == "api_keys_read"
-    assert classify_endpoint_category("POST", "/api/v1/memory/search") == "memory_search"
+    assert (
+        classify_endpoint_category("POST", "/api/v1/memory/search") == "memory_search"
+    )
     assert classify_endpoint_category("PATCH", "/api/v1/memory/123") == "memory_write"

@@ -5,8 +5,6 @@ Tests for deterministic semantic type classification and metadata building.
 
 from __future__ import annotations
 
-import pytest
-
 from faim_native.core.operators.semantic_typing import (
     KNOWN_SEMANTIC_KINDS,
     SEMANTIC_WEIGHTS,

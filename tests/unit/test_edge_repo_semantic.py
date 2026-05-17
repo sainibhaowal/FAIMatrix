@@ -7,10 +7,9 @@ from __future__ import annotations
 
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
-from faim_native.core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
-from faim_native.store.pg.models_faim import Base, EdgeModel, NodeModel
+from faim_native.store.pg.models_faim import Base, EdgeModel
 from faim_native.store.pg.repos.edge_repo import EdgeRepo
 from faim_native.store.pg.repos.node_repo import NodeRepo
 
@@ -83,7 +82,7 @@ class TestAddSemanticEdge:
         src_id = uuid4()
         dst_id = uuid4()
 
-        edge_id_1 = edge_repo.add_semantic_edge(
+        edge_repo.add_semantic_edge(
             graph_id=graph_id,
             src_node_id=src_id,
             dst_node_id=dst_id,
@@ -92,7 +91,7 @@ class TestAddSemanticEdge:
             meta=None,
         )
 
-        edge_id_2 = edge_repo.add_semantic_edge(
+        edge_repo.add_semantic_edge(
             graph_id=graph_id,
             src_node_id=src_id,
             dst_node_id=dst_id,

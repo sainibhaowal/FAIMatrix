@@ -100,7 +100,10 @@ export default withAuth(
       return NextResponse.next();
     }
 
-    if (req.nextUrl.pathname.startsWith("/dashboard/admin")) {
+    if (
+      req.nextUrl.pathname.startsWith("/dashboard/admin") ||
+      req.nextUrl.pathname.startsWith("/dashboard/control-plane")
+    ) {
       if (!token?.isAdmin) {
         return NextResponse.redirect(new URL("/dashboard", req.url));
       }
@@ -163,7 +166,10 @@ export default withAuth(
 
         // Only require authorized=true for PAGES (dashboard)
         // API routes are handled manually above to return JSON
-        if (req.nextUrl.pathname.startsWith("/dashboard/admin")) {
+        if (
+          req.nextUrl.pathname.startsWith("/dashboard/admin") ||
+          req.nextUrl.pathname.startsWith("/dashboard/control-plane")
+        ) {
           return !!token?.isAdmin;
         }
         if (req.nextUrl.pathname.startsWith("/api/admin/")) {

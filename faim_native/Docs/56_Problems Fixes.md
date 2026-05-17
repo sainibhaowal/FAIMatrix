@@ -123,7 +123,7 @@ Output: "user Boston"  ← Noise removed!
 
 ---
 
-### Solution 2: Phase 5 — Native WordNet Synonym Expansion (IMPLEMENTED ✓)
+### Solution 2: Phase 5 — Native WordNet Synonym Expansion (IMPLEMENTED ✓) - Deleted and Replaced with 8M+ ConceptNet
 
 **Files Created:**
 1. `faim_native/lexical/wordnet_builder.py` — Build script (uses NLTK at build time)

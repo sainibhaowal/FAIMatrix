@@ -39,6 +39,7 @@ except (ImportError, RuntimeError):
     _parent = Path(__file__).parent.parent.parent
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
+    from core.cognitive.cognitive_typing import CognitiveType
     from core.metrics.fractal_physics import compute_diagnostics
     from encoding.vector_schema import VECTOR_DIMENSION
     from store.pg.repos.edge_repo import EdgeRepo
@@ -363,6 +364,41 @@ def invent_macro(
     # Create macro node with level = max(parents) + 1
     macro_level = max_level + 1
 
+    # Determine dominant cognitive type from members
+    member_types = [n.cognitive_type for n in member_nodes if n.cognitive_type]
+    if member_types:
+        # Vote: use the most common type among members
+        cognitive_type = Counter(member_types).most_common(1)[0][0]
+    else:
+        # No member types available — try to classify from member text content
+        # This handles older nodes ingested before the classifier was wired.
+        try:
+            from core.cognitive.cognitive_typing import classify_cognitive_type
+
+            texts: list = []
+            for n in member_nodes:
+                anchor = getattr(n, "anchor_json", None) or {}
+                if isinstance(anchor, dict):
+                    t = anchor.get("text", "") or anchor.get("canonical", "")
+                    if t:
+                        texts.append(t)
+            if texts:
+                # Combine first 3 member texts for speed; classify the result
+                combined = " ".join(texts[:3])
+                cognitive_type = classify_cognitive_type(combined).value
+            else:
+                cognitive_type = CognitiveType.FACT.value
+        except Exception:
+            # Safe fallback — never break invention on a classify error
+            cognitive_type = CognitiveType.FACT.value
+
+    # Galaxy ID - usually macros are within one document's galaxy.
+    # If all members share same galaxy_id, propagate it.
+    member_galaxies = [n.galaxy_id for n in member_nodes if n.galaxy_id]
+    galaxy_id = None
+    if member_galaxies and len(set(member_galaxies)) == 1:
+        galaxy_id = member_galaxies[0]
+
     macro_id = node_repo.create_macro_node(
         graph_id=graph_id,
         v_native=mean_vector,
@@ -370,6 +406,8 @@ def invent_macro(
         opp_signature=opp_signature,
         level=macro_level,
         residual=residual,
+        cognitive_type=cognitive_type,
+        galaxy_id=galaxy_id,
     )
 
     # Set inheritance edges from members to macro

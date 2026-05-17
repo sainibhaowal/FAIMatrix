@@ -5,7 +5,9 @@ from __future__ import annotations
 from uuid import uuid4
 
 
-def _configure_isolated_runtime(monkeypatch, tmp_path, tenant_id: str, api_key: str) -> str:
+def _configure_isolated_runtime(
+    monkeypatch, tmp_path, tenant_id: str, api_key: str
+) -> str:
     db_url = f"sqlite:///{tmp_path / ('faim_rv2_backfill_' + uuid4().hex + '.db')}"
 
     monkeypatch.setenv("DATABASE_URL", db_url)
@@ -38,7 +40,10 @@ def test_representation_v2_rebuild_backfills_existing_graph(monkeypatch, tmp_pat
     from fastapi.testclient import TestClient
     from perception.router import route_extraction
     from runtime.context import close_session, get_repos
-    from store.pg.models_faim import GraphRepresentationStatsModel, NodeRepresentationV2Model
+    from store.pg.models_faim import (
+        GraphRepresentationStatsModel,
+        NodeRepresentationV2Model,
+    )
     from store.pg.repos.edge_repo import EdgeRepo
     from store.pg.repos.event_repo import EventRepo
     from store.pg.repos.graph_version_repo import GraphVersionRepo
@@ -60,7 +65,9 @@ def test_representation_v2_rebuild_backfills_existing_graph(monkeypatch, tmp_pat
     repos = get_repos(tenant_id)
     session = repos["session"]
     try:
-        raw_ref = repos["raw_store"].store(payload, mime_type="text/plain", graph_id=graph_id)
+        raw_ref = repos["raw_store"].store(
+            payload, mime_type="text/plain", graph_id=graph_id
+        )
         saved = repos["raw_repo"].create(session, raw_ref)
         repos["storage_file_repo"].upsert_upload(
             session,
@@ -81,7 +88,9 @@ def test_representation_v2_rebuild_backfills_existing_graph(monkeypatch, tmp_pat
             event_repo=EventRepo(session=session, tenant_id=tenant_id),
             graph_version_repo=GraphVersionRepo(session=session, tenant_id=tenant_id),
         )
-        write_result = engine.write_atoms(graph_id=graph_id, vectors=vectors, reprs_v2=None)
+        write_result = engine.write_atoms(
+            graph_id=graph_id, vectors=vectors, reprs_v2=None
+        )
 
         repos["storage_file_repo"].mark_ingest_result(
             session,

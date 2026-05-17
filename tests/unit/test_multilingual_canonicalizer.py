@@ -16,4 +16,3 @@ def test_multilingual_canonicalizer_adds_concept_and_translation():
     assert item.language == "de"
     assert any(value.startswith("concept:") for value in item.expansions)
     assert "revenue" in item.expansions or "quarter" in item.expansions
-

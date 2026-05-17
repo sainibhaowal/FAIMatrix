@@ -19,7 +19,9 @@ def test_worker_uses_filtered_claim_for_executable_kinds(monkeypatch):
         return None
 
     monkeypatch.setattr(worker_mod, "get_session", lambda: DummySession())
-    monkeypatch.setattr(worker_mod.JobStore, "claim_next_of_kinds", fake_claim_next_of_kinds)
+    monkeypatch.setattr(
+        worker_mod.JobStore, "claim_next_of_kinds", fake_claim_next_of_kinds
+    )
 
     worker = worker_mod.Worker(poll_interval=0.01)
     worker._poll_and_execute()

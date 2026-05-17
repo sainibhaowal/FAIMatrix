@@ -3,7 +3,6 @@
 Tests for the JWT authentication middleware.
 """
 
-import os
 from datetime import datetime, timedelta
 
 import jwt
@@ -122,8 +121,6 @@ class TestBearerExtraction:
         from unittest.mock import MagicMock
 
         from api.middleware.jwt import extract_bearer_token
-        from starlette.requests import Request
-        from starlette.testclient import TestClient
 
         request = MagicMock()
         request.headers = {"Authorization": "Bearer my-test-token"}

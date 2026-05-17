@@ -44,4 +44,3 @@ def test_block_max_wand_shortlist_prefers_relevant_doc():
     assert ranked
     assert ranked[0][0] == rows[0].node_id
     assert ranked[0][1] >= ranked[-1][1]
-

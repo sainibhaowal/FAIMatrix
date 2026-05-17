@@ -10,6 +10,16 @@ interface FAQItem {
 
 const FAQS: FAQItem[] = [
   {
+    question: "What is 24-Hop Reasoning?",
+    answer:
+      "Traditional systems use 1-hop retrieval (fetch and summarize). FAIM's 24-Hop Reasoning allows the Cortex engine to traverse up to 24 semantic layers of evidence, following logical chains across documents, events, and opposing views while maintaining 100% provenance and citation integrity for every single hop.",
+  },
+  {
+    question: "How does the 1M+ Concept Registry work?",
+    answer:
+      "Unlike LLMs that 'think' for several seconds to classify intent, FAIM uses a deterministic registry of over 1,000,000 professional concepts. This allows the system to map your query to 8 core cognitive tasks in under 10ms with zero latency, zero drift, and zero hallucination risk.",
+  },
+  {
     question: "Is FAIMATRIX a vector database?",
     answer:
       "No. FAIMATRIX is a mathematical memory engine. Vector databases store and retrieve vectors. FAIM computes inheritance relationships, enforces mathematical invariants, runs fractal diagnostics, performs deterministic deduplication, and self-evolves \u2014 all without ML. Vectors are one component, not the whole system.",

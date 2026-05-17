@@ -21,5 +21,6 @@ def test_vptree_matches_exact_top_k():
     root = build_vptree(points)
     exact = exact_top_k(points, query, 3)
     approx = search_vptree(root, query, 3)
-    assert [node_id for node_id, _score in approx] == [node_id for node_id, _score in exact]
-
+    assert [node_id for node_id, _score in approx] == [
+        node_id for node_id, _score in exact
+    ]

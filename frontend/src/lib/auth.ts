@@ -27,12 +27,16 @@ function parseAdminEmails(): Set<string> {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         for (const value of parsed) {
-          const email = String(value || "").trim().toLowerCase();
+          const email = String(value || "")
+            .trim()
+            .toLowerCase();
           if (email) emails.add(email);
         }
       } else if (parsed && typeof parsed === "object") {
         for (const value of Object.values(parsed as Record<string, unknown>)) {
-          const email = String(value || "").trim().toLowerCase();
+          const email = String(value || "")
+            .trim()
+            .toLowerCase();
           if (email) emails.add(email);
         }
       } else if (typeof parsed === "string") {
@@ -56,7 +60,9 @@ function parseAdminEmails(): Set<string> {
 }
 
 function isAdminEmail(email?: string | null): boolean {
-  const normalized = String(email || "").trim().toLowerCase();
+  const normalized = String(email || "")
+    .trim()
+    .toLowerCase();
   if (!normalized) return false;
   return parseAdminEmails().has(normalized);
 }

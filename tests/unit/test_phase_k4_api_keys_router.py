@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
-from types import SimpleNamespace
 from uuid import uuid4
-
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from api.deps import FAIMContext, get_faim_context
 from api.routers import api_keys as api_keys_module
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 class _FakeSession:
@@ -26,7 +24,9 @@ class _FakeSession:
 
 
 class _FakeAuditRecord:
-    def __init__(self, tenant_id: str, key_id: str, action: str, actor: str | None = None) -> None:
+    def __init__(
+        self, tenant_id: str, key_id: str, action: str, actor: str | None = None
+    ) -> None:
         self.id = str(uuid4())
         self.tenant_id = tenant_id
         self.key_id = key_id
@@ -98,7 +98,9 @@ class _FakeKeyRecord:
             "revoked_at": self.revoked_at.isoformat() if self.revoked_at else None,
             "revoked_reason": self.revoked_reason,
             "rotated_from_key_id": self.rotated_from_key_id,
-            "last_used_at": self.last_used_at.isoformat() if self.last_used_at else None,
+            "last_used_at": (
+                self.last_used_at.isoformat() if self.last_used_at else None
+            ),
             "is_active": self.is_active(),
         }
 
@@ -131,7 +133,9 @@ class _FakeAuthRepo:
         request_id: str | None = None,
         meta: dict | None = None,
     ):
-        record = _FakeAuditRecord(tenant_id=tenant_id, key_id=key_id, action=action, actor=actor)
+        record = _FakeAuditRecord(
+            tenant_id=tenant_id, key_id=key_id, action=action, actor=actor
+        )
         record.request_id = request_id
         record.meta = dict(meta or {})
         self.__class__.audit.append(record)
@@ -145,7 +149,9 @@ class _FakeAuthRepo:
         action: str | None = None,
         limit: int = 100,
     ):
-        events = [event for event in self.__class__.audit if event.tenant_id == tenant_id]
+        events = [
+            event for event in self.__class__.audit if event.tenant_id == tenant_id
+        ]
         if key_id:
             events = [event for event in events if event.key_id == key_id]
         if action:
@@ -185,7 +191,9 @@ class _FakeAuthRepo:
         return record, f"{key_id}_plaintext"
 
     def list_tenant_keys(self, tenant_id: str, include_revoked: bool = False):
-        values = [v for v in self.__class__.records.values() if v.tenant_id == tenant_id]
+        values = [
+            v for v in self.__class__.records.values() if v.tenant_id == tenant_id
+        ]
         if not include_revoked:
             values = [v for v in values if not v.revoked_at]
         return list(reversed(values))

@@ -21,11 +21,7 @@ import { getActiveProvider } from "@/lib/providers";
 // Types
 // ---------------------------------------------------------------------------
 
-export type AnswerMode =
-  | "direct"
-  | "timeline"
-  | "contradiction"
-  | "provenance";
+export type AnswerMode = "auto" | "direct" | "timeline" | "contradiction" | "provenance";
 
 export interface Message {
   id: string;
@@ -36,9 +32,11 @@ export interface Message {
   thinkingDurationMs?: number; // time spent thinking (ms)
   timestamp: string;
   queryData?: FaimQueryResponse | null;
+  cortexData?: FaimCortexTurnResponse | null;
 }
 
 export const ANSWER_MODE_LABELS: Record<AnswerMode, string> = {
+  auto: "Cortex Auto",
   direct: "Direct",
   timeline: "Timeline",
   contradiction: "Contradiction",
@@ -84,6 +82,8 @@ export interface FaimQueryResultItem {
   } | null;
   explain?: Record<string, unknown> | null;
   temporal_status?: string | null;
+  supersedes?: string[] | null;
+  superseded_by?: string | null;
 }
 
 export interface FaimQueryResponse {
@@ -98,6 +98,87 @@ export interface FaimQueryResponse {
   answer?: FaimQueryAnswer | null;
   metrics?: Record<string, number>;
   duration_ms?: number;
+}
+
+export interface FaimCortexReasoningNode {
+  node_id: string;
+  branch: string;
+  title: string;
+  summary: string;
+  evidence_node_ids: string[];
+  confidence: number;
+  depends_on: string[];
+  output: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface FaimCortexTurnSummary {
+  turn_id: string;
+  query_text: string;
+  answer_mode: string;
+  task_type: string;
+  confidence: number;
+  narrative: string;
+  open_question_count: number;
+  contradiction_count: number;
+  created_at: string;
+}
+
+export interface FaimCortexSessionSummary {
+  session_id: string;
+  tenant_id: string;
+  graph_id: string;
+  title: string;
+  turn_count: number;
+  last_turn_id?: string | null;
+  last_task_type?: string | null;
+  last_confidence?: number | null;
+  last_turn_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FaimCortexBrainState {
+  turn_id: string;
+  tenant_id: string;
+  graph_id: string;
+  session_id?: string | null;
+  query_text: string;
+  answer_mode: string;
+  task_type: string;
+  query_hash: string;
+  graph_version: number;
+  graph_hash: string;
+  goal: string;
+  session_turn_count: number;
+  session_summary: string;
+  active_facts: string[];
+  evidence_nodes: FaimQueryResultItem[];
+  contradictions: string[];
+  open_questions: string[];
+  hypotheses: string[];
+  predictions: string[];
+  next_actions: string[];
+  confidence: number;
+  recent_turns: FaimCortexTurnSummary[];
+  reasoning_tree: FaimCortexReasoningNode[];
+  writeback_candidates: Array<Record<string, unknown>>;
+  answer_packet: FaimQueryAnswer;
+  narrative: string;
+}
+
+export interface FaimCortexTurnResponse {
+  tenant_id: string;
+  graph_id: string;
+  session_id?: string | null;
+  turn_id: string;
+  query_hash: string;
+  task_type: string;
+  answer_mode: string;
+  answer?: FaimQueryAnswer | null;
+  brain_state: FaimCortexBrainState;
+  narrative: string;
+  duration_ms: number;
 }
 
 type StorageUploadFileResult = {
@@ -122,6 +203,29 @@ type StorageUploadBatchResponse = {
   cancelled_files: number;
   files: StorageUploadFileResult[];
 };
+
+function adaptCortexTurnToQueryResponse(
+  turn: FaimCortexTurnResponse,
+): FaimQueryResponse {
+  const brain = turn.brain_state;
+  const answer = turn.answer ?? brain.answer_packet;
+  return {
+    tenant_id: turn.tenant_id,
+    graph_id: turn.graph_id,
+    graph_version: brain.graph_version ?? 0,
+    graph_hash: brain.graph_hash ?? "",
+    query_hash: turn.query_hash,
+    k: brain.evidence_nodes?.length ?? 0,
+    profile: String(brain.answer_mode || turn.answer_mode || "RELAXED"),
+    results: brain.evidence_nodes ?? [],
+    answer,
+    metrics: {
+      confidence: brain.confidence ?? 0,
+      reasoning_nodes: brain.reasoning_tree?.length ?? 0,
+    },
+    duration_ms: turn.duration_ms ?? 0,
+  };
+}
 
 export interface Thread {
   id: string;
@@ -157,7 +261,14 @@ interface ChatContextType {
   setAnswerMode: (mode: AnswerMode) => void;
   isThinking: boolean;
   liveThinkingBuffer: string;
+  activeReasoningPath: FigExplainPath | null;
+  setReasoningPath: (path: FigExplainPath | null) => void;
 }
+
+export type FigExplainPath = {
+  nodeIdSet: Set<string>;
+  edgeIdSet: Set<string>;
+};
 
 // ---------------------------------------------------------------------------
 // localStorage helpers
@@ -214,7 +325,7 @@ function resolveStoredGraphId(): string | null {
   return null;
 }
 
-async function buildAuthorizedHeaders(
+export async function buildAuthorizedHeaders(
   extra?: HeadersInit,
 ): Promise<HeadersInit> {
   const session = await getSession();
@@ -530,14 +641,14 @@ function buildFaimSystemPrompt(
   );
   lines.push(
     "  9. If a claim is an inference or prediction, label it as such and explain the basis.",
-    );
+  );
 
   return lines.join("\n");
 }
 
 // ---------------------------------------------------------------------------
 
-async function resolveActiveGraphId(): Promise<string | null> {
+export async function resolveActiveGraphId(): Promise<string | null> {
   const session = await getSession();
   const fromSession =
     ((session as { graphId?: string } | null)?.graphId || "").trim() || null;
@@ -573,15 +684,25 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [thinkingEnabled, setThinkingEnabled] = useState(false);
   const [answerMode, setAnswerModeState] = useState<AnswerMode>(() => {
-    if (typeof window === "undefined") return "direct";
-    const raw = window.localStorage.getItem(LS_MODE_KEY) || "";
-    if (raw === "timeline" || raw === "contradiction" || raw === "provenance") {
-      return raw;
-    }
-    return "direct";
+    if (typeof window === "undefined") return "auto";
+    const raw = window.localStorage.getItem(LS_MODE_KEY) as AnswerMode;
+    const valid = ["auto", "direct", "timeline", "contradiction", "provenance"];
+    return valid.includes(raw) ? raw : "auto";
   });
+
+  const setAnswerMode = useCallback((mode: AnswerMode) => {
+    setAnswerModeState(mode);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(LS_MODE_KEY, mode);
+    }
+  }, []);
   const [isThinking, setIsThinking] = useState(false);
   const [liveThinkingBuffer, setLiveThinkingBuffer] = useState("");
+  const [activeReasoningPath, setActiveReasoningPath] = useState<FigExplainPath | null>(null);
+
+  const setReasoningPath = useCallback((path: FigExplainPath | null) => {
+    setActiveReasoningPath(path);
+  }, []);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -624,10 +745,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const toggleThinking = useCallback(() => {
     setThinkingEnabled((p) => !p);
-  }, []);
-
-  const setAnswerMode = useCallback((mode: AnswerMode) => {
-    setAnswerModeState(mode);
   }, []);
 
   const newThread = useCallback(() => {
@@ -748,6 +865,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setIsStreaming(true);
       setIsThinking(false);
       setLiveThinkingBuffer("");
+      setActiveReasoningPath(null); // Clear previous path on new message
 
       // Capture history BEFORE we append the new messages (messages is still stale here)
       const historySnapshot = messages
@@ -768,7 +886,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         let queryData: FaimQueryResponse | null = null;
 
         if (!skipRetrieval) {
-          const queryRes = await fetch("/api/v1/query", {
+          const cortexRes = await fetch("/api/v1/cortex/turn", {
             method: "POST",
             headers: { "Content-Type": "application/json", ...headers },
             body: JSON.stringify({
@@ -777,19 +895,25 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               k: 15,
               profile: "RELAXED",
               return_explain: true,
+              answer_mode: answerMode,
+              think_enabled: thinkingEnabled,
+              session_id: threadId,
             }),
           });
 
-          if (!queryRes.ok) {
-            const errData = await queryRes.json().catch(() => ({}));
+          if (!cortexRes.ok) {
+            const errData = await cortexRes.json().catch(() => ({}));
             throw new Error(
-              errData.detail || errData.message || `HTTP ${queryRes.status}`,
+              errData.detail || errData.message || `HTTP ${cortexRes.status}`,
             );
           }
 
-          queryData = (await queryRes.json()) as FaimQueryResponse;
+          const cortexTurn = (await cortexRes.json()) as FaimCortexTurnResponse;
+          queryData = adaptCortexTurnToQueryResponse(cortexTurn);
+          const reasoningSummary = cortexTurn.brain_state.reasoning_tree
+            .map((node) => `${node.branch}: ${node.summary}`)
+            .join("\n");
 
-          // Attach queryData so the sources card appears while LLM streams
           setThreads((prev) =>
             prev.map((t) =>
               t.id !== threadId
@@ -797,11 +921,36 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 : {
                     ...t,
                     messages: t.messages.map((m) =>
-                      m.id === assistantId ? { ...m, queryData } : m,
+                      m.id === assistantId
+                        ? {
+                            ...m,
+                            content: cortexTurn.narrative,
+                            queryData,
+                            cortexData: cortexTurn,
+                            answerMode,
+                            ...(thinkingEnabled && reasoningSummary
+                              ? {
+                                  thinking: reasoningSummary,
+                                  thinkingDurationMs: cortexTurn.duration_ms,
+                                }
+                              : {}),
+                          }
+                        : m,
                     ),
                   },
             ),
           );
+
+          // Set active reasoning path for FIG View pulse tracing
+          const nodeIds = cortexTurn.brain_state.evidence_nodes.map(n => n.node_id);
+          const edgeIds = cortexTurn.brain_state.reasoning_tree.flatMap(n => n.evidence_node_ids); // approximate edges
+          
+          setActiveReasoningPath({
+            nodeIdSet: new Set([...nodeIds, ...cortexTurn.brain_state.reasoning_tree.map(n => n.node_id)]),
+            edgeIdSet: new Set(edgeIds)
+          });
+
+          return;
         }
 
         // ── Step 2: Check active provider ──────────────────────────────────
@@ -809,12 +958,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         if (!provider) {
           // No LLM — fall back to FAIM extractive answer or plain message
-          const fallback = queryData
-            ? queryData.answer?.direct_answer ||
-              (queryData.results?.length
-                ? `Retrieved ${queryData.results.length} memory result${queryData.results.length === 1 ? "" : "s"}.`
-                : "No matching memory found for this query.")
-            : "Hi! Ask me anything about your ingested documents and data.";
+          const fallback =
+            "Hi! Ask me anything about your ingested documents and data.";
           setThreads((prev) =>
             prev.map((t) =>
               t.id !== threadId
@@ -938,15 +1083,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                             messages: t.messages.map((m) =>
                               m.id !== assistantId
                                 ? m
-                              : {
-                                  ...m,
-                                  content: accumulated,
-                                  queryData,
-                                  answerMode,
-                                  ...(thinkingAccum
-                                    ? { thinking: thinkingAccum }
-                                    : {}),
-                                },
+                                : {
+                                    ...m,
+                                    content: accumulated,
+                                    queryData,
+                                    answerMode,
+                                    ...(thinkingAccum
+                                      ? { thinking: thinkingAccum }
+                                      : {}),
+                                  },
                             ),
                           },
                     ),
@@ -962,7 +1107,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // Finalise — ensure we always have something
         const finalContent =
           accumulated ||
-          queryData?.answer?.direct_answer ||
           "I couldn't generate an answer. Please check the source results below.";
 
         setThreads((prev) =>
@@ -1169,6 +1313,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setAnswerMode,
         isThinking,
         liveThinkingBuffer,
+        activeReasoningPath,
+        setReasoningPath,
       }}
     >
       {children}

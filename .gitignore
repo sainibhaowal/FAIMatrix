@@ -73,6 +73,7 @@ deploy/ssl/
 .ruff_cache/
 .mypy_cache/
 .pytest_cache/
+Docker_cmd.md
 
 # Development
 frontend/Docs/
