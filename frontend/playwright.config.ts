@@ -1,12 +1,13 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const includeWebkit = process.env.PLAYWRIGHT_INCLUDE_WEBKIT === "true";
+const useLiveStack = process.env.PLAYWRIGHT_USE_LIVE_STACK === "true";
 
 // Long-lived E2E JWT signed with NEXTAUTH_SECRET for user e2e-test-user / graph e2e-graph-001.
 // Expires year 2286 — safe for test use only, never use in production.
 const E2E_JWT =
   process.env.PLAYWRIGHT_E2E_JWT ??
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMmUtdGVzdC11c2VyIiwiZW1haWwiOiJlMmVAdGVzdC5mYWltIiwidXNlcklkIjoiZTJlLXRlc3QtdXNlciIsImdyYXBoSWQiOiJlMmUtZ3JhcGgtMDAxIiwibmFtZSI6IkUyRSBUZXN0IFVzZXIiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTc3NjM2Mjk0Nn0.C1CWsRIIIPUgQZJx1KclShCWo0Pq75pbfjLmJRHiljI";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMmUtdGVzdC11c2VyIiwiZW1haWwiOiJlMmVAdGVzdC5mYWltIiwidXNlcklkIjoiZTJlLXRlc3QtdXNlciIsImdyYXBoSWQiOiJlMmUtZ3JhcGgtMDAxIiwibmFtZSI6IkUyRSBUZXN0IFVzZXIiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTc3NjM2Mjk0Nn0.OP_HzPsqIA4Fd67MRRJZDtfRv1vit93e5OgjKblKcRQ";
 
 export const E2E_GRAPH_ID = "e2e-graph-001";
 export const E2E_USER_ID = "e2e-test-user";
@@ -23,7 +24,9 @@ export default defineConfig({
   globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
   use: {
-    baseURL: "http://localhost:8011",
+    baseURL: useLiveStack
+      ? (process.env.PLAYWRIGHT_BASE_URL ?? "https://faimatrix.localhost:8443")
+      : (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:8011"),
     trace: "on-first-retry",
   },
   projects: includeWebkit
@@ -43,14 +46,21 @@ export default defineConfig({
           use: { ...devices["Desktop Chrome"] },
         },
       ],
-  webServer: {
-    command: "npx next dev -p 8011",
-    url: "http://localhost:8011",
-    env: {
-      ...process.env,
-      PLAYWRIGHT_BYPASS_AUTH: "true",
-      PLAYWRIGHT_E2E_JWT: E2E_JWT,
-    },
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: useLiveStack
+    ? undefined
+    : {
+        command: "npx next dev -p 8011",
+        url: "http://localhost:8011",
+        env: {
+          ...process.env,
+          NEXTAUTH_SECRET:
+            process.env.NEXTAUTH_SECRET ?? "playwright-e2e-secret",
+          NEXTAUTH_URL: process.env.NEXTAUTH_URL ?? "http://localhost:8011",
+          API_HOST:
+            process.env.PLAYWRIGHT_API_HOST ?? "localhost:8001",
+          PLAYWRIGHT_BYPASS_AUTH: "true",
+          PLAYWRIGHT_E2E_JWT: E2E_JWT,
+        },
+        reuseExistingServer: !process.env.CI,
+      },
 });

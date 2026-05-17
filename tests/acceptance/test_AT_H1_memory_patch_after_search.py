@@ -96,4 +96,3 @@ def test_memory_patch_after_search_does_not_lock(monkeypatch, tmp_path):
         assert patch.json()["anchor"]["source"] == "h1-test"
     finally:
         client.close()
-

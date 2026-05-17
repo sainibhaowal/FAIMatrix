@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-
 from api.fig_graph_core import (
     SURFACE_NODE_DEF,
     _clamp_int,
@@ -15,6 +12,8 @@ from api.fig_graph_core import (
     shortest_path_undirected,
 )
 from core.contracts.types import uuid7
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from store.pg.models_faim import EdgeModel, NodeModel, create_all_tables
 
 
@@ -80,11 +79,22 @@ def test_node_display_fallback_block_id():
     from core.contracts.types import uuid7
 
     n = NodeModel(
-        node_id=uuid7(), tenant_id="t", graph_id="g", kind="atom",
-        vector_hash="cc" * 32, raw_id=None, block_id="my_block_42",
-        anchor_json=None, v_native=[0.0] * 256, opp_signature=None,
-        residual=0, level=0, touch_count=0, last_access=None,
-        created_at=now, updated_at=now,
+        node_id=uuid7(),
+        tenant_id="t",
+        graph_id="g",
+        kind="atom",
+        vector_hash="cc" * 32,
+        raw_id=None,
+        block_id="my_block_42",
+        anchor_json=None,
+        v_native=[0.0] * 256,
+        opp_signature=None,
+        residual=0,
+        level=0,
+        touch_count=0,
+        last_access=None,
+        created_at=now,
+        updated_at=now,
     )
     d = node_display_payload(n)
     assert d["title"] == "my_block_42"
@@ -96,11 +106,22 @@ def test_node_display_fallback_vector_hash():
     from core.contracts.types import uuid7
 
     n = NodeModel(
-        node_id=uuid7(), tenant_id="t", graph_id="g", kind="atom",
-        vector_hash="dd" * 32, raw_id=None, block_id=None,
-        anchor_json=None, v_native=[0.0] * 256, opp_signature=None,
-        residual=0, level=0, touch_count=0, last_access=None,
-        created_at=now, updated_at=now,
+        node_id=uuid7(),
+        tenant_id="t",
+        graph_id="g",
+        kind="atom",
+        vector_hash="dd" * 32,
+        raw_id=None,
+        block_id=None,
+        anchor_json=None,
+        v_native=[0.0] * 256,
+        opp_signature=None,
+        residual=0,
+        level=0,
+        touch_count=0,
+        last_access=None,
+        created_at=now,
+        updated_at=now,
     )
     d = node_display_payload(n)
     assert d["title_source"] == "vector_hash"
@@ -114,11 +135,22 @@ def test_node_display_state_cold():
 
     old = datetime.now(timezone.utc) - timedelta(days=200)
     n = NodeModel(
-        node_id=uuid7(), tenant_id="t", graph_id="g", kind="atom",
-        vector_hash="ee" * 32, raw_id=None, block_id=None,
-        anchor_json=None, v_native=[0.0] * 256, opp_signature=None,
-        residual=0, level=0, touch_count=0, last_access=old,
-        created_at=old, updated_at=old,
+        node_id=uuid7(),
+        tenant_id="t",
+        graph_id="g",
+        kind="atom",
+        vector_hash="ee" * 32,
+        raw_id=None,
+        block_id=None,
+        anchor_json=None,
+        v_native=[0.0] * 256,
+        opp_signature=None,
+        residual=0,
+        level=0,
+        touch_count=0,
+        last_access=old,
+        created_at=old,
+        updated_at=old,
     )
     d = node_display_payload(n)
     assert d["state"] == "cold"
@@ -129,11 +161,22 @@ def test_node_display_state_unknown():
 
     now = datetime.now(timezone.utc)
     n = NodeModel(
-        node_id=uuid7(), tenant_id="t", graph_id="g", kind="atom",
-        vector_hash="ff" * 32, raw_id=None, block_id=None,
-        anchor_json=None, v_native=[0.0] * 256, opp_signature=None,
-        residual=0, level=0, touch_count=2, last_access=None,
-        created_at=now, updated_at=now,
+        node_id=uuid7(),
+        tenant_id="t",
+        graph_id="g",
+        kind="atom",
+        vector_hash="ff" * 32,
+        raw_id=None,
+        block_id=None,
+        anchor_json=None,
+        v_native=[0.0] * 256,
+        opp_signature=None,
+        residual=0,
+        level=0,
+        touch_count=2,
+        last_access=None,
+        created_at=now,
+        updated_at=now,
     )
     d = node_display_payload(n)
     assert d["state"] == "unknown"

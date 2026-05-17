@@ -12,7 +12,7 @@ import { E2E_BACKEND_URL, E2E_GRAPH_ID } from "../playwright.config";
 
 const E2E_JWT =
   process.env.PLAYWRIGHT_E2E_JWT ??
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMmUtdGVzdC11c2VyIiwiZW1haWwiOiJlMmVAdGVzdC5mYWltIiwidXNlcklkIjoiZTJlLXRlc3QtdXNlciIsImdyYXBoSWQiOiJlMmUtZ3JhcGgtMDAxIiwibmFtZSI6IkUyRSBUZXN0IFVzZXIiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTc3NjM2Mjk0Nn0.C1CWsRIIIPUgQZJx1KclShCWo0Pq75pbfjLmJRHiljI";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMmUtdGVzdC11c2VyIiwiZW1haWwiOiJlMmVAdGVzdC5mYWltIiwidXNlcklkIjoiZTJlLXRlc3QtdXNlciIsImdyYXBoSWQiOiJlMmUtZ3JhcGgtMDAxIiwibmFtZSI6IkUyRSBUZXN0IFVzZXIiLCJleHAiOjk5OTk5OTk5OTksImlhdCI6MTc3NjM2Mjk0Nn0.OP_HzPsqIA4Fd67MRRJZDtfRv1vit93e5OgjKblKcRQ";
 
 function authHeaders(): Record<string, string> {
   return {

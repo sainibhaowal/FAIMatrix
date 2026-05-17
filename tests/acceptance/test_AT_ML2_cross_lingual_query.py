@@ -11,7 +11,9 @@ from faim_native.core.engine_native import FAIMNativeEngine
 from faim_native.encoding.representation_v2 import build_representation_v2_for_block
 from faim_native.encoding.text_vectorizer import vectorize_blocks
 from faim_native.orchestration.ingest_flow import FAIMProfile
-from faim_native.orchestration.multilingual_semantics_rebuild import run_multilingual_semantics_rebuild
+from faim_native.orchestration.multilingual_semantics_rebuild import (
+    run_multilingual_semantics_rebuild,
+)
 from faim_native.orchestration.query_flow import run_query
 from faim_native.store.pg.models_faim import Base
 from faim_native.store.pg.repos.edge_repo import EdgeRepo
@@ -48,7 +50,9 @@ class _StorageFileRepo:
     def __init__(self, rows):
         self.rows = rows
 
-    def list_files(self, session, graph_id, status, query, limit, offset, include_delete_requested):
+    def list_files(
+        self, session, graph_id, status, query, limit, offset, include_delete_requested
+    ):
         items = self.rows[offset : offset + limit]
         return items, len(self.rows)
 
@@ -89,11 +93,18 @@ def test_cross_lingual_query_returns_matching_doc():
         )
         engine.write_atoms(graph_id=graph_id, vectors=vectors, reprs_v2=reprs)
 
-        raw_store = _RawStore({"raw-en": b"Revenue planning for the quarter.", "raw-de": b"Umsatz Planung fuer das Quartal."})
-        storage_repo = _StorageFileRepo([
-            _StorageFileRow("raw-en", "a.txt"),
-            _StorageFileRow("raw-de", "b.txt"),
-        ])
+        raw_store = _RawStore(
+            {
+                "raw-en": b"Revenue planning for the quarter.",
+                "raw-de": b"Umsatz Planung fuer das Quartal.",
+            }
+        )
+        storage_repo = _StorageFileRepo(
+            [
+                _StorageFileRow("raw-en", "a.txt"),
+                _StorageFileRow("raw-de", "b.txt"),
+            ]
+        )
 
         def _route_extraction(file_bytes, filename, raw_id):
             return [next(block for block in blocks if block.raw_id == raw_id)]

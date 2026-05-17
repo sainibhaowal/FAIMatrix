@@ -136,12 +136,12 @@ export function NotificationCenter() {
           <button
             onClick={() => {
               if (isAdmin) {
-                router.push("/dashboard/admin/alerts");
+                router.push("/dashboard/control-plane?section=incidents");
               }
             }}
             className="text-[10px] text-slate-500 hover:text-slate-300"
           >
-            {isAdmin ? "View admin alerts" : "View all"}
+            {isAdmin ? "View incidents" : "View all"}
           </button>
         </div>
       </Dropdown>

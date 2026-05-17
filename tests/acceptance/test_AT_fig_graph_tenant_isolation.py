@@ -9,7 +9,6 @@ from uuid import uuid4
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -53,28 +52,46 @@ def _seed_nodes_for_tenant(tenant_id: str, graph_id: str) -> tuple[str, str]:
         for uid, vh in ((a_id, "a" * 64), (b_id, "b" * 64)):
             session.add(
                 NodeModel(
-                    node_id=uid, tenant_id=tenant_id, graph_id=graph_id,
-                    kind="atom", vector_hash=vh, raw_id=None, block_id=None,
+                    node_id=uid,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    kind="atom",
+                    vector_hash=vh,
+                    raw_id=None,
+                    block_id=None,
                     anchor_json={"title": f"Node {vh[:4]}"},
-                    v_native=[0.0] * 256, opp_signature=None,
-                    residual=0, level=0, touch_count=1,
-                    last_access=now, created_at=now, updated_at=now,
+                    v_native=[0.0] * 256,
+                    opp_signature=None,
+                    residual=0,
+                    level=0,
+                    touch_count=1,
+                    last_access=now,
+                    created_at=now,
+                    updated_at=now,
                 )
             )
         session.add(
             EdgeModel(
-                edge_id=uuid7(), tenant_id=tenant_id, graph_id=graph_id,
-                src_node_id=a_id, dst_node_id=b_id,
-                kind="inheritance", weight=int(0.5 * 1e9),
-                meta=None, created_at=now,
+                edge_id=uuid7(),
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                src_node_id=a_id,
+                dst_node_id=b_id,
+                kind="inheritance",
+                weight=int(0.5 * 1e9),
+                meta=None,
+                created_at=now,
             )
         )
         existing = session.query(GraphVersionModel).filter_by(graph_id=graph_id).first()
         if not existing:
             session.add(
                 GraphVersionModel(
-                    tenant_id=tenant_id, graph_id=graph_id,
-                    version=1, reason="seed", updated_at=now,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    version=1,
+                    reason="seed",
+                    updated_at=now,
                 )
             )
         session.commit()
@@ -106,9 +123,9 @@ def test_all_graph_routes_require_auth(monkeypatch):
             if method in {"HEAD", "OPTIONS"}:
                 continue
             resp = client.request(method, path)
-            assert resp.status_code == 401, (
-                f"{method} {path} should require auth, got {resp.status_code}"
-            )
+            assert (
+                resp.status_code == 401
+            ), f"{method} {path} should require auth, got {resp.status_code}"
 
 
 # ---------------------------------------------------------------------------
@@ -140,14 +157,16 @@ def test_graph_surface_tenant_isolation(monkeypatch):
 
     # Tenant A sees its nodes.
     resp_a = client.get(
-        f"/api/v1/graph/surface?graph_id={graph_id_a}", headers=headers_a,
+        f"/api/v1/graph/surface?graph_id={graph_id_a}",
+        headers=headers_a,
     )
     assert resp_a.status_code == 200
     assert len(resp_a.json()["nodes"]) >= 1
 
     # Tenant B queries its own graph_id — sees nothing (no data seeded for B).
     resp_b = client.get(
-        f"/api/v1/graph/surface?graph_id={graph_id_b}", headers=headers_b,
+        f"/api/v1/graph/surface?graph_id={graph_id_b}",
+        headers=headers_b,
     )
     assert resp_b.status_code == 200
     assert len(resp_b.json()["nodes"]) == 0

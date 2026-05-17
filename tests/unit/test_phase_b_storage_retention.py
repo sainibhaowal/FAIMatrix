@@ -36,7 +36,9 @@ def _seed_delete_requested(session, raw_store, tenant_id: str, graph_id: str):
     return saved
 
 
-def test_retention_requires_irreversible_for_physical_delete(session_factory, raw_store):
+def test_retention_requires_irreversible_for_physical_delete(
+    session_factory, raw_store
+):
     tenant_id = "tenant_retention_guardrail"
     graph_id = "graph_retention_guardrail"
 
@@ -59,7 +61,7 @@ def test_retention_requires_irreversible_for_physical_delete(session_factory, ra
                 irreversible=False,
                 reason="test",
             )
-            assert False, "expected ValueError for irreversible guardrail"
+            raise AssertionError("expected ValueError for irreversible guardrail")
         except ValueError as exc:
             assert "irreversible=true" in str(exc)
 

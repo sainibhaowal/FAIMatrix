@@ -72,10 +72,14 @@ class TestRepresentationRepo:
             _insert_node(session, other_id, graph_id)
 
             repo.upsert_node_representation(
-                graph_id, match_id, build_representation_v2("release 2026 revenue 15 percent")
+                graph_id,
+                match_id,
+                build_representation_v2("release 2026 revenue 15 percent"),
             )
             repo.upsert_node_representation(
-                graph_id, other_id, build_representation_v2("warehouse inventory adjusted yesterday")
+                graph_id,
+                other_id,
+                build_representation_v2("warehouse inventory adjusted yesterday"),
             )
 
             ranked = repo.top_k_lexical(

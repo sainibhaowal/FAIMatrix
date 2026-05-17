@@ -3,7 +3,11 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
-from api.services.benchmark_collector import BenchmarkCollector, BenchmarkSuiteRun, BenchmarkItem
+from api.services.benchmark_collector import (
+    BenchmarkCollector,
+    BenchmarkItem,
+    BenchmarkSuiteRun,
+)
 
 
 class DummyEventRepo:
@@ -31,7 +35,11 @@ def test_series_points_from_benchmark_event():
             "throughput_synapses_per_sec": 9.5,
         }
     }
-    event = SimpleNamespace(kind="BENCHMARK_SUITE_RESULT", payload=run_payload, ts=datetime.now(timezone.utc))
+    event = SimpleNamespace(
+        kind="BENCHMARK_SUITE_RESULT",
+        payload=run_payload,
+        ts=datetime.now(timezone.utc),
+    )
     ctx = SimpleNamespace(session=SimpleNamespace(), event_repo=DummyEventRepo([event]))
     collector = BenchmarkCollector(ctx)
 
@@ -55,10 +63,32 @@ def test_benchmark_suite_and_persistence_shape(monkeypatch):
     from api.services import benchmark_collector as collector_module
 
     nodes = [
-        SimpleNamespace(node_id="n1", vector_hash="a" * 64, level=0, residual=0, touch_count=1, v_native=[0.1] * 256),
-        SimpleNamespace(node_id="n2", vector_hash="b" * 64, level=1, residual=100000000, touch_count=3, v_native=[0.2] * 256),
+        SimpleNamespace(
+            node_id="n1",
+            vector_hash="a" * 64,
+            level=0,
+            residual=0,
+            touch_count=1,
+            v_native=[0.1] * 256,
+        ),
+        SimpleNamespace(
+            node_id="n2",
+            vector_hash="b" * 64,
+            level=1,
+            residual=100000000,
+            touch_count=3,
+            v_native=[0.2] * 256,
+        ),
     ]
-    edges = [SimpleNamespace(edge_id="e1", src_node_id="n1", dst_node_id="n2", kind="inheritance", weight=1000000000)]
+    edges = [
+        SimpleNamespace(
+            edge_id="e1",
+            src_node_id="n1",
+            dst_node_id="n2",
+            kind="inheritance",
+            weight=1000000000,
+        )
+    ]
     diagnostics = SimpleNamespace(
         node_count=2,
         edge_count=1,
@@ -76,9 +106,17 @@ def test_benchmark_suite_and_persistence_shape(monkeypatch):
         graph_hash="d" * 64,
         diagnostics=diagnostics,
         diagnostics_hash=diagnostics.diagnostics_hash,
-        diagnostics_event=SimpleNamespace(kind="DIAGNOSTICS_SNAPSHOT", payload={"graph_hash": "d" * 64}),
-        ingest_latency_event=SimpleNamespace(kind="INGEST_PHASE_LATENCY", payload={"latency_ms": 18, "phase_latency_ms": {"extract": 4, "encode": 6}}),
-        latest_evolution_event=SimpleNamespace(kind="EVOLUTION_COMPLETE", payload={"merges": 1, "prunes": 1, "inventions": 1}),
+        diagnostics_event=SimpleNamespace(
+            kind="DIAGNOSTICS_SNAPSHOT", payload={"graph_hash": "d" * 64}
+        ),
+        ingest_latency_event=SimpleNamespace(
+            kind="INGEST_PHASE_LATENCY",
+            payload={"latency_ms": 18, "phase_latency_ms": {"extract": 4, "encode": 6}},
+        ),
+        latest_evolution_event=SimpleNamespace(
+            kind="EVOLUTION_COMPLETE",
+            payload={"merges": 1, "prunes": 1, "inventions": 1},
+        ),
         events=[],
     )
 
@@ -104,7 +142,9 @@ def test_benchmark_suite_and_persistence_shape(monkeypatch):
     class DummyEventRepo:
         def emit(self, session, graph_id, kind, payload):
             emitted.append((graph_id, kind, payload))
-            return SimpleNamespace(id="event-1", kind=kind, payload=payload, ts=datetime.now(timezone.utc))
+            return SimpleNamespace(
+                id="event-1", kind=kind, payload=payload, ts=datetime.now(timezone.utc)
+            )
 
         def get_by_seq(self, session, graph_id, after_seq=0, limit=100):
             return []
@@ -120,7 +160,9 @@ def test_benchmark_suite_and_persistence_shape(monkeypatch):
     )
     collector = BenchmarkCollector(ctx)
 
-    monkeypatch.setattr(BenchmarkCollector, "_build_graph_state", lambda self, graph_id: fake_state)
+    monkeypatch.setattr(
+        BenchmarkCollector, "_build_graph_state", lambda self, graph_id: fake_state
+    )
     monkeypatch.setattr(
         BenchmarkCollector,
         "_query_without_persist",
@@ -131,13 +173,23 @@ def test_benchmark_suite_and_persistence_shape(monkeypatch):
             "graph_hash": fake_state.graph_hash,
             "query_hash": "q" * 64,
             "k": 5,
-            "results": [{"node_id": "n1", "score": 0.9, "explain": {"reason": "stable"}}],
+            "results": [
+                {"node_id": "n1", "score": 0.9, "explain": {"reason": "stable"}}
+            ],
             "metrics": {"node_count": 2},
             "duration_ms": 10.0,
         },
     )
-    monkeypatch.setattr(collector_module, "check_all_invariants", lambda node_repo, edge_repo, graph_id: SimpleNamespace(passed=True, checks=[{"passed": True}], errors=[]))
-    monkeypatch.setattr(collector_module.global_throughput, "get_throughput", lambda: 11.5)
+    monkeypatch.setattr(
+        collector_module,
+        "check_all_invariants",
+        lambda node_repo, edge_repo, graph_id: SimpleNamespace(
+            passed=True, checks=[{"passed": True}], errors=[]
+        ),
+    )
+    monkeypatch.setattr(
+        collector_module.global_throughput, "get_throughput", lambda: 11.5
+    )
 
     run = collector.run_suite("U:test")
     assert len(run.benchmarks) == 9
@@ -145,7 +197,9 @@ def test_benchmark_suite_and_persistence_shape(monkeypatch):
     assert run.benchmarks[-1].benchmark_id == "BM-9"
 
     collector.persist_suite("U:test", run)
-    benchmark_events = [event for event in emitted if event[1] == "BENCHMARK_SUITE_RESULT"]
+    benchmark_events = [
+        event for event in emitted if event[1] == "BENCHMARK_SUITE_RESULT"
+    ]
     assert benchmark_events
     assert benchmark_events[-1][2]["run"]["graph_id"] == "U:test"
 
@@ -188,7 +242,11 @@ def test_benchmark_suite_to_dict_includes_scores():
 
 
 def test_get_run_returns_none_for_unknown_id():
-    event = SimpleNamespace(kind="BENCHMARK_SUITE_RESULT", payload={"run": {"run_id": "known-id"}}, ts=datetime.now(timezone.utc))
+    event = SimpleNamespace(
+        kind="BENCHMARK_SUITE_RESULT",
+        payload={"run": {"run_id": "known-id"}},
+        ts=datetime.now(timezone.utc),
+    )
     ctx = SimpleNamespace(session=SimpleNamespace(), event_repo=DummyEventRepo([event]))
     collector = BenchmarkCollector(ctx)
 

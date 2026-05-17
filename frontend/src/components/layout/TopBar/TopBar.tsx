@@ -153,14 +153,14 @@ export function TopBar({
   const router = useRouter();
   const { data: session } = useSession();
 
-  const goAdmin = (tab?: string) => {
+  const goControl = (tab?: string) => {
     const t = (tab ?? "").trim();
-    if (t === "admin") {
-      router.push("/dashboard/admin");
+    if (t === "control" || t === "admin") {
+      router.push("/dashboard/control-plane");
       return;
     }
-    if (t === "alerts") {
-      router.push("/dashboard/admin/alerts");
+    if (t === "incidents" || t === "alerts") {
+      router.push("/dashboard/control-plane?section=incidents");
       return;
     }
     router.push(
@@ -558,7 +558,7 @@ export function TopBar({
                 onClose={() => setOpenUser(false)}
               >
                 <UserDropdownContent
-                  goAdmin={goAdmin}
+                  goControl={goControl}
                   onClose={() => setOpenUser(false)}
                 />
               </Dropdown>

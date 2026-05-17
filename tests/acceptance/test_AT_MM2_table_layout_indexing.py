@@ -44,7 +44,9 @@ class _StorageFileRepo:
     def __init__(self, rows):
         self.rows = rows
 
-    def list_files(self, session, graph_id, status, query, limit, offset, include_delete_requested):
+    def list_files(
+        self, session, graph_id, status, query, limit, offset, include_delete_requested
+    ):
         items = self.rows[offset : offset + limit]
         return items, len(self.rows)
 
@@ -87,7 +89,9 @@ def test_multimodal_backfill_persists_sidecar():
             tenant_id=tenant_id,
             graph_id=graph_id,
             raw_repo=_RawRepo(),
-            storage_file_repo=_StorageFileRepo([_StorageFileRow("raw-1", "invoice.pdf")]),
+            storage_file_repo=_StorageFileRepo(
+                [_StorageFileRow("raw-1", "invoice.pdf")]
+            ),
             raw_store=_RawStore({"raw-1": b"fake-pdf"}),
             node_repo=NodeRepo(session=session, tenant_id=tenant_id),
             gv_repo=GraphVersionRepo(session=session, tenant_id=tenant_id),
@@ -101,4 +105,3 @@ def test_multimodal_backfill_persists_sidecar():
         assert row.image_phash
     finally:
         session.close()
-

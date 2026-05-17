@@ -75,84 +75,40 @@ const API_ENDPOINTS = [
 
 const FEATURES = [
   {
-    title: "Node Inspector",
+    title: "Neural Pulse Trace",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-        />
+      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
       </svg>
     ),
-    description:
-      "Click any node to see: kind (atom/macro), level, residual, vector hash, touch count, inheritance edges in/out, creation date.",
+    description: "Real-time visual pulses trace reasoning paths during Cortex queries. See exactly how the 1M+ Semantic Registry connects your knowledge atoms.",
   },
   {
-    title: "Relation Explorer",
+    title: "GPU Stability Hardening",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
-        />
+      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
       </svg>
     ),
-    description:
-      "Pin two nodes and find all paths between them. See hop count, edge kinds traversed, and a natural language explanation of the relationship.",
+    description: "Zero-leak WebGL rendering with a static asset registry. Engineered for production stability across large-scale 3D cognitive constellations.",
+  },
+  {
+    title: "Elastic Persistence",
+    icon: (
+      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+      </svg>
+    ),
+    description: "100% native force-directed elasticity. Stretch and pull atoms with zero lag while the Gravitational Anchor keeps the globe tightly grouped.",
   },
   {
     title: "Event Timeline",
     icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
-        />
+      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
-    description:
-      "Scrub through the graph's history: ingests, merges, prunes, inventions, diagnostics snapshots \u2014 every mutation recorded in the event journal.",
-  },
-  {
-    title: "Live Controls",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        className="w-5 h-5"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"
-        />
-      </svg>
-    ),
-    description:
-      "Zoom, pan, fit graph, center on node, lock/unlock physics simulation, toggle legend, show/hide edge kinds. Full camera control.",
+    description: "Scrub through the graph's history: ingests, merges, prunes, and inventions. Every mutation recorded with SHA-256 integrity.",
   },
 ];
 

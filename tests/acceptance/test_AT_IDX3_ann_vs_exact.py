@@ -24,4 +24,3 @@ def test_ann_matches_exact_order():
     exact = exact_top_k(points, query, 2)
     got = search_vptree(root, query, 2)
     assert got == exact
-

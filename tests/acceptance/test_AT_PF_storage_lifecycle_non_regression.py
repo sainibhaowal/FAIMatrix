@@ -35,7 +35,9 @@ def test_storage_full_lifecycle_upload_to_delete_and_retention_dry_run(monkeypat
     ]
     form = {"graph_id": graph_id, "profile": "strict", "persist_mode": "relaxed"}
 
-    upload = client.post("/api/v1/storage/uploads", headers=headers, data=form, files=files)
+    upload = client.post(
+        "/api/v1/storage/uploads", headers=headers, data=form, files=files
+    )
     assert upload.status_code == 200
     upload_body = upload.json()
     assert upload_body["requested_files"] == 1
@@ -135,7 +137,9 @@ def test_storage_retry_is_idempotent_for_failed_only(monkeypatch):
     session = repos["session"]
     try:
         payload = b"phase-f retry payload"
-        raw_ref = repos["raw_store"].store(payload, mime_type="text/plain", graph_id=graph_id)
+        raw_ref = repos["raw_store"].store(
+            payload, mime_type="text/plain", graph_id=graph_id
+        )
         saved = repos["raw_repo"].create(session, raw_ref)
         repos["storage_file_repo"].upsert_upload(
             session,

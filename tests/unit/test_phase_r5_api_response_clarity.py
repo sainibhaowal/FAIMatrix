@@ -176,7 +176,9 @@ def test_r5_evolution_complete_payload_includes_mode_context(monkeypatch):
     gv_repo = _DummyGraphVersionRepo()
 
     monkeypatch.setattr(evolution_native, "should_merge", lambda score, threshold: True)
-    monkeypatch.setattr(evolution_native, "can_prune", lambda node, max_sim, policy: False)
+    monkeypatch.setattr(
+        evolution_native, "can_prune", lambda node, max_sim, policy: False
+    )
     monkeypatch.setattr(
         evolution_native,
         "merge_vectors",
@@ -241,7 +243,9 @@ def test_r5_evolution_complete_payload_includes_mode_context(monkeypatch):
         ),
     ],
 )
-def test_r5_metrics_scorecard_accepts_flat_payload(payload: dict[str, Any], expected_hash: str):
+def test_r5_metrics_scorecard_accepts_flat_payload(
+    payload: dict[str, Any], expected_hash: str
+):
     from api.routers.metrics import get_scorecard
 
     ctx = _scorecard_ctx_with_payload(payload)

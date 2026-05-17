@@ -7,9 +7,7 @@ import tempfile
 from datetime import datetime, timezone
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -111,11 +109,7 @@ def _seed_graph(tenant_id: str, graph_id: str) -> tuple[str, str, str]:
         )
 
         # Ensure graph_version row exists.
-        existing = (
-            session.query(GraphVersionModel)
-            .filter_by(graph_id=graph_id)
-            .first()
-        )
+        existing = session.query(GraphVersionModel).filter_by(graph_id=graph_id).first()
         if not existing:
             session.add(
                 GraphVersionModel(
@@ -233,8 +227,16 @@ def test_neighborhood_returns_contract_shape(monkeypatch):
     assert resp.status_code == 200
     body = resp.json()
 
-    for key in ("snapshot", "seed_node_id", "depth_requested", "depth_effective",
-                 "nodes", "edges", "distances", "truncated"):
+    for key in (
+        "snapshot",
+        "seed_node_id",
+        "depth_requested",
+        "depth_effective",
+        "nodes",
+        "edges",
+        "distances",
+        "truncated",
+    ):
         assert key in body, f"missing key: {key}"
 
     assert body["seed_node_id"] == node_a
@@ -259,7 +261,14 @@ def test_explain_returns_contract_shape(monkeypatch):
     assert resp.status_code == 200
     body = resp.json()
 
-    for key in ("snapshot", "from_node_id", "to_node_id", "path_found", "paths", "explanation"):
+    for key in (
+        "snapshot",
+        "from_node_id",
+        "to_node_id",
+        "path_found",
+        "paths",
+        "explanation",
+    ):
         assert key in body, f"missing key: {key}"
 
     assert body["path_found"] is True
@@ -285,17 +294,31 @@ def test_explain_no_path_response(monkeypatch):
         for uid, vh in ((x_id, "x" * 64), (y_id, "y" * 64)):
             session.add(
                 NodeModel(
-                    node_id=uid, tenant_id=tenant_id, graph_id=graph_id,
-                    kind="atom", vector_hash=vh, raw_id=None, block_id=None,
-                    anchor_json=None, v_native=[0.0] * 256, opp_signature=None,
-                    residual=0, level=0, touch_count=0, last_access=None,
-                    created_at=now, updated_at=now,
+                    node_id=uid,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    kind="atom",
+                    vector_hash=vh,
+                    raw_id=None,
+                    block_id=None,
+                    anchor_json=None,
+                    v_native=[0.0] * 256,
+                    opp_signature=None,
+                    residual=0,
+                    level=0,
+                    touch_count=0,
+                    last_access=None,
+                    created_at=now,
+                    updated_at=now,
                 )
             )
         session.add(
             GraphVersionModel(
-                tenant_id=tenant_id, graph_id=graph_id, version=1,
-                reason="test", updated_at=now,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                version=1,
+                reason="test",
+                updated_at=now,
             )
         )
         session.commit()

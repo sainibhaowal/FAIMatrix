@@ -8,7 +8,9 @@ from faim_native.core.query.proposition_extractor import extract_propositions
 
 def test_evidence_span_scores_matching_doc_higher():
     query = extract_propositions("Atlas lives in Berlin in 2026")
-    doc_match = extract_propositions("Atlas resides in Berlin in 2026 and revenue grows")
+    doc_match = extract_propositions(
+        "Atlas resides in Berlin in 2026 and revenue grows"
+    )
     doc_other = extract_propositions("Warehouse inventory changed yesterday")
 
     score_match, comp_match = compute_evidence_span_score(query, doc_match)

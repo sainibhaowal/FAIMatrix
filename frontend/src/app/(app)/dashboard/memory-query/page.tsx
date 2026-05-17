@@ -6,12 +6,10 @@ import { GlassHeader } from "@/components/layout/GlassHeader";
 import { ChatInterface } from "@/components/memoryquery/ChatInterface";
 import { ChatComposer } from "@/components/memoryquery/ChatComposer";
 import { HistoryPanel } from "@/components/memoryquery/HistoryPanel";
-import { ChatProvider } from "@/contexts/ChatContext";
 
 export default function MemoryQueryPage() {
   return (
-    <ChatProvider>
-      <div className="flex h-full text-slate-100 overflow-hidden bg-[var(--os-bg)]">
+    <div className="flex h-full text-slate-100 overflow-hidden bg-[var(--os-bg)]">
         {/*
             Main Command Space
             - Navigation is the global sidebar
@@ -44,6 +42,5 @@ export default function MemoryQueryPage() {
           </div>
         </div>
       </div>
-    </ChatProvider>
   );
 }

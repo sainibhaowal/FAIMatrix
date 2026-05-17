@@ -50,8 +50,6 @@ def session_factory() -> Generator[SessionFactory, None, None]:
     """Create a SessionFactory. Defaults to Postgres if URL is in environment, else SQLite."""
     import os
 
-    from store.pg.models_faim import drop_all_tables
-
     # Use environment variable for native testing (e.g. PostgreSQL)
     # Default to in-memory SQLite for legacy unit tests if URL not provided
     url = (
@@ -69,6 +67,7 @@ def session_factory() -> Generator[SessionFactory, None, None]:
     if factory.engine.dialect.name in ("postgresql", "sqlite"):
         try:
             from store.pg.models_faim import Base
+
             with factory.engine.begin() as conn:
                 for table in reversed(Base.metadata.sorted_tables):
                     conn.execute(table.delete())

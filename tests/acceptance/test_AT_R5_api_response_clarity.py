@@ -117,7 +117,9 @@ def test_r5_storage_upload_batch_and_status_include_mode_fields(monkeypatch):
 
     form = {"graph_id": graph_id, "profile": "fast", "persist_mode": "relaxed"}
     files = [("files", ("r5-storage.txt", b"r5 storage payload", "text/plain"))]
-    upload = client.post("/api/v1/storage/uploads", headers=headers, data=form, files=files)
+    upload = client.post(
+        "/api/v1/storage/uploads", headers=headers, data=form, files=files
+    )
     assert upload.status_code == 200, upload.text
     body = upload.json()
 

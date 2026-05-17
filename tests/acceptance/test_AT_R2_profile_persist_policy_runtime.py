@@ -35,7 +35,9 @@ def test_r2_evolve_emits_requested_and_effective_modes(monkeypatch):
 
     captured: list[tuple[str, dict]] = []
 
-    def _capture(event_type, _graph_id, payload, event_repo=None, session=None):  # noqa: ARG001
+    def _capture(
+        event_type, _graph_id, payload, event_repo=None, session=None
+    ):  # noqa: ARG001
         captured.append((event_type, payload))
 
     monkeypatch.setattr(evolve_flow, "_emit_event", _capture)
@@ -65,7 +67,9 @@ def test_r2_evolve_reports_compat_mode_off(monkeypatch):
 
     captured: list[tuple[str, dict]] = []
 
-    def _capture(event_type, _graph_id, payload, event_repo=None, session=None):  # noqa: ARG001
+    def _capture(
+        event_type, _graph_id, payload, event_repo=None, session=None
+    ):  # noqa: ARG001
         captured.append((event_type, payload))
 
     monkeypatch.setattr(evolve_flow, "_emit_event", _capture)

@@ -41,7 +41,17 @@ import {
   fetchGraphSurface,
 } from "@/lib/figViewApi";
 import { buildAdjacency, buildNodeIndex } from "@/lib/figViewGraphTransform";
-import type { LayoutMode, OverlayMode } from "@/lib/figViewLayout";
+import type { LayoutMode } from "@/lib/figViewLayout";
+
+// Extended overlay mode with neural constellation support
+type OverlayMode =
+  | "none"
+  | "retrieval"
+  | "evolution"
+  | "temporal"
+  | "causality"
+  | "cognitive";
+
 import {
   clearStaleGraphState,
   loadGraphViewState,
@@ -49,6 +59,7 @@ import {
   persistGraphViewState,
   safeNodeTitle,
 } from "@/lib/figViewSafety";
+import { useChat } from "@/contexts/ChatContext";
 import {
   createInitialTimelineSyncState,
   deriveTimelineSyncStatus,
@@ -295,6 +306,7 @@ type TopMode = "explore" | "analyze" | "lineage";
 export default function FigViewPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
+  const { activeReasoningPath: chatReasoningPath } = useChat();
 
   const [graphId, setGraphId] = useState<string>("");
   const [state, setState] = useState<FigLoadState>({ status: "idle" });
@@ -418,6 +430,9 @@ export default function FigViewPage() {
       edgeIdSet: new Set(firstPath.edges.map((e) => e.edge_id)),
     };
   }, [explainResult]);
+
+  // Combined explain path: priority to explicit FIG explain, fallback to Chat reasoning
+  const finalExplainPath = explainPath || chatReasoningPath;
 
   // Derive historyTs from current timeline step for graph-at-time visualization.
   // Null when not in step mode; canvas filters nodes/edges to created_at <= ts.
@@ -902,7 +917,7 @@ export default function FigViewPage() {
           hiddenNodeKinds={hiddenNodeKinds}
           hiddenEdgeKinds={hiddenEdgeKinds}
           overlayMode={overlayMode}
-          explainPath={explainPath}
+          explainPath={finalExplainPath}
           historyTs={historyTs}
           onNodeSelect={handleNodeSelect}
           onNodeHover={handleNodeHover}
@@ -1239,6 +1254,7 @@ export default function FigViewPage() {
               return next;
             })
           }
+          overlayMode={overlayMode}
         />
       </FloatingDrawer>
 

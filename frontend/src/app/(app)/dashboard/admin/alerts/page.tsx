@@ -1,7 +1,5 @@
-"use client";
-
-import { AdminControlPlane } from "@/components/admin/AdminControlPlane";
+import { redirect } from "next/navigation";
 
 export default function AdminAlertsPage() {
-  return <AdminControlPlane view="alerts" />;
+  redirect("/dashboard/control-plane?section=incidents");
 }

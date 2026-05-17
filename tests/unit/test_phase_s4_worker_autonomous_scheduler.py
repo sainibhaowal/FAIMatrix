@@ -5,14 +5,13 @@ from __future__ import annotations
 import time
 from datetime import datetime, timezone
 
-from sqlalchemy import and_, create_engine
-from sqlalchemy.orm import sessionmaker
-
 from orchestration.jobs.worker import Worker
 from orchestration.self_evolve_scheduler import (
     SelfEvolveScanSummary,
     scan_and_enqueue_due_self_evolve_jobs,
 )
+from sqlalchemy import and_, create_engine
+from sqlalchemy.orm import sessionmaker
 from store.pg.models_faim import JobModel, create_all_tables
 from store.pg.repos.graph_version_repo import GraphVersionRepo
 

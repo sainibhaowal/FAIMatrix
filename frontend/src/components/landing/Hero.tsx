@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRef } from "react";
 
 const HERO_STATS = [
+  { value: "1M+", unit: "", label: "Semantic Concepts" },
   { value: "256", unit: "dim", label: "Deterministic Vectors" },
   { value: "Hybrid", unit: "", label: "Retrieval Stack" },
-  { value: "EN/DE", unit: "", label: "Cross-Lingual Support" },
   { value: "SHA-256", unit: "", label: "Cryptographic Lineage" },
 ];
 
@@ -99,10 +99,10 @@ export default function Hero() {
           transition={{ duration: 0.7, delay: 0.15 }}
           className="mt-4 sm:mt-8 text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-[1.05] tracking-tight"
         >
-          Memory That Thinks
+          Deterministic Intelligence
           <br />
           <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 bg-clip-text text-transparent">
-            With Pure Math
+            Built on Pure Math
           </span>
         </motion.h2>
 
@@ -112,11 +112,9 @@ export default function Hero() {
           transition={{ duration: 0.7, delay: 0.3 }}
           className="mt-4 sm:mt-6 text-base md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed"
         >
-          FAIMATRIX is a deterministic memory, retrieval, and answer engine. It
-          combines native 256-dimensional vectors, sparse lexical sidecars,
-          graph diffusion, proposition-aware reranking, FAIM Cortex prose
-          synthesis, and domain knowledge without giving up FAIM&apos;s core
-          invariants.
+          FAIMATRIX is a structured knowledge engine powered by a 1M+ Semantic Registry. 
+          It combines 256-dim deterministic vectors with memory writeback proposals, 
+          graph diffusion, and zero-hallucination Cortex synthesis.
         </motion.p>
 
         <motion.div
@@ -199,21 +197,18 @@ export default function Hero() {
         >
           <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">
             <p className="text-[10px] font-medium uppercase tracking-widest text-cyan-300/80">
-              FAIM Cortex
+              1M+ Semantic Registry
             </p>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-              Ask questions in Direct, Timeline, Contradiction, or Provenance
-              mode, get cited prose answers, and inspect the memory trace.
+              Zero-latency classification powered by a professional dictionary of 1M+ concepts. No ML black-boxes, just deterministic intelligence.
             </p>
           </div>
           <div className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">
             <p className="text-[10px] font-medium uppercase tracking-widest text-purple-300/80">
-              Storage Control
+              Proposals Only Safety
             </p>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-              Upload PDFs, DOCX, PPTX, XLSX, images and more. FAIM Native
-              extractor handles multi-column layouts, tables, and scanned pages
-              out of the box — zero ML dependencies.
+              Cortex never writes to memory automatically. Every structural update is a proposal you review and approve in the FIG View.
             </p>
           </div>
         </motion.div>

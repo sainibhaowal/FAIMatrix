@@ -35,19 +35,19 @@ export type LayoutConfig = {
 const LAYOUT_CONFIGS: Record<LayoutMode, LayoutConfig> = {
   explore: {
     dagMode: null,
-    chargeStrength: -120,
-    linkDistance: 50,
+    chargeStrength: -40,
+    linkDistance: 30,
     d3AlphaDecay: 0.0228,
-    d3VelocityDecay: 0.4,
-    centerStrength: 0.05,
+    d3VelocityDecay: 0.3,
+    centerStrength: 0.5,
   },
   analyze: {
     dagMode: null,
-    chargeStrength: -200,
-    linkDistance: 80,
+    chargeStrength: -100,
+    linkDistance: 50,
     d3AlphaDecay: 0.01,
-    d3VelocityDecay: 0.3,
-    centerStrength: 0.03,
+    d3VelocityDecay: 0.25,
+    centerStrength: 0.3,
   },
   lineage: {
     dagMode: "td",
@@ -71,6 +71,7 @@ export function applyLayout(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   fgRef: { current: any },
   config: LayoutConfig,
+  prevConfig?: LayoutConfig,
 ): void {
   const fg = fgRef.current;
   if (!fg) return;
@@ -88,6 +89,34 @@ export function applyLayout(
   const center = fg.d3Force("center");
   if (center && typeof center.strength === "function") {
     center.strength(config.centerStrength);
+  }
+
+  const data = fg.graphData();
+  if (data && data.nodes) {
+    const isDag = config.dagMode !== null;
+    // Clear all fixed positions to allow 3D physics to take over
+    data.nodes.forEach((n: any) => {
+      n.fx = null;
+      n.fy = null;
+      n.fz = null;
+
+      // When switching TO organic 3D modes (Explore/Analyze), 
+      // explode nodes into a 3D sphere to prevent 'disk' look.
+      if (!isDag) {
+        // Tighter spherical distribution for a compact globe
+        const phi = Math.acos(-1 + Math.random() * 2);
+        const theta = Math.random() * 2 * Math.PI;
+        const r = 100 + Math.random() * 50; 
+        n.x = r * Math.sin(phi) * Math.cos(theta);
+        n.y = r * Math.sin(phi) * Math.sin(theta);
+        n.z = r * Math.cos(phi);
+        
+        // Subtler velocity to trigger simulation without explosion
+        n.vx = (Math.random() - 0.5) * 2;
+        n.vy = (Math.random() - 0.5) * 2;
+        n.vz = (Math.random() - 0.5) * 2;
+      }
+    });
   }
 
   fg.d3ReheatSimulation();

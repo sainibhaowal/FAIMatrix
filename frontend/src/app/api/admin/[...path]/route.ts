@@ -27,7 +27,11 @@ function isReadOnlyAdminPath(pathSegments: string[]): boolean {
 }
 
 function mintAccessToken(session: {
-  user?: { id?: string | null; email?: string | null; name?: string | null } | null;
+  user?: {
+    id?: string | null;
+    email?: string | null;
+    name?: string | null;
+  } | null;
   graphId?: string | null;
 }): string | null {
   const secret = process.env.NEXTAUTH_SECRET;
@@ -118,7 +122,8 @@ async function handleProxy(
     status: upstream.status,
     headers: {
       "content-type":
-        upstream.headers.get("content-type") || "application/json; charset=utf-8",
+        upstream.headers.get("content-type") ||
+        "application/json; charset=utf-8",
     },
   });
 }

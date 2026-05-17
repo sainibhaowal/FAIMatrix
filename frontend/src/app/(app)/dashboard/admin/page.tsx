@@ -1,7 +1,5 @@
-"use client";
-
-import { AdminControlPlane } from "@/components/admin/AdminControlPlane";
+import { redirect } from "next/navigation";
 
 export default function AdminPage() {
-  return <AdminControlPlane view="overview" />;
+  redirect("/dashboard/control-plane");
 }
