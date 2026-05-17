@@ -2554,7 +2554,7 @@ function SectionCanonicalSemantics() {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-3 gap-4">
         <Card title="Porter Stemmer & Lemmatization" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
             Every text node is normalized by reducing terms to their base roots via a deterministic, rule-based Porter Stemmer. This eliminates the need to run costly learned lemmatization engines on every search loop.
@@ -2565,6 +2565,11 @@ function SectionCanonicalSemantics() {
             Acronyms (like "ROI" or "CAGR") are expanded deterministically during text tokenization, matching their canonical form and ensuring exact search coverage.
           </p>
         </Card>
+        <Card title="O(1) Stop Word Filtering" color="amber">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            High-frequency, low-semantic-value words (e.g., "the", "is") are aggressively stripped out using a compiled <code>frozenset</code> dictionary before intent matching, preventing vector space dilution.
+          </p>
+        </Card>
       </div>
 
       <Card title="Distributional Synonyms & ConceptNet" color="amber">
@@ -2573,6 +2578,41 @@ function SectionCanonicalSemantics() {
         </p>
         <Code>{`PMI(w_1, w_2) = log_2 ( P(w_1, w_2) / (P(w_1) * P(w_2)) )
 synonym_edge = PMI >= tau_pmi AND jaccard >= tau_jaccard`}</Code>
+      </Card>
+
+      <Card title="ConceptNet 8M+ vs. 1M+ Semantic Registry" color="indigo">
+        <p className="text-sm text-slate-400 leading-relaxed mb-4">
+          FAIM splits linguistic broadening and intent routing into two distinct high-performance layers.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs text-slate-400 border-collapse">
+            <thead>
+              <tr className="border-b border-slate-800 text-slate-300 font-mono">
+                <th className="py-2 px-3">Feature</th>
+                <th className="py-2 px-3">Size</th>
+                <th className="py-2 px-3">Purpose</th>
+                <th className="py-2 px-3">Execution</th>
+                <th className="py-2 px-3">Example</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800/40">
+              <tr>
+                <td className="py-2 px-3 font-bold text-white">ConceptNet Lexicon</td>
+                <td className="py-2 px-3 text-cyan-400 font-mono">2.1M+ words</td>
+                <td className="py-2 px-3">Global Lexical Flexibility</td>
+                <td className="py-2 px-3">Pre-Processing</td>
+                <td className="py-2 px-3 italic">"residing" → ["dwelling", "living"]</td>
+              </tr>
+              <tr>
+                <td className="py-2 px-3 font-bold text-white">1M+ Registry</td>
+                <td className="py-2 px-3 text-purple-400 font-mono">1.02M concepts</td>
+                <td className="py-2 px-3">Cognitive Routing</td>
+                <td className="py-2 px-3">Intent Classification</td>
+                <td className="py-2 px-3 italic">"Why did it crash?" → CAUSALITY</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </Card>
     </div>
   );
