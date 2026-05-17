@@ -30,6 +30,19 @@ const NAV_GROUPS = [
     ],
   },
   {
+    group: "Advanced ADI Layers",
+    items: [
+      { id: "canonical-semantics", label: "Canonical Semantics (P2)" },
+      { id: "graph-diffusion", label: "Graph Diffusion (P3)" },
+      { id: "reranker-v2", label: "Deterministic Reranker V2 (P4)" },
+      { id: "scale-ann", label: "Scale & ANN (P5)" },
+      { id: "multilingual", label: "Multilingual Bridges (P6)" },
+      { id: "multimodal-no-ml", label: "Multimodal without ML (P7)" },
+      { id: "domain-adaptation", label: "Domain Adaptation (P8)" },
+      { id: "answer-synthesis", label: "Extractive Synthesis (P9)" },
+    ],
+  },
+  {
     group: "Document & Extraction",
     items: [
       { id: "document-intel", label: "Document Intelligence" },
@@ -2436,6 +2449,287 @@ function SectionRoadmap() {
   );
 }
 
+function SectionCanonicalSemantics() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Canonical Semantics Pipeline (P2)</h2>
+        <p className="text-slate-400 leading-relaxed">
+          FAIM matches concepts using deterministic lemmatization and Broadeners instead of relying on stochastic learned semantics models.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Porter Stemmer & Lemmatization" color="cyan">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Every text node is normalized by reducing terms to their base roots via a deterministic, rule-based Porter Stemmer. This eliminates the need to run costly learned lemmatization engines on every search loop.
+          </p>
+        </Card>
+        <Card title="Acronym Expansion Registry" color="purple">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Acronyms (like "ROI" or "CAGR") are expanded deterministically during text tokenization, matching their canonical form and ensuring exact search coverage.
+          </p>
+        </Card>
+      </div>
+
+      <Card title="Distributional Synonyms & ConceptNet" color="amber">
+        <p className="text-sm text-slate-400 leading-relaxed mb-4">
+          Unsupervised synonyms are mined using Jaccard and PMI co-occurrence calculations from the active corpus. Broad semantic associations are linked using the local 8M+ ConceptNet semantic registry.
+        </p>
+        <Code>{`PMI(w_1, w_2) = log_2 ( P(w_1, w_2) / (P(w_1) * P(w_2)) )
+synonym_edge = PMI >= tau_pmi AND jaccard >= tau_jaccard`}</Code>
+      </Card>
+    </div>
+  );
+}
+
+function SectionGraphDiffusion() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Graph Semantics and Diffusion (P3)</h2>
+        <p className="text-slate-400 leading-relaxed">
+          FAIM traverses active query paths using bounded multi-hop walks and deterministic diffusion equations to reward localized neighborhood coherence.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Decaying Path Score" color="indigo">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Score weights decay geometrically with each traversal hop, ensuring that localized neighborhood connections are rewarded over distant semantic jumps.
+          </p>
+        </Card>
+        <Card title="Temporal Opposition Suppression" color="red">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Chronological conflicts and contradictory properties are flagged during path traversal, suppressing the older candidate before re-ranking.
+          </p>
+        </Card>
+      </div>
+
+      <Card title="PageRank style Bounded Diffusion" color="purple">
+        <p className="text-sm text-slate-400 leading-relaxed mb-4">
+          Scores diffuse outward from seed nodes using a deterministic, PageRank-style matrix propagation across the active adjacency graph.
+        </p>
+        <Code>{`y^(k+1) = (1 - alpha) * y_seed + alpha * P^T * y^(k)
+hops_max = 24, convergence_threshold = 0.05`}</Code>
+      </Card>
+    </div>
+  );
+}
+
+function SectionRerankerV2() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Deterministic Reranker V2 (P4)</h2>
+        <p className="text-slate-400 leading-relaxed">
+          Fuses sparse, dense, and graph components into a single multi-signal score to achieve extreme precision without learned cross-encoders.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Multi-Signal Score Blend" color="cyan">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Combines lexical term frequencies, graph path scores, matching entities, chronological times, and evidence density.
+          </p>
+        </Card>
+        <Card title="Pairwise Dominance Suppression" color="emerald">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            If two nodes assert contradicting values for the same entity and relation, the younger node suppresses the older candidate pairwise.
+          </p>
+        </Card>
+      </div>
+
+      <Card title="The V2 Reranker Equation" color="purple">
+        <p className="text-sm text-slate-400 leading-relaxed mb-4">
+          The final score is synthesized using a deterministic linear combination of structural and temporal components:
+        </p>
+        <Code>{`S_rerank = lexical + graph + entity + time
+           + evidence_span + proposition_match
+           - contradiction_penalty - redundancy_penalty`}</Code>
+      </Card>
+    </div>
+  );
+}
+
+function SectionScaleANN() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Scale and ANN (P5)</h2>
+        <p className="text-slate-400 leading-relaxed">
+          FAIM scales retrieval to millions of nodes using a 4-stage progressive flow, WAND pruning, and deterministic hash levels.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Block-Max WAND Pruning" color="cyan">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Computes a dynamic score upper bound for term blocks, instantly skipping non-matching ranges to deliver sublinear candidate shortlist times.
+          </p>
+        </Card>
+        <Card title="Stable Hash HNSW Levels" color="purple">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Locks in absolute search determinism by assigning HNSW node entry levels using a stable SHA-256 hash of the node's identifier.
+          </p>
+        </Card>
+      </div>
+
+      <Card title="The 4-Stage Progressive Retrieval Flow" color="amber">
+        <div className="space-y-3 text-sm text-slate-400">
+          {[
+            { stage: "Stage 1", desc: "Sparse postings shortlist using Block-Max WAND upper bounds." },
+            { stage: "Stage 2", desc: "Native vector shortlist query using deterministic stable HNSW levels." },
+            { stage: "Stage 3", desc: "Graph expansion and bounded multi-hop neighborhood diffusion." },
+            { stage: "Stage 4", desc: "Deterministic V2 reranking with pairwise dominance suppression." }
+          ].map((s) => (
+            <div key={s.stage}>
+              <p className="text-amber-400 font-mono text-xs">{s.stage}</p>
+              <p className="text-[11px] text-slate-500">{s.desc}</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function SectionMultilingual() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Multilingual & Cross-Lingual Semantics (P6)</h2>
+        <p className="text-slate-400 leading-relaxed">
+          Bridges English and German terms directly onto language-agnostic conceptual nodes using deterministic lexicons.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="German Transliteration" color="cyan">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Unifies spelling differences by standardizing German umlauts deterministically (ä → ae, ö → oe, ü → ue, ß → ss).
+          </p>
+        </Card>
+        <Card title="Light German Stemmer" color="purple">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Stems German roots deterministically to handle inflections and plural variants perfectly without heavy dictionary runtimes.
+          </p>
+        </Card>
+      </div>
+
+      <Card title="Bilingual Concept Node Bridges" color="emerald">
+        <p className="text-sm text-slate-400 leading-relaxed mb-4">
+          German and English surface forms map directly to a unified conceptual ID, resolving cross-lingual query matches in microseconds:
+        </p>
+        <Code>{`surface_form(EN) -> concept_key <- surface_form(DE)
+"sales" -> Concept: revenue <- "umsatz"`}</Code>
+      </Card>
+    </div>
+  );
+}
+
+function SectionMultimodalNoML() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Multimodal Without ML (P7)</h2>
+        <p className="text-slate-400 leading-relaxed">
+          Deterministic support for spreadsheet tables, page layout coordinates, and visual assets without heavy transformer models.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Table Linearization" color="cyan">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Transforms pipe-delimited table rows into standardized, semicolon-delimited grids row-by-row, keeping cells grouped for keyword proximity queries.
+          </p>
+        </Card>
+        <Card title="Image Perceptual Hash (pHash)" color="purple">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Generates a stable 16-character fingerprint proxy based on SHA-256 to identify exact or near-duplicate visual assets instantly.
+          </p>
+        </Card>
+      </div>
+
+      <Card title="Layout Coordinates & Metadata" color="amber">
+        <p className="text-sm text-slate-400 leading-relaxed mb-4">
+          Saves and indexes physical layout boundaries (page numbers, slides, sections, block types) as easily queryable search tokens.
+        </p>
+        <Code>{`layout_token = "page:{nr}" | "slide:{nr}" | "section:{header}" | "block_type:{type}"`}</Code>
+      </Card>
+    </div>
+  );
+}
+
+function SectionDomainAdaptation() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Long-Tail Knowledge & Domain Adaptation (P8)</h2>
+        <p className="text-slate-400 leading-relaxed">
+          Solves specialized domain jargon by ingesting curated corporate KB dumps and executing algebraic neighborhood walks.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Deterministic Entity Linking" color="cyan">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Substring-matches input query words against the localized graph lexicon, resolving them directly to specific target seed node UUIDs.
+          </p>
+        </Card>
+        <Card title="Multi-Relational Graph Walks" color="purple">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Starting at seed nodes, the engine executes neighborhood walks across adjacent entity relationships, fact values, and source citations.
+          </p>
+        </Card>
+      </div>
+
+      <Card title="Knowledge Base Edge-Scaling Multipliers" color="indigo">
+        <p className="text-sm text-slate-400 leading-relaxed mb-4">
+          Adjacent activated nodes receive relevance boosts scaled by normalized edge weights and connecting multipliers:
+        </p>
+        <Code>{`W(e) = clamp( weight_db / 10^9 )
+S_fact_support = max( S_fact_support, Multiplier * W(e) )
+(Multipliers: entity_relation = 0.65, fact_value = 0.55, domain_term = 0.50)`}</Code>
+      </Card>
+    </div>
+  );
+}
+
+function SectionAnswerSynthesis() {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Extractive Answer Synthesis (P9)</h2>
+        <p className="text-slate-400 leading-relaxed">
+          Composes 100% auditable, citation-first extractive prose and exact confidence intervals without generative LLM drift.
+        </p>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        <Card title="Extractive Span Selector" color="cyan">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Splits text candidates into sentences and scores them based on term overlap, document rank, and temporal active/historical markers.
+          </p>
+        </Card>
+        <Card title="Contradiction Warnings" color="red">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Automatically flags value conflicts asserting different figures for the same entity and relation in top retrieval candidates.
+          </p>
+        </Card>
+      </div>
+
+      <Card title="Evidence Confidence Interval Equation" color="purple">
+        <p className="text-sm text-slate-400 leading-relaxed mb-4">
+          Computes a mathematically sound confidence index $[0, 1]$ based on evidence breadth, active span ratio, and contradiction penalties:
+        </p>
+        <Code>{`S_confidence = clamp( 0.45 * S_avg_span + 0.30 * S_breadth + 0.25 * S_active - S_penalty )
+S_breadth = min( 1.0, unique_docs / 3.0 ), S_penalty = min( 0.5, 0.15 * conflicts )`}</Code>
+      </Card>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Section renderer
 // ---------------------------------------------------------------------------
@@ -2450,6 +2744,14 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   retrieval: SectionRetrieval,
   cortex: SectionCortex,
   "cortex-runtime": SectionCortexRuntime,
+  "canonical-semantics": SectionCanonicalSemantics,
+  "graph-diffusion": SectionGraphDiffusion,
+  "reranker-v2": SectionRerankerV2,
+  "scale-ann": SectionScaleANN,
+  "multilingual": SectionMultilingual,
+  "multimodal-no-ml": SectionMultimodalNoML,
+  "domain-adaptation": SectionDomainAdaptation,
+  "answer-synthesis": SectionAnswerSynthesis,
   "document-intel": SectionDocIntel,
   ingestion: SectionIngestion,
   "fig-view": SectionFigView,
