@@ -1296,13 +1296,15 @@ function SectionFigView() {
           </div>
         </Card>
 
-        <Card title="Canvas — Color Modes" color="purple">
+        <Card title="Canvas — 6 Cognitive Overlays" color="purple">
           <div className="space-y-3 text-sm text-slate-400">
             {[
-              { mode: "By state", desc: "Colors nodes by memory state (hot/warm/cold)." },
-              { mode: "By frequency", desc: "Brighter = more touch_count (retrieved more often)." },
-              { mode: "By temporal order", desc: "Spectrum from oldest to newest." },
-              { mode: "By lineage depth", desc: "Darker = deeper ancestry (more parent hops)." },
+              { mode: "None", desc: "Standard physical 3D graph structure." },
+              { mode: "Cognitive", desc: "Colors nodes by their 1M+ Semantic Registry classification (Logic, Evidence, contradiction)." },
+              { mode: "Retrieval", desc: "Highlights nodes currently being read into the active MemoryRefSet." },
+              { mode: "Evolution", desc: "Visualizes nodes that have changed or evolved over time (State Delta)." },
+              { mode: "Temporal", desc: "Spectrum from oldest to newest based on the createdAt timestamp." },
+              { mode: "Causality", desc: "Highlights targeted CAUSES, BLOCKS, and ENABLES relational edges." },
             ].map((m) => (
               <div key={m.mode}>
                 <p className="text-purple-400 font-mono text-xs">{m.mode}</p>
