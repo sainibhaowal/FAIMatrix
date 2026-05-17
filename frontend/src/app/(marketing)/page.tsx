@@ -53,6 +53,7 @@ import {
   FAQ,
   CTA,
   MaximumIntelligence,
+  AdvancedADIPipeline,
 } from "@/components";
 import Link from "next/link";
 
@@ -87,6 +88,9 @@ export default function LandingPage() {
       </div>
       <div id="comparison">
         <RAGComparison />
+      </div>
+      <div id="adi-pipeline">
+        <AdvancedADIPipeline />
       </div>
       <div id="pillars">
         <EnterprisePillars />
