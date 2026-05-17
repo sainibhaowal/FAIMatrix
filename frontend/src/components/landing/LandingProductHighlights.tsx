@@ -46,7 +46,7 @@ const HIGHLIGHTS = [
   {
     title: "Deep Reasoning",
     tag: "Multi-hop Inference",
-    text: "Follows chains of evidence across your knowledge graph to answer complex 'why' questions. Traces connections up to 3 hops with confidence decay tracking.",
+    text: "Follows chains of evidence across your knowledge graph to answer complex 'why' questions. Traces connections up to 24 hops with confidence decay tracking.",
   },
   {
     title: "Intelligent Planning",

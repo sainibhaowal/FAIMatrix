@@ -79,7 +79,7 @@ const CAPABILITIES = [
 ];
 
 const METRICS = [
-  { label: "Reasoning Depth", value: "3-hop", suffix: " causal chains" },
+  { label: "Reasoning Depth", value: "24-hop", suffix: " causal chains" },
   { label: "Learning", value: "Continuous", suffix: " from feedback" },
   { label: "Synthesis", value: "Cross-document", suffix: " insights" },
   { label: "Quality", value: "Real-time", suffix: " monitoring" },
