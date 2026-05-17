@@ -1095,6 +1095,59 @@ function SectionRetrieval() {
           ))}
         </div>
       </Card>
+
+      <Card title="IWQE — Inheritance-Weighted Query Expansion" color="indigo">
+        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+          Dynamic query reformulation mechanism that runs on retrieval and rewrites the query vector in 256-dimensional space, blending taxonomic ancestry and semantic neighbors before final scoring.
+        </p>
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-mono text-indigo-400 mb-1.5">Layer A: Taxonomic Inheritance</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Adds contribution vectors from parents scaled by edge weights and parent semantic importance, preserving context ancestry.
+            </p>
+            <div className="mt-3 p-2 rounded-lg bg-slate-950 border border-slate-800 text-[10px] font-mono text-cyan-400">
+              {"q_expanded = q + sum( alpha * fraction * weight * v_parent )"}
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-mono text-indigo-400 mb-1.5">Layer B: Semantic Associations</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Blends semantic neighbors (synonyms, translations, domain terms) using halved blending strength for taxonomic dominance.
+            </p>
+            <div className="mt-3 p-2 rounded-lg bg-slate-950 border border-slate-800 text-[10px] font-mono text-cyan-400">
+              {"q_expanded = q_expanded + sum( alpha_sem * strength * v_neighbor )"}
+            </div>
+          </div>
+        </div>
+        <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 flex items-center justify-between text-xs">
+          <span className="text-slate-500">L2 Re-normalization Lock:</span>
+          <span className="font-mono text-indigo-300">{"q_final = q_expanded / ||q_expanded||_2"}</span>
+        </div>
+      </Card>
+
+      <Card title="TCT — Transitive Contradiction Traversal" color="red">
+        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+          Real-world facts change. TCT resolves conflicts transitivity: if node C inherits from B, and B is in opposition with A, the system detects that C conflicts with A.
+        </p>
+        <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 font-mono text-[10px] text-cyan-400 mb-4 text-center">
+          {"exists a in Ancestors(c_i), b in Ancestors(c_j) s.t. (a, b) in E_opposition"}
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-mono text-red-400 mb-1.5">Soft Suppression (include_historical = true)</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Outdated nodes are retained in final results but annotated with temporal status (HISTORICAL / CURRENT) and superseded lineage links to trace history.
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-mono text-red-400 mb-1.5">Hard Suppression (include_historical = false)</p>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Older, superseded nodes are filtered out entirely from final output, ensuring the RAG pipeline operates on a mathematically clean, current state.
+            </p>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -1246,6 +1299,46 @@ function SectionCortexRuntime() {
               <p className="text-[10px] text-slate-500">Full investigation. Answers "Why" by tracing complex causal chains.</p>
             </div>
           </div>
+        </div>
+      </Card>
+
+      <Card title="Query Life-Cycle & End-to-End Proof" color="amber">
+        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+          FAIM processes every query through a rigorous 5-Phase End-to-End Life-Cycle, moving seamlessly from input auto-classification to visual pulse tracing and human-gated writebacks.
+        </p>
+        <div className="space-y-4">
+          {[
+            {
+              phase: "Phase 1: Input & Auto-Classification",
+              desc: "Query text (e.g., 'Why is the database failing?') is processed by the 1M+ Semantic Registry, resolving intents (e.g., FAIL, DATABASE) and dynamically selecting the perfect cognitive task mode.",
+            },
+            {
+              phase: "Phase 2: 24-Hop Memory Discovery",
+              desc: "The Cortex Engine executes a multi-hop traversal through relevant document, config, and relational nodes. The 3D FIG View displays active path discovery in real-time.",
+            },
+            {
+              phase: "Phase 3: Causal Traceback Proof",
+              desc: "Identifies semantic junctions (e.g., hop 18) where recent changes or properties BLOCKS or ENABLES target states, establishing a verifiable proof of the causal event chain.",
+            },
+            {
+              phase: "Phase 4: Output & Multi-Signal Badges",
+              desc: "Streams citation-first extracted sentences annotated with [INVESTIGATE], [CONTRADICTION], or [PROVENANCE] badges, highlighting specific graph pathways in the FIG overlay.",
+            },
+            {
+              phase: "Phase 5: Writeback Proposals & Human Consolidation",
+              desc: "Detects corrections and generates a structured Writeback Proposal (containing proposed_by, confidence, reasoning_path). The knowledge becomes permanent only after explicit human approval.",
+            },
+          ].map((p, idx) => (
+            <div key={p.phase} className="flex gap-4 p-3 rounded-xl border border-slate-800 bg-slate-950/60">
+              <span className="text-xs font-mono font-bold text-amber-400 shrink-0 w-6 h-6 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                {idx + 1}
+              </span>
+              <div>
+                <p className="text-xs font-bold text-white mb-0.5">{p.phase}</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">{p.desc}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </Card>
     </div>
