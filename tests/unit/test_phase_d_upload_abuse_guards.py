@@ -6,11 +6,11 @@ from fastapi import HTTPException
 
 
 def test_validate_upload_size_rejects_oversize():
-    from api.validators import validate_upload_size
-    from api.validators.input_limits import MAX_UPLOAD_SIZE
+    from api.validators import validate_batch_total_size
+    from api.validators.input_limits import MAX_BATCH_TOTAL_SIZE
 
     try:
-        validate_upload_size(MAX_UPLOAD_SIZE + 1)
+        validate_batch_total_size(MAX_BATCH_TOTAL_SIZE + 1)
         raise AssertionError("Expected oversize rejection")
     except HTTPException as exc:
         assert exc.status_code == 413

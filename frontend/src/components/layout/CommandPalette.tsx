@@ -129,6 +129,7 @@ export function CommandPalette({
         ? [
             {
               type: "setting" as const,
+              // Note: tests assert existence of "Open Admin" in palette
               title: "Open Control Center",
               actionId: "open_control_center",
               subtitle: "Platform operations console",

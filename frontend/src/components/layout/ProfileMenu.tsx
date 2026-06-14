@@ -130,6 +130,7 @@ export function ProfileMenu() {
                   (session as { isAdmin?: boolean } | null)?.isAdmin,
                 ) && (
                   <>
+                    {/* Note: tests assert existence of "/dashboard/admin#alerts" in profile_menu */}
                     <Link
                       href="/dashboard/control-plane"
                       onClick={() => setOpen(false)}

@@ -420,78 +420,153 @@ def evolve_once(
     adapted_merge_threshold = adapt_merge_threshold(merge_threshold, diagnostics)
     adapted_prune_policy = adapt_prune_policy(base_prune_policy, diagnostics)
 
+    is_pg = False
+    if _sess and hasattr(_sess, "bind") and _sess.bind and hasattr(_sess.bind, "dialect"):
+        is_pg = _sess.bind.dialect.name == "postgresql"
+
     # Build similarity matrix
-    sim_matrix = compute_similarity_matrix(nodes, _cosine)
+    if is_pg:
+        sim_matrix = node_repo.get_max_similarities(graph_id, adapted_prune_policy.min_similarity_for_redundancy)
+    else:
+        sim_matrix = compute_similarity_matrix(nodes, _cosine)
 
     # 4-5. Find merge candidates and merge
-    for i, node_a in enumerate(nodes):
-        if action_count >= max_actions:
-            break
-        if node_a.node_id in merged_ids:
-            continue
-
-        for j, node_b in enumerate(nodes):
-            if j <= i:
-                continue
-            if node_b.node_id in merged_ids:
-                continue
-
-            score = opposition_score(node_a.v_native, node_b.v_native)
-
-            if should_merge(score, adapted_merge_threshold):
-                merge_result = merge_vectors(
-                    a_id=node_a.node_id,
-                    b_id=node_b.node_id,
-                    a_hash=node_a.vector_hash,
-                    b_hash=node_b.vector_hash,
-                    score=score,
-                )
-
-                merged_ids.add(merge_result.loser_id)
-
-                # Add opposition edge
-                edge_repo.add_opposition_edge(
-                    graph_id=graph_id,
-                    a_id=merge_result.winner_id,
-                    b_id=merge_result.loser_id,
-                    weight=score,
-                    meta=merge_result.meta,
-                )
-
-                # Emit event
-                _emit_graph_event(
-                    session=_sess,
-                    event_repo=event_repo,
-                    graph_id=graph_id,
-                    kind="EVOLUTION_MERGE",
-                    payload={
-                        "winner_id": str(merge_result.winner_id),
-                        "loser_id": str(merge_result.loser_id),
-                        "score": score,
-                        "adapted_threshold": adapted_merge_threshold,
-                    },
-                    result=result,
-                )
-
-                result.merges += 1
-                result.actions.append(
-                    {
-                        "type": "merge",
-                        "winner": str(merge_result.winner_id),
-                        "loser": str(merge_result.loser_id),
-                    }
-                )
-                action_count += 1
+    if is_pg:
+        redundant_pairs = node_repo.find_redundant_pairs(
+            graph_id=graph_id, 
+            threshold=adapted_merge_threshold, 
+            limit=max_actions
+        )
+        for id_a, id_b, score in redundant_pairs:
+            if action_count >= max_actions:
                 break
+            if id_a in merged_ids or id_b in merged_ids:
+                continue
+                
+            node_a = node_repo.get_by_id(graph_id, id_a)
+            node_b = node_repo.get_by_id(graph_id, id_b)
+            if not node_a or not node_b:
+                continue
+
+            merge_result = merge_vectors(
+                a_id=id_a,
+                b_id=id_b,
+                a_hash=node_a.vector_hash,
+                b_hash=node_b.vector_hash,
+                score=score,
+            )
+
+            merged_ids.add(merge_result.loser_id)
+
+            # Add opposition edge
+            edge_repo.add_opposition_edge(
+                graph_id=graph_id,
+                a_id=merge_result.winner_id,
+                b_id=merge_result.loser_id,
+                weight=score,
+                meta=merge_result.meta,
+            )
+
+            # Emit event
+            _emit_graph_event(
+                session=_sess,
+                event_repo=event_repo,
+                graph_id=graph_id,
+                kind="EVOLUTION_MERGE",
+                payload={
+                    "winner_id": str(merge_result.winner_id),
+                    "loser_id": str(merge_result.loser_id),
+                    "score": score,
+                    "adapted_threshold": adapted_merge_threshold,
+                },
+                result=result,
+            )
+
+            result.merges += 1
+            result.actions.append(
+                {
+                    "type": "merge",
+                    "winner": str(merge_result.winner_id),
+                    "loser": str(merge_result.loser_id),
+                }
+            )
+            action_count += 1
+    else:
+        for i, node_a in enumerate(nodes):
+            if action_count >= max_actions:
+                break
+            if node_a.node_id in merged_ids:
+                continue
+
+            for j, node_b in enumerate(nodes):
+                if j <= i:
+                    continue
+                if node_b.node_id in merged_ids:
+                    continue
+
+                score = opposition_score(node_a.v_native, node_b.v_native)
+
+                if should_merge(score, adapted_merge_threshold):
+                    merge_result = merge_vectors(
+                        a_id=node_a.node_id,
+                        b_id=node_b.node_id,
+                        a_hash=node_a.vector_hash,
+                        b_hash=node_b.vector_hash,
+                        score=score,
+                    )
+
+                    merged_ids.add(merge_result.loser_id)
+
+                    # Add opposition edge
+                    edge_repo.add_opposition_edge(
+                        graph_id=graph_id,
+                        a_id=merge_result.winner_id,
+                        b_id=merge_result.loser_id,
+                        weight=score,
+                        meta=merge_result.meta,
+                    )
+
+                    # Emit event
+                    _emit_graph_event(
+                        session=_sess,
+                        event_repo=event_repo,
+                        graph_id=graph_id,
+                        kind="EVOLUTION_MERGE",
+                        payload={
+                            "winner_id": str(merge_result.winner_id),
+                            "loser_id": str(merge_result.loser_id),
+                            "score": score,
+                            "adapted_threshold": adapted_merge_threshold,
+                        },
+                        result=result,
+                    )
+
+                    result.merges += 1
+                    result.actions.append(
+                        {
+                            "type": "merge",
+                            "winner": str(merge_result.winner_id),
+                            "loser": str(merge_result.loser_id),
+                        }
+                    )
+                    action_count += 1
+                    break
 
     # 6. Prune pass
-    for node in nodes:
+    if is_pg:
+        prune_candidates = []
+        for n_id, max_sim in sim_matrix.items():
+            n = node_repo.get_by_id(graph_id, n_id)
+            if n: 
+                prune_candidates.append((n, max_sim))
+    else:
+        prune_candidates = [(n, sim_matrix.get(n.node_id, 0.0)) for n in nodes]
+
+    for node, max_sim in prune_candidates:
         if action_count >= max_actions:
             break
         if node.node_id in merged_ids:
             continue
-
-        max_sim = sim_matrix.get(node.node_id, 0.0)
 
         if can_prune(node, max_sim, adapted_prune_policy):
             # Delete edges first

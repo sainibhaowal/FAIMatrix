@@ -483,109 +483,48 @@ def run_invention_cycle(
     lambda_threshold: float = LAMBDA_THRESHOLD,
     min_redundancy_reduction: float = MIN_REDUNDANCY_REDUCTION,
     max_macros_per_cycle: int = 3,
-    event_window: int = 5000,
-    max_tracked_signatures: int = 1000,
     max_member_set_size: int = 32,
-    event_page_size: int = 500,
+    **kwargs,  # Accept ignored legacy parameters
 ) -> InventionResult:
     """Run incremental, bounded invention over newly appended events.
 
     This is the runtime-safe bridge that wires invention into evolve flows.
     """
     result = InventionResult(lambda_hat=lambda_hat)
+    
+    # We still fetch state to update last_cycle_macros, but we no longer
+    # need to track signature_counts natively.
     state = state_repo.get_or_create(graph_id=graph_id, session=session)
 
     try:
         latest_seq = int(event_repo.get_max_seq(session, graph_id))
     except Exception:
         latest_seq = 0
-
     result.last_event_seq = latest_seq
-    if latest_seq <= 0:
-        return result
-
-    start_seq = int(max(0, state.last_event_seq or 0))
-    window_floor = max(0, latest_seq - max(100, int(event_window)))
-    if start_seq < window_floor:
-        start_seq = window_floor
-
-    signature_counts = _normalize_signature_counts(state.signature_counts)
-    # Drop stale signatures that have not been seen in the active window.
-    signature_counts = {
-        key: value
-        for key, value in signature_counts.items()
-        if value["last_seq"] >= start_seq
-    }
-
-    after_seq = start_seq
-    pending_nodes: Set[str] = set()
-    while True:
-        events = event_repo.get_by_seq(
-            session,
-            graph_id=graph_id,
-            after_seq=after_seq,
-            limit=max(50, int(event_page_size)),
+    
+    # 1. Fetch pending inventions directly from the synchronous DB table
+    try:
+        candidates = node_repo.get_pending_inventions(
+            graph_id=graph_id, 
+            min_count=min_coactivation_count,
+            limit=max_macros_per_cycle * 2
         )
-        if not events:
-            break
+    except Exception:
+        candidates = []
 
-        for event in events:
-            payload = event.payload if isinstance(event.payload, dict) else {}
-            if event.kind == "NODE_UPSERT":
-                node_id = payload.get("node_id")
-                if isinstance(node_id, str) and node_id:
-                    pending_nodes.add(node_id)
-            elif event.kind == "GRAPH_VERSION_BUMP":
-                if 2 <= len(pending_nodes) <= max_member_set_size:
-                    members = sorted(pending_nodes)
-                    signature = compute_macro_hash(members)
-                    entry = signature_counts.get(signature) or {
-                        "count": 0,
-                        "members": members,
-                        "last_seq": 0,
-                        "invented": False,
-                    }
-                    entry["count"] = int(entry.get("count", 0)) + 1
-                    entry["members"] = members
-                    entry["last_seq"] = int(event.seq or 0)
-                    signature_counts[signature] = entry
-                pending_nodes.clear()
-            after_seq = max(after_seq, int(event.seq or 0))
-            result.processed_events += 1
-
-        if len(events) < max(50, int(event_page_size)):
-            break
-
-    if not signature_counts:
-        state_repo.save(
-            graph_id=graph_id,
-            last_event_seq=after_seq,
-            signature_counts={},
-            last_cycle_macros=0,
-            last_cycle_at=datetime.now(timezone.utc),
-            session=session,
-        )
-        result.last_event_seq = after_seq
-        return result
-
-    candidates = sorted(
-        [
-            (signature, data)
-            for signature, data in signature_counts.items()
-            if not data.get("invented")
-            and int(data.get("count", 0)) >= int(min_coactivation_count)
-        ],
-        key=lambda item: (-int(item[1].get("count", 0)), item[0]),
-    )
-
-    for _signature, data in candidates:
+    # 2. Iterate and invent
+    for data in candidates:
         if result.macros_created >= max(0, int(max_macros_per_cycle)):
             break
 
+        signature = data.get("signature")
         members_raw = data.get("members") or []
+        count = data.get("count", 0)
+
         if not isinstance(members_raw, list):
             result.skipped_candidates += 1
             continue
+            
         if not (2 <= len(members_raw) <= max_member_set_size):
             result.skipped_candidates += 1
             continue
@@ -607,8 +546,11 @@ def run_invention_cycle(
         vector_hash = compute_macro_hash([str(mid) for mid in member_ids])
         existing_macro = node_repo.get_by_vector_hash(graph_id, vector_hash)
         if existing_macro is not None:
-            data["invented"] = True
-            data["last_seq"] = max(int(data.get("last_seq", 0)), after_seq)
+            # Already exists, just mark it invented
+            try:
+                node_repo.mark_invented(graph_id, signature)
+            except Exception:
+                pass
             continue
 
         macro_id = invent_macro(
@@ -618,40 +560,38 @@ def run_invention_cycle(
             edge_repo=edge_repo,
             event_repo=event_repo,
             lambda_hat=lambda_hat,
-            coactivation_count=int(data.get("count", 0)),
+            coactivation_count=count,
             skip_lambda_check=False,
             lambda_threshold=lambda_threshold,
             min_count=min_coactivation_count,
             min_reduction=min_redundancy_reduction,
         )
+        
         if macro_id is None:
             result.skipped_candidates += 1
             continue
 
-        data["invented"] = True
-        data["last_seq"] = max(int(data.get("last_seq", 0)), after_seq)
+        # Successfully invented! Mark it in the table.
+        try:
+            node_repo.mark_invented(graph_id, signature)
+        except Exception:
+            pass
+
         result.macros_created += 1
         result.events_emitted += 1
         result.macro_ids.append(macro_id)
 
-    if len(signature_counts) > max(10, int(max_tracked_signatures)):
-        ordered = sorted(
-            signature_counts.items(),
-            key=lambda item: (int(item[1].get("last_seq", 0)), item[0]),
-            reverse=True,
-        )
-        signature_counts = dict(ordered[: max(10, int(max_tracked_signatures))])
-
+    # 3. Update legacy state table to satisfy callers expecting last_cycle_at
     state_repo.save(
         graph_id=graph_id,
-        last_event_seq=after_seq,
-        signature_counts=signature_counts,
+        last_event_seq=latest_seq,
+        signature_counts={},  # No longer used!
         last_cycle_macros=result.macros_created,
         last_cycle_at=datetime.now(timezone.utc),
         session=session,
     )
-    result.last_event_seq = after_seq
-    result.signatures_tracked = len(signature_counts)
+    
+    result.signatures_tracked = 0
     return result
 
 

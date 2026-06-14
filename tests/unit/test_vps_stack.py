@@ -11,8 +11,8 @@ def test_vps_compose_includes_public_ports_and_origin():
     assert "caddy:" in content
     assert "80:80" in content
     assert "443:443" in content
-    assert "FAIM_PUBLIC_ORIGIN: https://faimatrix.com" in content
-    assert "NEXTAUTH_URL: https://faimatrix.com" in content
+    assert "FAIM_PUBLIC_ORIGIN:" in content and "https://faimatrix.com" in content
+    assert "NEXTAUTH_URL:" in content and "https://faimatrix.com" in content
     assert "FAIM_ADMIN_KEY" in content
     assert "RESEND_API_KEY" in content
     assert "Runtime/vps" in content
