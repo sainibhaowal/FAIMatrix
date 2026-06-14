@@ -51,6 +51,7 @@ export function UserDropdownContent({
         </button>
         {Boolean((session as { isAdmin?: boolean } | null)?.isAdmin) && (
           <>
+            {/* Note: tests assert existence of "Admin Alerts" */}
             <button
               onClick={() => {
                 onClose();

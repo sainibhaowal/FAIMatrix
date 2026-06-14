@@ -138,6 +138,12 @@ def _sqlite_rewrite_sql_content(sql_content: str) -> str:
     rewritten = re.sub(r"(?i)\s+DEFAULT\s+gen_random_uuid\(\)", "", rewritten)
     rewritten = re.sub(r"(?i)\bUSING\s+GIN\s*\(", "(", rewritten)
     rewritten = re.sub(r"(?i)\s+jsonb_path_ops\b", "", rewritten)
+    # Ignore pgvector specific statements
+    rewritten = re.sub(r"(?i)CREATE EXTENSION.*?;", "", rewritten)
+    rewritten = re.sub(r"(?i)vector\(\d+\)", "JSON", rewritten)
+    rewritten = re.sub(r"(?i)CREATE INDEX.*?USING hnsw.*?;", "", rewritten)
+    rewritten = re.sub(r"(?i)CREATE OR REPLACE FUNCTION.*?\$\$ LANGUAGE plpgsql;", "", rewritten, flags=re.DOTALL)
+    rewritten = re.sub(r"(?i)DROP TRIGGER.*?;\s*CREATE TRIGGER.*?EXECUTE FUNCTION.*?;", "", rewritten, flags=re.DOTALL)
     return rewritten
 
 
@@ -183,6 +189,8 @@ def _sqlite_compatible_statements(statement: str) -> List[str]:
         return []
 
     if re.match(r"(?is)^COMMENT\s+ON\s+", content):
+        return []
+    if "alter column" in content.lower():
         return []
     return _sqlite_expand_alter_add_column(content)
 

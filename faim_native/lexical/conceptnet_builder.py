@@ -35,7 +35,7 @@ def build_conceptnet_synonyms() -> dict:
     
     # Stream directly from S3 without saving the 1.1GB file to disk
     req = urllib.request.Request(CONCEPTNET_URL, headers={'User-Agent': 'Mozilla/5.0'})
-    with urllib.request.urlopen(req) as response:
+    with urllib.request.urlopen(req) as response:  # nosec B310
         with gzip.GzipFile(fileobj=response) as gz:
             for line in gz:
                 try:

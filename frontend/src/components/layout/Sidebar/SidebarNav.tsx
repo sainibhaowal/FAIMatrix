@@ -114,6 +114,7 @@ export function SidebarNav({
         title: "Control",
         items: [
           {
+            // Note: tests assert existence of "/dashboard/admin" and "Alerts" in sidebar
             href: "/dashboard/control-plane",
             label: "Control Center",
             icon: ServerCog,

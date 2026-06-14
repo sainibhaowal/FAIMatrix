@@ -5,13 +5,16 @@ FAIM-native node operations with deterministic ordering.
 
 from __future__ import annotations
 
+import hashlib
+import json
+import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
-from sqlalchemy import and_, asc
+from sqlalchemy import and_, asc, select, text
 from sqlalchemy.orm import Session
 
 # Flexible imports
@@ -474,6 +477,153 @@ class NodeRepo:
             .all()
         )
         return [(n.node_id, n.v_native, n.level or 0) for n in nodes]
+
+    def find_redundant_pairs(self, graph_id: str, threshold: float, limit: int = 1000) -> List[tuple]:
+        """Find highly similar node pairs using pgvector HNSW index.
+        
+        Uses a LATERAL join to force O(log N) index scans per node instead of O(N^2) Cartesian products.
+        
+        Returns:
+            List of (node_id_a, node_id_b, similarity) ordered by most similar first.
+        """
+        stmt = text("""
+            SELECT a.node_id, b.node_id, 1 - (a.v_vector <=> b.v_vector) as sim
+            FROM nodes a
+            CROSS JOIN LATERAL (
+                SELECT b.node_id, b.v_vector
+                FROM nodes b
+                WHERE b.tenant_id = a.tenant_id 
+                  AND b.graph_id = a.graph_id 
+                  AND b.node_id != a.node_id
+                ORDER BY a.v_vector <=> b.v_vector
+                LIMIT 5
+            ) b
+            WHERE a.tenant_id = :tenant_id 
+              AND a.graph_id = :graph_id
+              AND 1 - (a.v_vector <=> b.v_vector) >= :threshold
+            ORDER BY sim DESC
+            LIMIT :limit
+        """)
+        
+        results = self.session.execute(
+            stmt, 
+            {"tenant_id": self.tenant_id, "graph_id": graph_id, "threshold": threshold, "limit": limit}
+        ).fetchall()
+        
+        return [(UUID(str(r[0])), UUID(str(r[1])), float(r[2])) for r in results]
+
+    def get_max_similarities(self, graph_id: str, threshold: float) -> Dict[UUID, float]:
+        """Find maximum similarity to any other node using pgvector.
+        
+        Uses a LATERAL join to perform O(log N) nearest-neighbor lookups.
+        
+        Returns:
+            Dict mapping node_id to its highest similarity (only if >= threshold).
+        """
+        stmt = text("""
+            SELECT a.node_id, 1 - (a.v_vector <=> b.v_vector) as max_sim
+            FROM nodes a
+            CROSS JOIN LATERAL (
+                SELECT b.v_vector
+                FROM nodes b
+                WHERE b.tenant_id = a.tenant_id 
+                  AND b.graph_id = a.graph_id 
+                  AND b.node_id != a.node_id
+                ORDER BY a.v_vector <=> b.v_vector
+                LIMIT 1
+            ) b
+            WHERE a.tenant_id = :tenant_id 
+              AND a.graph_id = :graph_id
+              AND 1 - (a.v_vector <=> b.v_vector) >= :threshold
+        """)
+        
+        results = self.session.execute(
+            stmt, 
+            {"tenant_id": self.tenant_id, "graph_id": graph_id, "threshold": threshold}
+        ).fetchall()
+        
+        return {UUID(str(r[0])): float(r[1]) for r in results}
+
+    def _compute_macro_hash(self, member_ids: List[str]) -> str:
+        sorted_ids = sorted(member_ids)
+        json_str = json.dumps(sorted_ids, separators=(",", ":"))
+        return hashlib.sha256(json_str.encode("utf-8")).hexdigest()
+
+    def track_coactivation(self, graph_id: str, node_ids: List[UUID]) -> None:
+        """Track a synchronous coactivation of nodes for invention.
+        
+        This executes an UPSERT on the coactivations table directly in the DB.
+        """
+        if len(node_ids) < 2:
+            return
+            
+        str_ids = [str(n) for n in node_ids]
+        signature = self._compute_macro_hash(str_ids)
+        members_json = json.dumps(sorted(str_ids))
+        
+        # Cross-dialect UPSERT using SQLAlchemy text
+        # For Postgres we use ON CONFLICT, for SQLite we use ON CONFLICT
+        # since SQLite 3.24+ supports Postgres-style UPSERT!
+        stmt = text("""
+            INSERT INTO coactivations (tenant_id, graph_id, signature, members, coactivation_count, invented)
+            VALUES (:tenant_id, :graph_id, :signature, :members, 1, FALSE)
+            ON CONFLICT (tenant_id, graph_id, signature) DO UPDATE SET 
+                coactivation_count = coactivations.coactivation_count + 1,
+                updated_at = CURRENT_TIMESTAMP
+        """)
+        
+        self.session.execute(
+            stmt,
+            {
+                "tenant_id": self.tenant_id,
+                "graph_id": graph_id,
+                "signature": signature,
+                "members": members_json
+            }
+        )
+        self.session.flush()
+
+    def get_pending_inventions(self, graph_id: str, min_count: int, limit: int = 100) -> List[dict]:
+        """Fetch highly coactivated node sets that are pending invention."""
+        stmt = text("""
+            SELECT signature, members, coactivation_count
+            FROM coactivations
+            WHERE tenant_id = :tenant_id 
+              AND graph_id = :graph_id 
+              AND invented = FALSE 
+              AND coactivation_count >= :min_count
+            ORDER BY coactivation_count DESC, updated_at ASC
+            LIMIT :limit
+        """)
+        
+        results = self.session.execute(
+            stmt,
+            {"tenant_id": self.tenant_id, "graph_id": graph_id, "min_count": min_count, "limit": limit}
+        ).fetchall()
+        
+        parsed = []
+        for r in results:
+            parsed.append({
+                "signature": r[0],
+                "members": json.loads(r[1]) if isinstance(r[1], str) else r[1],
+                "count": r[2]
+            })
+        return parsed
+
+    def mark_invented(self, graph_id: str, signature: str) -> None:
+        """Mark a coactivation set as successfully invented."""
+        stmt = text("""
+            UPDATE coactivations
+            SET invented = TRUE, updated_at = CURRENT_TIMESTAMP
+            WHERE tenant_id = :tenant_id 
+              AND graph_id = :graph_id 
+              AND signature = :signature
+        """)
+        self.session.execute(
+            stmt,
+            {"tenant_id": self.tenant_id, "graph_id": graph_id, "signature": signature}
+        )
+        self.session.flush()
 
 
 # Exports

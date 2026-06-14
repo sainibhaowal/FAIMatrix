@@ -327,6 +327,10 @@ class FAIMNativeEngine:
         )
         result.events_emitted += 1
 
+        # 6. Track Coactivation synchronously
+        if len(result.node_ids) >= 2:
+            self.node_repo.track_coactivation(graph_id, result.node_ids)
+
         return result
 
     def _get_parent_candidates(

@@ -7,6 +7,15 @@ const PLAYWRIGHT_BYPASS_SUB = "playwright-benchmark";
 const PLAYWRIGHT_BYPASS_EMAIL = "playwright@faim.local";
 const PLAYWRIGHT_BYPASS_NAME = "Playwright Benchmark";
 
+const PUBLIC_API_PATHS = new Set([
+  "/api/v1/health",
+  "/api/v1/ready",
+  "/api/v1/version",
+  "/api/health",
+  "/api/ready",
+  "/api/version",
+]);
+
 function isApiCall(pathname: string): boolean {
   return (
     pathname.startsWith("/api/v1/") ||
@@ -72,6 +81,10 @@ async function mintPlaywrightJwt(secret: string): Promise<string> {
 // 1. Export withAuth to protect dashboard and API routes
 export default withAuth(
   async function middleware(req) {
+    if (PUBLIC_API_PATHS.has(req.nextUrl.pathname)) {
+      return NextResponse.next();
+    }
+
     // Test-only bypass for Playwright e2e runs.
     // For proxied FAIM API calls, inject a synthetic JWT so the backend's JWTAuthMiddleware
     // accepts the request without requiring X-Tenant-Id / X-Api-Key headers.
@@ -89,10 +102,19 @@ export default withAuth(
 
     const authHeader = req.headers.get("Authorization");
 
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-    });
+    let token = null;
+    try {
+      token = await getToken({
+        req,
+        secret: process.env.NEXTAUTH_SECRET,
+      });
+    } catch (error) {
+      console.warn(
+        `[Middleware] Failed to parse auth token for ${req.nextUrl.pathname}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    }
 
     // 1. If we ALREADY have an Authorization header (from UserContext fetch),
     // we don't need to block it or inject anything. Let the backend handle verification.
