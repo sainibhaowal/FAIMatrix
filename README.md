@@ -1,6 +1,6 @@
 # FAIM-Native – Fractal Antisymmetric Inheritance Memory
 
-**FAIM-Native** is a high-performance memory graph engine built on pure Python, PostgreSQL, Redis, and Qdrant.
+**FAIM-Native** is a high-performance memory graph engine built on pure Python, PostgreSQL (with `pgvector`), Redis, and Qdrant.
 
 ## Architecture
 
@@ -21,6 +21,12 @@ All services are aligned to the `80x0` port range for consistency and to avoid c
 | **Postgres** | `8020` | `8020` | Database |
 | **Redis** | `8030` | `8030` | Cache/Locks |
 | **Qdrant** | `8040` / `8050` | `8040` / `8050` | Vector Database (HTTP/gRPC) |
+
+## Powerful Features
+
+- **True Global Search ($O(\log N)$)**: Leverages PostgreSQL's `pgvector` extension with highly advanced **HNSW indexing** to instantly find redundant nodes across massive enterprise-scale graphs (millions of nodes) without $O(N^2)$ memory constraints.
+- **Synchronous Coactivation Invention**: Employs a dedicated, natively indexed `coactivations` database table that tracks node coactivations at write-time, enabling lightning-fast macro invention without parsing historical JSON event streams.
+- **Pure Python Fallback**: Out of the box flexibility. If you lack heavy dependencies (like PostgreSQL/pgvector), FAIM dynamically and seamlessly falls back to pure Python (`NumPy` and `SQLite`) for rapid local development and personal use.
 
 ## Quick Start
 
@@ -90,7 +96,7 @@ npm run faim:vps:smoke
 
 ## Tech Stack
 
-- **Python 3.11** (FastAPI, SQLAlchemy, Pydantic)
-- **PostgreSQL 15** (Relational Data)
+- **Python 3.11** (FastAPI, SQLAlchemy, Pydantic, NumPy for Fallback)
+- **PostgreSQL 16+ & pgvector 0.5.0+** (Relational Data & Native HNSW Vector Search)
 - **Redis 7** (Cache, Locks, Queues)
-- **Qdrant** (Vector Search)
+- **Qdrant** (External Vector Search)

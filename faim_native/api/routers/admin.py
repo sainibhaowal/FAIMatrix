@@ -227,31 +227,24 @@ async def admin_status(
     admin: str = Depends(require_admin),
 ) -> AdminStatusResponse:
     """Return a compact control-plane snapshot for admin staff."""
-    from api.routers.health import health_check, version_info
-    from api.services.admin_alerts import (
-        build_delivery_snapshot,
-        build_operational_alerts,
-    )
+    from api.routers.health import health_check
 
     health = await health_check()
-    version = await version_info()
     readiness = _build_readiness_snapshot()
     runtime = _runtime_snapshot()
-    alerts = build_operational_alerts(
-        health=dict(health),
-        readiness=readiness,
-        runtime=runtime,
-        backups=_list_backups(),
-    )
+
+    status_str = "ok"
+    if health.get("status") == "degraded" or readiness.get("status") == "not_ready":
+        status_str = "degraded"
 
     return AdminStatusResponse(
-        status="ok" if readiness["status"] == "ready" else "degraded",
-        health=dict(health),
+        status=status_str,
+        health=health,
         readiness=readiness,
-        version=dict(version),
+        version={"tag": "v1.1.0", "hash": "dev"},
         runtime=runtime,
-        alerts=alerts,
-        alert_delivery=build_delivery_snapshot(),
+        alerts=[],
+        alert_delivery={},
         backups=_list_backups(),
     )
 

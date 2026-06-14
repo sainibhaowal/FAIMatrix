@@ -98,6 +98,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     block_id TEXT,
     anchor_json JSONB,
     v_native JSONB NOT NULL,                   -- array of floats
+    v_vector vector(256),                      -- Stage-11: pgvector representation for HNSW indexing
     opp_signature JSONB,
     residual DOUBLE PRECISION DEFAULT 0.0,
     level INTEGER DEFAULT 0,
@@ -114,6 +115,24 @@ CREATE TABLE IF NOT EXISTS nodes (
 CREATE INDEX IF NOT EXISTS idx_nodes_tenant_graph ON nodes(tenant_id, graph_id);
 CREATE INDEX IF NOT EXISTS idx_nodes_created ON nodes(tenant_id, graph_id, created_at, node_id);
 CREATE INDEX IF NOT EXISTS idx_nodes_level ON nodes(tenant_id, graph_id, level);
+
+-- Stage-11: pgvector HNSW index
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE INDEX IF NOT EXISTS idx_nodes_v_vector_hnsw ON nodes USING hnsw (v_vector vector_cosine_ops);
+
+-- Stage-11: pgvector trigger
+CREATE OR REPLACE FUNCTION sync_v_vector() RETURNS trigger AS $$
+BEGIN
+    NEW.v_vector = CAST(NEW.v_native::text AS vector(256));
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_sync_v_vector ON nodes;
+CREATE TRIGGER trg_sync_v_vector 
+    BEFORE INSERT OR UPDATE OF v_native ON nodes
+    FOR EACH ROW EXECUTE FUNCTION sync_v_vector();
+
 
 -- -----------------------------------------------------------------------------
 -- node_repr_v2: additive Representation V2 sidecar per node
@@ -788,3 +807,18 @@ CREATE INDEX IF NOT EXISTS idx_cortex_writeback_candidates_tenant_graph
 
 COMMENT ON TABLE cortex_writeback_candidates IS
     'Proposal-only memory writeback candidates emitted by Cortex';
+
+CREATE TABLE IF NOT EXISTS coactivations (
+    tenant_id UUID NOT NULL,
+    graph_id TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    members JSONB NOT NULL,
+    coactivation_count INT NOT NULL DEFAULT 1,
+    invented BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (tenant_id, graph_id, signature)
+);
+
+CREATE INDEX IF NOT EXISTS idx_coactivations_pending 
+ON coactivations(tenant_id, graph_id) 
+WHERE invented = FALSE AND coactivation_count >= 3;

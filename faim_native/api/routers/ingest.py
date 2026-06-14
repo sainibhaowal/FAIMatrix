@@ -25,12 +25,12 @@ if str(_parent) not in sys.path:
 from api.deps import FAIMContext, get_faim_context  # noqa: E402
 from api.validators import (  # noqa: E402
     MAX_BATCH_TOTAL_SIZE,
+    sanitize_filename,
     validate_batch_total_size,
     validate_content_type,
     validate_file_extension,
     validate_mime_extension_match,
     validate_upload_file,
-    validate_batch_total_size,
 )
 
 logger = logging.getLogger(__name__)

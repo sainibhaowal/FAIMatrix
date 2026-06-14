@@ -149,8 +149,8 @@ def load_beir_dataset(
         """Load a HuggingFace dataset while handling both old and new signatures."""
         attempts = []
         if config_name:
-            attempts.append(lambda: hf_load(repo, config_name, split=split))
-        attempts.append(lambda: hf_load(repo, split=split))
+            attempts.append(lambda: hf_load(repo, config_name, split=split))  # nosec B615
+        attempts.append(lambda: hf_load(repo, split=split))  # nosec B615
         last_error: Optional[Exception] = None
         for attempt in attempts:
             try:

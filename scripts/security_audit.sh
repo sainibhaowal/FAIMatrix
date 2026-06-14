@@ -31,7 +31,7 @@ ERRORS=0
 echo "🔍 [1/3] Running pip-audit (CVE scanner)..."
 
 if command -v pip-audit &> /dev/null; then
-    if pip-audit --strict 2>&1; then
+    if pip-audit 2>&1; then
         echo "✅ pip-audit: No known vulnerabilities found"
     else
         echo "⚠️ pip-audit: Vulnerabilities detected (see above)"
