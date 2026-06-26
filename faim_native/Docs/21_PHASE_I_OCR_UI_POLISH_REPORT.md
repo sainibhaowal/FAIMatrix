@@ -167,9 +167,9 @@ Note:
 
 ## Updated Documentation
 
-- `faim_native/Docs/06_STORAGE_UI_BACKEND_API_PLAN.md`
-- `faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
-- `faim_native/Docs/20_STORAGE_UI_RUNTIME_WORKFLOW_AND_MODES.md`
+- `faim_native/Docs/06_STORAGE_UI_AND_BACKEND_API_IMPLEMENTATION_REPORT.md`
+- `faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
+- `faim_native/Docs/20B_STORAGE_UI_RUNTIME_WORKFLOW_AND_MODES_GUIDE.md`
 - `faim_native/Docs/README.md`
 
 ## Phase I Status

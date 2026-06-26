@@ -1,4 +1,4 @@
-# Phase 2: Canonical Semantics
+# 15A - Phase 2 Canonical Semantics Report
 
 Phase 2 adds deterministic graph-local canonical semantics on top of FAIM-native retrieval.
 

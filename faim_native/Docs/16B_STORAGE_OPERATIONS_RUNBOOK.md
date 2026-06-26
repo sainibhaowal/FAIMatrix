@@ -1,4 +1,4 @@
-# 16 - Storage Operations Runbook
+# 16B - Storage Operations Runbook
 
 Date: 2026-02-10
 
@@ -85,8 +85,9 @@ Tenant DEK rotation support is available via `TenantDEKManager.rotate_tenant_dek
 
 Operational notes:
 
-- Rotation updates wrapped DEK metadata for tenant.
-- Existing already-encrypted payload re-encryption is currently out of scope.
+- Rotation rewraps the tenant DEK under the active master key and records the new master-key fingerprint.
+- Existing already-encrypted payloads are not re-encrypted during rotation; payload ciphertext remains untouched by design.
+- If the active master key changed, keep the previous master key ring available until the rotation job completes.
 - After rotation, validate new writes and read-path success on sample tenants.
 - If decryption failures appear, isolate tenant traffic and validate key material consistency.
 
@@ -106,4 +107,3 @@ Retention execution must remain guarded by:
 - `dry_run=true` by default
 - `irreversible=true` for physical delete
 - `FAIM_STORAGE_HARD_DELETE_ENABLED=true`
-
