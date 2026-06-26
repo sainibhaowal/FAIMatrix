@@ -1,4 +1,4 @@
-# Phase 4: Deterministic Reranker V2
+# 17A - Phase 4 Deterministic Reranker V2 Report
 
 Phase 4 adds a stronger deterministic reranking layer to FAIM-Native.
 

@@ -1,4 +1,4 @@
-# Phase 3: Graph Semantics and Diffusion
+# 16A - Phase 3 Graph Semantics and Diffusion Report
 
 Phase 3 adds deterministic graph-aware retrieval depth to FAIM-Native.
 
