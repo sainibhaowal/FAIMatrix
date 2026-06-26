@@ -1,4 +1,4 @@
-# Phase 7: Multimodal Without ML
+# 20A - Phase 7 Multimodal Without ML Report
 
 Phase 7 adds deterministic document-modality support to FAIM-Native.
 
@@ -9,13 +9,13 @@ Phase 7 adds deterministic document-modality support to FAIM-Native.
 - layout token capture
 - deterministic image hash proxy
 - filename / caption / metadata token indexing
-- optional DocNative extraction adapter
+- deterministic extraction through the current router and extractor stack
 - explicit multimodal sidecar rebuild route
 - additive modality-aware rerank boost
 
 ## Runtime Shape
 
-1. extract blocks through current router or optional DocNative adapter
+1. extract blocks through the current router and extractor stack
 2. derive modality sidecar features per stored file
 3. persist sidecars keyed by node id
 4. at query time, compute a bounded modality overlap bonus
@@ -27,7 +27,7 @@ Phase 7 adds deterministic document-modality support to FAIM-Native.
 - stable table normalization
 - stable image hash
 - stable metadata tokenization
-- deterministic fallback if DocNative is unavailable
+- deterministic fallback stays within the current extractor stack
 
 ## Safety Constraints
 
@@ -41,7 +41,6 @@ Phase 7 adds deterministic document-modality support to FAIM-Native.
 - `encoding/table_linearizer.py`
 - `encoding/image_phash.py`
 - `encoding/modality_features.py`
-- `models/DocNative/docnative_service.py`
 - `orchestration/multimodal_backfill.py`
 - `store/pg/repos/modality_repo.py`
 - `api/routers/storage.py`
