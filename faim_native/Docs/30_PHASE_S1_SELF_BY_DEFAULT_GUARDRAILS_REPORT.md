@@ -35,6 +35,11 @@ Implement Phase S1 only:
 - `tests/unit/test_phase_s1_self_evolve_flags.py` (new)
 - `tests/unit/test_phase_a_feature_flags.py` (extended default checks)
 
+6. Operator-facing guardrail visibility added:
+- `GET /api/v1/evolve/status` now includes a guardrail summary block
+- the Evolution dashboard now renders a dedicated guardrail status card
+- operators can see whether the system is `disabled`, `manual only`, `after upload`, `periodic`, `hybrid`, or `legacy` compatibility mode
+
 ## Non-Goals (kept unchanged in S1)
 
 1. No autonomous scheduler implementation yet.
@@ -60,16 +65,16 @@ Executed command set:
 python3 -m compileall faim_native tests
 PYTHONPATH=.:faim_native pytest -q \
   tests/unit/test_phase_s1_self_evolve_flags.py \
-  tests/unit/test_phase_a_feature_flags.py \
-  tests/unit/test_phase_j_self_invention_flags.py
+  tests/unit/test_phase_s3_self_evolve_scheduler.py \
+  tests/acceptance/test_AT_EV_B_evolve_status_surface.py
 ```
 
 Result:
 
 - compile succeeded
-- `16 passed` (targeted unit suites)
+- `24 passed` in the targeted self-evolve/guardrail suites
 - no regressions observed in S1 scope
 
 ## Outcome
 
-Phase S1 is complete as contract + guardrails groundwork, with backward-compatible defaults and no runtime behavior regression by design.
+Phase S1 is complete as contract + guardrails groundwork, with backward-compatible defaults, explicit operator visibility, and no runtime behavior regression by design.

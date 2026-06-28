@@ -95,6 +95,10 @@ def test_phase_ev_b_evolve_status_tenant_isolation(monkeypatch, tmp_path):
     assert status_a.status_code == 200
     body_a = status_a.json()
     assert body_a["tenant_id"] == tenant_a
+    assert body_a["guardrails"]["automation_path"] == "hybrid_worker"
+    assert body_a["guardrails"]["automation_enabled"] is True
+    assert body_a["guardrails"]["self_evolve_enabled"] is True
+    assert body_a["guardrails"]["self_invent_enabled"] is True
     assert body_a["state"]["graph_version"] == 4
     assert body_a["due"]["reason"] == "active_evolve_job_exists"
     assert body_a["active_job"] is not None
@@ -107,6 +111,7 @@ def test_phase_ev_b_evolve_status_tenant_isolation(monkeypatch, tmp_path):
     assert status_b.status_code == 200
     body_b = status_b.json()
     assert body_b["tenant_id"] == tenant_b
+    assert body_b["guardrails"]["automation_path"] == "hybrid_worker"
     assert body_b["state"]["graph_version"] == 0
     assert body_b["active_job"] is None
     assert body_b["last_enqueued_job"] is None

@@ -112,6 +112,19 @@ type EvolveStatusRuntime = {
   jobs_enabled: boolean;
 };
 
+type EvolveStatusGuardrails = {
+  self_evolve_enabled: boolean;
+  self_invent_enabled: boolean;
+  self_invent_on_evolve: boolean;
+  self_invent_after_upload: boolean;
+  jobs_enabled: boolean;
+  trigger_mode: string;
+  automation_path: string;
+  automation_label: string;
+  automation_enabled: boolean;
+  guardrail_reason: string;
+};
+
 type EvolveStatusState = {
   graph_id: string;
   graph_version: number;
@@ -160,6 +173,7 @@ type EvolveStatusResponse = {
   graph_id: string;
   tenant_id: string;
   runtime: EvolveStatusRuntime;
+  guardrails: EvolveStatusGuardrails;
   state: EvolveStatusState;
   due: EvolveStatusDue;
   active_job?: EvolveStatusJobSummary | null;
@@ -419,6 +433,16 @@ function humanizeDueReason(reason?: string | null): string {
   if (text === "active_evolve_job_exists")
     return "An evolve job is already pending/running.";
   if (text === "due_enqueued") return "Due and enqueued.";
+  if (text === "self_evolve_disabled") return "Self-evolve is disabled.";
+  if (text === "manual_mode") return "Manual mode only.";
+  if (text === "post_upload_worker")
+    return "Automation runs after uploads through the worker.";
+  if (text === "periodic_worker")
+    return "Automation runs periodically through the worker.";
+  if (text === "hybrid_worker")
+    return "Automation runs after uploads and on periodic scans.";
+  if (text === "legacy_upload_compat")
+    return "Legacy after-upload compatibility path is active.";
   if (text.startsWith("unsupported_source:"))
     return `Unsupported source trigger (${text.split(":")[1] || "unknown"}).`;
   return text;
@@ -458,6 +482,22 @@ function liveStatusVariant(
   if (status === "refreshing") return "info";
   if (status === "error") return "error";
   return "default";
+}
+
+function guardrailBadgeVariant(
+  guardrails?: EvolveStatusGuardrails | null,
+): "default" | "success" | "warning" | "error" | "info" | "outline" {
+  if (!guardrails) return "outline";
+  if (!guardrails.self_evolve_enabled && !guardrails.jobs_enabled) {
+    return "outline";
+  }
+  if (guardrails.guardrail_reason === "legacy_upload_compat") {
+    return "info";
+  }
+  if (!guardrails.automation_enabled) {
+    return "warning";
+  }
+  return "success";
 }
 
 function eventBadgeVariant(
@@ -1149,6 +1189,84 @@ export default function EvolutionPage() {
                 : evolveModePolicy.reason}
             </div>
           </div>
+        </div>
+      </div>
+
+      <div
+        className="overflow-hidden rounded-xl border"
+        style={{
+          borderColor: "var(--os-stroke)",
+          background: "var(--os-surface-1)",
+        }}
+      >
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
+          style={{ borderColor: "var(--os-stroke)" }}
+        >
+          <div>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+              Autonomy Guardrails
+            </p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+              Explicit control path for self-invent and self-evolve
+            </p>
+          </div>
+          <Badge
+            variant={guardrailBadgeVariant(evolveStatus?.guardrails)}
+            size="md"
+          >
+            {evolveStatus?.guardrails
+              ? evolveStatus.guardrails.automation_enabled
+                ? "automation active"
+                : evolveStatus.guardrails.guardrail_reason ===
+                      "legacy_upload_compat"
+                  ? "legacy compat"
+                  : "manual only"
+              : "loading"}
+          </Badge>
+        </div>
+        <div className="grid gap-3 px-5 py-4 md:grid-cols-2 lg:grid-cols-3">
+          {evolveStatus?.guardrails ? (
+            <>
+              <div className="rounded-xl border p-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500">Control path</p>
+                <p className="mt-1 text-sm font-semibold text-cyan-200">{evolveStatus.guardrails.automation_label}</p>
+                <p className="mt-1 text-xs text-slate-400 font-mono">{evolveStatus.guardrails.automation_path}</p>
+              </div>
+              <div className="rounded-xl border p-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500">Self evolve</p>
+                <p className="mt-1 text-sm font-semibold text-slate-200">
+                  {evolveStatus.guardrails.self_evolve_enabled ? "enabled" : "disabled"}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  Trigger mode: <span className="font-mono text-slate-300">{evolveStatus.guardrails.trigger_mode}</span>
+                </p>
+              </div>
+              <div className="rounded-xl border p-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500">Self invent</p>
+                <p className="mt-1 text-sm font-semibold text-slate-200">
+                  {evolveStatus.guardrails.self_invent_enabled ? "enabled" : "disabled"}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">
+                  On evolve: {evolveStatus.guardrails.self_invent_on_evolve ? "yes" : "no"} | After upload: {evolveStatus.guardrails.self_invent_after_upload ? "yes" : "no"}
+                </p>
+              </div>
+              <div className="rounded-xl border p-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500">Job engine</p>
+                <p className="mt-1 text-sm font-semibold text-slate-200">
+                  {evolveStatus.guardrails.jobs_enabled ? "enabled" : "disabled"}
+                </p>
+                <p className="mt-1 text-xs text-slate-400">Automation uses the approved scheduler/worker path.</p>
+              </div>
+              <div className="rounded-xl border p-3 md:col-span-2 lg:col-span-1" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500">Guardrail reason</p>
+                <p className="mt-1 text-sm text-slate-200">{humanizeDueReason(evolveStatus.guardrails.guardrail_reason)}</p>
+                <p className="mt-1 text-xs text-slate-400 font-mono">{evolveStatus.guardrails.guardrail_reason}</p>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-slate-400">Loading guardrail summary...</p>
+          )}
         </div>
       </div>
 

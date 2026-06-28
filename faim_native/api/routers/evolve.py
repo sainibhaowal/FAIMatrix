@@ -76,6 +76,21 @@ class EvolveStatusRuntime(BaseModel):
     jobs_enabled: bool
 
 
+class EvolveStatusGuardrails(BaseModel):
+    """Human-facing summary of the self-evolve guardrail state."""
+
+    self_evolve_enabled: bool
+    self_invent_enabled: bool
+    self_invent_on_evolve: bool
+    self_invent_after_upload: bool
+    jobs_enabled: bool
+    trigger_mode: str
+    automation_path: str
+    automation_label: str
+    automation_enabled: bool
+    guardrail_reason: str
+
+
 class EvolveStatusState(BaseModel):
     """Durable scheduler state summary for one graph."""
 
@@ -134,6 +149,7 @@ class EvolveStatusResponse(BaseModel):
     graph_id: str
     tenant_id: str
     runtime: EvolveStatusRuntime
+    guardrails: EvolveStatusGuardrails
     state: EvolveStatusState
     due: EvolveStatusDue
     active_job: Optional[EvolveStatusJobSummary] = None
@@ -237,12 +253,16 @@ async def evolve_status(
 ) -> EvolveStatusResponse:
     """Return read-only self-evolve runtime/scheduler status for one graph."""
     try:
-        from orchestration.self_evolve_scheduler import evaluate_self_evolve_due
+        from orchestration.self_evolve_scheduler import (
+            build_self_evolve_guardrail_summary,
+            evaluate_self_evolve_due,
+        )
         from runtime.feature_flags import get_feature_flags
         from store.pg.models_faim import JobModel
         from store.pg.repos.self_evolution_state_repo import SelfEvolutionStateRepo
 
         flags = get_feature_flags()
+        guardrails = build_self_evolve_guardrail_summary()
         due = evaluate_self_evolve_due(
             session=ctx.session,
             tenant_id=ctx.tenant_id,
@@ -317,6 +337,18 @@ async def evolve_status(
                 self_invent_enabled=bool(flags.self_invent_enabled),
                 self_invent_on_evolve=bool(flags.self_invent_on_evolve),
                 jobs_enabled=bool(due.jobs_enabled),
+            ),
+            guardrails=EvolveStatusGuardrails(
+                self_evolve_enabled=guardrails.self_evolve_enabled,
+                self_invent_enabled=guardrails.self_invent_enabled,
+                self_invent_on_evolve=guardrails.self_invent_on_evolve,
+                self_invent_after_upload=guardrails.self_invent_after_upload,
+                jobs_enabled=guardrails.jobs_enabled,
+                trigger_mode=guardrails.trigger_mode,
+                automation_path=guardrails.automation_path,
+                automation_label=guardrails.automation_label,
+                automation_enabled=guardrails.automation_enabled,
+                guardrail_reason=guardrails.guardrail_reason,
             ),
             state=EvolveStatusState(
                 graph_id=graph_id,
