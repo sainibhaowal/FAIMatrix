@@ -1,4 +1,12 @@
-# 01 - Storage Current State Audit
+# 01 - Storage Implementation Audit and Status Report
+
+Date: 2026-02-11
+Owner: FAIM Native Runtime
+Status: Completed
+
+## Objective
+
+Audit the live storage runtime and reconcile it with the shipped P0/P1/P2 and Phase A-F baseline.
 
 ## Scope Reviewed
 
@@ -29,7 +37,7 @@ Current state is **implemented end-to-end for storage program phases P0/P1/P2 an
 
 ## Post-P0 Update (2026-02-10)
 
-The P0 correctness scope from `07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md` has now been implemented.
+The P0 correctness scope from `07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md` has now been implemented.
 
 Resolved from this audit:
 
@@ -60,7 +68,7 @@ Resolved from prior audit gaps:
 
 Residual risks (not blocking current production baseline):
 
-- historical blob re-encryption tooling for pre-policy plaintext payloads
+- guarded historical raw-blob re-encryption tooling for pre-policy plaintext payloads is now implemented via cutoff-based execute/job paths
 - environment-level alert/dashboard wiring for security and storage SLO signals
 
 ## Post-P2 Update (2026-02-10)
@@ -156,8 +164,8 @@ Not intended as truth store.
 
 ## Remaining Gaps and Risks
 
-1. Existing plaintext blobs from before encryption rollout are not automatically re-encrypted.
-2. Observability baseline is implemented, but external dashboards/alerts must still be wired in each deployment environment.
+1. Observability baseline is implemented, but external dashboards/alerts must still be wired in each deployment environment.
+2. The guarded raw-reencryption job still needs tenant-by-tenant rollout scheduling and operator validation in each environment.
 3. Query cache currently accelerates candidate recall path only; deeper stats cache wiring remains optional.
 
 ## Existing Strengths
@@ -172,4 +180,4 @@ Not intended as truth store.
 
 Storage program phases P0-P2 and A-E are implemented with production guardrails, operational UI/API surface, security hardening, and observability baseline.
 
-Remaining work is now operational maturity and rollout-specific integration (dashboards/alerts and historical payload re-encryption strategy), not core storage product delivery.
+Remaining work is now operational maturity and rollout-specific integration (dashboards/alerts and tenant rollout validation), not core storage product delivery.

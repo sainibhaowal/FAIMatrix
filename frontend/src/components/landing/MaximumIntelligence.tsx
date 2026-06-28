@@ -45,7 +45,7 @@ const CAPABILITIES = [
     title: "Unified Knowledge Synthesis",
     icon: Globe,
     description:
-      "Connects insights across disparate documents and data sources. Identifies correlations, detects contradictions, and weaves scattered information into coherent understanding.",
+      "Connects insights across disparate documents and data sources. Identifies correlations, detects contradictions, and weaves scattered information into coherent understanding while graph-local domain memory grows automatically.",
     tag: "Cross-document analysis",
   },
   {
@@ -79,7 +79,7 @@ const CAPABILITIES = [
 ];
 
 const METRICS = [
-  { label: "Reasoning Depth", value: "24-hop", suffix: " causal chains" },
+  { label: "Reasoning Depth", value: "Bounded", suffix: " causal chains" },
   { label: "Learning", value: "Continuous", suffix: " from feedback" },
   { label: "Synthesis", value: "Cross-document", suffix: " insights" },
   { label: "Quality", value: "Real-time", suffix: " monitoring" },

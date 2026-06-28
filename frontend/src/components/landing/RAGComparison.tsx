@@ -6,13 +6,13 @@ const COMPARISONS = [
   {
     feature: "Reasoning Depth",
     standard: "1-Hop (Flat Summary)",
-    faim: "24-Hop Graph Traversal",
+    faim: "Bounded Multi-Hop Traversal",
     faimBetter: true,
   },
   {
     feature: "Intent Mapping",
     standard: "Black-box LLM Prompting",
-    faim: "1M+ Semantic Alias Registry",
+    faim: "Deterministic Semantic Router",
     faimBetter: true,
   },
   {

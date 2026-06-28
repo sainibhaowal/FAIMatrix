@@ -21,7 +21,7 @@ const OUTCOMES = [
   },
   {
     title: "The engine adapts to the corpus",
-    text: "Domain packs, multilingual links, and KB imports improve coverage for the actual data you run.",
+    text: "FAIM learns domain memory directly from uploads, aliases, and graph-linked facts so coverage improves as the corpus grows.",
   },
   {
     title: "It works without ML dependency",
@@ -49,7 +49,7 @@ const WORKFLOWS = [
   "Upload PDFs, DOCX, PPTX, XLSX, images, code, and text",
   "FAIM Native extractor — multi-column, tables, scanned OCR, zero ML",
   "Inspect provenance and download originals",
-  "Rebuild canonical, multilingual, multimodal, or domain layers",
+  "Autonomously rebuild canonical, multilingual, multimodal, or domain memory layers",
   "Ask FAIM Cortex and get cited answers",
   "Use FIG View for lineage and graph tracing",
   "Deep reasoning — ask 'why' and follow causal chains across documents",

@@ -23,6 +23,35 @@ def _mk_client(monkeypatch, tenant_id: str, api_key: str):
     return TestClient(app), {"X-Tenant-Id": tenant_id, "X-Api-Key": api_key}
 
 
+def _drain_jobs(monkeypatch, *, max_iterations: int = 10):
+    from orchestration.jobs.worker import Worker
+    from store.pg import session as pg_session
+    from store.pg.models_faim import JobModel
+
+    monkeypatch.setattr(
+        "orchestration.jobs.worker.get_session",
+        lambda: pg_session.get_session(),
+    )
+
+    worker = Worker(poll_interval=0.01, self_evolve_scan_interval_seconds=3600.0)
+    for _ in range(max_iterations):
+        check_session = pg_session.get_session()
+        try:
+            pending = (
+                check_session.query(JobModel)
+                .filter(
+                    JobModel.status.in_(["pending", "running"]),
+                    JobModel.kind.in_(list(worker.executable_job_kinds)),
+                )
+                .count()
+            )
+        finally:
+            check_session.close()
+        if pending <= 0:
+            break
+        worker._poll_and_execute()
+
+
 def test_storage_full_lifecycle_upload_to_delete_and_retention_dry_run(monkeypatch):
     from runtime.context import close_session, get_repos
 
@@ -41,20 +70,24 @@ def test_storage_full_lifecycle_upload_to_delete_and_retention_dry_run(monkeypat
     assert upload.status_code == 200
     upload_body = upload.json()
     assert upload_body["requested_files"] == 1
-    assert upload_body["processed_files"] == 1
+    assert upload_body["processed_files"] == 0
     assert upload_body["files"], "Expected per-file results in upload response"
 
     first_file = upload_body["files"][0]
     raw_id = first_file.get("raw_id")
     assert raw_id, "Expected raw_id in per-file upload result"
-    assert first_file["status"] in {"ingested", "dedup_hit", "failed", "cancelled"}
+    assert first_file["status"] == "queued"
 
     job_id = upload_body["job_id"]
+
+    _drain_jobs(monkeypatch)
+
     status = client.get(f"/api/v1/storage/uploads/{job_id}", headers=headers)
     assert status.status_code == 200
     status_body = status.json()
     assert status_body["job_id"] == job_id
     assert status_body["requested_files"] == 1
+    assert status_body["status"] in {"done", "pending"}
     assert isinstance(status_body["files"], list)
 
     events = client.get(f"/api/v1/storage/uploads/{job_id}/events", headers=headers)

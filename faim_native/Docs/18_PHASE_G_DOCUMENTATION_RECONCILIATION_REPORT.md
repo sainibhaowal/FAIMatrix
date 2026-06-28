@@ -15,22 +15,22 @@ Reconcile storage documentation (`01..07`) so it reflects implemented reality af
 
 ## File Map (Updated in Phase G)
 
-- `faim_native/Docs/01_STORAGE_CURRENT_STATE_AUDIT.md`
+- `faim_native/Docs/01_STORAGE_IMPLEMENTATION_AUDIT_AND_STATUS_REPORT.md`
   - added post-Phase-F status update and resolved-gap summary alignment
-- `faim_native/Docs/02_STORAGE_DATAFLOW_UPLOAD_TO_AI.md`
+- `faim_native/Docs/02_STORAGE_UPLOAD_TO_AI_DATAFLOW_REPORT.md`
   - reconciled upload/query flow wording to implemented behavior
   - confirmed multi-file partial-success behavior wording
-- `faim_native/Docs/03_STORAGE_DB_SCHEMA_AND_DATA_TYPES.md`
+- `faim_native/Docs/03_STORAGE_DB_SCHEMA_AND_DATA_MODEL_REPORT.md`
   - added implemented `storage_files` and `tenant_crypto_keys` coverage
   - aligned data-representation section with encrypted DEK metadata storage
-- `faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION.md`
+- `faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION_REPORT.md`
   - replaced outdated dedup caveat with implemented API/runtime dedup status
-- `faim_native/Docs/05_STORAGE_SECURITY_AND_CRYPTO_PLAN.md`
+- `faim_native/Docs/05_STORAGE_SECURITY_AND_CRYPTO_IMPLEMENTATION_REPORT.md`
   - updated to post-Phase-D/E/F state and current guardrail validation reality
-- `faim_native/Docs/06_STORAGE_UI_BACKEND_API_PLAN.md`
+- `faim_native/Docs/06_STORAGE_UI_AND_BACKEND_API_IMPLEMENTATION_REPORT.md`
   - converted from mixed plan/stale text into clean design+status document
   - included implemented API contract/status sections and future-only items
-- `faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+- `faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
   - rewritten to separate completed scope from true future enhancements
   - marked Phase G as completed
 - `faim_native/Docs/README.md`
@@ -62,9 +62,9 @@ Operations and observability flags:
 - `faim_native/Docs/12_PHASE_B_BACKEND_COMPLETION_REPORT.md`
 - `faim_native/Docs/13_PHASE_C_STORAGE_UI_COMPLETION_REPORT.md`
 - `faim_native/Docs/14_PHASE_D_SECURITY_HARDENING_REPORT.md`
-- `faim_native/Docs/15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
-- `faim_native/Docs/16_STORAGE_OPERATIONS_RUNBOOK.md`
-- `faim_native/Docs/17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
+- `faim_native/Docs/15B_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
+- `faim_native/Docs/16B_STORAGE_OPERATIONS_RUNBOOK.md`
+- `faim_native/Docs/17B_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
 
 ## Test/Validation Evidence Reference
 
@@ -74,7 +74,7 @@ Phase G is documentation-only and does not modify runtime code paths. Validation
 - storage unit/acceptance regression packs
 - frontend lint + targeted e2e storage queue/provenance checks
 
-Primary execution evidence is in `faim_native/Docs/17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`.
+Primary execution evidence is in `faim_native/Docs/17B_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`.
 
 ## Final Status
 

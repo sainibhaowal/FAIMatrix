@@ -26,6 +26,9 @@ def test_storage_routes_present():
     assert "/storage/files/{raw_id}/retry" in paths
     assert "/storage/graphs/{graph_id}/representation-v2/rebuild" in paths
     assert "/storage/graphs/{graph_id}/canonical-semantics/rebuild" in paths
+    assert "/storage/domain-memory" in paths
+    assert "/storage/reencryption/execute" in paths
+    assert "/storage/reencryption/jobs" in paths
     assert "/storage/summary" in paths
     assert "/storage/backends/health" in paths
 

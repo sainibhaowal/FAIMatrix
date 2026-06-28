@@ -28,6 +28,7 @@ def test_tenant_dek_manager_roundtrip(monkeypatch, session_factory):
         )
         assert len(rows) == 1
         assert rows[0].dek_wrapped
+        assert rows[0].master_key_fingerprint
 
 
 def test_encrypted_raw_store_stores_ciphertext(
@@ -56,3 +57,55 @@ def test_encrypted_raw_store_stores_ciphertext(
     stats = store.get_stats()
     assert stats.get("encrypted") is True
     assert "cipher_version" in stats
+
+
+def test_tenant_dek_rotation_rewraps_and_preserves_payload(monkeypatch, session_factory):
+    import tempfile
+
+    from store.crypto.envelope import TenantDEKManager, master_key_fingerprint
+    from store.pg.models_crypto import TenantCryptoKey
+    from store.raw.crypto import EnvelopeCipher
+    from store.raw.encrypted_payload_store import EncryptedRawStore
+    from store.raw.raw_store import RawStore
+
+    old_key = "33" * 32
+    new_key = "44" * 32
+
+    monkeypatch.setenv("FAIM_MASTER_KEY", old_key)
+    inner = RawStore(tempfile.mkdtemp(prefix="faim-rotation-test-"))
+    tenant_id = "tenant_rotation"
+    cipher = EnvelopeCipher(tenant_id=tenant_id, session_factory=session_factory.create)
+    store = EncryptedRawStore(inner=inner, cipher=cipher, graph_id=tenant_id)
+
+    payload = b"rotation-preserves-payload"
+    raw_ref = store.store(payload, mime_type="text/plain", graph_id="graph_rotation")
+    assert store.load(raw_ref, verify=True) == payload
+
+    old_fingerprint = master_key_fingerprint(bytes.fromhex(old_key))
+
+    monkeypatch.setenv("FAIM_MASTER_KEY", new_key)
+    monkeypatch.setenv("FAIM_MASTER_KEY_PREVIOUS_JSON", f'["{old_key}"]')
+
+    manager = TenantDEKManager(session_factory=session_factory.create)
+    rotation = manager.rotate_tenant_dek(tenant_id)
+    assert rotation["status"] == "rewrapped"
+    assert rotation["master_key_fingerprint"] == master_key_fingerprint(
+        bytes.fromhex(new_key)
+    )
+    assert rotation["source_master_key_fingerprint"] == old_fingerprint
+
+    with session_factory.session() as session:
+        row = (
+            session.query(TenantCryptoKey)
+            .filter(TenantCryptoKey.tenant_id == tenant_id)
+            .first()
+        )
+        assert row is not None
+        assert row.master_key_fingerprint == master_key_fingerprint(
+            bytes.fromhex(new_key)
+        )
+
+    monkeypatch.delenv("FAIM_MASTER_KEY_PREVIOUS_JSON", raising=False)
+    fresh_cipher = EnvelopeCipher(tenant_id=tenant_id, session_factory=session_factory.create)
+    fresh_store = EncryptedRawStore(inner=inner, cipher=fresh_cipher, graph_id=tenant_id)
+    assert fresh_store.load(raw_ref, verify=True) == payload

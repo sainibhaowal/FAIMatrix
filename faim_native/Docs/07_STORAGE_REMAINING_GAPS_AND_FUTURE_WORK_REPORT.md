@@ -1,4 +1,12 @@
-# 07 - Storage Gap Analysis and Execution Backlog
+# 07 - Storage Remaining Gaps and Future Work Report
+
+Date: 2026-02-20
+Owner: FAIM Native Runtime
+Status: Completed core scope; future enhancements only
+
+## Objective
+
+Track only the remaining enhancement work after the storage runtime, UI, and hardening scope has been completed.
 
 This backlog now separates completed delivery from true future enhancements.
 
@@ -63,7 +71,7 @@ This backlog now separates completed delivery from true future enhancements.
 
 Evidence:
 
-- `08_P0_IMPLEMENTATION_REPORT.md`
+- `08_STORAGE_P0_IMPLEMENTATION_REPORT.md`
 
 ## P1 Completed
 
@@ -74,7 +82,7 @@ Evidence:
 
 Evidence:
 
-- `09_P1_IMPLEMENTATION_REPORT.md`
+- `09_STORAGE_P1_IMPLEMENTATION_REPORT.md`
 
 ## P2 Completed
 
@@ -85,7 +93,7 @@ Evidence:
 
 Evidence:
 
-- `10_P2_IMPLEMENTATION_REPORT.md`
+- `10_STORAGE_P2_IMPLEMENTATION_REPORT.md`
 
 ## Phase A Completed
 
@@ -138,8 +146,8 @@ Evidence:
 
 Evidence:
 
-- `15_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
-- `16_STORAGE_OPERATIONS_RUNBOOK.md`
+- `15B_PHASE_E_OBSERVABILITY_OPERATIONS_REPORT.md`
+- `16B_STORAGE_OPERATIONS_RUNBOOK.md`
 
 ## Phase F Completed
 
@@ -150,7 +158,7 @@ Evidence:
 
 Evidence:
 
-- `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
+- `17B_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`
 
 ## Phase H Completed
 
@@ -573,11 +581,12 @@ Evidence:
 
 These are the remaining non-blocking roadmap items after P0/P1/P2, A-H, and K1-K8 completion.
 
+Historical raw-blob re-encryption is now implemented via guarded cutoff-based execute/job paths and is no longer a backlog item.
+
 ## F1 - Security Operations Maturity (P1)
 
-- historical blob re-encryption program for pre-policy plaintext payloads
 - operator playbooks for key-rotation rehearsal and emergency rollback drills at deployment level
-Reason: rollout-safe migration and drill scheduling must be coordinated per tenant and environment.
+Reason: rollout-safe drills and recovery practice must be coordinated per tenant and environment.
 Owner: Storage Security Team.
 
 ## F2 - Observability Operations Maturity (P1)

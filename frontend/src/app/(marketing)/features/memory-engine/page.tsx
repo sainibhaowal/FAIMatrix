@@ -47,7 +47,8 @@ export default function MemoryEnginePage() {
       <p className="text-slate-400 mb-6">
         When you add new information, the engine automatically finds the best
         place to store it, creating connections to related concepts. No manual
-        tagging or categorization required.
+        tagging, domain pack selection, or categorization required for the
+        normal path.
       </p>
 
       <h3 className="text-xl font-semibold text-white mb-3">

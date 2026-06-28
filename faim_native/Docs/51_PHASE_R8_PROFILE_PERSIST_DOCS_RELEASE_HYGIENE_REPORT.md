@@ -18,8 +18,8 @@ Close the profile/persist feature set with documentation reconciliation and rele
 
 ## Files Updated
 
-1. `faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION.md`
-2. `faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+1. `faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION_REPORT.md`
+2. `faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
 3. `faim_native/Docs/43_EVOLUTION_PAGE_OPERATIONS_GUIDE.md`
 4. `faim_native/Docs/README.md`
 5. `faim_native/Docs/51_PHASE_R8_PROFILE_PERSIST_DOCS_RELEASE_HYGIENE_REPORT.md` (new)

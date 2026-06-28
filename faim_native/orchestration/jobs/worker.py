@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import signal
 import time
+from datetime import datetime, timezone
 from uuid import UUID
 
 from orchestration.evolve_flow import run_evolve
@@ -31,8 +32,12 @@ class Worker:
         self.running = True
         self.executable_job_kinds = (
             "evolve",
+            "storage_upload",
+            "domain_autonomy",
+            "crypto_rotation",
             "ingest_secondary_index",
             "storage_retention",
+            "raw_reencryption",
         )
         flags = get_feature_flags()
         default_scan_interval = max(
@@ -116,20 +121,52 @@ class Worker:
                     self._run_storage_retention_job(
                         session, tenant_id, graph_id, payload, job_id
                     )
+                elif kind == "raw_reencryption":
+                    self._run_raw_reencryption_job(
+                        session, tenant_id, graph_id, payload, job_id
+                    )
+                elif kind == "storage_upload":
+                    self._run_storage_upload_job(
+                        session, tenant_id, graph_id, payload, job_id
+                    )
+                elif kind == "domain_autonomy":
+                    self._run_domain_autonomy_job(
+                        session, tenant_id, graph_id, payload, job_id
+                    )
+                elif kind == "crypto_rotation":
+                    self._run_crypto_rotation_job(
+                        session, tenant_id, graph_id, payload, job_id
+                    )
                 else:
                     raise ValueError(f"Unknown job kind: {kind}")
 
                 # Success
-                JobStore.mark_done(session, job_id)
-                self._emit_journal_event(
-                    session,
-                    tenant_id,
-                    graph_id,
-                    "JOB_DONE",
-                    {
-                        "job_id": str(job_id),
-                    },
-                )
+                if JobStore.is_cancel_requested(session, job_id):
+                    JobStore.mark_cancelled(
+                        session,
+                        job_id,
+                        JobStore.get_cancel_reason(session, job_id),
+                    )
+                    self._emit_journal_event(
+                        session,
+                        tenant_id,
+                        graph_id,
+                        "JOB_CANCELLED",
+                        {
+                            "job_id": str(job_id),
+                        },
+                    )
+                else:
+                    JobStore.mark_done(session, job_id)
+                    self._emit_journal_event(
+                        session,
+                        tenant_id,
+                        graph_id,
+                        "JOB_DONE",
+                        {
+                            "job_id": str(job_id),
+                        },
+                    )
 
             except Exception as e:
                 logger.error(f"Job {job_id} failed: {e}")
@@ -304,6 +341,507 @@ class Worker:
                 "failed": result.failed,
             },
         )
+
+    def _run_raw_reencryption_job(self, session, tenant_id, graph_id, payload, job_id):
+        """Execute legacy raw-blob re-encryption job."""
+        from datetime import datetime
+
+        from orchestration.jobs.raw_reencryption import run_raw_reencryption_backfill
+        from runtime.context import _get_raw_store
+        from store.pg.repos.event_repo import EventRepo
+        from store.pg.repos.raw_repo import RawRepo
+        from store.pg.repos.storage_file_repo import StorageFileRepo
+
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {"message": "Running legacy raw re-encryption"},
+        )
+
+        cutoff_raw = payload.get("cutoff_created_at")
+        if not cutoff_raw:
+            raise ValueError("cutoff_created_at is required for raw re-encryption jobs")
+
+        cutoff_created_at = datetime.fromisoformat(
+            str(cutoff_raw).replace("Z", "+00:00")
+        )
+
+        result = run_raw_reencryption_backfill(
+            session=session,
+            tenant_id=tenant_id,
+            graph_id=payload.get("graph_id") or graph_id,
+            cutoff_created_at=cutoff_created_at,
+            raw_repo=RawRepo(tenant_id=tenant_id),
+            storage_file_repo=StorageFileRepo(tenant_id=tenant_id),
+            raw_store=_get_raw_store(tenant_id),
+            event_repo=EventRepo(tenant_id=tenant_id),
+            page_size=max(1, int(payload.get("limit", 100))),
+            dry_run=bool(payload.get("dry_run", True)),
+            irreversible=bool(payload.get("irreversible", False)),
+            reason=payload.get("reason"),
+        )
+
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {
+                "message": "Legacy raw re-encryption complete",
+                "cutoff_created_at": result.cutoff_created_at.isoformat(),
+                "dry_run": result.dry_run,
+                "already_encrypted": result.already_encrypted,
+                "reencrypted": result.reencrypted,
+                "failed": result.failed,
+            },
+        )
+
+    def _run_crypto_rotation_job(self, session, tenant_id, graph_id, payload, job_id):
+        """Execute tenant master-key rewrap job."""
+        from orchestration.jobs.crypto_rotation import (
+            run_tenant_crypto_rotation_backfill,
+        )
+
+        tenant_rotation_id = str(
+            payload.get("tenant_id") or graph_id or tenant_id or ""
+        ).strip()
+        dry_run = bool(payload.get("dry_run", True))
+        reason = payload.get("reason")
+
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {
+                "message": "Running tenant crypto rotation",
+                "tenant_id": tenant_rotation_id,
+                "dry_run": dry_run,
+            },
+        )
+
+        result = run_tenant_crypto_rotation_backfill(
+            session=session,
+            tenant_id=tenant_rotation_id or None,
+            dry_run=dry_run,
+            reason=reason,
+        )
+
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {
+                "message": "Tenant crypto rotation complete",
+                "tenant_id": tenant_rotation_id,
+                "dry_run": result.dry_run,
+                "scanned": result.scanned,
+                "already_current": result.already_current,
+                "rewrapped": result.rewrapped,
+                "created": result.created,
+                "failed": result.failed,
+            },
+        )
+
+    def _run_domain_autonomy_job(self, session, tenant_id, graph_id, payload, job_id):
+        """Execute autonomous graph-local domain adaptation."""
+        from orchestration.domain_autonomy import run_domain_autonomy_now
+        from runtime.context import _get_raw_store
+        from store.pg.repos.event_repo import EventRepo
+        from store.pg.repos.graph_version_repo import GraphVersionRepo
+        from store.pg.repos.node_repo import NodeRepo
+        from store.pg.repos.raw_repo import RawRepo
+        from store.pg.repos.storage_file_repo import StorageFileRepo
+
+        source = str(payload.get("source") or "unknown")
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {
+                "message": "Running autonomous domain adaptation",
+                "source": source,
+            },
+        )
+
+        result = run_domain_autonomy_now(
+            session=session,
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+            raw_repo=RawRepo(tenant_id=tenant_id),
+            storage_file_repo=StorageFileRepo(session=session, tenant_id=tenant_id),
+            raw_store=_get_raw_store(tenant_id),
+            node_repo=NodeRepo(session=session, tenant_id=tenant_id),
+            gv_repo=GraphVersionRepo(session=session, tenant_id=tenant_id),
+            event_repo=EventRepo(tenant_id=tenant_id),
+        )
+
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {
+                "message": "Autonomous domain adaptation complete",
+                "source": source,
+                "files_scanned": result.files_scanned,
+                "matched_nodes": result.matched_nodes,
+                "lexicon_written": result.lexicon_written,
+                "sources_written": result.sources_written,
+                "fact_nodes_written": result.fact_nodes_written,
+                "edges_written": result.edges_written,
+                "detected_packs": result.detected_packs,
+                "graph_version": result.graph_version,
+            },
+        )
+
+    def _run_storage_upload_job(self, session, tenant_id, graph_id, payload, job_id):
+        """Execute durable upload ingest work after the HTTP request returns."""
+        from datetime import datetime
+        from uuid import UUID
+
+        from orchestration.ingest_flow import FAIMProfile, PersistMode, run_ingest
+        from runtime.context import _get_raw_store
+        from store.pg.repos.edge_repo import EdgeRepo
+        from store.pg.repos.event_repo import EventRepo
+        from store.pg.repos.graph_version_repo import GraphVersionRepo
+        from store.pg.repos.node_repo import NodeRepo
+        from store.pg.repos.raw_repo import RawRepo
+        from store.pg.repos.storage_file_repo import StorageFileRepo
+
+        requested_profile = str(
+            payload.get("requested_profile") or payload.get("profile") or "strict"
+        )
+        requested_persist_mode = str(
+            payload.get("requested_persist_mode")
+            or payload.get("persist_mode")
+            or "relaxed"
+        )
+        requested_extractor_mode = str(
+            payload.get("requested_extractor_mode")
+            or payload.get("extractor_mode")
+            or "auto"
+        )
+        effective_profile = str(payload.get("effective_profile") or requested_profile)
+        effective_persist_mode = str(
+            payload.get("effective_persist_mode") or requested_persist_mode
+        )
+        effective_extractor_mode = str(
+            payload.get("effective_extractor_mode") or requested_extractor_mode
+        )
+        durability_path = str(payload.get("durability_path") or "")
+
+        files = payload.get("files") or []
+        if not isinstance(files, list):
+            raise ValueError("files payload must be a list")
+
+        profile_enum = FAIMProfile(requested_profile.lower())
+        persist_mode_enum = PersistMode(requested_persist_mode.lower())
+
+        raw_repo = RawRepo(tenant_id=tenant_id)
+        node_repo = NodeRepo(session=session, tenant_id=tenant_id)
+        edge_repo = EdgeRepo(session=session, tenant_id=tenant_id)
+        gv_repo = GraphVersionRepo(session=session, tenant_id=tenant_id)
+        storage_repo = StorageFileRepo(session=session, tenant_id=tenant_id)
+        event_repo = EventRepo(tenant_id=tenant_id)
+        raw_store = _get_raw_store(tenant_id)
+
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {
+                "message": "Running storage upload ingest",
+                "requested_profile": requested_profile,
+                "requested_persist_mode": requested_persist_mode,
+                "effective_profile": effective_profile,
+                "effective_persist_mode": effective_persist_mode,
+                "effective_extractor_mode": effective_extractor_mode,
+                "durability_path": durability_path,
+            },
+        )
+
+        processed = 0
+        success = 0
+        failed = 0
+        dedup_hits = 0
+        cancelled = 0
+
+        for index, file_item in enumerate(files):
+            if JobStore.is_cancel_requested(session, job_id):
+                cancelled += self._cancel_remaining_storage_upload_files(
+                    session=session,
+                    graph_id=graph_id,
+                    job_id=job_id,
+                    files=files[index:],
+                    storage_repo=storage_repo,
+                )
+                JobStore.append_event(
+                    session,
+                    job_id,
+                    "step_progress",
+                    {
+                        "message": "Storage upload cancelled before worker ingest",
+                        "cancelled_files": cancelled,
+                    },
+                )
+                break
+
+            try:
+                raw_uuid = UUID(str(file_item.get("raw_id") or ""))
+            except (ValueError, TypeError, AttributeError):
+                failed += 1
+                JobStore.append_event(
+                    session,
+                    job_id,
+                    "step_progress",
+                    {
+                        "index": index,
+                        "status": "failed",
+                        "message": "Invalid raw_id in queued upload payload",
+                    },
+                )
+                continue
+
+            raw_ref = raw_repo.get_by_id(session, raw_uuid)
+            if raw_ref is None:
+                failed += 1
+                JobStore.append_event(
+                    session,
+                    job_id,
+                    "step_progress",
+                    {
+                        "index": index,
+                        "raw_id": str(raw_uuid),
+                        "status": "failed",
+                        "message": "Queued raw ref not found",
+                    },
+                )
+                continue
+
+            filename = str(file_item.get("filename") or raw_uuid)
+            mime_type = str(file_item.get("mime_type") or "application/octet-stream")
+
+            storage_repo.mark_ingesting(
+                session,
+                raw_id=raw_uuid,
+                graph_id=graph_id,
+                job_id=job_id,
+            )
+            JobStore.append_event(
+                session,
+                job_id,
+                "step_progress",
+                {
+                    "index": index,
+                    "filename": filename,
+                    "raw_id": str(raw_uuid),
+                    "message": "Ingest started",
+                    "requested_extractor_mode": requested_extractor_mode,
+                    "effective_profile": effective_profile,
+                    "effective_persist_mode": effective_persist_mode,
+                    "effective_extractor_mode": effective_extractor_mode,
+                    "durability_path": durability_path,
+                },
+            )
+
+            try:
+                file_bytes = raw_store.load(raw_ref, verify=True)
+                result = run_ingest(
+                    graph_id=graph_id,
+                    raw_id=str(raw_uuid),
+                    filename=filename,
+                    file_bytes=file_bytes,
+                    profile=profile_enum,
+                    persist_mode=persist_mode_enum,
+                    extraction_settings={
+                        "extractor_mode": requested_extractor_mode
+                    },
+                    tenant_id=tenant_id,
+                    session=session,
+                    node_repo=node_repo,
+                    edge_repo=edge_repo,
+                    event_repo=event_repo,
+                    gv_repo=gv_repo,
+                )
+            except Exception as exc:
+                failed += 1
+                storage_repo.mark_ingest_result(
+                    session,
+                    raw_id=raw_uuid,
+                    graph_id=graph_id,
+                    status="error",
+                    packet_hash=None,
+                    node_count=0,
+                    vector_count=0,
+                    error_message=str(exc),
+                    job_id=job_id,
+                )
+                JobStore.append_event(
+                    session,
+                    job_id,
+                    "step_progress",
+                    {
+                        "index": index,
+                        "filename": filename,
+                        "raw_id": str(raw_uuid),
+                        "status": "failed",
+                        "error": str(exc),
+                    },
+                )
+                continue
+
+            storage_repo.mark_ingest_result(
+                session,
+                raw_id=raw_uuid,
+                graph_id=graph_id,
+                status=result.status,
+                packet_hash=result.packet_hash or None,
+                node_count=result.nodes_written,
+                vector_count=result.vector_count,
+                error_message=result.error,
+                job_id=job_id,
+            )
+            processed += 1
+            if result.status == "dedup_hit":
+                dedup_hits += 1
+                success += 1
+            elif result.status == "error":
+                failed += 1
+            else:
+                success += 1
+
+            JobStore.append_event(
+                session,
+                job_id,
+                "step_progress",
+                {
+                    "index": index,
+                    "filename": filename,
+                    "raw_id": str(raw_uuid),
+                    "status": result.status,
+                    "packet_hash": result.packet_hash,
+                    "nodes_written": result.nodes_written,
+                    "vector_count": result.vector_count,
+                    "requested_profile": result.requested_profile,
+                    "requested_persist_mode": result.requested_persist_mode,
+                    "effective_profile": result.effective_profile,
+                    "effective_persist_mode": result.effective_persist_mode,
+                    "effective_extractor_mode": result.effective_extractor_mode,
+                    "durability_path": result.durability_path,
+                },
+            )
+
+            if JobStore.is_cancel_requested(session, job_id):
+                cancelled += self._cancel_remaining_storage_upload_files(
+                    session=session,
+                    graph_id=graph_id,
+                    job_id=job_id,
+                    files=files[index + 1 :],
+                    storage_repo=storage_repo,
+                )
+                JobStore.append_event(
+                    session,
+                    job_id,
+                    "step_progress",
+                    {
+                        "message": "Storage upload cancelled after worker ingest",
+                        "cancelled_files": cancelled,
+                    },
+                )
+                break
+
+        job = JobStore.get_job(session, job_id)
+        if job is not None:
+            payload_json = dict(job.payload_json or {})
+            payload_json.update(
+                {
+                    "processed_files": processed,
+                    "success_files": success,
+                    "failed_files": failed,
+                    "dedup_hits": dedup_hits,
+                    "cancelled_files": cancelled,
+                }
+            )
+            job.payload_json = payload_json
+            job.updated_at = datetime.now(timezone.utc)
+            session.flush()
+
+        JobStore.append_event(
+            session,
+            job_id,
+            "step_progress",
+            {
+                "message": "Storage upload ingest complete",
+                "processed": processed,
+                "success": success,
+                "failed": failed,
+                "dedup_hits": dedup_hits,
+                "cancelled_files": cancelled,
+            },
+        )
+
+        if success > 0:
+            try:
+                from orchestration.domain_autonomy import (
+                    enqueue_domain_autonomy_if_needed,
+                )
+
+                domain_result = enqueue_domain_autonomy_if_needed(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    source="storage_upload_worker",
+                    request_id=str(job_id),
+                )
+                if domain_result.job_id is not None:
+                    JobStore.append_event(
+                        session,
+                        job_id,
+                        "step_progress",
+                        {
+                            "message": "Autonomous domain adaptation triggered",
+                            "domain_autonomy_job_id": str(domain_result.job_id),
+                            "domain_autonomy_status": domain_result.status,
+                        },
+                    )
+            except Exception as exc:  # nosec B110
+                logger.warning(
+                    "Failed to enqueue autonomous domain adaptation after upload job %s: %s",
+                    job_id,
+                    exc,
+                )
+
+    def _cancel_remaining_storage_upload_files(
+        self,
+        *,
+        session,
+        graph_id,
+        job_id,
+        files,
+        storage_repo,
+    ) -> int:
+        """Mark queued upload rows as cancelled."""
+        from uuid import UUID
+
+        cancelled = 0
+        for file_item in files:
+            try:
+                raw_uuid = UUID(str(file_item.get("raw_id") or ""))
+            except (ValueError, TypeError, AttributeError):
+                continue
+            row = storage_repo.get_by_raw_id(session, raw_uuid, graph_id)
+            if row is None:
+                continue
+            if row.ingest_status in {"ingested", "dedup_hit", "failed", "cancelled"}:
+                continue
+            storage_repo.mark_cancelled(
+                session,
+                raw_id=raw_uuid,
+                graph_id=graph_id,
+                error_message="Upload cancelled before worker ingest",
+                job_id=job_id,
+            )
+            cancelled += 1
+        return cancelled
 
     def _run_ingest_secondary_index_job(
         self,

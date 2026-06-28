@@ -135,13 +135,11 @@ export function NotificationCenter() {
         <div className="border-t border-white/10 px-4 py-2 text-center">
           <button
             onClick={() => {
-              if (isAdmin) {
-                router.push("/dashboard/control-plane?section=incidents");
-              }
+              router.push("/dashboard");
             }}
             className="text-[10px] text-slate-500 hover:text-slate-300"
           >
-            {isAdmin ? "View incidents" : "View all"}
+            View all
           </button>
         </div>
       </Dropdown>

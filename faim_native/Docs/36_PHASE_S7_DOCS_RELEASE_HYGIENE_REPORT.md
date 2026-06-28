@@ -18,7 +18,7 @@ Phase S7 objective:
 
 Updated:
 
-- `faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION.md`
+- `faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION_REPORT.md`
 
 Changes:
 
@@ -34,7 +34,7 @@ Changes:
 
 Updated:
 
-- `faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+- `faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
 
 Changes:
 
@@ -59,8 +59,8 @@ Documentation consistency checks executed:
 
 ```bash
 rg -n "Phase S7|36_PHASE_S7_DOCS_RELEASE_HYGIENE_REPORT" \
-  faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION.md \
-  faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md \
+  faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION_REPORT.md \
+  faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md \
   faim_native/Docs/README.md \
   faim_native/Docs/36_PHASE_S7_DOCS_RELEASE_HYGIENE_REPORT.md
 ```
@@ -69,8 +69,8 @@ Result: all S7 references resolved in target docs.
 
 ## Files Changed
 
-- `faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION.md`
-- `faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+- `faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION_REPORT.md`
+- `faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
 - `faim_native/Docs/README.md`
 - `faim_native/Docs/36_PHASE_S7_DOCS_RELEASE_HYGIENE_REPORT.md`
 

@@ -49,10 +49,10 @@ const STAGES: PipelineStage[] = [
     id: "stage-3",
     title: "Stage 3: Graph diffusion",
     subtitle: "Decaying Path & PageRank Walks",
-    desc: "Shortlisted candidates are expanded via adjacent graph edges (opposition, inheritance, KB citations). The engine walks up to 24 hops, distributing score multipliers that decay dynamically to prioritize localized neighborhood coherence.",
+    desc: "Shortlisted candidates are expanded via adjacent graph edges (opposition, inheritance, KB citations). The engine walks with bounded hop budgets, distributing score multipliers that decay dynamically to prioritize localized neighborhood coherence.",
     math: "S_{graph} = \\sum_{p \\in \\text{Paths}} \\gamma^{\\text{length}} \\cdot \\prod_{e \\in p} W(e)",
     specs: [
-      { label: "Traversal Depth", value: "Up to 24 hops" },
+      { label: "Traversal Depth", value: "Bounded hops" },
       { label: "Decay Factor", value: "0.85 per hop" },
       { label: "Expansion Limit", value: "24 neighbors max" },
       { label: "Score Synthesis", value: "Neighborhood Coherence" }

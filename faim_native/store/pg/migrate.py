@@ -26,13 +26,14 @@ MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 
 def split_sql_statements(sql_content: str) -> List[str]:
-    """Split SQL script into statements without breaking on quoted semicolons.
+    """Split SQL script into statements without breaking on quoted semicolons or dollar quotes.
 
     Handles:
     - single quoted strings with escaped quotes ('')
     - double quoted identifiers
     - line comments (-- ...)
     - block comments (/* ... */)
+    - dollar quoted strings ($tag$ ... $tag$)
     """
     statements: List[str] = []
     buf: List[str] = []
@@ -41,6 +42,8 @@ def split_sql_statements(sql_content: str) -> List[str]:
     in_double = False
     in_line_comment = False
     in_block_comment = False
+    in_dollar = False
+    dollar_tag = ""
 
     i = 0
     n = len(sql_content)
@@ -65,6 +68,17 @@ def split_sql_statements(sql_content: str) -> List[str]:
                 i += 1
             continue
 
+        if in_dollar:
+            buf.append(ch)
+            if ch == "$" and sql_content[i:].startswith(dollar_tag):
+                buf.append(dollar_tag[1:])
+                i += len(dollar_tag)
+                in_dollar = False
+                dollar_tag = ""
+            else:
+                i += 1
+            continue
+
         if not in_single and not in_double:
             if ch == "-" and nxt == "-":
                 buf.append(ch)
@@ -78,11 +92,18 @@ def split_sql_statements(sql_content: str) -> List[str]:
                 in_block_comment = True
                 i += 2
                 continue
+            if ch == "$":
+                match = re.match(r"^\$[A-Za-z0-9_]*\$", sql_content[i:])
+                if match:
+                    dollar_tag = match.group(0)
+                    in_dollar = True
+                    buf.append(dollar_tag)
+                    i += len(dollar_tag)
+                    continue
 
         if ch == "'" and not in_double:
             buf.append(ch)
             if in_single and nxt == "'":
-                # Escaped single quote inside string literal.
                 buf.append(nxt)
                 i += 2
                 continue

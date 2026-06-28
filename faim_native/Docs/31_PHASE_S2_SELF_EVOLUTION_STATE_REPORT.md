@@ -94,6 +94,6 @@ Result:
 - `faim_native/store/pg/repos/__init__.py`
 - `tests/unit/test_phase_s2_self_evolution_state_repo.py`
 - `faim_native/Docs/README.md`
-- `faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+- `faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
 - `faim_native/Docs/31_PHASE_S2_SELF_EVOLUTION_STATE_REPORT.md`
 

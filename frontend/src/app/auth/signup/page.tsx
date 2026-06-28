@@ -15,6 +15,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from "@/components/brand/Logo";
 import { readJsonSafely } from "@/lib/safeFetch";
+import { normalizeApiErrorMessage } from "@/lib/errorMessages";
 
 function SignupContent() {
   const router = useRouter();
@@ -68,7 +69,7 @@ function SignupContent() {
       if (res.ok && data.success) {
         setStep("code");
       } else {
-        setError(data.detail || "Failed to send code");
+        setError(normalizeApiErrorMessage(data, "Failed to send code"));
       }
     } catch (err) {
       setError("Network error. Please try again.");

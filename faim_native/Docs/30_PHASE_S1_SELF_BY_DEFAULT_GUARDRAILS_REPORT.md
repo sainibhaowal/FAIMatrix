@@ -49,7 +49,7 @@ Implement Phase S1 only:
 - `tests/unit/test_phase_a_feature_flags.py`
 - `env.template`
 - `faim_native/Docs/README.md`
-- `faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+- `faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
 - `faim_native/Docs/30_PHASE_S1_SELF_BY_DEFAULT_GUARDRAILS_REPORT.md`
 
 ## Validation

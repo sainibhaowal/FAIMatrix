@@ -51,6 +51,35 @@ def _mk_client(monkeypatch, *, compat_mode: str = "false") -> tuple[TestClient, 
     return client, headers
 
 
+def _drain_jobs(monkeypatch, *, max_iterations: int = 10):
+    from orchestration.jobs.worker import Worker
+    from store.pg import session as pg_session
+    from store.pg.models_faim import JobModel
+
+    monkeypatch.setattr(
+        "orchestration.jobs.worker.get_session",
+        lambda: pg_session.get_session(),
+    )
+
+    worker = Worker(poll_interval=0.01, self_evolve_scan_interval_seconds=3600.0)
+    for _ in range(max_iterations):
+        check_session = pg_session.get_session()
+        try:
+            pending = (
+                check_session.query(JobModel)
+                .filter(
+                    JobModel.status.in_(["pending", "running"]),
+                    JobModel.kind.in_(list(worker.executable_job_kinds)),
+                )
+                .count()
+            )
+        finally:
+            check_session.close()
+        if pending <= 0:
+            break
+        worker._poll_and_execute()
+
+
 @pytest.mark.parametrize(
     "profile,persist_mode,expected_durability",
     [
@@ -90,6 +119,7 @@ def test_r7_storage_upload_matrix_requested_effective_and_events(
     assert body["effective_profile"] == profile
     assert body["effective_persist_mode"] == persist_mode
     assert body["durability_path"] == expected_durability
+    assert body["status"] == "queued"
     assert body["files"], "expected file-level results"
     first = body["files"][0]
     assert first["requested_profile"] == profile
@@ -97,7 +127,9 @@ def test_r7_storage_upload_matrix_requested_effective_and_events(
     assert first["effective_profile"] == profile
     assert first["effective_persist_mode"] == persist_mode
     assert first["durability_path"] == expected_durability
-    assert first["status"] in {"ingested", "dedup_hit"}
+    assert first["status"] == "queued"
+
+    _drain_jobs(monkeypatch)
 
     status = client.get(f"/api/v1/storage/uploads/{body['job_id']}", headers=headers)
     assert status.status_code == 200, status.text
@@ -107,6 +139,7 @@ def test_r7_storage_upload_matrix_requested_effective_and_events(
     assert status_body["effective_profile"] == profile
     assert status_body["effective_persist_mode"] == persist_mode
     assert status_body["durability_path"] == expected_durability
+    assert status_body["status"] == "done"
 
     events = client.get(
         f"/api/v1/storage/uploads/{body['job_id']}/events", headers=headers

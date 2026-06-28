@@ -36,8 +36,8 @@ No validation step may depend on fabricated benchmark numbers.
 | Query integration | baseline remains default; HV is opt-in | `faim_native/orchestration/query_flow.py`, `faim_native/core/query/query_engine.py` | HV scoring and recall path | baseline ranking changes when HV is disabled |
 | Evolution integration | merge/prune safety is preserved | `faim_native/core/dynamics/evolution_native.py`, `faim_native/core/invariants.py` | HV diagnostics hooks | evolution becomes unstable, non-deterministic, or over-prunes |
 | Storage | node, packet, and sidecar persistence remain tenant-safe | `faim_native/store/pg/models_faim.py`, `faim_native/store/pg/repos/representation_repo.py` | `faim_native/store/pg/models_hv.py` | cross-tenant access or schema corruption |
-| Frontend | premium toggle is visible but non-disruptive | `frontend/src/app/(app)/dashboard/profile/page.tsx`, `frontend/src/components/storage/ControlPlanePanel.tsx` | HV control UI | default UX changes unexpectedly or breaks on mobile/desktop |
-| Security | auth, encryption, and rate limits remain intact | `faim_native/api/middleware/*`, `tests/security/*` | none or minimal control-plane hooks | any auth bypass, tenant leak, or crypto regression |
+| Frontend | premium toggle is visible but non-disruptive | `frontend/src/app/(app)/dashboard/profile/page.tsx` | profile UX | default UX changes unexpectedly or breaks on mobile/desktop |
+| Security | auth, encryption, and rate limits remain intact | `faim_native/api/middleware/*`, `tests/security/*` | none or minimal admin hooks | any auth bypass, tenant leak, or crypto regression |
 | Benchmarks | FAIM vs FAIM-MHVC vs HDC/VSA comparisons are fair | `faim_native/benchmarks/*`, `docs/Benchmarks_Publication/BENCHMARK_SPEC.md` | HV benchmark runner extensions | mismatched dataset, seed, top-k, or compute budget |
 
 ## 4. Test Layers
@@ -151,9 +151,6 @@ The following must remain true:
 ### Frontend
 
 - `frontend/src/app/(app)/dashboard/profile/page.tsx`
-- `frontend/src/app/(app)/dashboard/control-plane/page.tsx`
-- `frontend/src/components/storage/ControlPlanePanel.tsx`
-- `frontend/src/components/admin/AdminControlPlane.tsx`
 - `frontend/src/contexts/UserContext.tsx`
 
 ### Docs

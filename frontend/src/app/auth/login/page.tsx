@@ -14,6 +14,7 @@ import { Loader2, Mail, Lock, ArrowRight, ChevronLeft } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from "@/components/brand/Logo";
 import { readJsonSafely } from "@/lib/safeFetch";
+import { normalizeApiErrorMessage } from "@/lib/errorMessages";
 
 function LoginContent() {
   const router = useRouter();
@@ -71,7 +72,7 @@ function LoginContent() {
         setCode("");
         setStep("code");
       } else {
-        setError(data.detail || "Failed to send code");
+        setError(normalizeApiErrorMessage(data, "Failed to send code"));
       }
     } catch (err) {
       setError("Network error. Please try again.");

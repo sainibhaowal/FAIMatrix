@@ -125,23 +125,7 @@ export function CommandPalette({
         actionId: "open_settings",
         subtitle: "Quick toggles and preferences",
       },
-      ...(session?.isAdmin
-        ? [
-            {
-              type: "setting" as const,
-              // Note: tests assert existence of "Open Admin" in palette
-              title: "Open Control Center",
-              actionId: "open_control_center",
-              subtitle: "Platform operations console",
-            },
-            {
-              type: "setting" as const,
-              title: "Open Incidents",
-              actionId: "open_incidents",
-              subtitle: "Incident workflow and operator queue",
-            },
-          ]
-        : []),
+
     ],
     [session?.isAdmin],
   );
@@ -209,12 +193,7 @@ export function CommandPalette({
     }
     if (r.type === "setting") {
       if (r.actionId === "open_settings") router.push("/dashboard/profile");
-      if (r.actionId === "open_control_center") {
-        router.push("/dashboard/control-plane");
-      }
-      if (r.actionId === "open_incidents") {
-        router.push("/dashboard/control-plane?section=incidents");
-      }
+
       onClose();
       return;
     }

@@ -127,7 +127,7 @@ Result: `24 passed`.
 - `faim_native/orchestration/jobs/worker.py`
 - `tests/unit/test_prune_policy.py`
 - `tests/unit/test_phase_s5_evolution_core_hardening.py`
-- `faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION.md`
-- `faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+- `faim_native/Docs/04_STORAGE_MEMORY_MATH_AND_EVOLUTION_REPORT.md`
+- `faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
 - `docs/Plan.md`
 - `faim_native/Docs/34_PHASE_S5_EVOLVE_INVENTION_CORE_HARDENING_REPORT.md`

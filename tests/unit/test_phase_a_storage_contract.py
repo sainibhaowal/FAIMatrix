@@ -48,6 +48,10 @@ def test_storage_response_models_contain_minimum_required_fields():
         "StorageDomainProfileRebuildResponse": storage_router_module.StorageDomainProfileRebuildResponse,
         "StorageDomainKnowledgeImportResponse": storage_router_module.StorageDomainKnowledgeImportResponse,
         "StorageMultimodalBackfillResponse": storage_router_module.StorageMultimodalBackfillResponse,
+        "StorageRawReencryptionResponse": storage_router_module.StorageRawReencryptionResponse,
+        "StorageRawReencryptionJobResponse": storage_router_module.StorageRawReencryptionJobResponse,
+        "StorageCryptoRotationResponse": storage_router_module.StorageCryptoRotationResponse,
+        "StorageCryptoRotationJobResponse": storage_router_module.StorageCryptoRotationJobResponse,
         "StorageSupportedTypesResponse": storage_router_module.StorageSupportedTypesResponse,
     }
 

@@ -128,6 +128,7 @@ def test_r5_storage_upload_batch_and_status_include_mode_fields(monkeypatch):
     assert body["effective_profile"] == "fast"
     assert body["effective_persist_mode"] == "relaxed"
     assert body["durability_path"] == "core_sync_secondary_async"
+    assert body["status"] == "queued"
     assert body["files"], "expected per-file upload results"
     first = body["files"][0]
     assert first["requested_profile"] == "fast"
@@ -135,6 +136,33 @@ def test_r5_storage_upload_batch_and_status_include_mode_fields(monkeypatch):
     assert first["effective_profile"] == "fast"
     assert first["effective_persist_mode"] == "relaxed"
     assert first["durability_path"] == "core_sync_secondary_async"
+    assert first["status"] == "queued"
+
+    from orchestration.jobs.worker import Worker
+    from store.pg import session as pg_session
+    from store.pg.models_faim import JobModel
+
+    monkeypatch.setattr(
+        "orchestration.jobs.worker.get_session",
+        lambda: pg_session.get_session(),
+    )
+    worker = Worker(poll_interval=0.01, self_evolve_scan_interval_seconds=3600.0)
+    for _ in range(10):
+        check_session = pg_session.get_session()
+        try:
+            pending = (
+                check_session.query(JobModel)
+                .filter(
+                    JobModel.status.in_(["pending", "running"]),
+                    JobModel.kind.in_(list(worker.executable_job_kinds)),
+                )
+                .count()
+            )
+        finally:
+            check_session.close()
+        if pending <= 0:
+            break
+        worker._poll_and_execute()
 
     status = client.get(f"/api/v1/storage/uploads/{body['job_id']}", headers=headers)
     assert status.status_code == 200, status.text
@@ -144,6 +172,7 @@ def test_r5_storage_upload_batch_and_status_include_mode_fields(monkeypatch):
     assert status_body["effective_profile"] == "fast"
     assert status_body["effective_persist_mode"] == "relaxed"
     assert status_body["durability_path"] == "core_sync_secondary_async"
+    assert status_body["status"] == "done"
 
 
 def test_r5_evolve_complete_or_skipped_event_includes_mode_fields(monkeypatch):

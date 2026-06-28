@@ -52,27 +52,31 @@ const CODE_EXAMPLES: CodeExample[] = [
   -H "X-API-Key: faim_sk_..." \\
   -d '{
     "graph_id": "my-project",
-    "query": "container security best practices",
-    "hop_depth": 24,
-    "explain": true
+    "query_text": "container security best practices",
+    "k": 10,
+    "return_explain": true
   }'
  
-# Response includes 24-hop reasoning path:
+# Response includes ranked results and an answer payload:
 # {
+#   "results": [
+#     {
+#       "node_id": "n_8f3a...",
+#       "score": 0.83,
+#       "evidence": { "raw_id": "raw_123..." }
+#     }
+#   ],
 #   "answer": {
 #     "direct_answer": "Pods should not run as root.",
 #     "confidence": 0.83,
-#     "reasoning_path": ["n_8f3a", "n_2b1c", "n_9d4f", "..."],
 #     "citations": [{ "node_id": "n_8f3a..." }]
 #   },
-#   "intent": {
-#     "classification": "BestPractices",
-#     "confidence": 1.0,
-#     "registry_match": "security-protocol-v2"
+#   "metrics": {
+#     "cache_hit": 0.0
 #   }
 # }`,
     description:
-      "Query returns deterministic ranking with 24-hop deep graph reasoning. The 1M+ Semantic Registry maps intent in <10ms, providing full explainability for every retrieval signal.",
+      "Query returns deterministic ranking with bounded graph reasoning. The semantic router maps intent in <10ms, providing full explainability for every retrieval signal.",
   },
   {
     id: "evolve",
@@ -237,8 +241,8 @@ export default function DeveloperAPI() {
                 )}
                 {activeTab === "query" && (
                   <>
-                    <Highlight text="24-hop deep graph reasoning path" />
-                    <Highlight text="1M+ Semantic Registry intent classification" />
+                    <Highlight text="Bounded multi-hop reasoning trace" />
+                    <Highlight text="Deterministic semantic routing" />
                     <Highlight text="Deterministic ranking with full explainability" />
                   </>
                 )}

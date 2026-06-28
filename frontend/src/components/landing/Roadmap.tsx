@@ -5,8 +5,8 @@ import { motion } from "framer-motion";
 const PHASES = [
   {
     tag: "NOW",
-    title: "1M+ Cognitive Core",
-    desc: "Stage-5 production core with 1,000,000+ concept registry, 24-hop reasoning path, and Neural Pulse tracing.",
+    title: "Deterministic Cognitive Core",
+    desc: "Stage-5 production core with seeded alias routing, bounded multi-hop reasoning, and Neural Pulse tracing.",
     status: "Live",
     color: "cyan",
   },

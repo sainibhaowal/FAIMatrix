@@ -122,29 +122,7 @@ export default withAuth(
       return NextResponse.next();
     }
 
-    if (
-      req.nextUrl.pathname.startsWith("/dashboard/admin") ||
-      req.nextUrl.pathname.startsWith("/dashboard/control-plane")
-    ) {
-      if (!token?.isAdmin) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
-    }
 
-    if (req.nextUrl.pathname.startsWith("/api/admin/")) {
-      if (!token?.isAdmin) {
-        return new NextResponse(
-          JSON.stringify({
-            error: "Forbidden",
-            message: "Admin access required.",
-          }),
-          {
-            status: 403,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
-      }
-    }
 
     // 2. If it's a protected API route and we have NO token (cookie), then return 401 JSON
     if (
@@ -186,17 +164,6 @@ export default withAuth(
       authorized: ({ token, req }) => {
         if (process.env.PLAYWRIGHT_BYPASS_AUTH === "true") return true;
 
-        // Only require authorized=true for PAGES (dashboard)
-        // API routes are handled manually above to return JSON
-        if (
-          req.nextUrl.pathname.startsWith("/dashboard/admin") ||
-          req.nextUrl.pathname.startsWith("/dashboard/control-plane")
-        ) {
-          return !!token?.isAdmin;
-        }
-        if (req.nextUrl.pathname.startsWith("/api/admin/")) {
-          return !!token?.isAdmin;
-        }
         if (req.nextUrl.pathname.startsWith("/api/")) return true;
         return !!token;
       },
@@ -214,7 +181,6 @@ export const config = {
     "/dashboard/:path*",
     "/api/v1/auth/me", // Specifically protect /me
     "/api/v1/((?!auth/).*)", // Protect all other v1 except auth endpoints
-    "/api/admin/:path*",
     "/api/ops/:path*",
     "/api/billing/:path*",
   ],

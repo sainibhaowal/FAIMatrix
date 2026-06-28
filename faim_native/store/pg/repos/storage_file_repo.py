@@ -42,6 +42,51 @@ class StorageFileRepo:
             query = query.filter(StorageFileModel.graph_id == graph_id)
         return query.first()
 
+    def list_by_raw_id(
+        self,
+        session: Session,
+        raw_id: UUID,
+        graph_id: Optional[str] = None,
+    ) -> List[StorageFileModel]:
+        """List all storage rows for a raw reference.
+
+        Raw refs are tenant-scoped but may be reused across multiple catalog
+        rows in migration scenarios, so callers that rewrite blob references
+        should update every matching storage row.
+        """
+        query = session.query(StorageFileModel).filter(
+            and_(
+                StorageFileModel.tenant_id == self.tenant_id,
+                StorageFileModel.raw_id == raw_id,
+            )
+        )
+        if graph_id is not None:
+            query = query.filter(StorageFileModel.graph_id == graph_id)
+        return (
+            query.order_by(asc(StorageFileModel.updated_at), asc(StorageFileModel.id))
+            .all()
+        )
+
+    def list_by_job_id(
+        self,
+        session: Session,
+        job_id: UUID,
+        graph_id: Optional[str] = None,
+    ) -> List[StorageFileModel]:
+        """List all storage rows associated with a job."""
+        query = session.query(StorageFileModel).filter(
+            and_(
+                StorageFileModel.tenant_id == self.tenant_id,
+                StorageFileModel.last_job_id == job_id,
+            )
+        )
+        if graph_id is not None:
+            query = query.filter(StorageFileModel.graph_id == graph_id)
+        return (
+            query.order_by(asc(StorageFileModel.updated_at), asc(StorageFileModel.id))
+            .all()
+        )
+
     def upsert_upload(
         self,
         session: Session,

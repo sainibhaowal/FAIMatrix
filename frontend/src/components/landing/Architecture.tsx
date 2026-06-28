@@ -45,12 +45,12 @@ const LAYERS = [
         desc: "256-d vectors, inheritance, dedup, evolution, and 8 invariant checks",
       },
       {
-        name: "1M+ Semantic Registry",
-        desc: "Deterministic dictionary mapping for 100k+ professional concepts (zero ML)",
+        name: "Deterministic Semantic Router",
+        desc: "Seeded alias mapping for intent routing (zero ML)",
       },
       {
         name: "Graph + Knowledge Layers",
-        desc: "24-hop diffusion, semantic edges, domain knowledge, and neural pulse tracing",
+        desc: "bounded multi-hop diffusion, semantic edges, domain knowledge, and neural pulse tracing",
       },
       {
         name: "Answer-Ready Retrieval",

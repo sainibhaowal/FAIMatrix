@@ -1,4 +1,12 @@
-# 02 - Storage Data Flow: Upload to AI Retrieval
+# 02 - Storage Upload to AI Dataflow Report
+
+Date: 2026-02-11
+Owner: FAIM Native Runtime
+Status: Completed
+
+## Objective
+
+Document the implemented upload-to-retrieval path, including raw-store provenance and bounded retrieval behavior.
 
 This document describes the end-to-end data path.
 

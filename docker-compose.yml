@@ -3,7 +3,7 @@ services:
   # PostgreSQL (Required - Source of Truth)
   # ---------------------------------------------------------------------------
   postgres:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     container_name: faim-postgres
     environment:
       POSTGRES_USER: faim

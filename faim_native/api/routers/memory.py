@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -398,6 +399,50 @@ def _maybe_enqueue_self_evolve(
         logger.warning("Shared self-evolve enqueue skipped due to error: %s", exc)
 
 
+def _maybe_trigger_domain_autonomy(
+    *,
+    ctx: FAIMContext,
+    graph_id: str,
+    source: str,
+) -> Optional[str]:
+    try:
+        from orchestration.domain_autonomy import (
+            enqueue_domain_autonomy_if_needed,
+            run_domain_autonomy_now,
+        )
+
+        if getattr(ctx, "session", None) is None:
+            return None
+
+        if os.getenv("FAIM_ENABLE_JOBS", "").strip().lower() in {"1", "true", "yes", "on"}:
+            result = enqueue_domain_autonomy_if_needed(
+                session=ctx.session,
+                tenant_id=ctx.tenant_id,
+                graph_id=graph_id,
+                source=source,
+                request_id=ctx.request_id,
+            )
+            return str(result.job_id) if result.job_id else None
+
+        from runtime.context import _get_raw_store
+
+        run_domain_autonomy_now(
+            session=ctx.session,
+            tenant_id=ctx.tenant_id,
+            graph_id=graph_id,
+            raw_repo=ctx.raw_repo,
+            storage_file_repo=getattr(ctx, "storage_file_repo", None),
+            raw_store=_get_raw_store(ctx.tenant_id),
+            node_repo=ctx.node_repo,
+            gv_repo=ctx.gv_repo,
+            event_repo=ctx.event_repo,
+        )
+        return "sync"
+    except Exception as exc:  # nosec B110
+        logger.warning("Autonomous domain adaptation skipped due to error: %s", exc)
+        return None
+
+
 # =============================================================================
 # Routes
 # =============================================================================
@@ -706,6 +751,11 @@ async def write_memory(
                 graph_id=body.graph_id,
                 profile=profile.value,
                 persist_mode=persist_mode.value,
+            )
+            _maybe_trigger_domain_autonomy(
+                ctx=ctx,
+                graph_id=body.graph_id,
+                source="memory_write",
             )
 
         response_payload = {

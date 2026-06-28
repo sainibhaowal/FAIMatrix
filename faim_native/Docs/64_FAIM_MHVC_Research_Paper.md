@@ -386,9 +386,6 @@ Suggested new files for the future layer:
 
 Suggested frontend touchpoints for enterprise toggle:
 
-- `frontend/src/app/(app)/dashboard/control-plane/page.tsx`
-- `frontend/src/components/storage/ControlPlanePanel.tsx`
-- `frontend/src/components/admin/AdminControlPlane.tsx`
 - `frontend/src/app/(app)/dashboard/profile/page.tsx`
 
 ## 10. API and Route Boundary

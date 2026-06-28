@@ -107,22 +107,8 @@ export function SidebarNav({
   );
 
   const navGroups = useMemo(() => {
-    if (!session?.isAdmin) return NAV_GROUPS;
-    return [
-      ...NAV_GROUPS,
-      {
-        title: "Control",
-        items: [
-          {
-            // Note: tests assert existence of "/dashboard/admin" and "Alerts" in sidebar
-            href: "/dashboard/control-plane",
-            label: "Control Center",
-            icon: ServerCog,
-          },
-        ],
-      },
-    ];
-  }, [session?.isAdmin]);
+    return NAV_GROUPS;
+  }, []);
 
   const activeHref = useMemo(() => {
     const allItems = navGroups.flatMap((g) => g.items);

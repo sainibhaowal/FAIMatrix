@@ -8,7 +8,7 @@ const SPEC_GROUPS = [
     color: "cyan",
     borderColor: "border-cyan-500/20",
     specs: [
-      { label: "Semantic Registry", value: "1,000,000+", unit: "deterministic" },
+      { label: "Semantic Routing", value: "Seeded aliases", unit: "deterministic" },
       { label: "Vector Dimension", value: "256", unit: "fixed" },
       { label: "Encoding", value: "Deterministic", unit: "native" },
       { label: "Idempotency", value: "SHA-256 dedup", unit: "per write" },
@@ -20,7 +20,7 @@ const SPEC_GROUPS = [
     color: "purple",
     borderColor: "border-purple-500/20",
     specs: [
-      { label: "Max Reasoning Depth", value: "24", unit: "hops" },
+      { label: "Max Reasoning Depth", value: "2-5", unit: "hops" },
       { label: "Representation V2", value: "Dense + Sparse", unit: "" },
       { label: "Canonical Semantics", value: "Registry Hashing", unit: "" },
       { label: "Graph Expansion", value: "Bounded Diffusion", unit: "" },
