@@ -71,6 +71,22 @@ class SelfEvolveDueEvaluation:
     last_enqueued_job_id: Optional[UUID] = None
 
 
+@dataclass(frozen=True)
+class SelfEvolveGuardrailSummary:
+    """Human-facing summary of the self-evolve automation guardrails."""
+
+    self_evolve_enabled: bool
+    self_invent_enabled: bool
+    self_invent_on_evolve: bool
+    self_invent_after_upload: bool
+    jobs_enabled: bool
+    trigger_mode: str
+    automation_path: str
+    automation_label: str
+    automation_enabled: bool
+    guardrail_reason: str
+
+
 def _jobs_enabled() -> bool:
     raw = os.getenv("FAIM_ENABLE_JOBS", "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
@@ -124,6 +140,105 @@ def _source_allowed_for_mode(*, source_key: str, trigger_mode: str) -> bool:
     if _is_periodic_source(source_key):
         return trigger_mode in {"periodic", "hybrid"}
     return False
+
+
+def build_self_evolve_guardrail_summary() -> SelfEvolveGuardrailSummary:
+    """Summarize the currently active self-evolve/self-invent guardrails.
+
+    The result is intentionally operator-facing: it explains whether the system
+    is manual-only, after-upload, periodic, hybrid, or legacy-compat.
+    """
+    flags = get_feature_flags()
+    jobs_enabled = _jobs_enabled()
+    trigger_mode = str(flags.self_evolve_trigger_mode or "").strip().lower()
+    legacy_upload_compat = bool(
+        not flags.self_evolve_enabled
+        and flags.self_invent_enabled
+        and flags.self_invent_after_upload
+    )
+
+    if legacy_upload_compat:
+        return SelfEvolveGuardrailSummary(
+            self_evolve_enabled=bool(flags.self_evolve_enabled),
+            self_invent_enabled=bool(flags.self_invent_enabled),
+            self_invent_on_evolve=bool(flags.self_invent_on_evolve),
+            self_invent_after_upload=bool(flags.self_invent_after_upload),
+            jobs_enabled=jobs_enabled,
+            trigger_mode=trigger_mode or "manual",
+            automation_path="legacy_post_upload_compat",
+            automation_label="Legacy after-upload compatibility",
+            automation_enabled=bool(jobs_enabled),
+            guardrail_reason="legacy_upload_compat",
+        )
+
+    if not flags.self_evolve_enabled:
+        return SelfEvolveGuardrailSummary(
+            self_evolve_enabled=False,
+            self_invent_enabled=bool(flags.self_invent_enabled),
+            self_invent_on_evolve=bool(flags.self_invent_on_evolve),
+            self_invent_after_upload=bool(flags.self_invent_after_upload),
+            jobs_enabled=jobs_enabled,
+            trigger_mode=trigger_mode or "manual",
+            automation_path="disabled",
+            automation_label="Disabled",
+            automation_enabled=False,
+            guardrail_reason="self_evolve_disabled",
+        )
+
+    if trigger_mode == "manual":
+        return SelfEvolveGuardrailSummary(
+            self_evolve_enabled=True,
+            self_invent_enabled=bool(flags.self_invent_enabled),
+            self_invent_on_evolve=bool(flags.self_invent_on_evolve),
+            self_invent_after_upload=bool(flags.self_invent_after_upload),
+            jobs_enabled=jobs_enabled,
+            trigger_mode=trigger_mode,
+            automation_path="manual_only",
+            automation_label="Manual only",
+            automation_enabled=False,
+            guardrail_reason="manual_mode",
+        )
+
+    if trigger_mode == "post_upload":
+        return SelfEvolveGuardrailSummary(
+            self_evolve_enabled=True,
+            self_invent_enabled=bool(flags.self_invent_enabled),
+            self_invent_on_evolve=bool(flags.self_invent_on_evolve),
+            self_invent_after_upload=bool(flags.self_invent_after_upload),
+            jobs_enabled=jobs_enabled,
+            trigger_mode=trigger_mode,
+            automation_path="post_upload_worker",
+            automation_label="After upload",
+            automation_enabled=bool(jobs_enabled),
+            guardrail_reason="post_upload_worker",
+        )
+
+    if trigger_mode == "periodic":
+        return SelfEvolveGuardrailSummary(
+            self_evolve_enabled=True,
+            self_invent_enabled=bool(flags.self_invent_enabled),
+            self_invent_on_evolve=bool(flags.self_invent_on_evolve),
+            self_invent_after_upload=bool(flags.self_invent_after_upload),
+            jobs_enabled=jobs_enabled,
+            trigger_mode=trigger_mode,
+            automation_path="periodic_worker",
+            automation_label="Periodic worker",
+            automation_enabled=bool(jobs_enabled),
+            guardrail_reason="periodic_worker",
+        )
+
+    return SelfEvolveGuardrailSummary(
+        self_evolve_enabled=True,
+        self_invent_enabled=bool(flags.self_invent_enabled),
+        self_invent_on_evolve=bool(flags.self_invent_on_evolve),
+        self_invent_after_upload=bool(flags.self_invent_after_upload),
+        jobs_enabled=jobs_enabled,
+        trigger_mode=trigger_mode,
+        automation_path="hybrid_worker",
+        automation_label="Upload + periodic",
+        automation_enabled=bool(jobs_enabled),
+        guardrail_reason="hybrid_worker",
+    )
 
 
 def list_self_evolve_tenants(
@@ -612,6 +727,8 @@ __all__ = [
     "SelfEvolveDueEvaluation",
     "SelfEvolveEnqueueResult",
     "SelfEvolveScanSummary",
+    "SelfEvolveGuardrailSummary",
+    "build_self_evolve_guardrail_summary",
     "evaluate_self_evolve_due",
     "enqueue_self_evolve_if_due",
     "list_self_evolve_tenants",
