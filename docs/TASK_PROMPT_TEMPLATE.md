@@ -29,7 +29,7 @@ Before implementation:
 
 1. Check the current codebase carefully
 2. Find exact paths and dependencies
-3. Build a clear phase plan
+3. Build a clear end to end full plan
 4. Identify risks, gaps, and validation steps
 5. Wait for approval if this task is plan-first
 
@@ -40,7 +40,7 @@ During implementation:
 3. Keep behavior accurate, secure, and production-grade
 4. Implement end to end, not partially
 
-Before claiming completion: 
+Before claiming completion:
 
 1. Run tests and verification
 2. Check regressions
@@ -51,7 +51,5 @@ Before claiming completion:
 ## One-Line Compact Version
 
 Plan first, identify exact files and risks, implement only in the approved scope, protect security/integrations/existing behavior, test and verify end to end, update docs, and only then claim completion and commit/tag.
-
-
 
 make sure covered 100% implememted  and no gaps , no errois , i need 100% coverage of phase 7 with full acurately covred and make sure all risk under control and try to amake them gone completly make sure all work well and acurate ,  make sure all green before phase 8- sure check if need to chnages something on frontend UI  pages for UI wiring -

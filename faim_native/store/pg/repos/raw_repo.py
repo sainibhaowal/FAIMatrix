@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 import sys
 from pathlib import Path
 from typing import List, Optional
@@ -127,6 +128,70 @@ class RawRepo:
         query = query.limit(limit).offset(offset)
 
         return [model.to_domain() for model in query.all()]
+
+    def list_before(
+        self,
+        session: Session,
+        *,
+        created_before: datetime,
+        graph_id: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List[RawRef]:
+        """List raw refs created before a cutoff timestamp.
+
+        This is used by controlled migration jobs that need to revisit legacy
+        payloads without touching newer encrypted writes.
+        """
+        query = session.query(RawRefModel).filter(
+            and_(
+                RawRefModel.tenant_id == self.tenant_id,
+                RawRefModel.created_at < created_before,
+            )
+        )
+
+        if graph_id is not None:
+            query = query.filter(RawRefModel.graph_id == graph_id)
+
+        query = query.order_by(asc(RawRefModel.created_at), asc(RawRefModel.id))
+        query = query.limit(limit).offset(offset)
+        return [model.to_domain() for model in query.all()]
+
+    def update_reference(
+        self,
+        session: Session,
+        *,
+        raw_id: UUID,
+        sha256: str,
+        uri: str,
+        size_bytes: int,
+        mime_type: Optional[str] = None,
+    ) -> Optional[RawRef]:
+        """Update the stored blob reference for a raw ref in place.
+
+        The raw ref identifier stays stable so downstream provenance links do
+        not break, but the stored blob location/hash can be migrated.
+        """
+        model = (
+            session.query(RawRefModel)
+            .filter(
+                and_(
+                    RawRefModel.tenant_id == self.tenant_id,
+                    RawRefModel.id == raw_id,
+                )
+            )
+            .first()
+        )
+        if model is None:
+            return None
+
+        model.sha256 = sha256
+        model.uri = uri
+        model.size_bytes = size_bytes
+        if mime_type is not None:
+            model.mime_type = mime_type
+        session.flush()
+        return model.to_domain()
 
     def count(self, session: Session, graph_id: Optional[str] = None) -> int:
         """Count RawRef records.

@@ -534,7 +534,6 @@ Main files:
 - [table_linearizer.py](/home/sephi-asi/FAIM/faim_native/encoding/table_linearizer.py)
 - [image_phash.py](/home/sephi-asi/FAIM/faim_native/encoding/image_phash.py)
 - [modality_features.py](/home/sephi-asi/FAIM/faim_native/encoding/modality_features.py)
-- [docnative_service.py](/home/sephi-asi/FAIM/faim_native/models/DocNative/docnative_service.py)
 - [multimodal_backfill.py](/home/sephi-asi/FAIM/faim_native/orchestration/multimodal_backfill.py)
 - [modality_repo.py](/home/sephi-asi/FAIM/faim_native/store/pg/repos/modality_repo.py)
 - [0015_multimodal_sidecar.sql](/home/sephi-asi/FAIM/faim_native/store/pg/migrations/0015_multimodal_sidecar.sql)

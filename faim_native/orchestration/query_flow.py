@@ -363,6 +363,7 @@ def run_query(
 
     domain_candidate_ids: List[UUID] = []
     domain_scores: Dict[UUID, Dict[str, float]] = {}
+    domain_linked_terms: List[Dict[str, Any]] = []
     try:
         from core.operators.entity_linking import (
             build_domain_candidate_scores,
@@ -374,6 +375,16 @@ def run_query(
         domain_repo = DomainKnowledgeRepo(session=session, tenant_id=tenant_id)
         domain_rows = domain_repo.list_lexicon_entries(graph_id)
         linked_terms = resolve_query_links(canonical_query_text, domain_rows)
+        domain_linked_terms = [
+            {
+                "surface_form": term.surface_form,
+                "canonical_form": term.canonical_form,
+                "kind": term.kind,
+                "node_id": str(term.node_id),
+                "score": term.score,
+            }
+            for term in linked_terms
+        ]
         domain_candidate_ids, domain_scores = build_domain_candidate_scores(
             edge_repo=EdgeRepo(session=session, tenant_id=tenant_id),
             graph_id=graph_id,
@@ -471,13 +482,16 @@ def run_query(
             try:
                 from index.deterministic_ann import search_vptree
                 from index.wand import block_max_wand_shortlist
-                from orchestration.perf.index_rebuild import build_graph_index_artifacts
+                from orchestration.perf.index_rebuild import (
+                    get_graph_index_artifacts,
+                )
                 from store.pg.repos.representation_repo import RepresentationRepo
 
-                artifacts = build_graph_index_artifacts(
+                artifacts = get_graph_index_artifacts(
                     session=session,
                     tenant_id=tenant_id,
                     graph_id=graph_id,
+                    graph_version=graph_version,
                 )
                 repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
                 stats_by_channel = repr_repo.get_graph_stats(graph_id)
@@ -691,6 +705,11 @@ def run_query(
             explain_payload = build_explain_payload(
                 session, tenant_id, graph_id, r["node_id"]
             )
+            explain_payload["domain_relevance"] = {
+                "query_links": domain_linked_terms[:20],
+                "candidate_count": len(domain_candidate_ids),
+                "node_scores": domain_scores.get(r["node_id"], {}),
+            }
             explain_payload["phase3_graph_paths"] = r.get("graph_paths", [])
             explain_payload["phase3_graph_score"] = {
                 "total": r["score_components"].get("graph", 0.0),

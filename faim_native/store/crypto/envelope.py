@@ -16,11 +16,13 @@ Security:
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import secrets
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -38,6 +40,7 @@ TAG_SIZE = 16  # 128 bits (GCM standard)
 MASTER_KEY_ENV = "FAIM_MASTER_KEY"
 MASTER_KEY_SALT_ENV = "FAIM_MASTER_SALT"
 MASTER_KEY_PASSWORD_ENV = "FAIM_MASTER_PASSWORD"
+MASTER_KEY_PREVIOUS_ENV = "FAIM_MASTER_KEY_PREVIOUS_JSON"
 
 
 # =============================================================================
@@ -158,6 +161,58 @@ def get_master_key() -> bytes:
     )
 
 
+def _parse_hex_key(raw: str) -> bytes:
+    key = bytes.fromhex(str(raw).strip())
+    if len(key) != KEY_SIZE:
+        raise ValueError(f"Master key must be {KEY_SIZE} bytes")
+    return key
+
+
+def get_master_key_ring(
+    master_key: Optional[bytes] = None,
+    previous_keys: Optional[Sequence[bytes]] = None,
+) -> List[bytes]:
+    """Return the current master key followed by any configured previous keys."""
+    current = master_key or get_master_key()
+    ring: List[bytes] = [current]
+
+    previous_payload = os.getenv(MASTER_KEY_PREVIOUS_ENV, "").strip()
+    if previous_payload:
+        parsed: object
+        try:
+            parsed = json.loads(previous_payload)
+        except json.JSONDecodeError:
+            parsed = [
+                item.strip()
+                for item in previous_payload.split(",")
+                if item.strip()
+            ]
+
+        if isinstance(parsed, str):
+            parsed = [parsed]
+        if isinstance(parsed, list):
+            for item in parsed:
+                if not item:
+                    continue
+                candidate = _parse_hex_key(str(item))
+                if candidate not in ring:
+                    ring.append(candidate)
+
+    if previous_keys:
+        for candidate in previous_keys:
+            if len(candidate) != KEY_SIZE:
+                raise ValueError(f"Master key must be {KEY_SIZE} bytes")
+            if candidate not in ring:
+                ring.append(candidate)
+
+    return ring
+
+
+def master_key_fingerprint(master_key: bytes) -> str:
+    """Return a stable fingerprint for display and rotation bookkeeping."""
+    return hashlib.sha256(master_key).hexdigest()
+
+
 # =============================================================================
 # Data Encryption Key Management
 # =============================================================================
@@ -185,6 +240,17 @@ def wrap_dek(dek: bytes, master_key: bytes) -> bytes:
     return nonce + ciphertext
 
 
+def wrap_dek_with_current_key(
+    dek: bytes,
+    master_keys: Sequence[bytes],
+) -> Tuple[bytes, str]:
+    """Wrap a DEK with the first key in the configured ring."""
+    if not master_keys:
+        raise ValueError("At least one master key is required")
+    current_key = master_keys[0]
+    return wrap_dek(dek, current_key), master_key_fingerprint(current_key)
+
+
 def unwrap_dek(wrapped_dek: bytes, master_key: bytes) -> bytes:
     """
     Unwrap (decrypt) a DEK with the master key.
@@ -204,6 +270,24 @@ def unwrap_dek(wrapped_dek: bytes, master_key: bytes) -> bytes:
 
     aesgcm = AESGCM(master_key)
     return aesgcm.decrypt(nonce, ciphertext, None)
+
+
+def unwrap_dek_with_ring(
+    wrapped_dek: bytes,
+    master_keys: Sequence[bytes],
+) -> Tuple[bytes, int]:
+    """Try a wrapped DEK against a master-key ring."""
+    if not master_keys:
+        raise ValueError("At least one master key is required")
+
+    last_error: Optional[Exception] = None
+    for index, master_key in enumerate(master_keys):
+        try:
+            return unwrap_dek(wrapped_dek, master_key), index
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+
+    raise ValueError("Unable to unwrap DEK with configured master key ring") from last_error
 
 
 # =============================================================================
@@ -308,13 +392,19 @@ class TenantDEKManager:
         self,
         session_factory: Callable[[], Any],
         master_key: Optional[bytes] = None,
+        previous_master_keys: Optional[Sequence[bytes]] = None,
     ) -> None:
         if session_factory is None:
             raise ValueError("session_factory is required")
 
         self._session_factory = session_factory
-        self._master_key = master_key or get_master_key()
+        self._master_keys = get_master_key_ring(master_key, previous_master_keys)
+        self._master_key = self._master_keys[0]
         self._dek_cache: Dict[str, bytes] = {}
+
+    @property
+    def current_master_key_fingerprint(self) -> str:
+        return master_key_fingerprint(self._master_key)
 
     def clear_cache(self) -> None:
         """Clear in-memory DEK cache."""
@@ -336,11 +426,15 @@ class TenantDEKManager:
             if model is not None:
                 return bytes(model.dek_wrapped)
 
-            wrapped = wrap_dek(generate_dek(), self._master_key)
+            wrapped, fingerprint = wrap_dek_with_current_key(
+                generate_dek(), self._master_keys
+            )
             created = TenantCryptoKey(
                 tenant_id=tenant_id,
                 dek_wrapped=wrapped,
+                master_key_fingerprint=fingerprint,
                 created_at=datetime.now(timezone.utc),
+                rotated_at=datetime.now(timezone.utc),
             )
             session.add(created)
             try:
@@ -371,12 +465,12 @@ class TenantDEKManager:
             return cached
 
         wrapped = self._get_or_create_wrapped(tid)
-        dek = unwrap_dek(wrapped, self._master_key)
+        dek, _ = unwrap_dek_with_ring(wrapped, self._master_keys)
         self._dek_cache[tid] = dek
         return dek
 
-    def rotate_tenant_dek(self, tenant_id: str) -> None:
-        """Rotate tenant DEK (existing payload re-encryption is out of scope)."""
+    def rewrap_tenant_dek(self, tenant_id: str) -> Dict[str, Any]:
+        """Rewrap a tenant DEK under the current master key."""
         from store.pg.models_crypto import TenantCryptoKey
 
         tid = str(tenant_id or "").strip()
@@ -394,12 +488,49 @@ class TenantDEKManager:
                 model = TenantCryptoKey(tenant_id=tid)
                 session.add(model)
 
-            model.dek_wrapped = wrap_dek(generate_dek(), self._master_key)
+            existing_fingerprint = str(
+                getattr(model, "master_key_fingerprint", "") or ""
+            ).strip()
+            current_fingerprint = self.current_master_key_fingerprint
+            if model.dek_wrapped and existing_fingerprint == current_fingerprint:
+                session.commit()
+                return {
+                    "tenant_id": tid,
+                    "status": "already_current",
+                    "master_key_fingerprint": current_fingerprint,
+                    "source_master_key_fingerprint": existing_fingerprint,
+                }
+
+            wrapped = bytes(model.dek_wrapped) if model.dek_wrapped else b""
+            if wrapped:
+                dek, source_index = unwrap_dek_with_ring(wrapped, self._master_keys)
+                source_fingerprint = master_key_fingerprint(
+                    self._master_keys[source_index]
+                )
+            else:
+                dek = generate_dek()
+                source_fingerprint = None
+
+            new_wrapped, fingerprint = wrap_dek_with_current_key(
+                dek, self._master_keys
+            )
+            model.dek_wrapped = new_wrapped
+            model.master_key_fingerprint = fingerprint
             model.rotated_at = datetime.now(timezone.utc)
             session.commit()
             self._dek_cache.pop(tid, None)
+            return {
+                "tenant_id": tid,
+                "status": "rewrapped",
+                "master_key_fingerprint": fingerprint,
+                "source_master_key_fingerprint": source_fingerprint,
+            }
         finally:
             session.close()
+
+    def rotate_tenant_dek(self, tenant_id: str) -> Dict[str, Any]:
+        """Backward-compatible alias for tenant DEK rewrap."""
+        return self.rewrap_tenant_dek(tenant_id)
 
     def encrypt_for_tenant(self, tenant_id: str, plaintext: bytes) -> bytes:
         """Encrypt bytes with tenant DEK."""
@@ -420,12 +551,16 @@ __all__ = [
     "EncryptedBlob",
     "generate_dek",
     "wrap_dek",
+    "wrap_dek_with_current_key",
     "unwrap_dek",
+    "unwrap_dek_with_ring",
     "encrypt",
     "decrypt",
     "encrypt_for_storage",
     "decrypt_from_storage",
     "get_master_key",
+    "get_master_key_ring",
+    "master_key_fingerprint",
     "derive_master_key",
     "encryption_at_rest_enabled",
     "encryption_fail_closed",

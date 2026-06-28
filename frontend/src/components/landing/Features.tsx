@@ -12,9 +12,9 @@ const features = [
         <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
       </svg>
     ),
-    title: "1M+ Semantic Registry",
+    title: "Deterministic Semantic Routing",
     description:
-      "Instant classification of intent via a deterministic 1,000,000+ concept registry. Zero-latency routing into 8 cognitive tasks without the overhead or drift of LLMs.",
+      "Instant classification of intent via a seeded alias map and fast dictionary lookups. Zero-latency routing into 8 cognitive tasks without the overhead or drift of LLMs.",
     gradient: "from-cyan-500 to-blue-500",
     link: "/features/memory-engine",
   },
@@ -30,9 +30,9 @@ const features = [
         <path d="M12 10V8M8 8l2-2M14 8l2-2M12 14v2M8 16l2 2M14 16l2 2" />
       </svg>
     ),
-    title: "24-Hop Graph Reasoning",
+    title: "Bounded Graph Reasoning",
     description:
-      "Trace deep evidence chains across 24 semantic layers. Visualize real-time reasoning pulses in the FIG View with 100% citation integrity and native interaction elasticity.",
+      "Trace evidence chains with bounded multi-hop diffusion. Visualize real-time reasoning pulses in the FIG View with 100% citation integrity and native interaction elasticity.",
     gradient: "from-purple-500 to-pink-500",
     link: "/features/knowledge-graph",
   },
@@ -76,6 +76,19 @@ const features = [
       "Mathematical identity anchoring with absolute data purges. Your privacy is enforced by laws of logic.",
     gradient: "from-green-500 to-emerald-500",
     link: "/features/security",
+  },
+  {
+    id: "autonomous-domain-memory",
+    icon: (
+      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M4 6h16M4 12h10M4 18h16" />
+      </svg>
+    ),
+    title: "Autonomous Domain Memory",
+    description:
+      "Uploaded data teaches FAIM its own terminology, aliases, entities, and facts. No manual domain pack selection is required for the normal path.",
+    gradient: "from-amber-500 to-orange-500",
+    link: "/dashboard/storage",
   },
 ];
 

@@ -1,6 +1,14 @@
-# 06 - Storage UI + Backend API Plan
+# 06 - Storage UI + Backend API Implementation Report
 
-This document started as the no-code implementation plan for storage.
+Date: 2026-02-11
+Owner: FAIM Native Runtime
+Status: Completed
+
+## Objective
+
+Document the shipped Storage UI and backend API contract, including implemented routes and operational flows.
+
+This document started as the no-code implementation blueprint for storage.
 It is now the design + status record for implemented phases P0/P1/P2, A-H, I, J, and K1-K8 documentation/validation reconciliation for authz + memory API stream alignment.
 
 ## Implementation Baseline (2026-02-10)
@@ -201,8 +209,11 @@ All routes under `/api/v1/storage`.
 | `GET` | `/api/v1/storage/summary` | totals by bytes/files/status/type |
 | `GET` | `/api/v1/storage/backends/health` | Postgres/Redis/Qdrant/raw-store health |
 | `GET` | `/api/v1/storage/ops/metrics` | upload/dedup/failure/latency/backend-state metrics |
+| `GET` | `/api/v1/storage/maintenance/history` | graph-scoped maintenance history, including raw re-encryption events |
 | `POST` | `/api/v1/storage/retention/execute` | retention execution (dry-run + guarded irreversible mode) |
 | `POST` | `/api/v1/storage/retention/jobs` | enqueue retention cleanup worker job |
+| `POST` | `/api/v1/storage/reencryption/execute` | legacy raw-blob re-encryption (dry-run + guarded irreversible mode) |
+| `POST` | `/api/v1/storage/reencryption/jobs` | enqueue legacy raw-blob re-encryption worker job |
 
 ## 3) Required Response Fields (Minimum)
 
@@ -258,6 +269,10 @@ Every file item should include:
 - OCR capability status and policy flags
 - upload size limit visibility
 
+8. Maintenance History Panel
+- graph-scoped maintenance runs and summaries
+- raw re-encryption visibility alongside other storage maintenance events
+
 ## 5) Multi-file Workflow (Implemented)
 
 1. user selects N files
@@ -301,17 +316,17 @@ Implemented baseline includes:
 
 ## 9) Future Enhancements Only (Post-Phase K8)
 
-1. historical blob re-encryption program for pre-policy plaintext payloads
-2. environment-level dashboard/alert wiring for storage/security SLOs
-3. optional deeper cache/index/perf optimization beyond current deterministic baseline
+1. environment-level dashboard/alert wiring for storage/security SLOs
+2. optional deeper cache/index/perf optimization beyond current deterministic baseline
 
 ## 10) Deferred Items Register (Reason + Owner)
 
 These items are explicitly deferred and are not blockers for the completed core storage program.
 
+Note: historical raw-blob re-encryption moved into implemented scope via `/api/v1/storage/reencryption/*` and is no longer deferred.
+
 | Deferred Item | Reason | Owner | Target |
 |---|---|---|---|
-| Historical blob re-encryption for pre-policy plaintext payloads | Existing data remains readable and policy already fail-closed for new production writes; migration requires controlled tenant-by-tenant rollout window | Storage Security Team | Post-H release stream |
 | Environment-specific dashboards/alerts for storage/security SLOs | Runtime metrics/log contracts are implemented; deployment tooling differs by environment and must be wired by platform ops | SRE / Platform Operations | Post-H operations sprint |
 | Deep cache/index/perf tuning beyond deterministic baseline | Current deterministic fallback is correct and production-safe; higher-risk tuning requires dedicated perf benchmarking cycle | Performance Engineering | Post-H performance program |
 
@@ -320,6 +335,6 @@ These items are explicitly deferred and are not blockers for the completed core 
 | DoD Requirement | Status | Evidence |
 |---|---|---|
 | Every item in this plan is implemented or explicitly deferred with reason and owner | met | sections `2` to `8` (implemented), section `10` (deferred register) |
-| Security/ops requirements are enforced in production mode (not optional defaults) | met | section `6`, `14_PHASE_D_SECURITY_HARDENING_REPORT.md`, `16_STORAGE_OPERATIONS_RUNBOOK.md` |
+| Security/ops requirements are enforced in production mode (not optional defaults) | met | section `6`, `14_PHASE_D_SECURITY_HARDENING_REPORT.md`, `16B_STORAGE_OPERATIONS_RUNBOOK.md` |
 | Storage flow works end-to-end with provenance and operational controls | met | sections `2`, `4`, `5`, `7`, `13_PHASE_C_STORAGE_UI_COMPLETION_REPORT.md`, `12_PHASE_B_BACKEND_COMPLETION_REPORT.md` |
-| Tests and docs prove production readiness and non-regression | met | `17_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`, `18_PHASE_G_DOCUMENTATION_RECONCILIATION_REPORT.md`, `19_PHASE_H_COMMIT_RELEASE_HYGIENE_REPORT.md` |
+| Tests and docs prove production readiness and non-regression | met | `17B_PHASE_F_VALIDATION_NON_REGRESSION_REPORT.md`, `18_PHASE_G_DOCUMENTATION_RECONCILIATION_REPORT.md`, `19_PHASE_H_COMMIT_RELEASE_HYGIENE_REPORT.md` |

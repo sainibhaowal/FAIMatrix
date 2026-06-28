@@ -1,4 +1,12 @@
-# 03 - Storage DB Schema and Data Types
+# 03 - Storage DB Schema and Data Model Report
+
+Date: 2026-02-11
+Owner: FAIM Native Runtime
+Status: Completed
+
+## Objective
+
+Document the implemented Postgres, Redis, Qdrant, and raw-store schema/data representation used by FAIM Native.
 
 This document explains where FAIM data is stored and in what representation.
 

@@ -150,7 +150,7 @@ Updated file:
 - `tests/acceptance/test_AT_PF_storage_lifecycle_non_regression.py`
 - `tests/acceptance/test_AT_PK5_memory_lifecycle.py`
 - `frontend/e2e/api-keys.spec.ts`
-- `faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+- `faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
 - `faim_native/Docs/README.md`
 - `faim_native/Docs/35_PHASE_S6_END_TO_END_VALIDATION_REPORT.md`
 

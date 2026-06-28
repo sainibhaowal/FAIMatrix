@@ -28,7 +28,11 @@ def test_worker_uses_filtered_claim_for_executable_kinds(monkeypatch):
 
     assert called.get("kinds") == [
         "evolve",
+        "storage_upload",
+        "domain_autonomy",
+        "crypto_rotation",
         "ingest_secondary_index",
         "storage_retention",
+        "raw_reencryption",
     ]
     assert called.get("timeout_seconds") == 300

@@ -4,9 +4,9 @@ import { motion } from "framer-motion";
 
 const HIGHLIGHTS = [
   {
-    title: "1M+ Semantic Registry",
+    title: "Deterministic Semantic Routing",
     tag: "Scale-Ready",
-    text: "Deterministic classification of 100k+ professional concepts. Zero-latency, zero-ML overhead, and 100% predictable.",
+    text: "Deterministic classification through a seeded alias map. Zero-latency, zero-ML overhead, and 100% predictable.",
   },
   {
     title: "Deterministic Intel",
@@ -14,9 +14,9 @@ const HIGHLIGHTS = [
     text: "No neural network black-boxes. Core retrieval and reasoning powered by 256-dim deterministic invariants.",
   },
   {
-    title: "24-Hop Reasoning",
+    title: "Bounded Graph Reasoning",
     tag: "Deep Inference",
-    text: "Trace complex evidence chains across 24 cognitive hops. Follow path logic with confidence decay tracking.",
+    text: "Trace evidence chains with bounded hop budgets. Follow path logic with confidence decay tracking.",
   },
   {
     title: "Proposals Only",
@@ -30,8 +30,8 @@ const HIGHLIGHTS = [
   },
   {
     title: "Domain + Multilingual",
-    tag: "EN / DE + KB",
-    text: "Work across English and German, plus domain-specific knowledge packs, without changing the core engine.",
+    tag: "EN / DE + Memory",
+    text: "Work across English and German while FAIM automatically builds graph-local domain memory from what you upload.",
   },
   {
     title: "Security + API",
@@ -46,7 +46,7 @@ const HIGHLIGHTS = [
   {
     title: "Deep Reasoning",
     tag: "Multi-hop Inference",
-    text: "Follows chains of evidence across your knowledge graph to answer complex 'why' questions. Traces connections up to 24 hops with confidence decay tracking.",
+    text: "Follows chains of evidence across your knowledge graph to answer complex 'why' questions. Traces connections with bounded hop budgets and confidence decay tracking.",
   },
   {
     title: "Intelligent Planning",
@@ -151,7 +151,7 @@ export default function LandingProductHighlights() {
             "Self-hostable and tenant-isolated",
             "Deterministic and explainable",
             "Offline-friendly and API-first",
-            "EN/DE + domain knowledge ready",
+            "EN/DE + autonomous domain memory",
             "History-aware and graph-native",
             "Built for storage, query, and audit workflows",
           ].map((line, i) => (

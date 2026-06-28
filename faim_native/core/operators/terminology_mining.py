@@ -34,7 +34,7 @@ def build_domain_document(node_id: UUID, text: str) -> DomainDocument:
     )
 
 
-def _extract_phrase_terms(text: str) -> Iterable[str]:
+def extract_phrase_terms(text: str) -> Iterable[str]:
     tokens = [t for t in TOKEN_RE.findall(text.lower()) if len(t) > 2]
     for idx, token in enumerate(tokens):
         yield token
@@ -47,13 +47,13 @@ def mine_terminology(
     *,
     domain_pack: str | None = None,
 ) -> List[Dict[str, object]]:
-    domain_pack = None
+    min_term_support = 1 if len(docs) <= 2 else MIN_TERM_SUPPORT
     support = Counter()
     contexts: Dict[str, Counter[str]] = defaultdict(Counter)
     alias_rows: List[Dict[str, object]] = []
 
     for doc in docs:
-        terms = sorted(set(_extract_phrase_terms(doc.canonical_text)))
+        terms = sorted(set(extract_phrase_terms(doc.canonical_text)))
         for term in terms:
             support[term] += 1
             token_set = set(term.split())
@@ -78,7 +78,7 @@ def mine_terminology(
     for term, count in sorted(support.items(), key=lambda item: (-item[1], item[0]))[
         :MAX_TERMS
     ]:
-        if count < MIN_TERM_SUPPORT:
+        if count < min_term_support:
             continue
         rows.append(
             {
@@ -107,4 +107,9 @@ def mine_terminology(
     )
 
 
-__all__ = ["DomainDocument", "build_domain_document", "mine_terminology"]
+__all__ = [
+    "DomainDocument",
+    "build_domain_document",
+    "extract_phrase_terms",
+    "mine_terminology",
+]

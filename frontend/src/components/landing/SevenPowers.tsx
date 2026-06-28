@@ -122,7 +122,7 @@ candidates = stable_union(sparse, dense)
     title: "Domain Knowledge + Answers",
     headline: "FAIM now links facts and returns grounded answers.",
     description:
-      "Offline KB imports, domain profile packs, entity linking, terminology mining, and extractive answer synthesis make FAIM application-ready. It can now traverse text to entities and facts, then return citation-first answers with contradiction notes.",
+      "Autonomous domain memory formation, entity linking, terminology mining, and extractive answer synthesis make FAIM application-ready. It can now traverse text to entities and facts, then return citation-first answers with contradiction notes.",
     codeSnippet: `// answer_synthesis.py — citation-first output
 answer = {
   "direct_answer": best_span,

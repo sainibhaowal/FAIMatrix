@@ -6,7 +6,7 @@ Date: 2026-02-11
 
 Close release hygiene for the storage program by ensuring:
 
-1. the plan in `06_STORAGE_UI_BACKEND_API_PLAN.md` is fully implemented or explicitly deferred with reason and owner
+1. the document in `06_STORAGE_UI_AND_BACKEND_API_IMPLEMENTATION_REPORT.md` is fully implemented or explicitly deferred with reason and owner
 2. final validation gates are executed before release tagging
 3. commit and tag history remains clear, scoped, and auditable
 
@@ -14,8 +14,8 @@ Close release hygiene for the storage program by ensuring:
 
 Phase H includes:
 
-- DoD mapping update in `06_STORAGE_UI_BACKEND_API_PLAN.md`
-- deferred-item ownership/reason update in `07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+- DoD mapping update in `06_STORAGE_UI_AND_BACKEND_API_IMPLEMENTATION_REPORT.md`
+- deferred-item ownership/reason update in `07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
 - docs index alignment in `README.md`
 - final verification execution (compile/tests/frontend checks)
 - final release tag creation on verified HEAD

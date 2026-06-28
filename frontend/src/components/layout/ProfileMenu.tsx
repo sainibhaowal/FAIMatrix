@@ -126,29 +126,7 @@ export function ProfileMenu() {
                   <Settings className="w-4 h-4" />
                   Settings
                 </Link>
-                {Boolean(
-                  (session as { isAdmin?: boolean } | null)?.isAdmin,
-                ) && (
-                  <>
-                    {/* Note: tests assert existence of "/dashboard/admin#alerts" in profile_menu */}
-                    <Link
-                      href="/dashboard/control-plane"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 transition-colors"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      Control Center
-                    </Link>
-                    <Link
-                      href="/dashboard/control-plane?section=incidents"
-                      onClick={() => setOpen(false)}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-rose-300 hover:bg-rose-500/10 hover:text-rose-200 transition-colors"
-                    >
-                      <ShieldAlert className="w-4 h-4" />
-                      Incidents
-                    </Link>
-                  </>
-                )}
+
                 <div className="my-2 border-t border-slate-700/50" />
                 <button
                   onClick={handleLogout}

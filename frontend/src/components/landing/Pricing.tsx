@@ -42,7 +42,7 @@ const plans = [
     description: "Elite intelligence synthesis",
     features: [
       "100,000 Nodes",
-      "24-Hop Reasoning",
+      "Bounded Multi-Hop Reasoning",
       "Cross-Graph Synthesis",
       "Real-time Evolution",
       "Priority Workers"

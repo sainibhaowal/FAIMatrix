@@ -1315,3 +1315,19 @@ def _ensure_additive_compat_columns(engine) -> None:
                     "ADD COLUMN normalized_text TEXT NOT NULL DEFAULT ''"
                 )
             )
+
+    try:
+        crypto_columns = {
+            col["name"] for col in inspector.get_columns("tenant_crypto_keys")
+        }
+    except Exception:
+        crypto_columns = set()
+
+    if crypto_columns and "master_key_fingerprint" not in crypto_columns:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE tenant_crypto_keys "
+                    "ADD COLUMN master_key_fingerprint TEXT NOT NULL DEFAULT ''"
+                )
+            )

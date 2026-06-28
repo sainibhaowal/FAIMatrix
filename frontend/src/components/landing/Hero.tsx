@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRef } from "react";
 
 const HERO_STATS = [
-  { value: "1M+", unit: "", label: "Semantic Concepts" },
+  { value: "Seeded", unit: "", label: "Semantic Routing" },
   { value: "256", unit: "dim", label: "Deterministic Vectors" },
   { value: "Hybrid", unit: "", label: "Retrieval Stack" },
   { value: "SHA-256", unit: "", label: "Cryptographic Lineage" },
@@ -112,8 +112,8 @@ export default function Hero() {
           transition={{ duration: 0.7, delay: 0.3 }}
           className="mt-4 sm:mt-6 text-base md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed"
         >
-          FAIMATRIX is a structured knowledge engine powered by a 1M+ Semantic Registry. 
-          It combines 256-dim deterministic vectors with memory writeback proposals, 
+          FAIMATRIX is a structured knowledge engine powered by a deterministic semantic router.
+          It combines 256-dim deterministic vectors with memory writeback proposals,
           graph diffusion, and zero-hallucination Cortex synthesis.
         </motion.p>
 
@@ -197,10 +197,10 @@ export default function Hero() {
         >
           <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">
             <p className="text-[10px] font-medium uppercase tracking-widest text-cyan-300/80">
-              1M+ Semantic Registry
+              Deterministic Semantic Router
             </p>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-              Zero-latency classification powered by a professional dictionary of 1M+ concepts. No ML black-boxes, just deterministic intelligence.
+              Zero-latency classification powered by a seeded alias map and pattern overrides. No ML black-boxes, just deterministic intelligence.
             </p>
           </div>
           <div className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">
