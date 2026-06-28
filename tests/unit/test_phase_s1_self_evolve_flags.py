@@ -131,3 +131,56 @@ def test_runtime_config_requires_jobs_for_non_manual_self_evolve(monkeypatch):
         load_config()
     assert "requires FAIM_ENABLE_JOBS=true" in str(exc.value)
     reset_config()
+
+
+def test_guardrail_summary_reports_disabled_by_default(monkeypatch):
+    from orchestration.self_evolve_scheduler import (
+        build_self_evolve_guardrail_summary,
+    )
+
+    monkeypatch.delenv("FAIM_SELF_EVOLVE_ENABLED", raising=False)
+    monkeypatch.delenv("FAIM_SELF_INVENT_ENABLED", raising=False)
+    monkeypatch.delenv("FAIM_SELF_INVENT_AFTER_UPLOAD", raising=False)
+    monkeypatch.delenv("FAIM_ENABLE_JOBS", raising=False)
+
+    summary = build_self_evolve_guardrail_summary()
+    assert summary.automation_path == "disabled"
+    assert summary.automation_label == "Disabled"
+    assert summary.automation_enabled is False
+    assert summary.self_evolve_enabled is False
+
+
+def test_guardrail_summary_reports_hybrid_worker(monkeypatch):
+    from orchestration.self_evolve_scheduler import (
+        build_self_evolve_guardrail_summary,
+    )
+
+    monkeypatch.setenv("FAIM_ENABLE_JOBS", "true")
+    monkeypatch.setenv("FAIM_SELF_EVOLVE_ENABLED", "true")
+    monkeypatch.setenv("FAIM_SELF_EVOLVE_TRIGGER_MODE", "hybrid")
+    monkeypatch.setenv("FAIM_SELF_INVENT_ENABLED", "true")
+    monkeypatch.setenv("FAIM_SELF_INVENT_ON_EVOLVE", "true")
+    monkeypatch.setenv("FAIM_SELF_INVENT_AFTER_UPLOAD", "false")
+
+    summary = build_self_evolve_guardrail_summary()
+    assert summary.automation_path == "hybrid_worker"
+    assert summary.automation_label == "Upload + periodic"
+    assert summary.automation_enabled is True
+    assert summary.guardrail_reason == "hybrid_worker"
+
+
+def test_guardrail_summary_reports_legacy_upload_compat(monkeypatch):
+    from orchestration.self_evolve_scheduler import (
+        build_self_evolve_guardrail_summary,
+    )
+
+    monkeypatch.setenv("FAIM_ENABLE_JOBS", "true")
+    monkeypatch.setenv("FAIM_SELF_EVOLVE_ENABLED", "false")
+    monkeypatch.setenv("FAIM_SELF_INVENT_ENABLED", "true")
+    monkeypatch.setenv("FAIM_SELF_INVENT_AFTER_UPLOAD", "true")
+
+    summary = build_self_evolve_guardrail_summary()
+    assert summary.automation_path == "legacy_post_upload_compat"
+    assert summary.automation_label == "Legacy after-upload compatibility"
+    assert summary.automation_enabled is True
+    assert summary.guardrail_reason == "legacy_upload_compat"
