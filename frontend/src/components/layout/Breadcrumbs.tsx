@@ -14,9 +14,7 @@ const NAME_MAP: Record<string, string> = {
   settings: "Settings",
   storage: "Storage",
   billing: "Billing",
-  admin: "Control Center",
-  alerts: "Incidents",
-  "control-plane": "Control Center",
+
   keys: "API Keys",
 };
 

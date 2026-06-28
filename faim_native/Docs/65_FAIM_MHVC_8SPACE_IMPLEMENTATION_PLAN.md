@@ -405,7 +405,7 @@ Must not break:
 ### Phase 6: Premium / Enterprise Control Surface
 
 What to do:
-- add a profile or control-plane way to enable the new layer
+- add a profile-based way to enable the new layer
 - expose baseline vs premium mode to trusted users
 - keep normal users on baseline FAIM
 
@@ -414,9 +414,6 @@ Why:
 
 Where:
 - frontend:
-  - `frontend/src/app/(app)/dashboard/control-plane/page.tsx`
-  - `frontend/src/components/storage/ControlPlanePanel.tsx`
-  - `frontend/src/components/admin/AdminControlPlane.tsx`
   - `frontend/src/app/(app)/dashboard/profile/page.tsx`
 - backend:
   - existing auth and profile/persist runtime paths
@@ -480,10 +477,7 @@ Must not break:
 
 ### Frontend files
 
-- `frontend/src/app/(app)/dashboard/control-plane/page.tsx`
 - `frontend/src/app/(app)/dashboard/profile/page.tsx`
-- `frontend/src/components/storage/ControlPlanePanel.tsx`
-- `frontend/src/components/admin/AdminControlPlane.tsx`
 - `frontend/src/contexts/UserContext.tsx`
 - `frontend/src/types/api.ts`
 

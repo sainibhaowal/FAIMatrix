@@ -29,7 +29,7 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, desc, text
+from sqlalchemy import and_, asc, desc, text
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -53,6 +53,12 @@ router = APIRouter(prefix="/storage", tags=["storage"])
 # =============================================================================
 # Response Models
 # =============================================================================
+
+
+def _jobs_enabled() -> bool:
+    """Read FAIM_ENABLE_JOBS in a runtime-safe way."""
+    raw = os.getenv("FAIM_ENABLE_JOBS", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
 
 
 class StorageFileItem(BaseModel):
@@ -202,8 +208,43 @@ class StorageSupportedTypesResponse(BaseModel):
     ocr_engine: str
     ocr_fail_closed: bool
     ocr_capable_extensions: List[str]
-    docnative_enabled: bool
-    docnative_available: bool
+
+
+class StorageDomainMemoryTerm(BaseModel):
+    """Observed domain term or alias learned for a graph."""
+
+    surface_form: str
+    canonical_form: str
+    kind: str
+    domain_pack: Optional[str] = None
+    support_count: int = 0
+    score: float = 0.0
+    node_id: Optional[str] = None
+    has_node: bool = False
+    meta: Dict[str, Any] = Field(default_factory=dict)
+
+
+class StorageDomainMemorySource(BaseModel):
+    """Aggregated domain-memory source kind summary."""
+
+    source_kind: str
+    count: int = 0
+
+
+class StorageDomainMemoryResponse(BaseModel):
+    """Graph-local autonomous domain memory summary."""
+
+    graph_id: str
+    graph_version: int
+    jobs_enabled: bool
+    domain_autonomy_enabled: bool
+    lexicon_total: int
+    source_total: int
+    detected_packs: List[str]
+    source_kinds: Dict[str, int]
+    top_terms: List[StorageDomainMemoryTerm]
+    top_sources: List[StorageDomainMemorySource]
+    last_updated_at: Optional[str] = None
 
 
 class StorageMaintenanceHistoryItem(BaseModel):
@@ -224,6 +265,103 @@ class StorageMaintenanceHistoryResponse(BaseModel):
     graph_id: str
     total: int
     items: List[StorageMaintenanceHistoryItem]
+
+
+class StorageRawReencryptionRequest(BaseModel):
+    """Legacy raw-blob re-encryption request payload."""
+
+    graph_id: Optional[str] = None
+    cutoff_created_at: datetime
+    limit: int = Field(default=100, ge=1, le=1000)
+    dry_run: bool = True
+    irreversible: bool = False
+    reason: Optional[str] = None
+
+
+class StorageRawReencryptionItem(BaseModel):
+    """Per-item result for a legacy raw-blob re-encryption run."""
+
+    raw_id: str
+    graph_id: str
+    filename: str
+    old_sha256: str
+    status: str
+    detail: Optional[str] = None
+    new_sha256: Optional[str] = None
+    raw_ref_updated: bool = False
+    storage_rows_updated: int = 0
+    legacy_blob_deleted: bool = False
+
+
+class StorageRawReencryptionResponse(BaseModel):
+    """Legacy raw-blob re-encryption summary."""
+
+    status: str
+    rotation_policy: str = "manual_cutoff_job"
+    requires_irreversible_confirmation: bool = True
+    graph_id: Optional[str] = None
+    cutoff_created_at: str
+    dry_run: bool
+    irreversible: bool
+    scanned: int
+    already_encrypted: int
+    reencrypted: int
+    failed: int
+    results: List[StorageRawReencryptionItem] = Field(default_factory=list)
+
+
+class StorageRawReencryptionJobResponse(BaseModel):
+    """Legacy raw-blob re-encryption job enqueue response."""
+
+    job_id: str
+    graph_id: str
+    kind: str
+    status: str
+    rotation_policy: str = "manual_cutoff_job"
+
+
+class StorageCryptoRotationRequest(BaseModel):
+    """Tenant master-key rewrap request."""
+
+    tenant_id: Optional[str] = None
+    dry_run: bool = True
+    reason: Optional[str] = None
+
+
+class StorageCryptoRotationItem(BaseModel):
+    """Per-tenant result for master-key rewrap."""
+
+    tenant_id: str
+    status: str
+    detail: Optional[str] = None
+    source_master_key_fingerprint: Optional[str] = None
+    master_key_fingerprint: Optional[str] = None
+
+
+class StorageCryptoRotationResponse(BaseModel):
+    """Tenant master-key rewrap summary."""
+
+    status: str
+    rotation_policy: str = "master_key_rewrap"
+    requires_previous_master_key_ring: bool = True
+    tenant_id: Optional[str] = None
+    dry_run: bool
+    scanned: int
+    already_current: int
+    rewrapped: int
+    created: int
+    failed: int
+    results: List[StorageCryptoRotationItem] = Field(default_factory=list)
+
+
+class StorageCryptoRotationJobResponse(BaseModel):
+    """Tenant master-key rewrap enqueue response."""
+
+    job_id: str
+    tenant_id: Optional[str] = None
+    kind: str
+    status: str
+    rotation_policy: str = "master_key_rewrap"
 
 
 class StorageBackendState(BaseModel):
@@ -613,6 +751,13 @@ def _maintenance_summary(kind: str, payload: Dict[str, Any]) -> str:
             f"facts={payload.get('fact_nodes_written', 0)}, "
             f"edges={payload.get('edges_written', 0)})"
         )
+    if kind == "RAW_REENCRYPTION":
+        return (
+            "raw re-encryption "
+            f"(scanned={payload.get('scanned', 0)}, "
+            f"reencrypted={payload.get('reencrypted', 0)}, "
+            f"already_encrypted={payload.get('already_encrypted', 0)})"
+        )
     return kind.lower().replace("_", " ")
 
 
@@ -792,6 +937,50 @@ def _enqueue_post_upload_evolve_job(
         return None
 
 
+def _trigger_autonomous_domain_adaptation(
+    *,
+    ctx: FAIMContext,
+    graph_id: str,
+    source: str,
+) -> Optional[str]:
+    try:
+        from orchestration.domain_autonomy import (
+            enqueue_domain_autonomy_if_needed,
+            run_domain_autonomy_now,
+        )
+
+        if _jobs_enabled():
+            result = enqueue_domain_autonomy_if_needed(
+                session=ctx.session,
+                tenant_id=ctx.tenant_id,
+                graph_id=graph_id,
+                source=source,
+                request_id=ctx.request_id,
+            )
+            return str(result.job_id) if result.job_id else None
+
+        run_domain_autonomy_now(
+            session=ctx.session,
+            tenant_id=ctx.tenant_id,
+            graph_id=graph_id,
+            raw_repo=ctx.raw_repo,
+            storage_file_repo=ctx.storage_file_repo,
+            raw_store=_resolve_raw_store(ctx),
+            node_repo=ctx.node_repo,
+            gv_repo=ctx.gv_repo,
+            event_repo=ctx.event_repo,
+        )
+        return "sync"
+    except Exception as exc:  # nosec B110
+        logger.warning(
+            "Autonomous domain adaptation trigger skipped for graph=%s source=%s: %s",
+            graph_id,
+            source,
+            exc,
+        )
+        return None
+
+
 def _row_to_file_item(row: Any) -> StorageFileItem:
     return StorageFileItem(
         raw_id=str(row.raw_id),
@@ -932,6 +1121,7 @@ async def create_upload_batch(
     requested_profile = str(profile or "").strip().lower()
     requested_persist_mode = str(persist_mode or "").strip().lower()
     requested_extractor_mode = _normalize_extractor_mode(extractor_mode)
+    workerized_upload = _jobs_enabled()
     policy = resolve_profile_persist_policy(
         operation=PolicyOperation.INGEST,
         requested_profile=requested_profile,
@@ -967,6 +1157,7 @@ async def create_upload_batch(
     cancelled = 0
     total_batch_size = 0
     cancel_triggered = False
+    queued_files: List[Dict[str, Any]] = []
     followup_evolve_job_id: Optional[str] = None
     _storage_lifecycle_log(
         ctx=ctx,
@@ -1077,12 +1268,6 @@ async def create_upload_batch(
                     sha256=str(saved_ref.sha256),
                     job_id=job_id,
                 )
-                ctx.storage_file_repo.mark_ingesting(
-                    ctx.session,
-                    raw_id=raw_uuid,
-                    graph_id=graph_id,
-                    job_id=job_id,
-                )
                 _emit_storage_audit_event(
                     ctx=ctx,
                     graph_id=graph_id,
@@ -1159,6 +1344,65 @@ async def create_upload_batch(
                         detail="cancellation acknowledged before ingest execution",
                     )
                     break
+
+                if workerized_upload:
+                    result_entry.raw_id = str(raw_uuid)
+                    result_entry.status = "queued"
+                    result_entry.requested_profile = requested_profile
+                    result_entry.requested_persist_mode = requested_persist_mode
+                    result_entry.requested_extractor_mode = requested_extractor_mode
+                    result_entry.effective_profile = policy.effective_profile
+                    result_entry.effective_persist_mode = (
+                        policy.effective_persist_mode
+                    )
+                    result_entry.effective_extractor_mode = requested_extractor_mode
+                    result_entry.durability_path = policy.durability_path
+                    queued_files.append(
+                        {
+                            "raw_id": str(raw_uuid),
+                            "filename": filename,
+                            "mime_type": mime_type,
+                            "size_bytes": len(file_bytes),
+                            "sha256": str(saved_ref.sha256),
+                            "requested_profile": requested_profile,
+                            "requested_persist_mode": requested_persist_mode,
+                            "requested_extractor_mode": requested_extractor_mode,
+                            "effective_profile": policy.effective_profile,
+                            "effective_persist_mode": policy.effective_persist_mode,
+                            "effective_extractor_mode": requested_extractor_mode,
+                            "durability_path": policy.durability_path,
+                        }
+                    )
+                    JobStore.append_event(
+                        ctx.session,
+                        job_id,
+                        "step_progress",
+                        {
+                            "index": index,
+                            "filename": filename,
+                            "raw_id": str(raw_uuid),
+                            "status": "queued",
+                            "message": "Upload staged for worker execution",
+                            "requested_profile": requested_profile,
+                            "requested_persist_mode": requested_persist_mode,
+                            "requested_extractor_mode": requested_extractor_mode,
+                            "effective_profile": policy.effective_profile,
+                            "effective_persist_mode": policy.effective_persist_mode,
+                            "effective_extractor_mode": requested_extractor_mode,
+                            "durability_path": policy.durability_path,
+                        },
+                    )
+                    _storage_lifecycle_log(
+                        ctx=ctx,
+                        op="upload_stage",
+                        status="queued",
+                        graph_id=graph_id,
+                        job_id=str(job_id),
+                        raw_id=str(raw_uuid),
+                        detail=f"raw staged for worker ingest for {filename}",
+                    )
+                    ctx.session.commit()
+                    continue
 
                 ingest_result = _run_ingest_existing_raw(
                     ctx=ctx,
@@ -1374,11 +1618,26 @@ async def create_upload_batch(
                     )
                     cancelled += 1
             for pending in file_results:
-                if pending.status == "pending":
+                if pending.status in {"pending", "queued", "uploaded"}:
                     pending.status = "cancelled"
                     pending.error = "Upload cancelled before processing"
                     cancelled += 1
+            for queued in queued_files:
+                raw_id_text = str(queued.get("raw_id") or "")
+                try:
+                    raw_uuid = _parse_uuid(raw_id_text, "raw_id")
+                except HTTPException:
+                    continue
+                ctx.storage_file_repo.mark_cancelled(
+                    ctx.session,
+                    raw_id=raw_uuid,
+                    graph_id=graph_id,
+                    error_message="Upload cancelled before worker execution",
+                    job_id=job_id,
+                )
             final_status = "cancelled"
+        elif workerized_upload:
+            final_status = "queued" if queued_files else "failed"
         else:
             final_status = "completed"
             if failed and success:
@@ -1412,8 +1671,11 @@ async def create_upload_batch(
                     "failed_files": failed,
                     "dedup_hits": dedup_hits,
                     "cancelled_files": cancelled,
+                    "queued_files": len(queued_files),
                 }
             )
+            if queued_files:
+                payload["files"] = queued_files
             job.payload_json = payload
             job.updated_at = datetime.now(timezone.utc)
             if final_status == "cancelled":
@@ -1423,9 +1685,14 @@ async def create_upload_batch(
                     reason=JobStore.get_cancel_reason(ctx.session, job_id)
                     or "Cancelled by user request",
                 )
+            elif workerized_upload and queued_files:
+                job.status = "pending"
+                job.error_message = None
+                job.completed_at = None
+                ctx.session.commit()
             elif final_status == "failed":
                 job.status = "failed"
-                job.error_message = "All files failed ingestion"
+                job.error_message = "All files failed staging"
                 job.completed_at = datetime.now(timezone.utc)
                 ctx.session.commit()
             else:
@@ -1433,7 +1700,29 @@ async def create_upload_batch(
                 job.completed_at = datetime.now(timezone.utc)
                 ctx.session.commit()
 
-        if final_status in {"completed", "partial_failed"} and success > 0:
+        if not workerized_upload and final_status in {"completed", "partial_failed"} and success > 0:
+            try:
+                domain_job_id = _trigger_autonomous_domain_adaptation(
+                    ctx=ctx,
+                    graph_id=graph_id,
+                    source="storage_upload_inline",
+                )
+                if domain_job_id is not None:
+                    JobStore.append_event(
+                        ctx.session,
+                        job_id,
+                        "step_progress",
+                        {
+                            "status": "domain_autonomy_triggered",
+                            "domain_autonomy_job_id": domain_job_id,
+                            "message": "Autonomous domain adaptation triggered",
+                        },
+                    )
+            except Exception as exc:  # nosec B110
+                logger.warning(
+                    "Failed to trigger autonomous domain adaptation after inline upload: %s",
+                    exc,
+                )
             try:
                 evolve_job_id = _enqueue_post_upload_evolve_job(
                     ctx=ctx,
@@ -1554,7 +1843,10 @@ async def get_upload_status(
     )
 
     file_items = [_row_to_file_item(r) for r in rows]
-    processed_files = len(file_items)
+    terminal_statuses = {"ingested", "dedup_hit", "failed", "cancelled"}
+    processed_files = len(
+        [f for f in file_items if f.ingest_status in terminal_statuses]
+    )
     success_files = len(
         [f for f in file_items if f.ingest_status in {"ingested", "dedup_hit"}]
     )
@@ -1683,6 +1975,21 @@ async def cancel_upload_job(
     updated = JobStore.request_cancel(ctx.session, job_uuid, reason=reason)
     if updated is None:
         raise HTTPException(status_code=404, detail="Upload job not found")
+
+    if job.kind == "storage_upload":
+        for row in ctx.storage_file_repo.list_by_job_id(
+            ctx.session,
+            job_uuid,
+            graph_id=job.graph_id,
+        ):
+            if row.ingest_status in {"uploaded", "ingesting", "queued"}:
+                ctx.storage_file_repo.mark_cancelled(
+                    ctx.session,
+                    raw_id=row.raw_id,
+                    graph_id=row.graph_id,
+                    error_message=(reason or "Upload cancelled")[:1024],
+                    job_id=job_uuid,
+                )
 
     JobStore.append_event(
         ctx.session,
@@ -2574,8 +2881,6 @@ async def get_storage_supported_types(
         ocr_engine=ocr_engine,
         ocr_fail_closed=ocr_fail_closed,
         ocr_capable_extensions=ocr_capable_extensions,
-        docnative_enabled=True,
-        docnative_available=True,
     )
 
 
@@ -2596,6 +2901,7 @@ async def get_storage_maintenance_history(
         "MULTIMODAL_BACKFILL",
         "DOMAIN_PROFILE_REBUILD",
         "DOMAIN_KNOWLEDGE_IMPORT",
+        "RAW_REENCRYPTION",
     ]
     rows = (
         ctx.session.query(EventModel)
@@ -2648,6 +2954,153 @@ async def get_storage_summary(
 
     summary = ctx.storage_file_repo.summary(ctx.session, graph_id=graph_id)
     return StorageSummaryResponse(graph_id=graph_id, **summary)
+
+
+@router.get("/domain-memory", response_model=StorageDomainMemoryResponse)
+async def get_storage_domain_memory(
+    graph_id: str = Query(...),
+    limit: int = Query(12, ge=1, le=50),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageDomainMemoryResponse:
+    """Summarize graph-local autonomous domain memory."""
+    _require_storage_repos(ctx)
+
+    jobs_enabled = os.getenv("FAIM_ENABLE_JOBS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    domain_autonomy_raw = os.getenv("FAIM_DOMAIN_AUTONOMY_ENABLED", "").strip().lower()
+    domain_autonomy_enabled = domain_autonomy_raw not in {"0", "false", "no", "off"}
+
+    from sqlalchemy import func
+    from store.pg.models_faim import GraphDomainLexiconModel, GraphKBSourceModel
+    from store.pg.repos.graph_version_repo import GraphVersionRepo
+
+    lexicon_rows = (
+        ctx.session.query(GraphDomainLexiconModel)
+        .filter(
+            and_(
+                GraphDomainLexiconModel.tenant_id == ctx.tenant_id,
+                GraphDomainLexiconModel.graph_id == graph_id,
+            )
+        )
+        .order_by(
+            desc(GraphDomainLexiconModel.score),
+            desc(GraphDomainLexiconModel.support_count),
+            asc(GraphDomainLexiconModel.surface_form),
+            asc(GraphDomainLexiconModel.canonical_form),
+        )
+        .limit(limit)
+        .all()
+    )
+    source_rows = (
+        ctx.session.query(GraphKBSourceModel)
+        .filter(
+            and_(
+                GraphKBSourceModel.tenant_id == ctx.tenant_id,
+                GraphKBSourceModel.graph_id == graph_id,
+            )
+        )
+        .order_by(desc(GraphKBSourceModel.updated_at), asc(GraphKBSourceModel.source_id))
+        .limit(limit)
+        .all()
+    )
+    source_kind_rows = (
+        ctx.session.query(
+            GraphKBSourceModel.source_kind,
+            func.count(GraphKBSourceModel.source_id),
+        )
+        .filter(
+            and_(
+                GraphKBSourceModel.tenant_id == ctx.tenant_id,
+                GraphKBSourceModel.graph_id == graph_id,
+            )
+        )
+        .group_by(GraphKBSourceModel.source_kind)
+        .all()
+    )
+
+    lexicon_total = int(
+        ctx.session.query(GraphDomainLexiconModel)
+        .filter(
+            and_(
+                GraphDomainLexiconModel.tenant_id == ctx.tenant_id,
+                GraphDomainLexiconModel.graph_id == graph_id,
+            )
+        )
+        .count()
+    )
+    source_total = int(
+        ctx.session.query(GraphKBSourceModel)
+        .filter(
+            and_(
+                GraphKBSourceModel.tenant_id == ctx.tenant_id,
+                GraphKBSourceModel.graph_id == graph_id,
+            )
+        )
+        .count()
+    )
+
+    detected_packs = sorted(
+        {
+            str(row.domain_pack).strip()
+            for row in lexicon_rows
+            if str(row.domain_pack or "").strip()
+        }
+    )
+    source_kind_counts: Dict[str, int] = {
+        str(kind): int(count) for kind, count in source_kind_rows
+    }
+
+    top_terms = [
+        StorageDomainMemoryTerm(
+            surface_form=row.surface_form,
+            canonical_form=row.canonical_form,
+            kind=row.kind,
+            domain_pack=row.domain_pack,
+            support_count=int(row.support_count or 0),
+            score=float(row.score or 0.0),
+            node_id=str((row.meta or {}).get("node_id"))
+            if (row.meta or {}).get("node_id")
+            else None,
+            has_node=bool((row.meta or {}).get("node_id")),
+            meta=dict(row.meta or {}),
+        )
+        for row in lexicon_rows
+    ]
+
+    top_sources = [
+        StorageDomainMemorySource(source_kind=kind, count=count)
+        for kind, count in sorted(
+            source_kind_counts.items(), key=lambda item: (-item[1], item[0])
+        )
+    ]
+
+    graph_version = GraphVersionRepo(tenant_id=ctx.tenant_id).get_version(
+        ctx.session, graph_id
+    )
+    last_updated_candidates = [
+        row.updated_at for row in lexicon_rows if getattr(row, "updated_at", None)
+    ] + [row.updated_at for row in source_rows if getattr(row, "updated_at", None)]
+    last_updated_at = (
+        max(last_updated_candidates).isoformat() if last_updated_candidates else None
+    )
+
+    return StorageDomainMemoryResponse(
+        graph_id=graph_id,
+        graph_version=graph_version,
+        jobs_enabled=jobs_enabled,
+        domain_autonomy_enabled=domain_autonomy_enabled,
+        lexicon_total=lexicon_total,
+        source_total=source_total,
+        detected_packs=detected_packs,
+        source_kinds=dict(sorted(source_kind_counts.items(), key=lambda item: item[0])),
+        top_terms=top_terms,
+        top_sources=top_sources,
+        last_updated_at=last_updated_at,
+    )
 
 
 @router.get("/ops/metrics", response_model=StorageOpsMetricsResponse)
@@ -2993,6 +3446,402 @@ async def enqueue_storage_retention_job(
         graph_id=graph_for_job,
         kind="storage_retention",
         status="pending",
+    )
+
+
+@router.post("/reencryption/execute", response_model=StorageRawReencryptionResponse)
+async def execute_storage_raw_reencryption(
+    request: StorageRawReencryptionRequest = Body(  # noqa: B008
+        default_factory=StorageRawReencryptionRequest
+    ),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageRawReencryptionResponse:
+    """Re-encrypt legacy plaintext raw blobs into the encrypted raw store."""
+    _require_storage_repos(ctx)
+    started = time.perf_counter()
+
+    if not request.dry_run and not request.irreversible:
+        raise HTTPException(
+            status_code=400,
+            detail="Physical re-encryption requires irreversible=true",
+        )
+
+    raw_store = _resolve_raw_store(ctx)
+    if not hasattr(raw_store, "_inner"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Legacy raw re-encryption requires an encrypted raw store wrapper. "
+                "Enable payload encryption before running this migration."
+            ),
+        )
+
+    if not request.dry_run:
+        from runtime.config import get_config
+
+        cfg = get_config()
+        if not cfg.storage_hard_delete_enabled:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Physical blob deletion disabled. "
+                    "Set FAIM_STORAGE_HARD_DELETE_ENABLED=true for irreversible re-encryption."
+                ),
+            )
+
+    try:
+        from orchestration.jobs.raw_reencryption import run_raw_reencryption_backfill
+
+        result = run_raw_reencryption_backfill(
+            session=ctx.session,
+            tenant_id=ctx.tenant_id,
+            graph_id=request.graph_id,
+            cutoff_created_at=request.cutoff_created_at,
+            raw_repo=ctx.raw_repo,
+            storage_file_repo=ctx.storage_file_repo,
+            raw_store=raw_store,
+            event_repo=ctx.event_repo,
+            page_size=request.limit,
+            dry_run=request.dry_run,
+            irreversible=request.irreversible,
+            reason=request.reason,
+        )
+    except ValueError as exc:
+        _storage_lifecycle_log(
+            ctx=ctx,
+            op="raw_reencryption_execute",
+            status="failed",
+            graph_id=request.graph_id,
+            failure_reason=_normalize_failure_reason(str(exc)),
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            detail="raw re-encryption execution rejected",
+            level="warning",
+        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        ctx.session.rollback()
+        logger.error("Storage raw re-encryption execution failed: %s", exc)
+        _storage_lifecycle_log(
+            ctx=ctx,
+            op="raw_reencryption_execute",
+            status="failed",
+            graph_id=request.graph_id,
+            failure_reason=_normalize_failure_reason(str(exc)),
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            detail="raw re-encryption execution failed",
+            level="error",
+        )
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="raw_reencryption_execute",
+        status="ok" if result.failed == 0 else "partial_failed",
+        graph_id=request.graph_id,
+        latency_ms=int((time.perf_counter() - started) * 1000),
+        detail=(
+            "raw re-encryption execution completed "
+            f"(dry_run={result.dry_run}, scanned={result.scanned}, "
+            f"reencrypted={result.reencrypted}, already_encrypted={result.already_encrypted}, "
+            f"failed={result.failed})"
+        ),
+    )
+
+    return StorageRawReencryptionResponse(
+        status="ok" if result.failed == 0 else "partial_failed",
+        rotation_policy="manual_cutoff_job",
+        requires_irreversible_confirmation=True,
+        graph_id=result.graph_id,
+        cutoff_created_at=result.cutoff_created_at.isoformat(),
+        dry_run=result.dry_run,
+        irreversible=result.irreversible,
+        scanned=result.scanned,
+        already_encrypted=result.already_encrypted,
+        reencrypted=result.reencrypted,
+        failed=result.failed,
+        results=[
+            StorageRawReencryptionItem(
+                raw_id=item.raw_id,
+                graph_id=item.graph_id,
+                filename=item.filename,
+                old_sha256=item.old_sha256,
+                status=item.status,
+                detail=item.detail,
+                new_sha256=item.new_sha256,
+                raw_ref_updated=item.raw_ref_updated,
+                storage_rows_updated=item.storage_rows_updated,
+                legacy_blob_deleted=item.legacy_blob_deleted,
+            )
+            for item in result.results
+        ],
+    )
+
+
+@router.post("/reencryption/jobs", response_model=StorageRawReencryptionJobResponse)
+async def enqueue_storage_raw_reencryption_job(
+    request: StorageRawReencryptionRequest = Body(  # noqa: B008
+        default_factory=StorageRawReencryptionRequest
+    ),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageRawReencryptionJobResponse:
+    """Enqueue legacy raw-blob re-encryption for worker execution."""
+    _require_storage_repos(ctx)
+
+    from runtime.config import get_config
+
+    cfg = get_config()
+    if not cfg.enable_jobs:
+        raise HTTPException(
+            status_code=409,
+            detail="Background jobs are disabled (FAIM_ENABLE_JOBS=false)",
+        )
+
+    if not request.dry_run and not request.irreversible:
+        raise HTTPException(
+            status_code=400,
+            detail="Physical re-encryption requires irreversible=true",
+        )
+
+    raw_store = _resolve_raw_store(ctx)
+    if not hasattr(raw_store, "_inner"):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Legacy raw re-encryption requires an encrypted raw store wrapper. "
+                "Enable payload encryption before enqueuing this migration."
+            ),
+        )
+
+    if not request.dry_run and not cfg.storage_hard_delete_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Physical blob deletion disabled. "
+                "Set FAIM_STORAGE_HARD_DELETE_ENABLED=true for irreversible re-encryption."
+            ),
+        )
+
+    from orchestration.jobs.job_store import JobStore
+
+    payload = {
+        "graph_id": request.graph_id,
+        "cutoff_created_at": request.cutoff_created_at.isoformat(),
+        "limit": request.limit,
+        "dry_run": request.dry_run,
+        "irreversible": request.irreversible,
+        "reason": request.reason,
+    }
+    graph_for_job = request.graph_id or "default"
+    job_id = JobStore.enqueue(
+        session=ctx.session,
+        tenant_id=ctx.tenant_id,
+        graph_id=graph_for_job,
+        kind="raw_reencryption",
+        payload=payload,
+    )
+    JobStore.append_event(
+        ctx.session,
+        job_id,
+        "step_start",
+        {
+            "message": "Legacy raw re-encryption job enqueued",
+            "graph_id": request.graph_id,
+            "cutoff_created_at": request.cutoff_created_at.isoformat(),
+            "dry_run": request.dry_run,
+            "irreversible": request.irreversible,
+            "limit": request.limit,
+        },
+    )
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="raw_reencryption_enqueue",
+        status="pending",
+        graph_id=graph_for_job,
+        job_id=str(job_id),
+        detail=(
+            "raw re-encryption job enqueued "
+            f"(dry_run={request.dry_run}, irreversible={request.irreversible}, limit={request.limit})"
+        ),
+    )
+
+    return StorageRawReencryptionJobResponse(
+        job_id=str(job_id),
+        graph_id=graph_for_job,
+        kind="raw_reencryption",
+        status="pending",
+        rotation_policy="manual_cutoff_job",
+    )
+
+
+@router.post("/crypto/rotation/execute", response_model=StorageCryptoRotationResponse)
+async def execute_storage_crypto_rotation(
+    request: StorageCryptoRotationRequest = Body(  # noqa: B008
+        default_factory=StorageCryptoRotationRequest
+    ),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageCryptoRotationResponse:
+    """Rewrap tenant DEKs under the current master key."""
+    _require_storage_repos(ctx)
+    started = time.perf_counter()
+
+    raw_store = _resolve_raw_store(ctx)
+    from store.raw.crypto import EnvelopeCipher
+
+    cipher = getattr(raw_store, "_cipher", None)
+    if not isinstance(cipher, EnvelopeCipher):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Tenant crypto rotation requires envelope encryption-at-rest "
+                "(FAIM_PAYLOAD_CIPHER=envelope)"
+            ),
+        )
+
+    if request.tenant_id is not None and request.tenant_id != ctx.tenant_id:
+        raise HTTPException(status_code=403, detail="Tenant mismatch")
+
+    try:
+        from orchestration.jobs.crypto_rotation import (
+            run_tenant_crypto_rotation_backfill,
+        )
+
+        result = run_tenant_crypto_rotation_backfill(
+            session=ctx.session,
+            tenant_id=request.tenant_id or ctx.tenant_id,
+            dry_run=request.dry_run,
+            reason=request.reason,
+        )
+    except Exception as exc:
+        ctx.session.rollback()
+        logger.error("Tenant crypto rotation failed: %s", exc)
+        _storage_lifecycle_log(
+            ctx=ctx,
+            op="crypto_rotation_execute",
+            status="failed",
+            graph_id=request.tenant_id or ctx.tenant_id,
+            failure_reason=_normalize_failure_reason(str(exc)),
+            latency_ms=int((time.perf_counter() - started) * 1000),
+            detail="tenant crypto rotation failed",
+            level="error",
+        )
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="crypto_rotation_execute",
+        status="ok" if result.failed == 0 else "partial_failed",
+        graph_id=request.tenant_id or ctx.tenant_id,
+        latency_ms=int((time.perf_counter() - started) * 1000),
+        detail=(
+            "tenant crypto rotation completed "
+            f"(dry_run={result.dry_run}, scanned={result.scanned}, "
+            f"rewrapped={result.rewrapped}, already_current={result.already_current}, "
+            f"failed={result.failed})"
+        ),
+    )
+
+    return StorageCryptoRotationResponse(
+        status="ok" if result.failed == 0 else "partial_failed",
+        rotation_policy="master_key_rewrap",
+        requires_previous_master_key_ring=True,
+        tenant_id=result.tenant_id,
+        dry_run=result.dry_run,
+        scanned=result.scanned,
+        already_current=result.already_current,
+        rewrapped=result.rewrapped,
+        created=result.created,
+        failed=result.failed,
+        results=[
+            StorageCryptoRotationItem(
+                tenant_id=item.tenant_id,
+                status=item.status,
+                detail=item.detail,
+                source_master_key_fingerprint=item.source_master_key_fingerprint,
+                master_key_fingerprint=item.master_key_fingerprint,
+            )
+            for item in result.results
+        ],
+    )
+
+
+@router.post("/crypto/rotation/jobs", response_model=StorageCryptoRotationJobResponse)
+async def enqueue_storage_crypto_rotation_job(
+    request: StorageCryptoRotationRequest = Body(  # noqa: B008
+        default_factory=StorageCryptoRotationRequest
+    ),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageCryptoRotationJobResponse:
+    """Enqueue tenant crypto rotation for worker execution."""
+    _require_storage_repos(ctx)
+
+    from runtime.config import get_config
+
+    cfg = get_config()
+    if not cfg.enable_jobs:
+        raise HTTPException(
+            status_code=409,
+            detail="Background jobs are disabled (FAIM_ENABLE_JOBS=false)",
+        )
+
+    raw_store = _resolve_raw_store(ctx)
+    from store.raw.crypto import EnvelopeCipher
+
+    cipher = getattr(raw_store, "_cipher", None)
+    if not isinstance(cipher, EnvelopeCipher):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Tenant crypto rotation requires envelope encryption-at-rest "
+                "(FAIM_PAYLOAD_CIPHER=envelope)"
+            ),
+        )
+
+    if request.tenant_id is not None and request.tenant_id != ctx.tenant_id:
+        raise HTTPException(status_code=403, detail="Tenant mismatch")
+
+    from orchestration.jobs.job_store import JobStore
+
+    tenant_for_job = request.tenant_id or ctx.tenant_id
+    payload = {
+        "tenant_id": tenant_for_job,
+        "dry_run": request.dry_run,
+        "reason": request.reason,
+    }
+    job_id = JobStore.enqueue(
+        session=ctx.session,
+        tenant_id=ctx.tenant_id,
+        graph_id=tenant_for_job,
+        kind="crypto_rotation",
+        payload=payload,
+    )
+    JobStore.append_event(
+        ctx.session,
+        job_id,
+        "step_start",
+        {
+            "message": "Tenant crypto rotation job enqueued",
+            "tenant_id": tenant_for_job,
+            "dry_run": request.dry_run,
+        },
+    )
+    _storage_lifecycle_log(
+        ctx=ctx,
+        op="crypto_rotation_enqueue",
+        status="pending",
+        graph_id=tenant_for_job,
+        job_id=str(job_id),
+        detail=(
+            "tenant crypto rotation job enqueued "
+            f"(dry_run={request.dry_run}, tenant_id={tenant_for_job})"
+        ),
+    )
+
+    return StorageCryptoRotationJobResponse(
+        job_id=str(job_id),
+        tenant_id=tenant_for_job,
+        kind="crypto_rotation",
+        status="pending",
+        rotation_policy="master_key_rewrap",
     )
 
 

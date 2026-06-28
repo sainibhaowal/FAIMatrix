@@ -20,8 +20,8 @@ const PIPELINE_STEPS = [
     number: "02",
     title: "Classify",
     description:
-      "Every query is mapped against the 1M+ Semantic Alias Registry. Intent is routed into 8 core cognitive tasks in <10ms, eliminating LLM classification latency.",
-    detail: "1M concepts -> task routing -> deterministic intent",
+      "Every query is routed through a deterministic semantic alias engine. Intent is mapped into 8 core cognitive tasks in <10ms, eliminating LLM classification latency.",
+    detail: "seeded aliases -> task routing -> deterministic intent",
     gradient: "from-blue-500 to-indigo-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -46,8 +46,8 @@ const PIPELINE_STEPS = [
     number: "04",
     title: "Adapt",
     description:
-      "Graph-local rebuild paths mine aliases, phrases, and terminology. This adds coverage without changing raw truth or native vector identity.",
-    detail: "canonical rebuilds -> KB import -> domain enrichment",
+      "Graph-local rebuild paths mine aliases, phrases, terminology, and facts from uploaded data. This adds coverage without changing raw truth or native vector identity.",
+    detail: "canonical rebuilds -> autonomous domain memory -> query enrichment",
     gradient: "from-purple-500 to-pink-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -59,8 +59,8 @@ const PIPELINE_STEPS = [
     number: "05",
     title: "Retrieve",
     description:
-      "Queries combine dense native vectors with 24-hop graph reasoning. FAIM traverses deep evidence chains to find grounded answers across disparate documents.",
-    detail: "sparse + dense shortlist -> 24-hop expansion -> reranker v2",
+      "Queries combine dense native vectors with bounded graph reasoning. FAIM traverses evidence chains to find grounded answers across disparate documents.",
+    detail: "sparse + dense shortlist -> bounded expansion -> reranker v2",
     gradient: "from-pink-500 to-orange-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -111,7 +111,7 @@ export default function HowItWorks() {
             core invariants remain intact while retrieval and answer layers stay
             additive. The product surfaces that matter most are FAIM Cortex for
             grounded answers and Storage for extractor selection, provenance,
-            and maintenance workflows.
+            autonomous domain memory, and maintenance workflows.
           </p>
         </motion.div>
 

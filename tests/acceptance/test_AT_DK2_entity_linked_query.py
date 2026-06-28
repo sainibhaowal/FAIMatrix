@@ -76,5 +76,7 @@ def test_query_uses_domain_knowledge_scores():
         )
         assert result.results
         assert result.results[0]["score_components"].get("domain", 0.0) >= 0.0
+        assert result.results[0]["explain"]["domain_relevance"]["candidate_count"] >= 1
+        assert result.results[0]["explain"]["domain_relevance"]["query_links"]
     finally:
         session.close()

@@ -17,3 +17,9 @@ def test_terminology_mining_extracts_domain_terms_and_aliases():
     kinds = {(row["surface_form"], row["kind"]) for row in rows}
     assert ("arr", "domain_term") in kinds
     assert any(row["kind"] == "domain_term" for row in rows)
+
+
+def test_terminology_mining_learns_from_single_document_when_needed():
+    docs = [build_domain_document(uuid4(), "HbA1c diagnosis treatment plan")]
+    rows = mine_terminology(docs, domain_pack="medical")
+    assert any(row["surface_form"] == "hba1c" for row in rows)

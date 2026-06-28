@@ -81,7 +81,7 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
       </svg>
     ),
-    description: "Real-time visual pulses trace reasoning paths during Cortex queries. See exactly how the 1M+ Semantic Registry connects your knowledge atoms.",
+    description: "Real-time visual pulses trace reasoning paths during Cortex queries. See exactly how the deterministic semantic router connects your knowledge atoms.",
   },
   {
     title: "GPU Stability Hardening",

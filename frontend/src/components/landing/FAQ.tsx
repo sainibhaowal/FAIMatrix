@@ -10,14 +10,14 @@ interface FAQItem {
 
 const FAQS: FAQItem[] = [
   {
-    question: "What is 24-Hop Reasoning?",
+    question: "How deep does reasoning go?",
     answer:
-      "Traditional systems use 1-hop retrieval (fetch and summarize). FAIM's 24-Hop Reasoning allows the Cortex engine to traverse up to 24 semantic layers of evidence, following logical chains across documents, events, and opposing views while maintaining 100% provenance and citation integrity for every single hop.",
+      "Traditional systems use 1-hop retrieval (fetch and summarize). FAIM uses bounded multi-hop reasoning instead: retrieval diffusion is capped at 2 hops, while planner-selected investigative routes can go to 3-5 hops depending on the query. Provenance and citation integrity stay intact at every step.",
   },
   {
-    question: "How does the 1M+ Concept Registry work?",
+    question: "How does the semantic router work?",
     answer:
-      "Unlike LLMs that 'think' for several seconds to classify intent, FAIM uses a deterministic registry of over 1,000,000 professional concepts. This allows the system to map your query to 8 core cognitive tasks in under 10ms with zero latency, zero drift, and zero hallucination risk.",
+      "Unlike LLMs that 'think' for several seconds to classify intent, FAIM uses a deterministic alias map and pattern overrides. This allows the system to map your query to 8 core cognitive tasks in under 10ms with zero latency, zero drift, and zero hallucination risk.",
   },
   {
     question: "Is FAIMATRIX a vector database?",

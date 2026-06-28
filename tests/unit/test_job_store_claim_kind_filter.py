@@ -24,16 +24,23 @@ def test_claim_next_of_kinds_skips_non_executable_jobs(session_factory):
 
         claimed = JobStore.claim_next_of_kinds(
             session=session,
-            executable_kinds=["evolve", "ingest_secondary_index", "storage_retention"],
+            executable_kinds=[
+                "evolve",
+                "storage_upload",
+                "crypto_rotation",
+                "ingest_secondary_index",
+                "storage_retention",
+                "raw_reencryption",
+            ],
         )
 
         assert claimed is not None
-        assert str(claimed.job_id) == str(evolve_job_id)
-        assert claimed.kind == "evolve"
+        assert str(claimed.job_id) == str(upload_job_id)
+        assert claimed.kind == "storage_upload"
 
-        upload_job = JobStore.get_job(session, upload_job_id)
-        assert upload_job is not None
-        assert upload_job.status == "pending"
+        evolve_job = JobStore.get_job(session, evolve_job_id)
+        assert evolve_job is not None
+        assert evolve_job.status == "pending"
 
 
 def test_claim_next_of_kinds_returns_none_for_empty_kinds(session_factory):

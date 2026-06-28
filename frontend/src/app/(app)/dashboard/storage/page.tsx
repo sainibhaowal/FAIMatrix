@@ -276,6 +276,37 @@ type StorageSupportedTypesResponse = {
   ocr_capable_extensions: string[];
 };
 
+type StorageDomainMemoryTerm = {
+  surface_form: string;
+  canonical_form: string;
+  kind: string;
+  domain_pack?: string | null;
+  support_count: number;
+  score: number;
+  node_id?: string | null;
+  has_node: boolean;
+  meta: Record<string, unknown>;
+};
+
+type StorageDomainMemorySource = {
+  source_kind: string;
+  count: number;
+};
+
+type StorageDomainMemoryResponse = {
+  graph_id: string;
+  graph_version: number;
+  jobs_enabled: boolean;
+  domain_autonomy_enabled: boolean;
+  lexicon_total: number;
+  source_total: number;
+  detected_packs: string[];
+  source_kinds: Record<string, number>;
+  top_terms: StorageDomainMemoryTerm[];
+  top_sources: StorageDomainMemorySource[];
+  last_updated_at?: string | null;
+};
+
 type StorageProvenanceRawRef = {
   raw_id: string;
   sha256: string;
@@ -428,15 +459,15 @@ function mapStorageStatus(status?: string | null): QueueStatus {
   if (normalized === "dedup_hit") return "dedup_hit";
   if (normalized === "failed" || normalized === "error") return "failed";
   if (normalized === "cancelled") return "cancelled";
-  if (
-    normalized === "ingesting" ||
-    normalized === "running" ||
-    normalized === "pending"
-  ) {
+  if (normalized === "ingesting" || normalized === "running")
     return "ingesting";
-  }
-  if (normalized === "uploading" || normalized === "uploaded")
-    return "uploading";
+  if (
+    normalized === "uploading" ||
+    normalized === "uploaded" ||
+    normalized === "pending" ||
+    normalized === "queued"
+  )
+    return "queued";
   return "queued";
 }
 
@@ -562,6 +593,8 @@ export default function StoragePage() {
   const [backends, setBackends] = useState<StorageBackends | null>(null);
   const [supportedTypes, setSupportedTypes] =
     useState<StorageSupportedTypesResponse | null>(null);
+  const [domainMemory, setDomainMemory] =
+    useState<StorageDomainMemoryResponse | null>(null);
   const [total, setTotal] = useState(0);
 
   const [queueItems, setQueueItems] = useState<QueueItem[]>([]);
@@ -569,6 +602,7 @@ export default function StoragePage() {
 
   const [loadingFiles, setLoadingFiles] = useState(true);
   const [loadingSummary, setLoadingSummary] = useState(true);
+  const [loadingDomainMemory, setLoadingDomainMemory] = useState(false);
   const [actionRawId, setActionRawId] = useState<string | null>(null);
 
   const [statusFilter, setStatusFilter] = useState<string>("");
@@ -765,6 +799,36 @@ export default function StoragePage() {
     }
   }, [activeGraphId, fetchJson, throttledToast]);
 
+  const fetchDomainMemoryInternal = useCallback(async () => {
+    setLoadingDomainMemory(true);
+    try {
+      const data = await fetchJson<StorageDomainMemoryResponse>(
+        `/api/v1/storage/domain-memory?graph_id=${encodeURIComponent(activeGraphId)}&limit=8`,
+      );
+      setDomainMemory(data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      if (error instanceof ApiError && error.status === 429) {
+        throttledToast(
+          "warning",
+          "Domain memory rate-limited",
+          message,
+          "storage-domain-memory-429",
+        );
+      } else {
+        throttledToast(
+          "warning",
+          "Domain memory unavailable",
+          message,
+          "storage-domain-memory-error",
+          20000,
+        );
+      }
+    } finally {
+      setLoadingDomainMemory(false);
+    }
+  }, [activeGraphId, fetchJson, throttledToast]);
+
   const fetchSupportedTypesInternal = useCallback(async () => {
     setSupportedTypesLoading(true);
     try {
@@ -806,11 +870,15 @@ export default function StoragePage() {
     if (refreshLockRef.current) return;
     refreshLockRef.current = true;
     try {
-      await Promise.all([fetchFilesInternal(), fetchSummaryInternal()]);
+      await Promise.all([
+        fetchFilesInternal(),
+        fetchSummaryInternal(),
+        fetchDomainMemoryInternal(),
+      ]);
     } finally {
       refreshLockRef.current = false;
     }
-  }, [fetchFilesInternal, fetchSummaryInternal]);
+  }, [fetchDomainMemoryInternal, fetchFilesInternal, fetchSummaryInternal]);
 
   const applyGraphScope = useCallback(() => {
     const next = graphScopeInput.trim() || sessionGraphId;
@@ -1566,6 +1634,11 @@ export default function StoragePage() {
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    fetchDomainMemoryInternal();
+  }, [fetchDomainMemoryInternal, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
     void fetchSupportedTypesInternal();
   }, [fetchSupportedTypesInternal, isAuthenticated]);
 
@@ -1576,6 +1649,14 @@ export default function StoragePage() {
     }, 15000);
     return () => window.clearInterval(interval);
   }, [fetchSummaryInternal, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = window.setInterval(() => {
+      fetchDomainMemoryInternal();
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, [fetchDomainMemoryInternal, isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -1676,14 +1757,7 @@ export default function StoragePage() {
         icon={Database}
         actions={
           <div className="flex items-center gap-2">
-            <Link
-              href="/dashboard/control-plane"
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-white/5 bg-white/5 px-4 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
-              style={{ color: "var(--text-primary)" }}
-            >
-              <ServerCog size={14} className="opacity-80" />
-              Control Center
-            </Link>
+
             <label
               className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/5 px-5 h-10 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
               style={{ color: "var(--text-primary)" }}
@@ -1727,14 +1801,7 @@ export default function StoragePage() {
           >
             Graph Scope
           </p>
-          <Link
-            href="/dashboard/control-plane"
-            className="inline-flex h-8 items-center justify-center gap-2 rounded-lg border border-white/5 bg-white/5 px-3 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10"
-            style={{ color: "var(--text-primary)" }}
-          >
-            <ServerCog size={13} className="opacity-80" />
-            Open Control Center
-          </Link>
+
         </div>
 
         <div className="grid gap-3 px-5 py-4 md:grid-cols-3">
@@ -1876,6 +1943,249 @@ export default function StoragePage() {
             </p>
           </div>
         ))}
+      </div>
+
+      {/* ── Domain Memory ───────────────────────────────────── */}
+      <div
+        className="overflow-hidden rounded-xl border"
+        style={{
+          borderColor: "var(--os-stroke)",
+          background: "var(--os-surface-1)",
+        }}
+      >
+        <div
+          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
+          style={{ borderColor: "var(--os-stroke)" }}
+        >
+          <p
+            className="text-[10px] font-medium uppercase tracking-widest"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            Domain Memory
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              leftIcon={<ServerCog size={12} />}
+              onClick={() => {
+                void fetchDomainMemoryInternal();
+              }}
+            >
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              leftIcon={
+                domainMemory?.jobs_enabled ? (
+                  <CheckCircle2 size={12} />
+                ) : (
+                  <AlertCircle size={12} />
+                )
+              }
+            >
+              Jobs {domainMemory?.jobs_enabled ? "enabled" : "disabled"}
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid gap-4 px-5 py-4 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {[
+                {
+                  label: "Domain autonomy",
+                  value: domainMemory?.domain_autonomy_enabled
+                    ? "enabled"
+                    : "disabled",
+                },
+                {
+                  label: "Lexicon rows",
+                  value: domainMemory?.lexicon_total ?? 0,
+                },
+                {
+                  label: "KB sources",
+                  value: domainMemory?.source_total ?? 0,
+                },
+                {
+                  label: "Graph version",
+                  value: domainMemory?.graph_version ?? 0,
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-xl border px-3 py-2"
+                  style={{
+                    borderColor: "var(--os-stroke)",
+                    background: "var(--os-surface-2)",
+                  }}
+                >
+                  <p
+                    className="text-[10px] uppercase tracking-wider"
+                    style={{ color: "var(--text-tertiary)" }}
+                  >
+                    {item.label}
+                  </p>
+                  <p
+                    className="mt-1 text-sm font-semibold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {item.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="rounded-xl border px-3 py-3"
+              style={{
+                borderColor: "var(--os-stroke)",
+                background: "var(--os-surface-2)",
+              }}
+            >
+              <p
+                className="text-[10px] uppercase tracking-wider"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                Detected packs
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(domainMemory?.detected_packs?.length
+                  ? domainMemory.detected_packs
+                  : ["general"]).map((pack) => (
+                  <Badge key={pack} size="xs" variant="info">
+                    {pack}
+                  </Badge>
+                ))}
+              </div>
+              <p
+                className="mt-2 text-[11px]"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                {domainMemory?.last_updated_at
+                  ? `Last updated ${new Date(domainMemory.last_updated_at).toLocaleString()}`
+                  : loadingDomainMemory
+                    ? "Refreshing autonomous domain memory..."
+                    : "Graph-local learning updates automatically after uploads and memory writes."}
+              </p>
+            </div>
+
+            <div
+              className="rounded-xl border px-3 py-3"
+              style={{
+                borderColor: "var(--os-stroke)",
+                background: "var(--os-surface-2)",
+              }}
+            >
+              <p
+                className="text-[10px] uppercase tracking-wider"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                Query-time effect
+              </p>
+              <p
+                className="mt-1 text-xs leading-relaxed"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Domain links are learned into the graph and then re-used by the
+                query reranker. Open a query with `return_explain=true` to see
+                linked terms and per-node domain score components.
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="rounded-2xl border p-4"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "linear-gradient(180deg, rgba(15,23,42,0.95), rgba(2,6,23,0.95))",
+            }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p
+                  className="text-[10px] font-medium uppercase tracking-widest"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  Top learned terms
+                </p>
+                <p
+                  className="mt-1 text-sm"
+                  style={{ color: "var(--text-secondary)" }}
+                >
+                  What FAIM currently knows for this graph
+                </p>
+              </div>
+              <Badge size="xs" variant="success">
+                {domainMemory?.top_terms?.length ?? 0} shown
+              </Badge>
+            </div>
+
+            <div className="mt-4 space-y-2 max-h-[280px] overflow-auto pr-1">
+              {(domainMemory?.top_terms?.length
+                ? domainMemory.top_terms
+                : []).map((term) => (
+                <div
+                  key={`${term.surface_form}-${term.kind}-${term.canonical_form}`}
+                  className="rounded-xl border px-3 py-2.5"
+                  style={{
+                    borderColor: "rgba(148,163,184,0.18)",
+                    background: "rgba(15,23,42,0.65)",
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p
+                        className="truncate text-sm font-medium"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {term.surface_form}
+                      </p>
+                      <p
+                        className="mt-0.5 truncate text-[11px]"
+                        style={{ color: "var(--text-tertiary)" }}
+                      >
+                        {term.kind} · {term.canonical_form}
+                      </p>
+                    </div>
+                    <div className="text-right text-[11px] tabular-nums">
+                      <p style={{ color: "var(--text-secondary)" }}>
+                        support {term.support_count}
+                      </p>
+                      <p style={{ color: "var(--text-tertiary)" }}>
+                        score {term.score.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {term.domain_pack && (
+                      <Badge size="xs" variant="info">
+                        {term.domain_pack}
+                      </Badge>
+                    )}
+                    <Badge
+                      size="xs"
+                      variant={term.has_node ? "success" : "warning"}
+                    >
+                      {term.has_node ? "graph-linked" : "learned"}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+              {!domainMemory?.top_terms?.length && (
+                <div
+                  className="rounded-xl border border-dashed px-3 py-8 text-center text-xs"
+                  style={{ color: "var(--text-tertiary)" }}
+                >
+                  {loadingDomainMemory
+                    ? "Loading autonomous domain memory..."
+                    : "No learned domain memory yet for this graph."}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Upload Panel ─────────────────────────────────────── */}

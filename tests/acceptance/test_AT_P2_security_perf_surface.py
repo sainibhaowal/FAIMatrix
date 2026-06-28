@@ -16,6 +16,15 @@ def test_tenant_crypto_migration_exists():
     assert "dek_wrapped" in content
 
 
+def test_tenant_crypto_rotation_migration_exists():
+    migration_path = pathlib.Path(
+        "faim_native/store/pg/migrations/0027_tenant_crypto_keys_rotation_metadata.sql"
+    )
+    assert migration_path.exists()
+    content = migration_path.read_text(encoding="utf-8")
+    assert "master_key_fingerprint" in content
+
+
 def test_query_flow_has_cache_parameter():
     from orchestration.query_flow import run_query
 

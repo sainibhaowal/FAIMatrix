@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, LargeBinary, String
+from sqlalchemy import Column, DateTime, LargeBinary, String, text
 
 from store.pg.models_faim import Base
 
@@ -31,6 +31,12 @@ class TenantCryptoKey(Base):
 
     tenant_id = Column(String, primary_key=True)
     dek_wrapped = Column(LargeBinary, nullable=False)
+    master_key_fingerprint = Column(
+        String(64),
+        nullable=False,
+        default="",
+        server_default=text("''"),
+    )
     created_at = Column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
@@ -41,6 +47,7 @@ class TenantCryptoKey(Base):
         """Convert to dictionary (without key data)."""
         return {
             "tenant_id": self.tenant_id,
+            "master_key_fingerprint": self.master_key_fingerprint,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "rotated_at": self.rotated_at.isoformat() if self.rotated_at else None,
         }

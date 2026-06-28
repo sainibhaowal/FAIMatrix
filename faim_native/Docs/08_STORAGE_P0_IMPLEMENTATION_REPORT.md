@@ -1,7 +1,9 @@
-# 08 - P0 Implementation Report
+# 08 - Storage P0 Implementation Report
 
 Date: 2026-02-10
-Scope: `07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md` P0 only
+Owner: FAIM Native Runtime
+Status: Completed
+Scope: `07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md` P0 only
 
 ## Summary
 
@@ -28,8 +30,8 @@ Implemented outcomes:
 
 Documentation updates:
 
-- `faim_native/Docs/01_STORAGE_CURRENT_STATE_AUDIT.md`
-- `faim_native/Docs/07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`
+- `faim_native/Docs/01_STORAGE_IMPLEMENTATION_AUDIT_AND_STATUS_REPORT.md`
+- `faim_native/Docs/07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`
 - `faim_native/Docs/README.md`
 
 ## Technical Details
@@ -111,7 +113,7 @@ Result: all selected tests passed.
 
 ## Next Execution Target
 
-Proceed to P1 from `07_STORAGE_GAP_ANALYSIS_AND_EXECUTION_BACKLOG.md`:
+Proceed to P1 from `07_STORAGE_REMAINING_GAPS_AND_FUTURE_WORK_REPORT.md`:
 
 1. storage API surface for file catalog + upload jobs
 2. Storage page implementation using those endpoints

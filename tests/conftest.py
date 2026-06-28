@@ -27,7 +27,7 @@ if str(_FAIM_NATIVE_ROOT) not in sys.path:
 
 # Import from Faim_Native using local path
 from core.contracts.types import compute_sha256  # noqa: E402
-from store.pg.models_faim import create_all_tables  # noqa: E402
+from store.pg.models_faim import create_all_tables, drop_all_tables  # noqa: E402
 from store.pg.session import SessionFactory  # noqa: E402
 from store.raw.raw_store import RawStore  # noqa: E402
 
@@ -61,6 +61,10 @@ def session_factory() -> Generator[SessionFactory, None, None]:
     factory = SessionFactory(url=url)
 
     # Ensure tables exist first
+    try:
+        drop_all_tables(factory.engine)
+    except Exception:
+        pass
     create_all_tables(factory.engine)
 
     # 100% Accuracy: Wipe everything before starting tests on a persistent DB

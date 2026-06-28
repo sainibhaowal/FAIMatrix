@@ -1,6 +1,8 @@
-# 10 - P2 Implementation Report (Security/Performance Hardening)
+# 10 - Storage P2 Implementation Report (Security/Performance Hardening)
 
 Date: 2026-02-10
+Owner: FAIM Native Runtime
+Status: Completed
 
 Scope implemented:
 
@@ -42,8 +44,12 @@ Scope implemented:
 - DB and migration wiring
   - `faim_native/store/pg/schema.sql`: `tenant_crypto_keys` table + index/comments.
   - `faim_native/store/pg/migrations/0006_tenant_crypto_keys.sql`: additive migration.
-  - `faim_native/store/pg/models_faim.py`: `create_all_tables()` now imports crypto models to ensure table creation.
-  - `faim_native/api/routers/health.py`: readiness required tables includes `tenant_crypto_keys`.
+- `faim_native/store/pg/models_faim.py`: `create_all_tables()` now imports crypto models to ensure table creation.
+- `faim_native/api/routers/health.py`: readiness required tables includes `tenant_crypto_keys`.
+
+Historical plaintext blob migration support is implemented separately in
+`faim_native/orchestration/jobs/raw_reencryption.py` and exposed through the
+storage router execute/job endpoints plus maintenance-history visibility.
 
 ## Security model in runtime path
 
@@ -114,6 +120,5 @@ Rationale:
 
 - Encryption mode is opt-in via environment flags.
 - `FAIM_ENCRYPTION_FAIL_CLOSED=true` is recommended for production.
-- Existing plaintext raw blobs are not auto-reencrypted by this change.
-  - re-ingest/migration jobs can be added as a follow-up operations task.
-
+- Existing plaintext raw blobs are not reencrypted automatically during normal ingest.
+  - they can now be migrated explicitly with the guarded raw-reencryption endpoint/job.
