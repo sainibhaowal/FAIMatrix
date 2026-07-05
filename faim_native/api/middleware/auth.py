@@ -386,22 +386,12 @@ AUTH_PATH_PREFIXES = [
     "/v1/auth",
 ]
 
-# Admin control-plane routes are authenticated separately via X-Admin-Key.
-ADMIN_PATH_PREFIXES = [
-    "/api/v1/admin",
-    "/v1/admin",
-]
-
-
 def is_exempt_path(path: str) -> bool:
     """Check if path is exempt from auth."""
     if path in EXEMPT_PATHS or path.startswith("/docs"):
         return True
     # Exempt auth endpoints
     for prefix in AUTH_PATH_PREFIXES:
-        if path.startswith(prefix):
-            return True
-    for prefix in ADMIN_PATH_PREFIXES:
         if path.startswith(prefix):
             return True
     return False
@@ -491,24 +481,3 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         return response
 
-
-# =============================================================================
-# Admin Auth Check
-# =============================================================================
-
-
-def validate_admin_key(admin_key: str) -> bool:
-    """Validate admin API key using constant-time comparison.
-
-    Admin key is stored in FAIM_ADMIN_KEY env var.
-    """
-    expected = os.getenv("FAIM_ADMIN_KEY")
-    if not expected:
-        logger.warning("No admin key configured, admin endpoints disabled")
-        return False
-    return _constant_time_compare(admin_key, expected)
-
-
-def get_admin_key_header(request: Request) -> Optional[str]:
-    """Get X-Admin-Key header."""
-    return request.headers.get("X-Admin-Key")

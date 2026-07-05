@@ -265,9 +265,136 @@ async def continuity_branch(state: Dict[str, Any]) -> BranchOutput:
     return BranchOutput(node=node)
 
 
+def _serialize_reasoning_path(path) -> Dict[str, Any]:
+    path_dict = path.to_dict()
+    node_ids = [str(path.start_node)] + [str(hop.next_node_id) for hop in path.hops]
+    edge_ids = [str(hop.edge_id) for hop in path.hops]
+    path_dict["node_ids"] = node_ids
+    path_dict["edge_ids"] = edge_ids
+    return path_dict
+
+
+async def traversal_branch(state: Dict[str, Any]) -> BranchOutput:
+    if not state.get("planned_enable_multi_hop"):
+        node = CortexReasoningNode(
+            branch="traversal",
+            title="Traversal branch",
+            summary="Multi-hop traversal was not required for this turn.",
+            evidence_node_ids=_node_ids(state["results"])[:5],
+            confidence=0.0,
+            output={
+                "enabled": False,
+                "reason": "planner_disabled_multi_hop",
+                "paths": [],
+                "exact_match": False,
+            },
+        )
+        return BranchOutput(node=node)
+
+    session = state.get("session")
+    if session is None:
+        node = CortexReasoningNode(
+            branch="traversal",
+            title="Traversal branch",
+            summary="Traversal session was unavailable, so exact path execution was skipped.",
+            evidence_node_ids=_node_ids(state["results"])[:5],
+            confidence=0.0,
+            output={
+                "enabled": False,
+                "reason": "missing_session",
+                "paths": [],
+                "exact_match": False,
+            },
+        )
+        return BranchOutput(node=node)
+
+    try:
+        from core.reasoning.traversal import MultiHopTraverser
+    except Exception:
+        node = CortexReasoningNode(
+            branch="traversal",
+            title="Traversal branch",
+            summary="Traversal engine import failed, so exact path execution was skipped.",
+            evidence_node_ids=_node_ids(state["results"])[:5],
+            confidence=0.0,
+            output={
+                "enabled": False,
+                "reason": "traverser_import_failed",
+                "paths": [],
+                "exact_match": False,
+            },
+        )
+        return BranchOutput(node=node)
+
+    start_node_ids = _node_ids(state["results"])[:4]
+    constraints = state.get("planned_constraints")
+    edge_types = None
+    min_confidence = max(0.05, float(state.get("planned_min_source_reliability") or 0.1) * 0.4)
+    if constraints is not None:
+        allowed = getattr(constraints, "allowed_edge_types", None)
+        if allowed:
+            edge_types = set(allowed)
+        min_confidence = max(0.05, float(getattr(constraints, "min_confidence", min_confidence) or min_confidence))
+
+    traverser = MultiHopTraverser(
+        session=session,
+        tenant_id=str(state["tenant_id"]),
+        graph_id=str(state["graph_id"]),
+    )
+    query_goal = str(state.get("query_text") or "").strip()
+    max_hops = int(state.get("planned_max_hops") or 1)
+    paths = traverser.traverse(
+        start_node_ids=start_node_ids,
+        goal=query_goal or None,
+        max_hops=max_hops,
+        min_confidence=min_confidence,
+        edge_types=edge_types,
+        max_frontier_width=max(24, min(160, max_hops * 8)),
+        max_total_expansions=max(512, min(20000, max_hops * 640)),
+        return_partial_paths=True,
+    )
+
+    serialized_paths = [_serialize_reasoning_path(path) for path in paths[:3]]
+    exact_match = any(not bool(path.metadata.get("partial")) for path in paths[:3])
+    if serialized_paths:
+        best = serialized_paths[0]
+        summary = (
+            f"Executed a real bounded traversal up to {max_hops} hops and returned "
+            f"{'an exact' if exact_match else 'the strongest partial'} path of "
+            f"{int(best.get('path_length') or 0)} hops."
+        )
+        evidence_ids = list(best.get("node_ids") or [])[:8]
+        confidence = float(best.get("confidence") or 0.0)
+    else:
+        summary = (
+            f"Executed bounded traversal up to {max_hops} hops, but no stable path "
+            "survived the confidence and cycle guards."
+        )
+        evidence_ids = start_node_ids
+        confidence = 0.0
+
+    node = CortexReasoningNode(
+        branch="traversal",
+        title="Traversal branch",
+        summary=summary,
+        evidence_node_ids=evidence_ids,
+        confidence=confidence,
+        output={
+            "enabled": True,
+            "goal": query_goal,
+            "traversal_goal": str(state.get("planned_traversal_goal") or ""),
+            "max_hops": max_hops,
+            "paths": serialized_paths,
+            "exact_match": exact_match,
+        },
+    )
+    return BranchOutput(node=node)
+
+
 async def run_parallel_branches(state: Dict[str, Any]) -> List[CortexReasoningNode]:
     outputs = await asyncio.gather(
         recall_branch(state),
+        traversal_branch(state),
         timeline_branch(state),
         contradiction_branch(state),
         concept_branch(state),

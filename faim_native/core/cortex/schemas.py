@@ -119,8 +119,11 @@ class CortexTurnRequest(BaseModel):
         description="direct, timeline, contradiction, or provenance",
     )
     think_enabled: bool = Field(
-        False,
-        description="Request more verbose structured reasoning branches",
+        True,
+        description=(
+            "Deprecated client hint. Cortex structured thinking is enabled by "
+            "default and the runtime treats false as a compatibility no-op."
+        ),
     )
 
 

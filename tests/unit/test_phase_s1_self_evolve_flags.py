@@ -137,23 +137,35 @@ def test_guardrail_summary_reports_disabled_by_default(monkeypatch):
     from orchestration.self_evolve_scheduler import (
         build_self_evolve_guardrail_summary,
     )
+    from runtime.context import close_session, get_repos
 
     monkeypatch.delenv("FAIM_SELF_EVOLVE_ENABLED", raising=False)
     monkeypatch.delenv("FAIM_SELF_INVENT_ENABLED", raising=False)
     monkeypatch.delenv("FAIM_SELF_INVENT_AFTER_UPLOAD", raising=False)
     monkeypatch.delenv("FAIM_ENABLE_JOBS", raising=False)
 
-    summary = build_self_evolve_guardrail_summary()
+    tenant_id = "tenant_s1_guardrail_disabled"
+    graph_id = "graph_s1_guardrail_disabled"
+    repos = get_repos(tenant_id)
+    session = repos["session"]
+    try:
+        summary = build_self_evolve_guardrail_summary(
+            session=session, tenant_id=tenant_id, graph_id=graph_id
+        )
+    finally:
+        close_session(session)
     assert summary.automation_path == "disabled"
     assert summary.automation_label == "Disabled"
     assert summary.automation_enabled is False
     assert summary.self_evolve_enabled is False
+    assert summary.control_source == "runtime_default"
 
 
 def test_guardrail_summary_reports_hybrid_worker(monkeypatch):
     from orchestration.self_evolve_scheduler import (
         build_self_evolve_guardrail_summary,
     )
+    from runtime.context import close_session, get_repos
 
     monkeypatch.setenv("FAIM_ENABLE_JOBS", "true")
     monkeypatch.setenv("FAIM_SELF_EVOLVE_ENABLED", "true")
@@ -162,24 +174,44 @@ def test_guardrail_summary_reports_hybrid_worker(monkeypatch):
     monkeypatch.setenv("FAIM_SELF_INVENT_ON_EVOLVE", "true")
     monkeypatch.setenv("FAIM_SELF_INVENT_AFTER_UPLOAD", "false")
 
-    summary = build_self_evolve_guardrail_summary()
+    tenant_id = "tenant_s1_guardrail_hybrid"
+    graph_id = "graph_s1_guardrail_hybrid"
+    repos = get_repos(tenant_id)
+    session = repos["session"]
+    try:
+        summary = build_self_evolve_guardrail_summary(
+            session=session, tenant_id=tenant_id, graph_id=graph_id
+        )
+    finally:
+        close_session(session)
     assert summary.automation_path == "hybrid_worker"
     assert summary.automation_label == "Upload + periodic"
     assert summary.automation_enabled is True
     assert summary.guardrail_reason == "hybrid_worker"
+    assert summary.control_source == "runtime_default"
 
 
 def test_guardrail_summary_reports_legacy_upload_compat(monkeypatch):
     from orchestration.self_evolve_scheduler import (
         build_self_evolve_guardrail_summary,
     )
+    from runtime.context import close_session, get_repos
 
     monkeypatch.setenv("FAIM_ENABLE_JOBS", "true")
     monkeypatch.setenv("FAIM_SELF_EVOLVE_ENABLED", "false")
     monkeypatch.setenv("FAIM_SELF_INVENT_ENABLED", "true")
     monkeypatch.setenv("FAIM_SELF_INVENT_AFTER_UPLOAD", "true")
 
-    summary = build_self_evolve_guardrail_summary()
+    tenant_id = "tenant_s1_guardrail_legacy"
+    graph_id = "graph_s1_guardrail_legacy"
+    repos = get_repos(tenant_id)
+    session = repos["session"]
+    try:
+        summary = build_self_evolve_guardrail_summary(
+            session=session, tenant_id=tenant_id, graph_id=graph_id
+        )
+    finally:
+        close_session(session)
     assert summary.automation_path == "legacy_post_upload_compat"
     assert summary.automation_label == "Legacy after-upload compatibility"
     assert summary.automation_enabled is True

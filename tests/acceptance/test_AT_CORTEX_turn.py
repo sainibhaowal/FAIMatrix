@@ -135,6 +135,7 @@ def test_cortex_turn_returns_structured_brain_state(monkeypatch):
     assert body["answer"]["direct_answer"] == "Atlas lives in Berlin."
     assert body["brain_state"]["active_facts"]
     assert body["brain_state"]["reasoning_tree"]
+    assert {node["branch"] for node in body["brain_state"]["reasoning_tree"]} >= {"recall", "traversal"}
     assert body["brain_state"]["session_turn_count"] == 1
     assert body["brain_state"]["next_actions"]
     assert body["narrative"]
@@ -166,7 +167,12 @@ def test_cortex_turn_uses_timeline_mode_without_raw_cot(monkeypatch):
     body = resp.json()
     assert body["task_type"] == "timeline"
     assert body["brain_state"]["task_type"] == "timeline"
-    assert body["brain_state"]["reasoning_tree"][1]["branch"] == "timeline"
+    assert any(
+        node["branch"] == "timeline" for node in body["brain_state"]["reasoning_tree"]
+    )
+    assert any(
+        node["branch"] == "traversal" for node in body["brain_state"]["reasoning_tree"]
+    )
     assert body["brain_state"]["session_turn_count"] == 1
     assert "chain_of_thought" not in body["brain_state"]
 
@@ -230,7 +236,7 @@ def test_cortex_turn_persists_structured_state(monkeypatch):
             .filter_by(turn_id=resp.json()["turn_id"])
             .all()
         )
-        assert len(reasoning_rows) == 7
+        assert len(reasoning_rows) == 8
 
         writeback_rows = (
             session.query(CortexWritebackCandidateModel)
@@ -279,6 +285,10 @@ def test_cortex_session_list_and_turn_history(monkeypatch):
         },
     )
     assert second.status_code == 200, second.text
+    assert any(
+        node["branch"] == "traversal"
+        for node in second.json()["brain_state"]["reasoning_tree"]
+    )
 
     sessions = client.get(
         f"/api/v1/cortex/sessions?graph_id={graph_id}&limit=5",

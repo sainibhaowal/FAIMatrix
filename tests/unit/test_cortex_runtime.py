@@ -4,6 +4,7 @@ import asyncio
 
 from faim_native.core.cortex.branches import run_parallel_branches
 from faim_native.core.cortex.consolidation import build_writeback_candidates
+from faim_native.core.cortex.planner_enhanced import plan_turn_enhanced
 from faim_native.core.cortex.planner import classify_turn
 from faim_native.core.cortex.reducer import reduce_cortex_state
 from faim_native.core.cortex.schemas import CortexTaskType
@@ -87,9 +88,10 @@ def test_parallel_branches_return_structured_nodes():
         "planned_task_type": "answer",
     }
     nodes = asyncio.run(run_parallel_branches(state))
-    assert len(nodes) == 7
+    assert len(nodes) == 8
     assert {node.branch for node in nodes} == {
         "recall",
+        "traversal",
         "timeline",
         "contradiction",
         "concept",
@@ -157,3 +159,18 @@ def test_reduce_cortex_state_builds_brain_state():
     assert state.session_turn_count == 1
     assert state.recent_turns == []
     assert build_writeback_candidates(state)
+
+
+def test_enhanced_planner_allocates_deeper_hop_budget_for_complex_investigation():
+    plan = plan_turn_enhanced(
+        query_text=(
+            "Trace the downstream dependency chain and root cause impact across "
+            "the payment service, checkout controller, gateway retries, and ledger updates"
+        ),
+        answer_mode="direct",
+        confidence=0.2,
+        enable_multi_hop=True,
+    )
+    assert plan.enable_multi_hop is True
+    assert 8 <= plan.max_hops <= 24
+    assert 4 <= plan.constraints.max_hops <= plan.max_hops

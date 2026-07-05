@@ -24,7 +24,7 @@ from runtime.secrets import (
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from store.pg.models_auth import AdminApiKey, AuthKeyAuditLog, TenantApiKey
+from store.pg.models_auth import AuthKeyAuditLog, TenantApiKey
 
 
 @dataclass(frozen=True)
@@ -453,71 +453,3 @@ class AuthRepo:
         )
 
         return old_record, new_record, new_plaintext
-
-    # --- Admin API Keys ---
-
-    def create_admin_key(
-        self,
-        admin_id: str,
-        prefix: str = "admin",
-    ) -> Tuple[AdminApiKey, str]:
-        """Create a new API key for an admin."""
-        key_id, full_key = generate_api_key(prefix)
-        key_hash = hash_api_key(full_key)
-        key_prefix = get_key_prefix(full_key)
-
-        record = AdminApiKey(
-            admin_id=admin_id,
-            key_id=key_id,
-            key_prefix=key_prefix,
-            key_hash=key_hash,
-        )
-
-        self.session.add(record)
-        self.session.flush()
-
-        return record, full_key
-
-    def verify_admin_key(self, key: str) -> Optional[AdminApiKey]:
-        """
-        Verify an admin API key.
-
-        Args:
-            key: The plaintext admin API key.
-
-        Returns:
-            The key record if valid, None if invalid or revoked.
-        """
-        records = (
-            self.session.query(AdminApiKey)
-            .filter(AdminApiKey.revoked_at.is_(None))
-            .all()
-        )
-
-        for record in records:
-            if verify_api_key(key, record.key_hash):
-                if needs_rehash(record.key_hash):
-                    record.key_hash = hash_api_key(key)
-                    self.session.flush()
-                return record
-
-        return None
-
-    def revoke_admin_key(
-        self,
-        admin_id: str,
-        key_id: str,
-    ) -> Optional[AdminApiKey]:
-        """Revoke an admin API key."""
-        record = (
-            self.session.query(AdminApiKey)
-            .filter(AdminApiKey.admin_id == admin_id)
-            .filter(AdminApiKey.key_id == key_id)
-            .first()
-        )
-
-        if record:
-            record.revoke()
-            self.session.flush()
-
-        return record

@@ -17,7 +17,7 @@ const icon = (
 
 const benefits = [
   "Support for PDF, DOCX, TXT, Markdown, and more",
-  "Automatic text extraction and OCR for scanned docs",
+  "Automatic text extraction and OCR for scanned docs when enabled",
   "Table and image extraction",
   "Code file parsing with syntax awareness",
   "Batch upload for large document sets",
@@ -28,7 +28,7 @@ export default function DocumentIntelligencePage() {
   return (
     <FeaturePageLayout
       title="Document Intelligence"
-      subtitle="Upload PDFs, docs, and text. FAIM automatically extracts and connects knowledge."
+      subtitle="Upload PDFs, docs, and text. FAIM automatically extracts and connects knowledge, including OCR for scanned content when enabled."
       gradient="from-orange-500 to-amber-500"
       icon={icon}
       benefits={benefits}
@@ -47,7 +47,7 @@ export default function DocumentIntelligencePage() {
       </h3>
       <p className="text-slate-400 mb-6">
         PDF, Word, PowerPoint, plain text, Markdown, code files - FAIM handles
-        them all. Even scanned documents get OCR processing.
+        them all. Scanned documents get OCR processing when OCR is enabled.
       </p>
 
       <h3 className="text-xl font-semibold text-white mb-3">

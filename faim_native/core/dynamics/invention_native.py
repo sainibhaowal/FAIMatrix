@@ -24,6 +24,8 @@ from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Optional, Set, Tuple
 from uuid import UUID
 
+from sqlalchemy.exc import IntegrityError
+
 # Flexible imports
 try:
     from faim.Faim_Native.core.contracts.types import uuid7  # noqa: F401
@@ -501,6 +503,7 @@ def run_invention_cycle(
     except Exception:
         latest_seq = 0
     result.last_event_seq = latest_seq
+    signature_snapshot: Dict[str, Dict[str, Any]] = {}
     
     # 1. Fetch pending inventions directly from the synchronous DB table
     try:
@@ -520,6 +523,20 @@ def run_invention_cycle(
         signature = data.get("signature")
         members_raw = data.get("members") or []
         count = data.get("count", 0)
+        clean_members = sorted(
+            [
+                str(node_id)
+                for node_id in members_raw
+                if isinstance(node_id, (str, UUID)) and str(node_id).strip()
+            ]
+        )
+        if isinstance(signature, str) and signature.strip() and len(clean_members) >= 2:
+            signature_snapshot[signature] = {
+                "count": int(max(0, int(count or 0))),
+                "members": clean_members,
+                "last_seq": latest_seq,
+                "invented": False,
+            }
 
         if not isinstance(members_raw, list):
             result.skipped_candidates += 1
@@ -551,21 +568,37 @@ def run_invention_cycle(
                 node_repo.mark_invented(graph_id, signature)
             except Exception:
                 pass
+            snapshot_entry = signature_snapshot.get(signature) if isinstance(signature, str) else None
+            if snapshot_entry is not None:
+                snapshot_entry["invented"] = True
             continue
 
-        macro_id = invent_macro(
-            graph_id=graph_id,
-            member_ids=member_ids,
-            node_repo=node_repo,
-            edge_repo=edge_repo,
-            event_repo=event_repo,
-            lambda_hat=lambda_hat,
-            coactivation_count=count,
-            skip_lambda_check=False,
-            lambda_threshold=lambda_threshold,
-            min_count=min_coactivation_count,
-            min_reduction=min_redundancy_reduction,
-        )
+        try:
+            with session.begin_nested():
+                macro_id = invent_macro(
+                    graph_id=graph_id,
+                    member_ids=member_ids,
+                    node_repo=node_repo,
+                    edge_repo=edge_repo,
+                    event_repo=event_repo,
+                    lambda_hat=lambda_hat,
+                    coactivation_count=count,
+                    skip_lambda_check=False,
+                    lambda_threshold=lambda_threshold,
+                    min_count=min_coactivation_count,
+                    min_reduction=min_redundancy_reduction,
+                )
+        except IntegrityError:
+            macro_id = None
+            existing_macro = node_repo.get_by_vector_hash(graph_id, vector_hash)
+            if existing_macro is not None:
+                macro_id = existing_macro.node_id
+                try:
+                    node_repo.mark_invented(graph_id, signature)
+                except Exception:
+                    pass
+        except Exception:
+            macro_id = None
         
         if macro_id is None:
             result.skipped_candidates += 1
@@ -576,6 +609,9 @@ def run_invention_cycle(
             node_repo.mark_invented(graph_id, signature)
         except Exception:
             pass
+        snapshot_entry = signature_snapshot.get(signature) if isinstance(signature, str) else None
+        if snapshot_entry is not None:
+            snapshot_entry["invented"] = True
 
         result.macros_created += 1
         result.events_emitted += 1
@@ -585,7 +621,7 @@ def run_invention_cycle(
     state_repo.save(
         graph_id=graph_id,
         last_event_seq=latest_seq,
-        signature_counts={},  # No longer used!
+        signature_counts=signature_snapshot,
         last_cycle_macros=result.macros_created,
         last_cycle_at=datetime.now(timezone.utc),
         session=session,

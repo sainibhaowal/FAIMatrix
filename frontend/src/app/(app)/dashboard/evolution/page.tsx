@@ -9,6 +9,7 @@ import {
   Dna,
   GitMerge,
   Hash,
+  Info,
   Play,
   RefreshCw,
   Scissors,
@@ -29,6 +30,7 @@ import {
   Select,
   useToast,
 } from "@/components/ui";
+import { useOutsideClick } from "@/components/ui";
 import {
   buildEffectiveModeText,
   formatModePair,
@@ -112,6 +114,18 @@ type EvolveStatusRuntime = {
   jobs_enabled: boolean;
 };
 
+type EvolveControlState = {
+  self_evolve_enabled: boolean;
+  self_evolve_trigger_mode: string;
+  self_invent_enabled: boolean;
+  self_invent_on_evolve: boolean;
+  self_invent_after_upload: boolean;
+  source: string;
+  updated_at?: string | null;
+  updated_by?: string | null;
+  can_edit: boolean;
+};
+
 type EvolveStatusGuardrails = {
   self_evolve_enabled: boolean;
   self_invent_enabled: boolean;
@@ -123,6 +137,9 @@ type EvolveStatusGuardrails = {
   automation_label: string;
   automation_enabled: boolean;
   guardrail_reason: string;
+  control_source: string;
+  control_updated_at?: string | null;
+  control_updated_by?: string | null;
 };
 
 type EvolveStatusState = {
@@ -173,6 +190,7 @@ type EvolveStatusResponse = {
   graph_id: string;
   tenant_id: string;
   runtime: EvolveStatusRuntime;
+  control: EvolveControlState;
   guardrails: EvolveStatusGuardrails;
   state: EvolveStatusState;
   due: EvolveStatusDue;
@@ -448,6 +466,71 @@ function humanizeDueReason(reason?: string | null): string {
   return text;
 }
 
+function InfoTip({
+  content,
+  label,
+  position = "left",
+  className = "",
+}: {
+  content: React.ReactNode;
+  label: string;
+  position?: "left" | "right";
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [side, setSide] = useState<"left" | "right">(position);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useOutsideClick(ref, () => setOpen(false), open);
+
+  const openTip = () => {
+    const rect = ref.current?.getBoundingClientRect();
+    if (rect) {
+      const idealWidth = Math.min(352, window.innerWidth - 32);
+      const spaceRight = window.innerWidth - rect.left;
+      const enoughRight = spaceRight >= idealWidth + 16;
+      setSide(enoughRight ? "left" : "right");
+    }
+    setOpen((prev) => !prev);
+  };
+
+  return (
+    <div ref={ref} className="relative inline-flex">
+      <button
+        type="button"
+        aria-label={`${label} info`}
+        aria-expanded={open}
+        onClick={openTip}
+        className={[
+          "inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10",
+          "bg-white/[0.03] text-slate-400 transition-colors hover:border-cyan-400/30 hover:bg-cyan-400/10 hover:text-cyan-200",
+          "focus:outline-none focus:ring-2 focus:ring-cyan-400/30",
+          className,
+        ].join(" ")}
+      >
+        <Info size={12} />
+      </button>
+
+      {open && (
+        <div
+          className={[
+            "absolute top-full z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border",
+            "border-cyan-400/15 bg-[#0b1220]/95 px-3 py-3 shadow-[0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl",
+            side === "left" ? "left-0" : "right-0",
+          ].join(" ")}
+        >
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-cyan-200">
+            {label}
+          </p>
+          <div className="mt-1.5 text-[12px] leading-5 text-slate-200">
+            {content}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function dedupeAndSortEvents(events: GraphEvent[]): GraphEvent[] {
   const bySeq = new Map<number, GraphEvent>();
   for (const event of events) {
@@ -498,6 +581,53 @@ function guardrailBadgeVariant(
     return "warning";
   }
   return "success";
+}
+
+function modeChipVariant(active: boolean): "primary" | "secondary" | "outline" {
+  return active ? "primary" : "outline";
+}
+
+function normalizeTriggerMode(value: string): string {
+  const mode = value.trim().toLowerCase();
+  if (["manual", "post_upload", "periodic", "hybrid"].includes(mode)) {
+    return mode;
+  }
+  return "manual";
+}
+
+function normalizeInventState(
+  next: "off" | "on_evolve" | "after_upload" | "both",
+): Pick<
+  EvolveControlState,
+  "self_invent_enabled" | "self_invent_on_evolve" | "self_invent_after_upload"
+> {
+  switch (next) {
+    case "off":
+      return {
+        self_invent_enabled: false,
+        self_invent_on_evolve: false,
+        self_invent_after_upload: false,
+      };
+    case "on_evolve":
+      return {
+        self_invent_enabled: true,
+        self_invent_on_evolve: true,
+        self_invent_after_upload: false,
+      };
+    case "after_upload":
+      return {
+        self_invent_enabled: true,
+        self_invent_on_evolve: false,
+        self_invent_after_upload: true,
+      };
+    case "both":
+    default:
+      return {
+        self_invent_enabled: true,
+        self_invent_on_evolve: true,
+        self_invent_after_upload: true,
+      };
+  }
 }
 
 function eventBadgeVariant(
@@ -654,6 +784,9 @@ export default function EvolutionPage() {
   const [evolveStatus, setEvolveStatus] = useState<EvolveStatusResponse | null>(
     null,
   );
+  const [controlDraft, setControlDraft] = useState<EvolveControlState | null>(
+    null,
+  );
   const [storageSummary, setStorageSummary] =
     useState<StorageSummaryResponse | null>(null);
   const [storageFiles, setStorageFiles] = useState<StorageFileItem[]>([]);
@@ -664,6 +797,7 @@ export default function EvolutionPage() {
   const [loadingSnapshot, setLoadingSnapshot] = useState(true);
   const [loadingTimeline, setLoadingTimeline] = useState(true);
   const [runLoading, setRunLoading] = useState(false);
+  const [controlSaving, setControlSaving] = useState(false);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>("idle");
 
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -678,6 +812,10 @@ export default function EvolutionPage() {
   useEffect(() => {
     lastSeqRef.current = lastSeq;
   }, [lastSeq]);
+
+  useEffect(() => {
+    setControlDraft(evolveStatus?.control ?? null);
+  }, [evolveStatus]);
 
   useEffect(() => {
     if (initializedRef.current) return;
@@ -719,6 +857,72 @@ export default function EvolutionPage() {
       );
     },
     [],
+  );
+
+  const updateEvolveControl = useCallback(
+    async (patch: {
+      self_evolve_enabled?: boolean;
+      self_evolve_trigger_mode?: string;
+      self_invent_enabled?: boolean;
+      self_invent_on_evolve?: boolean;
+      self_invent_after_upload?: boolean;
+    }) => {
+      const targetGraph = graphId.trim();
+      if (!targetGraph) {
+        toast.info("Graph id is required.");
+        return;
+      }
+
+      const current = controlDraft ?? evolveStatus?.control;
+      if (!current) {
+        toast.info("Control state is still loading.");
+        return;
+      }
+      if (!current.can_edit) {
+        toast.warning(
+          "Not allowed",
+          "This session cannot change autonomy controls.",
+        );
+        return;
+      }
+
+      const next = {
+        self_evolve_enabled:
+          patch.self_evolve_enabled ?? current.self_evolve_enabled,
+        self_evolve_trigger_mode: normalizeTriggerMode(
+          patch.self_evolve_trigger_mode ?? current.self_evolve_trigger_mode,
+        ),
+        self_invent_enabled:
+          patch.self_invent_enabled ?? current.self_invent_enabled,
+        self_invent_on_evolve:
+          patch.self_invent_on_evolve ?? current.self_invent_on_evolve,
+        self_invent_after_upload:
+          patch.self_invent_after_upload ?? current.self_invent_after_upload,
+      };
+
+      setControlSaving(true);
+      try {
+        const params = new URLSearchParams({ graph_id: targetGraph });
+        const result = await apiRequest<EvolveStatusResponse>(
+          `/api/v1/evolve/control?${params.toString()}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(next),
+          },
+        );
+        setEvolveStatus(result);
+        setControlDraft(result.control);
+        toast.success("Autonomy controls updated", "Graph settings saved.");
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Update failed";
+        toast.error("Failed to update autonomy controls", message);
+      } finally {
+        setControlSaving(false);
+      }
+    },
+    [controlDraft, evolveStatus?.control, graphId, toast],
   );
 
   const fetchStorageSummary = useCallback(
@@ -1064,12 +1268,20 @@ export default function EvolutionPage() {
           className="border-b px-5 py-1.5"
           style={{ borderColor: "var(--os-stroke)" }}
         >
-          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-            Run Controls
-          </p>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-            Manual evolve action plus runtime view controls
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                Run Controls
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Manual evolve action plus runtime view controls
+              </p>
+            </div>
+            <InfoTip
+              label="Run controls"
+              content="This strip starts one evolve run on demand, refreshes the live graph state, and lets you choose which parts of the timeline you want to see."
+            />
+          </div>
         </div>
         <div className="grid gap-4 pt-5 px-5 pb-5 md:grid-cols-5">
           {ENABLE_GRAPH_SWITCH ? (
@@ -1193,80 +1405,389 @@ export default function EvolutionPage() {
       </div>
 
       <div
-        className="overflow-hidden rounded-xl border"
+        className="overflow-hidden rounded-[1.25rem] border"
         style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
+          borderColor: "rgba(90, 200, 255, 0.14)",
+          background:
+            "linear-gradient(180deg, rgba(12,16,28,0.96) 0%, rgba(12,16,28,0.92) 100%)",
+          boxShadow:
+            "0 24px 80px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.03)",
         }}
       >
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
-          style={{ borderColor: "var(--os-stroke)" }}
-        >
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-              Autonomy Guardrails
-            </p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-              Explicit control path for self-invent and self-evolve
-            </p>
+        <div className="border-b border-white/5 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] font-medium uppercase tracking-[0.35em] text-slate-500">
+                  Autonomy Studio
+                </p>
+                <InfoTip
+                  label="Autonomy studio"
+                  content="This is the graph-level control surface. The left side edits what FAIM is allowed to do. The right side shows the live effective state after guardrails and runtime policy are applied."
+                />
+              </div>
+              <p className="mt-1 text-sm text-slate-300">
+                One control surface for self-evolve, self-invent, and the live
+                effective state.
+              </p>
+            </div>
+            <Badge
+              variant={guardrailBadgeVariant(evolveStatus?.guardrails)}
+              size="md"
+            >
+              {evolveStatus?.guardrails
+                ? evolveStatus.guardrails.automation_enabled
+                  ? "automation active"
+                  : evolveStatus.guardrails.guardrail_reason ===
+                        "legacy_upload_compat"
+                    ? "legacy compat"
+                    : "manual only"
+                : "loading"}
+            </Badge>
           </div>
-          <Badge
-            variant={guardrailBadgeVariant(evolveStatus?.guardrails)}
-            size="md"
-          >
-            {evolveStatus?.guardrails
-              ? evolveStatus.guardrails.automation_enabled
-                ? "automation active"
-                : evolveStatus.guardrails.guardrail_reason ===
-                      "legacy_upload_compat"
-                  ? "legacy compat"
-                  : "manual only"
-              : "loading"}
-          </Badge>
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                  Control source
+                </p>
+                <InfoTip
+                  label="Control source"
+                  content="Shows where the current autonomy settings came from, for example a database override or a runtime fallback."
+                  position="right"
+                />
+              </div>
+              <p className="mt-1 text-sm font-semibold text-cyan-200">
+                {controlDraft?.source ?? "loading"}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                {controlDraft?.updated_at ?? "Not saved yet"}
+                {controlDraft?.updated_by ? ` · ${controlDraft.updated_by}` : ""}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                  Effective path
+                </p>
+                <InfoTip
+                  label="Effective path"
+                  content="Explains which runtime rule currently wins. This tells you whether FAIM is using manual mode, after-upload compatibility, periodic worker mode, or hybrid automation."
+                  position="right"
+                />
+              </div>
+              <p className="mt-1 text-sm font-semibold text-slate-100">
+                {evolveStatus?.guardrails?.automation_label ?? "Loading"}
+              </p>
+              <p className="mt-1 text-xs text-slate-400 font-mono">
+                {evolveStatus?.guardrails?.automation_path ?? "…"}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
+              <div className="flex items-center gap-2">
+                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                  Execution layer
+                </p>
+                <InfoTip
+                  label="Execution layer"
+                  content="Shows whether automation is actually allowed to run through the approved worker or scheduler path."
+                  position="left"
+                />
+              </div>
+              <p className="mt-1 text-sm font-semibold text-slate-100">
+                {evolveStatus?.guardrails?.jobs_enabled ? "Worker enabled" : "Worker disabled"}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                FAIM uses the approved scheduler/worker path when autonomy is on.
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="grid gap-3 px-5 py-4 md:grid-cols-2 lg:grid-cols-3">
-          {evolveStatus?.guardrails ? (
-            <>
-              <div className="rounded-xl border p-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
-                <p className="text-[10px] uppercase tracking-widest text-slate-500">Control path</p>
-                <p className="mt-1 text-sm font-semibold text-cyan-200">{evolveStatus.guardrails.automation_label}</p>
-                <p className="mt-1 text-xs text-slate-400 font-mono">{evolveStatus.guardrails.automation_path}</p>
-              </div>
-              <div className="rounded-xl border p-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
-                <p className="text-[10px] uppercase tracking-widest text-slate-500">Self evolve</p>
-                <p className="mt-1 text-sm font-semibold text-slate-200">
-                  {evolveStatus.guardrails.self_evolve_enabled ? "enabled" : "disabled"}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  Trigger mode: <span className="font-mono text-slate-300">{evolveStatus.guardrails.trigger_mode}</span>
-                </p>
-              </div>
-              <div className="rounded-xl border p-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
-                <p className="text-[10px] uppercase tracking-widest text-slate-500">Self invent</p>
-                <p className="mt-1 text-sm font-semibold text-slate-200">
-                  {evolveStatus.guardrails.self_invent_enabled ? "enabled" : "disabled"}
-                </p>
-                <p className="mt-1 text-xs text-slate-400">
-                  On evolve: {evolveStatus.guardrails.self_invent_on_evolve ? "yes" : "no"} | After upload: {evolveStatus.guardrails.self_invent_after_upload ? "yes" : "no"}
+
+        <div className="grid gap-4 px-5 py-5 xl:grid-cols-[1.45fr_1fr]">
+          <div className="rounded-3xl border border-white/6 bg-black/20 p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                    Editable controls
+                  </p>
+                  <InfoTip
+                    label="Editable controls"
+                    content="These buttons change what FAIM is allowed to do. They do not just change the visual state, they update the graph-scoped autonomy settings stored in FAIM."
+                    position="right"
+                  />
+                </div>
+                <p className="mt-1 text-sm text-slate-300">
+                  Turn the graph autonomy on, then choose when it may run and
+                  whether it can invent new structure.
                 </p>
               </div>
-              <div className="rounded-xl border p-3" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
-                <p className="text-[10px] uppercase tracking-widest text-slate-500">Job engine</p>
-                <p className="mt-1 text-sm font-semibold text-slate-200">
-                  {evolveStatus.guardrails.jobs_enabled ? "enabled" : "disabled"}
+              <Badge variant={controlDraft?.can_edit ? "success" : "outline"} size="md">
+                {controlDraft?.can_edit ? "editable" : "locked"}
+              </Badge>
+            </div>
+
+            {controlDraft ? (
+              <div className="mt-5 grid gap-4">
+                <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                          Self evolve
+                        </p>
+                        <InfoTip
+                          label="Self evolve"
+                          content="Master switch for graph autonomy. Off means the evolve worker will not auto-run for this graph."
+                          position="right"
+                        />
+                      </div>
+                      <p className="mt-1 text-sm text-slate-300">
+                        Master switch for autonomy on this graph.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={modeChipVariant(controlDraft.self_evolve_enabled)}
+                      onClick={() =>
+                        void updateEvolveControl({
+                          self_evolve_enabled: !controlDraft.self_evolve_enabled,
+                        })
+                      }
+                      disabled={controlSaving || !controlDraft.can_edit}
+                    >
+                      {controlDraft.self_evolve_enabled ? "Enabled" : "Disabled"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                        Trigger mode
+                      </p>
+                      <InfoTip
+                        label="Trigger mode"
+                        content="Controls when evolution is allowed to run: manual only, after uploads, on a schedule, or both."
+                        position="right"
+                      />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {[
+                        ["manual", "Manual"],
+                        ["post_upload", "After upload"],
+                        ["periodic", "Periodic"],
+                        ["hybrid", "Hybrid"],
+                      ].map(([value, label]) => {
+                        const active = controlDraft.self_evolve_trigger_mode === value;
+                        return (
+                          <Button
+                            key={value}
+                            size="sm"
+                            variant={modeChipVariant(active)}
+                            onClick={() =>
+                              void updateEvolveControl({
+                                self_evolve_trigger_mode: value,
+                              })
+                            }
+                            disabled={controlSaving || !controlDraft.can_edit}
+                          >
+                            {label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                        Self invent
+                      </p>
+                      <InfoTip
+                        label="Self invent"
+                        content="Controls whether FAIM may invent new structure from graph changes now, after uploads, or both."
+                        position="left"
+                      />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {[
+                        ["off", "Off"],
+                        ["on_evolve", "On evolve"],
+                        ["after_upload", "After upload"],
+                        ["both", "Both"],
+                      ].map(([value, label]) => {
+                        const invented = normalizeInventState(
+                          value as "off" | "on_evolve" | "after_upload" | "both",
+                        );
+                        const active =
+                          controlDraft.self_invent_enabled ===
+                            invented.self_invent_enabled &&
+                          controlDraft.self_invent_on_evolve ===
+                            invented.self_invent_on_evolve &&
+                          controlDraft.self_invent_after_upload ===
+                            invented.self_invent_after_upload;
+                        return (
+                          <Button
+                            key={value}
+                            size="sm"
+                            variant={modeChipVariant(active)}
+                            onClick={() =>
+                              void updateEvolveControl({
+                                ...invented,
+                              })
+                            }
+                            disabled={controlSaving || !controlDraft.can_edit}
+                          >
+                            {label}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/6 bg-gradient-to-r from-cyan-500/8 via-sky-500/5 to-indigo-500/8 p-4">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                    Saved control
+                  </p>
+                  <p className="mt-1 text-sm font-semibold text-cyan-200">
+                    Stored in FAIM, not the browser
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {controlSaving
+                      ? "Saving changes..."
+                      : "Changes update the graph-scoped control row and immediately affect the effective state."}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-slate-400">
+                Loading autonomy controls...
+              </p>
+            )}
+          </div>
+
+          <div className="rounded-3xl border border-white/6 bg-black/20 p-4 sm:p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                    Effective state
+                  </p>
+                  <InfoTip
+                    label="Effective state"
+                    content="This is the real runtime result after the UI setting, backend guardrails, and worker availability are all combined."
+                    position="left"
+                  />
+                </div>
+                <p className="mt-1 text-sm text-slate-300">
+                  What FAIM is actually allowed to do right now.
                 </p>
-                <p className="mt-1 text-xs text-slate-400">Automation uses the approved scheduler/worker path.</p>
               </div>
-              <div className="rounded-xl border p-3 md:col-span-2 lg:col-span-1" style={{ borderColor: "var(--os-stroke)", background: "var(--os-surface-2)" }}>
-                <p className="text-[10px] uppercase tracking-widest text-slate-500">Guardrail reason</p>
-                <p className="mt-1 text-sm text-slate-200">{humanizeDueReason(evolveStatus.guardrails.guardrail_reason)}</p>
-                <p className="mt-1 text-xs text-slate-400 font-mono">{evolveStatus.guardrails.guardrail_reason}</p>
+              <Badge
+                variant={guardrailBadgeVariant(evolveStatus?.guardrails)}
+                size="md"
+              >
+                {evolveStatus?.guardrails
+                  ? evolveStatus.guardrails.automation_enabled
+                    ? "active"
+                    : "inactive"
+                  : "loading"}
+              </Badge>
+            </div>
+
+            {evolveStatus?.guardrails ? (
+              <div className="mt-5 grid gap-3">
+                <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                    State summary
+                  </p>
+                  <p className="mt-1 text-base font-semibold text-slate-100">
+                    {evolveStatus.guardrails.automation_label}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400 font-mono">
+                    {evolveStatus.guardrails.automation_path}
+                  </p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                      Self evolve
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-100">
+                      {evolveStatus.guardrails.self_evolve_enabled
+                        ? "enabled"
+                        : "disabled"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Trigger mode:{" "}
+                      <span className="font-mono text-slate-300">
+                        {evolveStatus.guardrails.trigger_mode}
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                      Self invent
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-100">
+                      {evolveStatus.guardrails.self_invent_enabled
+                        ? "enabled"
+                        : "disabled"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      On evolve:{" "}
+                      {evolveStatus.guardrails.self_invent_on_evolve
+                        ? "yes"
+                        : "no"}{" "}
+                      | After upload:{" "}
+                      {evolveStatus.guardrails.self_invent_after_upload
+                        ? "yes"
+                        : "no"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                      Worker engine
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-100">
+                      {evolveStatus.guardrails.jobs_enabled
+                        ? "enabled"
+                        : "disabled"}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Automation runs through the approved scheduler/worker
+                      path.
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
+                      Guardrail reason
+                    </p>
+                    <p className="mt-1 text-sm text-slate-100">
+                      {humanizeDueReason(
+                        evolveStatus.guardrails.guardrail_reason,
+                      )}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400 font-mono">
+                      {evolveStatus.guardrails.guardrail_reason}
+                    </p>
+                  </div>
+                </div>
               </div>
-            </>
-          ) : (
-            <p className="text-sm text-slate-400">Loading guardrail summary...</p>
-          )}
+            ) : (
+              <p className="mt-4 text-sm text-slate-400">
+                Loading effective state...
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

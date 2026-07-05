@@ -19,6 +19,7 @@ import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Button } from "@/components/ui/Button";
 import { useProviders } from "@/contexts/ProviderContext";
 import { discoverProviderModels } from "@/lib/providerDiscovery";
+import { providerReasoningCapability } from "@/lib/providers";
 
 function ModelDropdown({
   models,
@@ -398,6 +399,16 @@ export default function ProvidersPage() {
                   background: "var(--os-surface-1)",
                 }}
               >
+                {(() => {
+                  const reasoning = providerReasoningCapability(provider);
+                  return reasoning.supported ? (
+                    <div className="flex justify-end">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/30 bg-cyan-400/10 px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-cyan-200">
+                        Reasoning {reasoning.confidence}
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
                 {/* Header */}
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">

@@ -50,6 +50,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/dashboard/memory-query", label: "FAIM Cortex", icon: Search },
       { href: "/dashboard/graph", label: "FIG View", icon: Network },
+      { href: "/dashboard/domain", label: "Domain Studio", icon: ServerCog },
     ],
   },
   {

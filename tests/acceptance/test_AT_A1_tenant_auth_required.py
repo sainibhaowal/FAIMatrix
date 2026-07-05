@@ -54,17 +54,11 @@ class TestTenantAuthRequired(unittest.TestCase):
         except HTTPException as e:
             self.assertEqual(e.status_code, 401)
 
-    def test_admin_requires_key(self):
-        """Admin endpoints must require X-Admin-Key."""
-        from api.deps import require_admin
-        from fastapi import HTTPException
+    def test_admin_dependency_is_removed(self):
+        """Admin dependency should not exist in the live auth deps surface."""
+        import api.deps as deps
 
-        # Missing key should raise
-        try:
-            require_admin(None)
-            self.fail("Should have raised HTTPException")
-        except HTTPException as e:
-            self.assertEqual(e.status_code, 401)
+        self.assertFalse(hasattr(deps, "require_admin"))
 
 
 if __name__ == "__main__":

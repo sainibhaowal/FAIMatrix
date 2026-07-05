@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 # Flexible imports
@@ -89,6 +89,33 @@ class EvolveStatusGuardrails(BaseModel):
     automation_label: str
     automation_enabled: bool
     guardrail_reason: str
+    control_source: str
+    control_updated_at: Optional[str] = None
+    control_updated_by: Optional[str] = None
+
+
+class EvolveControlState(BaseModel):
+    """Persisted graph-scoped autonomy controls."""
+
+    self_evolve_enabled: bool
+    self_evolve_trigger_mode: str
+    self_invent_enabled: bool
+    self_invent_on_evolve: bool
+    self_invent_after_upload: bool
+    source: str
+    updated_at: Optional[str] = None
+    updated_by: Optional[str] = None
+    can_edit: bool = False
+
+
+class EvolveControlUpdateRequest(BaseModel):
+    """Request body for updating graph-scoped autonomy controls."""
+
+    self_evolve_enabled: bool
+    self_evolve_trigger_mode: str
+    self_invent_enabled: bool
+    self_invent_on_evolve: bool
+    self_invent_after_upload: bool
 
 
 class EvolveStatusState(BaseModel):
@@ -149,6 +176,7 @@ class EvolveStatusResponse(BaseModel):
     graph_id: str
     tenant_id: str
     runtime: EvolveStatusRuntime
+    control: EvolveControlState
     guardrails: EvolveStatusGuardrails
     state: EvolveStatusState
     due: EvolveStatusDue
@@ -182,6 +210,41 @@ def _job_summary(job: Any) -> Optional[EvolveStatusJobSummary]:
         trigger_graph_version=payload.get("trigger_graph_version"),
         trigger_version_delta=payload.get("trigger_version_delta"),
         self_invent_requested=payload.get("self_invent_requested"),
+    )
+
+
+def _control_access_allowed(request: Request) -> bool:
+    tenant_id = str(getattr(request.state, "tenant_id", "") or "").strip()
+    return bool(tenant_id)
+
+
+def _control_access_or_403(request: Request) -> None:
+    if not _control_access_allowed(request):
+        raise HTTPException(
+            status_code=403,
+            detail="Evolution control changes require an authenticated tenant session",
+        )
+
+
+def _control_state_to_response(
+    *,
+    control: Any,
+    can_edit: bool,
+) -> EvolveControlState:
+    return EvolveControlState(
+        self_evolve_enabled=bool(getattr(control, "self_evolve_enabled", False)),
+        self_evolve_trigger_mode=str(
+            getattr(control, "self_evolve_trigger_mode", "") or "manual"
+        ),
+        self_invent_enabled=bool(getattr(control, "self_invent_enabled", False)),
+        self_invent_on_evolve=bool(getattr(control, "self_invent_on_evolve", False)),
+        self_invent_after_upload=bool(
+            getattr(control, "self_invent_after_upload", False)
+        ),
+        source=str(getattr(control, "source", "runtime_default") or "runtime_default"),
+        updated_at=_iso(getattr(control, "updated_at", None)),
+        updated_by=getattr(control, "updated_by", None),
+        can_edit=bool(can_edit),
     )
 
 
@@ -247,6 +310,7 @@ async def evolve_graph(
 
 @router.get("/evolve/status", response_model=EvolveStatusResponse)
 async def evolve_status(
+    request: Request,
     graph_id: str = Query(...),
     source: str = Query("memory_write"),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
@@ -262,7 +326,18 @@ async def evolve_status(
         from store.pg.repos.self_evolution_state_repo import SelfEvolutionStateRepo
 
         flags = get_feature_flags()
-        guardrails = build_self_evolve_guardrail_summary()
+        control_repo = SelfEvolutionStateRepo(
+            session=ctx.session, tenant_id=ctx.tenant_id
+        )
+        control = control_repo.resolve_control_state(
+            graph_id=graph_id, session=ctx.session
+        )
+        can_edit = _control_access_allowed(request)
+        guardrails = build_self_evolve_guardrail_summary(
+            session=ctx.session,
+            tenant_id=ctx.tenant_id,
+            graph_id=graph_id,
+        )
         due = evaluate_self_evolve_due(
             session=ctx.session,
             tenant_id=ctx.tenant_id,
@@ -324,8 +399,8 @@ async def evolve_status(
             graph_id=graph_id,
             tenant_id=ctx.tenant_id,
             runtime=EvolveStatusRuntime(
-                self_evolve_enabled=bool(flags.self_evolve_enabled),
-                self_evolve_trigger_mode=str(flags.self_evolve_trigger_mode),
+                self_evolve_enabled=bool(control.self_evolve_enabled),
+                self_evolve_trigger_mode=str(control.self_evolve_trigger_mode),
                 self_evolve_min_interval_seconds=int(
                     flags.self_evolve_min_interval_seconds
                 ),
@@ -334,10 +409,11 @@ async def evolve_status(
                 self_evolve_scan_interval_seconds=int(
                     flags.self_evolve_scan_interval_seconds
                 ),
-                self_invent_enabled=bool(flags.self_invent_enabled),
-                self_invent_on_evolve=bool(flags.self_invent_on_evolve),
+                self_invent_enabled=bool(control.self_invent_enabled),
+                self_invent_on_evolve=bool(control.self_invent_on_evolve),
                 jobs_enabled=bool(due.jobs_enabled),
             ),
+            control=_control_state_to_response(control=control, can_edit=can_edit),
             guardrails=EvolveStatusGuardrails(
                 self_evolve_enabled=guardrails.self_evolve_enabled,
                 self_invent_enabled=guardrails.self_invent_enabled,
@@ -349,6 +425,9 @@ async def evolve_status(
                 automation_label=guardrails.automation_label,
                 automation_enabled=guardrails.automation_enabled,
                 guardrail_reason=guardrails.guardrail_reason,
+                control_source=guardrails.control_source,
+                control_updated_at=_iso(guardrails.control_updated_at),
+                control_updated_by=guardrails.control_updated_by,
             ),
             state=EvolveStatusState(
                 graph_id=graph_id,
@@ -388,6 +467,40 @@ async def evolve_status(
         )
     except Exception as e:
         logger.error("Failed to load evolve status: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
+
+
+@router.patch("/evolve/control", response_model=EvolveStatusResponse)
+async def update_evolve_control(
+    graph_id: str,
+    body: EvolveControlUpdateRequest,
+    request: Request,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> EvolveStatusResponse:
+    """Persist graph-scoped self-evolve/self-invent controls."""
+    _control_access_or_403(request)
+    try:
+        from store.pg.repos.self_evolution_state_repo import SelfEvolutionStateRepo
+
+        control_repo = SelfEvolutionStateRepo(
+            session=ctx.session, tenant_id=ctx.tenant_id
+        )
+        control_repo.update_control_state(
+            graph_id=graph_id,
+            self_evolve_enabled=body.self_evolve_enabled,
+            self_evolve_trigger_mode=body.self_evolve_trigger_mode,
+            self_invent_enabled=body.self_invent_enabled,
+            self_invent_on_evolve=body.self_invent_on_evolve,
+            self_invent_after_upload=body.self_invent_after_upload,
+            updated_by=str(getattr(request.state, "email", "") or "").strip() or None,
+            session=ctx.session,
+        )
+        ctx.session.commit()
+        return await evolve_status(graph_id=graph_id, source="memory_write", ctx=ctx, request=request)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to update evolve control: %s", e)
         raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
 
 

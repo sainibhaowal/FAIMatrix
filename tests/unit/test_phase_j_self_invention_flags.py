@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 
 def test_self_invention_feature_flags_env(monkeypatch):
     from runtime.feature_flags import get_feature_flags
@@ -40,3 +42,24 @@ def test_self_invention_config_knobs(monkeypatch):
     assert cfg.self_invent_min_coactivation_count == 4
     assert abs(cfg.self_invent_lambda_threshold - 0.15) < 1e-9
     assert abs(cfg.self_invent_min_redundancy_reduction - 0.05) < 1e-9
+
+
+def test_self_invent_after_upload_requires_jobs(monkeypatch):
+    from runtime.config import load_config, reset_config
+    from runtime.feature_flags import FeatureFlags, validate_feature_flags
+
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+    monkeypatch.setenv("TENANT_KEYS_JSON", '{"tenant_j":["k"]}')
+    monkeypatch.setenv("FAIM_ENABLE_JOBS", "false")
+    monkeypatch.setenv("FAIM_SELF_INVENT_ENABLED", "true")
+    monkeypatch.setenv("FAIM_SELF_INVENT_AFTER_UPLOAD", "true")
+
+    flags = FeatureFlags(self_invent_enabled=True, self_invent_after_upload=True)
+    errors, _warnings = validate_feature_flags(flags)
+    assert any("FAIM_SELF_INVENT_AFTER_UPLOAD requires FAIM_ENABLE_JOBS=true" in err for err in errors)
+
+    reset_config()
+    with pytest.raises(ValueError) as exc:
+        load_config()
+    assert "FAIM_SELF_INVENT_AFTER_UPLOAD requires FAIM_ENABLE_JOBS=true" in str(exc.value)
+    reset_config()

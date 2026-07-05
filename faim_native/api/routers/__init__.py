@@ -1,10 +1,10 @@
 """FAIM-Native API: Routers Package."""
 
-from .admin import router as admin_router
 from .api_keys import router as api_keys_router
 from .auth import router as auth_router
 from .benchmarks import router as benchmarks_router
 from .cortex import router as cortex_router
+from .domain import router as domain_router
 from .events import router as events_router
 from .evolve import router as evolve_router
 from .graph import router as graph_router
@@ -23,6 +23,7 @@ __all__ = [
     "events_router",
     "benchmarks_router",
     "cortex_router",
+    "domain_router",
     "ingest_router",
     "query_router",
     "memory_router",
@@ -30,6 +31,5 @@ __all__ = [
     "evolve_router",
     "graph_router",
     "metrics_router",
-    "admin_router",
     "storage_router",
 ]

@@ -112,6 +112,13 @@ export interface FaimCortexReasoningNode {
   created_at: string;
 }
 
+type FaimTraversalPath = {
+  node_ids?: string[];
+  edge_ids?: string[];
+  path_length?: number;
+  confidence?: number;
+};
+
 export interface FaimCortexTurnSummary {
   turn_id: string;
   query_text: string;
@@ -426,24 +433,19 @@ interface MemoryInventory {
 
 function buildFaimSystemPrompt(
   queryData: FaimQueryResponse,
-  thinkingEnabled: boolean,
   answerMode: AnswerMode,
   inventory?: MemoryInventory,
 ): string {
   const spans = queryData.answer?.supporting_spans ?? [];
-  const quotes = queryData.answer?.quotes ?? [];
-  const direct = queryData.answer?.direct_answer ?? "";
   const contra = queryData.answer?.contradiction_notes ?? [];
   const conf = queryData.answer?.confidence ?? 0;
   const results = queryData.results ?? [];
 
-  // Build rawId → filename map from inventory
   const rawIdToFilename: Record<string, string> = {};
   if (inventory) {
     for (const f of inventory.files) rawIdToFilename[f.raw_id] = f.filename;
   }
 
-  // Build node_id → full result item map
   const resultMap: Record<string, FaimQueryResultItem> = {};
   for (const r of results) resultMap[r.node_id] = r;
 
@@ -467,181 +469,90 @@ function buildFaimSystemPrompt(
   }
 
   function fmtScore(score: number): string {
-    if (score >= 0.8) return `${Math.round(score * 100)}% ▲ high`;
-    if (score >= 0.55) return `${Math.round(score * 100)}% ◆ moderate`;
-    return `${Math.round(score * 100)}% ▼ weak`;
+    if (score >= 0.8) return `${Math.round(score * 100)}% high`;
+    if (score >= 0.55) return `${Math.round(score * 100)}% moderate`;
+    return `${Math.round(score * 100)}% weak`;
   }
 
   const lines: string[] = [];
 
-  // ── Identity ──────────────────────────────────────────────────────────────
-  lines.push("You are FAIM Cortex — a deterministic memory synthesis engine.");
+  lines.push("You are FAIM Cortex.");
   lines.push(
-    "Write fluent, grounded prose from the FAIM memory nodes below; do not sound like a template, a dump of snippets, a table, or a generic chat assistant.",
+    "Write the final answer as a natural markdown response from grounded FAIM evidence, not as a trace dump, card, or debug report.",
   );
   lines.push(
-    "Use full sentences and paragraphs first. Use bullets only when they genuinely improve clarity. Do not output tables unless the user explicitly asks for one.",
+    "The retrieval layer has already selected the useful memory. Your job is to synthesize it into one clear answer.",
   );
   lines.push(
-    "You have no internet access, no training knowledge, and no outside facts.",
+    "Use only the supplied evidence and direct inference from it. Do not invent outside facts.",
   );
   lines.push(
-    "If the answer is not in the nodes below, say so precisely: 'That data is not in your FAIM memory.'",
+    "If the evidence is insufficient, say that plainly instead of filling gaps.",
   );
   lines.push(
-    "Treat the retrieved nodes as working memory, the inventory as long-term memory context, and the graph metadata as evidence about structure and time.",
+    "Keep the answer readable and concise unless the question clearly needs more depth.",
   );
   lines.push(
-    "Synthesize across multiple nodes into one coherent answer when the evidence belongs to the same memory thread.",
+    "Use inline citations like [filename · p.N] when you can tie a claim to a source.",
   );
   lines.push(
-    "Write one connected narrative. Use inline citations in the prose, and avoid a separate citation dump unless the user explicitly asks for one.",
-  );
-  lines.push(
-    "Prefer paragraph flow over headings or section titles unless the question requires a timeline or a conflict breakdown.",
-  );
-  lines.push(
-    "Natural language is allowed and expected, but every sentence must stay tethered to FAIM evidence, memory state, or explicit inference from those nodes.",
-  );
-  lines.push(
-    "Do not roleplay, do not be chatty, and do not produce generic assistant filler.",
+    "Do not mention internal panels, reasoning trees, writeback candidates, or other trace UI elements.",
   );
   buildAnswerModeGuidance(answerMode).forEach((line) => lines.push(line));
   lines.push("");
 
-  // ── Memory inventory (document metadata) ─────────────────────────────────
   if (inventory && inventory.totalFiles > 0) {
     lines.push(
-      `MEMORY INVENTORY — your complete knowledge base has ${inventory.totalFiles} document(s):`,
+      `MEMORY INVENTORY — ${inventory.totalFiles} document(s) are available:`,
     );
     const typeList = Object.entries(inventory.byType)
       .map(([t, n]) => `${t.toUpperCase()} (${n})`)
       .join(", ");
     if (typeList) lines.push(`  File types: ${typeList}`);
-    inventory.files.forEach((f) => {
-      const when = f.ingested_at
-        ? new Date(f.ingested_at).toLocaleDateString()
-        : f.uploaded_at
-          ? new Date(f.uploaded_at).toLocaleDateString()
-          : "unknown date";
-      lines.push(
-        `  • ${f.filename} | ${f.node_count} nodes | ingested ${when} | id:${f.raw_id}`,
-      );
-    });
-    lines.push(
-      "  → Use this inventory to answer: 'how many docs?', 'what files?', 'when ingested?', 'how many nodes?'",
-    );
-    lines.push("");
-  } else if (inventory && inventory.totalFiles === 0) {
-    lines.push(
-      "MEMORY INVENTORY: No documents have been ingested yet. Tell the user to upload files in Storage.",
-    );
+    lines.push("  Use filenames, pages, sections, and anchors as grounding.");
     lines.push("");
   }
 
-  // ── Signal legend ─────────────────────────────────────────────────────────
-  lines.push(
-    "SIGNAL LEGEND (FAIM computed these — use them to shape your answer):",
-  );
-  lines.push("  CURRENT    → most recent, authoritative version of this fact");
-  lines.push(
-    "  SUPERSEDED → an older version exists; a newer node overrides it",
-  );
-  lines.push(
-    "  CONFLICTED → value contradicts another node; flag both to the user",
-  );
-  lines.push("  score ≥80% → treat as strong evidence; cite source and page");
-  lines.push("  score 55–79% → supporting evidence; note if other nodes agree");
-  lines.push("  score <55%  → weak match; qualify with 'weakly supported'");
-  lines.push(
-    `  graph confidence: ${Math.round(conf * 100)}% — your answer certainty ceiling`,
-  );
+  lines.push("EVIDENCE SIGNALS:");
+  lines.push("  CURRENT    -> most recent authoritative source");
+  lines.push("  SUPERSEDED -> older source overridden by a newer node");
+  lines.push("  CONFLICTED -> evidence conflicts and should be surfaced honestly");
+  lines.push("  score >=80% -> strong support");
+  lines.push("  score 55-79% -> supporting evidence");
+  lines.push("  score <55% -> weak support");
+  lines.push(`  confidence ceiling: ${Math.round(conf * 100)}%`);
   lines.push("");
 
-  // ── Retrieved nodes ───────────────────────────────────────────────────────
   if (spans.length > 0) {
-    lines.push("RETRIEVED MEMORY NODES:");
+    lines.push("RETRIEVED EVIDENCE:");
     spans.forEach((s, i) => {
-      const status = s.temporal_status
-        ? ` [${s.temporal_status}]`
-        : " [CURRENT]";
+      const status = s.temporal_status ? ` [${s.temporal_status}]` : "";
       const meta = fmtNodeMeta(s.node_id);
       lines.push(
-        `--- Node ${i + 1} | ${fmtScore(s.score)} | ${status} | ${meta}`,
+        `- Evidence ${i + 1} | ${fmtScore(s.score)} |${status} ${meta}`.trim(),
       );
-      lines.push(s.text);
+      lines.push(`  ${s.text}`);
     });
     lines.push("");
   } else if (results.length === 0) {
-    lines.push("RETRIEVED MEMORY NODES: none");
-    lines.push(
-      "→ No nodes matched this query. Respond: 'No memory found for this query — ingest that data first.'",
-    );
+    lines.push("RETRIEVED EVIDENCE: none");
+    lines.push("  Answer honestly that no grounded memory was found.");
     lines.push("");
   }
 
-  // ── FAIM's own direct answer (extractive, pre-LLM) ───────────────────────
-  if (direct) {
-    lines.push(
-      `FAIM EXTRACTIVE SUMMARY (score: ${Math.round(conf * 100)}% confidence):`,
-    );
-    lines.push(direct);
-    lines.push(
-      "→ Use this as your factual anchor. Expand on it using the nodes above. Do not contradict it.",
-    );
-    lines.push("");
-  }
-
-  // ── Verbatim quotes extracted by FAIM ────────────────────────────────────
-  if (quotes.length > 0) {
-    lines.push("VERBATIM QUOTES FROM DOCUMENTS:");
-    quotes.forEach((q) => lines.push(`  "${q}"`));
-    lines.push(
-      "→ These are exact document text. Use them directly in your answer when relevant.",
-    );
-    lines.push("");
-  }
-
-  // ── Contradictions FAIM already detected ─────────────────────────────────
   if (contra.length > 0) {
-    lines.push("CONTRADICTIONS DETECTED BY FAIM:");
-    contra.forEach((c) => lines.push(`  ⚠ ${c}`));
-    lines.push(
-      "→ Surface these contradictions explicitly to the user. Do not resolve them by guessing.",
-    );
+    lines.push("CONFLICT WARNING:");
+    contra.forEach((c) => lines.push(`  - ${c}`));
+    lines.push("  Preserve the conflict instead of pretending it is settled.");
     lines.push("");
   }
 
-  // ── Behavioural contract (minimal, data-tied) ─────────────────────────────
   lines.push("RESPONSE CONTRACT:");
-  lines.push(
-    "  1. Keep the answer prose-first; use bullets only when they help.",
-  );
-  lines.push(
-    "  2. Cite source + page for every factual claim (format: [filename · p.N])",
-  );
-  lines.push(
-    "  3. SUPERSEDED nodes: state 'older data — superseded by Node X'",
-  );
-  lines.push(
-    "  4. CONFLICTED nodes: state both values and the conflict — never pick one silently",
-  );
-  lines.push(
-    `  5. If graph confidence is below 40% (current: ${Math.round(conf * 100)}%), open with a confidence caveat`,
-  );
-  lines.push(
-    "  6. No answer exists in nodes → say exactly what is missing, nothing more",
-  );
-  if (thinkingEnabled)
-    lines.push(
-      "  7. Reason through node scores and temporal status before composing your answer",
-    );
-  lines.push(
-    "  8. Never use tables unless the user explicitly asks for a table.",
-  );
-  lines.push(
-    "  9. If a claim is an inference or prediction, label it as such and explain the basis.",
-  );
+  lines.push("  1. Answer naturally first.");
+  lines.push("  2. Use bullets only when they help the user.");
+  lines.push("  3. Keep tables out unless the user asks for them.");
+  lines.push("  4. Label any inference or prediction clearly.");
+  lines.push("  5. If evidence is missing, say exactly what is missing.");
 
   return lines.join("\n");
 }
@@ -682,7 +593,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [thinkingEnabled, setThinkingEnabled] = useState(false);
+  const thinkingEnabled = true;
   const [answerMode, setAnswerModeState] = useState<AnswerMode>(() => {
     if (typeof window === "undefined") return "auto";
     const raw = window.localStorage.getItem(LS_MODE_KEY) as AnswerMode;
@@ -744,7 +655,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const toggleThinking = useCallback(() => {
-    setThinkingEnabled((p) => !p);
+    // Cortex thinking is always-on by backend policy. Keep this no-op for
+    // backward-compatible context consumers while the UI shows status only.
   }, []);
 
   const newThread = useCallback(() => {
@@ -884,6 +796,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const headers = await buildAuthorizedHeaders();
         const skipRetrieval = isConversationalMessage(userMsg.content);
         let queryData: FaimQueryResponse | null = null;
+        let systemPrompt: string;
 
         if (!skipRetrieval) {
           const cortexRes = await fetch("/api/v1/cortex/turn", {
@@ -896,7 +809,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               profile: "RELAXED",
               return_explain: true,
               answer_mode: answerMode,
-              think_enabled: thinkingEnabled,
+              think_enabled: true,
               session_id: threadId,
             }),
           });
@@ -910,9 +823,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
           const cortexTurn = (await cortexRes.json()) as FaimCortexTurnResponse;
           queryData = adaptCortexTurnToQueryResponse(cortexTurn);
-          const reasoningSummary = cortexTurn.brain_state.reasoning_tree
-            .map((node) => `${node.branch}: ${node.summary}`)
-            .join("\n");
 
           setThreads((prev) =>
             prev.map((t) =>
@@ -924,16 +834,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                       m.id === assistantId
                         ? {
                             ...m,
-                            content: cortexTurn.narrative,
+                            content: "",
                             queryData,
                             cortexData: cortexTurn,
                             answerMode,
-                            ...(thinkingEnabled && reasoningSummary
-                              ? {
-                                  thinking: reasoningSummary,
-                                  thinkingDurationMs: cortexTurn.duration_ms,
-                                }
-                              : {}),
                           }
                         : m,
                     ),
@@ -941,25 +845,77 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             ),
           );
 
-          // Set active reasoning path for FIG View pulse tracing
-          const nodeIds = cortexTurn.brain_state.evidence_nodes.map(n => n.node_id);
-          const edgeIds = cortexTurn.brain_state.reasoning_tree.flatMap(n => n.evidence_node_ids); // approximate edges
-          
-          setActiveReasoningPath({
-            nodeIdSet: new Set([...nodeIds, ...cortexTurn.brain_state.reasoning_tree.map(n => n.node_id)]),
-            edgeIdSet: new Set(edgeIds)
-          });
+          // Prefer the exact traversal branch path when available.
+          const traversalBranch = cortexTurn.brain_state.reasoning_tree.find(
+            (node) => node.branch === "traversal",
+          );
+          const traversalPaths = Array.isArray(traversalBranch?.output?.paths)
+            ? (traversalBranch?.output?.paths as FaimTraversalPath[])
+            : [];
+          const firstTraversalPath = traversalPaths[0];
 
-          return;
+          if (firstTraversalPath?.node_ids?.length) {
+            setActiveReasoningPath({
+              nodeIdSet: new Set(firstTraversalPath.node_ids),
+              edgeIdSet: new Set(firstTraversalPath.edge_ids ?? []),
+            });
+          } else {
+            const nodeIds = cortexTurn.brain_state.evidence_nodes.map((n) => n.node_id);
+            const edgeIds = cortexTurn.brain_state.reasoning_tree.flatMap(
+              (n) => n.evidence_node_ids,
+            );
+
+            setActiveReasoningPath({
+              nodeIdSet: new Set([
+                ...nodeIds,
+                ...cortexTurn.brain_state.reasoning_tree.map((n) => n.node_id),
+              ]),
+              edgeIdSet: new Set(edgeIds),
+            });
+          }
+          // Fetch memory inventory for the final LLM synthesis prompt.
+          let inventory: MemoryInventory | undefined;
+          try {
+            const [summaryRes, filesRes] = await Promise.all([
+              fetch(
+                `/api/v1/storage/summary?graph_id=${encodeURIComponent(graphId)}`,
+                { headers },
+              ),
+              fetch(
+                `/api/v1/storage/files?graph_id=${encodeURIComponent(graphId)}&limit=50&status=ready`,
+                { headers },
+              ),
+            ]);
+            if (summaryRes.ok && filesRes.ok) {
+              const summary = (await summaryRes.json()) as {
+                total_files: number;
+                by_type: Record<string, number>;
+              };
+              const filesData = (await filesRes.json()) as {
+                items?: Array<MemoryFileEntry>;
+              };
+              inventory = {
+                totalFiles: summary.total_files ?? 0,
+                byType: summary.by_type ?? {},
+                files: (filesData.items ?? []).slice(0, 50),
+              };
+            }
+          } catch {
+            // inventory stays undefined — the answer prompt works without it
+          }
+
+          systemPrompt = buildFaimSystemPrompt(queryData, answerMode, inventory);
+        } else {
+          systemPrompt = buildConversationalSystemPrompt();
         }
 
         // ── Step 2: Check active provider ──────────────────────────────────
         const provider = getActiveProvider();
 
         if (!provider) {
-          // No LLM — fall back to FAIM extractive answer or plain message
-          const fallback =
-            "Hi! Ask me anything about your ingested documents and data.";
+          const fallback = queryData
+            ? "I retrieved grounded memory, but the language model provider is unavailable right now."
+            : "Hi! Ask me anything about your ingested documents and data.";
           setThreads((prev) =>
             prev.map((t) =>
               t.id !== threadId
@@ -977,48 +933,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // ── Step 3: Fetch memory inventory for system prompt ──────────────
-        let inventory: MemoryInventory | undefined;
-        try {
-          const [summaryRes, filesRes] = await Promise.all([
-            fetch(
-              `/api/v1/storage/summary?graph_id=${encodeURIComponent(graphId)}`,
-              { headers },
-            ),
-            fetch(
-              `/api/v1/storage/files?graph_id=${encodeURIComponent(graphId)}&limit=50&status=ready`,
-              { headers },
-            ),
-          ]);
-          if (summaryRes.ok && filesRes.ok) {
-            const summary = (await summaryRes.json()) as {
-              total_files: number;
-              by_type: Record<string, number>;
-            };
-            const filesData = (await filesRes.json()) as {
-              items?: Array<MemoryFileEntry>;
-            };
-            inventory = {
-              totalFiles: summary.total_files ?? 0,
-              byType: summary.by_type ?? {},
-              files: (filesData.items ?? []).slice(0, 50),
-            };
-          }
-        } catch {
-          // inventory stays undefined — system prompt works without it
-        }
-
-        // ── Step 4: Build system prompt ────────────────────────────────────
-        const systemPrompt = queryData
-          ? buildFaimSystemPrompt(
-              queryData,
-              thinkingEnabled,
-              answerMode,
-              inventory,
-            )
-          : buildConversationalSystemPrompt();
-
-        // ── Step 4: Call LLM provider and stream response ──────────────────
+        // ── Step 3: Call LLM provider and stream response ──────────────────
         const llmMessages = [
           ...historySnapshot,
           { role: "user" as const, content: userMsg.content },
@@ -1047,7 +962,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const reader = chatRes.body?.getReader();
         const decoder = new TextDecoder();
         let accumulated = "";
-        let thinkingAccum = "";
 
         if (reader) {
           outer: while (true) {
@@ -1065,13 +979,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                 const delta = parsed.choices?.[0]?.delta;
                 if (!delta) continue;
 
-                if (delta.thinking) {
-                  thinkingAccum += delta.thinking;
-                  setIsThinking(true);
-                  setLiveThinkingBuffer(thinkingAccum);
-                  continue;
-                }
-
                 if (delta.content) {
                   accumulated += delta.content;
                   setThreads((prev) =>
@@ -1088,9 +995,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                                     content: accumulated,
                                     queryData,
                                     answerMode,
-                                    ...(thinkingAccum
-                                      ? { thinking: thinkingAccum }
-                                      : {}),
                                   },
                             ),
                           },
@@ -1107,7 +1011,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // Finalise — ensure we always have something
         const finalContent =
           accumulated ||
-          "I couldn't generate an answer. Please check the source results below.";
+          "I couldn't generate an answer from the retrieved memory. Please try again.";
 
         setThreads((prev) =>
           prev.map((t) =>
@@ -1123,7 +1027,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                           content: finalContent,
                           queryData,
                           answerMode,
-                          ...(thinkingAccum ? { thinking: thinkingAccum } : {}),
                         },
                   ),
                   updatedAt: isoNow(),
@@ -1154,7 +1057,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         setLiveThinkingBuffer("");
       }
     },
-    [activeThreadId, messages, isStreaming, thinkingEnabled, answerMode],
+    [activeThreadId, messages, isStreaming, answerMode],
   );
 
   const uploadFiles = useCallback(

@@ -155,6 +155,28 @@ async def test_otp_request_keeps_email_default_when_totp_enabled(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_otp_login_does_not_allow_admin_email_shortcut(monkeypatch):
+    monkeypatch.setenv("NEXTAUTH_SECRET", "test-secret-for-totp")
+    fake_session = _FakeSession()
+    _FakeUserRepo.user = None
+
+    import runtime.context as runtime_context
+    import store.pg.repos.user_repo as user_repo_module
+
+    monkeypatch.setattr(runtime_context, "get_session", lambda: fake_session)
+    monkeypatch.setattr(user_repo_module, "UserRepository", _FakeUserRepo)
+
+    with pytest.raises(auth_router.HTTPException) as exc:
+        await auth_router.request_otp(
+            auth_router.OTPRequestBody(email="admin@example.com", mode="login"),
+            request=None,
+        )
+
+    assert exc.value.status_code == 404
+    assert fake_session.closed == 1
+
+
+@pytest.mark.asyncio
 async def test_recovery_code_login_consumes_code_once(monkeypatch):
     monkeypatch.setenv("NEXTAUTH_SECRET", "test-secret-for-totp")
     fake_session = _FakeSession()

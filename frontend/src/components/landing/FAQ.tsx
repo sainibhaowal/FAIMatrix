@@ -12,7 +12,7 @@ const FAQS: FAQItem[] = [
   {
     question: "How deep does reasoning go?",
     answer:
-      "Traditional systems use 1-hop retrieval (fetch and summarize). FAIM uses bounded multi-hop reasoning instead: retrieval diffusion is capped at 2 hops, while planner-selected investigative routes can go to 3-5 hops depending on the query. Provenance and citation integrity stay intact at every step.",
+      "Traditional systems stop at fetch-and-summarize. FAIM uses planner-driven bounded graph reasoning instead: simple questions can stay at 1-3 hops, deeper investigative turns can expand through the live Cortex runtime up to 24 hops by default, and advanced deployments can raise the bounded ceiling to 128 hops through configuration. Provenance, determinism, and citation integrity stay intact at every step.",
   },
   {
     question: "How does the semantic router work?",
@@ -22,7 +22,7 @@ const FAQS: FAQItem[] = [
   {
     question: "Is FAIMATRIX a vector database?",
     answer:
-      "No. FAIMATRIX is a mathematical memory engine. Vector databases store and retrieve vectors. FAIM computes inheritance relationships, enforces mathematical invariants, runs fractal diagnostics, performs deterministic deduplication, and self-evolves \u2014 all without ML. Vectors are one component, not the whole system.",
+      "No. FAIMATRIX is a mathematical memory engine. Vector databases store and retrieve vectors. FAIM computes inheritance relationships, enforces mathematical invariants, runs fractal diagnostics, performs deterministic deduplication, and can self-evolve through explicit graph controls \u2014 all without ML. Vectors are one component, not the whole system.",
   },
   {
     question: "Do I need a GPU to run FAIM?",
@@ -57,7 +57,7 @@ const FAQS: FAQItem[] = [
   {
     question: "Is FAIM suitable for production?",
     answer:
-      "FAIM runs in Docker with PostgreSQL, Redis, and Qdrant. It has defined SpeedBudget profiles (STRICT through SCALE), rate limiting, JWT + API key authentication, scoped permissions, tenant isolation, and a write-behind queue. The STRICT profile targets p95 retrieve latency of 10ms at 1M nodes. All of this is in the current codebase \u2014 not a roadmap.",
+      "FAIM runs in Docker with PostgreSQL, Redis, and Qdrant. It has defined SpeedBudget profiles (STRICT through SCALE), rate limiting, JWT + API key authentication, scoped permissions, tenant isolation, a write-behind queue, and graph autonomy controls that are explicit and default-off. The STRICT profile targets p95 retrieve latency of 10ms at 1M nodes. All of this is in the current codebase \u2014 not a roadmap.",
   },
 ];
 

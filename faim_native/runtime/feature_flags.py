@@ -116,6 +116,10 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
 
     if flags.storage_hard_delete_enabled and not jobs_enabled:
         errors.append("FAIM_STORAGE_HARD_DELETE_ENABLED requires FAIM_ENABLE_JOBS=true")
+    if flags.self_invent_after_upload and not jobs_enabled:
+        errors.append(
+            "FAIM_SELF_INVENT_AFTER_UPLOAD requires FAIM_ENABLE_JOBS=true"
+        )
 
     allowed_trigger_modes = {"manual", "post_upload", "periodic", "hybrid"}
     trigger_mode = str(flags.self_evolve_trigger_mode or "").strip().lower()

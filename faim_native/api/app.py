@@ -222,11 +222,11 @@ def create_app() -> FastAPI:
     # ==========================================================================
 
     from api.routers import (
-        admin_router,
         api_keys_router,
         auth_router,
         benchmarks_router,
         cortex_router,
+        domain_router,
         events_router,
         evolve_router,
         graph_router,
@@ -248,6 +248,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix=prefix)
     app.include_router(benchmarks_router, prefix=prefix)
     app.include_router(cortex_router, prefix=prefix)
+    app.include_router(domain_router, prefix=prefix)
     app.include_router(events_router, prefix=prefix)
     app.include_router(ingest_router, prefix=prefix)
     app.include_router(query_router, prefix=prefix)
@@ -256,7 +257,6 @@ def create_app() -> FastAPI:
     app.include_router(evolve_router, prefix=prefix)
     app.include_router(graph_router, prefix=prefix)
     app.include_router(metrics_router, prefix=prefix)
-    app.include_router(admin_router, prefix=prefix)
     app.include_router(api_keys_router, prefix=prefix)
     app.include_router(storage_router, prefix=prefix)
     app.include_router(faim_bench_router, prefix=prefix)

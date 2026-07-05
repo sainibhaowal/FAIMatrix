@@ -20,7 +20,7 @@ const SECTIONS = [
   { id: "docs-ops", label: "Docs & Ops" },
   { id: "math", label: "Math Proof" },
   { id: "query-logic", label: "Query Logic" },
-  { id: "evolution", label: "Self-Evolution" },
+  { id: "evolution", label: "Guardrailed Autonomy" },
   { id: "figview", label: "FIG View" },
   { id: "manifesto", label: "Manifesto" },
   { id: "benchmarks", label: "Benchmarks" },

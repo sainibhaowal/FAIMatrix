@@ -143,29 +143,6 @@ async def get_faim_context(
 
 
 # =============================================================================
-# Admin Dependency
-# =============================================================================
-
-
-def require_admin(
-    x_admin_key: Optional[str] = Header(None, alias="X-Admin-Key"),
-) -> str:
-    """Require admin authentication.
-
-    Raises HTTPException if not valid admin.
-    """
-    from api.middleware.auth import validate_admin_key
-
-    if not x_admin_key:
-        raise HTTPException(status_code=401, detail="Missing X-Admin-Key header")
-
-    if not validate_admin_key(x_admin_key):
-        raise HTTPException(status_code=403, detail="Invalid admin credentials")
-
-    return "admin"
-
-
-# =============================================================================
 # Scope Dependency (K3)
 # =============================================================================
 
@@ -265,6 +242,5 @@ __all__ = [
     "get_request_id",
     "get_graph_id",
     "get_faim_context",
-    "require_admin",
     "require_scopes",
 ]

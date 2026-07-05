@@ -3,11 +3,8 @@
 import React, { useEffect, useRef } from "react";
 import { User, Bot, MessageSquarePlus, Database } from "lucide-react";
 import { motion } from "framer-motion";
-import { ANSWER_MODE_LABELS, useChat } from "@/contexts/ChatContext";
+import { useChat } from "@/contexts/ChatContext";
 import { MarkdownRenderer } from "./MarkdownRenderer";
-import { ThinkingPane } from "./ThinkingPane";
-import { MemoryTraceFooter } from "./QueryAnswerCard";
-import { CortexStatePanel } from "./CortexStatePanel";
 
 export function ChatInterface() {
   const {
@@ -15,8 +12,6 @@ export function ChatInterface() {
     isStreaming,
     newThread,
     activeThreadId,
-    isThinking,
-    liveThinkingBuffer,
   } = useChat();
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -43,7 +38,7 @@ export function ChatInterface() {
             </h3>
             <p className="text-[12px] text-slate-500 leading-relaxed">
               {
-                "Type a message below to ask FAIM Cortex to run a structured brain turn over your memory graph. Switch the answer mode to Direct, Timeline, Contradiction, or Provenance for different reasoning styles. Answers stay grounded in citations, provenance, contradiction notes, and the Cortex state tree."
+                "Type a message below to ask FAIM Cortex to retrieve grounded memory and let the LLM write the final answer. Switch the answer mode to Direct, Timeline, Contradiction, or Provenance for different response styles. Answers stay grounded in retrieved memory and citations."
               }
             </p>
           </div>
@@ -82,52 +77,12 @@ export function ChatInterface() {
           >
             {msg.role === "assistant" ? (
               <article className="w-full rounded-[30px] border border-white/8 bg-[var(--os-surface-1)]/95 px-6 py-6 sm:px-8 sm:py-7 shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
-                <div className="flex flex-wrap items-center gap-2 text-[9px] font-black uppercase tracking-[0.28em]">
+                <div className="flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.28em]">
                   <span className="text-primary-300">FAIM Cortex</span>
-                  <span className="rounded-full border border-primary-500/15 bg-primary-500/5 px-2.5 py-1 text-[8px] text-primary-300">
-                    {ANSWER_MODE_LABELS[msg.answerMode ?? "direct"]}
-                  </span>
-                  {msg.cortexData?.task_type && (
-                    <span className="rounded-full border border-violet-500/15 bg-violet-500/5 px-2.5 py-1 text-[8px] text-violet-300">
-                      {msg.cortexData.task_type}
-                    </span>
-                  )}
                   <span className="text-slate-600 tracking-tighter">
                     {msg.timestamp}
                   </span>
                 </div>
-
-                {msg.cortexData?.brain_state ? (
-                  <div className="mt-3 grid gap-2 rounded-2xl border border-white/8 bg-white/[0.02] p-3 text-[10px] text-slate-400 sm:grid-cols-3">
-                    <div>
-                      <div className="text-[8px] font-black uppercase tracking-[0.24em] text-slate-600">
-                        Session Turns
-                      </div>
-                      <div className="mt-1 text-slate-200">
-                        {msg.cortexData.brain_state.session_turn_count}
-                      </div>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <div className="text-[8px] font-black uppercase tracking-[0.24em] text-slate-600">
-                        Session Summary
-                      </div>
-                      <div className="mt-1 text-slate-200 leading-6">
-                        {msg.cortexData.brain_state.session_summary ||
-                          "Single-turn session so far."}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-
-                {msg.thinking || (isThinking && i === messages.length - 1) ? (
-                  <div className="mt-4">
-                    <ThinkingPane
-                      content={msg.thinking ?? liveThinkingBuffer}
-                      durationMs={msg.thinkingDurationMs}
-                      isActive={isThinking && i === messages.length - 1}
-                    />
-                  </div>
-                ) : null}
 
                 <div className="mt-4 space-y-4">
                   {msg.content ? (
@@ -144,15 +99,6 @@ export function ChatInterface() {
                         ▌
                       </motion.span>
                     )
-                  )}
-                  {msg.cortexData && (
-                    <CortexStatePanel cortexData={msg.cortexData} />
-                  )}
-                  {msg.queryData && (
-                    <MemoryTraceFooter
-                      queryData={msg.queryData}
-                      answerMode={msg.answerMode ?? "direct"}
-                    />
                   )}
                 </div>
               </article>

@@ -293,6 +293,11 @@ def run_query(
     index=None,
     cache=None,
     include_historical: bool = True,
+    graph_max_hops: Optional[int] = None,
+    graph_max_neighbors: Optional[int] = None,
+    graph_decay: Optional[float] = None,
+    graph_alpha: Optional[float] = None,
+    graph_diffusion_steps: Optional[int] = None,
 ) -> QueryResult:
     """Execute a FAIM-native query.
 
@@ -405,6 +410,11 @@ def run_query(
     lexical_scores: Dict[UUID, Any] = {}
     graph_scores: Dict[UUID, Dict[str, float]] = {}
     graph_paths: Dict[UUID, List[Dict[str, object]]] = {}
+    effective_graph_max_hops = max(1, int(graph_max_hops or 2))
+    effective_graph_max_neighbors = max(2, int(graph_max_neighbors or 8))
+    effective_graph_decay = float(graph_decay if graph_decay is not None else 0.6)
+    effective_graph_alpha = float(graph_alpha if graph_alpha is not None else 0.2)
+    effective_graph_diffusion_steps = max(1, int(graph_diffusion_steps or 3))
 
     # 2b. Apply IDF weighting (Phase 3C)
     try:
@@ -634,11 +644,11 @@ def run_query(
             seed_scores=seed_score_map,
             base_candidate_ids=candidate_ids,
             allowed_kinds={"inheritance"} | KNOWN_SEMANTIC_KINDS | {"opposition"},
-            max_hops=2,
-            max_neighbors=8,
-            decay=0.6,
-            alpha=0.2,
-            steps=3,
+            max_hops=effective_graph_max_hops,
+            max_neighbors=effective_graph_max_neighbors,
+            decay=effective_graph_decay,
+            alpha=effective_graph_alpha,
+            steps=effective_graph_diffusion_steps,
         )
         candidate_ids = _stable_union_ids(candidate_ids, graph_candidate_ids)
     except Exception:

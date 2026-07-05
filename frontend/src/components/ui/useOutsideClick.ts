@@ -3,7 +3,9 @@
 import { useEffect } from "react";
 
 export function useOutsideClick(
-  refs: React.RefObject<HTMLElement> | React.RefObject<HTMLElement>[],
+  refs:
+    | React.RefObject<HTMLElement | null>
+    | React.RefObject<HTMLElement | null>[],
   handler: (e: MouseEvent | TouchEvent) => void,
   active = true,
 ) {

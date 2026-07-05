@@ -28,7 +28,6 @@ services:
     environment:
       FAIM_MODE: production
       FAIM_ENV: production
-      FAIM_ADMIN_KEY: ${FAIM_ADMIN_KEY:?FAIM_ADMIN_KEY required}
       RESEND_API_KEY: ${RESEND_API_KEY:?RESEND_API_KEY required}
       FAIM_BACKUP_DIR: /var/lib/faim/backups
       FAIM_RAW_STORE_PATH: /var/lib/faim/raw/blobs
@@ -83,8 +82,6 @@ services:
       API_HOST: faim-api:8000
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://faimatrix.localhost:8443}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET required}
-      FAIM_ADMIN_KEY: ${FAIM_ADMIN_KEY:?FAIM_ADMIN_KEY required}
-      FAIM_ADMIN_EMAILS_JSON: ${FAIM_ADMIN_EMAILS_JSON:-[]}
 
   caddy:
     image: caddy:2-alpine

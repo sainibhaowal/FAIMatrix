@@ -51,6 +51,7 @@ Use a full build only when Dockerfiles, package manifests, compose files, or bas
 
 ```bash
 docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel build --pull api worker frontend migrate
+docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel up -d
 ```
 
 ### VPS production

@@ -18,7 +18,10 @@ from sqlalchemy import and_, asc
 from sqlalchemy.orm import Session
 from store.pg.models_faim import GraphVersionModel, JobModel
 from store.pg.repos.graph_version_repo import GraphVersionRepo
-from store.pg.repos.self_evolution_state_repo import SelfEvolutionStateRepo
+from store.pg.repos.self_evolution_state_repo import (
+    SelfEvolutionControlState,
+    SelfEvolutionStateRepo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +88,9 @@ class SelfEvolveGuardrailSummary:
     automation_label: str
     automation_enabled: bool
     guardrail_reason: str
+    control_source: str
+    control_updated_at: Optional[datetime]
+    control_updated_by: Optional[str]
 
 
 def _jobs_enabled() -> bool:
@@ -142,102 +148,126 @@ def _source_allowed_for_mode(*, source_key: str, trigger_mode: str) -> bool:
     return False
 
 
-def build_self_evolve_guardrail_summary() -> SelfEvolveGuardrailSummary:
+def build_self_evolve_guardrail_summary(
+    *,
+    session: Session,
+    tenant_id: str,
+    graph_id: str,
+) -> SelfEvolveGuardrailSummary:
     """Summarize the currently active self-evolve/self-invent guardrails.
 
     The result is intentionally operator-facing: it explains whether the system
     is manual-only, after-upload, periodic, hybrid, or legacy-compat.
     """
-    flags = get_feature_flags()
+    state_repo = SelfEvolutionStateRepo(session=session, tenant_id=tenant_id)
+    control = state_repo.resolve_control_state(graph_id=graph_id, session=session)
     jobs_enabled = _jobs_enabled()
-    trigger_mode = str(flags.self_evolve_trigger_mode or "").strip().lower()
+    trigger_mode = str(control.self_evolve_trigger_mode or "").strip().lower()
     legacy_upload_compat = bool(
-        not flags.self_evolve_enabled
-        and flags.self_invent_enabled
-        and flags.self_invent_after_upload
+        not control.self_evolve_enabled
+        and control.self_invent_enabled
+        and control.self_invent_after_upload
     )
 
     if legacy_upload_compat:
         return SelfEvolveGuardrailSummary(
-            self_evolve_enabled=bool(flags.self_evolve_enabled),
-            self_invent_enabled=bool(flags.self_invent_enabled),
-            self_invent_on_evolve=bool(flags.self_invent_on_evolve),
-            self_invent_after_upload=bool(flags.self_invent_after_upload),
+            self_evolve_enabled=bool(control.self_evolve_enabled),
+            self_invent_enabled=bool(control.self_invent_enabled),
+            self_invent_on_evolve=bool(control.self_invent_on_evolve),
+            self_invent_after_upload=bool(control.self_invent_after_upload),
             jobs_enabled=jobs_enabled,
             trigger_mode=trigger_mode or "manual",
             automation_path="legacy_post_upload_compat",
             automation_label="Legacy after-upload compatibility",
             automation_enabled=bool(jobs_enabled),
             guardrail_reason="legacy_upload_compat",
+            control_source=control.source,
+            control_updated_at=control.updated_at,
+            control_updated_by=control.updated_by,
         )
 
-    if not flags.self_evolve_enabled:
+    if not control.self_evolve_enabled:
         return SelfEvolveGuardrailSummary(
             self_evolve_enabled=False,
-            self_invent_enabled=bool(flags.self_invent_enabled),
-            self_invent_on_evolve=bool(flags.self_invent_on_evolve),
-            self_invent_after_upload=bool(flags.self_invent_after_upload),
+            self_invent_enabled=bool(control.self_invent_enabled),
+            self_invent_on_evolve=bool(control.self_invent_on_evolve),
+            self_invent_after_upload=bool(control.self_invent_after_upload),
             jobs_enabled=jobs_enabled,
             trigger_mode=trigger_mode or "manual",
             automation_path="disabled",
             automation_label="Disabled",
             automation_enabled=False,
             guardrail_reason="self_evolve_disabled",
+            control_source=control.source,
+            control_updated_at=control.updated_at,
+            control_updated_by=control.updated_by,
         )
 
     if trigger_mode == "manual":
         return SelfEvolveGuardrailSummary(
             self_evolve_enabled=True,
-            self_invent_enabled=bool(flags.self_invent_enabled),
-            self_invent_on_evolve=bool(flags.self_invent_on_evolve),
-            self_invent_after_upload=bool(flags.self_invent_after_upload),
+            self_invent_enabled=bool(control.self_invent_enabled),
+            self_invent_on_evolve=bool(control.self_invent_on_evolve),
+            self_invent_after_upload=bool(control.self_invent_after_upload),
             jobs_enabled=jobs_enabled,
             trigger_mode=trigger_mode,
             automation_path="manual_only",
             automation_label="Manual only",
             automation_enabled=False,
             guardrail_reason="manual_mode",
+            control_source=control.source,
+            control_updated_at=control.updated_at,
+            control_updated_by=control.updated_by,
         )
 
     if trigger_mode == "post_upload":
         return SelfEvolveGuardrailSummary(
             self_evolve_enabled=True,
-            self_invent_enabled=bool(flags.self_invent_enabled),
-            self_invent_on_evolve=bool(flags.self_invent_on_evolve),
-            self_invent_after_upload=bool(flags.self_invent_after_upload),
+            self_invent_enabled=bool(control.self_invent_enabled),
+            self_invent_on_evolve=bool(control.self_invent_on_evolve),
+            self_invent_after_upload=bool(control.self_invent_after_upload),
             jobs_enabled=jobs_enabled,
             trigger_mode=trigger_mode,
             automation_path="post_upload_worker",
             automation_label="After upload",
             automation_enabled=bool(jobs_enabled),
             guardrail_reason="post_upload_worker",
+            control_source=control.source,
+            control_updated_at=control.updated_at,
+            control_updated_by=control.updated_by,
         )
 
     if trigger_mode == "periodic":
         return SelfEvolveGuardrailSummary(
             self_evolve_enabled=True,
-            self_invent_enabled=bool(flags.self_invent_enabled),
-            self_invent_on_evolve=bool(flags.self_invent_on_evolve),
-            self_invent_after_upload=bool(flags.self_invent_after_upload),
+            self_invent_enabled=bool(control.self_invent_enabled),
+            self_invent_on_evolve=bool(control.self_invent_on_evolve),
+            self_invent_after_upload=bool(control.self_invent_after_upload),
             jobs_enabled=jobs_enabled,
             trigger_mode=trigger_mode,
             automation_path="periodic_worker",
             automation_label="Periodic worker",
             automation_enabled=bool(jobs_enabled),
             guardrail_reason="periodic_worker",
+            control_source=control.source,
+            control_updated_at=control.updated_at,
+            control_updated_by=control.updated_by,
         )
 
     return SelfEvolveGuardrailSummary(
         self_evolve_enabled=True,
-        self_invent_enabled=bool(flags.self_invent_enabled),
-        self_invent_on_evolve=bool(flags.self_invent_on_evolve),
-        self_invent_after_upload=bool(flags.self_invent_after_upload),
+        self_invent_enabled=bool(control.self_invent_enabled),
+        self_invent_on_evolve=bool(control.self_invent_on_evolve),
+        self_invent_after_upload=bool(control.self_invent_after_upload),
         jobs_enabled=jobs_enabled,
         trigger_mode=trigger_mode,
         automation_path="hybrid_worker",
         automation_label="Upload + periodic",
         automation_enabled=bool(jobs_enabled),
         guardrail_reason="hybrid_worker",
+        control_source=control.source,
+        control_updated_at=control.updated_at,
+        control_updated_by=control.updated_by,
     )
 
 
@@ -273,28 +303,29 @@ def evaluate_self_evolve_due(
     update_seen_version: bool = False,
 ) -> SelfEvolveDueEvaluation:
     """Evaluate self-evolve due decision without enqueue side effects."""
-    flags = get_feature_flags()
-
     source_key = str(source or "").strip().lower() or "unknown"
-    trigger_mode = str(flags.self_evolve_trigger_mode or "").strip().lower()
+    state_repo = SelfEvolutionStateRepo(session=session, tenant_id=tenant_id)
+    control = state_repo.resolve_control_state(graph_id=graph_id, session=session)
+    trigger_mode = str(control.self_evolve_trigger_mode or "").strip().lower()
     legacy_storage_compat = (
         source_key == "storage_upload"
-        and flags.self_invent_enabled
-        and flags.self_invent_after_upload
+        and not control.self_evolve_enabled
+        and control.self_invent_enabled
+        and control.self_invent_after_upload
     )
 
-    if not flags.self_evolve_enabled and not legacy_storage_compat:
+    if not control.self_evolve_enabled and not legacy_storage_compat:
         return SelfEvolveDueEvaluation(
             is_due=False,
             reason="self_evolve_disabled",
             source=source_key,
             trigger_mode=trigger_mode,
-            self_evolve_enabled=bool(flags.self_evolve_enabled),
+            self_evolve_enabled=bool(control.self_evolve_enabled),
             jobs_enabled=_jobs_enabled(),
             source_allowed=False,
         )
 
-    if flags.self_evolve_enabled:
+    if control.self_evolve_enabled:
         if _is_write_trigger_source(source_key) and trigger_mode not in {
             "post_upload",
             "hybrid",
@@ -304,7 +335,7 @@ def evaluate_self_evolve_due(
                 reason=f"trigger_mode_not_write_triggered:{trigger_mode or 'unknown'}",
                 source=source_key,
                 trigger_mode=trigger_mode,
-                self_evolve_enabled=bool(flags.self_evolve_enabled),
+                self_evolve_enabled=bool(control.self_evolve_enabled),
                 jobs_enabled=_jobs_enabled(),
                 source_allowed=False,
             )
@@ -317,7 +348,7 @@ def evaluate_self_evolve_due(
                 reason=f"trigger_mode_not_periodic:{trigger_mode or 'unknown'}",
                 source=source_key,
                 trigger_mode=trigger_mode,
-                self_evolve_enabled=bool(flags.self_evolve_enabled),
+                self_evolve_enabled=bool(control.self_evolve_enabled),
                 jobs_enabled=_jobs_enabled(),
                 source_allowed=False,
             )
@@ -331,7 +362,7 @@ def evaluate_self_evolve_due(
                 reason=f"unsupported_source:{source_key}",
                 source=source_key,
                 trigger_mode=trigger_mode,
-                self_evolve_enabled=bool(flags.self_evolve_enabled),
+                self_evolve_enabled=bool(control.self_evolve_enabled),
                 jobs_enabled=_jobs_enabled(),
                 source_allowed=False,
             )
@@ -345,7 +376,7 @@ def evaluate_self_evolve_due(
             reason="jobs_disabled",
             source=source_key,
             trigger_mode=trigger_mode,
-            self_evolve_enabled=bool(flags.self_evolve_enabled),
+            self_evolve_enabled=bool(control.self_evolve_enabled),
             jobs_enabled=False,
             source_allowed=source_allowed,
         )
@@ -374,6 +405,7 @@ def evaluate_self_evolve_due(
             last_enqueued_job_id = None
 
     version_delta = current_version - last_evolved_version
+    flags = get_feature_flags()
     min_version_delta = int(flags.self_evolve_min_version_delta)
     if version_delta < min_version_delta:
         return SelfEvolveDueEvaluation(
@@ -381,7 +413,7 @@ def evaluate_self_evolve_due(
             reason=f"not_due_version_delta:{version_delta}<{min_version_delta}",
             source=source_key,
             trigger_mode=trigger_mode,
-            self_evolve_enabled=bool(flags.self_evolve_enabled),
+            self_evolve_enabled=bool(control.self_evolve_enabled),
             jobs_enabled=jobs_enabled,
             source_allowed=source_allowed,
             graph_version=current_version,
@@ -404,7 +436,7 @@ def evaluate_self_evolve_due(
                 reason=f"not_due_interval:{elapsed_seconds}<{min_interval_seconds}",
                 source=source_key,
                 trigger_mode=trigger_mode,
-                self_evolve_enabled=bool(flags.self_evolve_enabled),
+                self_evolve_enabled=bool(control.self_evolve_enabled),
                 jobs_enabled=jobs_enabled,
                 source_allowed=source_allowed,
                 graph_version=current_version,
@@ -429,7 +461,7 @@ def evaluate_self_evolve_due(
             reason="active_evolve_job_exists",
             source=source_key,
             trigger_mode=trigger_mode,
-            self_evolve_enabled=bool(flags.self_evolve_enabled),
+            self_evolve_enabled=bool(control.self_evolve_enabled),
             jobs_enabled=jobs_enabled,
             source_allowed=source_allowed,
             graph_version=current_version,
@@ -449,7 +481,7 @@ def evaluate_self_evolve_due(
         reason="due_enqueued",
         source=source_key,
         trigger_mode=trigger_mode,
-        self_evolve_enabled=bool(flags.self_evolve_enabled),
+        self_evolve_enabled=bool(control.self_evolve_enabled),
         jobs_enabled=jobs_enabled,
         source_allowed=source_allowed,
         graph_version=current_version,
@@ -623,18 +655,6 @@ def scan_and_enqueue_due_self_evolve_jobs(
     """Periodic autonomous scan for due graphs within one tenant."""
     flags = get_feature_flags()
     trigger_mode = str(flags.self_evolve_trigger_mode or "").strip().lower()
-
-    if not flags.self_evolve_enabled:
-        return SelfEvolveScanSummary(
-            tenant_id=tenant_id,
-            scanned_graphs=0,
-            enqueued=0,
-            existing=0,
-            skipped=0,
-            errors=0,
-            trigger_mode=trigger_mode,
-            reason="self_evolve_disabled",
-        )
     if not _jobs_enabled():
         return SelfEvolveScanSummary(
             tenant_id=tenant_id,
@@ -645,17 +665,6 @@ def scan_and_enqueue_due_self_evolve_jobs(
             errors=0,
             trigger_mode=trigger_mode,
             reason="jobs_disabled",
-        )
-    if trigger_mode not in {"periodic", "hybrid"}:
-        return SelfEvolveScanSummary(
-            tenant_id=tenant_id,
-            scanned_graphs=0,
-            enqueued=0,
-            existing=0,
-            skipped=0,
-            errors=0,
-            trigger_mode=trigger_mode,
-            reason=f"trigger_mode_not_periodic:{trigger_mode or 'unknown'}",
         )
 
     state_repo = SelfEvolutionStateRepo(session=session, tenant_id=tenant_id)
