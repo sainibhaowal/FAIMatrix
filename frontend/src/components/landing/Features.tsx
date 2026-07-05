@@ -12,9 +12,9 @@ const features = [
         <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
       </svg>
     ),
-    title: "Deterministic Semantic Routing",
+    title: "Native Semantic Matching",
     description:
-      "Instant classification of intent via a seeded alias map and fast dictionary lookups. Zero-latency routing into 8 cognitive tasks without the overhead or drift of LLMs.",
+      "FAIM now layers semantic phrase signatures, concept buckets, alias families, transliteration bridges, and relation/value/time cues around the deterministic core. The result is stronger fuzzy matching without turning the engine into a black-box ML system.",
     gradient: "from-cyan-500 to-blue-500",
     link: "/features/memory-engine",
   },
@@ -32,7 +32,7 @@ const features = [
     ),
     title: "Bounded Graph Reasoning",
     description:
-      "Trace evidence chains with bounded multi-hop diffusion. Visualize real-time reasoning pulses in the FIG View with 100% citation integrity and native interaction elasticity.",
+      "Trace evidence chains through a real planner-driven Cortex runtime. FAIM runs adaptive 1-24 hop reasoning by default, supports higher bounded ceilings up to 128 when configured, and visualizes exact path traces in FIG View with citation integrity preserved.",
     gradient: "from-purple-500 to-pink-500",
     link: "/features/knowledge-graph",
   },
@@ -53,7 +53,7 @@ const features = [
     ),
     title: "Document Intelligence",
     description:
-      "FAIM Native extractor handles multi-column PDFs, complex tables, scanned page OCR, DOCX, PPTX, XLSX, images, and code — zero ML dependencies, all deterministic.",
+      "FAIM Native extractor handles multi-column PDFs, complex tables, scanned page OCR when enabled, DOCX, PPTX, XLSX, images, and code — zero ML dependencies, all deterministic.",
     gradient: "from-orange-500 to-amber-500",
     link: "/features/document-intelligence",
   },
@@ -88,7 +88,7 @@ const features = [
     description:
       "Uploaded data teaches FAIM its own terminology, aliases, entities, and facts. No manual domain pack selection is required for the normal path.",
     gradient: "from-amber-500 to-orange-500",
-    link: "/dashboard/storage",
+    link: "/dashboard/domain",
   },
 ];
 

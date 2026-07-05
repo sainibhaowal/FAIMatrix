@@ -7,7 +7,7 @@ const CARDS = [
   {
     title: "Operational Docs",
     tag: "Deterministic Intel",
-    text: "Current state, storage lifecycle, and rollout notes are documented in one place. No hunting through scattered notes.",
+    text: "Current state, storage lifecycle, semantic-signature retrieval upgrades, rollout notes, and guardrailed autonomy controls are documented in one place. No hunting through scattered notes.",
     href: "/docs",
     cta: "Read Spec",
     accent: "cyan",
@@ -15,7 +15,7 @@ const CARDS = [
   {
     title: "FAIM Cortex",
     tag: "Memory synthesis",
-    text: "Bounded multi-hop reasoning with real-time neural pulse tracing and memory writeback proposals.",
+    text: "Planner-driven adaptive hop reasoning with real-time neural pulse tracing, exact traversal paths, and memory writeback proposals. Default bounded depth is 1-24 hops, configurable to 128.",
     href: "/dashboard/memory-query",
     cta: "Open Cortex",
     accent: "purple",
@@ -82,9 +82,10 @@ export default function DocsOperations() {
           </h2>
           <p className="mt-4 text-slate-400 max-w-3xl mx-auto text-lg">
             The public site now exposes the current FAIM system, the memory
-            synthesis layer, the autonomous domain-memory flow, and the
-            production deploy flow in one place so operators do not have to
-            hunt through scattered notes.
+            synthesis layer, the autonomous domain-memory flow, the new
+            semantic-signature retrieval layer, the guardrailed evolve
+            controls, and the production deploy flow in one place so operators
+            do not have to hunt through scattered notes.
           </p>
         </motion.div>
 

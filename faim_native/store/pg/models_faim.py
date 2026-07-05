@@ -533,6 +533,15 @@ class NodeRepresentationV2Model(Base):
     entity_tokens = Column(JSONBType, nullable=False, default=list)
     time_tokens = Column(JSONBType, nullable=False, default=list)
     layout_tokens = Column(JSONBType, nullable=False, default=list)
+    semantic_phrase_counts = Column(JSONBType, nullable=False, default=dict)
+    concept_counts = Column(JSONBType, nullable=False, default=dict)
+    morphology_counts = Column(JSONBType, nullable=False, default=dict)
+    alias_families = Column(JSONBType, nullable=False, default=list)
+    transliterated_tokens = Column(JSONBType, nullable=False, default=list)
+    stem_families = Column(JSONBType, nullable=False, default=list)
+    relation_cues = Column(JSONBType, nullable=False, default=list)
+    value_cues = Column(JSONBType, nullable=False, default=list)
+    temporal_cues = Column(JSONBType, nullable=False, default=list)
     channel_lengths = Column(JSONBType, nullable=False, default=dict)
     created_at = Column(
         DateTime(timezone=True),
@@ -559,6 +568,15 @@ class NodeRepresentationV2Model(Base):
             "entity_tokens": self.entity_tokens or [],
             "time_tokens": self.time_tokens or [],
             "layout_tokens": self.layout_tokens or [],
+            "semantic_phrase_counts": self.semantic_phrase_counts or {},
+            "concept_counts": self.concept_counts or {},
+            "morphology_counts": self.morphology_counts or {},
+            "alias_families": self.alias_families or [],
+            "transliterated_tokens": self.transliterated_tokens or [],
+            "stem_families": self.stem_families or [],
+            "relation_cues": self.relation_cues or [],
+            "value_cues": self.value_cues or [],
+            "temporal_cues": self.temporal_cues or [],
             "channel_lengths": self.channel_lengths or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -1023,6 +1041,30 @@ class SelfInventionStateModel(Base):
 
 
 # -----------------------------------------------------------------------------
+# Stage-J: Coactivation Ledger
+# -----------------------------------------------------------------------------
+
+
+class CoactivationModel(Base):
+    """Durable ledger of repeated co-activation sets used for invention."""
+
+    __tablename__ = "coactivations"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    signature = Column(String(64), primary_key=True)
+    members = Column(JSONBType, nullable=False, default=list)
+    coactivation_count = Column(Integer, nullable=False, default=1)
+    invented = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        server_default=text("CURRENT_TIMESTAMP"),
+    )
+
+
+# -----------------------------------------------------------------------------
 # Phase-S2: Self-Evolution Scheduler State
 # -----------------------------------------------------------------------------
 
@@ -1038,6 +1080,13 @@ class SelfEvolutionStateModel(Base):
     last_evolved_version = Column(BigInteger, nullable=False, default=0)
     last_evolved_at = Column(DateTime(timezone=True), nullable=True)
     last_enqueued_job_id = Column(UUIDType, nullable=True)
+    control_self_evolve_enabled = Column(Boolean, nullable=True)
+    control_self_evolve_trigger_mode = Column(String(32), nullable=True)
+    control_self_invent_enabled = Column(Boolean, nullable=True)
+    control_self_invent_on_evolve = Column(Boolean, nullable=True)
+    control_self_invent_after_upload = Column(Boolean, nullable=True)
+    control_updated_at = Column(DateTime(timezone=True), nullable=True)
+    control_updated_by = Column(String(255), nullable=True)
     updated_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -1331,3 +1380,31 @@ def _ensure_additive_compat_columns(engine) -> None:
                     "ADD COLUMN master_key_fingerprint TEXT NOT NULL DEFAULT ''"
                 )
             )
+
+    try:
+        self_evolution_columns = {
+            col["name"] for col in inspector.get_columns("self_evolution_state")
+        }
+    except Exception:
+        self_evolution_columns = set()
+
+    if self_evolution_columns:
+        additive_columns = {
+            "control_self_evolve_enabled": "BOOLEAN",
+            "control_self_evolve_trigger_mode": "TEXT",
+            "control_self_invent_enabled": "BOOLEAN",
+            "control_self_invent_on_evolve": "BOOLEAN",
+            "control_self_invent_after_upload": "BOOLEAN",
+            "control_updated_at": "TIMESTAMPTZ",
+            "control_updated_by": "TEXT",
+        }
+        with engine.begin() as conn:
+            for column_name, ddl_type in additive_columns.items():
+                if column_name in self_evolution_columns:
+                    continue
+                conn.execute(
+                    text(
+                        "ALTER TABLE self_evolution_state "
+                        f"ADD COLUMN {column_name} {ddl_type}"
+                    )
+                )

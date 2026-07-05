@@ -36,8 +36,23 @@ except (ImportError, RuntimeError):
     )
 
 
-CHANNELS: Tuple[str, ...] = ("word", "phrase", "skip", "entity", "time", "layout")
-BM25_CHANNELS: Tuple[str, ...] = ("word", "phrase", "skip")
+CHANNELS: Tuple[str, ...] = (
+    "word",
+    "phrase",
+    "skip",
+    "entity",
+    "time",
+    "layout",
+    "semantic_phrase",
+    "concept",
+    "morphology",
+    "alias",
+    "translit",
+    "stem_family",
+    "relation",
+    "value",
+    "temporal",
+)
 
 
 class RepresentationRepo:
@@ -81,6 +96,19 @@ class RepresentationRepo:
             existing.entity_tokens = list(representation.entity_tokens)
             existing.time_tokens = list(representation.time_tokens)
             existing.layout_tokens = list(representation.layout_tokens)
+            existing.semantic_phrase_counts = dict(
+                representation.semantic_phrase_counts or {}
+            )
+            existing.concept_counts = dict(representation.concept_counts or {})
+            existing.morphology_counts = dict(representation.morphology_counts or {})
+            existing.alias_families = list(representation.alias_families or ())
+            existing.transliterated_tokens = list(
+                representation.transliterated_tokens or ()
+            )
+            existing.stem_families = list(representation.stem_families or ())
+            existing.relation_cues = list(representation.relation_cues or ())
+            existing.value_cues = list(representation.value_cues or ())
+            existing.temporal_cues = list(representation.temporal_cues or ())
             existing.channel_lengths = dict(representation.channel_lengths)
             existing.updated_at = now
             self.session.flush()
@@ -99,6 +127,15 @@ class RepresentationRepo:
             entity_tokens=list(representation.entity_tokens),
             time_tokens=list(representation.time_tokens),
             layout_tokens=list(representation.layout_tokens),
+            semantic_phrase_counts=dict(representation.semantic_phrase_counts or {}),
+            concept_counts=dict(representation.concept_counts or {}),
+            morphology_counts=dict(representation.morphology_counts or {}),
+            alias_families=list(representation.alias_families or ()),
+            transliterated_tokens=list(representation.transliterated_tokens or ()),
+            stem_families=list(representation.stem_families or ()),
+            relation_cues=list(representation.relation_cues or ()),
+            value_cues=list(representation.value_cues or ()),
+            temporal_cues=list(representation.temporal_cues or ()),
             channel_lengths=dict(representation.channel_lengths),
             created_at=now,
             updated_at=now,
@@ -332,6 +369,17 @@ class RepresentationRepo:
             "entity": sorted(set(representation.entity_tokens)),
             "time": sorted(set(representation.time_tokens)),
             "layout": sorted(set(representation.layout_tokens)),
+            "semantic_phrase": sorted(
+                (representation.semantic_phrase_counts or {}).keys()
+            ),
+            "concept": sorted((representation.concept_counts or {}).keys()),
+            "morphology": sorted((representation.morphology_counts or {}).keys()),
+            "alias": sorted(set(representation.alias_families or ())),
+            "translit": sorted(set(representation.transliterated_tokens or ())),
+            "stem_family": sorted(set(representation.stem_families or ())),
+            "relation": sorted(set(representation.relation_cues or ())),
+            "value": sorted(set(representation.value_cues or ())),
+            "temporal": sorted(set(representation.temporal_cues or ())),
         }
 
     @staticmethod
@@ -346,6 +394,15 @@ class RepresentationRepo:
                 "entity_tokens": row.entity_tokens or [],
                 "time_tokens": row.time_tokens or [],
                 "layout_tokens": row.layout_tokens or [],
+                "semantic_phrase_counts": row.semantic_phrase_counts or {},
+                "concept_counts": row.concept_counts or {},
+                "morphology_counts": row.morphology_counts or {},
+                "alias_families": row.alias_families or [],
+                "transliterated_tokens": row.transliterated_tokens or [],
+                "stem_families": row.stem_families or [],
+                "relation_cues": row.relation_cues or [],
+                "value_cues": row.value_cues or [],
+                "temporal_cues": row.temporal_cues or [],
                 "channel_lengths": row.channel_lengths or {},
             }
         )

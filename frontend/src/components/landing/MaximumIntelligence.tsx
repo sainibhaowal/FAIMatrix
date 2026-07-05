@@ -42,11 +42,11 @@ const CAPABILITIES = [
     tag: "Feedback-driven improvement",
   },
   {
-    title: "Unified Knowledge Synthesis",
+    title: "FAIM-Native Semantic Power",
     icon: Globe,
     description:
-      "Connects insights across disparate documents and data sources. Identifies correlations, detects contradictions, and weaves scattered information into coherent understanding while graph-local domain memory grows automatically.",
-    tag: "Cross-document analysis",
+      "Additive semantic signatures strengthen phrase, concept, alias, transliteration, morphology, relation, value, and temporal matching around the deterministic core. This improves fuzzy retrieval while keeping the system explainable and graph-native.",
+    tag: "Native semantic channels",
   },
   {
     title: "Quality Intelligence",
@@ -117,8 +117,10 @@ export default function MaximumIntelligence() {
           </h2>
           <p className="text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed">
             FAIM Cortex goes beyond finding documents — it reasons across your
-            knowledge, learns from every interaction, and delivers answers you
-            can trust and verify.
+            knowledge, and delivers answers you can trust and verify. The
+            runtime stays deterministic, semantic enrichment remains additive
+            and inspectable, and any autonomy features stay explicit and
+            graph-scoped.
           </p>
         </motion.div>
 

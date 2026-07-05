@@ -63,3 +63,16 @@ class TestRepresentationV2Determinism:
         assert "inv-2026" in repr_v2.entity_tokens
         assert "date:2026-04-12" in repr_v2.time_tokens
         assert "year:2026" in repr_v2.time_tokens
+
+    def test_semantic_signature_channels_are_present(self):
+        repr_v2 = build_representation_v2(
+            "AI revenue increased 15% before 2026 after Berlin acquisition."
+        )
+
+        assert repr_v2.semantic_phrase_counts
+        assert repr_v2.concept_counts
+        assert repr_v2.morphology_counts
+        assert any(item.startswith("alias:ai|") for item in repr_v2.alias_families)
+        assert "relation:acquire" in repr_v2.relation_cues
+        assert "value:percent" in repr_v2.value_cues
+        assert "time:before" in repr_v2.temporal_cues
