@@ -16,6 +16,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 try:
     from faim.Faim_Native.core.contracts.types import BlockAnchor, EvidenceBlock
+    from faim.Faim_Native.encoding.semantic_signature import build_semantic_signature
     from faim.Faim_Native.encoding.text_vectorizer import normalize_text
 except (ImportError, RuntimeError):
     _parent = Path(__file__).parent.parent
@@ -23,6 +24,7 @@ except (ImportError, RuntimeError):
         sys.path.insert(0, str(_parent))
     from core.contracts.types import BlockAnchor, EvidenceBlock
 
+    from encoding.semantic_signature import build_semantic_signature
     from encoding.text_vectorizer import normalize_text
 
 
@@ -58,6 +60,15 @@ class RepresentationV2:
     time_tokens: Tuple[str, ...]
     layout_tokens: Tuple[str, ...]
     channel_lengths: Dict[str, int]
+    semantic_phrase_counts: Dict[str, int] | None = None
+    concept_counts: Dict[str, int] | None = None
+    morphology_counts: Dict[str, int] | None = None
+    alias_families: Tuple[str, ...] = ()
+    transliterated_tokens: Tuple[str, ...] = ()
+    stem_families: Tuple[str, ...] = ()
+    relation_cues: Tuple[str, ...] = ()
+    value_cues: Tuple[str, ...] = ()
+    temporal_cues: Tuple[str, ...] = ()
 
     def to_dict(self) -> Dict[str, object]:
         """Convert to JSON-safe dict."""
@@ -71,6 +82,15 @@ class RepresentationV2:
             "time_tokens": list(self.time_tokens),
             "layout_tokens": list(self.layout_tokens),
             "channel_lengths": dict(self.channel_lengths),
+            "semantic_phrase_counts": dict(self.semantic_phrase_counts or {}),
+            "concept_counts": dict(self.concept_counts or {}),
+            "morphology_counts": dict(self.morphology_counts or {}),
+            "alias_families": list(self.alias_families),
+            "transliterated_tokens": list(self.transliterated_tokens),
+            "stem_families": list(self.stem_families),
+            "relation_cues": list(self.relation_cues),
+            "value_cues": list(self.value_cues),
+            "temporal_cues": list(self.temporal_cues),
         }
 
     @classmethod
@@ -90,6 +110,26 @@ class RepresentationV2:
             channel_lengths={
                 str(k): int(v) for k, v in dict(data.get("channel_lengths", {})).items()  # type: ignore[call-overload]
             },
+            semantic_phrase_counts={
+                str(k): int(v)
+                for k, v in dict(data.get("semantic_phrase_counts", {})).items()  # type: ignore[call-overload]
+            },
+            concept_counts={
+                str(k): int(v)
+                for k, v in dict(data.get("concept_counts", {})).items()  # type: ignore[call-overload]
+            },
+            morphology_counts={
+                str(k): int(v)
+                for k, v in dict(data.get("morphology_counts", {})).items()  # type: ignore[call-overload]
+            },
+            alias_families=tuple(str(x) for x in list(data.get("alias_families", []))),  # type: ignore[call-overload]
+            transliterated_tokens=tuple(
+                str(x) for x in list(data.get("transliterated_tokens", []))  # type: ignore[call-overload]
+            ),
+            stem_families=tuple(str(x) for x in list(data.get("stem_families", []))),  # type: ignore[call-overload]
+            relation_cues=tuple(str(x) for x in list(data.get("relation_cues", []))),  # type: ignore[call-overload]
+            value_cues=tuple(str(x) for x in list(data.get("value_cues", []))),  # type: ignore[call-overload]
+            temporal_cues=tuple(str(x) for x in list(data.get("temporal_cues", []))),  # type: ignore[call-overload]
         )
 
 
@@ -214,6 +254,7 @@ def build_representation_v2(
     entity_tokens = _extract_entity_tokens(text)
     time_tokens = _extract_time_tokens(text)
     layout_tokens = _extract_layout_tokens(block_type, anchor)
+    semantic_signature = build_semantic_signature(text)
 
     # Store original readable text for LLM answer synthesis.
     # Matching channels (word_counts etc.) use the processed form above.
@@ -227,6 +268,15 @@ def build_representation_v2(
         "entity": len(entity_tokens),
         "time": len(time_tokens),
         "layout": len(layout_tokens),
+        "semantic_phrase": sum((semantic_signature.semantic_phrase_counts or {}).values()),
+        "concept": sum((semantic_signature.concept_counts or {}).values()),
+        "morphology": sum((semantic_signature.morphology_counts or {}).values()),
+        "alias": len(semantic_signature.alias_families),
+        "translit": len(semantic_signature.transliterated_tokens),
+        "stem_family": len(semantic_signature.stem_families),
+        "relation": len(semantic_signature.relation_cues),
+        "value": len(semantic_signature.value_cues),
+        "temporal": len(semantic_signature.temporal_cues),
     }
 
     canonical = {
@@ -238,6 +288,15 @@ def build_representation_v2(
         "time_tokens": list(time_tokens),
         "layout_tokens": list(layout_tokens),
         "channel_lengths": channel_lengths,
+        "semantic_phrase_counts": dict(semantic_signature.semantic_phrase_counts),
+        "concept_counts": dict(semantic_signature.concept_counts),
+        "morphology_counts": dict(semantic_signature.morphology_counts),
+        "alias_families": list(semantic_signature.alias_families),
+        "transliterated_tokens": list(semantic_signature.transliterated_tokens),
+        "stem_families": list(semantic_signature.stem_families),
+        "relation_cues": list(semantic_signature.relation_cues),
+        "value_cues": list(semantic_signature.value_cues),
+        "temporal_cues": list(semantic_signature.temporal_cues),
     }
 
     return RepresentationV2(
@@ -250,6 +309,15 @@ def build_representation_v2(
         time_tokens=time_tokens,
         layout_tokens=layout_tokens,
         channel_lengths=channel_lengths,
+        semantic_phrase_counts=dict(semantic_signature.semantic_phrase_counts),
+        concept_counts=dict(semantic_signature.concept_counts),
+        morphology_counts=dict(semantic_signature.morphology_counts),
+        alias_families=semantic_signature.alias_families,
+        transliterated_tokens=semantic_signature.transliterated_tokens,
+        stem_families=semantic_signature.stem_families,
+        relation_cues=semantic_signature.relation_cues,
+        value_cues=semantic_signature.value_cues,
+        temporal_cues=semantic_signature.temporal_cues,
     )
 
 

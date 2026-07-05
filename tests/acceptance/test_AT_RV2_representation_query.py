@@ -80,7 +80,7 @@ def test_representation_v2_persists_and_affects_query_scores():
             session.query(GraphRepresentationStatsModel)
             .filter_by(tenant_id=tenant_id, graph_id=graph_id)
             .count()
-            == 6
+            == 15
         )
 
         with patch.dict(os.environ, {"FAIM_REPR_V2_ENABLED": "true"}):
@@ -99,6 +99,11 @@ def test_representation_v2_persists_and_affects_query_scores():
         assert result.results
         assert any(
             item["score_components"].get("lex", 0.0) > 0.0 for item in result.results
+        )
+        assert any(
+            item["score_components"].get("lex_semantic_phrase", 0.0) > 0.0
+            or item["score_components"].get("lex_concept", 0.0) > 0.0
+            for item in result.results
         )
     finally:
         session.close()

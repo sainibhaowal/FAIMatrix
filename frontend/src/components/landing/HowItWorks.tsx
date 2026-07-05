@@ -7,8 +7,8 @@ const PIPELINE_STEPS = [
     number: "01",
     title: "Ingest",
     description:
-      "Raw documents enter deterministic extraction. FAIM produces evidence blocks, native 256-dimensional vectors, and additive sidecars for lexical, structural, and multimodal features.",
-    detail: "extract -> packetize -> encode -> sidecars",
+      "Raw documents enter deterministic extraction. FAIM produces evidence blocks, native 256-dimensional vectors, and additive sidecars for lexical, structural, multimodal, and semantic-signature features.",
+    detail: "extract -> packetize -> encode -> lexical/semantic sidecars",
     gradient: "from-cyan-500 to-blue-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -59,8 +59,8 @@ const PIPELINE_STEPS = [
     number: "05",
     title: "Retrieve",
     description:
-      "Queries combine dense native vectors with bounded graph reasoning. FAIM traverses evidence chains to find grounded answers across disparate documents.",
-    detail: "sparse + dense shortlist -> bounded expansion -> reranker v2",
+      "Queries combine the canonical native vector with additive lexical-semantic sidecars, graph expansion, and deterministic reranking. Cortex can keep simple turns shallow, then deepen into bounded 1-24 hop evidence walks by default, or higher bounded ceilings when configured for advanced deployments.",
+    detail: "v_native + semantic sidecars -> adaptive hop planning -> bounded expansion -> reranker v2",
     gradient: "from-pink-500 to-orange-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -72,8 +72,8 @@ const PIPELINE_STEPS = [
     number: "06",
     title: "Answer",
     description:
-      "Top evidence is turned into a deterministic answer with full provenance. Cortex generates memory proposals for your review before any persistence.",
-    detail: "span selection -> citation-first answer -> proposals review",
+      "Top evidence is turned into a deterministic answer with full provenance. Cortex persists structured reasoning state, exact traversal-path metadata when available, and memory proposals for your review before any persistence.",
+    detail: "span selection -> traversal branch -> citation-first answer -> proposals review",
     gradient: "from-emerald-500 to-cyan-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
