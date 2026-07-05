@@ -18,7 +18,7 @@ const EVOLUTION_PHASES = [
       { label: "Energy E", value: "1.41", status: "normal" },
     ],
     description:
-      "Engine reads the graph's vital signs. High \u039B (0.72) and high redundancy (0.54) signal: this graph needs to evolve.",
+      "Engine reads the graph's vital signs. High \u039B (0.72) and high redundancy (0.54) signal that an enabled evolve run may be useful.",
   },
   {
     id: "adapt",
@@ -32,7 +32,7 @@ const EVOLUTION_PHASES = [
       { label: "Prune Policy", value: "aggressive", status: "active" },
     ],
     description:
-      "High redundancy (R=0.54) triggers aggressive mode. Merge threshold drops from 0.95 to 0.88 \u2014 more pairs become merge candidates.",
+      "High redundancy (R=0.54) can lower the effective merge threshold during an enabled evolve run. More pairs become merge candidates.",
   },
   {
     id: "merge",
@@ -74,7 +74,7 @@ const EVOLUTION_PHASES = [
       { label: "Redundancy Reduced", value: "12%", status: "normal" },
     ],
     description:
-      "4 node groups repeatedly co-activate across documents. 2 qualify for macro-node invention. New level-2 nodes created as semantic summaries. The graph just invented its own concepts.",
+      "4 node groups repeatedly co-activate across documents. 2 qualify for macro-node invention when self-invent is enabled. New level-2 nodes are proposed as semantic summaries.",
   },
   {
     id: "verify",
@@ -173,18 +173,20 @@ export default function EvolutionShowcase() {
           className="text-center mb-16"
         >
           <span className="text-emerald-400 text-sm font-medium tracking-wider uppercase">
-            Self-Evolution & Self-Invention
+            Guardrailed Self-Evolution & Self-Invention
           </span>
           <h2 className="mt-4 text-4xl md:text-5xl font-bold text-white">
             The Graph That{" "}
             <span className="bg-gradient-to-r from-emerald-400 via-cyan-400 to-purple-400 bg-clip-text text-transparent">
-              Thinks For Itself
+              Evolves Under Explicit Control
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            No human intervention. The engine monitors its own fractal
-            diagnostics, adapts thresholds, merges redundancy, prunes dead
-            weight, and invents new concepts.
+            FAIM monitors graph diagnostics, and when autonomy is enabled it
+            can run evolve cycles through the approved scheduler or worker
+            path. That means thresholds can adapt, redundancy can merge, dead
+            weight can be pruned, and macro concepts can be proposed without
+            pretending the system is self-driving by default.
           </p>
         </motion.div>
 

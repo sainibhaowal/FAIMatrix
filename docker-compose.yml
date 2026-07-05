@@ -128,9 +128,6 @@ services:
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       TENANT_KEYS_JSON: ${TENANT_KEYS_JSON:-{}}
       ADMIN_KEYS_JSON: ${ADMIN_KEYS_JSON:-{}}
-      FAIM_ADMIN_KEY: ${FAIM_ADMIN_KEY:-}
-      FAIM_ADMIN_EMAIL: ${FAIM_ADMIN_EMAIL:-}
-      FAIM_ADMIN_EMAILS_JSON: ${FAIM_ADMIN_EMAILS_JSON:-[]}
 
       # Acceleration (enabled only with --profile accel)
       FAIM_ENABLE_CACHE: ${FAIM_ENABLE_CACHE:-false}
@@ -248,7 +245,6 @@ services:
       - API_HOST=faim-api:8000
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
       - NEXTAUTH_URL=${NEXTAUTH_URL:-https://faimatrix.localhost:8443}
-      - FAIM_ADMIN_EMAILS_JSON=${FAIM_ADMIN_EMAILS_JSON:-[]}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

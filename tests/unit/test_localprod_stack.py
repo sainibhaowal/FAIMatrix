@@ -13,9 +13,7 @@ def test_localprod_compose_includes_caddy_and_local_ports():
     assert "8080:80" in content
     assert "FAIM_PUBLIC_ORIGIN:" in content and "https://faimatrix.localhost:8443" in content
     assert "NEXTAUTH_URL:" in content and "https://faimatrix.localhost:8443" in content
-    assert "FAIM_ADMIN_KEY" in content
     assert "RESEND_API_KEY" in content
-    assert "FAIM_ADMIN_EMAILS_JSON" in content
 
 
 def test_localprod_caddy_routes_backend_health_and_frontend():

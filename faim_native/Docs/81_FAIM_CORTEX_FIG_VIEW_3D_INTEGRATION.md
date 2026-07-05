@@ -20,14 +20,14 @@ sequenceDiagram
     participant Canvas as 3D FigCanvas (Three.js)
 
     User->>FE: Submits query ("What is the current release date?")
-    FE->>API: POST /api/v1/cortex/turn (query_text, answer_mode, think_enabled)
+    FE->>API: POST /api/v1/cortex/turn (query_text, answer_mode; Cortex thinking is backend-default)
     API->>CE: run_cortex_turn(...)
     CE->>QE: run_query(...) with IWQE + Deterministic Rerank
     QE->>DB: Fetch nodes/edges (optimized indexes)
     DB-->>QE: Return vector matches + inheritance/opposition paths
     QE->>QE: Evaluate 2-hop temporal contradictions (TCT)
     QE-->>CE: Structured QueryResult (with temporal_status & lineage)
-    CE->>CE: Run parallel reasoning branches (Reduce State)
+    CE->>CE: Run enhanced planner + parallel reasoning branches (Reduce State)
     CE->>DB: Commit transaction / Save turn history
     CE-->>API: CortexTurnResponse (brain_state, narrative, evidence_nodes)
     API-->>FE: HTTP 200 (CortexTurnResponse JSON)

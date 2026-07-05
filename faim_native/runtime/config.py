@@ -219,6 +219,10 @@ class FAIMConfig:
             errors.append(
                 "FAIM_STORAGE_HARD_DELETE_ENABLED requires FAIM_ENABLE_JOBS=true"
             )
+        if self.self_invent_after_upload and not self.enable_jobs:
+            errors.append(
+                "FAIM_SELF_INVENT_AFTER_UPLOAD requires FAIM_ENABLE_JOBS=true"
+            )
 
         env = os.environ.get("FAIM_ENV", "").strip().lower()
         encryption_enabled = parse_bool_env("FAIM_ENCRYPTION_AT_REST", False)

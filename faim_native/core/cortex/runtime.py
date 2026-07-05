@@ -30,6 +30,26 @@ def _classify(query_text: str, answer_mode: str, confidence: float) -> PlannedTu
     )
 
 
+def _adaptive_query_graph_options(planned) -> Dict[str, Any]:
+    """Map a planned turn into bounded retrieval options.
+
+    Retrieval stays more conservative than the full reasoning branch, but it
+    now scales with the real planned hop budget instead of being hardcoded.
+    """
+    max_hops = int(max(1, getattr(planned, "max_hops", 1) or 1))
+    constraints = getattr(planned, "constraints", None)
+    branching = int(
+        max(4, min(24, getattr(constraints, "max_branching_factor", 8) or 8))
+    )
+    return {
+        "graph_max_hops": max_hops,
+        "graph_max_neighbors": branching,
+        "graph_diffusion_steps": max(3, min(max_hops, 12)),
+        "graph_decay": 0.62 if max_hops >= 8 else 0.6,
+        "graph_alpha": 0.18 if max_hops >= 8 else 0.2,
+    }
+
+
 def _answer_packet_from_result(query_text: str, result) -> Dict[str, Any]:
     answer_dict = result.answer or {}
     if not answer_dict:
@@ -71,7 +91,7 @@ async def run_cortex_turn(
     answer_mode: str = "direct",
     session_id: Optional[str] = None,
     return_explain: bool = True,
-    think_enabled: bool = False,
+    think_enabled: bool = True,
 ) -> CortexTurnResponse:
     """Execute one Cortex turn.
 
@@ -83,14 +103,40 @@ async def run_cortex_turn(
     - return a narration-ready answer packet
     """
 
-    # Phase 2: think_enabled routes through the EnhancedPlanner (multi-hop + decomposition).
-    # The default path (think_enabled=False) is completely unchanged.
+    # Cortex thinking is a backend capability now, not a user-visible toggle.
+    # Old clients may still send think_enabled=false; keep accepting the field
+    # but route every turn through the enhanced planner and bounded traversal.
+    effective_think_enabled = True
 
     import time
 
     start = time.perf_counter()
     answer_mode = _normalize_mode(answer_mode)
     turn_id = uuid4().hex
+    initial_planned = None
+
+    if effective_think_enabled:
+        try:
+            from core.cortex.planner_enhanced import plan_turn_enhanced
+
+            initial_planned = plan_turn_enhanced(
+                query_text=query_text,
+                answer_mode=answer_mode,
+                confidence=0.0,
+                enable_multi_hop=True,
+            )
+        except Exception:
+            initial_planned = _classify(
+                query_text=query_text,
+                answer_mode=answer_mode,
+                confidence=0.0,
+            )
+
+    query_options = (
+        _adaptive_query_graph_options(initial_planned)
+        if initial_planned is not None
+        else {}
+    )
 
     query_result = run_query(
         session=session,
@@ -102,6 +148,7 @@ async def run_cortex_turn(
         return_explain=return_explain,
         index=None,
         cache=None,
+        **query_options,
     )
 
     effective_session_id = session_id or turn_id
@@ -120,7 +167,7 @@ async def run_cortex_turn(
     )
 
     answer_packet = _answer_packet_from_result(query_text, query_result)
-    if think_enabled:
+    if effective_think_enabled:
         try:
             from core.cortex.planner_enhanced import plan_turn_enhanced
 
@@ -145,12 +192,20 @@ async def run_cortex_turn(
         )
 
     branch_state = {
+        "session": session,
         "tenant_id": tenant_id,
         "graph_id": graph_id,
         "query_text": query_text,
         "answer_packet": answer_packet,
         "results": query_result.results,
         "planned_task_type": planned.task_type.value,
+        "planned_enable_multi_hop": bool(getattr(planned, "enable_multi_hop", False)),
+        "planned_max_hops": int(getattr(planned, "max_hops", 1) or 1),
+        "planned_traversal_goal": str(getattr(planned, "traversal_goal", "") or ""),
+        "planned_constraints": getattr(planned, "constraints", None),
+        "planned_min_source_reliability": float(
+            getattr(planned, "min_source_reliability", 0.1) or 0.1
+        ),
         "recent_turns": recent_turns,
         "session_summary": session_summary.model_dump() if session_summary else None,
     }

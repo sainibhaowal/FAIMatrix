@@ -41,6 +41,25 @@ class SelfEvolutionDueGraph:
     last_enqueued_job_id: Optional[str]
 
 
+@dataclass(frozen=True)
+class SelfEvolutionControlState:
+    """Resolved graph-scoped self-evolution control state."""
+
+    self_evolve_enabled: bool
+    self_evolve_trigger_mode: str
+    self_invent_enabled: bool
+    self_invent_on_evolve: bool
+    self_invent_after_upload: bool
+    source: str
+    updated_at: Optional[datetime]
+    updated_by: Optional[str]
+    override_self_evolve_enabled: Optional[bool]
+    override_self_evolve_trigger_mode: Optional[str]
+    override_self_invent_enabled: Optional[bool]
+    override_self_invent_on_evolve: Optional[bool]
+    override_self_invent_after_upload: Optional[bool]
+
+
 class SelfEvolutionStateRepo:
     """Repository for durable self-evolution scheduler state."""
 
@@ -74,6 +93,146 @@ class SelfEvolutionStateRepo:
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
         return value
+
+    @staticmethod
+    def _default_trigger_mode() -> str:
+        try:
+            from runtime.feature_flags import get_feature_flags
+
+            flags = get_feature_flags()
+            value = str(flags.self_evolve_trigger_mode or "").strip().lower()
+            if value in {"manual", "post_upload", "periodic", "hybrid"}:
+                return value
+        except Exception:  # nosec B110
+            pass
+        return "manual"
+
+    @staticmethod
+    def _default_bool(value: Optional[bool], fallback: bool) -> bool:
+        if value is None:
+            return bool(fallback)
+        return bool(value)
+
+    def resolve_control_state(
+        self,
+        graph_id: str,
+        session: Optional[Session] = None,
+    ) -> SelfEvolutionControlState:
+        """Resolve the effective control state for one graph."""
+        sess = self._resolve_session(session)
+        row = self.get_or_create(graph_id=graph_id, session=sess)
+
+        try:
+            from runtime.feature_flags import get_feature_flags
+
+            flags = get_feature_flags()
+        except Exception:  # nosec B110
+            flags = None
+
+        default_self_evolve_enabled = bool(
+            getattr(flags, "self_evolve_enabled", False) if flags else False
+        )
+        default_trigger_mode = self._default_trigger_mode()
+        default_self_invent_enabled = bool(
+            getattr(flags, "self_invent_enabled", False) if flags else False
+        )
+        default_self_invent_on_evolve = bool(
+            getattr(flags, "self_invent_on_evolve", True) if flags else True
+        )
+        default_self_invent_after_upload = bool(
+            getattr(flags, "self_invent_after_upload", False) if flags else False
+        )
+
+        trigger_mode = str(
+            getattr(row, "control_self_evolve_trigger_mode", "") or ""
+        ).strip().lower()
+        if trigger_mode not in {"manual", "post_upload", "periodic", "hybrid"}:
+            trigger_mode = default_trigger_mode
+
+        return SelfEvolutionControlState(
+            self_evolve_enabled=self._default_bool(
+                getattr(row, "control_self_evolve_enabled", None),
+                default_self_evolve_enabled,
+            ),
+            self_evolve_trigger_mode=trigger_mode,
+            self_invent_enabled=self._default_bool(
+                getattr(row, "control_self_invent_enabled", None),
+                default_self_invent_enabled,
+            ),
+            self_invent_on_evolve=self._default_bool(
+                getattr(row, "control_self_invent_on_evolve", None),
+                default_self_invent_on_evolve,
+            ),
+            self_invent_after_upload=self._default_bool(
+                getattr(row, "control_self_invent_after_upload", None),
+                default_self_invent_after_upload,
+            ),
+            source="db_override" if any(
+                value is not None
+                for value in (
+                    getattr(row, "control_self_evolve_enabled", None),
+                    getattr(row, "control_self_evolve_trigger_mode", None),
+                    getattr(row, "control_self_invent_enabled", None),
+                    getattr(row, "control_self_invent_on_evolve", None),
+                    getattr(row, "control_self_invent_after_upload", None),
+                )
+            )
+            else "runtime_default",
+            updated_at=self._normalize_dt(getattr(row, "control_updated_at", None)),
+            updated_by=(
+                str(getattr(row, "control_updated_by", "")).strip() or None
+            ),
+            override_self_evolve_enabled=getattr(
+                row, "control_self_evolve_enabled", None
+            ),
+            override_self_evolve_trigger_mode=(
+                str(getattr(row, "control_self_evolve_trigger_mode", "")).strip()
+                or None
+            ),
+            override_self_invent_enabled=getattr(
+                row, "control_self_invent_enabled", None
+            ),
+            override_self_invent_on_evolve=getattr(
+                row, "control_self_invent_on_evolve", None
+            ),
+            override_self_invent_after_upload=getattr(
+                row, "control_self_invent_after_upload", None
+            ),
+        )
+
+    def update_control_state(
+        self,
+        graph_id: str,
+        *,
+        self_evolve_enabled: Optional[bool] = None,
+        self_evolve_trigger_mode: Optional[str] = None,
+        self_invent_enabled: Optional[bool] = None,
+        self_invent_on_evolve: Optional[bool] = None,
+        self_invent_after_upload: Optional[bool] = None,
+        updated_by: Optional[str] = None,
+        session: Optional[Session] = None,
+    ) -> SelfEvolutionStateModel:
+        """Persist graph-scoped control overrides."""
+        sess = self._resolve_session(session)
+        row = self.get_or_create(graph_id=graph_id, session=sess)
+
+        if self_evolve_enabled is not None:
+            row.control_self_evolve_enabled = bool(self_evolve_enabled)
+        if self_evolve_trigger_mode is not None:
+            value = str(self_evolve_trigger_mode or "").strip().lower()
+            row.control_self_evolve_trigger_mode = value or None
+        if self_invent_enabled is not None:
+            row.control_self_invent_enabled = bool(self_invent_enabled)
+        if self_invent_on_evolve is not None:
+            row.control_self_invent_on_evolve = bool(self_invent_on_evolve)
+        if self_invent_after_upload is not None:
+            row.control_self_invent_after_upload = bool(self_invent_after_upload)
+
+        row.control_updated_at = datetime.now(timezone.utc)
+        row.control_updated_by = str(updated_by or "").strip() or None
+        row.updated_at = datetime.now(timezone.utc)
+        sess.flush()
+        return row
 
     def get(
         self,
@@ -285,4 +444,8 @@ class SelfEvolutionStateRepo:
         return due[:max_items]
 
 
-__all__ = ["SelfEvolutionDueGraph", "SelfEvolutionStateRepo"]
+__all__ = [
+    "SelfEvolutionControlState",
+    "SelfEvolutionDueGraph",
+    "SelfEvolutionStateRepo",
+]

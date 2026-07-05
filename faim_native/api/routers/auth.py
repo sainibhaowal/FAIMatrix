@@ -586,15 +586,10 @@ async def request_otp(body: OTPRequestBody, request: Request):
         user = repo.get_by_email(email)
 
         if mode == "login" and not user:
-            # Check for "Soft Migration": Is this the user whose email matches FAIM_ADMIN_EMAIL?
-            admin_email = os.getenv("FAIM_ADMIN_EMAIL")
-            if admin_email and email == admin_email.lower().strip():
-                logger.info(f"Admin auto-migration path for {email}")
-            else:
-                logger.warning(f"Login attempt for unregistered email: {email}")
-                raise HTTPException(
-                    status_code=404, detail="Account not found. Please sign up first."
-                )
+            logger.warning(f"Login attempt for unregistered email: {email}")
+            raise HTTPException(
+                status_code=404, detail="Account not found. Please sign up first."
+            )
 
         if mode == "signup" and user:
             logger.warning(f"Signup attempt for existing user: {email}")

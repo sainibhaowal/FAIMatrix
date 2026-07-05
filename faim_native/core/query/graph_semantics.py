@@ -60,6 +60,8 @@ def build_graph_semantic_scores(
     decay: float = 0.6,
     alpha: float = 0.2,
     steps: int = 3,
+    max_frontier: Optional[int] = None,
+    max_total_nodes: Optional[int] = None,
 ) -> Tuple[
     List[UUID], Dict[UUID, Dict[str, float]], Dict[UUID, List[Dict[str, object]]]
 ]:
@@ -69,6 +71,9 @@ def build_graph_semantic_scores(
 
     visited: Set[UUID] = set(base_candidate_ids) | set(seed_scores)
     frontier: Set[UUID] = set(seed_scores)
+    frontier_scores: Dict[UUID, float] = {
+        node_id: float(score) for node_id, score in seed_scores.items()
+    }
     supportive_adj: Dict[UUID, List[Tuple[UUID, float]]] = defaultdict(list)
     contradictions: Dict[UUID, List[Tuple[UUID, float]]] = defaultdict(list)
     path_sources: Dict[UUID, List[Dict[str, object]]] = defaultdict(list)
@@ -78,6 +83,11 @@ def build_graph_semantic_scores(
     supportive_kinds = set(allowed_kinds)
     supportive_kinds.discard("opposition")
     fetch_kinds = supportive_kinds | {"opposition"}
+    effective_max_frontier = max_frontier or max(32, max_neighbors * 8)
+    effective_max_total_nodes = max_total_nodes or max(
+        len(visited) + 64,
+        effective_max_frontier * max(max_hops, 1) * 4,
+    )
 
     for _hop in range(1, max_hops + 1):
         if not frontier:
@@ -102,6 +112,7 @@ def build_graph_semantic_scores(
             node_times[node.node_id] = _utc(node.created_at)
 
         next_frontier: Set[UUID] = set()
+        next_frontier_scores: Dict[UUID, float] = {}
         for edge in edges:
             weight = _edge_weight(edge)
             if weight <= 0.0:
@@ -126,6 +137,8 @@ def build_graph_semantic_scores(
                 if current not in frontier:
                     continue
                 if neighbor in suppressed_nodes:
+                    continue
+                if len(visited) >= effective_max_total_nodes and neighbor not in visited:
                     continue
 
                 # Temporal contradiction suppression: if neighbor opposes an already-visited
@@ -153,11 +166,26 @@ def build_graph_semantic_scores(
                         "hop": _hop,
                     }
                 )
+                propagated_score = frontier_scores.get(current, 0.0) * weight * decay
+                next_frontier_scores[neighbor] = max(
+                    propagated_score,
+                    next_frontier_scores.get(neighbor, 0.0),
+                )
                 if neighbor not in visited:
                     next_frontier.add(neighbor)
                     visited.add(neighbor)
 
-        frontier = set(sorted(next_frontier, key=str))
+        ordered_frontier = sorted(
+            next_frontier,
+            key=lambda node_id: (
+                -float(next_frontier_scores.get(node_id, 0.0)),
+                str(node_id),
+            ),
+        )[:effective_max_frontier]
+        frontier = set(ordered_frontier)
+        frontier_scores = {
+            node_id: next_frontier_scores.get(node_id, 0.0) for node_id in ordered_frontier
+        }
 
     # Normalize deterministic adjacency ordering + fanout caps.
     normalized_adj: Dict[UUID, List[Tuple[UUID, float]]] = {}
