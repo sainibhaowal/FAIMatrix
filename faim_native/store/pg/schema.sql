@@ -149,6 +149,15 @@ CREATE TABLE IF NOT EXISTS node_repr_v2 (
     entity_tokens JSONB NOT NULL DEFAULT '[]',
     time_tokens JSONB NOT NULL DEFAULT '[]',
     layout_tokens JSONB NOT NULL DEFAULT '[]',
+    semantic_phrase_counts JSONB NOT NULL DEFAULT '{}',
+    concept_counts JSONB NOT NULL DEFAULT '{}',
+    morphology_counts JSONB NOT NULL DEFAULT '{}',
+    alias_families JSONB NOT NULL DEFAULT '[]',
+    transliterated_tokens JSONB NOT NULL DEFAULT '[]',
+    stem_families JSONB NOT NULL DEFAULT '[]',
+    relation_cues JSONB NOT NULL DEFAULT '[]',
+    value_cues JSONB NOT NULL DEFAULT '[]',
+    temporal_cues JSONB NOT NULL DEFAULT '[]',
     channel_lengths JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -419,6 +428,15 @@ COMMENT ON COLUMN nodes.kind IS 'Node type: atom (level 0) or macro (level > 0)'
 COMMENT ON COLUMN nodes.v_native IS 'FAIM-native vector (256 dimensions)';
 COMMENT ON COLUMN node_repr_v2.repr_hash IS 'SHA256 of canonical Representation V2 sparse channels';
 COMMENT ON COLUMN node_repr_v2.normalized_text IS 'Deterministic normalized lexical text for explainable reranking';
+COMMENT ON COLUMN node_repr_v2.semantic_phrase_counts IS 'Hashed semantic phrase and skip-phrase buckets for FAIM-native semantic matching';
+COMMENT ON COLUMN node_repr_v2.concept_counts IS 'Hashed concept-family buckets derived from deterministic concept-key expansion';
+COMMENT ON COLUMN node_repr_v2.morphology_counts IS 'Hashed morphology buckets derived from prefix, suffix, shape, and stem-family signals';
+COMMENT ON COLUMN node_repr_v2.alias_families IS 'Deterministic alias-family tuples such as llm|large_language_model';
+COMMENT ON COLUMN node_repr_v2.transliterated_tokens IS 'Cross-lingual transliteration tokens for lexical bridging';
+COMMENT ON COLUMN node_repr_v2.stem_families IS 'Stem-family tuples preserving morphology-level lexical similarity';
+COMMENT ON COLUMN node_repr_v2.relation_cues IS 'Deterministic relation cues such as relation:ownership or relation:dependency';
+COMMENT ON COLUMN node_repr_v2.value_cues IS 'Deterministic numeric/currency/range cues mined from text';
+COMMENT ON COLUMN node_repr_v2.temporal_cues IS 'Deterministic temporal cues mined from date, year, and time language';
 COMMENT ON COLUMN node_repr_v2.channel_lengths IS 'Per-channel document lengths for BM25-style scoring';
 COMMENT ON COLUMN node_modality_v1.modality_hash IS 'SHA256 of normalized multimodal sidecar payload';
 COMMENT ON COLUMN graph_repr_v2_stats.df_map IS 'Document frequency map keyed by hashed term or token';
@@ -610,26 +628,6 @@ COMMENT ON TABLE tenant_api_keys IS
     'Hashed tenant API keys with scope/expiry lifecycle metadata';
 
 -- -----------------------------------------------------------------------------
--- admin_api_keys: Hashed admin API keys
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS admin_api_keys (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    admin_id TEXT NOT NULL,
-    key_id TEXT NOT NULL,
-    key_prefix VARCHAR(20) NOT NULL,
-    key_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    revoked_at TIMESTAMPTZ,
-    CONSTRAINT uq_admin_api_keys_admin_key UNIQUE (admin_id, key_id)
-);
-
-CREATE INDEX IF NOT EXISTS ix_admin_api_keys_admin
-    ON admin_api_keys(admin_id);
-
-COMMENT ON TABLE admin_api_keys IS
-    'Hashed admin API keys for privileged control plane endpoints';
-
--- -----------------------------------------------------------------------------
 -- auth_key_audit_log: Append-only key lifecycle audit stream (Phase K2)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS auth_key_audit_log (
@@ -681,6 +679,13 @@ CREATE TABLE IF NOT EXISTS self_evolution_state (
     last_evolved_version BIGINT NOT NULL DEFAULT 0,
     last_evolved_at TIMESTAMPTZ,
     last_enqueued_job_id UUID,
+    control_self_evolve_enabled BOOLEAN,
+    control_self_evolve_trigger_mode TEXT,
+    control_self_invent_enabled BOOLEAN,
+    control_self_invent_on_evolve BOOLEAN,
+    control_self_invent_after_upload BOOLEAN,
+    control_updated_at TIMESTAMPTZ,
+    control_updated_by TEXT,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (tenant_id, graph_id)
 );

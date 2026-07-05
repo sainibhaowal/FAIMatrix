@@ -230,7 +230,7 @@ function SectionCurrentState() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Current State (May 2026)</h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM has evolved into a production-grade cognitive infrastructure. The current runtime combines deterministic semantic routing, bounded multi-hop reasoning, GPU-hardened 3D visualization, and a multi-tier Matrix subscription ecosystem.
+          FAIM has evolved into a production-grade cognitive infrastructure. The current runtime combines deterministic semantic routing, bounded multi-hop reasoning, GPU-hardened 3D visualization, a multi-tier Matrix subscription ecosystem, and explicit graph autonomy controls that stay default-off until enabled.
         </p>
       </div>
 
@@ -240,6 +240,7 @@ function SectionCurrentState() {
             {[
               "Deterministic semantic router: seeded alias maps classify intents without a large LLM-style registry.",
               "ConceptNet-derived lexical expansion resources are used for broadening, while the core router stays small and deterministic.",
+              "Semantic Signature V1: additive semantic phrase, concept, alias, transliteration, morphology, relation, value, and temporal channels now enrich retrieval without changing the canonical native vector contract.",
               "GPU Hardened FIG View: Static asset registry eliminates rendering-induced crashes.",
               "Neural Pulse Trace: Real-time visualization of reasoning paths in the 3D globe.",
               "Memory Writeback Proposals: Human-in-the-loop safety for structural memory updates.",
@@ -258,6 +259,7 @@ function SectionCurrentState() {
           <ul className="space-y-2 text-sm text-slate-400">
             {[
               "256-dim Native Core remains deterministic and mathematically invariant.",
+              "Semantic enrichment stays additive around the native core instead of replacing it with a stochastic embedding stack.",
               "SHA-256 node fingerprinting ensures 100% auditable provenance.",
               "Elastic physics engine tuned for stable high-density graph interaction.",
               "Hot/Warm/Cold memory tiers automated for cost-efficient intelligence.",
@@ -290,6 +292,7 @@ function SectionQuickStart() {
             "Sign up at the Get Started page",
             "A knowledge graph is automatically created for your account",
             "You land on the Dashboard — this is your control centre",
+            "Open Evolution to enable self-evolve or self-invent only if you want graph autonomy on that graph",
           ].map((s, i) => (
             <li key={i} className="flex gap-3 text-sm text-slate-400">
               <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs shrink-0 font-mono">
@@ -306,7 +309,7 @@ function SectionQuickStart() {
           {[
             "Go to Dashboard → Storage tab",
             "Click Upload and select a PDF, DOCX, PPTX, XLSX, image, or code file",
-            "FAIM extracts every block, builds the 256-dim vector, and adds nodes to your graph",
+            "FAIM extracts every block, builds the 256-dim vector, adds lexical-semantic sidecars including Semantic Signature V1, and adds nodes to your graph",
             "Status shows: processing → ready",
             "You can also Rebuild Memory Index after upload to refresh Representation V2 sidecars",
           ].map((s, i) => (
@@ -328,6 +331,7 @@ function SectionQuickStart() {
             "FAIM retrieves the most relevant nodes, re-ranks them, and returns a grounded answer",
             "Every answer shows which document + page + section it came from",
             "Try asking: 'How many documents do I have?' to see the document inventory in action",
+            "If graph autonomy is enabled, use Evolution to see the live effective state and worker status",
           ].map((s, i) => (
             <li key={i} className="flex gap-3 text-sm text-slate-400">
               <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs shrink-0 font-mono">
@@ -982,7 +986,8 @@ function SectionRetrieval() {
         <h2 className="text-2xl font-bold text-white mb-2">Retrieval Engine</h2>
         <p className="text-slate-400 leading-relaxed">
           FAIM runs a multi-stage retrieval pipeline. Every query hits all data
-          stores, scores through 7 deterministic components, and re-ranks before
+          stores, fuses deterministic dense and lexical-semantic channels,
+          scores through deterministic components, and re-ranks before
           synthesizing a grounded answer.
         </p>
       </div>
@@ -1006,34 +1011,41 @@ function SectionRetrieval() {
             },
             {
               step: "3",
-              label: "PostgreSQL recall",
+              label: "Canonical vector recall",
               detail:
                 "Exact cosine fallback / validation path against the graph's v_native vectors",
               color: "#60a5fa",
             },
             {
               step: "4",
+              label: "Lexical-semantic sidecars",
+              detail:
+                "Representation V2 plus Semantic Signature V1 add phrase, concept, alias, transliteration, morphology, relation, value, and temporal matching beside the canonical vector",
+              color: "#8b5cf6",
+            },
+            {
+              step: "5",
               label: "Deterministic ANN",
               detail:
                 "Graph-versioned cached dense shortlist using deterministic VP-tree search, merged with sparse recall",
               color: "#a78bfa",
             },
             {
-              step: "5",
+              step: "6",
               label: "7-component scoring",
               detail:
                 "Cosine similarity · Novelty · Opposition · Redundancy · Recency · Usage frequency · Level penalty",
               color: "#fbbf24",
             },
             {
-              step: "6",
+              step: "7",
               label: "RerankerV2",
               detail:
                 "Proposition-aware deterministic reranking: scores adjusted by block_type weight, section match, and graph neighbourhood",
               color: "#f97316",
             },
             {
-              step: "7",
+              step: "8",
               label: "Answer synthesis",
               detail:
                 "Top-N nodes → extractive answer with citations (filename · page · section per node)",
@@ -1062,7 +1074,9 @@ function SectionRetrieval() {
         <p className="text-sm text-slate-400 mb-3">
           Alongside the 256-dim dense vector, every node has a set of sparse
           channels computed by Representation V2. These enable lexically-rich
-          matching on top of vector similarity.
+          matching on top of vector similarity. Semantic Signature V1 extends
+          this same additive sidecar path rather than replacing the core
+          vector.
         </p>
         <div className="grid md:grid-cols-2 gap-2">
           {[
@@ -1079,11 +1093,27 @@ function SectionRetrieval() {
               "Skip-gram patterns — long-range co-occurrence capture",
             ],
             [
+              "semantic_phrase_counts",
+              "Hashed semantic phrase and skip-phrase buckets for stronger fuzzy phrase matching",
+            ],
+            [
+              "concept_counts",
+              "Deterministic concept-family buckets mined from alias and concept-key broadening",
+            ],
+            [
+              "morphology_counts",
+              "Prefix / suffix / shape buckets for stronger morphology-level recall",
+            ],
+            [
               "entity_tokens",
               "Emails, URLs, UUIDs, identifiers, phone numbers",
             ],
             ["time_tokens", "Dates, years, quarters, temporal markers"],
             ["layout_tokens", "block_type + page + section encoded as tokens"],
+            ["alias_families", "Known alias groups such as AI ↔ artificial intelligence"],
+            ["transliterated_tokens", "Cross-lingual bridging tokens such as München → muenchen"],
+            ["stem_families", "Stem-linked surface families preserved for explainable fuzzy matching"],
+            ["relation/value/temporal cues", "Deterministic cues for relations, numeric language, and time phrasing"],
           ].map(([k, v]) => (
             <div
               key={k}
@@ -1211,7 +1241,7 @@ function SectionCortexRuntime() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Cortex Runtime Architecture</h2>
         <p className="text-slate-400 leading-relaxed">
-          The stateful control loop above memory retrieval. It classifies requests, runs parallel reasoning branches, and synthesizes answers.
+          The stateful control loop above memory retrieval. It classifies requests, allocates a bounded hop budget, scales graph-semantic retrieval, runs parallel reasoning branches, executes an exact traversal branch, and synthesizes answers.
         </p>
       </div>
 
@@ -1219,7 +1249,9 @@ function SectionCortexRuntime() {
         <Card title="Runtime Phases" color="cyan">
           <ul className="space-y-2 text-xs text-slate-400">
             <li><strong>Turn Controller:</strong> Classifies intent into 8 cognitive modes using the deterministic semantic router.</li>
-            <li><strong>Parallel Branches:</strong> Simultaneous recall, timeline, and contradiction analysis.</li>
+            <li><strong>Adaptive Hop Planner:</strong> Computes a bounded hop budget per turn and maps it into retrieval limits.</li>
+            <li><strong>Retrieval Fusion:</strong> Benefits automatically from v_native, Representation V2, and Semantic Signature V1 without requiring frontend toggles.</li>
+            <li><strong>Parallel Branches:</strong> Simultaneous recall, traversal, timeline, contradiction, provenance, and continuity analysis.</li>
             <li><strong>Reducer:</strong> Merges branch outputs into a unified brain state.</li>
             <li><strong>Narrator:</strong> Produces the final prose answer with citations.</li>
           </ul>
@@ -1257,26 +1289,26 @@ function SectionCortexRuntime() {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <p className="text-sm text-slate-400 leading-relaxed">
-              FAIM Cortex traverses the graph substrate using bounded diffusion strategies. Retrieval diffusion is capped at 2 hops, while the planner can request 3-5 hop investigative routes depending on the query type.
+              FAIM Cortex now uses a real planner-driven bounded hop runtime. Simple turns can remain shallow, investigative turns can expand through an adaptive 1-24 hop ceiling by default, and advanced deployments can raise the bounded ceiling to 128 hops through configuration while keeping deterministic pruning and path auditability.
             </p>
             <div className="flex gap-4">
               <div className="flex-1 p-3 rounded-lg border border-indigo-500/10 bg-indigo-500/[0.02]">
-                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Max Hops</p>
-                <p className="text-xl font-bold text-white">5</p>
+                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Default Runtime</p>
+                <p className="text-xl font-bold text-white">1-24</p>
               </div>
               <div className="flex-1 p-3 rounded-lg border border-indigo-500/10 bg-indigo-500/[0.02]">
-                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Max Breadth</p>
-                <p className="text-xl font-bold text-white">5</p>
+                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Configurable Ceiling</p>
+                <p className="text-xl font-bold text-white">128</p>
               </div>
             </div>
           </div>
           <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
             <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-3">Diffusion Parameters</p>
             <ul className="space-y-2 text-[10px] text-slate-500 font-mono">
-              <li className="flex justify-between"><span>Decay Factor</span><span className="text-slate-300">0.85 per hop</span></li>
-              <li className="flex justify-between"><span>Convergence Threshold</span><span className="text-slate-300">0.05 residual</span></li>
-              <li className="flex justify-between"><span>Inference Path</span><span className="text-slate-300">Directed Acyclic</span></li>
-              <li className="flex justify-between"><span>Provenance</span><span className="text-slate-300">Full-Chain Citations</span></li>
+              <li className="flex justify-between"><span>Planner Ceiling</span><span className="text-slate-300">24 default / 128 max config</span></li>
+              <li className="flex justify-between"><span>Traversal Guards</span><span className="text-slate-300">frontier + expansion caps</span></li>
+              <li className="flex justify-between"><span>Inference Path</span><span className="text-slate-300">bounded, deterministic, cycle-safe</span></li>
+              <li className="flex justify-between"><span>Provenance</span><span className="text-slate-300">exact path metadata + citations</span></li>
             </ul>
           </div>
         </div>
@@ -1293,12 +1325,12 @@ function SectionCortexRuntime() {
               <p className="text-[10px] text-slate-500">Surface-level retrieval. Answers "Who", "What", and "When".</p>
             </div>
             <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
-              <p className="text-xs font-bold text-purple-400 mb-2 uppercase tracking-widest">5-12 Hops</p>
-              <p className="text-[10px] text-slate-500">Deep synthesis. Connects documents across different folders and dates.</p>
+              <p className="text-xs font-bold text-purple-400 mb-2 uppercase tracking-widest">5-24 Hops</p>
+              <p className="text-[10px] text-slate-500">Deep synthesis and investigation. Connects documents, facts, timelines, and dependencies through bounded exact traversal.</p>
             </div>
             <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
-              <p className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-widest">Planner Routes</p>
-              <p className="text-[10px] text-slate-500">Full investigation. Answers "Why" by tracing complex causal chains with a bounded hop budget.</p>
+              <p className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-widest">24-128 Hops</p>
+              <p className="text-[10px] text-slate-500">Advanced bounded deployments only. Higher ceilings remain deterministic but must still obey pruning, frontier, and expansion guards.</p>
             </div>
           </div>
         </div>
@@ -2654,10 +2686,12 @@ function SectionGraphDiffusion() {
 
       <Card title="PageRank style Bounded Diffusion" color="purple">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          Scores diffuse outward from seed nodes using a deterministic, PageRank-style matrix propagation across the active adjacency graph.
+          Scores diffuse outward from seed nodes using a deterministic, PageRank-style matrix propagation across the active adjacency graph. The live Cortex runtime can then layer an exact traversal branch on top of that retrieval surface using the planner-selected hop budget.
         </p>
         <Code>{`y^(k+1) = (1 - alpha) * y_seed + alpha * P^T * y^(k)
-hops_max = 24, convergence_threshold = 0.05`}</Code>
+default_hops_max = 24
+configurable_hops_max = 128
+bounded_frontier_pruning = enabled`}</Code>
       </Card>
     </div>
   );

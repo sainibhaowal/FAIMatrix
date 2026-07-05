@@ -342,6 +342,11 @@ def recall_with_graph_expansion(
     n: int = 200,
     seed_k: int = 30,
     hop_limit: int = 8,
+    graph_max_hops: int = 2,
+    graph_max_neighbors: Optional[int] = None,
+    graph_decay: float = 0.6,
+    graph_alpha: float = 0.2,
+    graph_diffusion_steps: int = 3,
 ) -> List[Tuple[UUID, float]]:
     """Recall candidates using cosine seeds + 1-hop inheritance edge expansion + semantic edges.
 
@@ -473,11 +478,11 @@ def recall_with_graph_expansion(
             seed_scores=seed_score_map,
             base_candidate_ids=sorted(expanded_ids, key=str),
             allowed_kinds={"inheritance"} | KNOWN_SEMANTIC_KINDS | {"opposition"},
-            max_hops=2,
-            max_neighbors=hop_limit,
-            decay=0.6,
-            alpha=0.2,
-            steps=3,
+            max_hops=max(1, int(graph_max_hops)),
+            max_neighbors=max(2, int(graph_max_neighbors or hop_limit)),
+            decay=graph_decay,
+            alpha=graph_alpha,
+            steps=max(1, int(graph_diffusion_steps)),
         )
         expanded_ids = set(graph_candidate_ids)
     except Exception:
@@ -1088,6 +1093,7 @@ def build_explain_payload(
         - evidence anchor
     """
     from store.pg.models_faim import EdgeModel, NodeModel
+    from store.pg.repos.representation_repo import RepresentationRepo
 
     # Load node
     node = (
@@ -1102,6 +1108,10 @@ def build_explain_payload(
 
     if not node:
         return {"error": "Node not found"}
+
+    repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
+    repr_rows = repr_repo.list_by_node_ids(graph_id=graph_id, node_ids=[node_id])
+    repr_row = repr_rows[0] if repr_rows else None
 
     # Load inheritance parents
     parents = (
@@ -1183,6 +1193,25 @@ def build_explain_payload(
             "block_id": node.block_id,
             "anchor": node.anchor_json,
         },
+        "semantic_signature": (
+            {
+                "alias_families": list(repr_row.alias_families or []),
+                "transliterated_tokens": list(repr_row.transliterated_tokens or []),
+                "stem_families": list(repr_row.stem_families or []),
+                "relation_cues": list(repr_row.relation_cues or []),
+                "value_cues": list(repr_row.value_cues or []),
+                "temporal_cues": list(repr_row.temporal_cues or []),
+                "semantic_phrase_bucket_count": len(
+                    dict(repr_row.semantic_phrase_counts or {})
+                ),
+                "concept_bucket_count": len(dict(repr_row.concept_counts or {})),
+                "morphology_bucket_count": len(
+                    dict(repr_row.morphology_counts or {})
+                ),
+            }
+            if repr_row is not None
+            else None
+        ),
     }
 
 

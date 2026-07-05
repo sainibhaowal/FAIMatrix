@@ -17,9 +17,25 @@ from encoding.representation_v2 import build_representation_v2  # noqa: E402
 def _stats_for(*reprs):
     stats = {
         channel: {"doc_count": len(reprs), "avg_len": 0.0, "df_map": {}}
-        for channel in ("word", "phrase", "skip", "entity", "time", "layout")
+        for channel in (
+            "word",
+            "phrase",
+            "skip",
+            "entity",
+            "time",
+            "layout",
+            "semantic_phrase",
+            "concept",
+            "morphology",
+            "alias",
+            "translit",
+            "stem_family",
+            "relation",
+            "value",
+            "temporal",
+        )
     }
-    for channel in ("word", "phrase", "skip"):
+    for channel in ("word", "phrase", "skip", "semantic_phrase", "concept", "morphology"):
         total_len = 0
         df_map = {}
         for repr_v2 in reprs:
@@ -46,6 +62,7 @@ class TestLexicalScorer:
         assert 0.0 <= score_other <= 1.0
         assert score_match > score_other
         assert components_match["word"] >= components_other["word"]
+        assert components_match["concept"] >= components_other["concept"]
 
     def test_lexical_score_is_deterministic(self):
         query = build_representation_v2("invoice INV-2026 on 2026-04-12")
@@ -56,3 +73,18 @@ class TestLexicalScorer:
         second = compute_lexical_score(query, doc, stats)
 
         assert first == second
+
+    def test_semantic_channels_help_alias_and_relation_similarity(self):
+        query = build_representation_v2("AI platform acquired Berlin startup before 2026")
+        doc_match = build_representation_v2(
+            "artificial intelligence platform acquired Berlin startup in 2025"
+        )
+        doc_other = build_representation_v2("warehouse inventory moved yesterday")
+        stats = _stats_for(doc_match, doc_other)
+
+        score_match, components_match = compute_lexical_score(query, doc_match, stats)
+        score_other, components_other = compute_lexical_score(query, doc_other, stats)
+
+        assert score_match > score_other
+        assert components_match["alias"] >= components_other["alias"]
+        assert components_match["relation"] >= components_other["relation"]

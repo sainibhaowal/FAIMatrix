@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 const OUTCOMES = [
   {
     title: "Search turns into answers",
-    text: "Users ask natural questions and get grounded, cited answers instead of a list of vaguely similar documents.",
+    text: "Users ask natural questions and get grounded, cited answers instead of a list of vaguely similar documents. Native semantic channels help bridge alias, phrase, and weak conceptual differences before the final answer is written.",
   },
   {
     title: "Knowledge stays inspectable",
@@ -25,19 +25,19 @@ const OUTCOMES = [
   },
   {
     title: "It works without ML dependency",
-    text: "The core memory and retrieval path remains deterministic, explainable, and offline-friendly.",
+    text: "The core memory and retrieval path remains deterministic, explainable, and offline-friendly. New semantic-signature layers are additive FAIM-native engineering, not hidden transformer dependencies.",
   },
   {
     title: "Complex questions get deep answers",
-    text: "Deep reasoning follows chains of evidence to answer 'why' questions. Traces connections across documents with full provenance.",
+    text: "Deep reasoning follows chains of evidence to answer 'why' questions. Cortex can stay shallow for direct lookups or expand into adaptive 1-24 hop bounded traces by default, with higher bounded ceilings available when configured.",
   },
   {
     title: "Disconnected documents become unified insights",
     text: "Knowledge synthesis finds correlations and contradictions across sources. Weaves scattered information into coherent understanding.",
   },
   {
-    title: "The system learns from every interaction",
-    text: "Continuous learning improves answer quality over time. Tracks feedback patterns and adjusts confidence automatically.",
+    title: "Autonomy stays explicit",
+    text: "Self-evolve and self-invent are graph controls, not hidden behavior. Operators can enable them per graph and see the live effective state.",
   },
   {
     title: "Quality is visible and measurable",
@@ -48,14 +48,15 @@ const OUTCOMES = [
 const WORKFLOWS = [
   "Upload PDFs, DOCX, PPTX, XLSX, images, code, and text",
   "FAIM Native extractor — multi-column, tables, scanned OCR, zero ML",
+  "Semantic signature sidecars strengthen fuzzy phrase, alias, transliteration, and temporal matching",
   "Inspect provenance and download originals",
-  "Autonomously rebuild canonical, multilingual, multimodal, or domain memory layers",
+  "Rebuild canonical, multilingual, multimodal, or domain memory layers when those controls are enabled",
   "Ask FAIM Cortex and get cited answers",
   "Use FIG View for lineage and graph tracing",
-  "Deep reasoning — ask 'why' and follow causal chains across documents",
+  "Deep reasoning — ask 'why' and follow bounded causal chains across documents",
   "Knowledge synthesis — connect insights across disparate sources",
   "Intelligent planning — complex questions automatically optimized",
-  "Continuous learning — feedback improves future answer quality",
+  "Feedback loops — users can review answers and improve future quality",
   "Temporal analysis — understand sequences, trends, and deadlines",
   "Quality monitoring — track satisfaction and system health in real-time",
 ];

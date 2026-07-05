@@ -22,6 +22,15 @@ class LexicalWeights:
     entity: float = 0.15
     time: float = 0.10
     layout: float = 0.05
+    semantic_phrase: float = 0.16
+    concept: float = 0.12
+    morphology: float = 0.08
+    alias: float = 0.06
+    translit: float = 0.05
+    stem_family: float = 0.05
+    relation: float = 0.04
+    value: float = 0.04
+    temporal: float = 0.03
 
 
 DEFAULT_LEXICAL_WEIGHTS = LexicalWeights()
@@ -96,6 +105,9 @@ def compute_lexical_score(
     word_stats = stats_by_channel.get("word", {})
     phrase_stats = stats_by_channel.get("phrase", {})
     skip_stats = stats_by_channel.get("skip", {})
+    semantic_phrase_stats = stats_by_channel.get("semantic_phrase", {})
+    concept_stats = stats_by_channel.get("concept", {})
+    morphology_stats = stats_by_channel.get("morphology", {})
 
     word = _bm25_channel_score(
         query_repr.word_counts,
@@ -126,6 +138,43 @@ def compute_lexical_score(
     entity = _jaccard_score(query_repr.entity_tokens, doc_repr.entity_tokens)
     time = _jaccard_score(query_repr.time_tokens, doc_repr.time_tokens)
     layout = _jaccard_score(query_repr.layout_tokens, doc_repr.layout_tokens)
+    semantic_phrase_bm25 = _bm25_channel_score(
+        query_repr.semantic_phrase_counts or {},
+        doc_repr.semantic_phrase_counts or {},
+        dict(semantic_phrase_stats.get("df_map", {})),  # type: ignore[call-overload]
+        doc_count=int(semantic_phrase_stats.get("doc_count", 0)),  # type: ignore[call-overload]
+        avg_len=float(semantic_phrase_stats.get("avg_len", 0.0)),
+        doc_len=int(doc_repr.channel_lengths.get("semantic_phrase", 0)),
+    )
+    semantic_phrase_dice = _dice_score(
+        query_repr.semantic_phrase_counts or {},
+        doc_repr.semantic_phrase_counts or {},
+    )
+    semantic_phrase = _clamp01((semantic_phrase_bm25 + semantic_phrase_dice) / 2.0)
+    concept = _bm25_channel_score(
+        query_repr.concept_counts or {},
+        doc_repr.concept_counts or {},
+        dict(concept_stats.get("df_map", {})),  # type: ignore[call-overload]
+        doc_count=int(concept_stats.get("doc_count", 0)),  # type: ignore[call-overload]
+        avg_len=float(concept_stats.get("avg_len", 0.0)),
+        doc_len=int(doc_repr.channel_lengths.get("concept", 0)),
+    )
+    morphology = _bm25_channel_score(
+        query_repr.morphology_counts or {},
+        doc_repr.morphology_counts or {},
+        dict(morphology_stats.get("df_map", {})),  # type: ignore[call-overload]
+        doc_count=int(morphology_stats.get("doc_count", 0)),  # type: ignore[call-overload]
+        avg_len=float(morphology_stats.get("avg_len", 0.0)),
+        doc_len=int(doc_repr.channel_lengths.get("morphology", 0)),
+    )
+    alias = _jaccard_score(query_repr.alias_families, doc_repr.alias_families)
+    translit = _jaccard_score(
+        query_repr.transliterated_tokens, doc_repr.transliterated_tokens
+    )
+    stem_family = _jaccard_score(query_repr.stem_families, doc_repr.stem_families)
+    relation = _jaccard_score(query_repr.relation_cues, doc_repr.relation_cues)
+    value = _jaccard_score(query_repr.value_cues, doc_repr.value_cues)
+    temporal = _jaccard_score(query_repr.temporal_cues, doc_repr.temporal_cues)
 
     score = (
         weights.word * word
@@ -134,6 +183,15 @@ def compute_lexical_score(
         + weights.entity * entity
         + weights.time * time
         + weights.layout * layout
+        + weights.semantic_phrase * semantic_phrase
+        + weights.concept * concept
+        + weights.morphology * morphology
+        + weights.alias * alias
+        + weights.translit * translit
+        + weights.stem_family * stem_family
+        + weights.relation * relation
+        + weights.value * value
+        + weights.temporal * temporal
     )
     components = {
         "word": round(word, 6),
@@ -142,5 +200,14 @@ def compute_lexical_score(
         "entity": round(entity, 6),
         "time": round(time, 6),
         "layout": round(layout, 6),
+        "semantic_phrase": round(semantic_phrase, 6),
+        "concept": round(concept, 6),
+        "morphology": round(morphology, 6),
+        "alias": round(alias, 6),
+        "translit": round(translit, 6),
+        "stem_family": round(stem_family, 6),
+        "relation": round(relation, 6),
+        "value": round(value, 6),
+        "temporal": round(temporal, 6),
     }
     return round(_clamp01(score), 6), components

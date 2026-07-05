@@ -41,7 +41,7 @@ const CODE_EXAMPLES: CodeExample[] = [
 #   "invariants_passed": 8
 # }`,
     description:
-      "Every ingest returns parent lineage, inheritance fractions, novelty residual, and invariant verification. Not just an ID.",
+      "Every ingest returns parent lineage, inheritance fractions, novelty residual, invariant verification, and builds additive lexical-semantic sidecars behind the scenes. Not just an ID.",
   },
   {
     id: "query",
@@ -76,7 +76,7 @@ const CODE_EXAMPLES: CodeExample[] = [
 #   }
 # }`,
     description:
-      "Query returns deterministic ranking with bounded graph reasoning. The semantic router maps intent in <10ms, providing full explainability for every retrieval signal.",
+      "Query returns deterministic ranking with bounded graph reasoning. The semantic router maps intent quickly, while additive semantic-signature channels improve alias, phrase, and temporal matching with full explainability for every retrieval signal.",
   },
   {
     id: "evolve",
@@ -106,7 +106,7 @@ const CODE_EXAMPLES: CodeExample[] = [
 #   "invariants_passed": 8
 # }`,
     description:
-      "Trigger self-evolution. The graph merges redundancy, prunes dead nodes, self-invents macro concepts, and re-verifies all invariants.",
+      "Trigger graph evolution through the approved API. When self-evolve and self-invent are enabled, the graph can merge redundancy, prune dead nodes, propose macro concepts, and re-verify all invariants.",
   },
   {
     id: "keys",
@@ -248,7 +248,7 @@ export default function DeveloperAPI() {
                 )}
                 {activeTab === "evolve" && (
                   <>
-                    <Highlight text="Autonomous merge, prune, self-invent" />
+                    <Highlight text="Guardrailed merge, prune, self-invent" />
                     <Highlight text="Fractal diagnostics in response" />
                     <Highlight text="Graph hash for state verification" />
                   </>
