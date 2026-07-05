@@ -1964,6 +1964,11 @@ export default function StoragePage() {
             Domain Memory
           </p>
           <div className="flex items-center gap-2">
+            <Link href="/dashboard/domain">
+              <Button size="sm" variant="ghost" leftIcon={<Database size={12} />}>
+                Open Domain Studio
+              </Button>
+            </Link>
             <Button
               size="sm"
               variant="ghost"
@@ -2218,6 +2223,14 @@ export default function StoragePage() {
               Supported Files
               {supportedTypes ? ` (${supportedTypes.total_extensions})` : ""}
             </Button>
+            {supportedTypes && (
+              <Badge
+                size="xs"
+                variant={supportedTypes.ocr_enabled ? "success" : "warning"}
+              >
+                {supportedTypes.ocr_enabled ? "OCR on" : "OCR off"}
+              </Badge>
+            )}
             <Button size="sm" variant="ghost" onClick={clearTerminalQueueItems}>
               Clear Completed
             </Button>
@@ -2259,6 +2272,13 @@ export default function StoragePage() {
           </p>
           <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
             Multi-file append-only · Queue keeps in-flight work
+          </p>
+          <p
+            className="text-[11px] text-center max-w-lg leading-relaxed"
+            style={{ color: "var(--text-tertiary)" }}
+          >
+            Scanned PDFs and images are OCR'd when enabled. Open Supported Files
+            for policy, engine, and capability details.
           </p>
           <input
             id="storage-file-input"

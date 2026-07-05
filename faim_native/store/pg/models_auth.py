@@ -136,40 +136,6 @@ class AuthKeyAuditLog(Base):
             "meta": self.meta or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
-
-
-class AdminApiKey(Base):
-    """
-    Secure API key storage for admin users.
-
-    Same structure as TenantApiKey but for admin endpoints.
-    """
-
-    __tablename__ = "admin_api_keys"
-
-    id = Column(UUIDType, primary_key=True, default=uuid4)
-    admin_id = Column(Text, nullable=False, index=True)
-    key_id = Column(Text, nullable=False)
-    key_prefix = Column(String(20), nullable=False)
-    key_hash = Column(Text, nullable=False)
-    created_at = Column(
-        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
-    )
-    revoked_at = Column(DateTime(timezone=True), nullable=True)
-
-    __table_args__ = (
-        Index("ix_admin_api_keys_admin_key", "admin_id", "key_id", unique=True),
-    )
-
-    def is_active(self) -> bool:
-        """Check if this key is still active (not revoked)."""
-        return self.revoked_at is None
-
-    def revoke(self) -> None:
-        """Mark this key as revoked."""
-        self.revoked_at = datetime.now(timezone.utc)
-
-
 class UserModel(Base):
     """
     Formal user registry for identity management.

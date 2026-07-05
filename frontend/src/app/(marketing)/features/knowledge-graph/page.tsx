@@ -24,6 +24,8 @@ const benefits = [
   "Real-time updates as connections form",
   "Zoom from overview to individual nodes",
   "Filter by topic, date, or relationship type",
+  "Exact Cortex traversal-path highlighting during reasoning turns",
+  "Adaptive bounded reasoning depth from 1-24 hops by default",
   "Export graph for presentations",
   "Discover hidden patterns in your data",
 ];
@@ -42,8 +44,9 @@ export default function KnowledgeGraphPage() {
       </h2>
       <p className="text-slate-400 mb-6">
         The Knowledge Graph transforms your documents, notes, and ideas into an
-        interactive visualization. Watch as concepts connect, clusters form, and
-        insights emerge.
+        interactive visualization. Watch as concepts connect, clusters form,
+        exact Cortex traversal paths illuminate during reasoning, and insights
+        emerge.
       </p>
 
       <h3 className="text-xl font-semibold text-white mb-3">
@@ -53,6 +56,17 @@ export default function KnowledgeGraphPage() {
         Click on any node to explore its connections. Drag to reorganize.
         Double-click to zoom into a concept cluster. The graph responds to your
         curiosity.
+      </p>
+
+      <h3 className="text-xl font-semibold text-white mb-3">
+        Planner-Driven Hop Traces
+      </h3>
+      <p className="text-slate-400 mb-6">
+        FAIM Cortex does not just retrieve similar documents. It can execute
+        adaptive bounded graph reasoning from 1 to 24 hops by default, and
+        advanced deployments can raise that bounded ceiling as high as 128
+        hops. When the traversal branch returns an exact path, FIG View can
+        highlight the real nodes and edges used in the answer.
       </p>
 
       <h3 className="text-xl font-semibold text-white mb-3">

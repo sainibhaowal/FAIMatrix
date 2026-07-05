@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState } from "react";
 import {
   Plus,
   Send,
@@ -20,6 +20,7 @@ import {
   useChat,
 } from "@/contexts/ChatContext";
 import { useProviders } from "@/contexts/ProviderContext";
+import { providerReasoningCapability } from "@/lib/providers";
 
 const ANSWER_MODES: AnswerMode[] = [
   "auto",
@@ -52,13 +53,12 @@ export function ChatComposer() {
     isStreaming,
     error,
     newThread,
-    thinkingEnabled,
-    toggleThinking,
     answerMode,
     setAnswerMode,
     messages,
   } = useChat();
   const { activeProvider } = useProviders();
+  const providerReasoning = providerReasoningCapability(activeProvider);
 
   const currentTaskType = [...messages]
     .reverse()
@@ -95,30 +95,20 @@ export function ChatComposer() {
         className="hidden"
         onChange={handleFileChange}
       />
-      {/* Floating thinking toggle button */}
+      {/* Cortex thinking is always-on; this is status, not a user toggle. */}
       <div className="absolute top-[-44px] left-4 sm:left-6 pointer-events-auto z-20">
-        <button
-          onClick={toggleThinking}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all duration-300 ${
-            thinkingEnabled
-              ? "bg-primary-500/10 border-primary-500/40 text-primary-300 shadow-[0_0_12px_rgba(34,211,238,0.3)]"
-              : "bg-black/40 border-white/5 text-slate-600 hover:text-slate-400 hover:border-white/10"
-          }`}
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest bg-primary-500/10 border-primary-500/40 text-primary-300 shadow-[0_0_12px_rgba(34,211,238,0.25)]"
           title={
-            thinkingEnabled
-              ? "Thinking ON — click to disable"
-              : "Thinking OFF — click to enable"
+            providerReasoning.supported
+              ? `Cortex reasoning is always active. Provider reasoning was detected by ${providerReasoning.confidence} match${providerReasoning.matched ? ` (${providerReasoning.matched})` : ""}.`
+              : "Cortex reasoning is always active. FAIM automatically plans, retrieves, traverses graph hops, and summarizes reasoning even when the selected model does not advertise native reasoning."
           }
         >
-          <Brain
-            size={11}
-            className={thinkingEnabled ? "text-primary-400" : "text-slate-600"}
-          />
-          <span>Think</span>
-          {thinkingEnabled && (
-            <span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
-          )}
-        </button>
+          <Brain size={11} className="text-primary-400" />
+          <span>Cortex reasoning</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-primary-400 animate-pulse" />
+        </div>
       </div>
 
       <div className="max-w-4xl mx-auto mb-2 flex flex-wrap items-center gap-2 px-1 pointer-events-auto">

@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from uuid import uuid4
 
+import jwt
 from fastapi.testclient import TestClient
 
 
@@ -35,6 +37,20 @@ def _mk_client(monkeypatch, *, tenant_keys_json: str, database_url: str) -> Test
     reset_config()
     reload_tenant_keys()
     return TestClient(create_app())
+
+
+def _make_admin_jwt(*, user_id: str, email: str, secret: str, graph_id: str) -> str:
+    now = datetime.utcnow()
+    claims = {
+        "sub": user_id,
+        "id": user_id,
+        "email": email,
+        "graphId": graph_id,
+        "type": "access",
+        "iat": now,
+        "exp": now + timedelta(hours=1),
+    }
+    return jwt.encode(claims, secret, algorithm="HS256")
 
 
 def test_phase_ev_b_evolve_status_route_present():
@@ -95,6 +111,8 @@ def test_phase_ev_b_evolve_status_tenant_isolation(monkeypatch, tmp_path):
     assert status_a.status_code == 200
     body_a = status_a.json()
     assert body_a["tenant_id"] == tenant_a
+    assert body_a["control"]["source"] == "runtime_default"
+    assert body_a["control"]["can_edit"] is True
     assert body_a["guardrails"]["automation_path"] == "hybrid_worker"
     assert body_a["guardrails"]["automation_enabled"] is True
     assert body_a["guardrails"]["self_evolve_enabled"] is True
@@ -111,6 +129,7 @@ def test_phase_ev_b_evolve_status_tenant_isolation(monkeypatch, tmp_path):
     assert status_b.status_code == 200
     body_b = status_b.json()
     assert body_b["tenant_id"] == tenant_b
+    assert body_b["control"]["source"] == "runtime_default"
     assert body_b["guardrails"]["automation_path"] == "hybrid_worker"
     assert body_b["state"]["graph_version"] == 0
     assert body_b["active_job"] is None
@@ -123,3 +142,68 @@ def test_phase_ev_b_evolve_status_tenant_isolation(monkeypatch, tmp_path):
         assert state_repo.get(graph_id=graph_id, session=session_b) is None
     finally:
         close_session(session_b)
+
+
+def test_phase_ev_b_evolve_control_toggle_roundtrip(monkeypatch, tmp_path):
+    from runtime.context import close_session, get_repos
+
+    tenant_id = "user:admin-toggle"
+    graph_id = f"graph_toggle_{uuid4().hex[:8]}"
+    secret = "test-secret-evolve-control"
+    token = _make_admin_jwt(
+        user_id="admin-toggle",
+        email="user@example.com",
+        secret=secret,
+        graph_id=graph_id,
+    )
+
+    monkeypatch.setenv("NEXTAUTH_SECRET", secret)
+    client = _mk_client(
+        monkeypatch,
+        tenant_keys_json=f'{{"{tenant_id}":["{uuid4().hex}"]}}',
+        database_url=f"sqlite:///{tmp_path / 'evb_control.db'}",
+    )
+    monkeypatch.setenv("FAIM_SELF_EVOLVE_ENABLED", "false")
+    monkeypatch.setenv("FAIM_SELF_EVOLVE_TRIGGER_MODE", "manual")
+    monkeypatch.setenv("FAIM_SELF_INVENT_ENABLED", "false")
+    monkeypatch.setenv("FAIM_SELF_INVENT_ON_EVOLVE", "false")
+    monkeypatch.setenv("FAIM_SELF_INVENT_AFTER_UPLOAD", "false")
+
+    repos = get_repos(tenant_id)
+    session = repos["session"]
+    try:
+        repos["gv_repo"].set_version(session, graph_id, 6, "seed-toggle")
+        session.commit()
+    finally:
+        close_session(session)
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+    }
+
+    status = client.get(
+        f"/api/v1/evolve/status?graph_id={graph_id}&source=memory_write",
+        headers=headers,
+    )
+    assert status.status_code == 200
+    before = status.json()
+    assert before["control"]["can_edit"] is True
+    assert before["control"]["self_evolve_enabled"] is False
+
+    patch = client.patch(
+        f"/api/v1/evolve/control?graph_id={graph_id}",
+        headers={**headers, "Content-Type": "application/json"},
+        json={
+            "self_evolve_enabled": True,
+            "self_evolve_trigger_mode": "post_upload",
+            "self_invent_enabled": True,
+            "self_invent_on_evolve": True,
+            "self_invent_after_upload": False,
+        },
+    )
+    assert patch.status_code == 200
+    after = patch.json()
+    assert after["control"]["self_evolve_enabled"] is True
+    assert after["control"]["self_evolve_trigger_mode"] == "post_upload"
+    assert after["control"]["can_edit"] is True
+    assert after["guardrails"]["automation_path"] == "post_upload_worker"

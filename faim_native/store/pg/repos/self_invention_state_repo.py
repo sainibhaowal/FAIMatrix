@@ -76,6 +76,38 @@ class SelfInventionStateRepo:
         sess.flush()
         return row
 
+    @staticmethod
+    def _normalize_signature_counts(
+        raw_counts: Optional[Dict[str, Dict[str, Any]]],
+    ) -> Dict[str, Dict[str, Any]]:
+        """Normalize a persisted signature-count snapshot."""
+        if not isinstance(raw_counts, dict):
+            return {}
+
+        normalized: Dict[str, Dict[str, Any]] = {}
+        for signature, value in raw_counts.items():
+            if not isinstance(signature, str) or not signature.strip():
+                continue
+            if not isinstance(value, dict):
+                continue
+
+            members = value.get("members")
+            if not isinstance(members, list):
+                continue
+            clean_members = sorted(
+                [str(m) for m in members if isinstance(m, str) and m.strip()]
+            )
+            if len(clean_members) < 2:
+                continue
+
+            normalized[signature] = {
+                "count": int(max(0, int(value.get("count", 0) or 0))),
+                "members": clean_members,
+                "last_seq": int(max(0, int(value.get("last_seq", 0) or 0))),
+                "invented": bool(value.get("invented", False)),
+            }
+        return normalized
+
     def save(
         self,
         graph_id: str,
@@ -89,8 +121,11 @@ class SelfInventionStateRepo:
         """Persist state updates for a completed invention cycle."""
         sess = self._resolve_session(session)
         row = self.get_or_create(graph_id, session=sess)
+        if int(row.last_event_seq or 0) > int(max(0, last_event_seq)):
+            return row
+
         row.last_event_seq = int(max(0, last_event_seq))
-        row.signature_counts = signature_counts
+        row.signature_counts = self._normalize_signature_counts(signature_counts)
         row.last_cycle_macros = int(max(0, last_cycle_macros))
         row.last_cycle_at = last_cycle_at or datetime.now(timezone.utc)
         row.updated_at = datetime.now(timezone.utc)

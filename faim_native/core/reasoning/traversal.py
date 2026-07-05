@@ -9,39 +9,38 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 # Flexible imports for different contexts
 try:
-    from faim.Faim_Native.store.pg.models_faim import EdgeModel, MemoryNodeModel
-    from faim.Faim_Native.store.pg.repos.edge_repo import EdgeRepository
+    from faim.Faim_Native.store.pg.models_faim import EdgeModel, NodeModel
 except (ImportError, RuntimeError, ModuleNotFoundError):
     try:
-        from store.pg.models_faim import EdgeModel, MemoryNodeModel
-        from store.pg.repos.edge_repo import EdgeRepository
+        from store.pg.models_faim import EdgeModel, NodeModel
     except (ImportError, RuntimeError, ModuleNotFoundError):
         # Fallback for testing
         EdgeModel = Any
-        MemoryNodeModel = Any
-        EdgeRepository = Any
+        NodeModel = Any
 
 
 @dataclass(frozen=True)
 class Hop:
     """Single hop in a reasoning path: node → edge → next_node."""
 
+    edge_id: str
     node_id: str
     node_label: str
     edge_type: str
     edge_weight: float
-    edge_properties: Dict[str, Any] = field(default_factory=dict)
     next_node_id: str
     next_node_label: str
+    edge_properties: Dict[str, Any] = field(default_factory=dict)
     reasoning: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return {
+            "edge_id": str(self.edge_id),
             "node_id": str(self.node_id),
             "node_label": self.node_label,
             "edge_type": self.edge_type,
@@ -96,10 +95,12 @@ class MultiHopTraverser:
     """
 
     # Configuration constants
-    MAX_HOPS = 3
+    MAX_HOPS = 24
     MIN_EDGE_WEIGHT = 0.3
     MAX_PATHS_PER_QUERY = 10
     CONFIDENCE_DECAY = 0.9  # Multiplicative decay per hop
+    MAX_FRONTIER_WIDTH = 96
+    MAX_TOTAL_EXPANSIONS = 4096
 
     # Edge types that support reasoning
     REASONING_EDGE_TYPES = {
@@ -138,10 +139,13 @@ class MultiHopTraverser:
     def traverse(
         self,
         start_node_ids: List[str],
-        goal: str,
+        goal: Optional[str],
         max_hops: Optional[int] = None,
         min_confidence: Optional[float] = None,
         edge_types: Optional[Set[str]] = None,
+        max_frontier_width: Optional[int] = None,
+        max_total_expansions: Optional[int] = None,
+        return_partial_paths: bool = True,
     ) -> List[ReasoningPath]:
         """
         Find reasoning paths from start nodes toward a goal.
@@ -168,6 +172,8 @@ class MultiHopTraverser:
         max_hops = max_hops or self.MAX_HOPS
         min_confidence = min_confidence or 0.1
         edge_types = edge_types or self.REASONING_EDGE_TYPES
+        max_frontier_width = max_frontier_width or self.MAX_FRONTIER_WIDTH
+        max_total_expansions = max_total_expansions or self.MAX_TOTAL_EXPANSIONS
 
         all_paths: List[ReasoningPath] = []
 
@@ -178,25 +184,33 @@ class MultiHopTraverser:
                 max_hops=max_hops,
                 min_confidence=min_confidence,
                 edge_types=edge_types,
+                max_frontier_width=max_frontier_width,
+                max_total_expansions=max_total_expansions,
+                return_partial_paths=return_partial_paths,
             )
             all_paths.extend(paths)
 
         # Sort by confidence descending
-        all_paths.sort(key=lambda p: p.confidence, reverse=True)
+        all_paths.sort(key=lambda p: (-p.confidence, p.path_length, p.path_id))
 
         return all_paths[: self.MAX_PATHS_PER_QUERY]
 
     def _traverse_from_start(
         self,
         start_id: str,
-        goal: str,
+        goal: Optional[str],
         max_hops: int,
         min_confidence: float,
         edge_types: Set[str],
+        max_frontier_width: int,
+        max_total_expansions: int,
+        return_partial_paths: bool,
     ) -> List[ReasoningPath]:
         """Breadth-first traversal from a single start node."""
 
         paths: List[ReasoningPath] = []
+        partial_paths: List[ReasoningPath] = []
+        expansions = 0
 
         # Frontier: (current_node_id, hops_so_far, confidence_so_far, visited_set)
         frontier: List[Tuple[str, List[Hop], float, Set[str]]] = [
@@ -210,19 +224,24 @@ class MultiHopTraverser:
                 # Skip if confidence too low
                 if confidence < min_confidence:
                     continue
+                if expansions >= max_total_expansions:
+                    break
 
                 # Get outgoing edges
                 edges = self._get_outgoing_edges(current_id, edge_types)
 
                 for edge in edges:
+                    if expansions >= max_total_expansions:
+                        break
                     next_id = str(edge.dst_node_id)
+                    edge_weight = self._normalized_edge_weight(edge)
 
                     # Skip visited nodes (prevent cycles)
                     if next_id in visited:
                         continue
 
                     # Skip low-weight edges
-                    if edge.weight < self.MIN_EDGE_WEIGHT:
+                    if edge_weight < self.MIN_EDGE_WEIGHT:
                         continue
 
                     # Build hop
@@ -230,14 +249,26 @@ class MultiHopTraverser:
                     new_hops = hops + [hop]
 
                     # Calculate new confidence with decay
-                    new_confidence = confidence * edge.weight * self.CONFIDENCE_DECAY
+                    new_confidence = confidence * edge_weight * self.CONFIDENCE_DECAY
+                    expansions += 1
 
                     # Check if goal reached
-                    if self._matches_goal(next_id, goal):
+                    if goal and self._matches_goal(next_id, goal):
                         path = self._build_path(
                             start_id, next_id, new_hops, new_confidence
                         )
                         paths.append(path)
+                    elif return_partial_paths:
+                        partial_paths.append(
+                            self._build_path(
+                                start_id,
+                                next_id,
+                                new_hops,
+                                new_confidence,
+                                goal=goal,
+                                partial=True,
+                            )
+                        )
 
                     # Add to next frontier
                     new_visited = visited | {next_id}
@@ -245,13 +276,33 @@ class MultiHopTraverser:
                         (next_id, new_hops, new_confidence, new_visited)
                     )
 
-            frontier = next_frontier
+            next_frontier.sort(
+                key=lambda item: (
+                    -float(item[2]),
+                    len(item[1]),
+                    item[0],
+                )
+            )
+            frontier = next_frontier[:max_frontier_width]
 
             # Early exit if no more nodes
-            if not frontier:
+            if not frontier or expansions >= max_total_expansions:
                 break
 
-        return paths
+        deduped: Dict[str, ReasoningPath] = {}
+        for path in paths:
+            existing = deduped.get(path.path_id)
+            if existing is None or path.confidence > existing.confidence:
+                deduped[path.path_id] = path
+
+        if not deduped and return_partial_paths:
+            partial_paths.sort(key=lambda p: (-p.confidence, p.path_length, p.path_id))
+            for path in partial_paths[: self.MAX_PATHS_PER_QUERY]:
+                existing = deduped.get(path.path_id)
+                if existing is None or path.confidence > existing.confidence:
+                    deduped[path.path_id] = path
+
+        return list(deduped.values())
 
     def _get_outgoing_edges(
         self,
@@ -290,6 +341,13 @@ class MultiHopTraverser:
 
         return self._edge_cache[cache_key]
 
+    def _normalized_edge_weight(self, edge: EdgeModel) -> float:
+        """Convert stored fixed-point edge weights into [0, 1]."""
+        raw_weight = float(edge.weight or 0.0)
+        if raw_weight > 1.0:
+            raw_weight = raw_weight / 1e9
+        return max(0.0, min(1.0, raw_weight))
+
     def _build_hop(
         self,
         from_id: str,
@@ -304,11 +362,12 @@ class MultiHopTraverser:
         reasoning = self._generate_hop_reasoning(from_node, edge, to_node)
 
         return Hop(
+            edge_id=str(edge.edge_id),
             node_id=from_id,
             node_label=from_node.get("label", "Unknown") if from_node else "Unknown",
             edge_type=edge.kind,
-            edge_weight=float(edge.weight or 0.5),
-            edge_properties=edge.properties or {},
+            edge_weight=self._normalized_edge_weight(edge),
+            edge_properties=edge.meta or {},
             next_node_id=to_id,
             next_node_label=to_node.get("label", "Unknown") if to_node else "Unknown",
             reasoning=reasoning,
@@ -319,19 +378,26 @@ class MultiHopTraverser:
 
         if node_id not in self._node_cache:
             node = (
-                self.session.query(MemoryNodeModel)
+                self.session.query(NodeModel)
                 .filter(
-                    MemoryNodeModel.tenant_id == self.tenant_id,
-                    MemoryNodeModel.node_id == node_id,
+                    NodeModel.tenant_id == self.tenant_id,
+                    NodeModel.node_id == node_id,
                 )
                 .first()
             )
 
             if node:
+                anchor = getattr(node, "anchor_json", None) or {}
+                label = (
+                    anchor.get("filename")
+                    or getattr(node, "block_id", None)
+                    or getattr(node, "raw_id", None)
+                    or str(getattr(node, "node_id", node_id))
+                )
                 self._node_cache[node_id] = {
                     "node_id": str(node.node_id),
-                    "label": node.text[:100] if node.text else "Unknown",
-                    "text": node.text,
+                    "label": str(label)[:100],
+                    "text": json.dumps(anchor, sort_keys=True) if anchor else str(label),
                     "cognitive_type": getattr(node, "cognitive_type", None),
                     "galaxy_id": getattr(node, "galaxy_id", None),
                 }
@@ -400,6 +466,9 @@ class MultiHopTraverser:
         end_id: str,
         hops: List[Hop],
         confidence: float,
+        *,
+        goal: Optional[str] = None,
+        partial: bool = False,
     ) -> ReasoningPath:
         """Construct a ReasoningPath from traversal results."""
 
@@ -420,6 +489,10 @@ class MultiHopTraverser:
         explanation_parts.append(
             f"Final conclusion: {hops[-1].next_node_label if hops else end_id}"
         )
+        if partial:
+            explanation_parts.append(
+                f"Traversal stopped before exact goal match; best partial route toward '{goal or 'graph goal'}' returned."
+            )
         explanation_parts.append(f"Overall confidence: {confidence:.2f}")
 
         return ReasoningPath(
@@ -431,9 +504,13 @@ class MultiHopTraverser:
             path_length=len(hops),
             explanation="\n".join(explanation_parts),
             metadata={
-                "traversal_timestamp": datetime.utcnow().isoformat(),
+                "traversal_timestamp": datetime.now(timezone.utc).isoformat(),
                 "tenant_id": self.tenant_id,
                 "graph_id": self.graph_id,
+                "goal": goal or "",
+                "partial": partial,
+                "node_ids": [start_id] + [hop.next_node_id for hop in hops],
+                "edge_ids": [hop.edge_id for hop in hops],
             },
         )
 

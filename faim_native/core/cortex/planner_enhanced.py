@@ -5,6 +5,7 @@ Phase 2: Advanced planning with query breakdown and multi-hop strategy.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
 from enum import Enum
@@ -335,6 +336,12 @@ class EnhancedPlanner:
 
         # Determine if multi-hop needed
         needs_multi_hop = self._needs_multi_hop(query_text, complexity)
+        hop_budget = self._compute_hop_budget(
+            query_text=query_text,
+            complexity=complexity,
+            task_type=base_plan.task_type,
+            needs_multi_hop=needs_multi_hop,
+        )
 
         # Decompose if complex
         sub_queries = self.decomposer.decompose(query_text)
@@ -347,7 +354,7 @@ class EnhancedPlanner:
             complexity=complexity,
             # Multi-hop settings
             enable_multi_hop=enable_multi_hop and needs_multi_hop,
-            max_hops=3 if needs_multi_hop else 1,
+            max_hops=hop_budget,
             traversal_goal=self._extract_traversal_goal(query_text),
             # Decomposition
             sub_queries=tuple(sub_queries),
@@ -357,7 +364,7 @@ class EnhancedPlanner:
             and not any(sq.depends_on for sq in sub_queries),
             execution_order=self._compute_execution_order(sub_queries),
             # Constraints
-            constraints=self._build_constraints(base_plan.task_type),
+            constraints=self._build_constraints(base_plan.task_type, hop_budget),
             # Source requirements
             min_source_reliability=(
                 0.7 if complexity == QueryComplexity.COMPLEX else 0.5
@@ -366,6 +373,88 @@ class EnhancedPlanner:
         )
 
         return plan
+
+    def _max_supported_hops(self) -> int:
+        """Return configured max hop ceiling.
+
+        Defaults to 24 for the production claim, but remains configurable so
+        larger bounded deployments can opt into deeper traversal explicitly.
+        """
+        raw = str(os.getenv("FAIM_CORTEX_MAX_HOPS", "24")).strip()
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            value = 24
+        return max(1, min(value, 128))
+
+    def _compute_hop_budget(
+        self,
+        *,
+        query_text: str,
+        complexity: QueryComplexity,
+        task_type: CortexTaskType,
+        needs_multi_hop: bool,
+    ) -> int:
+        """Estimate a bounded hop budget from query difficulty.
+
+        This is intentionally deterministic. The same query text and task type
+        produce the same hop budget unless the configured global cap changes.
+        """
+        if not needs_multi_hop:
+            return 1
+
+        text = query_text.lower()
+        max_supported = self._max_supported_hops()
+
+        base_by_complexity = {
+            QueryComplexity.SIMPLE: 1,
+            QueryComplexity.COMPOUND: 2,
+            QueryComplexity.COMPLEX: 6,
+            QueryComplexity.EXPLORATORY: 8,
+        }
+        hop_budget = base_by_complexity.get(complexity, 3)
+
+        indicator_weights = {
+            "why": 2,
+            "how": 1,
+            "because": 2,
+            "cause": 2,
+            "impact": 2,
+            "effect": 2,
+            "consequence": 2,
+            "timeline": 2,
+            "history": 2,
+            "sequence": 2,
+            "compare": 1,
+            "versus": 1,
+            "difference": 1,
+            "investigate": 3,
+            "trace": 3,
+            "root": 3,
+            "dependency": 3,
+            "downstream": 4,
+            "upstream": 4,
+            "across": 1,
+            "through": 1,
+            "chain": 2,
+        }
+        hop_budget += sum(weight for token, weight in indicator_weights.items() if token in text)
+
+        if len(text.split()) >= 12:
+            hop_budget += 2
+        if len(text.split()) >= 24:
+            hop_budget += 2
+
+        if task_type == CortexTaskType.timeline:
+            hop_budget = max(hop_budget, 6)
+        elif task_type == CortexTaskType.compare:
+            hop_budget = max(hop_budget, 4)
+        elif task_type == CortexTaskType.contradiction:
+            hop_budget = max(hop_budget, 4)
+        elif task_type == CortexTaskType.investigate:
+            hop_budget = max(hop_budget, 8)
+
+        return max(1, min(hop_budget, max_supported))
 
     def _base_classify(
         self,
@@ -453,32 +542,39 @@ class EnhancedPlanner:
 
         return order
 
-    def _build_constraints(self, task_type: CortexTaskType) -> PathConstraints:
+    def _build_constraints(
+        self,
+        task_type: CortexTaskType,
+        hop_budget: int,
+    ) -> PathConstraints:
         """Build path constraints based on task type."""
 
         if task_type == CortexTaskType.timeline:
             return PathConstraints(
-                max_hops=5,
+                max_hops=min(hop_budget, max(6, hop_budget)),
                 require_temporal_order=True,
                 allowed_edge_types={"temporal_before", "temporal_after", "implies"},
+                max_branching_factor=8,
             )
 
         elif task_type == CortexTaskType.contradiction:
             return PathConstraints(
-                max_hops=2,
+                max_hops=min(hop_budget, 8),
                 allowed_edge_types={"contradicts", "opposes", "disagrees"},
                 min_confidence=0.6,
+                max_branching_factor=6,
             )
 
         elif task_type == CortexTaskType.compare:
             return PathConstraints(
-                max_hops=3,
+                max_hops=min(hop_budget, 12),
                 allowed_edge_types={"related_to", "part_of", "similar_to", "contrasts"},
+                max_branching_factor=8,
             )
 
         elif task_type == CortexTaskType.investigate:
             return PathConstraints(
-                max_hops=3,
+                max_hops=hop_budget,
                 allowed_edge_types={
                     "causes",
                     "leads_to",
@@ -486,10 +582,14 @@ class EnhancedPlanner:
                     "enables",
                     "related_to",
                 },
+                max_branching_factor=10,
             )
 
         else:
-            return PathConstraints(max_hops=2)
+            return PathConstraints(
+                max_hops=min(hop_budget, 8),
+                max_branching_factor=8,
+            )
 
 
 # Convenience function
