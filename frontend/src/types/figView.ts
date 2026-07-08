@@ -205,12 +205,192 @@ export type FigExplainResponse = {
     node_ids: string[];
     edges: FigEdge[];
   }>;
+  pulse_trace?: FigPulseTrace | null;
   explanation: {
     summary: string;
     hops: number;
     edge_kinds_used: string[];
     relation_distance: number | null;
   };
+};
+
+export type FigQueryExplain = {
+  node_id?: string;
+  vector_hash?: string;
+  node_id_set?: string[];
+  semantic_signature?: {
+    alias_families?: string[];
+    transliterated_tokens?: string[];
+    stem_families?: string[];
+    relation_cues?: string[];
+    value_cues?: string[];
+    temporal_cues?: string[];
+    semantic_phrase_bucket_count?: number;
+    concept_bucket_count?: number;
+    morphology_bucket_count?: number;
+  } | null;
+  phaseB_query_expansion?: {
+    source_counts?: Record<string, number>;
+    expansion_count?: number;
+    semantic_registry?: {
+      static_term_count?: number;
+      registry_term_count?: number;
+      expansion_count?: number;
+    };
+    expansions?: Array<{
+      term?: string;
+      score?: number;
+      sources?: string[];
+      rationale?: string;
+    }>;
+  } | null;
+  domain_relevance?: {
+    query_links?: Array<{
+      node_id?: string;
+      term?: string;
+      kind?: string;
+      score?: number;
+    }>;
+    candidate_count?: number;
+    node_scores?: Record<string, number> | Record<string, unknown>;
+  } | null;
+  phase3_graph_score?: {
+    total?: number;
+    path?: number;
+    diffusion?: number;
+    neighborhood?: number;
+    contradiction?: number;
+  } | null;
+  phase4_reranker?: {
+    total?: number;
+    components?: Record<string, number>;
+    explain?: Record<string, unknown>;
+  } | null;
+  phaseC_late_interaction?: {
+    total?: number;
+    components?: Record<string, number>;
+    explain?: Record<string, unknown>;
+  } | null;
+  fusion_summary?: {
+    final_score?: number;
+    active_layers?: string[];
+    strongest_layers?: Array<{ layer?: string; contribution?: number }>;
+    strongest_signals?: Array<{ signal?: string; value?: number }>;
+  } | null;
+  query_fusion_summary?: {
+    candidate_pool?: Record<string, number>;
+    query_expansion?: Record<string, number>;
+    graph_runtime?: Record<string, number>;
+    top_result?: {
+      node_id?: string | null;
+      active_layers?: string[];
+      strongest_layers?: Array<{ layer?: string; contribution?: number }>;
+      strongest_signals?: Array<{ signal?: string; value?: number }>;
+    };
+  } | null;
+  pulse_event_stream?: FigPulseEvent[];
+  reason_source_ledger?: FigReasonSourceLedger | null;
+};
+
+export type FigPulseEvent = {
+  event_id: string;
+  protocol: string;
+  graph_id: string;
+  query_hash?: string | null;
+  node_id: string;
+  hop?: number | null;
+  stage: string;
+  source: string;
+  strength: number;
+  contribution: number;
+  evidence: Record<string, unknown>;
+};
+
+export type FigReasonSourceLedger = {
+  protocol: string;
+  trace_id: string | null;
+  node_id: string;
+  confidence: number;
+  event_count: number;
+  active_layers: string[];
+  strongest_layers: Array<{ layer?: string; contribution?: number }>;
+  source_summary: Record<string, number>;
+  why_glowing: {
+    expansion_sources?: Record<string, number>;
+    graph_hops?: Array<Record<string, unknown>>;
+    reranker_components?: Record<string, number>;
+    late_interaction_components?: Record<string, number>;
+    domain_memory?: {
+      node_scores?: Record<string, number>;
+      query_links?: Array<Record<string, unknown>>;
+    };
+    semantic_signature?: Record<string, number>;
+    candidate_pool?: Record<string, number>;
+    ui_context?: {
+      graph_id?: string | null;
+      selected_node_id?: string | null;
+      hovered_node_id?: string | null;
+      overlay_mode?: string | null;
+      top_mode?: string | null;
+      active_drawer?: string | null;
+      timeline_step_idx?: number | null;
+    };
+    ui_events?: Record<string, number>;
+  };
+  events: FigPulseEvent[];
+  ui_context?: {
+    graph_id?: string | null;
+    selected_node_id?: string | null;
+    hovered_node_id?: string | null;
+    overlay_mode?: string | null;
+    top_mode?: string | null;
+    active_drawer?: string | null;
+    timeline_step_idx?: number | null;
+    locked?: boolean | null;
+  };
+};
+
+export type FigInteractionPulse = FigReasonSourceLedger;
+
+export type FigPulseTrace = {
+  protocol: string;
+  compatible_protocols?: string[];
+  trace_id: string | null;
+  path_length: number;
+  source: string;
+  layer_summary: Record<string, number>;
+  events?: FigPulseEvent[];
+  steps: Array<{
+    index: number;
+    node_id: string;
+    title: string;
+    kind: string | null;
+    level: number;
+    cognitive_type: string | null;
+    touch_count: number;
+    residual: number;
+    last_access: string | null;
+    pulse_strength: number;
+    evidence_sources: string[];
+    semantic_signature: {
+      alias_family_count: number;
+      translit_token_count: number;
+      stem_family_count: number;
+      relation_cue_count: number;
+      value_cue_count: number;
+      temporal_cue_count: number;
+      semantic_phrase_bucket_count: number;
+      concept_bucket_count: number;
+      morphology_bucket_count: number;
+    };
+    via_edge: {
+      edge_id: string;
+      kind: string;
+      weight: number;
+      src_node_id: string;
+      dst_node_id: string;
+    } | null;
+  }>;
 };
 
 // ---------------------------------------------------------------------------

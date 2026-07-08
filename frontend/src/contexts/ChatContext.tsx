@@ -167,6 +167,7 @@ export interface FaimCortexBrainState {
   predictions: string[];
   next_actions: string[];
   confidence: number;
+  retrieval_summary?: Record<string, unknown>;
   recent_turns: FaimCortexTurnSummary[];
   reasoning_tree: FaimCortexReasoningNode[];
   writeback_candidates: Array<Record<string, unknown>>;

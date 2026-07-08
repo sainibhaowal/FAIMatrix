@@ -24,3 +24,15 @@ def test_semantic_signature_extracts_concepts_aliases_and_transliteration():
     assert "relation:acquire" in signature.relation_cues
     assert "value:percent" in signature.value_cues
     assert "time:before" in signature.temporal_cues
+
+
+def test_semantic_signature_extracts_multilingual_and_morphology_channels():
+    signature = build_semantic_signature(
+        "Multilingual translation systems were running efficiently for legal operations."
+    )
+
+    assert signature.concept_counts
+    assert signature.morphology_counts
+    assert "relation:run" in signature.relation_cues
+    assert any(item.startswith("stem:translat") for item in signature.stem_families)
+    assert not any(item.startswith("alias:") for item in signature.alias_families)

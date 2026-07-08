@@ -267,6 +267,7 @@ def test_explain_returns_contract_shape(monkeypatch):
         "to_node_id",
         "path_found",
         "paths",
+        "pulse_trace",
         "explanation",
     ):
         assert key in body, f"missing key: {key}"
@@ -275,6 +276,12 @@ def test_explain_returns_contract_shape(monkeypatch):
     assert len(body["paths"]) >= 1
     assert body["explanation"]["hops"] >= 1
     assert body["explanation"]["relation_distance"] is not None
+    assert body["pulse_trace"]["protocol"] == "pulse-v2"
+    assert "pulse-v1" in body["pulse_trace"]["compatible_protocols"]
+    assert body["pulse_trace"]["path_length"] >= 1
+    assert len(body["pulse_trace"]["events"]) >= 2
+    assert len(body["pulse_trace"]["steps"]) >= 2
+    assert body["pulse_trace"]["steps"][0]["node_id"] == node_a
 
 
 def test_explain_no_path_response(monkeypatch):
@@ -334,6 +341,9 @@ def test_explain_no_path_response(monkeypatch):
     body = resp.json()
     assert body["path_found"] is False
     assert body["paths"] == []
+    assert body["pulse_trace"]["protocol"] == "pulse-v2"
+    assert body["pulse_trace"]["events"] == []
+    assert body["pulse_trace"]["steps"] == []
     assert body["explanation"]["relation_distance"] is None
 
 

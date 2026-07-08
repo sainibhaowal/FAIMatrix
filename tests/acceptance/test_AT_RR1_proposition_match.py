@@ -76,5 +76,7 @@ def test_phase4_query_prefers_matching_proposition_and_exposes_explain():
         assert first["evidence"]["raw_id"] == "raw-berlin"
         assert first["score_components"].get("phase4", 0.0) > 0.0
         assert "phase4_reranker" in first["explain"]
+        assert first["score_components"].get("phasec", 0.0) > 0.0
+        assert "phaseC_late_interaction" in first["explain"]
     finally:
         session.close()

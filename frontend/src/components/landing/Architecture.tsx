@@ -27,7 +27,7 @@ const LAYERS = [
       },
       {
         name: "Dashboard + FIG View",
-        desc: "Graph exploration, rebuild jobs, and operational visibility",
+        desc: "Graph exploration, pulse-v2 reason ledgers, rebuild jobs, and operational visibility",
       },
     ],
   },
@@ -50,7 +50,7 @@ const LAYERS = [
       },
       {
         name: "Graph + Knowledge Layers",
-        desc: "bounded multi-hop diffusion, semantic edges, domain knowledge, and neural pulse tracing",
+        desc: "bounded multi-hop diffusion, semantic edges, domain knowledge, and pulse-v2 graph proof",
       },
       {
         name: "Answer-Ready Retrieval",

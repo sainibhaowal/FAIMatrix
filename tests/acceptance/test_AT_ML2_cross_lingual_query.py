@@ -82,6 +82,12 @@ def test_cross_lingual_query_returns_matching_doc():
                 content="Umsatz Planung fuer das Quartal.",
                 block_type="text",
             ),
+            EvidenceBlock.create(
+                raw_id="raw-es",
+                anchor=BlockAnchor(doc_type="text", char_start=0, char_end=52),
+                content="Ingresos y planificacion del trimestre financiero.",
+                block_type="text",
+            ),
         ]
         vectors = vectorize_blocks(blocks)
         reprs = [build_representation_v2_for_block(block) for block in blocks]
@@ -97,12 +103,14 @@ def test_cross_lingual_query_returns_matching_doc():
             {
                 "raw-en": b"Revenue planning for the quarter.",
                 "raw-de": b"Umsatz Planung fuer das Quartal.",
+                "raw-es": b"Ingresos y planificacion del trimestre financiero.",
             }
         )
         storage_repo = _StorageFileRepo(
             [
                 _StorageFileRow("raw-en", "a.txt"),
                 _StorageFileRow("raw-de", "b.txt"),
+                _StorageFileRow("raw-es", "c.txt"),
             ]
         )
 
@@ -131,10 +139,18 @@ def test_cross_lingual_query_returns_matching_doc():
                 query_text="umsatz quartal",
                 k=2,
                 profile=FAIMProfile.STRICT,
-                return_explain=False,
+                return_explain=True,
                 index=None,
                 cache=None,
             )
         assert result.results
+        top = result.results[0]
+        phase_b = top["explain"]["phaseB_query_expansion"]
+        assert phase_b["source_counts"].get("multilingual_translation", 0) >= 1
+        assert "revenue" in phase_b["expanded_query_text"] or "quarter" in phase_b["expanded_query_text"]
+        assert (
+            "ingresos" in phase_b["expanded_query_text"]
+            or phase_b["source_counts"].get("multilingual_bridge", 0) >= 1
+        )
     finally:
         session.close()

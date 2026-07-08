@@ -19,9 +19,9 @@ const HIGHLIGHTS = [
     text: "Trace evidence chains with bounded hop budgets. Follow path logic with confidence decay tracking.",
   },
   {
-    title: "Proposals Only",
+    title: "Guarded Writebacks",
     tag: "Safety Protocol",
-    text: "Memory writes require human approval. Review Cortex proposals in the 3D FIG graph before persistence.",
+    text: "Memory writes still require approval, but approved Cortex writebacks now execute through a durable backend path and show receipts in the 3D FIG graph.",
   },
   {
     title: "Explainability",

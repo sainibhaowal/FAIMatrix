@@ -14,11 +14,15 @@ try:
         WritebackConfig,
         process_writeback_candidates,
     )
+    from faim.Faim_Native.core.cortex.writeback_executor import (
+        execute_cortex_writeback_candidate,
+    )
 except (ImportError, RuntimeError, ModuleNotFoundError):
     from core.cortex.consolidation import (
         WritebackConfig,
         process_writeback_candidates,
     )
+    from core.cortex.writeback_executor import execute_cortex_writeback_candidate
 
 
 def persist_cortex_turn(session, state: CortexBrainState) -> None:
@@ -115,41 +119,79 @@ def persist_cortex_turn(session, state: CortexBrainState) -> None:
         list(state.writeback_candidates), config
     )
 
-    # Persist auto-approved candidates
+    # Persist auto-approved candidates and execute them with a receipt.
     for candidate in auto_approved:
-        session.add(
-            CortexWritebackCandidateModel(
-                turn_id=state.turn_id,
-                session_id=session_id,
-                tenant_id=state.tenant_id,
-                graph_id=state.graph_id,
-                kind=str(candidate.get("kind") or "summary"),
-                status="auto_approved",  # Mark as auto-approved
-                reason=str(candidate.get("reason") or ""),
-                payload_json=jsonable_encoder(candidate),
-                confidence=float(candidate.get("confidence") or 0.0),
-                created_at=now,
-            )
+        candidate_row = CortexWritebackCandidateModel(
+            turn_id=state.turn_id,
+            session_id=session_id,
+            tenant_id=state.tenant_id,
+            graph_id=state.graph_id,
+            kind=str(candidate.get("kind") or "summary"),
+            status="auto_approved",
+            execution_status="pending",
+            reason=str(candidate.get("reason") or ""),
+            payload_json=jsonable_encoder(candidate),
+            confidence=float(candidate.get("confidence") or 0.0),
+            created_at=now,
+        )
+        session.add(candidate_row)
+        session.flush()
+
+        result = execute_cortex_writeback_candidate(
+            session=session,
+            tenant_id=state.tenant_id,
+            graph_id=state.graph_id,
+            turn_id=state.turn_id,
+            candidate_row=candidate_row,
+            candidate_payload=candidate,
+            request_id=state.session_id or state.turn_id,
+        )
+        candidate.update(
+            {
+                "status": candidate_row.status,
+                "execution_status": candidate_row.execution_status,
+                "execution_key": candidate_row.execution_key,
+                "execution_request_hash": candidate_row.execution_request_hash,
+                "execution_receipt": candidate_row.execution_receipt_json or {},
+                "execution_receipt_json": candidate_row.execution_receipt_json or {},
+                "execution_error": candidate_row.execution_error,
+                "executed_at": (
+                    candidate_row.executed_at.isoformat()
+                    if candidate_row.executed_at
+                    else None
+                ),
+                "execution_replayed": result.replayed,
+            }
         )
 
     # Persist manual review candidates
     for candidate in manual_review:
-        session.add(
-            CortexWritebackCandidateModel(
-                turn_id=state.turn_id,
-                session_id=session_id,
-                tenant_id=state.tenant_id,
-                graph_id=state.graph_id,
-                kind=str(candidate.get("kind") or "summary"),
-                status=str(candidate.get("status") or "proposed"),
-                reason=str(candidate.get("reason") or ""),
-                payload_json=jsonable_encoder(candidate),
-                confidence=float(candidate.get("confidence") or 0.0),
-                created_at=now,
-            )
+        candidate_row = CortexWritebackCandidateModel(
+            turn_id=state.turn_id,
+            session_id=session_id,
+            tenant_id=state.tenant_id,
+            graph_id=state.graph_id,
+            kind=str(candidate.get("kind") or "summary"),
+            status=str(candidate.get("status") or "proposed"),
+            execution_status="skipped",
+            reason=str(candidate.get("reason") or ""),
+            payload_json=jsonable_encoder(candidate),
+            confidence=float(candidate.get("confidence") or 0.0),
+            created_at=now,
         )
-
-    # TODO: Phase 4 - Execute auto-approved writebacks immediately
-    # For now, we persist them as "auto_approved" status for audit trail
+        session.add(candidate_row)
+        candidate.update(
+            {
+                "status": candidate_row.status,
+                "execution_status": candidate_row.execution_status,
+                "execution_key": None,
+                "execution_request_hash": None,
+                "execution_receipt": {},
+                "execution_receipt_json": {},
+                "execution_error": None,
+                "executed_at": None,
+                "execution_replayed": False,
+            }
+        )
 
     session.flush()

@@ -14,7 +14,13 @@
  */
 
 import { edgeColorByKind, nodeColorByState } from "@/lib/figViewLayout";
-import type { FigNodeDisplayState } from "@/types/figView";
+import { Badge } from "@/components/ui";
+import type {
+  FigInteractionPulse,
+  FigNodeDisplayState,
+  FigPulseTrace,
+  FigQueryExplain,
+} from "@/types/figView";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -28,6 +34,9 @@ type FigLegendProps = {
   onToggleNodeKind: (kind: string) => void;
   onToggleEdgeKind: (kind: string) => void;
   overlayMode?: string;
+  pulseTrace?: FigPulseTrace | null;
+  queryExplain?: FigQueryExplain | null;
+  livePulse?: FigInteractionPulse | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -218,6 +227,9 @@ export default function FigLegend({
   onToggleNodeKind,
   onToggleEdgeKind,
   overlayMode = "none",
+  pulseTrace = null,
+  queryExplain = null,
+  livePulse = null,
 }: FigLegendProps) {
   return (
     <div className="flex flex-col gap-4 text-xs">
@@ -263,6 +275,121 @@ export default function FigLegend({
               </div>
             ))}
       </LegendSection>
+
+      {pulseTrace && (
+        <>
+          <div className="h-px bg-slate-800/60" />
+          <LegendSection title="Pulse Protocol">
+            <div className="rounded-lg border border-cyan-500/15 bg-cyan-500/5 px-2 py-2 text-[10px] text-slate-300">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-cyan-300">
+                  {pulseTrace.protocol}
+                </span>
+                <span className="font-mono text-slate-500">
+                  {pulseTrace.path_length} hops
+                </span>
+              </div>
+              <p className="mt-1 text-slate-400">
+                Trace is backed by graph path, semantic signature, node
+                metrics, and provenance evidence.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {Object.entries(pulseTrace.layer_summary || {})
+                  .slice(0, 8)
+                  .map(([layer, count]) => (
+                    <Badge key={layer} size="sm" variant="outline">
+                      {layer}: {count}
+                    </Badge>
+                  ))}
+              </div>
+            </div>
+          </LegendSection>
+        </>
+      )}
+
+      {queryExplain && (
+        <>
+          <div className="h-px bg-slate-800/60" />
+          <LegendSection title="Query Reason Stack">
+            <div className="rounded-lg border border-violet-500/15 bg-violet-500/5 px-2 py-2 text-[10px] text-slate-300">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-violet-300">
+                  Overlay evidence
+                </span>
+                <span className="font-mono text-slate-500">
+                  {queryExplain.query_fusion_summary?.top_result?.active_layers?.length ??
+                    queryExplain.fusion_summary?.active_layers?.length ??
+                    0} layers
+                </span>
+              </div>
+              <p className="mt-1 text-slate-400">
+                The selected node is backed by weighted expansion, domain
+                memory, graph score, reranking, and late interaction signals
+                when present.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(queryExplain.fusion_summary?.active_layers ?? []).slice(0, 6).map((layer) => (
+                  <Badge key={layer} size="sm" variant="outline">
+                    {layer}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </LegendSection>
+        </>
+      )}
+
+      {livePulse && (
+        <>
+          <div className="h-px bg-slate-800/60" />
+          <LegendSection title="Live Interaction Pulse">
+            <div className="rounded-lg border border-fuchsia-500/15 bg-fuchsia-500/5 px-2 py-2 text-[10px] text-slate-300">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-fuchsia-300">
+                  {livePulse.protocol}
+                </span>
+                <span className="font-mono text-slate-500">
+                  {livePulse.event_count} events
+                </span>
+              </div>
+              <p className="mt-1 text-slate-400">
+                Current selection, hover state, overlay mode, and drawer state
+                are summarized in the same pulse-v2 shape used by FIG proof
+                surfaces.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(livePulse.active_layers ?? []).slice(0, 8).map((layer) => (
+                  <Badge key={layer} size="sm" variant="outline">
+                    {layer}
+                  </Badge>
+                ))}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {livePulse.ui_context?.selected_node_id && (
+                  <Badge size="sm" variant="secondary">
+                    selected: {livePulse.ui_context.selected_node_id.slice(0, 12)}
+                  </Badge>
+                )}
+                {livePulse.ui_context?.hovered_node_id && (
+                  <Badge size="sm" variant="outline">
+                    hover: {livePulse.ui_context.hovered_node_id.slice(0, 12)}
+                  </Badge>
+                )}
+                {livePulse.ui_context?.overlay_mode && (
+                  <Badge size="sm" variant="outline">
+                    overlay: {livePulse.ui_context.overlay_mode}
+                  </Badge>
+                )}
+                {livePulse.ui_context?.top_mode && (
+                  <Badge size="sm" variant="outline">
+                    mode: {livePulse.ui_context.top_mode}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </LegendSection>
+        </>
+      )}
 
       <div className="h-px bg-slate-800/60" />
 

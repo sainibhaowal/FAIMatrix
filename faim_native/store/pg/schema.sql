@@ -799,6 +799,12 @@ CREATE TABLE IF NOT EXISTS cortex_writeback_candidates (
     graph_id TEXT NOT NULL,
     kind TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'proposed',
+    execution_status TEXT NOT NULL DEFAULT 'pending',
+    execution_key TEXT,
+    execution_request_hash TEXT,
+    execution_receipt_json JSONB NOT NULL DEFAULT '{}'::jsonb,
+    execution_error TEXT,
+    executed_at TIMESTAMPTZ,
     reason TEXT NOT NULL DEFAULT '',
     payload_json JSONB NOT NULL DEFAULT '{}'::jsonb,
     confidence DOUBLE PRECISION NOT NULL DEFAULT 0.0,
@@ -811,7 +817,7 @@ CREATE INDEX IF NOT EXISTS idx_cortex_writeback_candidates_tenant_graph
     ON cortex_writeback_candidates(tenant_id, graph_id);
 
 COMMENT ON TABLE cortex_writeback_candidates IS
-    'Proposal-only memory writeback candidates emitted by Cortex';
+    'Cortex writeback candidates with approval and execution lifecycle';
 
 CREATE TABLE IF NOT EXISTS coactivations (
     tenant_id UUID NOT NULL,

@@ -12,7 +12,12 @@ import {
   useState,
 } from "react";
 
-import type { FigNode } from "@/types/figView";
+import type {
+  FigInteractionPulse,
+  FigNode,
+  FigPulseTrace,
+  FigQueryExplain,
+} from "@/types/figView";
 
 import {
   applyLayout,
@@ -125,11 +130,21 @@ type FigCanvasProps = {
   topMode: TopMode;
   locked: boolean;
   selectedNodeId: string | null;
+  hoveredNodeId?: string | null;
   hiddenNodeKinds?: Set<string>;
   hiddenEdgeKinds?: Set<string>;
   overlayMode?: OverlayMode;
   /** When set, path nodes/edges are highlighted in amber-400 with directional particles. */
   explainPath?: FigExplainPath | null;
+  /**
+   * Optional backend pulse trace for the active explain path.
+   * Used to modulate glow strength and edge particles from the runtime evidence stream.
+   */
+  pulseTrace?: FigPulseTrace | null;
+  /** Query-time reason ledger for the selected or latest evidence node. */
+  queryExplain?: FigQueryExplain | null;
+  /** Shared live FIG interaction pulse derived from the current UI state. */
+  livePulse?: FigInteractionPulse | null;
   /**
    * When set (ISO timestamp from a timeline step event), only nodes and edges
    * with created_at <= historyTs are rendered. This enables approximate
@@ -164,10 +179,14 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
       topMode,
       locked,
       selectedNodeId,
+      hoveredNodeId = null,
       hiddenNodeKinds,
       hiddenEdgeKinds,
       overlayMode = "none",
       explainPath,
+      pulseTrace,
+      queryExplain,
+      livePulse,
       historyTs,
       onNodeSelect,
       onNodeHover,
@@ -287,6 +306,54 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
       }
       return { maxResidual, maxTouchCount, minTs, maxTs };
     }, [overlayMode, data.nodes]);
+
+    const pulseStrengthByNodeId = useMemo(() => {
+      const strengthMap = new Map<string, number>();
+      if (!pulseTrace?.steps) return strengthMap;
+      for (const step of pulseTrace.steps) {
+        const existing = strengthMap.get(step.node_id) ?? 0;
+        strengthMap.set(step.node_id, Math.max(existing, step.pulse_strength));
+      }
+      return strengthMap;
+    }, [pulseTrace]);
+
+    const ledgerStrengthByNodeId = useMemo(() => {
+      const strengthMap = new Map<string, number>();
+      const ledger = queryExplain?.reason_source_ledger;
+      if (!ledger?.node_id) return strengthMap;
+      const eventStrength = Math.max(
+        ledger.confidence ?? 0,
+        ...((ledger.events ?? []).map((event) => event.strength ?? 0)),
+      );
+      strengthMap.set(ledger.node_id, eventStrength || 0.35);
+      return strengthMap;
+    }, [queryExplain]);
+
+    const interactionStrengthByNodeId = useMemo(() => {
+      const strengthMap = new Map<string, number>();
+      const pulse = livePulse;
+      if (!pulse?.events) return strengthMap;
+      for (const event of pulse.events) {
+        if (!event.node_id || !event.stage.startsWith("ui_")) continue;
+        const existing = strengthMap.get(event.node_id) ?? 0;
+        strengthMap.set(event.node_id, Math.max(existing, event.strength ?? 0));
+      }
+      return strengthMap;
+    }, [livePulse]);
+
+    const pulseStrengthByEdgeId = useMemo(() => {
+      const strengthMap = new Map<string, number>();
+      if (!pulseTrace?.steps) return strengthMap;
+      for (const step of pulseTrace.steps) {
+        if (!step.via_edge) continue;
+        const existing = strengthMap.get(step.via_edge.edge_id) ?? 0;
+        strengthMap.set(
+          step.via_edge.edge_id,
+          Math.max(existing, step.pulse_strength),
+        );
+      }
+      return strengthMap;
+    }, [pulseTrace]);
 
     // -------------------------------------------------------------------------
     // Mark canvas as ready when graph data loads
@@ -507,9 +574,21 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
     const nodeThreeObject = useCallback(
       (node: any) => {
         const inPath = explainPath?.nodeIdSet.has(node.id);
-        if (inPath) {
-          const size = nodeSizeByLevel(node.level) * 1.5;
-          const glow = new THREE.Mesh(GLOW_GEOM, GLOW_MAT);
+        const ledgerStrength = ledgerStrengthByNodeId.get(node.id);
+        const interactionStrength = interactionStrengthByNodeId.get(node.id);
+        if (inPath || ledgerStrength != null || interactionStrength != null) {
+          const pulseStrength =
+            pulseStrengthByNodeId.get(node.id) ??
+            ledgerStrength ??
+            interactionStrength ??
+            0.5;
+          const size = nodeSizeByLevel(node.level) * (1.2 + pulseStrength * 0.9);
+          const glowMat = GLOW_MAT.clone();
+          glowMat.setValues({
+            color: pulseStrength > 0.7 ? "#fde68a" : "#fbbf24",
+            opacity: 0.18 + pulseStrength * 0.18,
+          });
+          const glow = new THREE.Mesh(GLOW_GEOM, glowMat);
           glow.scale.set(size, size, size);
           // -----------------------------------------------------------------
           // OPTIMIZATION: Disable raycasting on the glow so it doesn't 
@@ -520,7 +599,7 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
         }
         return EMPTY_GROUP;
       },
-      [explainPath],
+      [explainPath, pulseStrengthByNodeId, ledgerStrengthByNodeId, interactionStrengthByNodeId],
     );
 
     // -------------------------------------------------------------------------
@@ -544,7 +623,31 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
         // Explicit user action (Find Path) overrides all other coloring.
         // ------------------------------------------------------------------
         if (explainPath?.nodeIdSet.has(figNode.id)) {
-          return isSelected ? "#fde68a" : "#f59e0b"; // amber-200 selected / amber-400 path
+          const pulseStrength = pulseStrengthByNodeId.get(figNode.id) ?? 0.5;
+          if (isSelected) return pulseStrength > 0.7 ? "#fff7d6" : "#fde68a";
+          if (pulseStrength > 0.8) return "#fde68a";
+          if (pulseStrength > 0.55) return "#fbbf24";
+          return "#d97706";
+        }
+
+        const ledgerStrength = ledgerStrengthByNodeId.get(figNode.id);
+        if (ledgerStrength != null) {
+          if (isSelected) return "#ccfbf1";
+          if (ledgerStrength > 0.75) return "#22d3ee";
+          if (ledgerStrength > 0.45) return "#06b6d4";
+          return "#0e7490";
+        }
+
+        const interactionStrength = interactionStrengthByNodeId.get(figNode.id);
+        if (interactionStrength != null || hoveredNodeId === figNode.id) {
+          if (isSelected) return "#ccfbf1";
+          if (interactionStrength != null && interactionStrength > 0.7) {
+            return "#67e8f9";
+          }
+          if (interactionStrength != null && interactionStrength > 0.4) {
+            return "#22d3ee";
+          }
+          return "#0f766e";
         }
 
         // ------------------------------------------------------------------
@@ -648,6 +751,10 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
         overlayMode,
         overlayNorm,
         explainPath,
+        pulseStrengthByNodeId,
+        ledgerStrengthByNodeId,
+        interactionStrengthByNodeId,
+        hoveredNodeId,
       ],
     );
 
@@ -675,7 +782,12 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
       (link: any) => {
         const graphLink = link as GraphLink;
         // Explain path edges — amber, overrides all other coloring.
-        if (explainPath?.edgeIdSet.has(graphLink.edge_id)) return "#f59e0b";
+        if (explainPath?.edgeIdSet.has(graphLink.edge_id)) {
+          const pulseStrength = pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
+          if (pulseStrength > 0.8) return "#fde68a";
+          if (pulseStrength > 0.55) return "#fbbf24";
+          return "#d97706";
+        }
         if (topMode === "lineage") {
           if (selectedNodeId) {
             // Node selected: highlight lineage path, fade everything else.
@@ -695,27 +807,29 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
         }
         return edgeColorByKind(graphLink.kind);
       },
-      [topMode, lineageDepths, selectedNodeId, explainPath],
+      [topMode, lineageDepths, selectedNodeId, explainPath, pulseStrengthByEdgeId],
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const linkParticles = useCallback(
       (link: any) => {
         const graphLink = link as GraphLink;
-        return explainPath?.edgeIdSet.has(graphLink.edge_id) ? 4 : 0;
+        if (!explainPath?.edgeIdSet.has(graphLink.edge_id)) return 0;
+        const pulseStrength = pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
+        return Math.max(1, Math.round(2 + pulseStrength * 6));
       },
-      [explainPath],
+      [explainPath, pulseStrengthByEdgeId],
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const linkParticleColor = useCallback(
       (link: any) => {
         const graphLink = link as GraphLink;
-        return explainPath?.edgeIdSet.has(graphLink.edge_id)
-          ? "#fbbf24"
-          : "#94a3b8";
+        if (!explainPath?.edgeIdSet.has(graphLink.edge_id)) return "#94a3b8";
+        const pulseStrength = pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
+        return pulseStrength > 0.7 ? "#fde68a" : "#fbbf24";
       },
-      [explainPath],
+      [explainPath, pulseStrengthByEdgeId],
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -727,16 +841,21 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
           minWidth,
           Math.log1p(graphLink.weight ?? 1) * 0.6,
         );
+        const pulseStrength = pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0;
+        const pulseBoost = 1 + pulseStrength * 0.8;
         if (
           selectedNodeId &&
           (graphLink.source === selectedNodeId ||
             graphLink.target === selectedNodeId)
         ) {
-          return baseWidth * 2;
+          return baseWidth * 2 * pulseBoost;
+        }
+        if (explainPath?.edgeIdSet.has(graphLink.edge_id)) {
+          return baseWidth * (1.15 + pulseStrength * 0.6);
         }
         return baseWidth;
       },
-      [selectedNodeId, topMode],
+      [selectedNodeId, topMode, explainPath, pulseStrengthByEdgeId],
     );
 
     // -------------------------------------------------------------------------
@@ -767,7 +886,12 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
           linkDirectionalArrowLength={3}
           linkDirectionalArrowRelPos={1}
           linkDirectionalParticles={linkParticles}
-          linkDirectionalParticleSpeed={0.004}
+          linkDirectionalParticleSpeed={(link: any) => {
+            const graphLink = link as GraphLink;
+            if (!explainPath?.edgeIdSet.has(graphLink.edge_id)) return 0.004;
+            const pulseStrength = pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
+            return 0.003 + pulseStrength * 0.006;
+          }}
           linkDirectionalParticleColor={linkParticleColor}
           dagMode={topMode === "lineage" ? "td" : (config.dagMode ?? undefined)}
           d3AlphaDecay={config.d3AlphaDecay}

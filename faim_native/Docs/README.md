@@ -79,6 +79,27 @@ Any items still listed as follow-up inside a report are operational or rollout h
 71. `67_FAIM_CORTEX_RUNTIME_ARCHITECTURE.md`
 72. `68_FAIM_CORTEX_IMPLEMENTATION_COMPLETION_REPORT.md`
 
+### Later runtime docs
+
+73. `71_FAIM_FIG_VIEW_COGNITIVE_PULSE_ENGINE_REPORT.md`
+74. `72_FAIM_CORTEX_AUTO_AND_WRITEBACK_UI.md`
+75. `76_FAIM_QUERY_LIFE_CYCLE_END_TO_END_PROOF.md`
+76. `77_FAIM_STOP_WORD_REMOVAL_AND_TEXT_CANONICALIZATION.md`
+77. `79_FAIM_ADVANCED_TEMPORAL_CONTRADICTION_RESOLUTION.md`
+78. `80_FAIM_INHERITANCE_WEIGHTED_QUERY_EXPANSION.md`
+79. `81_FAIM_CORTEX_FIG_VIEW_3D_INTEGRATION.md`
+80. `82_FAIM_INTERACTIVE_CORTEX_FIG_USER_GUIDE.md`
+81. `83_FAIM_ADI_ENTERPRISE_CLUSTER_BLUEPRINT.md`
+82. `84_FAIM_CANONICAL_SEMANTICS_PIPELINE.md`
+83. `85_FAIM_GRAPH_SEMANTICS_AND_DIFFUSION.md`
+84. `86_FAIM_DETERMINISTIC_RERANKER_V2.md`
+85. `87_FAIM_SCALE_AND_ANN.md`
+86. `88_FAIM_MULTILINGUAL_AND_CROSS_LINGUAL_SEMANTICS.md`
+87. `89_FAIM_MULTIMODAL_WITHOUT_ML.md`
+88. `90_FAIM_LONG_TAIL_KNOWLEDGE_AND_DOMAIN_ADAPTATION.md`
+89. `91_FAIM_EXTRACTIVE_ANSWER_SYNTHESIS.md`
+90. `92_FAIM_SEMANTIC_SIGNATURE_V1_REPORT.md`
+
 ## Intent
 
 - Architecture + implementation baseline is documented in 01-06.
@@ -141,6 +162,24 @@ Any items still listed as follow-up inside a report are operational or rollout h
 - TOTP 2FA implementation report is documented in 63.
 - Adaptive 1-24+ hop Cortex runtime implementation/spec is documented in 69.
 - Practical manual hop guide for Cortex behavior, user flow, and examples is documented in 69A.
+- FIG cognitive pulse engine, pulse-v2 ledgers, and graph/query proof surfaces are documented in 71.
+- Cortex auto/writeback UI wording is reconciled in 72.
+- End-to-end query proof with pulse-v2 ledger emission is documented in 76.
+- Stop-word removal and text canonicalization are documented in 77.
+- Advanced temporal contradiction resolution is documented in 79.
+- Inheritance-weighted query expansion is documented in 80.
+- Cortex/FIG 3D integration is documented in 81.
+- Interactive Cortex/FIG user flow is documented in 82.
+- Enterprise cluster blueprint is documented in 83.
+- Canonical semantics pipeline is documented in 84.
+- Graph semantics and diffusion is documented in 85.
+- Deterministic reranker v2 is documented in 86.
+- Scale and ANN is documented in 87.
+- Multilingual and cross-lingual semantics is documented in 88.
+- Multimodal without ML is documented in 89.
+- Long-tail knowledge and domain adaptation is documented in 90.
+- Extractive answer synthesis is documented in 91.
+- Semantic signature V1 is documented in 92.
 - Use these docs as the source of truth before extending the Storage page and related APIs.
 - Use the FAIM Cortex runtime doc as the source of truth before wiring the memory-query UI to the new turn API.
 - Use the Cortex completion report as the source of truth for what was implemented, validated, and left for future work.

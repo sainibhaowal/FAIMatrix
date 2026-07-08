@@ -54,6 +54,17 @@ class TestExplainPayload(unittest.TestCase):
 
         self.assertIn("opposition", source.lower())
 
+    def test_query_flow_wires_fusion_summary(self):
+        """run_query explain payload exposes fusion summary sections."""
+        import inspect
+
+        from orchestration.query_flow import run_query
+
+        source = inspect.getsource(run_query)
+
+        self.assertIn("fusion_summary", source)
+        self.assertIn("query_fusion_summary", source)
+
 
 class TestQueryResultExplain(unittest.TestCase):
     """Test query result with explain."""

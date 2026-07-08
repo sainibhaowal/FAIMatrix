@@ -75,7 +75,28 @@ class _FakeQueryResult:
                 "block_id": "block-1",
                 "anchor": {"filename": "atlas.txt", "page": 2},
             },
-            "explain": {"node_id": "n1"},
+            "explain": {
+                "node_id": "n1",
+                "fusion_summary": {
+                    "active_layers": ["core", "lexical_fusion", "graph_semantics"],
+                    "strongest_layers": [
+                        {"layer": "lexical_fusion", "contribution": 0.11}
+                    ],
+                    "strongest_signals": [{"signal": "sim", "value": 0.9}],
+                },
+                "query_fusion_summary": {
+                    "candidate_pool": {
+                        "total": 12,
+                        "lexical_scored": 8,
+                        "graph_candidates": 6,
+                        "domain_candidates": 2,
+                    },
+                    "query_expansion": {"source_counts": {"conceptnet_token": 2}},
+                    "graph_runtime": {"max_hops": 8, "diffusion_steps": 8},
+                },
+                "domain_relevance": {"candidate_count": 2},
+                "phase3_graph_score": {"total": 0.2, "path": 0.1, "diffusion": 0.1},
+            },
         }
     ]
     answer = {
@@ -135,6 +156,11 @@ def test_cortex_turn_returns_structured_brain_state(monkeypatch):
     assert body["answer"]["direct_answer"] == "Atlas lives in Berlin."
     assert body["brain_state"]["active_facts"]
     assert body["brain_state"]["reasoning_tree"]
+    assert body["brain_state"]["retrieval_summary"]["candidate_pool"]["total"] == 12
+    assert (
+        body["brain_state"]["retrieval_summary"]["top_result"]["active_layers"][1]
+        == "lexical_fusion"
+    )
     assert {node["branch"] for node in body["brain_state"]["reasoning_tree"]} >= {"recall", "traversal"}
     assert body["brain_state"]["session_turn_count"] == 1
     assert body["brain_state"]["next_actions"]
@@ -244,6 +270,19 @@ def test_cortex_turn_persists_structured_state(monkeypatch):
             .all()
         )
         assert writeback_rows
+        assert any(row.status == "auto_approved" for row in writeback_rows)
+        assert any(
+            row.execution_status in {"executed", "replayed"} for row in writeback_rows
+        )
+        assert any(row.execution_key for row in writeback_rows)
+        assert any(row.execution_receipt_json for row in writeback_rows)
+
+        writeback_payloads = resp.json()["brain_state"]["writeback_candidates"]
+        assert any(
+            item.get("execution_status") in {"executed", "replayed"}
+            for item in writeback_payloads
+        )
+        assert any(item.get("execution_key") for item in writeback_payloads)
     finally:
         session.close()
 

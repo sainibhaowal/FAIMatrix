@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 const OUTCOMES = [
   {
     title: "Search turns into answers",
-    text: "Users ask natural questions and get grounded, cited answers instead of a list of vaguely similar documents. Native semantic channels help bridge alias, phrase, and weak conceptual differences before the final answer is written.",
+    text: "Users ask natural questions and get grounded, cited answers instead of a list of vaguely similar documents. Weighted semantic expansion, a 2.31M+ term semantic registry runtime, broader cross-lingual concept bridges, native semantic channels, and fine-grained late interaction bridge alias, phrase, multilingual, and weak conceptual differences before the final answer is written.",
   },
   {
     title: "Knowledge stays inspectable",
@@ -24,8 +24,12 @@ const OUTCOMES = [
     text: "FAIM learns domain memory directly from uploads, aliases, and graph-linked facts so coverage improves as the corpus grows.",
   },
   {
+    title: "Multilingual nuance stays native",
+    text: "Cross-language retrieval now widens through deterministic concept-key bridges and graph-local multilingual mappings instead of a hidden translation model.",
+  },
+  {
     title: "It works without ML dependency",
-    text: "The core memory and retrieval path remains deterministic, explainable, and offline-friendly. New semantic-signature layers are additive FAIM-native engineering, not hidden transformer dependencies.",
+    text: "The core memory and retrieval path remains deterministic, explainable, and offline-friendly. Semantic-signature layers, the weighted expansion engine, and the native late-interaction scorer are additive FAIM-native engineering, not hidden transformer dependencies.",
   },
   {
     title: "Complex questions get deep answers",
@@ -48,7 +52,9 @@ const OUTCOMES = [
 const WORKFLOWS = [
   "Upload PDFs, DOCX, PPTX, XLSX, images, code, and text",
   "FAIM Native extractor — multi-column, tables, scanned OCR, zero ML",
+  "Weighted expansion blends canonical semantics, the semantic registry runtime, ConceptNet, broader multilingual concept bridges, and graph-learned domain memory before retrieval",
   "Semantic signature sidecars strengthen fuzzy phrase, alias, transliteration, and temporal matching",
+  "Native late interaction compares query tokens, phrases, concepts, stems, aliases, values, and time cues before final reranking",
   "Inspect provenance and download originals",
   "Rebuild canonical, multilingual, multimodal, or domain memory layers when those controls are enabled",
   "Ask FAIM Cortex and get cited answers",

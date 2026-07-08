@@ -429,6 +429,57 @@ def build_domain_graph(
             }
         )
 
+        bundle_key = str(meta.get("bundle_key") or "").strip()
+        if row.kind == "concept_bundle" and bundle_key:
+            bundle_id = f"bundle:{bundle_key}"
+            add_node(
+                {
+                    "id": bundle_id,
+                    "label": row.surface_form,
+                    "type": "bundle",
+                    "pack": pack,
+                    "kind": row.kind,
+                    "score": float(row.score or 0.0),
+                    "support_count": int(row.support_count or 0),
+                    "canonical_form": row.canonical_form,
+                }
+            )
+            edges.append(
+                {
+                    "id": f"{pack_id}->{bundle_id}",
+                    "source": pack_id,
+                    "target": bundle_id,
+                    "kind": "domain_pack",
+                    "weight": max(0.3, min(1.0, float(row.score or 0.0))),
+                }
+            )
+            for member in list(meta.get("bundle_members") or [])[:8]:
+                member_surface = str(member or "").strip()
+                if not member_surface:
+                    continue
+                term_member_id = f"term:{member_surface}:{row.kind}:{row.canonical_form}"
+                add_node(
+                    {
+                        "id": term_member_id,
+                        "label": member_surface,
+                        "type": "term",
+                        "pack": pack,
+                        "kind": "bundle_member",
+                        "score": float(row.score or 0.0),
+                        "support_count": int(row.support_count or 0),
+                        "canonical_form": row.canonical_form,
+                    }
+                )
+                edges.append(
+                    {
+                        "id": f"{bundle_id}->{term_member_id}",
+                        "source": bundle_id,
+                        "target": term_member_id,
+                        "kind": "bundle_member",
+                        "weight": max(0.3, min(1.0, float(row.score or 0.0))),
+                    }
+                )
+
         canonical_needed = (
             row.canonical_form != row.surface_form
             or len(canonical_surfaces[row.canonical_form]) > 1

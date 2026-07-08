@@ -1,7 +1,13 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { ArrowRight, GitBranch, Layers, Sparkles } from "lucide-react";
+import {
+  ArrowRight,
+  GitBranch,
+  Layers,
+  Orbit,
+  Sparkles,
+} from "lucide-react";
 import type { FaimCortexTurnResponse } from "@/contexts/ChatContext";
 
 function Pill({
@@ -39,6 +45,28 @@ export function CortexStatePanel({
   const topBranches = useMemo(
     () => brain.reasoning_tree.slice(0, 4),
     [brain.reasoning_tree],
+  );
+  const retrievalSummary = useMemo(
+    () => (brain.retrieval_summary ?? {}) as Record<string, unknown>,
+    [brain.retrieval_summary],
+  );
+  const topResult = useMemo(
+    () =>
+      (retrievalSummary.top_result ?? {}) as {
+        active_layers?: string[];
+        strongest_layers?: Array<{ layer?: string; contribution?: number }>;
+      },
+    [retrievalSummary],
+  );
+  const candidatePool = useMemo(
+    () =>
+      (retrievalSummary.candidate_pool ?? {}) as {
+        total?: number;
+        lexical_scored?: number;
+        domain_candidates?: number;
+        graph_candidates?: number;
+      },
+    [retrievalSummary],
   );
   const recentTurns = useMemo(
     () => brain.recent_turns.slice(-4),
@@ -83,6 +111,51 @@ export function CortexStatePanel({
           </div>
         </div>
       </div>
+
+      {!!topResult.active_layers?.length && (
+        <div className="mt-3 rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.04] p-3">
+          <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.24em] text-cyan-300">
+            <Orbit size={11} />
+            Retrieval Fusion
+          </div>
+          <p className="mt-2 text-[12px] leading-6 text-slate-200">
+            FAIM combined these active retrieval layers on the winning result.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {topResult.active_layers?.map((layer) => (
+              <Pill key={layer} tone="primary">
+                {String(layer).replace(/_/g, " ")}
+              </Pill>
+            ))}
+          </div>
+          <div className="mt-3 grid gap-2 md:grid-cols-2">
+            <div className="rounded-xl border border-white/[0.05] bg-black/20 p-3">
+              <div className="text-[8px] font-black uppercase tracking-[0.22em] text-slate-500">
+                Candidate Pool
+              </div>
+              <p className="mt-2 text-[12px] text-slate-200">
+                {candidatePool.total ?? 0} total · {candidatePool.lexical_scored ?? 0} lexical ·{" "}
+                {candidatePool.graph_candidates ?? 0} graph · {candidatePool.domain_candidates ?? 0} domain
+              </p>
+            </div>
+            <div className="rounded-xl border border-white/[0.05] bg-black/20 p-3">
+              <div className="text-[8px] font-black uppercase tracking-[0.22em] text-slate-500">
+                Strongest Layers
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(topResult.strongest_layers ?? []).slice(0, 4).map((layer, index) => (
+                  <Pill key={`${layer.layer ?? "layer"}-${index}`}>
+                    {String(layer.layer ?? "layer").replace(/_/g, " ")}{" "}
+                    {typeof layer.contribution === "number"
+                      ? layer.contribution.toFixed(3)
+                      : ""}
+                  </Pill>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-3 rounded-2xl border border-white/8 bg-white/[0.02] p-3">
         <div className="flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
@@ -212,13 +285,25 @@ export function CortexStatePanel({
             <div className="text-[9px] font-black uppercase tracking-[0.24em] text-primary-300">
               Writeback Candidates
             </div>
-            <div className="text-[8px] uppercase tracking-[0.2em] text-slate-500">
-              {
-                brain.writeback_candidates.filter(
-                  (c: { status?: string }) => c.status === "auto_approved",
-                ).length
-              }{" "}
-              auto-approved
+            <div className="flex flex-wrap items-center gap-1 text-[8px] uppercase tracking-[0.2em] text-slate-500">
+              <Pill tone="primary">
+                {
+                  brain.writeback_candidates.filter(
+                    (c: { status?: string }) => c.status === "auto_approved",
+                  ).length
+                }{" "}
+                approved
+              </Pill>
+              <Pill>
+                {
+                  brain.writeback_candidates.filter(
+                    (c: { execution_status?: string }) =>
+                      c.execution_status === "executed" ||
+                      c.execution_status === "replayed",
+                  ).length
+                }{" "}
+                executed
+              </Pill>
             </div>
           </div>
           <div className="mt-2 space-y-2">
@@ -229,6 +314,13 @@ export function CortexStatePanel({
                   text?: string;
                   reason?: string;
                   status?: string;
+                  execution_status?: string;
+                  execution_key?: string | null;
+                  execution_request_hash?: string | null;
+                  execution_receipt?: Record<string, unknown> | null;
+                  execution_receipt_json?: Record<string, unknown> | null;
+                  execution_error?: string | null;
+                  executed_at?: string | null;
                   confidence?: number;
                 },
                 index: number,
@@ -244,19 +336,85 @@ export function CortexStatePanel({
                     <p className="text-[12px] leading-6 text-slate-200">
                       {String(item.text ?? item.reason ?? "proposed update")}
                     </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {item.status === "auto_approved" && (
-                        <span className="text-[8px] uppercase tracking-[0.2em] text-emerald-300">
-                          Auto-approved (
-                          {Math.round((item.confidence ?? 0) * 100)}%)
-                        </span>
-                      )}
-                      {(!item.status || item.status === "proposed") && (
-                        <span className="text-[8px] uppercase tracking-[0.2em] text-amber-300">
-                          Pending approval
-                        </span>
-                      )}
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <Pill tone={item.status === "auto_approved" ? "primary" : "amber"}>
+                        {String(item.status ?? "proposed").replace(/_/g, " ")}
+                      </Pill>
+                      <Pill tone={
+                        item.execution_status === "executed" ||
+                        item.execution_status === "replayed"
+                          ? "primary"
+                          : item.execution_status === "failed"
+                            ? "amber"
+                            : "neutral"
+                      }>
+                        {String(item.execution_status ?? "skipped").replace(/_/g, " ")}
+                      </Pill>
+                      <span className="text-[8px] uppercase tracking-[0.2em] text-slate-500">
+                        {Math.round((item.confidence ?? 0) * 100)}% confidence
+                      </span>
                     </div>
+                    {(item.execution_key ||
+                      item.executed_at ||
+                      item.execution_error ||
+                      item.execution_request_hash) && (
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        {item.execution_key ? (
+                          <div className="rounded-xl border border-white/[0.05] bg-black/20 px-2.5 py-2">
+                            <div className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">
+                              Execution Key
+                            </div>
+                            <p className="mt-1 break-all text-[10px] leading-5 text-slate-200">
+                              {item.execution_key}
+                            </p>
+                          </div>
+                        ) : null}
+                        {item.executed_at ? (
+                          <div className="rounded-xl border border-white/[0.05] bg-black/20 px-2.5 py-2">
+                            <div className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">
+                              Executed At
+                            </div>
+                            <p className="mt-1 text-[10px] leading-5 text-slate-200">
+                              {item.executed_at}
+                            </p>
+                          </div>
+                        ) : null}
+                        {item.execution_request_hash ? (
+                          <div className="rounded-xl border border-white/[0.05] bg-black/20 px-2.5 py-2 md:col-span-2">
+                            <div className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">
+                              Request Hash
+                            </div>
+                            <p className="mt-1 break-all text-[10px] leading-5 text-slate-200">
+                              {item.execution_request_hash}
+                            </p>
+                          </div>
+                        ) : null}
+                        {item.execution_error ? (
+                          <div className="rounded-xl border border-amber-500/15 bg-amber-500/[0.05] px-2.5 py-2 md:col-span-2">
+                            <div className="text-[8px] font-black uppercase tracking-[0.2em] text-amber-300">
+                              Execution Error
+                            </div>
+                            <p className="mt-1 text-[10px] leading-5 text-amber-50/85">
+                              {item.execution_error}
+                            </p>
+                          </div>
+                        ) : null}
+                        {(item.execution_receipt_json || item.execution_receipt) ? (
+                          <div className="rounded-xl border border-white/[0.05] bg-black/20 px-2.5 py-2 md:col-span-2">
+                            <div className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-500">
+                              Receipt
+                            </div>
+                            <pre className="mt-1 overflow-x-auto whitespace-pre-wrap break-words text-[10px] leading-5 text-slate-300">
+                              {JSON.stringify(
+                                item.execution_receipt_json ?? item.execution_receipt,
+                                null,
+                                2,
+                              )}
+                            </pre>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 </div>
               ),

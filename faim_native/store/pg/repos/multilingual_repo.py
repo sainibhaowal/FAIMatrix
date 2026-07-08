@@ -66,9 +66,11 @@ class MultilingualRepo:
         mapped: Dict[str, List[str]] = {}
         for row in rows:
             values = mapped.setdefault(row.surface_form, [])
+            bridge_forms = tuple((row.meta or {}).get("bridge_forms", []) or ())
             for candidate in (
                 row.canonical_form,
                 str((row.meta or {}).get("translated_form", "")),
+                *bridge_forms,
             ):
                 if candidate and candidate not in values:
                     values.append(candidate)

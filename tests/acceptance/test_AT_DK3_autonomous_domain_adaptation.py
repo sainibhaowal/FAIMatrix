@@ -105,6 +105,10 @@ def test_autonomous_domain_adaptation_grows_graph_local_lexicon_and_sources(monk
         assert source_rows, "expected autonomous domain source rows"
         assert any(row.domain_pack in {"finance", "software"} for row in lexicon_rows)
         assert any((row.meta or {}).get("node_id") for row in lexicon_rows)
+        assert any(
+            row.kind in {"concept_bundle", "semantic_paraphrase"} for row in lexicon_rows
+        )
+        assert any(row.source_kind == "semantic_bundle" for row in source_rows)
         assert memory_body["lexicon_total"] >= len(lexicon_rows)
         assert memory_body["source_total"] >= len(source_rows)
         assert memory_body["top_terms"], "expected top domain terms in memory view"

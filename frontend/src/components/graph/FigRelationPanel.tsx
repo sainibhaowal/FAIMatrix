@@ -24,10 +24,13 @@ import {
 import { nodeColorByState } from "@/lib/figViewLayout";
 import { nodeStateClass, safeNodeTitle } from "@/lib/figViewSafety";
 import type {
+  FigInteractionPulse,
   FigExplainResponse,
   FigNode,
   FigNodeDisplayState,
+  FigQueryExplain,
 } from "@/types/figView";
+import FigPulseTrace from "./FigPulseTrace";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,6 +46,8 @@ type FigRelationPanelProps = {
   onRequestExplain: (fromNodeId: string, toNodeId: string) => void;
   explainResult: FigExplainResponse | null;
   explainLoading: boolean;
+  queryExplain?: FigQueryExplain | null;
+  livePulse?: FigInteractionPulse | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -190,10 +195,16 @@ function PathDisplay({
   result,
   nodeIndex,
   onNavigate,
+  queryExplain,
+  livePulse,
+  focusNodeId,
 }: {
   result: FigExplainResponse;
   nodeIndex: Map<string, FigNode>;
   onNavigate: (id: string) => void;
+  queryExplain?: FigQueryExplain | null;
+  livePulse?: FigInteractionPulse | null;
+  focusNodeId?: string | null;
 }) {
   if (!result.path_found) {
     return (
@@ -241,6 +252,15 @@ function PathDisplay({
           )}
         </div>
       </div>
+
+      <FigPulseTrace
+        pulseTrace={result.pulse_trace}
+        nodeIndex={nodeIndex}
+        queryExplain={queryExplain}
+        livePulse={livePulse}
+        focusNodeId={focusNodeId}
+        emptyText="This relation is grounded, but no pulse trace payload is attached."
+      />
 
       {/* Path traces */}
       {result.paths.map((path, i) => (
@@ -297,6 +317,8 @@ export default function FigRelationPanel({
   onRequestExplain,
   explainResult,
   explainLoading,
+  queryExplain = null,
+  livePulse = null,
 }: FigRelationPanelProps) {
   const [fromId, setFromId] = useState<string | null>(initialFromId ?? null);
   const [toId, setToId] = useState<string | null>(initialToId ?? null);
@@ -358,11 +380,14 @@ export default function FigRelationPanel({
 
       {/* Results */}
       {explainResult && !explainLoading && (
-        <PathDisplay
-          result={explainResult}
-          nodeIndex={nodeIndex}
-          onNavigate={onNavigateToNode}
-        />
+      <PathDisplay
+        result={explainResult}
+        nodeIndex={nodeIndex}
+        onNavigate={onNavigateToNode}
+        queryExplain={queryExplain}
+        livePulse={livePulse}
+        focusNodeId={toId}
+      />
       )}
 
       {/* Empty state hint */}

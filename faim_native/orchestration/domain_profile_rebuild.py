@@ -66,6 +66,7 @@ def run_domain_profile_rebuild(
         extract_phrase_terms,
         mine_terminology,
     )
+    from domain.semantic_memory import learn_semantic_memory_bundles
     from encoding.text_vectorizer import vectorize_text
     from perception.router import route_extraction
     from store.pg.repos.domain_knowledge_repo import DomainKnowledgeRepo
@@ -164,6 +165,11 @@ def run_domain_profile_rebuild(
     )
 
     rows = mine_terminology(docs, domain_pack=auto_domain_pack)
+    semantic_memory = learn_semantic_memory_bundles(
+        docs,
+        domain_pack=auto_domain_pack,
+        support_nodes=support_nodes,
+    )
     pack_rows = []
     for pack_name in result.detected_packs:
         pack_rows.extend(load_domain_profile_pack(pack_name))
@@ -308,8 +314,15 @@ def run_domain_profile_rebuild(
             ],
         )
 
+    if semantic_memory.source_rows:
+        result.sources_written += repo.merge_sources(
+            graph_id=graph_id,
+            rows=list(semantic_memory.source_rows),
+        )
+
     rows.extend(pack_rows)
     rows.extend(build_kb_lexicon_rows(facts, domain_pack=auto_domain_pack))
+    rows.extend(list(semantic_memory.lexicon_rows))
     merged_rows = _merge_rows(rows)
 
     for row in merged_rows:
@@ -346,6 +359,20 @@ def run_domain_profile_rebuild(
                 result.edges_written += 1
             except Exception:
                 pass
+
+    for semantic_edge in semantic_memory.semantic_edges:
+        try:
+            edge_repo.add_semantic_edge(
+                graph_id=graph_id,
+                src_node_id=semantic_edge.src_node_id,
+                dst_node_id=semantic_edge.dst_node_id,
+                semantic_type=semantic_edge.semantic_type,
+                semantic_weight=semantic_edge.semantic_weight,
+                meta=dict(semantic_edge.meta),
+            )
+            result.edges_written += 1
+        except Exception:
+            pass
 
     result.lexicon_written = repo.merge_lexicon(graph_id=graph_id, rows=merged_rows)
     if (

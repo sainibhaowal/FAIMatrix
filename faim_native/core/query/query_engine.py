@@ -76,6 +76,15 @@ STRICT_WEIGHTS = ScoringWeights(
     w_lvl=0.05,
 )
 
+FUSION_LAYER_WEIGHTS = {
+    "lexical_fusion": 0.15,
+    "graph_semantics": 0.12,
+    "modality": 0.08,
+    "domain_memory": 0.10,
+    "reranker_v2": 0.18,
+    "late_interaction": 0.11,
+}
+
 
 # =============================================================================
 # QueryPlan - Planning and execution context
@@ -757,6 +766,7 @@ def rerank_faim(
 
     Returns list of result dicts with node_id, score, score_components.
     """
+    from core.query.late_interaction_native import score_late_interaction_native
     from core.query.reranker_v2 import RerankerV2Candidate, score_reranker_v2
     from store.pg.models_faim import NodeModel
     from store.pg.repos.modality_repo import ModalityRepo
@@ -806,12 +816,28 @@ def rerank_faim(
             graph_avg_touch=graph_avg_touch,
             weights=weights,
         )
+        fusion_debug: Dict[str, Any] = {
+            "core_score": round(score, 6),
+            "contributions": {
+                "core": round(score, 6),
+                "lexical_fusion": 0.0,
+                "graph_semantics": 0.0,
+                "modality": 0.0,
+                "domain_memory": 0.0,
+                "reranker_v2": 0.0,
+                "late_interaction": 0.0,
+            },
+            "active_layers": ["core"],
+        }
 
         lex_score = 0.0
         lex_components: Dict[str, float] = {}
         if lexical_scores and node.node_id in lexical_scores:
             lex_score, lex_components = lexical_scores[node.node_id]
-            score = round(score + 0.15 * lex_score, 6)
+            lex_bonus = FUSION_LAYER_WEIGHTS["lexical_fusion"] * lex_score
+            score = round(score + lex_bonus, 6)
+            fusion_debug["contributions"]["lexical_fusion"] = round(lex_bonus, 6)
+            fusion_debug["active_layers"].append("lexical_fusion")
         components["lex"] = round(lex_score, 6)
         for key, value in lex_components.items():
             components[f"lex_{key}"] = round(value, 6)
@@ -821,7 +847,10 @@ def rerank_faim(
         if graph_scores and node.node_id in graph_scores:
             graph_components = graph_scores[node.node_id]
             graph_total = graph_components.get("total", 0.0)
-            score = round(score + 0.12 * graph_total, 6)
+            graph_bonus = FUSION_LAYER_WEIGHTS["graph_semantics"] * graph_total
+            score = round(score + graph_bonus, 6)
+            fusion_debug["contributions"]["graph_semantics"] = round(graph_bonus, 6)
+            fusion_debug["active_layers"].append("graph_semantics")
         components["graph"] = round(graph_total, 6)
         for key, value in graph_components.items():
             if key == "total":
@@ -841,7 +870,10 @@ def rerank_faim(
                 overlap += len(query_terms & table_terms) / len(query_terms)
                 overlap += len(query_terms & filename_terms) / len(query_terms)
             modality_score = min(1.0, overlap / 3.0)
-            score = round(score + 0.08 * modality_score, 6)
+            modality_bonus = FUSION_LAYER_WEIGHTS["modality"] * modality_score
+            score = round(score + modality_bonus, 6)
+            fusion_debug["contributions"]["modality"] = round(modality_bonus, 6)
+            fusion_debug["active_layers"].append("modality")
         components["modality"] = round(modality_score, 6)
 
         domain_total = 0.0
@@ -852,7 +884,10 @@ def rerank_faim(
             domain_total = min(
                 1.0, 0.45 * entity_link + 0.40 * fact_support + 0.15 * domain_term
             )
-            score = round(score + 0.10 * domain_total, 6)
+            domain_bonus = FUSION_LAYER_WEIGHTS["domain_memory"] * domain_total
+            score = round(score + domain_bonus, 6)
+            fusion_debug["contributions"]["domain_memory"] = round(domain_bonus, 6)
+            fusion_debug["active_layers"].append("domain_memory")
             components["domain_entity_link"] = round(entity_link, 6)
             components["domain_fact_support"] = round(fact_support, 6)
             components["domain_term"] = round(domain_term, 6)
@@ -881,6 +916,7 @@ def rerank_faim(
                 "graph_paths": (graph_paths or {}).get(node.node_id, []),
                 "repr_v2": repr_repo._row_to_repr(repr_row) if repr_row else None,
                 "answer_text": answer_text,
+                "fusion_debug": fusion_debug,
             }
         )
 
@@ -904,15 +940,57 @@ def rerank_faim(
         )
         for item in scored:
             phase4_total = phase4_totals.get(item["node_id"], 0.0)
-            item["score"] = round(item["score"] + 0.18 * phase4_total, 6)
+            phase4_bonus = FUSION_LAYER_WEIGHTS["reranker_v2"] * phase4_total
+            item["score"] = round(item["score"] + phase4_bonus, 6)
             item["score_components"]["phase4"] = round(phase4_total, 6)
+            item["fusion_debug"]["contributions"]["reranker_v2"] = round(
+                phase4_bonus, 6
+            )
+            if phase4_total > 0:
+                item["fusion_debug"]["active_layers"].append("reranker_v2")
             for key, value in phase4_components.get(item["node_id"], {}).items():
                 item["score_components"][f"phase4_{key}"] = round(value, 6)
-            item["phase4_explain"] = phase4_explain.get(item["node_id"], {})
+            item["phase4_explain"] = {
+                "total": round(phase4_total, 6),
+                "components": phase4_components.get(item["node_id"], {}),
+                "explain": phase4_explain.get(item["node_id"], {}),
+                **phase4_explain.get(item["node_id"], {}),
+            }
         if phase4_suppressed:
             scored = [
                 item for item in scored if item["node_id"] not in phase4_suppressed
             ]
+
+    # --- PHASE C: FAIM-native late interaction ---
+    if query_repr_v2 is not None and scored:
+        for item in scored:
+            repr_v2 = item.get("repr_v2")
+            late_interaction = score_late_interaction_native(
+                query_repr=query_repr_v2,
+                doc_repr=repr_v2,
+            )
+            phasec_total = float(late_interaction.total)
+            phasec_bonus = FUSION_LAYER_WEIGHTS["late_interaction"] * phasec_total
+            item["score"] = round(item["score"] + phasec_bonus, 6)
+            item["score_components"]["phasec"] = round(phasec_total, 6)
+            item["fusion_debug"]["contributions"]["late_interaction"] = round(
+                phasec_bonus, 6
+            )
+            if phasec_total > 0:
+                item["fusion_debug"]["active_layers"].append("late_interaction")
+            for key, value in late_interaction.components.items():
+                item["score_components"][f"phasec_{key}"] = round(value, 6)
+            item["phasec_explain"] = {
+                "total": round(phasec_total, 6),
+                "components": dict(late_interaction.components),
+                "explain": dict(late_interaction.explain),
+                **dict(late_interaction.explain),
+            }
+            item["fusion_summary"] = _build_fusion_summary(
+                score_components=item["score_components"],
+                fusion_debug=item.get("fusion_debug", {}),
+                final_score=float(item["score"]),
+            )
 
     # Stable sort: by score desc, then by node_id for determinism
     scored.sort(key=lambda x: (-x["score"], str(x["node_id"])))
@@ -1212,6 +1290,44 @@ def build_explain_payload(
             if repr_row is not None
             else None
         ),
+    }
+
+
+def _build_fusion_summary(
+    *,
+    score_components: Dict[str, float],
+    fusion_debug: Dict[str, Any],
+    final_score: float,
+) -> Dict[str, Any]:
+    """Summarize the active fusion layers for one ranked node."""
+    contributions = {
+        str(key): round(float(value or 0.0), 6)
+        for key, value in dict(fusion_debug.get("contributions", {}) or {}).items()
+    }
+    active_layers = list(dict.fromkeys(list(fusion_debug.get("active_layers", []) or [])))
+    strongest_layers = [
+        {"layer": key, "contribution": value}
+        for key, value in sorted(
+            contributions.items(),
+            key=lambda item: (-abs(float(item[1])), item[0]),
+        )
+        if key != "core" and abs(float(value)) > 0.0
+    ][:6]
+    strongest_signals = [
+        {"signal": key, "value": round(float(value), 6)}
+        for key, value in sorted(
+            score_components.items(),
+            key=lambda item: (-abs(float(item[1])), item[0]),
+        )
+        if abs(float(value)) > 0.0
+    ][:10]
+    return {
+        "final_score": round(float(final_score), 6),
+        "core_score": round(float(fusion_debug.get("core_score", 0.0) or 0.0), 6),
+        "active_layers": active_layers,
+        "layer_contributions": contributions,
+        "strongest_layers": strongest_layers,
+        "strongest_signals": strongest_signals,
     }
 
 

@@ -1,0 +1,138 @@
+# concept_key	en	de	es	fr	it	pt	nl
+concept:revenue	revenue	umsatz	ingresos	revenus	ricavi	receita	omzet
+concept:quarter	quarter	quartal	trimestre	trimestre	trimestre	trimestre	kwartaal
+concept:city	city	stadt	ciudad	ville	citta	cidade	stad
+concept:inventory	inventory	bestand	inventario	inventaire	inventario	inventario	voorraad
+concept:warehouse	warehouse	lager	almacen	entrepot	magazzino	armazem	magazijn
+concept:planning	planning	planung	planificacion	planification	pianificazione	planejamento	planning
+concept:forecast	forecast	prognose	pronostico	prevision	previsione	previsao	voorspelling
+concept:customer	customer	kunde	cliente	client	cliente	cliente	klant
+concept:market	market	markt	mercado	marche	mercato	mercado	markt
+concept:price	price	preis	precio	prix	prezzo	preco	prijs
+concept:cost	cost	kosten	costo	cout	costo	custo	kosten
+concept:profit	profit	gewinn	beneficio	profitto	profitto	lucro	winst
+concept:report	report	bericht	informe	rapport	rapporto	relatorio	rapport
+concept:invoice	invoice	rechnung	factura	facture	fattura	fatura	factuur
+concept:payment	payment	zahlung	pago	paiement	pagamento	pagamento	betaling
+concept:transaction	transaction	transaktion	transaccion	transaction	transazione	transacao	transactie
+concept:budget	budget	budget	presupuesto	budget	bilancio	orcamento	budget
+concept:billing	billing	abrechnung	facturacion	facturation	fatturazione	faturamento	facturatie
+concept:subscription	subscription	abonnement	suscripcion	abonnement	abbonamento	assinatura	abonnement
+concept:risk	risk	risiko	riesgo	risque	rischio	risco	risico
+concept:policy	policy	richtlinie	politica	politique	politica	politica	beleid
+concept:compliance	compliance	rechtskonformitaet	cumplimiento	conformite	conformita	conformidade	naleving
+concept:privacy	privacy	datenschutz	privacidad	confidentialite	riservatezza	privacidade	privacy
+concept:audit	audit	audit	auditoria	audit	audit	auditoria	audit
+concept:backup	backup	sicherung	copia de seguridad	sauvegarde	backup	backup	back-up
+concept:restore	restore	wiederherstellung	restaurar	restauration	ripristino	restauracao	herstel
+concept:cache	cache	cache	cache	cache	cache	cache	cache
+concept:index	index	index	indice	index	indice	indice	index
+concept:search	search	suche	busqueda	recherche	ricerca	pesquisa	zoeken
+concept:filter	filter	filter	filtro	filtre	filtro	filtro	filter
+concept:sort	sort	sortieren	ordenar	trier	ordinare	ordenar	sorteren
+concept:dashboard	dashboard	dashboard	panel de control	tableau de bord	cruscotto	painel	dashboard
+concept:workflow	workflow	arbeitsablauf	flujo de trabajo	flux de travail	flusso di lavoro	fluxo de trabalho	werkstroom
+concept:automation	automation	automatisierung	automatizacion	automatisation	automazione	automacao	automatisering
+concept:approval	approval	genehmigung	aprobacion	approbation	approvazione	aprovacao	goedkeuring
+concept:config	config	konfiguration	configuracion	configuration	configurazione	configuracao	configuratie
+concept:setting	setting	einstellung	ajuste	parametre	impostazione	configuracao	instelling
+concept:feature	feature	funktion	funcion	fonction	funzionalita	funcionalidade	functie
+concept:branch	branch	zweig	rama	branche	ramo	ramo	vertakking
+concept:edge	edge	kante	arista	arete	spigolo	aresta	rand
+concept:node	node	knoten	nodo	noeud	nodo	no	node
+concept:memory	memory	speicher	memoria	memoire	memoria	memoria	geheugen
+concept:knowledge	knowledge	wissen	conocimiento	connaissance	conoscenza	conhecimento	kennis
+concept:domain	domain	bereich	dominio	domaine	dominio	dominio	domein
+concept:language	language	sprache	idioma	langue	lingua	lingua	taal
+concept:translation	translation	uebersetzung	traduccion	traduction	traduzione	traducao	vertaling
+concept:canonicalization	canonicalization	kanonisierung	canonizacion	canonicalisation	canonizzazione	canonizacao	canonicalisatie
+concept:query	query	abfrage	consulta	requete	query	consulta	query
+concept:result	result	ergebnis	resultado	resultat	risultato	resultado	resultaat
+concept:answer	answer	antwort	respuesta	reponse	risposta	resposta	antwoord
+concept:authentication	authentication	authentifizierung	autenticacion	authentification	autenticazione	autenticacao	authenticatie
+concept:authorization	authorization	autorisierung	autorizacion	autorisation	autorizzazione	autorizacao	autorisatie
+concept:session	session	sitzung	sesion	sessione	sessione	sessao	sessie
+concept:tenant	tenant	mandant	inquilino	locataire	locatario	locatario	tenant
+concept:provider	provider	anbieter	proveedor	fournisseur	fornitore	fornecedor	leverancier
+concept:model	model	modell	modelo	modele	modello	modelo	model
+concept:embedding	embedding	einbettung	incrustacion	integration	incorporamento	incorporacao	embedding
+concept:vector	vector	vektor	vector	vecteur	vettore	vetor	vector
+concept:retrieval	retrieval	abruf	recuperacion	recuperation	recupero	recuperacao	ophaling
+concept:ranking	ranking	rangfolge	clasificacion	classement	classifica	classificacao	rangschikking
+concept:rerank	rerank	neusortierung	reordenar	reclassement	riordino	reordenacao	herordening
+concept:reasoning	reasoning	schlussfolgern	razonamiento	raisonnement	ragionamento	raciocinio	redenering
+concept:timeline	timeline	zeitleiste	linea de tiempo	chronologie	linea temporale	linha do tempo	tijdlijn
+concept:contradiction	contradiction	widerspruch	contradiccion	contradiction	contraddizione	contradicao	tegenstrijdigheid
+concept:provenance	provenance	herkunft	procedencia	provenance	provenienza	proveniencia	herkomst
+concept:compare	compare	vergleichen	comparar	comparer	confrontare	comparar	vergelijken
+concept:predict	predict	vorhersage	predecir	predire	prevedere	prever	voorspellen
+concept:investigate	investigate	untersuchen	investigar	enqueter	indagare	investigar	onderzoeken
+concept:consolidate	consolidate	konsolidieren	consolidar	consolider	consolidare	consolidar	consolideren
+concept:upload	upload	hochladen	subir	televerser	caricare	enviar	uploaden
+concept:download	download	herunterladen	descargar	telecharger	scaricare	baixar	downloaden
+concept:file	file	datei	archivo	fichier	file	arquivo	bestand
+concept:document	document	dokument	documento	document	documento	documento	document
+concept:graph	graph	graph	grafo	graphe	grafo	grafo	graaf
+concept:semantic	semantic	semantik	semantico	semantique	semantico	semantico	semantisch
+concept:lexicon	lexicon	lexikon	lexico	lexique	lessico	lexico	lexicon
+concept:concept	concept	konzept	concepto	concept	concepto	conceito	concept
+concept:deterministic	deterministic	deterministisch	determinista	deterministe	deterministico	deterministico	deterministisch
+concept:adaptive	adaptive	adaptiv	adaptativo	adaptatif	adattivo	adaptativo	adaptief
+concept:analysis	analysis	analyse	analisis	analyse	analisi	analise	analyse
+concept:summary	summary	zusammenfassung	resumen	resume	sommario	resumo	samenvatting
+concept:source	source	quelle	fuente	source	fonte	fonte	bron
+concept:citation	citation	beleg	cita	citation	citazione	citacao	citaat
+concept:entity	entity	entitaet	entidad	entite	entita	entidade	entiteit
+concept:relation	relation	relation	relacion	relation	relazione	relacao	relatie
+concept:topic	topic	thema	tema	sujet	argomento	topico	onderwerp
+concept:term	term	begriff	termino	terme	termine	termo	term
+concept:alias	alias	alias	alias	alias	alias	alias	alias
+concept:multilingual	multilingual	mehrsprachig	multilingue	multilingue	multilingue	multilingue	meertalig
+concept:crosslingual	crosslingual	sprachuebergreifend	interlingue	interlingue	interlinguistico	interlingue	crosstaal
+concept:pipeline	pipeline	pipeline	canalizacion	pipeline	pipeline	pipeline	pijplijn
+concept:operator	operator	betreiber	operador	operateur	operatore	operador	operator
+concept:server	server	server	servidor	serveur	server	servidor	server
+concept:database	database	datenbank	base de datos	base de donnees	banca dati	banco de dados	database
+concept:storage	storage	speicher	almacenamiento	stockage	archiviazione	armazenamento	opslag
+concept:ingest	ingest	erfassung	ingesta	ingestion	ingestione	ingestao	ingestie
+concept:extract	extract	extraktion	extraccion	extraction	estrazione	extracao	extractie
+concept:label	label	etikett	etiqueta	etiquette	etichetta	rotulo	label
+concept:signal	signal	signal	senal	signal	segnale	sinal	signaal
+concept:score	score	punktzahl	puntuacion	score	punteggio	pontuacao	score
+concept:confidence	confidence	konfidenz	confianza	confiance	confidenza	confianca	vertrouwen
+concept:temporal	temporal	zeitlich	temporal	temporel	temporale	temporal	tijdelijk
+concept:dependency	dependency	abhaengigkeit	dependencia	dependance	dipendenza	dependencia	afhankelijkheid
+concept:causal	causal	kausal	causal	causal	causale	causal	causaal
+concept:api	api	anwendungsprogrammierschnittstelle	api	api	api	api	api
+concept:endpoint	endpoint	endpunkt	punto final	point de terminaison	endpoint	ponto final	eindpunt
+concept:request	request	anfrage	solicitud	demande	richiesta	solicitacao	verzoek
+concept:response	response	antwort	respuesta	reponse	risposta	resposta	respons
+concept:router	router	router	enrutador	routeur	router	roteador	router
+concept:middleware	middleware	zwischenschicht	middleware	middleware	middleware	middleware	middleware
+concept:job	job	auftrag	trabajo	tache	lavoro	trabalho	taak
+concept:worker	worker	arbeiter	trabajador	travailleur	lavoratore	trabalhador	werker
+concept:queue	queue	warteschlange	cola	file	coda	fila	wachtrij
+concept:event	event	ereignis	evento	evenement	evento	evento	gebeurtenis
+concept:websocket	websocket	websocket	websocket	websocket	websocket	websocket	websocket
+concept:thread	thread	faden	hilo	thread	thread	thread	thread
+concept:token	token	token	token	token	token	token	token
+concept:prompt	prompt	aufforderung	instruccion	invite	prompt	prompt	prompt
+concept:client	client	klient	cliente	client	cliente	cliente	client
+concept:ui	ui	benutzeroberflaeche	interfaz	interface	interfaccia	interface	interface
+concept:layout	layout	layout	diseno	disposition	layout	layout	layout
+concept:animation	animation	animation	animacion	animation	animazione	animacao	animatie
+concept:permission	permission	berechtigung	permiso	permission	permesso	permissao	toestemming
+concept:encrypt	encrypt	verschluesseln	cifrar	chiffrer	cifrare	criptografar	versleutelen
+concept:decryption	decryption	entschluesselung	descifrado	dechiffrement	decrittazione	descriptografia	ontsleuteling
+concept:secret	secret	geheimnis	secreto	secret	segreto	segredo	geheim
+concept:key	key	schluessel	clave	cle	chiave	chave	sleutel
+concept:role	role	rolle	rol	role	ruolo	papel	rol
+concept:scope	scope	bereich	alcance	portee	ambito	escopo	bereik
+concept:user	user	benutzer	usuario	utilisateur	utente	usuario	gebruiker
+concept:developer	developer	entwickler	desarrollador	developpeur	sviluppatore	desenvolvedor	ontwikkelaar
+concept:knowledge graph	knowledge graph	wissensgraph	grafo de conocimiento	graphe de connaissances	grafo della conoscenza	grafo de conhecimento	kennsgraaf
+concept:api key	api key	api schluessel	clave api	cle api	chiave api	chave api	api sleutel
+concept:audit trail	audit trail	audit spur	rastro de auditoria	piste d audit	traccia di audit	trilha de auditoria	auditspoor
+concept:late interaction	late interaction	spaete interaktion	interaccion tardia	interaction tardive	interazione tardiva	interacao tardia	late interactie
+concept:weighted expansion	weighted expansion	gewichtete erweiterung	expansion ponderada	expansion ponderee	espansione pesata	expansao ponderada	gewogen uitbreiding
+concept:domain memory	domain memory	domaenenspeicher	memoria de dominio	memoire de domaine	memoria di dominio	memoria de dominio	domeingeheugen

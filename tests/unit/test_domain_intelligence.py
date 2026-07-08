@@ -130,6 +130,24 @@ def test_domain_intelligence_surfaces_overview_terms_and_graph():
                 meta={"node_id": str(other_node_id)},
                 updated_at=now,
             ),
+            GraphDomainLexiconModel(
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                surface_form="api latency",
+                canonical_form="api latency",
+                kind="concept_bundle",
+                domain_pack="software",
+                support_count=5,
+                score=0.89,
+                meta={
+                    "bundle_key": "bundle:software:test",
+                    "bundle_members": [
+                        "api latency",
+                        "application programming interface latency",
+                    ]
+                },
+                updated_at=now,
+            ),
             GraphKBSourceModel(
                 tenant_id=tenant_id,
                 graph_id=graph_id,
@@ -150,7 +168,7 @@ def test_domain_intelligence_surfaces_overview_terms_and_graph():
         limit=8,
     )
     assert overview["graph_version"] == 7
-    assert overview["lexicon_total"] == 3
+    assert overview["lexicon_total"] == 4
     assert overview["source_total"] == 1
     assert overview["linked_total"] >= 1
     assert "finance" in overview["detected_packs"]
@@ -173,10 +191,12 @@ def test_domain_intelligence_surfaces_overview_terms_and_graph():
         graph_id=graph_id,
         limit=10,
     )
-    assert graph["terms_sampled"] == 3
+    assert graph["terms_sampled"] == 4
     assert any(node["type"] == "pack" for node in graph["nodes"])
+    assert any(node["type"] == "bundle" for node in graph["nodes"])
     assert any(node["type"] == "graph" for node in graph["nodes"])
     assert any(edge["kind"] == "graph_link" for edge in graph["edges"])
+    assert any(edge["kind"] == "bundle_member" for edge in graph["edges"])
     assert any(edge["kind"] == "entity_relation" for edge in graph["edges"])
 
     session.close()
