@@ -68,20 +68,21 @@ const API_ENDPOINTS = [
   {
     method: "POST",
     path: "/graph/paths/explain",
-    description: "Find shortest paths between two nodes with explanation",
-    response: "paths[], explanation { summary, hops, relation_distance }",
+    description: "Find shortest paths between two nodes with pulse-v2 explanation",
+    response: "paths[], pulse_trace { events[], steps[] }, explanation",
   },
 ];
 
 const FEATURES = [
   {
-    title: "Neural Pulse Trace",
+    title: "Pulse-v2 Reason Ledger",
     icon: (
       <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5">
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
       </svg>
     ),
-    description: "Real-time visual pulses trace reasoning paths during Cortex queries. See exactly how the deterministic semantic router connects your knowledge atoms.",
+    description:
+      "Backend pulse events explain graph hops, semantic-registry signals, expansion sources, domain-memory links, reranker factors, and late-interaction matches. FIG View uses the same ledger for glow, path motion, inspector proof, and relation traces.",
   },
   {
     title: "GPU Stability Hardening",

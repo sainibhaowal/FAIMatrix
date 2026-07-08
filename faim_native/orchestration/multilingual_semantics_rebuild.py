@@ -1,4 +1,4 @@
-"""Multilingual EN/DE semantics rebuild for existing graphs."""
+"""Multilingual semantics rebuild for existing graphs."""
 
 from __future__ import annotations
 

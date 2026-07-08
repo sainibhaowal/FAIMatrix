@@ -14,6 +14,10 @@ try:
         extract_phrase_labels,
         extract_phrase_surface_map,
     )
+    from faim.Faim_Native.lexical.synonym_expander import (
+        WeightedExpansion,
+        merge_weighted_expansions,
+    )
 except (ImportError, RuntimeError):
     from encoding.porter_stemmer import STOP_WORDS
     from encoding.text_vectorizer import normalize_text
@@ -23,6 +27,7 @@ except (ImportError, RuntimeError):
         extract_phrase_labels,
         extract_phrase_surface_map,
     )
+    from lexical.synonym_expander import WeightedExpansion, merge_weighted_expansions
 
 
 _WORD_RE = re.compile(r"[a-z0-9]+(?:[._:/-][a-z0-9]+)*")
@@ -38,6 +43,7 @@ class CanonicalText:
     phrase_labels: Tuple[str, ...]
     expansions: Tuple[str, ...]
     canonical_text: str
+    weighted_expansions: Tuple[WeightedExpansion, ...] = ()
 
 
 def tokenize_words(text: str) -> List[str]:
@@ -64,20 +70,47 @@ def canonicalize_text(
     phrase_labels = extract_phrase_labels(surface_tokens)
     phrase_map = extract_phrase_surface_map(surface_tokens)
 
-    expansions: List[str] = []
+    weighted_rows: List[WeightedExpansion] = []
     lexicon = canonical_map or {}
     for token in lemmas:
         for value in lexicon.get(token, ()):
-            if value and value not in expansions:
-                expansions.append(value)
+            if value:
+                weighted_rows.append(
+                    WeightedExpansion(
+                        term=str(value),
+                        weight=0.9,
+                        sources=("canonical_lemma",),
+                        origins=(token,),
+                    )
+                )
     for surface, canonical in sorted(
         phrase_map.items(), key=lambda item: (item[0], item[1])
     ):
         for value in lexicon.get(surface, (canonical,)):
-            if value and value not in expansions:
-                expansions.append(value)
-        if canonical not in expansions:
-            expansions.append(canonical)
+            if value:
+                weighted_rows.append(
+                    WeightedExpansion(
+                        term=str(value),
+                        weight=0.96 if value == canonical else 0.92,
+                        sources=(
+                            "canonical_phrase"
+                            if value == canonical
+                            else "canonical_phrase_lexicon",
+                        ),
+                        origins=(surface,),
+                    )
+                )
+        weighted_rows.append(
+            WeightedExpansion(
+                term=str(canonical),
+                weight=0.88,
+                sources=("phrase_pattern",),
+                origins=(surface,),
+            )
+        )
+
+    weighted_expansions = merge_weighted_expansions(weighted_rows)
+    expansions = [item.term for item in weighted_expansions]
 
     canonical_tokens: List[str] = list(lemmas)
     for label in phrase_labels:
@@ -93,6 +126,7 @@ def canonicalize_text(
         lemma_tokens=tuple(lemmas),
         phrase_labels=tuple(phrase_labels),
         expansions=tuple(expansions),
+        weighted_expansions=weighted_expansions,
         canonical_text=" ".join(canonical_tokens),
     )
 

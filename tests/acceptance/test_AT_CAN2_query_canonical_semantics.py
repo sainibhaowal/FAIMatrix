@@ -143,9 +143,14 @@ def test_query_uses_canonical_semantics_alias_expansion(monkeypatch, tmp_path):
             query_text="rcp latency",
             k=3,
             profile=FAIMProfile.STRICT,
+            return_explain=True,
         )
         assert result.results
         top = result.results[0]
         assert top["evidence"]["raw_id"] == str(raw_id)
+        assert "phaseB_query_expansion" in top["explain"]
+        phase_b = top["explain"]["phaseB_query_expansion"]
+        assert "retrieval control plane" in phase_b["expanded_query_text"]
+        assert phase_b["source_counts"].get("canonical_lemma", 0) >= 1
     finally:
         close_session(session)

@@ -20,7 +20,7 @@ const PIPELINE_STEPS = [
     number: "02",
     title: "Classify",
     description:
-      "Every query is routed through a deterministic semantic alias engine. Intent is mapped into 8 core cognitive tasks in <10ms, eliminating LLM classification latency.",
+      "Every query is routed through a deterministic Cortex alias engine. Intent is mapped into 8 core cognitive tasks without requiring an LLM classifier, while the larger semantic registry runtime is reserved for retrieval-time broadening rather than task routing.",
     detail: "seeded aliases -> task routing -> deterministic intent",
     gradient: "from-blue-500 to-indigo-500",
     icon: (
@@ -59,8 +59,8 @@ const PIPELINE_STEPS = [
     number: "05",
     title: "Retrieve",
     description:
-      "Queries combine the canonical native vector with additive lexical-semantic sidecars, graph expansion, and deterministic reranking. Cortex can keep simple turns shallow, then deepen into bounded 1-24 hop evidence walks by default, or higher bounded ceilings when configured for advanced deployments.",
-    detail: "v_native + semantic sidecars -> adaptive hop planning -> bounded expansion -> reranker v2",
+      "Queries first pass through a weighted deterministic expansion layer that blends canonical semantics, the 2.31M+ shipped semantic registry term base, ConceptNet broadening, broader multilingual concept bridges, and graph-learned domain memory. FAIM then combines the canonical native vector with additive lexical-semantic sidecars, a native late-interaction match layer, graph expansion, and deterministic reranking. Cortex can keep simple turns shallow, then deepen into bounded 1-24 hop evidence walks by default, or higher bounded ceilings when configured for advanced deployments.",
+    detail: "weighted expansion -> semantic registry runtime -> multilingual concept bridges -> v_native + semantic sidecars -> native late interaction -> adaptive hop planning -> bounded expansion -> reranker v2",
     gradient: "from-pink-500 to-orange-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -72,8 +72,8 @@ const PIPELINE_STEPS = [
     number: "06",
     title: "Answer",
     description:
-      "Top evidence is turned into a deterministic answer with full provenance. Cortex persists structured reasoning state, exact traversal-path metadata when available, and memory proposals for your review before any persistence.",
-    detail: "span selection -> traversal branch -> citation-first answer -> proposals review",
+      "Top evidence is turned into a deterministic answer with full provenance. Cortex persists structured reasoning state, exact traversal-path metadata when available, and a pulse-v2 reason source ledger that explains why each visible graph node glows. Approved writebacks now execute through a durable, idempotent memory path and record receipts.",
+    detail: "span selection -> traversal branch -> pulse-v2 ledger -> citation-first answer -> approved writeback receipts",
     gradient: "from-emerald-500 to-cyan-500",
     icon: (
       <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -111,7 +111,8 @@ export default function HowItWorks() {
             core invariants remain intact while retrieval and answer layers stay
             additive. The product surfaces that matter most are FAIM Cortex for
             grounded answers and Storage for extractor selection, provenance,
-            autonomous domain memory, and maintenance workflows.
+            autonomous domain memory, writeback execution receipts, and
+            maintenance workflows.
           </p>
         </motion.div>
 

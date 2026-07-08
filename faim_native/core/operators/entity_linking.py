@@ -73,6 +73,7 @@ def build_domain_candidate_scores(
             "fact_time",
             "domain_term",
             "kb_source",
+            "semantic_bundle",
         ],
         limit=max_neighbors,
     )
@@ -106,6 +107,8 @@ def build_domain_candidate_scores(
             bucket["fact_support"] = max(bucket["fact_support"], 0.55 * weight)
         elif edge.kind == "domain_term":
             bucket["domain_term"] = max(bucket["domain_term"], 0.5 * weight)
+        elif edge.kind == "semantic_bundle":
+            bucket["domain_term"] = max(bucket["domain_term"], 0.62 * weight)
         elif edge.kind == "kb_source":
             bucket["fact_support"] = max(bucket["fact_support"], 0.45 * weight)
 

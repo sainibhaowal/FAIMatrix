@@ -6,7 +6,7 @@ const PHASES = [
   {
     tag: "NOW",
     title: "Deterministic Cognitive Core",
-    desc: "Stage-5 production core with seeded alias routing, bounded multi-hop reasoning, and Neural Pulse tracing.",
+    desc: "Stage-5 production core with seeded alias routing, bounded multi-hop reasoning, and pulse-v2 FIG evidence tracing.",
     status: "Live",
     color: "cyan",
   },

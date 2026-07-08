@@ -36,11 +36,13 @@ import FigRelationPanel from "@/components/graph/FigRelationPanel";
 import FigSearch from "@/components/graph/FigSearch";
 import {
   fetchGraphExplain,
+  appendFigInteractionPulse,
   fetchGraphLatestEvent,
   fetchGraphNeighborhood,
   fetchGraphSurface,
 } from "@/lib/figViewApi";
 import { buildAdjacency, buildNodeIndex } from "@/lib/figViewGraphTransform";
+import { buildFigInteractionPulse } from "@/lib/figViewPulse";
 import type { LayoutMode } from "@/lib/figViewLayout";
 
 // Extended overlay mode with neural constellation support
@@ -306,7 +308,7 @@ type TopMode = "explore" | "analyze" | "lineage";
 export default function FigViewPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
-  const { activeReasoningPath: chatReasoningPath } = useChat();
+  const { activeReasoningPath: chatReasoningPath, messages } = useChat();
 
   const [graphId, setGraphId] = useState<string>("");
   const [state, setState] = useState<FigLoadState>({ status: "idle" });
@@ -331,6 +333,7 @@ export default function FigViewPage() {
   const timelineLiveEnabledRef = useRef(true);
   const timelineVisibleRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPulseTraceIdRef = useRef<string | null>(null);
 
   // --- Phase 6-7 state ---
   // Pinned node for relation/explain comparisons
@@ -433,6 +436,67 @@ export default function FigViewPage() {
 
   // Combined explain path: priority to explicit FIG explain, fallback to Chat reasoning
   const finalExplainPath = explainPath || chatReasoningPath;
+
+  const activeQueryExplain = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i];
+      if (msg.queryData?.graph_id && msg.queryData.graph_id !== graphId) {
+        continue;
+      }
+      const results = msg.queryData?.results ?? [];
+      if (results.length > 0) {
+        const selected =
+          (selectedNodeId && results.find((r) => r.node_id === selectedNodeId)) ||
+          results[0];
+        return selected?.explain ?? null;
+      }
+    }
+    return null;
+  }, [messages, selectedNodeId]);
+
+  const liveInteractionPulse = useMemo(
+    () =>
+      buildFigInteractionPulse({
+        graphId: graphId || "fig",
+        selectedNode: selectedNodeId ? nodeIndex.get(selectedNodeId) ?? null : null,
+        hoveredNode: hoverNode,
+        overlayMode,
+        topMode,
+        activeDrawer,
+        timelineStepIdx,
+        queryExplain: activeQueryExplain,
+        pulseTrace: explainResult?.pulse_trace ?? null,
+      }),
+    [
+      activeDrawer,
+      activeQueryExplain,
+      explainResult?.pulse_trace,
+      graphId,
+      hoverNode,
+      nodeIndex,
+      overlayMode,
+      selectedNodeId,
+      timelineStepIdx,
+      topMode,
+    ],
+  );
+
+  useEffect(() => {
+    if (!graphId || !liveInteractionPulse?.trace_id) return;
+    if (lastPulseTraceIdRef.current === liveInteractionPulse.trace_id) return;
+    lastPulseTraceIdRef.current = liveInteractionPulse.trace_id;
+
+    let cancelled = false;
+    void appendFigInteractionPulse(graphId, liveInteractionPulse).catch(() => {
+      if (cancelled) return;
+      // Best-effort telemetry only. The UI still has the local deterministic
+      // pulse ledger even if the journal append fails.
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [graphId, liveInteractionPulse]);
 
   // Derive historyTs from current timeline step for graph-at-time visualization.
   // Null when not in step mode; canvas filters nodes/edges to created_at <= ts.
@@ -914,10 +978,14 @@ export default function FigViewPage() {
           topMode={topMode}
           locked={locked}
           selectedNodeId={selectedNodeId}
+          hoveredNodeId={hoverNode?.node_id ?? null}
           hiddenNodeKinds={hiddenNodeKinds}
           hiddenEdgeKinds={hiddenEdgeKinds}
           overlayMode={overlayMode}
           explainPath={finalExplainPath}
+          pulseTrace={explainResult?.pulse_trace ?? null}
+          queryExplain={activeQueryExplain}
+          livePulse={liveInteractionPulse}
           historyTs={historyTs}
           onNodeSelect={handleNodeSelect}
           onNodeHover={handleNodeHover}
@@ -1196,6 +1264,8 @@ export default function FigViewPage() {
             onExpandNeighborhood={handleExpandNeighborhood}
             neighborhoodLoading={neighborhoodLoading}
             neighborhoodExpansion={neighborhoodExpansion}
+            queryExplain={activeQueryExplain}
+            livePulse={liveInteractionPulse}
           />
         ) : (
           <p className="text-xs text-slate-500 text-center py-6">
@@ -1219,9 +1289,11 @@ export default function FigViewPage() {
             initialToId={selectedNodeId}
             onNavigateToNode={handleNavigateToNode}
             onRequestExplain={handleRequestExplain}
-            explainResult={explainResult}
-            explainLoading={explainLoading}
-          />
+          explainResult={explainResult}
+          explainLoading={explainLoading}
+          queryExplain={activeQueryExplain}
+          livePulse={liveInteractionPulse}
+        />
         ) : (
           <p className="text-xs text-slate-500 text-center py-6">
             No graph data loaded.
@@ -1255,6 +1327,9 @@ export default function FigViewPage() {
             })
           }
           overlayMode={overlayMode}
+          pulseTrace={explainResult?.pulse_trace ?? null}
+          queryExplain={activeQueryExplain}
+          livePulse={liveInteractionPulse}
         />
       </FloatingDrawer>
 

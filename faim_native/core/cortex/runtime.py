@@ -62,6 +62,35 @@ def _answer_packet_from_result(query_text: str, result) -> Dict[str, Any]:
     return answer_dict
 
 
+def _build_retrieval_summary(result) -> Dict[str, Any]:
+    if not result.results:
+        return {}
+    top_result = result.results[0]
+    explain = dict(top_result.get("explain") or {})
+    query_fusion_summary = dict(explain.get("query_fusion_summary") or {})
+    fusion_summary = dict(explain.get("fusion_summary") or {})
+    domain_relevance = dict(explain.get("domain_relevance") or {})
+    phase3 = dict(explain.get("phase3_graph_score") or {})
+    return {
+        "candidate_pool": dict(query_fusion_summary.get("candidate_pool") or {}),
+        "query_expansion": dict(query_fusion_summary.get("query_expansion") or {}),
+        "graph_runtime": dict(query_fusion_summary.get("graph_runtime") or {}),
+        "top_result": {
+            "node_id": str(top_result.get("node_id") or ""),
+            "score": float(top_result.get("score") or 0.0),
+            "active_layers": list(fusion_summary.get("active_layers") or []),
+            "strongest_layers": list(fusion_summary.get("strongest_layers") or []),
+            "strongest_signals": list(fusion_summary.get("strongest_signals") or []),
+            "domain_candidate_count": int(domain_relevance.get("candidate_count") or 0),
+            "graph_score": {
+                "total": float(phase3.get("total") or 0.0),
+                "path": float(phase3.get("path") or 0.0),
+                "diffusion": float(phase3.get("diffusion") or 0.0),
+            },
+        },
+    }
+
+
 def _render_narrative(state: CortexBrainState) -> str:
     direct = str(state.answer_packet.get("direct_answer") or "").strip()
     if not direct:
@@ -225,6 +254,7 @@ async def run_cortex_turn(
         answer_packet=answer_packet,
         results=query_result.results,
         reasoning_tree=reasoning_tree,
+        retrieval_summary=_build_retrieval_summary(query_result),
         recent_turns=[turn.model_dump() for turn in recent_turns],
     )
 

@@ -15,7 +15,7 @@ const CARDS = [
   {
     title: "FAIM Cortex",
     tag: "Memory synthesis",
-    text: "Planner-driven adaptive hop reasoning with real-time neural pulse tracing, exact traversal paths, and memory writeback proposals. Default bounded depth is 1-24 hops, configurable to 128.",
+    text: "Planner-driven adaptive hop reasoning with pulse-v2 reason ledgers, exact traversal paths, and approved memory writebacks that now execute through a durable receipt-backed backend path. Default bounded depth is 1-24 hops, configurable to 128.",
     href: "/dashboard/memory-query",
     cta: "Open Cortex",
     accent: "purple",
@@ -83,8 +83,8 @@ export default function DocsOperations() {
           <p className="mt-4 text-slate-400 max-w-3xl mx-auto text-lg">
             The public site now exposes the current FAIM system, the memory
             synthesis layer, the autonomous domain-memory flow, the new
-            semantic-signature retrieval layer, the guardrailed evolve
-            controls, and the production deploy flow in one place so operators
+            semantic-signature retrieval layer, the pulse-v2 FIG proof layer, the guardrailed evolve
+            controls, the approved writeback execution flow, and the production deploy flow in one place so operators
             do not have to hunt through scattered notes.
           </p>
         </motion.div>

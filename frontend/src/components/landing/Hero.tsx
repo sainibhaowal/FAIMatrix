@@ -113,7 +113,7 @@ export default function Hero() {
           className="mt-4 sm:mt-6 text-base md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed"
         >
           FAIMATRIX is a structured knowledge engine powered by a deterministic semantic router.
-          It combines 256-dim deterministic vectors with memory writeback proposals,
+          It combines 256-dim deterministic vectors with guarded memory writebacks,
           graph diffusion, and zero-hallucination Cortex synthesis.
         </motion.p>
 
@@ -205,10 +205,10 @@ export default function Hero() {
           </div>
           <div className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">
             <p className="text-[10px] font-medium uppercase tracking-widest text-purple-300/80">
-              Proposals Only Safety
+              Guarded Writeback Safety
             </p>
             <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-              Cortex never writes to memory automatically. Every structural update is a proposal you review and approve in the FIG View.
+              Cortex still requires approval for structural updates, but approved writebacks now execute through a durable, idempotent backend path and appear with receipts in the FIG View.
             </p>
           </div>
         </motion.div>

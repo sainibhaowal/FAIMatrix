@@ -14,7 +14,7 @@ const features = [
     ),
     title: "Native Semantic Matching",
     description:
-      "FAIM now layers semantic phrase signatures, concept buckets, alias families, transliteration bridges, and relation/value/time cues around the deterministic core. The result is stronger fuzzy matching without turning the engine into a black-box ML system.",
+      "FAIM now combines a 2.31M+ term semantic registry runtime, semantic-signature channels, a weighted query expansion engine, broader cross-lingual concept bridges, and a FAIM-native late-interaction scorer across tokens, phrases, concepts, multilingual surfaces, and graph-learned domain terms. The result is stronger fuzzy matching without turning the engine into a black-box ML system.",
     gradient: "from-cyan-500 to-blue-500",
     link: "/features/memory-engine",
   },
@@ -35,6 +35,21 @@ const features = [
       "Trace evidence chains through a real planner-driven Cortex runtime. FAIM runs adaptive 1-24 hop reasoning by default, supports higher bounded ceilings up to 128 when configured, and visualizes exact path traces in FIG View with citation integrity preserved.",
     gradient: "from-purple-500 to-pink-500",
     link: "/features/knowledge-graph",
+  },
+  {
+    id: "cognitive-pulse-engine",
+    icon: (
+      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M4 12h3l2-6 4 12 2-6h5" />
+        <circle cx="7" cy="12" r="1.5" />
+        <circle cx="15" cy="12" r="1.5" />
+      </svg>
+    ),
+    title: "Cognitive Pulse Engine",
+    description:
+      "FIG View now reads a formal pulse-v2 reason ledger from the backend. Node glow, path motion, inspector proof, relation traces, and legends are backed by graph hops, semantic-registry signals, weighted expansion sources, domain-memory links, reranker factors, and late-interaction matches.",
+    gradient: "from-fuchsia-500 to-cyan-500",
+    link: "/docs#fig-view",
   },
 
   {

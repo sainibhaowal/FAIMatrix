@@ -77,6 +77,12 @@ def test_multilingual_rebuild_writes_concept_nodes_and_edges():
                 content="Umsatz Planung fuer das Quartal.",
                 block_type="text",
             ),
+            EvidenceBlock.create(
+                raw_id="raw-es",
+                anchor=BlockAnchor(doc_type="text", char_start=0, char_end=48),
+                content="Ingresos y planificacion del trimestre.",
+                block_type="text",
+            ),
         ]
         vectors = vectorize_blocks(blocks)
         reprs = [build_representation_v2_for_block(block) for block in blocks]
@@ -92,12 +98,14 @@ def test_multilingual_rebuild_writes_concept_nodes_and_edges():
             {
                 "raw-en": b"Revenue planning for the quarter.",
                 "raw-de": b"Umsatz Planung fuer das Quartal.",
+                "raw-es": b"Ingresos y planificacion del trimestre.",
             }
         )
         storage_repo = _StorageFileRepo(
             [
                 _StorageFileRow("raw-en", "a.txt"),
                 _StorageFileRow("raw-de", "b.txt"),
+                _StorageFileRow("raw-es", "c.txt"),
             ]
         )
 
@@ -117,7 +125,7 @@ def test_multilingual_rebuild_writes_concept_nodes_and_edges():
             event_repo=EventRepo(session=session, tenant_id=tenant_id),
             extract_fn=_route_extraction,
         )
-        assert result.lexicon_written >= 2
+        assert result.lexicon_written >= 3
         assert (
             session.query(NodeModel)
             .filter_by(graph_id=graph_id, kind="concept")

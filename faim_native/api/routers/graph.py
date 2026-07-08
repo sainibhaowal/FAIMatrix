@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
@@ -60,7 +61,9 @@ from api.fig_graph_core import (  # noqa: E402
 )
 from api.routers.metrics import _metric_text_value, _payload_dict  # noqa: E402
 from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS  # noqa: E402
-from store.pg.models_faim import EdgeModel  # noqa: E402
+from core.query.pulse_protocol import build_pulse_trace_from_path  # noqa: E402
+from store.pg.models_faim import EdgeModel, NodeModel  # noqa: E402
+from store.pg.repos.representation_repo import RepresentationRepo  # noqa: E402
 
 # All valid edge kinds including semantic types
 _ALL_EDGE_KINDS = ",".join(sorted({"inheritance", "opposition"} | KNOWN_SEMANTIC_KINDS))
@@ -117,6 +120,129 @@ def _build_snapshot(
         "as_of": datetime.now(timezone.utc).isoformat(),
         "consistent_read": consistent_read,
     }
+
+
+def _summarize_pulse_signature(repr_row: Any | None) -> Dict[str, Any]:
+    if repr_row is None:
+        return {
+            "alias_family_count": 0,
+            "translit_token_count": 0,
+            "stem_family_count": 0,
+            "relation_cue_count": 0,
+            "value_cue_count": 0,
+            "temporal_cue_count": 0,
+            "semantic_phrase_bucket_count": 0,
+            "concept_bucket_count": 0,
+            "morphology_bucket_count": 0,
+        }
+    return {
+        "alias_family_count": len(repr_row.alias_families or []),
+        "translit_token_count": len(repr_row.transliterated_tokens or []),
+        "stem_family_count": len(repr_row.stem_families or []),
+        "relation_cue_count": len(repr_row.relation_cues or []),
+        "value_cue_count": len(repr_row.value_cues or []),
+        "temporal_cue_count": len(repr_row.temporal_cues or []),
+        "semantic_phrase_bucket_count": len(
+            dict(repr_row.semantic_phrase_counts or {})
+        ),
+        "concept_bucket_count": len(dict(repr_row.concept_counts or {})),
+        "morphology_bucket_count": len(dict(repr_row.morphology_counts or {})),
+    }
+
+
+def _build_pulse_trace(
+    ctx: FAIMContext,
+    graph_id: str,
+    path_nodes: List[UUID],
+    path_edges: List[EdgeModel],
+) -> Dict[str, Any]:
+    node_models: Dict[str, NodeModel] = {
+        str(node.node_id): node
+        for node in ctx.node_repo.list_by_ids(graph_id, path_nodes)
+    }
+    repr_repo = RepresentationRepo(ctx.session, tenant_id=ctx.tenant_id)
+    repr_rows = {
+        str(row.node_id): row
+        for row in repr_repo.list_by_node_ids(graph_id, path_nodes)
+    }
+
+    total_steps = max(len(path_nodes), 1)
+    layer_summary: Counter[str] = Counter()
+    steps: List[Dict[str, Any]] = []
+
+    for idx, node_id in enumerate(path_nodes):
+        node_key = str(node_id)
+        node = node_models.get(node_key)
+        repr_row = repr_rows.get(node_key)
+        via_edge = path_edges[idx - 1] if idx > 0 and idx - 1 < len(path_edges) else None
+        evidence_sources = {"graph_path", "node_metrics"}
+        if repr_row is not None:
+            evidence_sources.add("semantic_signature")
+        if node and (node.raw_id or node.block_id or node.anchor_json):
+            evidence_sources.add("provenance")
+        if node and node.cognitive_type:
+            evidence_sources.add("cognitive_type")
+
+        if repr_row is not None:
+            layer_summary["semantic_signature"] += 1
+        if node and node.cognitive_type:
+            layer_summary[f"cognitive:{node.cognitive_type}"] += 1
+        if node and (node.raw_id or node.block_id or node.anchor_json):
+            layer_summary["provenance"] += 1
+        if via_edge is not None:
+            layer_summary[f"edge:{via_edge.kind}"] += 1
+
+        strength = (
+            (1.0 - (idx / max(total_steps - 1, 1))) * 0.42
+            + (min(int(getattr(node, "touch_count", 0) or 0), 40) / 40.0) * 0.23
+            + (min(float(getattr(node, "residual", 0) or 0.0) / 1e9, 1.0) * 0.20)
+            + (0.15 if repr_row is not None else 0.0)
+        )
+        strength = max(0.05, min(1.0, strength))
+
+        steps.append(
+            {
+                "index": idx,
+                "node_id": node_key,
+                "title": (
+                    getattr(node, "raw_id", None)
+                    or getattr(node, "block_id", None)
+                    or node_key[:12]
+                ),
+                "kind": getattr(node, "kind", None),
+                "level": int(getattr(node, "level", 0) or 0),
+                "cognitive_type": getattr(node, "cognitive_type", None),
+                "touch_count": int(getattr(node, "touch_count", 0) or 0),
+                "residual": round(
+                    float(getattr(node, "residual", 0) or 0.0) / 1e9, 6
+                ),
+                "last_access": (
+                    node.last_access.isoformat() if node and node.last_access else None
+                ),
+                "pulse_strength": round(float(strength), 6),
+                "evidence_sources": sorted(evidence_sources),
+                "semantic_signature": _summarize_pulse_signature(repr_row),
+                "via_edge": (
+                    {
+                        "edge_id": str(via_edge.edge_id),
+                        "kind": via_edge.kind,
+                        "weight": round(float(via_edge.weight or 0) / 1e9, 6),
+                        "src_node_id": str(via_edge.src_node_id),
+                        "dst_node_id": str(via_edge.dst_node_id),
+                    }
+                    if via_edge is not None
+                    else None
+                ),
+            }
+        )
+
+    return build_pulse_trace_from_path(
+        graph_id=graph_id,
+        path_nodes=[str(node_id) for node_id in path_nodes],
+        steps=steps,
+        layer_summary=dict(sorted(layer_summary.items(), key=lambda item: item[0])),
+        source="graph.paths.explain",
+    )
 
 
 def _resolve_graph_id(
@@ -415,6 +541,16 @@ async def graph_paths_explain(
             "to_node_id": str(b),
             "path_found": False,
             "paths": [],
+            "pulse_trace": {
+                "protocol": "pulse-v2",
+                "compatible_protocols": ["pulse-v1"],
+                "trace_id": None,
+                "path_length": 0,
+                "source": "graph.paths.explain",
+                "layer_summary": {},
+                "events": [],
+                "steps": [],
+            },
             "explanation": {
                 "summary": f"no path within {max_hops} hops ({','.join(kinds)})",
                 "hops": 0,
@@ -435,6 +571,7 @@ async def graph_paths_explain(
         }
     ]
     _ = max_paths
+    pulse_trace = _build_pulse_trace(ctx, graph_id, path_nodes, path_edges)
 
     return {
         "snapshot": _build_snapshot(ctx, graph_id, graph_hash=gh, consistent_read=True),
@@ -442,6 +579,7 @@ async def graph_paths_explain(
         "to_node_id": str(b),
         "path_found": True,
         "paths": paths_out,
+        "pulse_trace": pulse_trace,
         "explanation": {
             "summary": summary,
             "hops": hops,

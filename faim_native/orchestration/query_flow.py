@@ -17,7 +17,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 from uuid import UUID
 
 # Flexible imports
@@ -277,6 +277,118 @@ def _stable_union_ids(primary_ids: List[UUID], extra_ids: List[UUID]) -> List[UU
     return merged
 
 
+def _source_count_map(expansions: Sequence[object]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for item in expansions:
+        for source in getattr(item, "sources", ()) or ():
+            counts[source] = counts.get(source, 0) + 1
+    return dict(sorted(counts.items(), key=lambda row: row[0]))
+
+
+def _build_query_fusion_summary(
+    *,
+    candidate_ids: Sequence[UUID],
+    lexical_scores: Dict[UUID, Any],
+    domain_candidate_ids: Sequence[UUID],
+    graph_scores: Dict[UUID, Dict[str, float]],
+    phaseb_expansion_info: Dict[str, Any],
+    ranked_item: Optional[Dict[str, Any]],
+    graph_options: Dict[str, Any],
+) -> Dict[str, Any]:
+    top_explain = dict((ranked_item or {}).get("fusion_summary", {}) or {})
+    top_layers = list(top_explain.get("active_layers", []) or [])
+    return {
+        "candidate_pool": {
+            "total": len(candidate_ids),
+            "lexical_scored": len(lexical_scores),
+            "domain_candidates": len(domain_candidate_ids),
+            "graph_candidates": len(graph_scores),
+        },
+        "query_expansion": {
+            "source_counts": dict(phaseb_expansion_info.get("source_counts", {}) or {}),
+            "expansion_count": len(list(phaseb_expansion_info.get("expansions", []) or [])),
+        },
+        "graph_runtime": {
+            "max_hops": int(graph_options.get("graph_max_hops", 0) or 0),
+            "max_neighbors": int(graph_options.get("graph_max_neighbors", 0) or 0),
+            "diffusion_steps": int(graph_options.get("graph_diffusion_steps", 0) or 0),
+            "decay": float(graph_options.get("graph_decay", 0.0) or 0.0),
+            "alpha": float(graph_options.get("graph_alpha", 0.0) or 0.0),
+        },
+        "top_result": {
+            "node_id": str((ranked_item or {}).get("node_id")) if ranked_item else None,
+            "active_layers": top_layers,
+            "strongest_layers": list(top_explain.get("strongest_layers", []) or []),
+            "strongest_signals": list(top_explain.get("strongest_signals", []) or []),
+        },
+    }
+
+
+def _domain_weighted_expansions(query_text: str, rows: Sequence[object]):
+    from lexical.synonym_expander import WeightedExpansion, merge_weighted_expansions
+
+    normalized = " ".join(str(query_text).lower().split())
+    terms = set(normalized.split())
+    weighted: List[WeightedExpansion] = []
+    for row in rows:
+        surface = str(getattr(row, "surface_form", "") or "").strip().lower()
+        canonical = str(getattr(row, "canonical_form", "") or "").strip().lower()
+        kind = str(getattr(row, "kind", "") or "domain_term").strip().lower()
+        meta = dict(getattr(row, "meta", {}) or {})
+        if not surface or not canonical or canonical == surface:
+            bundle_members = [
+                " ".join(str(item).strip().lower().split())
+                for item in list(meta.get("bundle_members") or [])
+                if str(item).strip()
+            ]
+            if kind != "concept_bundle" or not surface or not bundle_members:
+                continue
+            matched = surface in normalized if " " in surface else surface in terms
+            if not matched:
+                continue
+            score = float(getattr(row, "score", 0.0) or 0.0)
+            for member in bundle_members:
+                if not member or member == surface:
+                    continue
+                weighted.append(
+                    WeightedExpansion(
+                        term=member,
+                        weight=min(0.96, max(0.76, 0.74 + (score * 0.18))),
+                        sources=(f"domain_{kind}",),
+                        origins=(surface,),
+                    )
+                )
+            continue
+        matched = surface in normalized if " " in surface else surface in terms
+        if not matched:
+            continue
+        score = float(getattr(row, "score", 0.0) or 0.0)
+        weighted.append(
+            WeightedExpansion(
+                term=canonical,
+                weight=min(0.95, max(0.7, 0.72 + (score * 0.22))),
+                sources=(f"domain_{kind}",),
+                origins=(surface,),
+            )
+        )
+        for member in [
+            " ".join(str(item).strip().lower().split())
+            for item in list(meta.get("bundle_members") or [])
+            if str(item).strip()
+        ]:
+            if not member or member in {surface, canonical}:
+                continue
+            weighted.append(
+                WeightedExpansion(
+                    term=member,
+                    weight=min(0.94, max(0.72, 0.7 + (score * 0.18))),
+                    sources=(f"domain_{kind}", "domain_bundle"),
+                    origins=(surface, canonical),
+                )
+            )
+    return merge_weighted_expansions(weighted, max_total=16)
+
+
 # =============================================================================
 # Main Query Flow
 # =============================================================================
@@ -337,10 +449,26 @@ def run_query(
     # 1. Emit QUERY_START
     emit_query_start(journal, graph_id, query_hash, k, profile_name)
 
-    # 2. Canonicalize query text with graph-local lexicon, then encode.
+    # 2. Canonicalize and expand query text with deterministic weighted sources.
     canonical_query_text = query_text
+    expanded_query_text = query_text
+    phaseb_expansions: Sequence[object] = ()
+    phaseb_expansion_info: Dict[str, Any] = {
+        "base_query_text": query_text,
+        "canonical_query_text": query_text,
+        "expanded_query_text": query_text,
+        "source_counts": {},
+        "expansions": [],
+    }
+    canonicalized = None
+    canonical_map: Dict[str, Sequence[str]] = {}
     try:
         from lexical.canonicalizer import canonicalize_text
+        from lexical.synonym_expander import (
+            build_weighted_synonym_expansions,
+            merge_weighted_expansions,
+            render_weighted_expansion_text,
+        )
         from store.pg.repos.canonical_semantics_repo import CanonicalSemanticsRepo
 
         canonical_repo = CanonicalSemanticsRepo(session=session, tenant_id=tenant_id)
@@ -348,27 +476,59 @@ def run_query(
         canonicalized = canonicalize_text(query_text, canonical_map=canonical_map)
         if canonicalized.canonical_text:
             canonical_query_text = canonicalized.canonical_text
+        synonym_expansions = build_weighted_synonym_expansions(
+            canonicalized.normalized_text,
+            max_synonyms_per_term=4,
+            max_total=20,
+            max_phrase_terms=8,
+        )
+        phaseb_expansions = merge_weighted_expansions(
+            list(canonicalized.weighted_expansions) + list(synonym_expansions),
+            max_total=28,
+        )
+        expanded_query_text = render_weighted_expansion_text(
+            canonical_query_text,
+            phaseb_expansions,
+            max_total_terms=36,
+        )
     except Exception:
         canonical_query_text = query_text
+        expanded_query_text = query_text
+        canonicalized = None
 
+    multilingualized = None
+    multilingual_map: Dict[str, Sequence[str]] = {}
     try:
         from lexical.multilingual_canonicalizer import canonicalize_multilingual_text
+        from lexical.synonym_expander import (
+            merge_weighted_expansions,
+            render_weighted_expansion_text,
+        )
         from store.pg.repos.multilingual_repo import MultilingualRepo
 
         multilingual_repo = MultilingualRepo(session=session, tenant_id=tenant_id)
         multilingual_map = multilingual_repo.get_language_map(graph_id)
         multilingualized = canonicalize_multilingual_text(
-            canonical_query_text,
+            canonicalized.normalized_text if canonicalized else canonical_query_text,
             graph_map=multilingual_map,
         )
-        if multilingualized.canonical_text:
-            canonical_query_text = multilingualized.canonical_text
+        phaseb_expansions = merge_weighted_expansions(
+            list(phaseb_expansions) + list(multilingualized.weighted_expansions),
+            max_total=32,
+        )
+        expanded_query_text = render_weighted_expansion_text(
+            canonical_query_text,
+            phaseb_expansions,
+            max_total_terms=40,
+        )
     except Exception:
         pass
 
     domain_candidate_ids: List[UUID] = []
     domain_scores: Dict[UUID, Dict[str, float]] = {}
     domain_linked_terms: List[Dict[str, Any]] = []
+    domain_rows: List[Any] = []
+    domain_map: Dict[str, Sequence[str]] = {}
     try:
         from core.operators.entity_linking import (
             build_domain_candidate_scores,
@@ -379,7 +539,8 @@ def run_query(
 
         domain_repo = DomainKnowledgeRepo(session=session, tenant_id=tenant_id)
         domain_rows = domain_repo.list_lexicon_entries(graph_id)
-        linked_terms = resolve_query_links(canonical_query_text, domain_rows)
+        domain_map = domain_repo.get_domain_map(graph_id)
+        linked_terms = resolve_query_links(expanded_query_text, domain_rows)
         domain_linked_terms = [
             {
                 "surface_form": term.surface_form,
@@ -399,14 +560,82 @@ def run_query(
         domain_candidate_ids = []
         domain_scores = {}
 
+    try:
+        from lexical.synonym_expander import (
+            merge_weighted_expansions,
+            render_weighted_expansion_text,
+        )
+
+        domain_expansions = _domain_weighted_expansions(expanded_query_text, domain_rows)
+        phaseb_expansions = merge_weighted_expansions(
+            list(phaseb_expansions) + list(domain_expansions),
+            max_total=36,
+        )
+        expanded_query_text = render_weighted_expansion_text(
+            canonical_query_text,
+            phaseb_expansions,
+            max_total_terms=44,
+        )
+    except Exception:
+        pass
+
+    semantic_registry_info: Dict[str, Any] = {}
+    try:
+        from lexical.semantic_registry import (
+            load_semantic_registry_snapshot,
+            resolve_semantic_registry_expansions,
+        )
+        from lexical.synonym_expander import (
+            merge_weighted_expansions,
+            render_weighted_expansion_text,
+        )
+
+        registry_expansions, semantic_registry_info = resolve_semantic_registry_expansions(
+            query_text=expanded_query_text,
+            canonical_map=canonical_map,
+            multilingual_map=multilingual_map,
+            domain_map=domain_map,
+            max_total=20,
+        )
+        phaseb_expansions = merge_weighted_expansions(
+            list(phaseb_expansions) + list(registry_expansions),
+            max_total=40,
+        )
+        expanded_query_text = render_weighted_expansion_text(
+            canonical_query_text,
+            phaseb_expansions,
+            max_total_terms=52,
+        )
+        snapshot = load_semantic_registry_snapshot()
+        semantic_registry_info["registry_term_count"] = snapshot.total_terms
+    except Exception:
+        semantic_registry_info = {}
+
+    phaseb_expansion_info = {
+        "base_query_text": query_text,
+        "canonical_query_text": canonical_query_text,
+        "expanded_query_text": expanded_query_text,
+        "source_counts": _source_count_map(phaseb_expansions),
+        "semantic_registry": semantic_registry_info,
+        "expansions": [
+            {
+                "term": getattr(item, "term", ""),
+                "weight": round(float(getattr(item, "weight", 0.0)), 4),
+                "sources": list(getattr(item, "sources", ()) or ()),
+                "origins": list(getattr(item, "origins", ()) or ()),
+            }
+            for item in list(phaseb_expansions)[:36]
+        ],
+    }
+
     # 2b. Encode query → q_vec (same vectorizer as ingest, with synonym expansion enabled for recall)
     q_result = vectorize_text(
-        canonical_query_text,
-        expand_synonyms=True,
+        expanded_query_text,
+        expand_synonyms=False,
         remove_stopwords=_phase4_stopwords_enabled(),
     )
     q_vec = q_result.v_native
-    query_repr_v2 = build_query_representation_v2(canonical_query_text)
+    query_repr_v2 = build_query_representation_v2(expanded_query_text)
     lexical_scores: Dict[UUID, Any] = {}
     graph_scores: Dict[UUID, Dict[str, float]] = {}
     graph_paths: Dict[UUID, List[Dict[str, object]]] = {}
@@ -674,6 +903,21 @@ def run_query(
         query_repr_v2=query_repr_v2,
         include_historical=include_historical,
     )
+    query_fusion_summary = _build_query_fusion_summary(
+        candidate_ids=candidate_ids,
+        lexical_scores=lexical_scores,
+        domain_candidate_ids=domain_candidate_ids,
+        graph_scores=graph_scores,
+        phaseb_expansion_info=phaseb_expansion_info,
+        ranked_item=ranked[0] if ranked else None,
+        graph_options={
+            "graph_max_hops": effective_graph_max_hops,
+            "graph_max_neighbors": effective_graph_max_neighbors,
+            "graph_diffusion_steps": effective_graph_diffusion_steps,
+            "graph_decay": effective_graph_decay,
+            "graph_alpha": effective_graph_alpha,
+        },
+    )
 
     # Emit QUERY_RERANKED
     top_ids = [str(r["node_id"]) for r in ranked]
@@ -715,6 +959,7 @@ def run_query(
             explain_payload = build_explain_payload(
                 session, tenant_id, graph_id, r["node_id"]
             )
+            explain_payload["phaseB_query_expansion"] = phaseb_expansion_info
             explain_payload["domain_relevance"] = {
                 "query_links": domain_linked_terms[:20],
                 "candidate_count": len(domain_candidate_ids),
@@ -729,6 +974,35 @@ def run_query(
                 "contradiction": r["score_components"].get("graph_contradiction", 0.0),
             }
             explain_payload["phase4_reranker"] = r.get("phase4_explain", {})
+            explain_payload["phaseC_late_interaction"] = r.get("phasec_explain", {})
+            explain_payload["fusion_summary"] = r.get("fusion_summary", {})
+            explain_payload["query_fusion_summary"] = query_fusion_summary
+            try:
+                from core.query.pulse_protocol import build_node_reason_ledger
+
+                reason_ledger = build_node_reason_ledger(
+                    graph_id=graph_id,
+                    query_hash=query_hash,
+                    node_id=str(r["node_id"]),
+                    score=float(r["score"]),
+                    score_components=r.get("score_components", {}),
+                    explain_payload=explain_payload,
+                )
+            except Exception:
+                reason_ledger = {
+                    "protocol": "pulse-v2",
+                    "trace_id": None,
+                    "node_id": str(r["node_id"]),
+                    "confidence": 0.0,
+                    "event_count": 0,
+                    "active_layers": [],
+                    "strongest_layers": [],
+                    "source_summary": {},
+                    "why_glowing": {},
+                    "events": [],
+                }
+            explain_payload["reason_source_ledger"] = reason_ledger
+            explain_payload["pulse_event_stream"] = reason_ledger.get("events", [])
             result_item["explain"] = explain_payload
 
         results.append(result_item)
@@ -747,6 +1021,10 @@ def run_query(
         answer = None
 
     metrics["cache_hit"] = 1.0 if cache_hit else 0.0
+    metrics["phaseb_expansion_terms"] = float(len(phaseb_expansions))
+    metrics["phaseb_expansion_sources"] = float(
+        len(phaseb_expansion_info.get("source_counts", {}))
+    )
     if phase5_sparse_candidates or phase5_dense_candidates:
         metrics["phase5_sparse_candidates"] = float(len(phase5_sparse_candidates))
         metrics["phase5_dense_candidates"] = float(len(phase5_dense_candidates))

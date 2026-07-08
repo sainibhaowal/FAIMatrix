@@ -36,12 +36,15 @@ import {
 import { nodeColorByState } from "@/lib/figViewLayout";
 import { nodeStateClass, safeNodeTitle } from "@/lib/figViewSafety";
 import type {
+  FigInteractionPulse,
   FigEdge,
   FigExplainResponse,
   FigNeighborhoodExpansion,
   FigNode,
   FigNodeDisplayState,
+  FigQueryExplain,
 } from "@/types/figView";
+import FigPulseTrace from "./FigPulseTrace";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -62,6 +65,8 @@ type FigInspectorProps = {
   onExpandNeighborhood: (nodeId: string, depth: number) => void;
   neighborhoodLoading: boolean;
   neighborhoodExpansion: FigNeighborhoodExpansion | null;
+  queryExplain?: FigQueryExplain | null;
+  livePulse?: FigInteractionPulse | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -286,6 +291,8 @@ export default function FigInspector({
   onExpandNeighborhood,
   neighborhoodLoading,
   neighborhoodExpansion,
+  queryExplain = null,
+  livePulse = null,
 }: FigInspectorProps) {
   const [sections, setSections] = useState<Record<string, boolean>>({
     identity: true,
@@ -427,6 +434,43 @@ export default function FigInspector({
             </span>
           )}
         </div>
+
+        {livePulse && (
+          <div className="mt-2 rounded-lg border border-fuchsia-500/15 bg-fuchsia-500/5 px-2.5 py-2">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[9px] font-semibold uppercase tracking-widest text-fuchsia-300">
+                Live FIG pulse
+              </p>
+              <span className="font-mono text-[10px] text-slate-500">
+                {(livePulse.confidence * 100).toFixed(0)}%
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {(livePulse.active_layers ?? []).slice(0, 6).map((layer) => (
+                <Badge key={layer} size="sm" variant="outline">
+                  {layer}
+                </Badge>
+              ))}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {livePulse.ui_context?.selected_node_id && (
+                <Badge size="sm" variant="secondary">
+                  selected: {livePulse.ui_context.selected_node_id.slice(0, 12)}
+                </Badge>
+              )}
+              {livePulse.ui_context?.hovered_node_id && (
+                <Badge size="sm" variant="outline">
+                  hover: {livePulse.ui_context.hovered_node_id.slice(0, 12)}
+                </Badge>
+              )}
+              {livePulse.ui_context?.overlay_mode && (
+                <Badge size="sm" variant="outline">
+                  overlay: {livePulse.ui_context.overlay_mode}
+                </Badge>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Relevant memory navigation — deterministic prev/next ordering */}
         {relevantOrder.length > 0 &&
@@ -1110,11 +1154,21 @@ export default function FigInspector({
                                   ? safeNodeTitle(n).slice(0, 10)
                                   : id.slice(0, 8);
                               })
-                              .join(" → ")}
+                            .join(" → ")}
                           </div>
                         ))}
-                      </>
-                    )}
+                        <div className="pt-2">
+                        <FigPulseTrace
+                          pulseTrace={explainResult.pulse_trace}
+                          nodeIndex={nodeIndex}
+                          queryExplain={queryExplain}
+                          livePulse={livePulse}
+                          focusNodeId={node.node_id}
+                          emptyText="This path does not currently expose a pulse trace."
+                        />
+                      </div>
+                    </>
+                  )}
                   </div>
                 )}
               </div>
