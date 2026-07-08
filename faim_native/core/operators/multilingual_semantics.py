@@ -1,4 +1,4 @@
-"""Deterministic EN/DE multilingual graph semantics."""
+"""Deterministic multilingual graph semantics."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from uuid import UUID
 
 from lexical.multilingual_canonicalizer import (
     canonicalize_multilingual_text,
-    load_en_de_lexicon,
+    load_multilingual_resources,
 )
 
 MAX_CONCEPT_EDGES_PER_NODE = 6
@@ -20,6 +20,7 @@ class MultilingualDocument:
     node_id: UUID
     normalized_text: str
     language: str
+    normalized_tokens: Tuple[str, ...]
     stemmed_tokens: Tuple[str, ...]
     expansions: Tuple[str, ...]
 
@@ -38,6 +39,7 @@ def build_multilingual_document(node_id: UUID, text: str) -> MultilingualDocumen
         node_id=node_id,
         normalized_text=item.normalized_text,
         language=item.language,
+        normalized_tokens=item.tokens,
         stemmed_tokens=item.stemmed_tokens,
         expansions=item.expansions,
     )
@@ -46,25 +48,30 @@ def build_multilingual_document(node_id: UUID, text: str) -> MultilingualDocumen
 def build_multilingual_semantics(
     docs: Sequence[MultilingualDocument],
 ) -> Tuple[List[Dict[str, object]], List[Dict[str, object]], Dict[str, List[UUID]]]:
-    lexicon = load_en_de_lexicon()
+    lexicon, concept_surfaces, _supported_languages = load_multilingual_resources()
     concept_rows: List[Dict[str, object]] = []
     concept_members: Dict[str, List[UUID]] = {}
     lexicon_rows: Dict[Tuple[str, str, str], Dict[str, object]] = {}
 
     for doc in docs:
-        surface_values = sorted(set(doc.stemmed_tokens))
+        surface_values = sorted(set(doc.normalized_tokens) | set(doc.stemmed_tokens))
         for token in surface_values:
             entry = lexicon.get(doc.language, {}).get(token)
             if entry is None:
                 continue
-            concept_key, translated = entry
+            concept_key = entry.concept_key
+            translated = entry.anchor_term
             lexicon_rows[(doc.language, token, concept_key)] = {
                 "language": doc.language,
                 "surface_form": token,
                 "canonical_form": concept_key,
                 "concept_key": concept_key,
                 "score": 1.0,
-                "meta": {"translated_form": translated},
+                "meta": {
+                    "translated_form": translated,
+                    "bridge_forms": list(entry.bridge_terms),
+                    "concept_surfaces": concept_surfaces.get(concept_key, {}),
+                },
             }
             concept_members.setdefault(concept_key, [])
             if doc.node_id not in concept_members[concept_key]:

@@ -76,7 +76,7 @@ const CODE_EXAMPLES: CodeExample[] = [
 #   }
 # }`,
     description:
-      "Query returns deterministic ranking with bounded graph reasoning. The semantic router maps intent quickly, while additive semantic-signature channels improve alias, phrase, and temporal matching with full explainability for every retrieval signal.",
+      "Query returns deterministic ranking with bounded graph reasoning. Before scoring, FAIM runs a weighted expansion engine across canonical semantics, the multi-million-term semantic registry runtime, ConceptNet, broader multilingual concept mappings, and graph-learned domain memory. Additive semantic-signature channels and a native late-interaction scorer then improve alias, phrase, concept, and temporal matching with full explainability for every retrieval signal.",
   },
   {
     id: "evolve",
@@ -242,6 +242,8 @@ export default function DeveloperAPI() {
                 {activeTab === "query" && (
                   <>
                     <Highlight text="Bounded multi-hop reasoning trace" />
+                    <Highlight text="Cross-lingual concept bridging" />
+                    <Highlight text="Native late-interaction matching" />
                     <Highlight text="Deterministic semantic routing" />
                     <Highlight text="Deterministic ranking with full explainability" />
                   </>

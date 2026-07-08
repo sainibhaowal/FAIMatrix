@@ -26,6 +26,7 @@ from typing import Any, AsyncGenerator, Dict
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -33,6 +34,7 @@ if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
 from api.deps import FAIMContext, get_faim_context, get_tenant_id  # noqa: E402
+from store.journal.event_journal import truncate_payload  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +50,17 @@ DEFAULT_PAGE_SIZE = 50
 POLL_INTERVAL_SECONDS = 1.0
 HEARTBEAT_INTERVAL_SECONDS = 15.0
 MAX_EMPTY_POLLS = 300  # Stop after 5 minutes of no events
+
+
+class FigInteractionBody(BaseModel):
+    """Best-effort FIG interaction pulse payload.
+
+    The UI sends a deterministic pulse-v2 summary. The backend stores it as an
+    append-only FIG_INTERACTION event so the runtime has an auditable trail for
+    selection, hover, overlay, mode, drawer, and timeline changes.
+    """
+
+    pulse: Dict[str, Any] = Field(default_factory=dict)
 
 
 # =============================================================================
@@ -169,6 +182,64 @@ async def get_latest_event(
         "snapshot_hash": snapshot_hash,
         "event_count": total_count,
     }
+
+
+# =============================================================================
+# FIG Interaction Pulse Write Path
+# =============================================================================
+
+
+@router.post("/fig-interaction")
+async def append_fig_interaction_event(
+    graph_id: str,
+    body: FigInteractionBody,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> Dict[str, Any]:
+    """Append a best-effort FIG interaction pulse to the event journal.
+
+    This is intentionally non-blocking from a product perspective: if the
+    append fails, the UI can continue because the live pulse is still rendered
+    from local deterministic state and query explain payloads.
+    """
+
+    payload = body.pulse if isinstance(body.pulse, dict) else {}
+    payload = truncate_payload(payload)
+    payload.setdefault("protocol", "pulse-v2")
+    payload.setdefault("source", "fig_view")
+    payload.setdefault("kind", "FIG_INTERACTION")
+    payload.setdefault("graph_id", graph_id)
+    payload.setdefault("tenant_id", ctx.tenant_id)
+    payload.setdefault("ingest_mode", "best_effort")
+
+    try:
+        event = ctx.event_repo.emit(
+            ctx.session,
+            graph_id,
+            "FIG_INTERACTION",
+            payload,
+        )
+        ctx.session.commit()
+        return {
+            "stored": True,
+            "graph_id": graph_id,
+            "tenant_id": ctx.tenant_id,
+            "seq": event.seq,
+            "event_id": str(event.id),
+            "ts": event.ts.isoformat() if event.ts else None,
+            "protocol": payload.get("protocol"),
+        }
+    except Exception as exc:  # nosec B110
+        logger.warning("FIG interaction append failed: graph=%s err=%s", graph_id, exc)
+        try:
+            ctx.session.rollback()
+        except Exception:  # nosec B110
+            pass
+        return {
+            "stored": False,
+            "graph_id": graph_id,
+            "tenant_id": ctx.tenant_id,
+            "error": "pulse_append_failed",
+        }
 
 
 # =============================================================================

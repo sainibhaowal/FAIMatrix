@@ -88,6 +88,7 @@ def reduce_cortex_state(
     answer_packet: Dict[str, Any],
     results: List[Dict[str, Any]],
     reasoning_tree: List[CortexReasoningNode],
+    retrieval_summary: Dict[str, Any] | None = None,
     recent_turns: List[Dict[str, Any]] | None = None,
 ) -> CortexBrainState:
     confidence = float(answer_packet.get("confidence") or 0.0)
@@ -197,6 +198,7 @@ def reduce_cortex_state(
         predictions=predictions,
         next_actions=next_actions,
         confidence=confidence,
+        retrieval_summary=dict(retrieval_summary or {}),
         recent_turns=recent_turns,
         reasoning_tree=reasoning_tree,
         writeback_candidates=writeback_candidates,

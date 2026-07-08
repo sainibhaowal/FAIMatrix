@@ -96,6 +96,21 @@ class TestQueryAPIContract(unittest.TestCase):
         self.assertIn("use", fields)
         self.assertIn("lvl", fields)
 
+    def test_query_flow_source_contains_fusion_and_semantic_fields(self):
+        """Query flow exposes fusion summaries and semantic explain payloads."""
+        import inspect
+
+        from orchestration.query_flow import run_query
+
+        source = inspect.getsource(run_query)
+
+        self.assertIn("phaseC_late_interaction", source)
+        self.assertIn("fusion_summary", source)
+        self.assertIn("query_fusion_summary", source)
+        self.assertIn("domain_relevance", source)
+        self.assertIn("reason_source_ledger", source)
+        self.assertIn("pulse_event_stream", source)
+
 
 if __name__ == "__main__":
     unittest.main()

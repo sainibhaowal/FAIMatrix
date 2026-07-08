@@ -96,6 +96,7 @@ class CortexBrainState(BaseModel):
     predictions: List[str] = Field(default_factory=list)
     next_actions: List[str] = Field(default_factory=list)
     confidence: float = 0.0
+    retrieval_summary: Dict[str, Any] = Field(default_factory=dict)
     recent_turns: List[CortexTurnSummary] = Field(default_factory=list)
     reasoning_tree: List[CortexReasoningNode] = Field(default_factory=list)
     writeback_candidates: List[Dict[str, Any]] = Field(default_factory=list)

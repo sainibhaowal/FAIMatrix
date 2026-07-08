@@ -238,11 +238,16 @@ function SectionCurrentState() {
         <Card title="Latest Upgrades" color="cyan">
           <ul className="space-y-2 text-sm text-slate-400">
             {[
-              "Deterministic semantic router: seeded alias maps classify intents without a large LLM-style registry.",
-              "ConceptNet-derived lexical expansion resources are used for broadening, while the core router stays small and deterministic.",
+              "Deterministic Cortex router: seeded alias maps classify intents without a large LLM-style classifier, while remaining intentionally small and task-focused.",
+              "Semantic Registry Runtime: FAIM now carries a real 2.31M+ shipped semantic registry term base built from ConceptNet and multilingual lexicon surfaces, then grows it further through graph-local canonical, multilingual, and domain-memory lexicons.",
+              "ConceptNet-derived lexical expansion resources are used for broadening, while the Cortex router stays separate and compact.",
               "Semantic Signature V1: additive semantic phrase, concept, alias, transliteration, morphology, relation, value, and temporal channels now enrich retrieval without changing the canonical native vector contract.",
+              "Weighted Expansion Engine: query-time expansion now merges ConceptNet, graph-local canonical semantics, multilingual mappings, and graph-learned domain terms into a capped, weighted, source-tagged retrieval surface.",
+              "Native Late Interaction: FAIM now adds a fine-grained symbolic interaction scorer across query/document tokens, phrases, concepts, aliases, morphology, values, and temporal cues before final ranking.",
+              "Cross-Lingual Power: multilingual canonicalization and rebuild now extend beyond EN/DE into a broader deterministic concept-bridge surface for cross-language retrieval.",
+              "Multilingual Enterprise Pack: FAIM now ships a larger compressed multilingual lexicon pack with tens of thousands of surface forms, still loaded as a deterministic runtime asset rather than an online translation service.",
               "GPU Hardened FIG View: Static asset registry eliminates rendering-induced crashes.",
-              "Neural Pulse Trace: Real-time visualization of reasoning paths in the 3D globe.",
+              "Pulse-v2 Reason Ledger: backend graph/query events drive FIG node glow, path motion, inspector proof, relation traces, and semantic-layer legends.",
               "Memory Writeback Proposals: Human-in-the-loop safety for structural memory updates.",
               "Tenant crypto rotation: guarded execute/job path rewraps tenant DEKs under the current master key without re-encrypting payload blobs.",
               "Historical raw-reencryption: guarded execute/job path migrates legacy plaintext blobs into encrypted storage.",
@@ -986,9 +991,10 @@ function SectionRetrieval() {
         <h2 className="text-2xl font-bold text-white mb-2">Retrieval Engine</h2>
         <p className="text-slate-400 leading-relaxed">
           FAIM runs a multi-stage retrieval pipeline. Every query hits all data
-          stores, fuses deterministic dense and lexical-semantic channels,
-          scores through deterministic components, and re-ranks before
-          synthesizing a grounded answer.
+          stores, first passes through a weighted deterministic expansion
+          engine, semantic registry broadening, broader multilingual concept bridges, then fuses dense and lexical-semantic channels, applies a
+          native late-interaction scorer, scores through deterministic
+          components, and re-ranks before synthesizing a grounded answer.
         </p>
       </div>
 
@@ -1011,41 +1017,55 @@ function SectionRetrieval() {
             },
             {
               step: "3",
-              label: "Canonical vector recall",
+              label: "Weighted expansion engine",
               detail:
-                "Exact cosine fallback / validation path against the graph's v_native vectors",
-              color: "#60a5fa",
+                "Query-time expansion merges canonical semantics, semantic registry runtime surfaces, ConceptNet token and phrase broadening, multilingual graph mappings, broader concept-bridge surfaces, and graph-learned domain lexicon terms. Every expansion is capped, weighted, deterministic, and source-tagged.",
+              color: "#38bdf8",
             },
             {
               step: "4",
+              label: "Canonical vector recall",
+              detail:
+                "Exact cosine fallback / validation path against the graph's v_native vectors using the strengthened expanded query surface",
+              color: "#60a5fa",
+            },
+            {
+              step: "5",
               label: "Lexical-semantic sidecars",
               detail:
                 "Representation V2 plus Semantic Signature V1 add phrase, concept, alias, transliteration, morphology, relation, value, and temporal matching beside the canonical vector",
               color: "#8b5cf6",
             },
             {
-              step: "5",
+              step: "6",
+              label: "Native late interaction",
+              detail:
+                "An additive FAIM-native symbolic interaction layer compares query/doc tokens, phrases, semantic phrases, concepts, stems, aliases, transliterations, relation cues, value cues, and temporal cues before the final score is written",
+              color: "#c084fc",
+            },
+            {
+              step: "7",
               label: "Deterministic ANN",
               detail:
                 "Graph-versioned cached dense shortlist using deterministic VP-tree search, merged with sparse recall",
               color: "#a78bfa",
             },
             {
-              step: "6",
+              step: "8",
               label: "7-component scoring",
               detail:
                 "Cosine similarity · Novelty · Opposition · Redundancy · Recency · Usage frequency · Level penalty",
               color: "#fbbf24",
             },
             {
-              step: "7",
+              step: "9",
               label: "RerankerV2",
               detail:
-                "Proposition-aware deterministic reranking: scores adjusted by block_type weight, section match, and graph neighbourhood",
+                "Proposition-aware deterministic reranking: scores adjusted by block_type weight, section match, graph neighbourhood, and additive late-interaction evidence",
               color: "#f97316",
             },
             {
-              step: "8",
+              step: "10",
               label: "Answer synthesis",
               detail:
                 "Top-N nodes → extractive answer with citations (filename · page · section per node)",
@@ -1076,7 +1096,12 @@ function SectionRetrieval() {
           channels computed by Representation V2. These enable lexically-rich
           matching on top of vector similarity. Semantic Signature V1 extends
           this same additive sidecar path rather than replacing the core
-          vector.
+          vector. Phase B then adds a weighted deterministic expansion layer
+          ahead of retrieval so alias, phrase, multilingual, and domain-memory
+          matches can strengthen the query before dense and sparse scoring.
+          Phase C then adds a native late-interaction layer so these same
+          channels can participate in fine-grained query/document matching
+          before final ranking.
         </p>
         <div className="grid md:grid-cols-2 gap-2">
           {[
@@ -1125,6 +1150,119 @@ function SectionRetrieval() {
               <p className="text-[10px] text-slate-600">{v}</p>
             </div>
           ))}
+        </div>
+      </Card>
+
+      <Card title="Phase B — Weighted Expansion Engine" color="amber">
+        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+          Before dense recall and reranking, FAIM now runs a weighted
+          deterministic expansion layer over the query itself. This is not a
+          neural rewrite model. It is a bounded FAIM-native merger of multiple
+          retrieval-strengthening sources.
+        </p>
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-mono text-amber-400 mb-1.5">
+              Expansion sources
+            </p>
+            <ul className="space-y-1.5 text-[11px] text-slate-500 leading-relaxed">
+              <li>ConceptNet token and phrase broadening</li>
+              <li>Graph-local canonical semantics</li>
+              <li>Multilingual concept and translation mappings</li>
+              <li>Graph-learned domain lexicon terms</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-mono text-amber-400 mb-1.5">
+              Safety rules
+            </p>
+            <ul className="space-y-1.5 text-[11px] text-slate-500 leading-relaxed">
+              <li>Capped globally to avoid runaway broadening</li>
+              <li>Weighted and stable across repeated runs</li>
+              <li>Source-tagged for explainability</li>
+              <li>Additive only — no change to native vector identity</li>
+            </ul>
+          </div>
+        </div>
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          In explain mode, FAIM can expose the expanded query text, source
+          counts, and per-expansion weights/origins so the broadening path stays
+          inspectable in production.
+        </p>
+      </Card>
+
+      <Card title="Phase C — Native Late Interaction" color="purple">
+        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+          After expansion and shortlist generation, FAIM now applies a
+          fine-grained symbolic interaction layer inspired by the efficiency
+          goals of late-interaction retrieval systems, but implemented as
+          FAIM-native deterministic math instead of transformer token vectors.
+        </p>
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-mono text-purple-400 mb-1.5">
+              Interaction channels
+            </p>
+            <ul className="space-y-1.5 text-[11px] text-slate-500 leading-relaxed">
+              <li>Exact token overlap</li>
+              <li>Phrase and semantic-phrase overlap</li>
+              <li>Concept-family overlap</li>
+              <li>Alias and transliteration bridges</li>
+              <li>Stem and morphology overlap</li>
+              <li>Relation, value, and temporal cue alignment</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-mono text-purple-400 mb-1.5">
+              Safety rules
+            </p>
+            <ul className="space-y-1.5 text-[11px] text-slate-500 leading-relaxed">
+              <li>Additive only — base scorer still stands on its own</li>
+              <li>Deterministic and explainable per channel</li>
+              <li>Bounded contribution into the final score</li>
+              <li>No change to the canonical native vector contract</li>
+            </ul>
+          </div>
+        </div>
+        <p className="text-[11px] text-slate-500 leading-relaxed">
+          In explain mode, FAIM can surface a Phase C breakdown so you can see
+          whether a match was helped by phrase overlap, alias bridging, concept
+          alignment, value cues, or time cues.
+        </p>
+      </Card>
+
+      <Card title="Phase D — Cross-Lingual Power" color="emerald">
+        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+          FAIM’s multilingual layer is no longer limited to a narrow EN/DE
+          bridge. The deterministic multilingual surface now supports broader
+          concept-key mapping, transliteration-safe matching, and graph-local
+          multilingual bridge reuse across a wider set of supported languages.
+        </p>
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-mono text-emerald-400 mb-1.5">
+              What widened
+            </p>
+            <ul className="space-y-1.5 text-[11px] text-slate-500 leading-relaxed">
+              <li>Static lexicon resources now load from multiple TSVs</li>
+              <li>Compressed enterprise lexicon packs now load directly at runtime</li>
+              <li>Language detection widened beyond EN/DE</li>
+              <li>Token and phrase surface matching improved</li>
+              <li>Cross-language bridge forms remain bounded and explainable</li>
+            </ul>
+          </div>
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+            <p className="text-xs font-mono text-emerald-400 mb-1.5">
+              Why it matters
+            </p>
+            <ul className="space-y-1.5 text-[11px] text-slate-500 leading-relaxed">
+              <li>Better zero-setup multilingual recall</li>
+              <li>Stronger cross-language concept matching</li>
+              <li>Tens of thousands of shipped multilingual surface forms</li>
+              <li>No neural translation dependency added</li>
+              <li>No change to the canonical `v_native` contract</li>
+            </ul>
+          </div>
         </div>
       </Card>
 
@@ -1226,9 +1364,9 @@ function SectionCortex() {
         </div>
       </Card>
 
-      <Card title="Memory Writeback Proposals" color="amber">
+      <Card title="Memory Writebacks" color="amber">
         <p className="text-sm text-slate-400 leading-relaxed">
-          Safety first: Cortex never writes directly to permanent memory. Instead, it generates <strong>Proposals</strong>. These appear as pending nodes in the FIG View, requiring your explicit approval before they are committed to the long-term knowledge graph.
+          Safety first: Cortex still requires explicit approval for structural changes, but approved writebacks now execute through a durable backend path and appear in the FIG View with receipts and lifecycle status. Pending items still show up clearly before commitment to the long-term knowledge graph.
         </p>
       </Card>
     </div>
@@ -1251,6 +1389,7 @@ function SectionCortexRuntime() {
             <li><strong>Turn Controller:</strong> Classifies intent into 8 cognitive modes using the deterministic semantic router.</li>
             <li><strong>Adaptive Hop Planner:</strong> Computes a bounded hop budget per turn and maps it into retrieval limits.</li>
             <li><strong>Retrieval Fusion:</strong> Benefits automatically from v_native, Representation V2, and Semantic Signature V1 without requiring frontend toggles.</li>
+            <li><strong>Late Interaction:</strong> Adds a symbolic query/document interaction score before final ranking so fuzzy phrase and concept matches stay inspectable.</li>
             <li><strong>Parallel Branches:</strong> Simultaneous recall, traversal, timeline, contradiction, provenance, and continuity analysis.</li>
             <li><strong>Reducer:</strong> Merges branch outputs into a unified brain state.</li>
             <li><strong>Narrator:</strong> Produces the final prose answer with citations.</li>
@@ -1338,7 +1477,7 @@ function SectionCortexRuntime() {
 
       <Card title="Query Life-Cycle & End-to-End Proof" color="amber">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-          FAIM processes every query through a rigorous 5-Phase End-to-End Life-Cycle, moving seamlessly from input auto-classification to visual pulse tracing and human-gated writebacks.
+          FAIM processes every query through a rigorous 5-Phase End-to-End Life-Cycle, moving seamlessly from input auto-classification to pulse-v2 explain ledgers and human-gated writebacks.
         </p>
         <div className="space-y-4">
           {[
@@ -1348,7 +1487,7 @@ function SectionCortexRuntime() {
             },
             {
               phase: "Phase 2: Bounded Memory Discovery",
-              desc: "The Cortex engine executes a bounded multi-hop traversal through relevant document, config, and relational nodes. The 3D FIG View displays active path discovery in real time.",
+              desc: "The Cortex engine executes bounded multi-hop traversal through relevant document, config, and relational nodes. The 3D FIG View renders the pulse-v2 path and query evidence events attached to the current explain payload.",
             },
             {
               phase: "Phase 3: Causal Traceback Proof",
@@ -1360,7 +1499,7 @@ function SectionCortexRuntime() {
             },
             {
               phase: "Phase 5: Writeback Proposals & Human Consolidation",
-              desc: "Detects corrections and generates a structured Writeback Proposal (containing proposed_by, confidence, reasoning_path). The knowledge becomes permanent only after explicit human approval.",
+              desc: "Detects corrections and generates a structured writeback candidate (containing proposed_by, confidence, reasoning_path). Approved candidates execute through the durable backend path and the resulting receipt is persisted before the knowledge becomes permanent.",
             },
           ].map((p, idx) => (
             <div key={p.phase} className="flex gap-4 p-3 rounded-xl border border-slate-800 bg-slate-950/60">
@@ -1390,9 +1529,9 @@ function SectionFigView() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Neural Pulse Interaction" color="purple">
+        <Card title="Pulse-v2 Reason Ledger" color="purple">
           <p className="text-sm text-slate-400 leading-relaxed">
-            As Cortex reasons, you see it. Neural pulses trace the paths of evidence through your graph in real-time. We've optimized the interaction by making visual glow layers <strong>Raycast-Invisible</strong>, ensuring that you can always grab and "stretch" nodes with 100% native elasticity.
+            As Cortex reasons, FIG View reads the backend pulse-v2 ledger: graph hops, expansion sources, semantic registry signals, domain-memory links, reranker factors, and late-interaction matches. Glow and path motion are driven by those events, while raycast-invisible visual layers keep node dragging responsive.
           </p>
         </Card>
 
@@ -2147,6 +2286,11 @@ function SectionCapabilities() {
           "done",
         ],
         [
+          "Pulse-v2 reason ledger",
+          "Backend graph/query events explain node glow, path motion, inspector proof, relation traces, and semantic-layer contributions",
+          "done",
+        ],
+        [
           "Long-term toggle",
           "Per-node ♾ long-term protection toggle in inspector — immediate API write",
           "done",
@@ -2617,21 +2761,21 @@ function SectionCanonicalSemantics() {
 
       <Card title="Distributional Synonyms & ConceptNet" color="amber">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          Unsupervised synonyms are mined using Jaccard and PMI co-occurrence calculations from the active corpus. Broad semantic associations are linked using the local ConceptNet-derived lexical archive and the deterministic router.
+          Unsupervised synonyms are mined using Jaccard and PMI co-occurrence calculations from the active corpus. Broad semantic associations are linked using the local ConceptNet-derived lexical archive, the new semantic registry runtime, and the small deterministic Cortex router.
         </p>
         <Code>{`PMI(w_1, w_2) = log_2 ( P(w_1, w_2) / (P(w_1) * P(w_2)) )
 synonym_edge = PMI >= tau_pmi AND jaccard >= tau_jaccard`}</Code>
       </Card>
 
-      <Card title="ConceptNet Lexicon vs. Deterministic Semantic Router" color="indigo">
+      <Card title="ConceptNet vs. Semantic Registry vs. Cortex Router" color="indigo">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          FAIM splits linguistic broadening and intent routing into two distinct high-performance layers.
+          FAIM splits lexical broadening, semantic lookup, and task routing into separate deterministic layers.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-400 border-collapse">
             <thead>
               <tr className="border-b border-slate-800 text-slate-300 font-mono">
-                <th className="py-2 px-3">Feature</th>
+                <th className="py-2 px-3">Layer</th>
                 <th className="py-2 px-3">Size</th>
                 <th className="py-2 px-3">Purpose</th>
                 <th className="py-2 px-3">Execution</th>
@@ -2641,13 +2785,20 @@ synonym_edge = PMI >= tau_pmi AND jaccard >= tau_jaccard`}</Code>
             <tbody className="divide-y divide-slate-800/40">
               <tr>
                 <td className="py-2 px-3 font-bold text-white">ConceptNet Lexicon</td>
-                <td className="py-2 px-3 text-cyan-400 font-mono">Archive-backed</td>
+                <td className="py-2 px-3 text-cyan-400 font-mono">2,172,991 terms</td>
                 <td className="py-2 px-3">Global Lexical Flexibility</td>
                 <td className="py-2 px-3">Pre-Processing</td>
                 <td className="py-2 px-3 italic">"residing" → ["dwelling", "living"]</td>
               </tr>
               <tr>
-                <td className="py-2 px-3 font-bold text-white">Deterministic Router</td>
+                <td className="py-2 px-3 font-bold text-white">Semantic Registry Runtime</td>
+                <td className="py-2 px-3 text-emerald-400 font-mono">2.31M+ shipped term base</td>
+                <td className="py-2 px-3">Combined semantic lookup</td>
+                <td className="py-2 px-3">Query expansion</td>
+                <td className="py-2 px-3 italic">"rcp revenue latency" → graph-aware semantic broadening</td>
+              </tr>
+              <tr>
+                <td className="py-2 px-3 font-bold text-white">Deterministic Cortex Router</td>
                 <td className="py-2 px-3 text-purple-400 font-mono">Seeded alias map</td>
                 <td className="py-2 px-3">Cognitive Routing</td>
                 <td className="py-2 px-3">Intent Classification</td>

@@ -1,30 +1,45 @@
 
 **Verdict**
 
-Yes, FAIM can become much stronger on fuzzy semantics, multilingual nuance, weak conceptual matching, and messy natural-language similarity without throwing away the FAIM-native core. But the safe path is **not** “replace everything with a giant black-box model.” The right path is:
+FAIM now has the retrieval-and-reasoning architecture this document was aiming
+for. The major additive semantic upgrades are implemented, runtime-wired,
+validated, and visible in explain payloads.
 
-- keep `v_native` + graph + deterministic reranking as the trusted spine
-- add stronger **native semantic channels** around it
-- make those channels **additive, graph-scoped, feature-gated, and explainable**
-- keep exact fallback and existing contracts intact
+The trusted spine remains:
 
-I checked the real extension points in code, and the right places are already there:
-[text_vectorizer.py](/home/sephi-asi/FAIM/faim_native/encoding/text_vectorizer.py), [query_flow.py](/home/sephi-asi/FAIM/faim_native/orchestration/query_flow.py), [query_engine.py](/home/sephi-asi/FAIM/faim_native/core/query/query_engine.py), [reranker_v2.py](/home/sephi-asi/FAIM/faim_native/core/query/reranker_v2.py), [synonym_expander.py](/home/sephi-asi/FAIM/faim_native/lexical/synonym_expander.py), [multilingual_canonicalizer.py](/home/sephi-asi/FAIM/faim_native/lexical/multilingual_canonicalizer.py), [graph_semantics.py](/home/sephi-asi/FAIM/faim_native/core/query/graph_semantics.py), [representation_repo.py](/home/sephi-asi/FAIM/faim_native/store/pg/repos/representation_repo.py), [models_faim.py](/home/sephi-asi/FAIM/faim_native/store/pg/models_faim.py), [cortex.py](/home/sephi-asi/FAIM/faim_native/api/routers/cortex.py).
+- `v_native`
+- graph retrieval and bounded traversal
+- deterministic reranking
+- exact fallback behavior
 
-**What To Build**
+Around that spine, FAIM now adds:
 
-| Workstream                                  | What to do                                                                                                                                                                                | Why                                                                                             | Where                                                                                                                                                                                                                                                                                                                                                                                                           | Must not break                                         |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| `1. Native semantic channels`             | Add a new FAIM-native`semantic signature` sidecar beyond hashed n-grams: phrase shingles, concept IDs, alias clusters, transliteration clusters, morphology families, and relation cues | This is the biggest missing layer for fuzzy paraphrase and weak conceptual similarity           | `faim_native/encoding/`, `faim_native/store/pg/models_faim.py`, `faim_native/store/pg/repos/representation_repo.py`                                                                                                                                                                                                                                                                                       | Existing`v_native`, query APIs, ingest contracts     |
-| `2. Query-time semantic expansion v2`     | Replace simple synonym appending with weighted multi-source expansion: ConceptNet, canonical semantics, multilingual lexicon, graph-local domain lexicon, phrase-level expansions         | Current query expansion is real but still too shallow for SOTA-like recall                      | `faim_native/lexical/synonym_expander.py`, `faim_native/lexical/canonicalizer.py`, `faim_native/lexical/multilingual_canonicalizer.py`, `faim_native/orchestration/query_flow.py`                                                                                                                                                                                                                       | Determinism, latency, tenant isolation                 |
-| `3. Native late-interaction style scorer` | Add a deterministic token/phrase interaction scorer over FAIM representations, not just whole-vector cosine                                                                               | This is how we get closer to ColBERT/SPLADE-style semantic power without replacing FAIM’s core | new`faim_native/core/query/late_interaction_native.py`, wire into [query_engine.py](/home/sephi-asi/FAIM/faim_native/core/query/query_engine.py) and [reranker_v2.py](/home/sephi-asi/FAIM/faim_native/core/query/reranker_v2.py)                                                                                                                                                                               | Existing ranking order tie-breaks and explain payloads |
-| `4. Cross-lingual native retrieval`       | Expand multilingual support from current English/German mapping into language-agnostic normalization, transliteration, shared concept keys, and graph-local cross-lingual aliasing        | Zero-setup multilingual nuance is impossible with the current tiny deterministic mapping alone  | `faim_native/lexical/data/`, `faim_native/lexical/multilingual_canonicalizer.py`, `faim_native/core/operators/multilingual_semantics.py`, rebuild jobs                                                                                                                                                                                                                                                    | Existing multilingual data and canonical semantics     |
-| `5. Semantic graph memory`                | Store learned semantic neighborhoods: paraphrase bundles, concept families, phrase equivalence clusters, contradiction-aware semantic edges                                               | Lets FAIM learn broad similarity from incoming data rather than only from static lexicons       | `faim_native/store/pg/models_faim.py`, `faim_native/store/pg/repos/domain_knowledge_repo.py`, `edge_repo.py`, `domain/intelligence.py`                                                                                                                                                                                                                                                                  | Graph versioning, tenant scoping, evolution safety     |
-| `6. Hybrid candidate fusion`              | Merge exact vector, lexical BM25-like, semantic-channel, graph-expansion, and late-interaction candidates through a deterministic fusion policy                                           | This gives “internet-scale style” robustness while keeping explainability                     | [query_flow.py](/home/sephi-asi/FAIM/faim_native/orchestration/query_flow.py), [query_engine.py](/home/sephi-asi/FAIM/faim_native/core/query/query_engine.py), `index/`                                                                                                                                                                                                                                         | Current`QueryResult` shape, cache semantics          |
-| `7. Observability and explainability`     | Add per-result semantic-channel explain info: why a match happened, which expansion fired, which phrase/concept/graph path won                                                            | If we add power without visibility, FAIM loses its identity                                     | query response explain payloads, Cortex reasoning surface, Domain Studio UI                                                                                                                                                                                                                                                                                                                                     | Existing frontend behavior, auth, privacy              |
-| `8. Docs truthfulness pass`               | Rewrite overstated docs to reflect the real new architecture once implemented                                                                                                             | Some current docs still overclaim today                                                         | [73_FAIM_SYSTEM_END_TO_END_INTEGRATION_SUMMARY.md](/home/sephi-asi/FAIM/faim_native/Docs/73_FAIM_SYSTEM_END_TO_END_INTEGRATION_SUMMARY.md), [70_FAIM_SEMANTIC_REGISTRY_1M_DETERMINISM.md](/home/sephi-asi/FAIM/faim_native/Docs/70_FAIM_SEMANTIC_REGISTRY_1M_DETERMINISM.md), [78_FAIM_CONCEPTNET_VS_1M_SEMANTIC_REGISTRY.md](/home/sephi-asi/FAIM/faim_native/Docs/78_FAIM_CONCEPTNET_VS_1M_SEMANTIC_REGISTRY.md) | No marketing drift from code reality                   |
+- semantic signature sidecars
+- weighted multi-source expansion
+- broader multilingual concept bridges
+- native late interaction
+- semantic-memory domain adaptation
+- retrieval fusion explainability
+- pulse-v2 cognitive pulse proof
+- a real semantic registry runtime
 
-**Exact Implementation Plan**
+**Real Architecture Layers**
+
+| Layer | Status | What is real now |
+|---|---|---|
+| Native vector spine | Implemented | `v_native` remains the canonical dense core |
+| Semantic signature | Implemented | phrase, concept, alias, transliteration, morphology, relation, value, temporal sidecars |
+| Weighted expansion | Implemented | ConceptNet + canonical + multilingual + domain-memory expansion |
+| Semantic registry runtime | Implemented | 2.31M+ shipped semantic registry term base plus graph-local lexical growth |
+| Cross-lingual retrieval | Implemented | broader deterministic bridge surfaces beyond the original narrow EN/DE setup |
+| Semantic memory learning | Implemented | graph-local bundles and paraphrase/domain memory rows are learned from uploads |
+| Native late interaction | Implemented | symbolic query/document interaction scorer over fine-grained units |
+| Deterministic reranker v2 | Implemented | proposition, entity, time, evidence alignment and contradiction suppression |
+| Hops / traversal | Implemented | adaptive bounded `1..24` hops by default, with higher bounded ceilings when configured |
+| Fusion explainability | Implemented | query/result fusion summaries are exposed in explain payloads and Cortex UI |
+| Pulse-v2 cognitive pulse proof | Implemented | graph/query explain payloads emit reason-ledger events consumed by FIG View glow, path motion, inspector proof, relation traces, and legends |
+
+**Implemented Architecture**
 
 1. **Phase A: Semantic Signature V1**
    Status: **implemented and validated**
@@ -64,6 +79,8 @@ I checked the real extension points in code, and the right places are already th
    - graph retrieval, deterministic reranking, and exact fallback contracts stay intact
    - no ML/transformer dependency was introduced
 2. **Phase B: Weighted Expansion Engine**
+   Status: **implemented and validated**
+
    Replace flat synonym appending with weighted sources.
    Files:
 
@@ -75,7 +92,25 @@ I checked the real extension points in code, and the right places are already th
    Safe rule:
 
    - expansions must be capped, weighted, deterministic, and source-tagged
+
+   What is real now:
+
+   - ConceptNet expansion is no longer only flat token appending; it now emits deterministic weighted expansion terms
+   - canonical semantics emits weighted graph-local expansions from lemma and phrase matches
+   - multilingual normalization emits weighted concept, translation, and graph-local multilingual expansions
+   - domain lexicon terms learned from the graph are blended into the same query expansion surface
+   - query-time expansion is merged deterministically, capped globally, and rendered into additive retrieval text without changing public query contracts
+   - `return_explain=True` now exposes Phase B query expansion diagnostics with source counts, weights, origins, and the final expanded query text
+
+   Phase B remains safe:
+
+   - expansion is additive only
+   - all sources are source-tagged and bounded
+   - `v_native`, Representation V2, graph expansion, reranking, and exact fallback stay intact
+   - Cortex automatically benefits because it already uses the same retrieval path
 3. **Phase C: Native Late Interaction**
+   Status: **implemented and validated**
+
    Add a FAIM-native scorer over token/phrase/concept overlaps.
    Files:
 
@@ -87,8 +122,45 @@ I checked the real extension points in code, and the right places are already th
 
    - additive reranker signal only first
    - no replacement of base scorer until validated
+
+   What is real now:
+
+   - query-side fine-grained units interact with precomputed document-side units through a cheap deterministic max-style matcher
+   - the scorer works over symbolic FAIM-native units instead of neural token embeddings
+   - phrase, semantic-phrase, concept, morphology, alias, transliteration, stem, relation, value, and temporal matches all contribute
+   - the signal is additive only and lands after existing base scoring plus Phase 4 reranker logic
+   - explain payloads can surface the matched units and per-channel Phase C diagnostics
+
+   Phase C remains safe:
+
+   - no replacement of the canonical vector spine
+   - no replacement of the existing reranker or graph scoring
+   - no ML/transformer dependency introduced
+   - no contract change to query results, only richer explain and score components
 4. **Phase D: Cross-Lingual Power**
-   Expand lexicons and concept-key mapping beyond current EN/DE setup.
+   Status: implemented and validated.
+
+   What was completed:
+
+   - multilingual lexical resources now load from `faim_native/lexical/data/*.tsv`
+   - compressed multilingual enterprise packs now also load from `faim_native/lexical/data/*.tsv.gz`
+   - deterministic concept coverage expanded beyond EN/DE into broader bridge-language support
+   - multilingual canonicalization now supports wider language detection, transliteration-safe matching, token/phrase surface matching, and bounded cross-language bridge expansions
+   - multilingual rebuild now writes richer graph-local bridge metadata so retrieval can reuse graph-scoped multilingual mappings
+   - a shipped multilingual enterprise pack now adds tens of thousands of multilingual surface forms on top of the curated core TSV seeds
+
+   Real effect:
+
+   - cross-language recall is stronger without replacing `v_native`
+   - multilingual broadening remains deterministic, additive, source-tagged, and explainable
+
+   Safe properties preserved:
+
+   - no neural translation dependency
+   - no stochastic rewrite layer
+   - no contract change to native vector identity
+   - no removal of exact fallback behavior
+
    Files:
 
    - `faim_native/lexical/data/*.tsv`
@@ -97,40 +169,140 @@ I checked the real extension points in code, and the right places are already th
    - multilingual repo and tests
 5. **Phase E: Semantic Memory Learning**
    Learn graph-local concept/paraphrase bundles from uploads automatically.
+   Status:
+
+   - implemented
+   - autonomous upload-triggered domain adaptation now learns semantic bundles
+   - query-time domain expansion reuses learned bundle members
+   - domain intelligence surfaces bundle topology explicitly
+
+   Includes:
+
+   - graph-local `concept_bundle` rows
+   - graph-local `semantic_paraphrase` rows
+   - `semantic_bundle` provenance source rows
+   - `semantic_bundle` graph edges between linked nodes
+   - deterministic bundle learning from phrase/context overlap, alias mining, and local semantic cues
+
    Files:
 
    - `faim_native/domain/`
    - `faim_native/core/operators/`
+   - `faim_native/domain/semantic_memory.py`
    - [domain/intelligence.py](/home/sephi-asi/FAIM/faim_native/domain/intelligence.py)
    - `domain_knowledge_repo.py`
    - `edge_repo.py`
+   - [domain_profile_rebuild.py](/home/sephi-asi/FAIM/faim_native/orchestration/domain_profile_rebuild.py)
+   - [query_flow.py](/home/sephi-asi/FAIM/faim_native/orchestration/query_flow.py)
 6. **Phase F: Fusion + Explainability**
    Update candidate fusion and explain payloads.
+   Status:
+
+   - implemented
+   - ranked results now emit structured fusion summaries
+   - query explain payloads now expose query-level fusion summaries
+   - Cortex brain state now carries retrieval summary data
+   - Cortex UI now shows a visible retrieval-fusion readout
+
+   Includes:
+
+   - active retrieval-layer summaries on winning results
+   - per-layer contribution tracking
+   - query-level candidate pool and expansion-source visibility
+   - Cortex-visible retrieval summary propagation
+
    Files:
 
    - [query_flow.py](/home/sephi-asi/FAIM/faim_native/orchestration/query_flow.py)
    - [query_engine.py](/home/sephi-asi/FAIM/faim_native/core/query/query_engine.py)
-   - Cortex response schemas/routes
-   - Domain Studio / query UI if you want visible proof
+   - `faim_native/core/cortex/runtime.py`
+   - `faim_native/core/cortex/reducer.py`
+   - `faim_native/core/cortex/schemas.py`
+   - `frontend/src/components/memoryquery/CortexStatePanel.tsx`
+   - `frontend/src/contexts/ChatContext.tsx`
+
+7. **Semantic Registry Runtime**
+   Status: **implemented and validated**
+
+   A real semantic registry runtime now sits in the live query path.
+
+   Files:
+
+   - `faim_native/lexical/semantic_registry.py`
+   - [query_flow.py](/home/sephi-asi/FAIM/faim_native/orchestration/query_flow.py)
+
+   What is real now:
+
+   - shipped semantic base combines `2,172,991` ConceptNet terms with about
+     `146,598` static multilingual lexicon surfaces
+   - graph-local canonical, multilingual, and domain-memory lexicon rows are
+     reused additively per graph
+   - explain payloads now surface semantic-registry diagnostics under
+     `phaseB_query_expansion.semantic_registry`
+   - this layer is not the tiny Cortex task router; it is the larger retrieval
+     registry used to broaden and stabilize semantic lookup
+
+8. **Pulse-v2 Cognitive Pulse Engine**
+   Status: **implemented and validated**
+
+   FAIM now emits a deterministic `pulse-v2` reason-source ledger from graph
+   path explanation and query-time retrieval/reranking. FIG View consumes the
+   same protocol for visual state, and FIG interactions now append a
+   best-effort `FIG_INTERACTION` journal event so selection, hover, overlay,
+   drawer, and timeline changes are auditable. Node glow and path motion are
+   therefore tied to backend evidence instead of being cosmetic-only canvas
+   coloring.
+
+   Files:
+
+   - `faim_native/core/query/pulse_protocol.py`
+   - [query_flow.py](/home/sephi-asi/FAIM/faim_native/orchestration/query_flow.py)
+   - [query_engine.py](/home/sephi-asi/FAIM/faim_native/core/query/query_engine.py)
+   - `faim_native/api/routers/graph.py`
+   - `frontend/src/components/graph/FigPulseTrace.tsx`
+   - `frontend/src/components/graph/FigCanvas.tsx`
+   - `frontend/src/components/graph/FigInspector.tsx`
+   - `frontend/src/components/graph/FigRelationPanel.tsx`
+   - `frontend/src/components/graph/FigLegend.tsx`
+
+   What is real now:
+
+   - graph path explain returns `pulse_trace.protocol = pulse-v2`
+   - query results carry `reason_source_ledger` and `pulse_event_stream`
+   - events identify graph hops, semantic-signature channels, weighted expansion
+     sources, semantic-registry contribution, domain-memory links, reranker
+     factors, and native late-interaction matches
+   - FIG View reuses that ledger across the canvas, inspector, relation drawer,
+     pulse trace panel, legend, and live interaction summary
+
+   Truthful boundary:
+
+   - this is a real deterministic backend explain protocol attached to current
+     graph/query explain contracts
+   - it is not claimed as a separate always-on websocket telemetry service
 
 **Tests, Docs, Validation**
 
-Add or extend:
+Validation coverage now includes:
 
 - [test_multilingual_canonicalizer.py](/home/sephi-asi/FAIM/tests/unit/test_multilingual_canonicalizer.py)
 - [test_reranker_v2.py](/home/sephi-asi/FAIM/tests/unit/test_reranker_v2.py)
 - [test_AT_Q7_query_flow.py](/home/sephi-asi/FAIM/tests/acceptance/test_AT_Q7_query_flow.py)
-- new `tests/unit/test_semantic_signature.py`
-- new `tests/unit/test_late_interaction_native.py`
-- new `tests/acceptance/test_AT_semantic_fuzzy_recall.py`
-- new `tests/acceptance/test_AT_cross_lingual_recall.py`
-- new `tests/acceptance/test_AT_semantic_fusion_determinism.py`
+- [test_semantic_signature.py](/home/sephi-asi/FAIM/tests/unit/test_semantic_signature.py)
+- [test_late_interaction_native.py](/home/sephi-asi/FAIM/tests/unit/test_late_interaction_native.py)
+- `tests/acceptance/test_AT_semantic_fuzzy_recall.py`
+- `tests/acceptance/test_AT_cross_lingual_recall.py`
+- `tests/acceptance/test_AT_semantic_fusion_determinism.py`
 
 Phase A validation already completed:
 
 - `tests/unit/test_semantic_signature.py`
 - `tests/unit/test_representation_v2_determinism.py`
 - `tests/unit/test_lexical_scorer.py`
+- `tests/unit/test_semantic_memory_learning.py`
+- `tests/unit/test_domain_intelligence.py`
+- `tests/acceptance/test_AT_Q5_explain_correctness.py`
+- `tests/acceptance/test_AT_CORTEX_turn.py`
 - `tests/unit/test_representation_repo.py`
 - `tests/acceptance/test_AT_RV2_representation_query.py`
 - `tests/acceptance/test_AT_Q2_no_chunking_no_ml.py`
@@ -142,18 +314,28 @@ These validations confirm:
 - additive lexical scoring over the new semantic channels
 - acceptance-level query behavior without breaking FAIM-native no-ML guarantees
 
-Docs to update after code is real:
+Phase D validation already completed:
 
-- [73_FAIM_SYSTEM_END_TO_END_INTEGRATION_SUMMARY.md](/home/sephi-asi/FAIM/faim_native/Docs/73_FAIM_SYSTEM_END_TO_END_INTEGRATION_SUMMARY.md)
-- [70_FAIM_SEMANTIC_REGISTRY_1M_DETERMINISM.md](/home/sephi-asi/FAIM/faim_native/Docs/70_FAIM_SEMANTIC_REGISTRY_1M_DETERMINISM.md)
-- [78_FAIM_CONCEPTNET_VS_1M_SEMANTIC_REGISTRY.md](/home/sephi-asi/FAIM/faim_native/Docs/78_FAIM_CONCEPTNET_VS_1M_SEMANTIC_REGISTRY.md)
-- add a new rollout doc like `92_FAIM_NATIVE_SEMANTIC_POWER_ROADMAP.md`
+- `tests/unit/test_multilingual_canonicalizer.py`
+- `tests/unit/test_weighted_expansion_engine.py`
+- `tests/acceptance/test_AT_ML1_en_de_rebuild.py`
+- `tests/acceptance/test_AT_ML2_cross_lingual_query.py`
 
-Phase A doc follow-through already completed:
+These validations confirm:
 
-- `92_FAIM_SEMANTIC_SIGNATURE_V1_REPORT.md`
-- landing-page retrieval and feature copy updated to reflect FAIM-native semantic matching
-- `/docs` website content updated so Semantic Signature V1 is described as a real implemented additive retrieval layer
+- broader multilingual language routing works deterministically
+- bridge expansions are emitted with explicit multilingual source tags
+- multilingual rebuild writes graph-local concept rows and bridge metadata
+- cross-language retrieval is stronger without changing the canonical query/result contract
+
+Documentation reconciliation completed for the core semantic-power story:
+
+- `70_FAIM_MULTI_MILLION_SEMANTIC_REGISTRY_RUNTIME_REPORT.md`
+- `73_FAIM_END_TO_END_SYSTEM_RUNTIME_INTEGRATION_REPORT.md`
+- `78_FAIM_CONCEPTNET_AND_SEMANTIC_REGISTRY_RUNTIME_GUIDE.md`
+- landing-page retrieval and `/docs` content updated to reflect the real
+  registry, semantic signature, weighted expansion, multilingual, reranker,
+  and hop story
 
 **What Must Not Break**
 
@@ -167,31 +349,28 @@ Phase A doc follow-through already completed:
 - current exact fallback behavior
 - current domain and evolution jobs
 
-**Blunt recommendation**
+**Truthful Claims**
 
-Do **not** try to jump straight to “internet-scale SOTA” in one patch.Do it in this order:
+You can now truthfully say:
 
-1. semantic signature sidecar
-2. weighted expansion engine
-3. native late interaction reranker
-4. cross-lingual expansion
-5. semantic memory learning
-6. fusion + explainability
-7. docs reconciliation
-8. commit + tag only after green tests
+- FAIM has a **real semantic registry runtime**
+- FAIM has a **2.31M+ shipped semantic registry term base**
+- FAIM has **real canonical semantics**
+- FAIM has **real domain memory**
+- FAIM has **real semantic signatures**
+- FAIM has a **real deterministic reranker**
+- FAIM has **real adaptive bounded hops**
 
-**Current best external engineering patterns to borrow, not blindly copy**
+Do not say:
 
-- Late interaction retrieval: ColBERT / ColBERTv2 / PLAID
-  - https://arxiv.org/abs/2004.12832
-  - https://arxiv.org/abs/2112.01488
-  - https://arxiv.org/abs/2205.09707
-- Sparse expansion retrieval: SPLADE
-  - https://arxiv.org/abs/2109.10086
-- Multilingual retrieval direction
-  - https://arxiv.org/pdf/2403.03516
-  - https://arxiv.org/abs/2408.16672
+- `1,048,576 exact concept nodes`
+- `single global semantic registry table`
+- `the small Cortex task router itself is multi-million`
 
-Those are useful because they show where modern retrieval gets its power: token-level interaction, sparse semantic expansion, and multilingual alignment. For FAIM, we should implement the *ideas* in a deterministic FAIM-native way rather than cloning their neural runtime.
+**Final Status**
 
-If you want, I can turn this into the next step now: a **phase-by-phase implementation checklist markdown inside `faim_native/Docs/`** before we start coding.
+- Core semantic-power architecture: implemented
+- Runtime wiring: implemented
+- Explainability surface: implemented
+- Main docs reconciliation in this area: implemented
+- Remaining major implementation gaps in this document’s scope: none
