@@ -1,12 +1,12 @@
-# FAIMatrix Docker Commands Reference
+# FAIMatrix Docker Commands & Operations Reference
 
-This guide provides the official Docker commands for managing **Local Development** and **VPS Production** environments.
+This guide provides the complete DevOps reference and command sheet for **Local Development**, **Testing**, and **VPS Production** environments.
 
 ---
 
 ## Environment & File Architecture
 
-| Target Environment | Compose Configuration | Environment File | Domain / Port |
+| Target Environment | Compose Configuration | Environment File | Access / Domain |
 | :--- | :--- | :--- | :--- |
 | **Local Development** | `docker-compose.yml` | `.env` (from `env.template`) | `http://localhost:8010` |
 | **VPS Production** | `docker-compose.yml` + `docker-compose.vps.yml` | `deploy/env.vpsprod` | `https://faimatrix.com` |
@@ -49,6 +49,12 @@ docker compose up -d --build --remove-orphans
 docker compose logs -f
 ```
 
+### Restart a Specific Container (e.g. API or Frontend)
+```bash
+docker compose restart api
+docker compose restart frontend
+```
+
 ### Stop All Services
 ```bash
 docker compose down
@@ -74,7 +80,7 @@ VPS commands combine `docker-compose.yml` and `docker-compose.vps.yml` with `dep
 # Stop VPS Stack
 ./scripts/vps_down.sh
 
-# Run Smoke Tests on VPS
+# Run Health & Smoke Tests on VPS
 ./scripts/vps_smoke.sh
 
 # Backup VPS Database & State
@@ -111,21 +117,85 @@ docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-com
 
 ---
 
-## 4. Testing Environment Commands
+## 4. Pre-Deployment Quality Checks (Run Locally First)
 
-Run tests in isolated containers without affecting live data:
+Before pushing code to GitHub or deploying to VPS, run these local verification checks:
 
 ```bash
-# Spin up test infrastructure
-docker compose -f docker-compose.test.yml up -d
+# 1. Typecheck TypeScript / Next.js
+npm run tsc
 
-# Tear down test infrastructure
+# 2. Lint Frontend Code
+npm run eslint
+
+# 3. Spin up test stack & run tests
+docker compose -f docker-compose.test.yml up -d
+pytest tests/
 docker compose -f docker-compose.test.yml down -v
 ```
 
 ---
 
-## 5. Docker Cleanup & Maintenance (Pruning)
+## 5. Database Backup & Restore Operations
+
+### Local Database Operations
+
+```bash
+# Export / Backup Local Postgres Database
+docker exec -t faim-postgres pg_dump -U faim faim_native > backup_local.sql
+
+# Restore Local Postgres Database
+cat backup_local.sql | docker exec -i faim-postgres psql -U faim -d faim_native
+```
+
+### VPS Database Operations
+
+```bash
+# Export / Backup VPS Postgres Database
+docker exec -t faim-postgres-vps pg_dump -U faim faim_native > backup_vps.sql
+
+# Restore VPS Postgres Database
+cat backup_vps.sql | docker exec -i faim-postgres-vps psql -U faim -d faim_native
+```
+
+---
+
+## 6. End-to-End Deployment Workflow (Local -> VPS)
+
+To deploy new code changes from your PC to your VPS:
+
+```bash
+# Step 1: Commit and push changes locally
+git add .
+git commit -m "feat: new feature update"
+git push origin main
+
+# Step 2: SSH into VPS server and update stack
+ssh root@your-vps-ip
+cd /opt/faim/FAIM
+git pull origin main
+./scripts/vps_up.sh
+./scripts/vps_smoke.sh
+```
+
+---
+
+## 7. Container Shell & Resource Inspection
+
+```bash
+# Open interactive shell inside API container
+docker exec -it faim-api bash
+
+# Open interactive shell inside Postgres container
+docker exec -it faim-postgres psql -U faim -d faim_native
+
+# Check realtime CPU & Memory usage of containers
+docker stats
+```
+
+---
+
+## 8. Docker Cleanup & Maintenance (Pruning)
 
 Use these commands to free up disk space by removing unused containers, images, build caches, and volumes:
 
@@ -165,4 +235,3 @@ docker volume prune -f
 ```bash
 docker system prune -af --volumes
 ```
-
