@@ -122,3 +122,47 @@ docker compose -f docker-compose.test.yml up -d
 # Tear down test infrastructure
 docker compose -f docker-compose.test.yml down -v
 ```
+
+---
+
+## 5. Docker Cleanup & Maintenance (Pruning)
+
+Use these commands to free up disk space by removing unused containers, images, build caches, and volumes:
+
+### Quick Cleanup (Safe)
+Removes stopped containers, dangling images, and unused networks without deleting data volumes:
+```bash
+docker system prune -f
+```
+
+### Clear Build Cache
+Clears cached layer data from Docker builds:
+```bash
+# Remove unused build cache
+docker builder prune -f
+
+# Remove ALL build cache (deep clean)
+docker builder prune -a -f
+```
+
+### Remove Unused Images
+```bash
+# Remove dangling (un-tagged) images
+docker image prune -f
+
+# Remove ALL unused images (not just dangling ones)
+docker image prune -a -f
+```
+
+### Remove Unused Volumes
+⚠️ **Caution:** This will delete any Docker volumes not currently attached to a running container.
+```bash
+docker volume prune -f
+```
+
+### Complete Deep Clean (All-in-One)
+⚠️ **Warning:** Deletes all stopped containers, unused networks, all unused images, and unused volumes.
+```bash
+docker system prune -af --volumes
+```
+
