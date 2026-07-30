@@ -3,20 +3,21 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Logo from "@/components/brand/Logo";
 
 const navLinks = [
-  { href: "#architecture", label: "Architecture" },
-  { href: "#powers", label: "Engine" },
-  { href: "#proof", label: "Math" },
-  { href: "#how-it-works", label: "Pipeline" },
-  { href: "#docs-ops", label: "Docs & Ops" },
-  { href: "#use-cases", label: "Use Cases" },
-  { href: "#specs", label: "Specs" },
+  { href: "#core", label: "Core" },
+  { href: "#platform", label: "Platform" },
+  { href: "#proof", label: "Proof" },
+  { href: "#ops", label: "Ops" },
+  { href: "#scale", label: "Scale" },
   { href: "/docs", label: "Docs" },
 ];
 
 export default function Navbar() {
+  const pathname = usePathname();
+  const isLandingRoute = pathname === "/";
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -34,10 +35,12 @@ export default function Navbar() {
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.5 }}
-        className="fixed top-0 left-0 right-0 z-50 pt-4 px-4"
+        className={`fixed left-0 right-0 top-0 z-50 px-3 pt-3 sm:px-6 ${
+          isLandingRoute ? "lg:hidden" : ""
+        }`}
       >
         <div
-          className={`max-w-7xl mx-auto px-6 py-3 backdrop-blur-xl border rounded-2xl shadow-lg transition-all duration-300 ${
+          className={`mx-auto max-w-7xl border px-4 py-3 backdrop-blur-xl shadow-lg transition-all duration-300 sm:px-6 ${
             isScrolled
               ? "bg-slate-900/90 border-slate-700/60 shadow-slate-950/40"
               : "bg-slate-900/80 border-slate-700/50 shadow-slate-950/30"
@@ -84,7 +87,7 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/auth/signup"
-                className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg text-white text-sm font-medium shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-105 transition-all"
+                className="border border-cyan-300/30 bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition-colors hover:bg-cyan-300"
               >
                 Get Started
               </Link>
@@ -152,7 +155,7 @@ export default function Navbar() {
                 <Link
                   href="/auth/signup"
                   onClick={() => setIsMobileOpen(false)}
-                  className="block w-full py-4 text-center bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl text-white font-semibold"
+                  className="block w-full border border-cyan-300/30 bg-cyan-400 py-4 text-center font-semibold text-slate-950"
                 >
                   Get Started Free
                 </Link>
