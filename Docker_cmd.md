@@ -36,12 +36,12 @@ Commands use the standard `docker-compose.yml` file and `.env` config.
 
 ### Start All Local Services
 ```bash
-docker compose up -d
+docker compose up -d --remove-orphans
 ```
 
 ### Build & Start (After code changes)
 ```bash
-docker compose up -d --build
+docker compose up -d --build --remove-orphans
 ```
 
 ### View Live Logs
