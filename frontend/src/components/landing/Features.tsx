@@ -14,7 +14,7 @@ const features = [
     ),
     title: "Native Semantic Matching",
     description:
-      "FAIM now combines a 2.31M+ term semantic registry runtime, semantic-signature channels, a weighted query expansion engine, broader cross-lingual concept bridges, and a FAIM-native late-interaction scorer across tokens, phrases, concepts, multilingual surfaces, and graph-learned domain terms. The result is stronger fuzzy matching without turning the engine into a black-box ML system.",
+      "FAIM now combines a 2.31M+ term semantic registry runtime, semantic-signature channels, a weighted query expansion engine, broader cross-lingual concept bridges across EN, DE, ES, FR, IT, PT, and NL, and a FAIM-native late-interaction scorer across tokens, phrases, concepts, multilingual surfaces, and graph-learned domain terms. The result is stronger fuzzy matching without turning the engine into a black-box ML system.",
     gradient: "from-cyan-500 to-blue-500",
     link: "/features/memory-engine",
   },

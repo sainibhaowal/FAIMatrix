@@ -503,6 +503,7 @@ def _generate_otp() -> str:
 def _send_otp_email(email: str, code: str) -> bool:
     """Send OTP email via Resend API."""
     api_key = os.getenv("RESEND_API_KEY")
+    from_address = os.getenv("RESEND_FROM_EMAIL", "noreply@faimatrix.com").strip()
 
     if not api_key:
         # PRODUCTION: Fail if no API key - do NOT expose OTP
@@ -519,7 +520,7 @@ def _send_otp_email(email: str, code: str) -> bool:
                 "Content-Type": "application/json",
             },
             json={
-                "from": "FAIMATRIX <noreply@faimatrix.com>",
+                "from": from_address,
                 "to": [email],
                 "subject": "Your FAIMATRIX verification code",
                 "html": f"""
@@ -617,9 +618,6 @@ async def request_otp(body: OTPRequestBody, request: Request):
     # Generate secure OTP
     code = _generate_otp()
 
-    # DEV/DEBUG: Log OTP so user can login without email
-    logger.info(f"🔓 LOGIN OTP for {email}: {code}")
-
     # Store OTP hash (NEVER store plaintext)
     email_hash = _hash_email(email)
     otp_hash = _hash_otp(code, email)
@@ -634,17 +632,20 @@ async def request_otp(body: OTPRequestBody, request: Request):
         logger.error(f"Email send failed: {e}")
         success = False
 
-    # In DEV/Test mode (or if email fails), we still allow login if we logged the OTP
-    # This prevents "System Unusable" if email service is down.
     if not success:
-        logger.warning(f"Failed to send email to {email}. Use the OTP logged above.")
-        # Proceed as success so user can enter the code from logs
+        # Never claim delivery or expose the OTP through production logs.
+        if os.getenv("FAIM_MODE", "").lower() == "production":
+            raise HTTPException(
+                status_code=503,
+                detail="Verification email is temporarily unavailable. Please try again later.",
+            )
+        logger.warning("OTP email delivery failed for the requested address")
 
     return OTPRequestResponse(
         success=True,
         method="email_otp",
         totp_enabled=totp_enabled,
-        message="Verification code sent (check server logs if email fails)",
+        message="Verification code sent",
     )
 
 

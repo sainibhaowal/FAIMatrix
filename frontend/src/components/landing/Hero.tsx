@@ -1,233 +1,165 @@
 "use client";
 
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
-import { useRef } from "react";
+import Image from "next/image";
+import { ArrowDown, ArrowUpRight, Check, LockKeyhole, Network, ScanSearch } from "lucide-react";
 
 const HERO_STATS = [
-  { value: "Seeded", unit: "", label: "Semantic Routing" },
-  { value: "256", unit: "dim", label: "Deterministic Vectors" },
-  { value: "Hybrid", unit: "", label: "Retrieval Stack" },
-  { value: "SHA-256", unit: "", label: "Cryptographic Lineage" },
+  { value: "Seeded", unit: "", label: "Semantic routing" },
+  { value: "256", unit: "dim", label: "Deterministic vectors" },
+  { value: "Hybrid", unit: "", label: "Retrieval stack" },
+  { value: "SHA-256", unit: "", label: "Cryptographic lineage" },
+];
+
+const SPINE = [
+  { label: "Deterministic semantic router", detail: "Seeded aliases and pattern overrides", icon: ScanSearch },
+  { label: "Graph-native retrieval", detail: "Diffusion, reranking, and bounded hops", icon: Network },
+  { label: "Guarded writeback safety", detail: "Durable, idempotent structural updates", icon: LockKeyhole },
 ];
 
 export default function Hero() {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start start", "end start"],
-  });
-  const bgY = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
-  const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+  const reduceMotion = useReducedMotion();
 
   return (
-    <section
-      ref={ref}
-      className="relative min-h-screen flex items-center justify-center overflow-hidden"
-    >
-      <motion.div
-        style={{ y: bgY }}
-        className="absolute inset-0 bg-gradient-to-br from-slate-950 via-[#070a18] to-cyan-950/30"
-      />
+    <section className="faim-landing-hero relative min-h-[100svh] overflow-hidden bg-[#050a14] text-white">
+      <div className="pointer-events-none absolute inset-0 faim-grid opacity-60" />
+      <div className="pointer-events-none absolute -right-40 top-16 h-[34rem] w-[34rem] rounded-full bg-cyan-500/[0.06] blur-[140px]" />
+      <div className="pointer-events-none absolute bottom-0 left-1/3 h-64 w-64 rounded-full bg-indigo-500/[0.05] blur-[120px]" />
 
-      <div className="absolute inset-0 faim-grid" />
+      <div className="relative mx-auto flex min-h-[100svh] w-full max-w-[1480px] flex-col justify-center px-5 pb-14 pt-28 sm:px-8 lg:px-12 lg:py-16">
+        <div className="faim-hero-brand mb-10 flex items-center justify-between gap-4 lg:mb-14">
+          <div className="flex items-center gap-3">
+            <Image src="/logo-coded.svg" alt="FAIMATRIX" width={42} height={42} className="h-10 w-10 rounded-xl border border-cyan-300/30 bg-cyan-300/[0.04] p-1" priority />
+            <div>
+              <p className="text-sm font-semibold tracking-[0.18em] text-white">FAIMATRIX</p>
+              <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Public system atlas</p>
+            </div>
+          </div>
+          <span className="hidden rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.18em] text-emerald-200 sm:inline-flex">Deterministic core online</span>
+        </div>
 
-      <div className="absolute top-1/4 left-1/6 w-[500px] h-[500px] bg-cyan-500/8 rounded-full blur-[120px] animate-pulse" />
-      <div
-        className="absolute bottom-1/3 right-1/5 w-[400px] h-[400px] bg-purple-500/6 rounded-full blur-[100px] animate-pulse"
-        style={{ animationDelay: "2s" }}
-      />
-      <div
-        className="absolute top-2/3 left-1/2 w-[300px] h-[300px] bg-blue-500/5 rounded-full blur-[80px] animate-pulse"
-        style={{ animationDelay: "4s" }}
-      />
-
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[
-          "D\u0302",
-          "H\u0302",
-          "\u039B\u0302",
-          "\u03C6\u207B\u00B9",
-          "\u2211=1",
-          "E\u22642.0",
-        ].map((sym, i) => (
-          <motion.span
-            key={sym}
-            className="absolute text-cyan-500/[0.07] font-mono select-none"
-            style={{
-              fontSize: `${18 + i * 4}px`,
-              left: `${12 + i * 15}%`,
-              top: `${20 + (i % 3) * 25}%`,
-            }}
-            animate={{
-              y: [0, -20, 0],
-              opacity: [0.04, 0.08, 0.04],
-            }}
-            transition={{
-              duration: 6 + i,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: i * 0.8,
-            }}
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.72fr)] lg:gap-14">
+          <motion.div
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.45 }}
+            className="max-w-3xl"
           >
-            {sym}
-          </motion.span>
-        ))}
-      </div>
+            <div className="flex items-center gap-3 font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-cyan-300">
+              <span className="h-2 w-2 rounded-full bg-cyan-300 shadow-[0_0_18px_rgba(103,232,249,0.8)]" />
+              FAIMATRIX / Deterministic intelligence
+            </div>
 
-      <motion.div
-        style={{ opacity }}
-        className="relative z-10 text-center px-4 sm:px-6 max-w-5xl mx-auto"
-      >
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <span className="inline-flex items-center gap-2.5 px-4 sm:px-5 py-2 rounded-full border border-cyan-500/20 bg-cyan-500/[0.06] text-cyan-300 text-[10px] sm:text-xs font-medium tracking-wider uppercase">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
-            </span>
-            Deterministic Memory + Retrieval Engine
-          </span>
-        </motion.div>
+            <h1 className="mt-6 max-w-4xl text-[clamp(2.7rem,6vw,5.8rem)] font-semibold leading-[0.95] tracking-[-0.065em] text-slate-50">
+              Deterministic intelligence
+              <span className="block bg-gradient-to-r from-cyan-300 via-sky-400 to-indigo-400 bg-clip-text text-transparent">
+                built on pure math.
+              </span>
+            </h1>
 
-        <motion.h2
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.15 }}
-          className="mt-4 sm:mt-8 text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-white leading-[1.05] tracking-tight"
-        >
-          Deterministic Intelligence
-          <br />
-          <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500 bg-clip-text text-transparent">
-            Built on Pure Math
-          </span>
-        </motion.h2>
+            <p className="mt-6 max-w-2xl text-[clamp(1rem,1.35vw,1.2rem)] leading-7 text-slate-400">
+              FAIMATRIX is a structured knowledge engine powered by a
+              deterministic semantic router. It combines 256-dim deterministic
+              vectors with guarded memory writebacks, graph diffusion, and
+              zero-hallucination Cortex synthesis.
+            </p>
 
-        <motion.p
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.3 }}
-          className="mt-4 sm:mt-6 text-base md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed"
-        >
-          FAIMATRIX is a structured knowledge engine powered by a deterministic semantic router.
-          It combines 256-dim deterministic vectors with guarded memory writebacks,
-          graph diffusion, and zero-hallucination Cortex synthesis.
-        </motion.p>
-
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.45 }}
-          className="mt-6 sm:mt-10 flex flex-col sm:flex-row items-center justify-center gap-4"
-        >
-          <Link
-            href="/auth/signup"
-            className="w-full sm:w-auto group relative px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl text-white font-semibold text-lg shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-all duration-300 hover:scale-[1.03]"
-          >
-            <span className="relative z-10 flex items-center justify-center gap-2">
-              Start Building
-              <svg
-                className="w-5 h-5 group-hover:translate-x-1 transition-transform"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+              <Link
+                href="/auth/signup"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-cyan-300 px-6 text-sm font-semibold text-slate-950 shadow-[0_12px_36px_rgba(34,211,238,0.16)] transition-transform duration-200 hover:-translate-y-0.5 hover:bg-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050a14]"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13 7l5 5m0 0l-5 5m5-5H6"
-                />
-              </svg>
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 to-blue-400 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          </Link>
+                Start building <ArrowUpRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="#platform"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/[0.14] bg-white/[0.03] px-6 text-sm font-medium text-slate-200 transition-colors duration-200 hover:border-cyan-300/40 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+              >
+                Explore the engine
+              </Link>
+              <Link
+                href="/docs"
+                className="inline-flex min-h-12 items-center justify-center rounded-xl px-4 text-sm font-medium text-cyan-200 transition-colors duration-200 hover:bg-cyan-300/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200"
+              >
+                Read docs <ArrowUpRight className="ml-1 h-4 w-4" />
+              </Link>
+            </div>
+          </motion.div>
 
-          <Link
-            href="#architecture"
-            className="w-full sm:w-auto px-8 py-4 border border-slate-700/80 rounded-xl text-slate-300 font-medium text-lg hover:border-slate-500 hover:bg-white/[0.03] transition-all duration-300 text-center"
+          <motion.aside
+            initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.45, delay: reduceMotion ? 0 : 0.08 }}
+            aria-label="FAIM runtime spine"
+            className="rounded-2xl border border-white/[0.1] bg-white/[0.035] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm sm:p-5"
           >
-            Explore the Engine
-          </Link>
-          <Link
-            href="/docs"
-            className="w-full sm:w-auto px-8 py-4 border border-cyan-500/30 rounded-xl text-cyan-200 font-medium text-lg hover:border-cyan-400/60 hover:bg-cyan-500/[0.04] transition-all duration-300 text-center"
-          >
-            Read Docs
-          </Link>
-        </motion.div>
+            <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+              <div>
+                <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-slate-500">Runtime spine</p>
+                <p className="mt-1 text-sm font-medium text-slate-100">Inspect every layer</p>
+              </div>
+              <span className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.08] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200">
+                live
+              </span>
+            </div>
+
+            <div className="divide-y divide-white/[0.07]">
+              {SPINE.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div key={item.label} className="flex gap-3 py-4 first:pt-5 last:pb-2">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-300/15 bg-cyan-300/[0.06] text-cyan-200">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium text-slate-100">{item.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">{item.detail}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.aside>
+        </div>
 
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.7 }}
-          className="mt-12 sm:mt-20 grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-0 md:divide-x md:divide-slate-800"
+          transition={{ duration: reduceMotion ? 0 : 0.4, delay: reduceMotion ? 0 : 0.16 }}
+          className="mt-10 grid overflow-hidden rounded-2xl border border-white/[0.1] bg-white/[0.025] sm:grid-cols-2 lg:grid-cols-4"
         >
-          {HERO_STATS.map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.8 + i * 0.1 }}
-              className="flex flex-col items-center px-6"
-            >
-              <p className="text-xl sm:text-2xl md:text-3xl font-bold text-white font-mono tracking-tight">
+          {HERO_STATS.map((stat) => (
+            <div key={stat.label} className="border-b border-white/[0.08] px-4 py-4 last:border-b-0 sm:px-5 lg:border-b-0 lg:border-r lg:last:border-r-0">
+              <p className="text-xl font-semibold tracking-[-0.04em] text-slate-100 sm:text-2xl">
                 {stat.value}
-                {stat.unit && (
-                  <span className="text-xs sm:text-sm md:text-base text-cyan-400 ml-0.5 sm:ml-1 font-sans font-medium">
-                    {stat.unit}
-                  </span>
-                )}
+                {stat.unit && <span className="ml-1 text-xs font-normal text-cyan-300">{stat.unit}</span>}
               </p>
-              <p className="text-[10px] sm:text-xs md:text-sm text-slate-500 mt-1">
-                {stat.label}
-              </p>
-            </motion.div>
+              <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">{stat.label}</p>
+            </div>
           ))}
         </motion.div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.95 }}
-          className="mt-8 sm:mt-10 grid gap-3 sm:gap-4 sm:grid-cols-2 max-w-4xl mx-auto"
-        >
-          <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-cyan-300/80">
-              Deterministic Semantic Router
-            </p>
-            <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-              Zero-latency classification powered by a seeded alias map and pattern overrides. No ML black-boxes, just deterministic intelligence.
-            </p>
+        <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-400 sm:grid-cols-2">
+          <div className="rounded-xl border border-cyan-300/10 bg-cyan-300/[0.025] px-4 py-3">
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-200/80">Deterministic semantic router</p>
+            <p className="mt-1">Zero-latency classification powered by a seeded alias map and pattern overrides. No ML black-boxes, just deterministic intelligence.</p>
           </div>
-          <div className="rounded-2xl border border-purple-500/15 bg-purple-500/[0.04] px-4 sm:px-5 py-3 sm:py-4 text-left">
-            <p className="text-[10px] font-medium uppercase tracking-widest text-purple-300/80">
-              Guarded Writeback Safety
-            </p>
-            <p className="mt-2 text-sm text-slate-300 leading-relaxed">
-              Cortex still requires approval for structural updates, but approved writebacks now execute through a durable, idempotent backend path and appear with receipts in the FIG View.
-            </p>
+          <div className="rounded-xl border border-indigo-300/10 bg-indigo-300/[0.025] px-4 py-3">
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-indigo-200/80">Guarded writeback safety</p>
+            <p className="mt-1">Cortex still requires approval for structural updates, but approved writebacks now execute through a durable, idempotent backend path and appear with receipts in the FIG View.</p>
           </div>
-        </motion.div>
-      </motion.div>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 1, delay: 1.5 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
-      >
-        <div className="w-6 h-10 border-2 border-slate-700 rounded-full flex justify-center pt-2">
-          <motion.div
-            animate={{ y: [0, 8, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity }}
-            className="w-1.5 h-1.5 bg-slate-500 rounded-full"
-          />
         </div>
-      </motion.div>
+
+        <div className="mt-6 flex items-center gap-2 font-mono text-[9px] uppercase tracking-[0.2em] text-slate-600">
+          <Check className="h-3.5 w-3.5 text-cyan-300" />
+          Deterministic, inspectable, graph-native
+        </div>
+
+        <button type="button" onClick={() => { window.history.replaceState(null, "", "#core"); window.dispatchEvent(new HashChangeEvent("hashchange")); }} className="mx-auto mt-10 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/[0.1] px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-cyan-300/30 hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
+          Explore the atlas <ArrowDown className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </section>
   );
 }

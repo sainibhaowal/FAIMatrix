@@ -130,7 +130,7 @@ export default function MaximumIntelligence() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16"
+          className="mb-16 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"
         >
           {METRICS.map((metric, index) => (
             <motion.div
@@ -139,14 +139,24 @@ export default function MaximumIntelligence() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ delay: 0.1 * index }}
-              className="rounded-2xl border border-slate-800 bg-slate-900/30 p-6 text-center hover:border-cyan-500/20 transition-all"
+              className="group relative min-h-[132px] overflow-hidden border border-slate-800 bg-[#0a0f19]/80 px-5 py-4 text-left transition-all hover:border-cyan-500/30 hover:bg-[#0d1420]"
             >
-              <div className="text-3xl md:text-4xl font-bold text-cyan-400 mb-2">
-                {metric.value}
-                {metric.suffix}
+              <span className="absolute inset-y-0 left-0 w-px bg-cyan-400/70 transition-all group-hover:w-[2px]" />
+              <div className="flex items-center justify-between gap-3">
+                <div className="font-mono text-[9px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  {metric.label}
+                </div>
+                <div className="font-mono text-[9px] tracking-[0.16em] text-slate-700">
+                  {String(index + 1).padStart(2, "0")}
+                </div>
               </div>
-              <div className="text-xs text-slate-500 uppercase tracking-wider">
-                {metric.label}
+              <div className="mt-5 min-w-0">
+                <div className="break-words text-xl font-semibold leading-tight tracking-[-0.025em] text-cyan-300 sm:text-2xl">
+                  {metric.value}
+                </div>
+                <div className="mt-1 text-sm leading-5 text-slate-400">
+                  {metric.suffix.trim()}
+                </div>
               </div>
             </motion.div>
           ))}

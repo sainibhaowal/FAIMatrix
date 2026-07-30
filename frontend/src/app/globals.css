@@ -136,6 +136,207 @@
   }
 }
 
+@media (min-width: 1024px) {
+  html[data-faim-rail="collapsed"] .faim-landing-workspace {
+    padding-left: 98px;
+  }
+
+  html[data-faim-rail="expanded"] .faim-landing-workspace {
+    padding-left: 244px;
+  }
+}
+
+/* Public atlas shell: one viewport, one navigation system, no nested page walls. */
+.faim-landing-workspace {
+  --faim-accent: #22d3ee;
+  min-height: 100svh;
+  isolation: isolate;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  position: relative;
+  width: 100%;
+  background: #050812;
+}
+
+.faim-landing-workspace::before {
+  content: "";
+  inset: 0;
+  pointer-events: none;
+  position: fixed;
+}
+
+/* One continuous canvas behind every landing view. The active section only
+   changes the tint of the grid lines; there are no spotlight walls or dots. */
+.faim-landing-workspace::before {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--faim-accent) 11%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--faim-accent) 11%, transparent) 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.32;
+  z-index: -2;
+}
+
+.faim-landing-workspace[data-faim-view="platform"] { --faim-accent: #a78bfa; }
+.faim-landing-workspace[data-faim-view="proof"] { --faim-accent: #f472b6; }
+.faim-landing-workspace[data-faim-view="ops"] { --faim-accent: #34d399; }
+.faim-landing-workspace[data-faim-view="scale"] { --faim-accent: #fbbf24; }
+.faim-landing-workspace[data-faim-view="footer"] { --faim-accent: #94a3b8; }
+
+.faim-landing-workspace > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* The active module owns scrolling; keep the scroll affordance from becoming
+   a second visible rail beside the public landing surface. */
+.faim-atlas-preview-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.faim-atlas-preview-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.faim-atlas-rail {
+  border-radius: 1.25rem;
+}
+
+.faim-atlas-preview {
+  min-height: 100%;
+  background: transparent;
+}
+
+.faim-atlas-preview .faim-grid {
+  display: none !important;
+}
+
+/* Module-owned backdrop glows must not create a second canvas behind the
+   shared landing grid. Interactive content and its local diagrams remain. */
+.faim-atlas-preview > section > [class*="blur-"] {
+  display: none !important;
+}
+
+/* Existing modules keep their copy and interactions, while the atlas owns the frame. */
+.faim-atlas-preview > section {
+  min-height: auto !important;
+  padding-top: clamp(2.75rem, 5vw, 4.75rem) !important;
+  padding-bottom: clamp(2.75rem, 5vw, 4.75rem) !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+.faim-atlas-preview > section h2 {
+  font-size: clamp(1.65rem, 3.2vw, 3rem) !important;
+  line-height: 1.08 !important;
+}
+
+.faim-atlas-preview > section h3 {
+  line-height: 1.18 !important;
+}
+
+@media (max-width: 1023px) {
+  .faim-atlas-rail {
+    bottom: 0.75rem;
+    left: 0.5rem;
+    right: auto;
+    top: 0.75rem;
+    width: 4.5rem;
+    border-radius: 1rem;
+  }
+
+  .faim-atlas-rail > div {
+    min-height: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.5rem;
+    padding: 0.5rem;
+  }
+
+  .faim-atlas-rail > div > div:first-child {
+    margin: 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .faim-atlas-rail > div > button {
+    margin: 0;
+    width: 100%;
+  }
+
+  .faim-atlas-rail nav {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .faim-atlas-rail nav > div {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .faim-atlas-rail nav > div > div {
+    position: relative;
+  }
+
+  .faim-atlas-rail nav button,
+  .faim-atlas-rail nav a {
+    width: 100%;
+  }
+
+  .faim-atlas-rail nav button > span:nth-child(2),
+  .faim-atlas-rail nav a > span:nth-child(2) {
+    display: none;
+  }
+
+  .faim-atlas-rail nav > div > div > div {
+    position: absolute;
+    z-index: 60;
+    top: 0;
+    left: calc(100% + 0.65rem);
+    display: grid;
+    width: min(15rem, 62vw);
+    max-height: min(52vh, 28rem);
+    margin: 0;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.9rem;
+    background: rgba(7, 10, 18, 0.98);
+    padding: 0.45rem;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(18px);
+  }
+
+  .faim-atlas-rail > div > div:last-child {
+    display: grid;
+    margin-top: auto;
+  }
+
+  .faim-atlas-rail > div > div:last-child > div {
+    display: grid;
+  }
+
+  .faim-landing-workspace {
+    padding-left: 5.5rem;
+  }
+
+  .faim-hero-brand {
+    display: flex;
+  }
+
+  .faim-landing-hero > div.relative {
+    padding-top: 2rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faim-atlas-rail,
+  .faim-atlas-preview * {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
 @layer utilities {
   /* Surface System */
   .os-surface {
