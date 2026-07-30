@@ -25,7 +25,7 @@ const OUTCOMES = [
   },
   {
     title: "Multilingual nuance stays native",
-    text: "Cross-language retrieval now widens through deterministic concept-key bridges and graph-local multilingual mappings instead of a hidden translation model.",
+    text: "Cross-language retrieval now widens through deterministic concept-key bridges and graph-local multilingual mappings across EN, DE, ES, FR, IT, PT, and NL instead of a hidden translation model.",
   },
   {
     title: "It works without ML dependency",

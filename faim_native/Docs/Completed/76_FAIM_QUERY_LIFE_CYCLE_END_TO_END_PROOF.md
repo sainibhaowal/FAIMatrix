@@ -1,8 +1,17 @@
 # 76 - FAIM Query Life Cycle End-to-End Proof
 
-## 1. Overview
-This walkthrough gives the truthful end-to-end runtime sequence for a FAIM
-query from user input to final answer.
+## 1. Status
+Completed for the current FAIM runtime contract.
+
+FAIM now has a truthful layered query life cycle:
+
+- deterministic Cortex task routing
+- semantic broadening through ConceptNet, canonical semantics, multilingual
+  bridges, domain memory, and semantic registry runtime
+- retrieval through native vector, lexical, graph, and shortlist layers
+- native late interaction and deterministic reranking
+- bounded graph traversal with adaptive hop budgets
+- `pulse-v2` proof surfaced in graph/query explain payloads and FIG View
 
 ## 2. End-to-end flow
 1. **Input**
@@ -50,19 +59,33 @@ Truthful internal story:
 
 ## 4. What changed from the older story
 Older wording compressed too much into one layer and implied:
+
 - a `1M+ registry` performed direct reasoning-mode classification
 - a fixed always-24-hop story
 
 The truthful runtime is better:
+
 - semantic registry runtime strengthens retrieval
 - Cortex router selects the reasoning mode
 - hop depth is adaptive and bounded, not blindly fixed
 - FIG View reads a deterministic pulse-v2 ledger instead of relying on
   UI-only highlight guesses
 
-## 5. Status
-The end-to-end runtime is real, but documentation should describe the actual
-layered flow rather than a simplified monolithic registry story.
+## 5. Runtime truth
+This end-to-end proof is real and aligned with the shipped runtime. It is not a
+single monolithic registry step and it is not a fake fixed-hop claim.
+
+## 6. Validation
+Validated by:
+
+- `python3 -m pytest tests/acceptance/test_AT_Q7_query_flow.py tests/acceptance/test_AT_semantic_fusion_determinism.py -q`
+- `pnpm --dir frontend typecheck`
+
+Current result:
+
+- backend acceptance checks passed
+- frontend typecheck passed
 
 ---
-*Status: Documentation reconciled to runtime truth*
+
+*Status: Completed and reconciled to runtime truth*

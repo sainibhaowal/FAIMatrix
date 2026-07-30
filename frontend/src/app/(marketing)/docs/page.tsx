@@ -61,6 +61,10 @@ const NAV_GROUPS = [
       { id: "roadmap", label: "Roadmap" },
     ],
   },
+  {
+    group: "Landing Coverage",
+    items: [{ id: "landing-coverage", label: "Landing Page Coverage" }],
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -228,7 +232,7 @@ function SectionCurrentState() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Current State (May 2026)</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">Current State (July 2026)</h2>
         <p className="text-slate-400 leading-relaxed">
           FAIM has evolved into a production-grade cognitive infrastructure. The current runtime combines deterministic semantic routing, bounded multi-hop reasoning, GPU-hardened 3D visualization, a multi-tier Matrix subscription ecosystem, and explicit graph autonomy controls that stay default-off until enabled.
         </p>
@@ -244,8 +248,8 @@ function SectionCurrentState() {
               "Semantic Signature V1: additive semantic phrase, concept, alias, transliteration, morphology, relation, value, and temporal channels now enrich retrieval without changing the canonical native vector contract.",
               "Weighted Expansion Engine: query-time expansion now merges ConceptNet, graph-local canonical semantics, multilingual mappings, and graph-learned domain terms into a capped, weighted, source-tagged retrieval surface.",
               "Native Late Interaction: FAIM now adds a fine-grained symbolic interaction scorer across query/document tokens, phrases, concepts, aliases, morphology, values, and temporal cues before final ranking.",
-              "Cross-Lingual Power: multilingual canonicalization and rebuild now extend beyond EN/DE into a broader deterministic concept-bridge surface for cross-language retrieval.",
-              "Multilingual Enterprise Pack: FAIM now ships a larger compressed multilingual lexicon pack with tens of thousands of surface forms, still loaded as a deterministic runtime asset rather than an online translation service.",
+              "Cross-Lingual Power: multilingual canonicalization and rebuild now span EN, DE, ES, FR, IT, PT, and NL across a broader deterministic concept-bridge surface for cross-language retrieval.",
+              "Multilingual Enterprise Pack: FAIM now ships a larger compressed multilingual lexicon pack with tens of thousands of surface forms across EN, DE, ES, FR, IT, PT, and NL, still loaded as a deterministic runtime asset rather than an online translation service.",
               "GPU Hardened FIG View: Static asset registry eliminates rendering-induced crashes.",
               "Pulse-v2 Reason Ledger: backend graph/query events drive FIG node glow, path motion, inspector proof, relation traces, and semantic-layer legends.",
               "Memory Writeback Proposals: Human-in-the-loop safety for structural memory updates.",
@@ -1233,10 +1237,11 @@ function SectionRetrieval() {
 
       <Card title="Phase D — Cross-Lingual Power" color="emerald">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-          FAIM’s multilingual layer is no longer limited to a narrow EN/DE
-          bridge. The deterministic multilingual surface now supports broader
-          concept-key mapping, transliteration-safe matching, and graph-local
-          multilingual bridge reuse across a wider set of supported languages.
+          FAIM’s multilingual layer now spans EN, DE, ES, FR, IT, PT, and NL
+          instead of being limited to the older narrow bridge. The deterministic
+          multilingual surface supports broader concept-key mapping,
+          transliteration-safe matching, and graph-local multilingual bridge
+          reuse across the shipped enterprise language set.
         </p>
         <div className="grid md:grid-cols-2 gap-4 mb-4">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
@@ -1246,7 +1251,7 @@ function SectionRetrieval() {
             <ul className="space-y-1.5 text-[11px] text-slate-500 leading-relaxed">
               <li>Static lexicon resources now load from multiple TSVs</li>
               <li>Compressed enterprise lexicon packs now load directly at runtime</li>
-              <li>Language detection widened beyond EN/DE</li>
+              <li>Language detection spans EN, DE, ES, FR, IT, PT, and NL</li>
               <li>Token and phrase surface matching improved</li>
               <li>Cross-language bridge forms remain bounded and explainable</li>
             </ul>
@@ -2931,7 +2936,7 @@ function SectionMultilingual() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Multilingual & Cross-Lingual Semantics (P6)</h2>
         <p className="text-slate-400 leading-relaxed">
-          Bridges English and German terms directly onto language-agnostic conceptual nodes using deterministic lexicons.
+          Bridges English, German, Spanish, French, Italian, Portuguese, and Dutch terms directly onto language-agnostic conceptual nodes using deterministic lexicons.
         </p>
       </div>
 
@@ -2948,11 +2953,14 @@ function SectionMultilingual() {
         </Card>
       </div>
 
-      <Card title="Bilingual Concept Node Bridges" color="emerald">
+      <Card title="Multilingual Concept Node Bridges" color="emerald">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          German and English surface forms map directly to a unified conceptual ID, resolving cross-lingual query matches in microseconds:
+          English, German, Spanish, French, Italian, Portuguese, and Dutch
+          surface forms map directly to a unified conceptual ID, resolving
+          cross-lingual query matches in microseconds:
         </p>
         <Code>{`surface_form(EN) -> concept_key <- surface_form(DE)
+surface_form(EN|DE|ES|FR|IT|PT|NL) -> concept_key
 "sales" -> Concept: revenue <- "umsatz"`}</Code>
       </Card>
     </div>
@@ -3061,6 +3069,156 @@ S_breadth = min( 1.0, unique_docs / 3.0 ), S_penalty = min( 0.5, 0.15 * conflict
   );
 }
 
+function SectionLandingCoverage() {
+  const moduleGroups = [
+    {
+      name: "Core story",
+      modules: [
+        ["Tech Stack", "Architecture, memory, native vectors, graph storage", "architecture / memory"],
+        ["Highlights", "Shipped capabilities and product outcomes", "current-state / capabilities"],
+        ["Maximum Intelligence", "Cortex planning, semantic enrichment, domain memory, and explainability", "cortex-runtime / domain-adaptation"],
+        ["Outcomes", "Search, inspectability, domain adaptation, and operational use", "why-faim / capabilities"],
+      ],
+    },
+    {
+      name: "Platform shape",
+      modules: [
+        ["Architecture", "Layered application, query, graph, vector, and storage runtime", "architecture"],
+        ["Hybrid Recall", "Dense native recall, sparse sidecars, graph diffusion, and reranking", "retrieval / graph-diffusion"],
+        ["RAG Comparison", "FAIM-native retrieval versus a generic fetch-and-summarize wrapper", "why-faim / retrieval"],
+        ["ADI Pipeline", "Sparse shortlist, dense shortlist, graph diffusion, rerank, and answer synthesis", "retrieval / cortex-runtime"],
+        ["Enterprise Pillars", "Determinism, explainability, security, tenant isolation, and self-hosting", "capabilities / security / deployment"],
+        ["Seven Powers", "Native memory, semantic routing, graph reasoning, evolution, and proof surfaces", "capabilities / cortex"],
+      ],
+    },
+    {
+      name: "Proof layer",
+      modules: [
+        ["Graph Demo", "Interactive graph concepts and typed relationships", "graph"],
+        ["Integration", "How uploads, graph state, retrieval, Cortex, and FIG View connect", "architecture / ingestion / fig-view"],
+        ["Ingestion", "Extract, packetize, encode, verify invariants, and write to graph", "ingestion / document-intel"],
+        ["Quick Start", "Local production stack, health checks, and first Cortex query", "quickstart / deployment"],
+        ["Math Proof", "Native-vector math, graph invariants, fingerprints, and deterministic checks", "memory / capabilities"],
+        ["Query Explain", "Score stack, provenance, pulse-v2, and answer evidence", "retrieval / cortex / fig-view"],
+        ["Evolution", "Explicit graph-scoped self-evolve and self-invent controls", "cortex-runtime / roadmap"],
+        ["FIG View", "3D graph inspection, pulse-v2 ledger, event timeline, and lineage", "fig-view"],
+        ["Manifesto", "FAIM design principles and non-goals", "what-is-faim / why-faim"],
+        ["Benchmarks", "Live engine, infrastructure, stress, and regression measurements", "benchmarks"],
+      ],
+    },
+    {
+      name: "Operations and scale",
+      modules: [
+        ["How It Works", "Upload-to-answer lifecycle", "architecture / ingestion / retrieval"],
+        ["Docs and Operations", "Runbooks, deployment, maintenance, and operational contracts", "deployment / current-state"],
+        ["Developer API", "Tenant-scoped REST and API-key integration surface", "security / deployment"],
+        ["Security", "Authentication, scopes, encryption, provenance, and tenant boundaries", "security"],
+        ["Use Cases", "Knowledge teams, regulated companies, platform teams, and research", "why-faim / capabilities"],
+        ["Roadmap and Future Scale", "Implemented runtime versus bounded future GPU/scale work", "roadmap / scale-ann"],
+        ["FAQ and CTA", "Public product questions and conversion paths", "what-is-faim / quickstart"],
+      ],
+    },
+  ];
+
+  const claimRegister = [
+    ["Deterministic native core", "Implemented", "256-dimensional native vectors, SHA-256 lineage, graph writes, and invariant validation are documented under Architecture and Memory System."],
+    ["Hybrid retrieval", "Implemented", "Native vector recall remains canonical; sparse Representation V2, Semantic Signature V1, weighted expansion, late interaction, graph diffusion, and deterministic reranking are documented under Retrieval Engine and P2–P6."],
+    ["Adaptive bounded reasoning", "Implemented", "Cortex uses planner-driven bounded traversal: shallow turns can stay small, 1–24 hops are the normal bounded ceiling, and higher deployment ceilings are explicitly configuration-dependent."],
+    ["Semantic registry and lexical broadening", "Implemented with bounded runtime claims", "ConceptNet-derived resources, multilingual lexicons, graph-local semantics, and domain memory strengthen retrieval. Registry size and shipped archive counts must remain tied to measured assets, not marketing labels."],
+    ["Autonomous domain memory", "Implemented", "Uploaded material can form graph-local terms, aliases, entities, relations, facts, values, temporal cues, and domain bundles used by later retrieval."],
+    ["Pulse-v2 and FIG proof", "Implemented for supported query/path explain contracts", "Backend pulse events and reason-source ledgers drive node glow, path motion, inspector proof, relation traces, and semantic-layer explanations."],
+    ["Cortex writebacks", "Implemented with approval and receipts", "Proposals remain safety-gated; approved writebacks execute durably and idempotently, with lifecycle status and receipts surfaced in Cortex/FIG documentation."],
+    ["OCR and multimodal extraction", "Implemented in supported pipeline", "Document intelligence covers supported files, OCR fail-closed behavior, tables, layout, image features, and additive sidecars. Availability follows the runtime supported-types surface."],
+    ["Security and operations", "Implemented", "Authenticated tenant-scoped sessions, API-key scopes, encrypted raw storage, key maintenance, rate limits, health checks, and operational routes are documented under Security and Deployment."],
+    ["GPU massive-scale claims", "Roadmap / deployment-dependent", "GPU acceleration, 100M+ node throughput, and sub-millisecond targets are future or benchmark-dependent architecture targets, not universal current guarantees."],
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">Landing Page Coverage</h2>
+        <p className="text-slate-400 leading-relaxed">
+          This section is the source map between the public landing page and the
+          technical documentation. The landing page is organized as 30 modules
+          across 5 product layers. Every module below points to the documentation
+          section that explains its runtime behavior, or states clearly when the
+          surface is a future/roadmap presentation rather than a current guarantee.
+        </p>
+      </div>
+
+      <Card title="Public Surface Map" color="cyan">
+        <div className="space-y-5">
+          {moduleGroups.map((group) => (
+            <div key={group.name}>
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-cyan-300">
+                {group.name}
+              </p>
+              <div className="overflow-x-auto rounded-xl border border-slate-800">
+                <table className="w-full min-w-[680px] text-left text-[11px]">
+                  <thead className="bg-slate-950/70 text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2 font-mono uppercase tracking-wider">Landing module</th>
+                      <th className="px-3 py-2 font-mono uppercase tracking-wider">Information exposed</th>
+                      <th className="px-3 py-2 font-mono uppercase tracking-wider">Docs cross-reference</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {group.modules.map(([module, info, reference]) => (
+                      <tr key={module} className="border-t border-slate-800/80 align-top">
+                        <td className="px-3 py-2.5 font-medium text-white">{module}</td>
+                        <td className="px-3 py-2.5 text-slate-400">{info}</td>
+                        <td className="px-3 py-2.5 font-mono text-cyan-300/80">{reference}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Landing Claim Register" color="purple">
+        <p className="mb-4 text-sm leading-relaxed text-slate-400">
+          This register prevents the public page from implying more than the
+          runtime proves. “Implemented” means the current application has a
+          shipped code path and technical documentation. “Roadmap / deployment-
+          dependent” means it must not be read as a universal present-day SLA.
+        </p>
+        <div className="overflow-x-auto rounded-xl border border-slate-800">
+          <table className="w-full min-w-[760px] text-left text-[11px]">
+            <thead className="bg-slate-950/70 text-slate-500">
+              <tr>
+                <th className="px-3 py-2 font-mono uppercase tracking-wider">Claim area</th>
+                <th className="px-3 py-2 font-mono uppercase tracking-wider">Status</th>
+                <th className="px-3 py-2 font-mono uppercase tracking-wider">Documentation truth</th>
+              </tr>
+            </thead>
+            <tbody>
+              {claimRegister.map(([area, status, truth]) => (
+                <tr key={area} className="border-t border-slate-800/80 align-top">
+                  <td className="px-3 py-2.5 font-medium text-white">{area}</td>
+                  <td className={`px-3 py-2.5 font-mono ${status.startsWith("Roadmap") ? "text-amber-300" : "text-emerald-300"}`}>{status}</td>
+                  <td className="px-3 py-2.5 leading-relaxed text-slate-400">{truth}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      <Card title="Maintenance Rule" color="amber">
+        <ul className="space-y-2 text-sm leading-relaxed text-slate-400">
+          <li className="flex gap-2"><span className="text-amber-300">→</span><span>When a landing module changes, update its linked technical docs and this coverage map in the same change.</span></li>
+          <li className="flex gap-2"><span className="text-amber-300">→</span><span>Keep current runtime behavior separate from future GPU, ANN-scale, or benchmark targets.</span></li>
+          <li className="flex gap-2"><span className="text-amber-300">→</span><span>Use the application’s measured benchmark and health surfaces before adding performance numbers to public copy.</span></li>
+          <li className="flex gap-2"><span className="text-amber-300">→</span><span>Do not describe showcase visualizations as live backend telemetry unless the corresponding explain/event contract exists.</span></li>
+        </ul>
+      </Card>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Section renderer
 // ---------------------------------------------------------------------------
@@ -3092,6 +3250,7 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   deployment: SectionDeployment,
   capabilities: SectionCapabilities,
   roadmap: SectionRoadmap,
+  "landing-coverage": SectionLandingCoverage,
 };
 
 // ---------------------------------------------------------------------------
