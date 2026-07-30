@@ -1,188 +1,124 @@
-# Docker Commands (Production)
+# FAIMatrix Docker Commands Reference
 
-This file matches the production deployment model used by FAIM:
+This guide provides the official Docker commands for managing **Local Development** and **VPS Production** environments.
 
-- Local production uses `docker-compose.yml` + `docker-compose.localprod.yml`
-- VPS production uses `docker-compose.yml` + `docker-compose.vps.yml`
-- Each target uses one real env file:
-  - local prod: `.env.localprod`
-  - VPS prod: `deploy/env.vpsprod`
+---
 
-Run all commands from repo root:
+## Environment & File Architecture
 
+| Target Environment | Compose Configuration | Environment File | Domain / Port |
+| :--- | :--- | :--- | :--- |
+| **Local Development** | `docker-compose.yml` | `.env` (from `env.template`) | `http://localhost:8010` |
+| **VPS Production** | `docker-compose.yml` + `docker-compose.vps.yml` | `deploy/env.vpsprod` | `https://faimatrix.com` |
+| **Automated Testing** | `docker-compose.test.yml` | `.env` | Isolated test ports |
+
+---
+
+## 1. Environment File Setup
+
+Before launching, copy the template files to create your active environment files:
+
+### Local Development
 ```bash
-cd /home/sephi-asi/FAIM
+cp env.template .env
 ```
 
-The env files are self-describing, so `docker compose --env-file ...` works directly.
-
-## 1) Prepare Env Files
-
-Create the real env file for the target you are running:
-
+### VPS Production
 ```bash
-cp .env.localprod.example .env.localprod
 cp deploy/env.vpsprod.example deploy/env.vpsprod
 ```
 
-## 2) Pull Base Infra Images
+---
 
-Use this when you want the latest Postgres, Redis, and Qdrant images.
+## 2. Local Development Commands
 
-### Local production
+Commands use the standard `docker-compose.yml` file and `.env` config.
 
+### Start All Local Services
 ```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel pull postgres redis qdrant
+docker compose up -d
 ```
 
-### VPS production
-
+### Build & Start (After code changes)
 ```bash
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel pull postgres redis qdrant
+docker compose up -d --build
 ```
 
-## 3) Full Build
-
-Use this after larger backend, frontend, or worker changes.
-
-Use a full build only when Dockerfiles, package manifests, compose files, or base dependencies change.
-
-### Local production
-
+### View Live Logs
 ```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel build --pull api worker frontend migrate
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel up -d
+docker compose logs -f
 ```
 
-### VPS production
-
+### Stop All Services
 ```bash
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel build --pull api worker frontend migrate
+docker compose down
 ```
 
-## 4) Build Only What Changed
-
-### Backend API only
-
+### Run Migrations
 ```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel build api
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel up -d --no-deps api
+docker compose run --rm -e FAIM_AUTO_MIGRATE=true migrate
 ```
 
-### Frontend only
+---
+
+## 3. VPS Production Commands
+
+VPS commands combine `docker-compose.yml` and `docker-compose.vps.yml` with `deploy/env.vpsprod`.
+
+### Convenient Helper Scripts (Recommended on VPS)
 
 ```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel build frontend
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel up -d --no-deps frontend
+# Deploy / Start VPS Stack
+./scripts/vps_up.sh
+
+# Stop VPS Stack
+./scripts/vps_down.sh
+
+# Run Smoke Tests on VPS
+./scripts/vps_smoke.sh
+
+# Backup VPS Database & State
+./scripts/vps_backup.sh
 ```
 
-### Worker only
+### Direct Compose Commands for VPS
+
+#### Start VPS Production
+```bash
+docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml up -d --build --remove-orphans
+```
+
+#### Rebuild Only Changed Services (e.g. Frontend or API)
+```bash
+# Rebuild Frontend only
+docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml build frontend
+docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml up -d --no-deps frontend
+
+# Rebuild API only
+docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml build api
+docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml up -d --no-deps api
+```
+
+#### View Production Logs
+```bash
+docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml logs -f api worker frontend caddy
+```
+
+#### Stop VPS Production
+```bash
+docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml down
+```
+
+---
+
+## 4. Testing Environment Commands
+
+Run tests in isolated containers without affecting live data:
 
 ```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel build worker
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel up -d --no-deps worker
+# Spin up test infrastructure
+docker compose -f docker-compose.test.yml up -d
+
+# Tear down test infrastructure
+docker compose -f docker-compose.test.yml down -v
 ```
-
-### Migration service only
-
-```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel build migrate
-```
-
-### VPS production
-
-The VPS helper accepts service names, so you can rebuild only what changed.
-
-```bash
-./scripts/vps_up.sh frontend
-./scripts/vps_up.sh api
-./scripts/vps_up.sh worker
-./scripts/vps_up.sh migrate api worker
-```
-
-Equivalent direct compose commands:
-
-```bash
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel build frontend
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel up -d --no-deps frontend
-
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel build api worker
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel up -d --no-deps api worker
-
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel run --rm --build migrate
-```
-
-## 5) Run Migrations
-
-Run this after DB model or migration changes.
-
-```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel run --rm -e FAIM_AUTO_MIGRATE=true migrate
-```
-
-## 6) Start All Servers
-
-### Local production
-
-```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel up -d
-```
-
-### VPS production
-
-```bash
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel up -d --build --remove-orphans
-```
-
-## 7) Stop All Servers
-
-### Local production
-
-```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel down
-```
-
-### VPS production
-
-```bash
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel down
-```
-
-## 8) Quick Checks
-
-### Local production
-
-```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel ps
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel logs -f api worker frontend
-```
-
-### VPS production
-
-```bash
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel ps
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel logs -f api worker frontend caddy
-```
-
-## 9) Hard Reset
-
-Use only when you want to delete containers and start fresh.
-
-### Local production
-
-```bash
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel down -v
-docker compose --env-file .env.localprod -f docker-compose.yml -f docker-compose.localprod.yml --profile accel up -d
-```
-
-### VPS production
-
-```bash
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel down -v
-docker compose --env-file deploy/env.vpsprod -f docker-compose.yml -f docker-compose.vps.yml --profile accel up -d --build --remove-orphans
-```
-
-## 10) Source of Truth
-
-For VPS deployments, use [`docs/vps-production.md`](/home/sephi-asi/FAIM/docs/vps-production.md) as the authoritative one-way deploy runbook.
-This file is the command reference that matches that flow.
