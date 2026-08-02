@@ -689,7 +689,7 @@ export default function JournalPage() {
 
       {isReady && (
         <>
-          {/* ── Metric strip (Glowing Border Cards) ── */}
+          {/* ── Metric strip (Domain Studio MetricTile style) ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 shrink-0">
             {[
               {
@@ -702,8 +702,7 @@ export default function JournalPage() {
                   newCount > 0 ? `+${newCount} since last refresh` : "All time",
                 icon: <Layers size={15} />,
                 color: "text-cyan-300",
-                borderColor: "border-cyan-500/30 hover:border-cyan-500/50 shadow-[0_0_15px_rgba(34,211,238,0.12)]",
-                glow: "from-cyan-500/10 to-transparent",
+                accent: "#06b6d4",
               },
               {
                 label: "LAST KIND",
@@ -713,8 +712,7 @@ export default function JournalPage() {
                   : "Waiting for events",
                 icon: <Activity size={15} />,
                 color: "text-white font-bold",
-                borderColor: "border-violet-500/30 hover:border-violet-500/50 shadow-[0_0_15px_rgba(167,139,250,0.12)]",
-                glow: "from-violet-500/10 to-transparent",
+                accent: "#8b5cf6",
               },
               {
                 label: "LAST ACTIVITY",
@@ -722,8 +720,7 @@ export default function JournalPage() {
                 sub: absoluteTime(latest?.last_ts ?? null),
                 icon: <Clock size={15} />,
                 color: "text-amber-300 font-bold",
-                borderColor: "border-amber-500/30 hover:border-amber-500/50 shadow-[0_0_15px_rgba(251,191,36,0.12)]",
-                glow: "from-amber-500/10 to-transparent",
+                accent: "#f59e0b",
               },
               {
                 label: "AUDIT INTEGRITY",
@@ -731,43 +728,43 @@ export default function JournalPage() {
                 sub: "Checksum chain intact",
                 icon: <ShieldCheck size={15} />,
                 color: "text-emerald-400 font-bold",
-                borderColor: "border-emerald-500/30 hover:border-emerald-500/50 shadow-[0_0_15px_rgba(52,211,153,0.12)]",
-                glow: "from-emerald-500/10 to-transparent",
+                accent: "#10b981",
               },
             ].map((stat) => (
               <div
                 key={stat.label}
-                className={`relative flex flex-col justify-center px-5 py-4 rounded-xl border backdrop-blur-md bg-gradient-to-b ${stat.glow} ${stat.borderColor} transition-all duration-300`}
-                style={{
-                  backgroundColor: "rgba(9, 14, 26, 0.82)",
-                }}
+                className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5"
               >
+                <div
+                  className="absolute inset-x-0 top-0 h-[2px]"
+                  style={{ background: stat.accent }}
+                />
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
                     {stat.label}
                   </p>
-                  <div className="text-slate-400 opacity-60">{stat.icon}</div>
+                  <div className="text-slate-400 opacity-50">{stat.icon}</div>
                 </div>
                 <p
                   className={`text-xl font-bold tabular-nums truncate leading-tight ${stat.color}`}
                 >
                   {stat.value}
                 </p>
-                <p className="text-[10px] text-slate-500 font-medium mt-1.5 truncate">
+                <p className="text-[10px] text-slate-400 font-medium mt-1.5 truncate">
                   {stat.sub}
                 </p>
               </div>
             ))}
           </div>
 
-          {/* ── Channel Stream Progress Bar (Domain Studio Style) ── */}
+          {/* ── Channel Stream Progress Bar (Domain Studio StrengthRail Style) ── */}
           <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5 shrink-0">
             <div className="flex items-center gap-3 w-full">
               <span className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500 shrink-0">
                 AUDIT STREAM CHANNEL
               </span>
               <div className="h-1.5 flex-1 rounded-full overflow-hidden bg-slate-950/80 border border-white/10 relative">
-                <div className="h-full rounded-full w-full bg-[linear-gradient(90deg,#10b981,#06b6d4,#8b5cf6,#f59e0b)] animate-pulse shadow-[0_0_10px_rgba(34,211,238,0.4)]" />
+                <div className="h-full rounded-full w-full bg-[linear-gradient(90deg,#10b981,#06b6d4,#8b5cf6,#f59e0b)]" />
               </div>
               <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400 shrink-0">
                 {liveConnected ? "STREAMING" : "STANDBY"}
@@ -942,7 +939,6 @@ function FilterChip({
               borderColor: `${accent}66`,
               backgroundColor: `${accent}1F`,
               color: accent,
-              boxShadow: `0 0 14px ${accent}22`,
             }
           : {
               borderColor: "rgba(255,255,255,0.1)",
