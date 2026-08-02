@@ -764,11 +764,66 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* ── Main Operations Matrix — 3-Column Balanced Grid ──────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
-        {/* ── COLUMN 1: Topology Spectrum & Live Activity Feed ────────────── */}
-        <div className="flex flex-col gap-4">
-          {/* Graph Topology Spectrum Chart */}
+      {/* ── Row 2: Wide Line Chart (2 Cols) + 3D Graph (1 Col) ────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+        {/* Graph Topology Spectrum Chart — 2 COLUMNS WIDE */}
+        <div
+          className="lg:col-span-2 rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
+          style={{
+            borderColor: "var(--os-stroke)",
+            background: "var(--os-surface-1)",
+          }}
+        >
+          <PanelHeader
+            title="Graph Topology Spectrum"
+            subtitle="Real-time spectral radius, density, and entropy dynamics"
+            action={
+              scorecard?.graph_version != null && (
+                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded">
+                  Graph v{scorecard.graph_version}
+                </span>
+              )
+            }
+          />
+          <div className="mt-3 flex-1 min-h-[300px]">
+            <GraphHealthChart data={healthHistory} />
+          </div>
+        </div>
+
+        {/* Live 3D FIG Canvas Preview — 1 COLUMN */}
+        <div
+          className="lg:col-span-1 rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
+          style={{
+            borderColor: "var(--os-stroke)",
+            background: "var(--os-surface-1)",
+          }}
+        >
+          <PanelHeader
+            title="Live Cortex 3D Graph"
+            subtitle="Realtime Node-Link cluster preview"
+            action={
+              <button
+                onClick={() => router.push("/dashboard/fig-view")}
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
+              >
+                Inspect <ArrowRight size={10} />
+              </button>
+            }
+          />
+          <div className="mt-3 flex-1 min-h-[300px]">
+            <MiniFigCanvas
+              nodeCount={scorecard?.node_count}
+              edgeCount={scorecard?.edge_count}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Row 3: Activity & Event Velocity (2 Cols) + Topology Metrics/Actions (1 Col) ──────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        {/* Activity Feed & Prominent Event Velocity Trend Card — 2 COLUMNS WIDE */}
+        <div className="lg:col-span-2 flex flex-col gap-4">
+          {/* Prominent Event Throughput Velocity Trend Card */}
           <div
             className="rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
             style={{
@@ -777,22 +832,22 @@ export default function DashboardPage() {
             }}
           >
             <PanelHeader
-              title="Graph Topology Spectrum"
-              subtitle="Real-time spectral radius, density, and entropy dynamics"
+              title="Event Ingestion & Velocity Trend"
+              subtitle="Real-time event throughput telemetry (events / min)"
               action={
-                scorecard?.graph_version != null && (
+                latestInfo && (
                   <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded">
-                    Graph v{scorecard.graph_version}
+                    seq #{latestInfo.last_seq} · {latestInfo.event_count} total
                   </span>
                 )
               }
             />
-            <div className="mt-3 flex-1">
-              <GraphHealthChart data={healthHistory} />
+            <div className="mt-2 flex-1">
+              <TelemetryVelocityChart data={telemetryHistory} />
             </div>
           </div>
 
-          {/* Live Telemetry & Activity Feed */}
+          {/* Live Activity Log Feed */}
           <div
             className="flex flex-col rounded-xl border overflow-hidden backdrop-blur-md"
             style={{
@@ -801,22 +856,10 @@ export default function DashboardPage() {
             }}
           >
             <PanelHeader
-              title="Live Telemetry & Activity Feed"
+              title="Live Telemetry & Activity Log"
               subtitle="Real-time graph events — auto-updating every 10s"
-              action={
-                latestInfo && (
-                  <div className="flex items-center space-x-3">
-                    <span className="text-[10px] font-mono text-slate-400">
-                      seq #{latestInfo.last_seq} · {latestInfo.event_count} total
-                    </span>
-                    <div className="w-20 hidden sm:block">
-                      <TelemetryVelocityChart data={telemetryHistory} />
-                    </div>
-                  </div>
-                )
-              }
             />
-            <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
+            <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
               {eventsLoading ? (
                 <div className="flex flex-col gap-0">
                   {Array.from({ length: 4 }).map((_, i) => (
@@ -868,94 +911,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* ── COLUMN 2: Live 3D FIG Canvas & Storage Breakdown ──────────── */}
-        <div className="flex flex-col gap-4">
-          {/* Live 3D FIG Canvas Preview */}
-          <div
-            className="rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
-            <PanelHeader
-              title="Live Cortex 3D Graph"
-              subtitle="Realtime Node-Link cluster preview"
-              action={
-                <button
-                  onClick={() => router.push("/dashboard/fig-view")}
-                  className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
-                >
-                  Inspect <ArrowRight size={10} />
-                </button>
-              }
-            />
-            <div className="mt-3 flex-1 min-h-[240px]">
-              <MiniFigCanvas
-                nodeCount={scorecard?.node_count}
-                edgeCount={scorecard?.edge_count}
-              />
-            </div>
-          </div>
-
-          {/* Storage Breakdown Chart */}
-          <div
-            className="rounded-xl border overflow-hidden backdrop-blur-md"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
-            <PanelHeader
-              title="Storage Breakdown"
-              subtitle="Footprint per file type & status"
-              action={
-                <button
-                  onClick={() => router.push("/dashboard/storage")}
-                  className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
-                >
-                  Manage <ArrowRight size={10} />
-                </button>
-              }
-            />
-            <div className="p-4 space-y-3">
-              {storageLoading ? (
-                <div className="space-y-2">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="h-10 rounded-lg animate-pulse bg-slate-700/40"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <StorageModalityChart
-                    byType={storage?.by_type ?? {}}
-                    totalBytes={storage?.total_bytes ?? 0}
-                  />
-                  <div className="grid grid-cols-2 gap-2 pt-2">
-                    <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
-                      <p className="text-[10px] text-slate-500 font-mono">Total Size</p>
-                      <p className="text-xs font-mono font-bold text-cyan-400">
-                        {fmtBytes(storage?.total_bytes ?? 0)}
-                      </p>
-                    </div>
-                    <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
-                      <p className="text-[10px] text-slate-500 font-mono">Files Count</p>
-                      <p className="text-xs font-mono font-bold text-emerald-400">
-                        {storage?.total_files ?? 0}
-                      </p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── COLUMN 3: Topology Gauges, Actions, Security & Evolution ───── */}
-        <div className="flex flex-col gap-4">
+        {/* ── COLUMN 3: Topology Gauges, Actions, Security & Evolution (1 Col) ───── */}
+        <div className="lg:col-span-1 flex flex-col gap-4">
           {/* Topology Metrics Scorecard */}
           <div
             className="rounded-xl border overflow-hidden backdrop-blur-md"
