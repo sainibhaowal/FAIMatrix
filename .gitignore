@@ -27,22 +27,31 @@ ENV/
 
 # Node / Next.js
 node_modules/
-/frontend/.next/
-/frontend/out/
-/frontend/build/
-/frontend/playwright-report/
-/frontend/test-results/
-/frontend/tsconfig.tsbuildinfo
-/native-ui/dist/
-/native-ui/node_modules/
+**/node_modules/
+.next/
+**/.next/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/playwright-report/
+frontend/test-results/
+frontend/tsconfig.tsbuildinfo
+native-ui/dist/
+native-ui/node_modules/
 .npm
 .eslintcache
+*.pack.gz
 
-# Logs
+# Logs & Temporary Build Outputs
 *.log
+build*.txt
+frontend/build*.txt
+get-pip.py
+faim_test.db
+*.db
+*.sqlite3
 faim_native/full_test_log.txt
 docs/simulation_run*.txt
-docs/
 
 # OS / IDE
 .DS_Store
@@ -61,8 +70,7 @@ deploy/env.vpsprod
 
 # Runtime & Data
 Runtime/
-node_modules/
-**/node_modules/
+**/Runtime/
 deploy/ssl/
 *.pem
 *.key
@@ -73,7 +81,6 @@ deploy/ssl/
 .ruff_cache/
 .mypy_cache/
 .pytest_cache/
-Docker_cmd.md
 
 # Development
 frontend/Docs/
