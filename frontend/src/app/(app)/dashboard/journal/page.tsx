@@ -689,40 +689,75 @@ export default function JournalPage() {
 
       {isReady && (
         <>
-          {/* ── Metric strip (Domain Studio Style) ── */}
+          {/* ── Metric strip (Glowing Border Cards) ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 shrink-0">
-            <MetricTile
-              label="TOTAL EVENTS"
-              value={
-                latest?.event_count != null
-                  ? latest.event_count.toLocaleString()
-                  : "—"
-              }
-              hint={newCount > 0 ? `+${newCount} since last refresh` : "All time"}
-              accent="#06b6d4"
-            />
-            <MetricTile
-              label="LAST KIND"
-              value={latest?.last_kind ?? "—"}
-              hint={
-                latest?.last_kind
+            {[
+              {
+                label: "TOTAL EVENTS",
+                value:
+                  latest?.event_count != null
+                    ? latest.event_count.toLocaleString()
+                    : "—",
+                sub:
+                  newCount > 0 ? `+${newCount} since last refresh` : "All time",
+                icon: <Layers size={15} />,
+                color: "text-cyan-300",
+                borderColor: "border-cyan-500/30 hover:border-cyan-500/50 shadow-[0_0_15px_rgba(34,211,238,0.12)]",
+                glow: "from-cyan-500/10 to-transparent",
+              },
+              {
+                label: "LAST KIND",
+                value: latest?.last_kind ?? "—",
+                sub: latest?.last_kind
                   ? getKindMeta(latest.last_kind).description
-                  : "Waiting for events"
-              }
-              accent="#8b5cf6"
-            />
-            <MetricTile
-              label="LAST ACTIVITY"
-              value={relativeTime(latest?.last_ts ?? null)}
-              hint={absoluteTime(latest?.last_ts ?? null)}
-              accent="#f59e0b"
-            />
-            <MetricTile
-              label="AUDIT INTEGRITY"
-              value="Verified"
-              hint="Checksum chain intact"
-              accent="#10b981"
-            />
+                  : "Waiting for events",
+                icon: <Activity size={15} />,
+                color: "text-white font-bold",
+                borderColor: "border-violet-500/30 hover:border-violet-500/50 shadow-[0_0_15px_rgba(167,139,250,0.12)]",
+                glow: "from-violet-500/10 to-transparent",
+              },
+              {
+                label: "LAST ACTIVITY",
+                value: relativeTime(latest?.last_ts ?? null),
+                sub: absoluteTime(latest?.last_ts ?? null),
+                icon: <Clock size={15} />,
+                color: "text-amber-300 font-bold",
+                borderColor: "border-amber-500/30 hover:border-amber-500/50 shadow-[0_0_15px_rgba(251,191,36,0.12)]",
+                glow: "from-amber-500/10 to-transparent",
+              },
+              {
+                label: "AUDIT INTEGRITY",
+                value: "Verified",
+                sub: "Checksum chain intact",
+                icon: <ShieldCheck size={15} />,
+                color: "text-emerald-400 font-bold",
+                borderColor: "border-emerald-500/30 hover:border-emerald-500/50 shadow-[0_0_15px_rgba(52,211,153,0.12)]",
+                glow: "from-emerald-500/10 to-transparent",
+              },
+            ].map((stat) => (
+              <div
+                key={stat.label}
+                className={`relative flex flex-col justify-center px-5 py-4 rounded-xl border backdrop-blur-md bg-gradient-to-b ${stat.glow} ${stat.borderColor} transition-all duration-300`}
+                style={{
+                  backgroundColor: "rgba(9, 14, 26, 0.82)",
+                }}
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
+                    {stat.label}
+                  </p>
+                  <div className="text-slate-400 opacity-60">{stat.icon}</div>
+                </div>
+                <p
+                  className={`text-xl font-bold tabular-nums truncate leading-tight ${stat.color}`}
+                >
+                  {stat.value}
+                </p>
+                <p className="text-[10px] text-slate-500 font-medium mt-1.5 truncate">
+                  {stat.sub}
+                </p>
+              </div>
+            ))}
           </div>
 
           {/* ── Channel Stream Progress Bar (Domain Studio Style) ── */}
