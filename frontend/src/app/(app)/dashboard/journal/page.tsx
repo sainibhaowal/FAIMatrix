@@ -681,13 +681,7 @@ export default function JournalPage() {
       {isReady && (
         <>
           {/* ── Metric strip ── */}
-          <div
-            className="grid grid-cols-2 xl:grid-cols-4 overflow-hidden rounded-xl border shrink-0"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 shrink-0">
             {[
               {
                 label: "Total Events",
@@ -699,6 +693,8 @@ export default function JournalPage() {
                   newCount > 0 ? `+${newCount} since last refresh` : "All time",
                 icon: <Layers size={15} />,
                 color: "text-cyan-300",
+                topBorder: "border-t-2 border-t-cyan-400 shadow-[0_-4px_12px_rgba(34,211,238,0.15)]",
+                glow: "from-cyan-500/10 to-transparent",
               },
               {
                 label: "Last Kind",
@@ -710,6 +706,8 @@ export default function JournalPage() {
                 color: latest?.last_kind
                   ? getKindMeta(latest.last_kind).color
                   : "text-slate-400",
+                topBorder: "border-t-2 border-t-violet-400 shadow-[0_-4px_12px_rgba(167,139,250,0.15)]",
+                glow: "from-violet-500/10 to-transparent",
               },
               {
                 label: "Last Activity",
@@ -717,6 +715,8 @@ export default function JournalPage() {
                 sub: absoluteTime(latest?.last_ts ?? null),
                 icon: <Clock size={15} />,
                 color: "text-amber-300",
+                topBorder: "border-t-2 border-t-amber-400 shadow-[0_-4px_12px_rgba(251,191,36,0.15)]",
+                glow: "from-amber-500/10 to-transparent",
               },
               {
                 label: "Audit Integrity",
@@ -724,55 +724,78 @@ export default function JournalPage() {
                 sub: "Checksum chain intact",
                 icon: <ShieldCheck size={15} />,
                 color: "text-emerald-400",
+                topBorder: "border-t-2 border-t-emerald-400 shadow-[0_-4px_12px_rgba(52,211,153,0.15)]",
+                glow: "from-emerald-500/10 to-transparent",
               },
-            ].map((stat, i) => (
+            ].map((stat) => (
               <div
                 key={stat.label}
-                className="relative flex flex-col justify-center px-5 py-4"
+                className={`relative flex flex-col justify-center px-5 py-4 rounded-xl border bg-gradient-to-b ${stat.glow} ${stat.topBorder}`}
                 style={{
-                  borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined,
-                  borderTop: i >= 2 ? "1px solid var(--os-stroke)" : undefined,
+                  borderColor: "var(--os-stroke)",
+                  backgroundColor: "rgba(255, 255, 255, 0.02)",
                 }}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                     {stat.label}
                   </p>
-                  <div className="opacity-20">{stat.icon}</div>
+                  <div className="opacity-40">{stat.icon}</div>
                 </div>
                 <p
                   className={`text-xl font-bold tabular-nums truncate leading-tight ${stat.color}`}
                 >
                   {stat.value}
                 </p>
-                <p className="text-[10px] text-slate-600 font-medium mt-1 truncate">
+                <p className="text-[10px] text-slate-500 font-medium mt-1 truncate">
                   {stat.sub}
                 </p>
               </div>
             ))}
           </div>
 
+          {/* ── Channel Stream Progress Bar ── */}
+          <div
+            className="flex items-center justify-between px-5 py-2.5 rounded-xl border shrink-0 bg-white/[0.02]"
+            style={{ borderColor: "var(--os-stroke)" }}
+          >
+            <div className="flex items-center gap-3 w-full">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">
+                AUDIT STREAM CHANNEL
+              </span>
+              <div className="h-1.5 flex-1 rounded-full overflow-hidden bg-slate-900 border border-white/10 relative">
+                <div className="h-full w-full bg-gradient-to-r from-emerald-400 via-cyan-400 via-violet-400 to-amber-400 animate-pulse shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+              </div>
+              <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-wider shrink-0">
+                {liveConnected ? "STREAMING" : "STANDBY"}
+              </span>
+            </div>
+          </div>
+
           {/* ── Main feed panel ── */}
           <div
-            className="flex flex-col overflow-hidden rounded-xl border shrink-0"
+            className="flex flex-col overflow-hidden rounded-xl border shrink-0 relative"
             style={{
               borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-              height: "calc(100vh - 320px)",
+              background: "rgba(255, 255, 255, 0.02)",
+              height: "calc(100vh - 350px)",
               minHeight: "380px",
             }}
           >
+            {/* Top colorful gradient accent line */}
+            <div className="h-[2px] w-full bg-gradient-to-r from-emerald-400 via-cyan-400 via-violet-400 to-amber-400" />
+
             {/* Panel header + filter */}
             <div
               className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 shrink-0"
               style={{ borderColor: "var(--os-stroke)" }}
             >
               <div className="flex items-center gap-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                   Event Stream
                 </p>
                 {!loading && (
-                  <span className="text-[10px] font-mono text-slate-600">
+                  <span className="text-[10px] font-mono text-cyan-300/80 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
                     {filteredEvents.length.toLocaleString()} event
                     {filteredEvents.length !== 1 ? "s" : ""}
                     {kindFilter ? " filtered" : " loaded"}
@@ -783,13 +806,13 @@ export default function JournalPage() {
               {/* Kind filter */}
               <div className="relative">
                 <Filter
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none"
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                   size={11}
                 />
                 <select
                   value={kindFilter}
                   onChange={(e) => setKindFilter(e.target.value)}
-                  className="pl-7 pr-7 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-slate-300 appearance-none focus:outline-none focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
+                  className="pl-7 pr-7 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-slate-200 appearance-none focus:outline-none focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
                   style={{
                     background: "var(--os-surface-2)",
                     border: "1px solid var(--os-stroke)",
@@ -803,7 +826,7 @@ export default function JournalPage() {
                   ))}
                 </select>
                 <ChevronDown
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                   size={11}
                 />
               </div>
@@ -854,7 +877,7 @@ export default function JournalPage() {
                         size="sm"
                         onClick={loadOlder}
                         loading={loadingOlder}
-                        className="border-dashed text-slate-500"
+                        className="border-dashed text-slate-400 hover:text-white hover:border-cyan-500/40"
                         style={{ borderColor: "var(--os-stroke)" }}
                       >
                         {loadingOlder ? "Loading..." : "Load Older Events"}
@@ -864,7 +887,7 @@ export default function JournalPage() {
 
                   {!hasOlder && filteredEvents.length > 0 && (
                     <div className="px-5 py-4 text-center">
-                      <p className="text-[10px] text-slate-700 uppercase tracking-widest font-bold">
+                      <p className="text-[10px] text-slate-600 uppercase tracking-widest font-bold">
                         Beginning of journal
                       </p>
                     </div>
@@ -886,17 +909,20 @@ function EventRow({ event }: { event: FaimEvent }) {
   const meta = getKindMeta(event.kind);
   const hasPayload = event.payload && Object.keys(event.payload).length > 0;
 
+  // Extract color border for row accent line
+  const leftBorderColor = meta.dot.replace("bg-", "border-l-");
+
   return (
     <div
-      className="group border-b last:border-0 transition-colors hover:bg-white/[0.018]"
+      className={`group border-b border-l-4 ${leftBorderColor} last:border-b-0 transition-all duration-200 hover:bg-gradient-to-r hover:from-white/[0.04] hover:to-transparent`}
       style={{ borderColor: "var(--os-stroke)" }}
     >
       <div className="flex items-start gap-4 px-5 py-3.5">
         {/* Kind indicator dot */}
         <div className="shrink-0 pt-[5px]">
           <div
-            className={`h-2 w-2 rounded-full ${meta.dot}`}
-            style={{ boxShadow: `0 0 6px currentColor` }}
+            className={`h-2.5 w-2.5 rounded-full ${meta.dot}`}
+            style={{ boxShadow: `0 0 8px currentColor` }}
           />
         </div>
 
@@ -909,22 +935,22 @@ function EventRow({ event }: { event: FaimEvent }) {
             >
               {event.kind}
             </span>
-            <span className="text-[10px] font-mono text-slate-700">
+            <span className="text-[10px] font-mono text-slate-400 font-semibold">
               #{event.seq}
             </span>
-            <span className="text-[10px] text-slate-500 font-medium ml-auto shrink-0">
+            <span className="text-[10px] text-slate-400 font-medium ml-auto shrink-0">
               {relativeTime(event.ts)}
             </span>
           </div>
 
           {/* Description */}
-          <p className="text-[13px] text-slate-300 font-medium leading-snug">
+          <p className="text-[13px] text-slate-200 font-medium leading-snug">
             {meta.description}
           </p>
 
           {/* Absolute time */}
           {event.ts && (
-            <p className="text-[10px] text-slate-700 font-mono mt-0.5">
+            <p className="text-[10px] text-slate-500 font-mono mt-0.5">
               {absoluteTime(event.ts)}
             </p>
           )}
@@ -934,7 +960,7 @@ function EventRow({ event }: { event: FaimEvent }) {
             <div className="mt-2">
               <button
                 onClick={() => setExpanded((v) => !v)}
-                className="flex items-center gap-1 text-[10px] text-slate-600 hover:text-slate-400 font-bold uppercase tracking-widest transition-colors"
+                className="flex items-center gap-1 text-[10px] text-cyan-400/80 hover:text-cyan-300 font-bold uppercase tracking-widest transition-colors"
               >
                 <ChevronRight
                   size={10}
@@ -945,13 +971,12 @@ function EventRow({ event }: { event: FaimEvent }) {
 
               {expanded && (
                 <div
-                  className="mt-2 p-3 rounded-lg overflow-x-auto"
+                  className="mt-2 p-3 rounded-lg overflow-x-auto border border-cyan-500/20"
                   style={{
-                    background: "var(--os-surface-2)",
-                    border: "1px solid var(--os-stroke)",
+                    background: "rgba(7, 10, 18, 0.7)",
                   }}
                 >
-                  <pre className="text-[10px] font-mono text-slate-400 leading-relaxed whitespace-pre-wrap break-all">
+                  <pre className="text-[10px] font-mono text-slate-300 leading-relaxed whitespace-pre-wrap break-all">
                     {JSON.stringify(event.payload, null, 2)}
                   </pre>
                 </div>
@@ -964,7 +989,7 @@ function EventRow({ event }: { event: FaimEvent }) {
         {event.checksum && (
           <div className="shrink-0 hidden md:block pt-0.5">
             <span
-              className="text-[9px] font-mono text-slate-700 group-hover:text-slate-600 transition-colors cursor-default select-all"
+              className="text-[9px] font-mono text-slate-500 group-hover:text-slate-300 transition-colors cursor-default select-all bg-white/[0.03] px-2 py-0.5 rounded border border-white/5"
               title={`Checksum: ${event.checksum}`}
             >
               {event.checksum.slice(0, 8)}
