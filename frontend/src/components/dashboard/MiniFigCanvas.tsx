@@ -72,9 +72,26 @@ export const MiniFigCanvas: React.FC<MiniFigCanvasProps> = ({
     }
   }, [mounted]);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 400, height: 240 });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setDimensions({
+          width: Math.max(300, entry.contentRect.width),
+          height: Math.max(200, entry.contentRect.height),
+        });
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, [mounted]);
+
   if (!mounted) {
     return (
-      <div className="w-full h-full min-h-[220px] flex items-center justify-center bg-slate-950/60 rounded border border-slate-800">
+      <div className="w-full h-full min-h-[240px] flex items-center justify-center bg-slate-950/60 rounded border border-slate-800">
         <span className="text-xs text-slate-500 font-mono animate-pulse">
           Initializing 3D Cortex FIG View...
         </span>
@@ -83,7 +100,10 @@ export const MiniFigCanvas: React.FC<MiniFigCanvasProps> = ({
   }
 
   return (
-    <div className="w-full h-full min-h-[220px] relative overflow-hidden rounded bg-slate-950/80 border border-slate-800/80 group">
+    <div
+      ref={containerRef}
+      className="w-full h-full min-h-[240px] relative overflow-hidden rounded bg-slate-950/80 border border-slate-800/80 group"
+    >
       <div className="absolute top-2 left-2 z-10 flex items-center space-x-2 bg-slate-900/90 border border-cyan-500/30 px-2.5 py-1 rounded text-[10px] font-mono text-cyan-300 backdrop-blur-md">
         <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
         <span>LIVE CORTEX FIG VIEW</span>
@@ -103,8 +123,8 @@ export const MiniFigCanvas: React.FC<MiniFigCanvasProps> = ({
         linkDirectionalParticleWidth={2}
         linkDirectionalParticleSpeed={0.005}
         showNavInfo={false}
-        width={380}
-        height={220}
+        width={dimensions.width}
+        height={dimensions.height}
       />
     </div>
   );

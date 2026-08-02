@@ -257,7 +257,7 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
               pathname === "/dashboard/graph" ||
               pathname === "/dashboard/memory-query"
                 ? "h-full"
-                : "mx-auto max-w-[1400px]"
+                : "w-full max-w-[1920px] mx-auto"
             }
           >
             {children}
