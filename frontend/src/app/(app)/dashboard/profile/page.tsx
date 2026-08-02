@@ -487,42 +487,40 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Authenticator Security */}
-          <div
-            className="rounded-xl border overflow-hidden"
-            style={{
-              borderColor: "rgba(34, 211, 238, 0.22)",
-              background: "rgba(8, 47, 73, 0.14)",
-            }}
-          >
+          {/* Authenticator Security (Domain Studio Frosted Glass Shell) */}
+          <div className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
             <div
-              className="border-b px-5 py-3 flex items-center justify-between gap-3"
-              style={{ borderColor: "rgba(34, 211, 238, 0.14)" }}
-            >
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(circle at 14% 8%, rgba(6,182,212,0.14), transparent 30%)",
+              }}
+            />
+            <div className="relative border-b border-white/8 px-5 py-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <KeyRound size={14} className="text-cyan-300" />
-                <p className="text-[10px] font-medium uppercase tracking-widest text-cyan-300">
-                  Authenticator Login
+                <KeyRound size={14} className="text-cyan-400" />
+                <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">
+                  AUTHENTICATOR LOGIN
                 </p>
               </div>
-              <div className="text-[10px] uppercase tracking-widest text-slate-500">
-                {totpStatus?.enabled ? "Enabled" : "Optional"}
+              <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
+                {totpStatus?.enabled ? "ENABLED" : "OPTIONAL"}
               </div>
             </div>
-            <div className="p-8 space-y-6">
+            <div className="relative p-6 space-y-6">
               <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_auto]">
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
                       <Smartphone size={18} />
                     </div>
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-100">
+                      <h3 className="text-sm font-semibold text-white">
                         {totpStatus?.enabled
                           ? "Authenticator app is active"
                           : "Use Google Authenticator, Authy, or another app"}
                       </h3>
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-400 mt-0.5">
                         Email OTP stays as the default. Once enabled, you can
                         sign in faster with a 6-digit authenticator code.
                       </p>
@@ -531,19 +529,19 @@ export default function ProfilePage() {
 
                   {totpStatus?.enabled && (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <div className="rounded-lg border border-white/10 bg-black/20 px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                      <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5 shadow-inner">
+                        <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
                           Recovery Codes
                         </div>
-                        <div className="mt-1 text-lg font-semibold text-cyan-200">
+                        <div className="mt-1 text-base font-semibold text-cyan-300">
                           {totpStatus.recovery_codes_remaining}
                         </div>
                       </div>
-                      <div className="rounded-lg border border-white/10 bg-black/20 px-4 py-3">
-                        <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                      <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3.5 shadow-inner">
+                        <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
                           Default Login
                         </div>
-                        <div className="mt-1 text-lg font-semibold text-slate-200">
+                        <div className="mt-1 text-base font-semibold text-white">
                           Email OTP
                         </div>
                       </div>
@@ -565,7 +563,7 @@ export default function ProfilePage() {
               </div>
 
               {totpSetup && (
-                <div className="grid grid-cols-1 gap-6 rounded-xl border border-white/10 bg-black/20 p-5 md:grid-cols-[auto_1fr]">
+                <div className="grid grid-cols-1 gap-6 rounded-xl border border-white/10 bg-slate-950/60 p-5 md:grid-cols-[auto_1fr]">
                   <div className="rounded-lg bg-white p-2">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -576,10 +574,10 @@ export default function ProfilePage() {
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <div className="text-[10px] uppercase tracking-widest text-slate-500">
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
                         Manual Secret
                       </div>
-                      <div className="mt-2 break-all rounded border border-cyan-400/10 bg-cyan-400/5 px-3 py-2 font-mono text-[11px] text-cyan-200">
+                      <div className="mt-2 break-all rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-3 py-2 font-mono text-[11px] text-cyan-200">
                         {totpSetup.secret}
                       </div>
                     </div>
@@ -590,7 +588,7 @@ export default function ProfilePage() {
                         onChange={(e) => setTotpCode(e.target.value)}
                         placeholder="000000"
                         maxLength={6}
-                        className="min-w-0 flex-1 rounded-lg border border-white/10 bg-black/40 px-4 py-3 text-center font-mono tracking-[0.35em] text-slate-100 outline-none transition-all focus:border-cyan-400/50"
+                        className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950/80 px-4 py-2.5 text-center font-mono tracking-[0.35em] text-white outline-none transition-all focus:border-cyan-400/50"
                       />
                       <Button
                         size="sm"
