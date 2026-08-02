@@ -730,10 +730,10 @@ export default function JournalPage() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className={`relative flex flex-col justify-center px-5 py-4 rounded-xl border bg-gradient-to-b ${stat.glow} ${stat.topBorder}`}
+                className={`relative flex flex-col justify-center px-5 py-4 rounded-xl border backdrop-blur-md bg-gradient-to-b ${stat.glow} ${stat.topBorder}`}
                 style={{
                   borderColor: "var(--os-stroke)",
-                  backgroundColor: "rgba(255, 255, 255, 0.02)",
+                  backgroundColor: "rgba(9, 14, 26, 0.82)",
                 }}
               >
                 <div className="flex items-center justify-between mb-1.5">
@@ -756,8 +756,11 @@ export default function JournalPage() {
 
           {/* ── Channel Stream Progress Bar ── */}
           <div
-            className="flex items-center justify-between px-5 py-2.5 rounded-xl border shrink-0 bg-white/[0.02]"
-            style={{ borderColor: "var(--os-stroke)" }}
+            className="flex items-center justify-between px-5 py-2.5 rounded-xl border shrink-0 backdrop-blur-md"
+            style={{
+              borderColor: "var(--os-stroke)",
+              backgroundColor: "rgba(9, 14, 26, 0.82)",
+            }}
           >
             <div className="flex items-center gap-3 w-full">
               <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">
@@ -774,10 +777,10 @@ export default function JournalPage() {
 
           {/* ── Main feed panel ── */}
           <div
-            className="flex flex-col overflow-hidden rounded-xl border shrink-0 relative"
+            className="flex flex-col overflow-hidden rounded-xl border shrink-0 relative backdrop-blur-md"
             style={{
               borderColor: "var(--os-stroke)",
-              background: "rgba(255, 255, 255, 0.02)",
+              background: "rgba(9, 14, 26, 0.85)",
               height: "calc(100vh - 350px)",
               minHeight: "380px",
             }}
