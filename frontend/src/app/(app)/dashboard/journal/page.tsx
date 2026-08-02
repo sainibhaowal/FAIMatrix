@@ -23,6 +23,7 @@ import { getSession } from "next-auth/react";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Select";
 import { readJsonSafely } from "@/lib/safeFetch";
 import { useUser } from "@/contexts/UserContext";
 
@@ -562,6 +563,14 @@ export default function JournalPage() {
     [events],
   );
 
+  const kindOptions = useMemo(
+    () => [
+      { value: "", label: "ALL KINDS" },
+      ...allKinds.map((k) => ({ value: k, label: k })),
+    ],
+    [allKinds],
+  );
+
   const filteredEvents = useMemo(
     () => (kindFilter ? events.filter((e) => e.kind === kindFilter) : events),
     [events, kindFilter],
@@ -807,30 +816,15 @@ export default function JournalPage() {
               </div>
 
               {/* Kind filter */}
-              <div className="relative">
-                <Filter
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                  size={11}
-                />
-                <select
+              <div className="flex items-center gap-2">
+                <Filter size={11} className="text-slate-400 shrink-0" />
+                <Select
+                  options={kindOptions}
                   value={kindFilter}
-                  onChange={(e) => setKindFilter(e.target.value)}
-                  className="pl-7 pr-7 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider text-slate-200 appearance-none focus:outline-none focus:ring-1 focus:ring-cyan-500/40 cursor-pointer"
-                  style={{
-                    background: "var(--os-surface-2)",
-                    border: "1px solid var(--os-stroke)",
-                  }}
-                >
-                  <option value="">All Kinds</option>
-                  {allKinds.map((k) => (
-                    <option key={k} value={k}>
-                      {k}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
-                  size={11}
+                  onChange={(val) => setKindFilter(val)}
+                  placeholder="ALL KINDS"
+                  size="sm"
+                  className="min-w-[170px]"
                 />
               </div>
             </div>
