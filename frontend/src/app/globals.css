@@ -134,6 +134,12 @@
     /* Enterprise default density */
     letter-spacing: -0.011em;
   }
+
+  select option {
+    background-color: #090e1a !important;
+    color: #e2e8f0 !important;
+    padding: 8px 12px !important;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -176,13 +182,27 @@
   z-index: -2;
 }
 
-.faim-landing-workspace[data-faim-view="platform"] { --faim-accent: #a78bfa; }
-.faim-landing-workspace[data-faim-view="proof"] { --faim-accent: #f472b6; }
-.faim-landing-workspace[data-faim-view="ops"] { --faim-accent: #34d399; }
-.faim-landing-workspace[data-faim-view="scale"] { --faim-accent: #fbbf24; }
-.faim-landing-workspace[data-faim-view="footer"] { --faim-accent: #94a3b8; }
+.faim-landing-workspace[data-faim-view="platform"] {
+  --faim-accent: #a78bfa;
+}
 
-.faim-landing-workspace > * {
+.faim-landing-workspace[data-faim-view="proof"] {
+  --faim-accent: #f472b6;
+}
+
+.faim-landing-workspace[data-faim-view="ops"] {
+  --faim-accent: #34d399;
+}
+
+.faim-landing-workspace[data-faim-view="scale"] {
+  --faim-accent: #fbbf24;
+}
+
+.faim-landing-workspace[data-faim-view="footer"] {
+  --faim-accent: #94a3b8;
+}
+
+.faim-landing-workspace>* {
   position: relative;
   z-index: 1;
 }
@@ -213,12 +233,12 @@
 
 /* Module-owned backdrop glows must not create a second canvas behind the
    shared landing grid. Interactive content and its local diagrams remain. */
-.faim-atlas-preview > section > [class*="blur-"] {
+.faim-atlas-preview>section>[class*="blur-"] {
   display: none !important;
 }
 
 /* Existing modules keep their copy and interactions, while the atlas owns the frame. */
-.faim-atlas-preview > section {
+.faim-atlas-preview>section {
   min-height: auto !important;
   padding-top: clamp(2.75rem, 5vw, 4.75rem) !important;
   padding-bottom: clamp(2.75rem, 5vw, 4.75rem) !important;
@@ -226,12 +246,12 @@
   background: transparent !important;
 }
 
-.faim-atlas-preview > section h2 {
+.faim-atlas-preview>section h2 {
   font-size: clamp(1.65rem, 3.2vw, 3rem) !important;
   line-height: 1.08 !important;
 }
 
-.faim-atlas-preview > section h3 {
+.faim-atlas-preview>section h3 {
   line-height: 1.18 !important;
 }
 
@@ -245,7 +265,7 @@
     border-radius: 1rem;
   }
 
-  .faim-atlas-rail > div {
+  .faim-atlas-rail>div {
     min-height: 0;
     flex-direction: column;
     align-items: stretch;
@@ -253,13 +273,13 @@
     padding: 0.5rem;
   }
 
-  .faim-atlas-rail > div > div:first-child {
+  .faim-atlas-rail>div>div:first-child {
     margin: 0;
     display: flex;
     justify-content: center;
   }
 
-  .faim-atlas-rail > div > button {
+  .faim-atlas-rail>div>button {
     margin: 0;
     width: 100%;
   }
@@ -269,12 +289,12 @@
     overflow-y: auto;
   }
 
-  .faim-atlas-rail nav > div {
+  .faim-atlas-rail nav>div {
     display: grid;
     gap: 0.35rem;
   }
 
-  .faim-atlas-rail nav > div > div {
+  .faim-atlas-rail nav>div>div {
     position: relative;
   }
 
@@ -283,12 +303,12 @@
     width: 100%;
   }
 
-  .faim-atlas-rail nav button > span:nth-child(2),
-  .faim-atlas-rail nav a > span:nth-child(2) {
+  .faim-atlas-rail nav button>span:nth-child(2),
+  .faim-atlas-rail nav a>span:nth-child(2) {
     display: none;
   }
 
-  .faim-atlas-rail nav > div > div > div {
+  .faim-atlas-rail nav>div>div>div {
     position: absolute;
     z-index: 60;
     top: 0;
@@ -306,12 +326,12 @@
     backdrop-filter: blur(18px);
   }
 
-  .faim-atlas-rail > div > div:last-child {
+  .faim-atlas-rail>div>div:last-child {
     display: grid;
     margin-top: auto;
   }
 
-  .faim-atlas-rail > div > div:last-child > div {
+  .faim-atlas-rail>div>div:last-child>div {
     display: grid;
   }
 
@@ -323,12 +343,13 @@
     display: flex;
   }
 
-  .faim-landing-hero > div.relative {
+  .faim-landing-hero>div.relative {
     padding-top: 2rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .faim-atlas-rail,
   .faim-atlas-preview * {
     scroll-behavior: auto !important;
@@ -338,6 +359,7 @@
 }
 
 @layer utilities {
+
   /* Surface System */
   .os-surface {
     background: var(--os-surface-1);
@@ -373,7 +395,7 @@
     z-index: 0;
     background-image: radial-gradient(rgba(255, 255, 255, 0.28) 1.2px, transparent 1.2px);
     background-size: 24px 24px;
-    opacity: 0.85;
+    opacity: 0.3
   }
 }
 
@@ -468,6 +490,7 @@
 }
 
 @keyframes pulse-glow {
+
   0%,
   100% {
     opacity: 1;
