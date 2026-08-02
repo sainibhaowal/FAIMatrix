@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 # FAIM Frontend Production Dockerfile
 FROM node:22-alpine AS builder
 
