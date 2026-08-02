@@ -27,6 +27,10 @@ import {
 import { getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
+import { GraphHealthChart, GraphHealthPoint } from "@/components/dashboard/GraphHealthChart";
+import { MiniFigCanvas } from "@/components/dashboard/MiniFigCanvas";
+import { StorageModalityChart } from "@/components/dashboard/StorageModalityChart";
+import { TelemetryPoint, TelemetryVelocityChart } from "@/components/dashboard/TelemetryVelocityChart";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -204,13 +208,13 @@ function KpiCell({
 }) {
   return (
     <div
-      className={`relative flex flex-col justify-center px-4 sm:px-6 py-4 border-slate-800/50 ${className}`}
+      className={`relative flex flex-col justify-center px-4 sm:px-6 py-4 border-slate-800/50 hover:bg-slate-800/20 transition-all ${className}`}
     >
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+        <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
           {label}
         </p>
-        <div className="opacity-20">{icon}</div>
+        <div className="opacity-40">{icon}</div>
       </div>
       {loading ? (
         <div className="h-7 w-24 rounded animate-pulse bg-slate-700/40 mb-2" />
@@ -243,7 +247,8 @@ function PanelHeader({
       style={{ borderColor: "var(--os-stroke)" }}
     >
       <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400 flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
           {title}
         </p>
         {subtitle && (
@@ -268,7 +273,7 @@ function ScorecardGauge({
 }) {
   return (
     <div
-      className="flex flex-col items-center justify-center gap-0.5 py-3 px-2 sm:px-4 rounded-xl border text-center"
+      className="flex flex-col items-center justify-center gap-0.5 py-3 px-2 sm:px-4 rounded-xl border text-center transition-transform hover:scale-[1.02]"
       style={{
         background: "var(--os-surface-2)",
         borderColor: "var(--os-stroke)",
@@ -322,6 +327,11 @@ export default function DashboardPage() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Recharts Time Series state
+  const [healthHistory, setHealthHistory] = useState<GraphHealthPoint[]>([]);
+  const [telemetryHistory, setTelemetryHistory] = useState<TelemetryPoint[]>([]);
+  const [srMessage, setSrMessage] = useState("");
+
   // ── Fetch fns ──
 
   const fetchScorecard = useCallback(async () => {
@@ -332,9 +342,25 @@ export default function DashboardPage() {
         headers,
       });
       if (!res.ok) return;
-      const data = await readJsonSafely<any>(res);
+      const data = await readJsonSafely<ScorecardData>(res);
       if (!data) return;
       setScorecard(data);
+
+      const timeStr = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      setHealthHistory((prev) =>
+        [
+          ...prev,
+          {
+            time: timeStr,
+            entropy: data.entropy ?? 0,
+            density: data.density ?? 0,
+            spectral_radius: data.spectral_radius ?? 0,
+          },
+        ].slice(-10),
+      );
     } catch {
       // silent
     } finally {
@@ -350,7 +376,7 @@ export default function DashboardPage() {
         headers,
       });
       if (!res.ok) return;
-      const data = await readJsonSafely<any>(res);
+      const data = await readJsonSafely<StorageSummary>(res);
       if (!data) return;
       setStorage(data);
     } catch {
@@ -368,7 +394,7 @@ export default function DashboardPage() {
         headers,
       });
       if (!res.ok) return;
-      const data = await readJsonSafely<any>(res);
+      const data = await readJsonSafely<EvolveStatusResponse>(res);
       if (!data) return;
       setEvolveStatus(data);
     } catch {
@@ -398,7 +424,7 @@ export default function DashboardPage() {
     try {
       const res = await fetch("/api/health");
       if (!res.ok) return;
-      const data = await readJsonSafely<any>(res);
+      const data = await readJsonSafely<HealthData>(res);
       if (!data) return;
       setHealth(data);
     } catch {
@@ -437,9 +463,27 @@ export default function DashboardPage() {
           const ids = new Set(prev.map((e) => e.id));
           const newOnes = fetched.filter((e) => !ids.has(e.id));
           if (!newOnes.length) return prev;
-          return [...newOnes, ...prev]
+
+          const updated = [...newOnes, ...prev]
             .slice(0, 50)
             .sort((a, b) => b.seq - a.seq);
+
+          const timeStr = new Date().toLocaleTimeString([], {
+            minute: "2-digit",
+            second: "2-digit",
+          });
+          setTelemetryHistory((th) =>
+            [
+              ...th,
+              {
+                seq: latest.last_seq,
+                time: timeStr,
+                velocity: newOnes.length,
+              },
+            ].slice(-10),
+          );
+
+          return updated;
         });
       } catch {
         // silent
@@ -498,6 +542,7 @@ export default function DashboardPage() {
   const runEvolve = useCallback(async () => {
     if (!graphId || evolving) return;
     setEvolving(true);
+    setSrMessage("Triggering FAIM graph evolution...");
     try {
       const headers = await authHeaders();
       await fetch(`/api/v1/evolve`, {
@@ -505,13 +550,14 @@ export default function DashboardPage() {
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ graph_id: graphId, profile: "strict" }),
       });
+      setSrMessage("Evolution job submitted successfully.");
       setTimeout(() => {
         fetchEvolveStatus();
         fetchScorecard();
         fetchEvents(lastSeqRef.current);
       }, 2000);
     } catch {
-      // silent
+      setSrMessage("Failed to submit evolution job.");
     } finally {
       setTimeout(() => setEvolving(false), 3000);
     }
@@ -523,6 +569,7 @@ export default function DashboardPage() {
     async (file: File) => {
       if (!graphId || uploading) return;
       setUploading(true);
+      setSrMessage(`Uploading file ${file.name} to FAIM...`);
       try {
         const headers = await authHeaders();
         const form = new FormData();
@@ -533,12 +580,13 @@ export default function DashboardPage() {
           headers,
           body: form,
         });
+        setSrMessage(`File ${file.name} uploaded successfully.`);
         setTimeout(() => {
           fetchStorage();
           fetchEvents(lastSeqRef.current);
         }, 1500);
       } catch {
-        // silent
+        setSrMessage(`Failed to upload file ${file.name}.`);
       } finally {
         setTimeout(() => setUploading(false), 2000);
       }
@@ -598,32 +646,42 @@ export default function DashboardPage() {
       label: "Open FIG View",
       icon: <Network size={14} />,
       href: "/dashboard/fig-view",
+      keyHint: "⌘G",
     },
     {
       label: "FAIM Cortex",
       icon: <Brain size={14} />,
       href: "/dashboard/memory-query",
+      keyHint: "⌘M",
     },
     {
       label: "View Journal",
       icon: <Activity size={14} />,
       href: "/dashboard/journal",
+      keyHint: "⌘J",
     },
     {
       label: "API Keys",
       icon: <KeyRound size={14} />,
       href: "/dashboard/api-keys",
+      keyHint: "⌘K",
     },
     {
       label: "Storage",
       icon: <HardDrive size={14} />,
       href: "/dashboard/storage",
+      keyHint: "⌘S",
     },
   ];
 
   return (
-    <div className="relative flex flex-col gap-4 pb-8 px-1 text-slate-100">
+    <div className="relative flex flex-col gap-5 pb-8 px-1 text-slate-100">
       <div className="faim-grid" />
+
+      {/* Screen Reader Live Region */}
+      <div className="sr-only" role="status" aria-live="polite">
+        {srMessage}
+      </div>
 
       <GlassHeader
         title="Command Center"
@@ -637,6 +695,7 @@ export default function DashboardPage() {
             <Button
               size="sm"
               variant="outline"
+              aria-label="Refresh dashboard metrics"
               onClick={() => {
                 fetchScorecard();
                 fetchStorage();
@@ -655,7 +714,7 @@ export default function DashboardPage() {
 
       {/* ── Row 1 — KPI Strip ────────────────────────────────────────────── */}
       <div
-        className="grid grid-cols-2 xl:grid-cols-4 overflow-hidden rounded-xl border"
+        className="grid grid-cols-2 xl:grid-cols-4 overflow-hidden rounded-xl border backdrop-blur-md shadow-2xl"
         style={{
           borderColor: "var(--os-stroke)",
           background: "var(--os-surface-1)",
@@ -705,25 +764,85 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* ── Row 2 — Main Grid ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        {/* Activity Feed — 2 cols */}
+      {/* ── Row 2 — Live Visual Analytics Suite (Recharts & 3D FIG Canvas) ──────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Topology Dynamics Recharts Chart */}
         <div
-          className="lg:col-span-2 flex flex-col rounded-xl border overflow-hidden"
+          className="lg:col-span-2 rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
           style={{
             borderColor: "var(--os-stroke)",
             background: "var(--os-surface-1)",
-            height: "420px",
           }}
         >
           <PanelHeader
-            title="Live Activity"
+            title="Graph Topology Spectrum"
+            subtitle="Real-time spectral radius, density, and entropy dynamics"
+            action={
+              scorecard?.graph_version != null && (
+                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded">
+                  Graph v{scorecard.graph_version}
+                </span>
+              )
+            }
+          />
+          <div className="mt-3 flex-1">
+            <GraphHealthChart data={healthHistory} />
+          </div>
+        </div>
+
+        {/* Live 3D FIG Canvas Preview */}
+        <div
+          className="rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
+          style={{
+            borderColor: "var(--os-stroke)",
+            background: "var(--os-surface-1)",
+          }}
+        >
+          <PanelHeader
+            title="Live Cortex 3D Graph"
+            subtitle="Realtime Node-Link cluster preview"
+            action={
+              <button
+                onClick={() => router.push("/dashboard/fig-view")}
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
+              >
+                Inspect <ArrowRight size={10} />
+              </button>
+            }
+          />
+          <div className="mt-3 flex-1 min-h-[220px]">
+            <MiniFigCanvas
+              nodeCount={scorecard?.node_count}
+              edgeCount={scorecard?.edge_count}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* ── Row 3 — Main Activity & Operational Grid ─────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        {/* Activity Feed — 2 cols */}
+        <div
+          className="lg:col-span-2 flex flex-col rounded-xl border overflow-hidden backdrop-blur-md"
+          style={{
+            borderColor: "var(--os-stroke)",
+            background: "var(--os-surface-1)",
+            height: "440px",
+          }}
+        >
+          <PanelHeader
+            title="Live Telemetry & Activity Feed"
             subtitle="Real-time graph events — auto-updating every 10s"
             action={
               latestInfo && (
-                <span className="text-[10px] font-mono text-slate-500">
-                  seq #{latestInfo.last_seq} · {latestInfo.event_count} total
-                </span>
+                <div className="flex items-center space-x-3">
+                  <span className="text-[10px] font-mono text-slate-400">
+                    seq #{latestInfo.last_seq} · {latestInfo.event_count} total
+                  </span>
+                  <div className="w-24 hidden sm:block">
+                    <TelemetryVelocityChart data={telemetryHistory} />
+                  </div>
+                </div>
               )
             }
           />
@@ -743,7 +862,7 @@ export default function DashboardPage() {
             ) : events.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
                 <Activity size={28} className="opacity-30" />
-                <p className="text-sm">
+                <p className="text-sm font-mono">
                   No events yet — ingest data to see activity
                 </p>
               </div>
@@ -753,17 +872,17 @@ export default function DashboardPage() {
                 return (
                   <div
                     key={ev.id}
-                    className="group px-5 py-3 border-b last:border-0 transition-all hover:bg-slate-800/30"
+                    className="group px-5 py-3 border-b last:border-0 transition-all hover:bg-slate-800/40"
                     style={{ borderColor: "var(--os-stroke)" }}
                   >
                     <div className="flex items-center justify-between gap-4">
                       <div className="flex items-center gap-4 min-w-0">
                         <span
-                          className={`text-[10px] font-black uppercase tracking-[0.12em] w-14 shrink-0 ${meta.color}`}
+                          className={`text-[10px] font-black uppercase tracking-[0.12em] w-16 shrink-0 ${meta.color}`}
                         >
                           {meta.label}
                         </span>
-                        <p className="text-sm text-slate-200 font-medium truncate">
+                        <p className="text-sm text-slate-200 font-medium truncate font-mono">
                           {eventSummary(ev)}
                         </p>
                       </div>
@@ -778,26 +897,19 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right column: Graph Health + Quick Actions */}
+        {/* Right column: Scorecard Gauges & Quick Actions */}
         <div className="flex flex-col gap-4">
-          {/* Graph Health */}
+          {/* Graph Scorecard Gauges */}
           <div
-            className="rounded-xl border overflow-hidden"
+            className="rounded-xl border overflow-hidden backdrop-blur-md"
             style={{
               borderColor: "var(--os-stroke)",
               background: "var(--os-surface-1)",
             }}
           >
             <PanelHeader
-              title="Graph Health"
-              subtitle="Topology scorecard — D / H / λ"
-              action={
-                scorecard?.graph_version != null && (
-                  <span className="text-[10px] font-mono text-slate-500">
-                    v{scorecard.graph_version}
-                  </span>
-                )
-              }
+              title="Topology Metrics"
+              subtitle="Scorecard gauges — D / H / λ"
             />
             <div className="p-4 space-y-4">
               {scorecardLoading ? (
@@ -810,7 +922,7 @@ export default function DashboardPage() {
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   {scorecardGauges.map((g) => (
                     <ScorecardGauge key={g.label} {...g} />
                   ))}
@@ -819,15 +931,15 @@ export default function DashboardPage() {
 
               {/* Evolution status row */}
               <div
-                className="flex items-center justify-between px-3 py-2 rounded-lg border"
+                className="flex items-center justify-between px-3.5 py-2.5 rounded-lg border"
                 style={{
                   background: "var(--os-surface-2)",
                   borderColor: "var(--os-stroke)",
                 }}
               >
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">
-                    Evolution
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
+                    Evolution Engine
                   </p>
                   <p
                     className={`text-xs font-semibold mt-0.5 ${evolveHealthColor}`}
@@ -839,7 +951,7 @@ export default function DashboardPage() {
                         : evolveJobStatus}
                   </p>
                   {evolveLastRun && (
-                    <p className="text-[9px] text-slate-600 font-mono mt-0.5">
+                    <p className="text-[9px] text-slate-500 font-mono mt-0.5">
                       last: {relTime(evolveLastRun)}
                     </p>
                   )}
@@ -860,26 +972,32 @@ export default function DashboardPage() {
 
           {/* Quick Actions */}
           <div
-            className="rounded-xl border overflow-hidden"
+            className="rounded-xl border overflow-hidden backdrop-blur-md"
             style={{
               borderColor: "var(--os-stroke)",
               background: "var(--os-surface-1)",
             }}
           >
-            <PanelHeader title="Quick Actions" />
-            <div className="p-3 space-y-1.5">
+            <PanelHeader title="Quick Command Matrix" />
+            <div className="p-3 space-y-2">
               {QUICK_ACTIONS.map((qa) => (
                 <button
                   key={qa.href}
                   onClick={() => router.push(qa.href)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-700/40 transition-all"
+                  aria-label={qa.label}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/60 focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all"
                   style={{ borderColor: "var(--os-stroke)" }}
                 >
                   <span className="flex items-center gap-2.5">
-                    <span className="text-slate-500">{qa.icon}</span>
+                    <span className="text-cyan-400">{qa.icon}</span>
                     {qa.label}
                   </span>
-                  <ArrowRight size={13} className="text-slate-600" />
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-mono text-slate-500 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                      {qa.keyHint}
+                    </span>
+                    <ArrowRight size={13} className="text-slate-600" />
+                  </div>
                 </button>
               ))}
 
@@ -887,13 +1005,14 @@ export default function DashboardPage() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm font-medium text-slate-300 hover:text-slate-100 hover:bg-cyan-900/20 border-cyan-900/30 hover:border-cyan-700/50 transition-all disabled:opacity-50"
+                aria-label="Upload document to FAIM"
+                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm font-medium text-slate-300 hover:text-slate-100 hover:bg-cyan-950/40 border-cyan-800/40 hover:border-cyan-500/50 focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all disabled:opacity-50"
               >
                 <span className="flex items-center gap-2.5">
-                  <Upload size={14} className="text-cyan-600" />
+                  <Upload size={14} className="text-cyan-400" />
                   {uploading ? "Uploading…" : "Upload to FAIM"}
                 </span>
-                <Sparkles size={13} className="text-cyan-700" />
+                <Sparkles size={13} className="text-cyan-400" />
               </button>
               <input
                 ref={fileInputRef}
@@ -912,11 +1031,11 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Row 3 — Bottom Grid ───────────────────────────────────────────── */}
+      {/* ── Row 4 — Recharts Modality Breakdown & Operational Status ───────── */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Storage Summary */}
+        {/* Storage Breakdown Chart */}
         <div
-          className="rounded-xl border overflow-hidden"
+          className="rounded-xl border overflow-hidden backdrop-blur-md"
           style={{
             borderColor: "var(--os-stroke)",
             background: "var(--os-surface-1)",
@@ -924,16 +1043,17 @@ export default function DashboardPage() {
         >
           <PanelHeader
             title="Storage Breakdown"
+            subtitle="Footprint per file type & status"
             action={
               <button
                 onClick={() => router.push("/dashboard/storage")}
-                className="text-[10px] text-slate-500 hover:text-slate-300 flex items-center gap-1"
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
               >
                 Manage <ArrowRight size={10} />
               </button>
             }
           />
-          <div className="p-4 space-y-2.5">
+          <div className="p-4 space-y-3">
             {storageLoading ? (
               <div className="space-y-2">
                 {[0, 1, 2].map((i) => (
@@ -945,51 +1065,24 @@ export default function DashboardPage() {
               </div>
             ) : (
               <>
-                {[
-                  {
-                    label: "Total Used",
-                    value: fmtBytes(storage?.total_bytes ?? 0),
-                    icon: <HardDrive size={13} />,
-                  },
-                  {
-                    label: "File Count",
-                    value: String(storage?.total_files ?? 0),
-                    icon: <Activity size={13} />,
-                  },
-                  {
-                    label: "By Status",
-                    value:
-                      Object.keys(storage?.by_status ?? {}).join(", ") || "—",
-                    icon: <Layers size={13} />,
-                  },
-                  {
-                    label: "By Type",
-                    value:
-                      Object.keys(storage?.by_type ?? {})
-                        .slice(0, 3)
-                        .join(", ") || "—",
-                    icon: <ShieldCheck size={13} />,
-                  },
-                ].map((row) => (
-                  <div
-                    key={row.label}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                    style={{
-                      background: "var(--os-surface-2)",
-                      borderColor: "var(--os-stroke)",
-                    }}
-                  >
-                    <span className="flex items-center gap-2 text-slate-500">
-                      {row.icon}
-                      <span className="text-xs text-slate-400">
-                        {row.label}
-                      </span>
-                    </span>
-                    <span className="text-xs font-mono text-slate-100">
-                      {row.value}
-                    </span>
+                <StorageModalityChart
+                  byType={storage?.by_type ?? {}}
+                  totalBytes={storage?.total_bytes ?? 0}
+                />
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
+                    <p className="text-[10px] text-slate-500 font-mono">Total Size</p>
+                    <p className="text-xs font-mono font-bold text-cyan-400">
+                      {fmtBytes(storage?.total_bytes ?? 0)}
+                    </p>
                   </div>
-                ))}
+                  <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
+                    <p className="text-[10px] text-slate-500 font-mono">Files Count</p>
+                    <p className="text-xs font-mono font-bold text-emerald-400">
+                      {storage?.total_files ?? 0}
+                    </p>
+                  </div>
+                </div>
               </>
             )}
           </div>
@@ -997,18 +1090,19 @@ export default function DashboardPage() {
 
         {/* Security & Keys */}
         <div
-          className="rounded-xl border overflow-hidden"
+          className="rounded-xl border overflow-hidden backdrop-blur-md"
           style={{
             borderColor: "var(--os-stroke)",
             background: "var(--os-surface-1)",
           }}
         >
           <PanelHeader
-            title="Security & Keys"
+            title="Security & Auth Keys"
+            subtitle="Tenant key management & ACL status"
             action={
               <button
                 onClick={() => router.push("/dashboard/api-keys")}
-                className="text-[10px] text-slate-500 hover:text-slate-300 flex items-center gap-1"
+                className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
               >
                 Manage <ArrowRight size={10} />
               </button>
@@ -1039,7 +1133,7 @@ export default function DashboardPage() {
                       <p className="text-xs font-semibold text-slate-200">
                         API Keys
                       </p>
-                      <p className="text-[10px] text-slate-500">
+                      <p className="text-[10px] text-slate-500 font-mono">
                         {keyCount?.active ?? 0} active of {keyCount?.total ?? 0}{" "}
                         total
                       </p>
@@ -1068,7 +1162,7 @@ export default function DashboardPage() {
                       <p className="text-xs font-semibold text-slate-200">
                         System Status
                       </p>
-                      <p className="text-[10px] text-slate-500">
+                      <p className="text-[10px] text-slate-500 font-mono">
                         {health?.status ?? "checking"}
                       </p>
                     </div>
@@ -1084,7 +1178,7 @@ export default function DashboardPage() {
                   fullWidth
                   onClick={() => router.push("/dashboard/api-keys")}
                 >
-                  <KeyRound size={13} className="mr-1.5" />
+                  <KeyRound size={13} className="mr-1.5 text-amber-400" />
                   Create New Key
                 </Button>
               </>
@@ -1092,9 +1186,9 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Evolution Status */}
+        {/* Evolution Engine Details */}
         <div
-          className="rounded-xl border overflow-hidden"
+          className="rounded-xl border overflow-hidden backdrop-blur-md"
           style={{
             borderColor: "var(--os-stroke)",
             background: "var(--os-surface-1)",
@@ -1102,7 +1196,7 @@ export default function DashboardPage() {
         >
           <PanelHeader
             title="Evolution Engine"
-            subtitle="FAIM graph self-organization"
+            subtitle="FAIM graph self-organization telemetry"
           />
           <div className="p-4 space-y-3">
             {evolveLoading ? (
@@ -1154,7 +1248,7 @@ export default function DashboardPage() {
                       borderColor: "var(--os-stroke)",
                     }}
                   >
-                    <span className="text-xs text-slate-400">{row.label}</span>
+                    <span className="text-xs text-slate-400 font-mono">{row.label}</span>
                     <span
                       className={`text-xs font-mono font-semibold ${row.color}`}
                     >
