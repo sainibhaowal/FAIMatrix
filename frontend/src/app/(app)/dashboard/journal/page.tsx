@@ -733,17 +733,23 @@ export default function JournalPage() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] pl-4 pr-3.5 py-3.5"
+                className="relative overflow-hidden rounded-[16px] border p-4 backdrop-blur-xl transition-all duration-300"
+                style={{
+                  borderColor: `${stat.accent}33`,
+                  backgroundColor: "rgba(10, 16, 28, 0.75)",
+                  boxShadow: `0 8px 32px 0 rgba(0,0,0,0.37), inset 0 1px 0 0 ${stat.accent}33`,
+                }}
               >
-                <span
-                  className="pointer-events-none absolute left-0 top-0 h-full w-[2px]"
-                  style={{ background: stat.accent }}
-                />
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+                <div className="flex items-center justify-between mb-2">
+                  <p
+                    className="font-mono text-[10px] font-bold uppercase tracking-[0.22em]"
+                    style={{ color: stat.accent }}
+                  >
                     {stat.label}
                   </p>
-                  <div className="text-slate-400 opacity-50">{stat.icon}</div>
+                  <div style={{ color: stat.accent }} className="opacity-80">
+                    {stat.icon}
+                  </div>
                 </div>
                 <p
                   className={`text-xl font-bold tabular-nums truncate leading-tight ${stat.color}`}
