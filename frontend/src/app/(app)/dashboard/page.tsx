@@ -765,10 +765,10 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Row 2 — Live Visual Analytics Suite (Recharts & 3D FIG Canvas) ──────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* Topology Dynamics Recharts Chart */}
         <div
-          className="lg:col-span-2 rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
+          className="xl:col-span-7 rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
           style={{
             borderColor: "var(--os-stroke)",
             background: "var(--os-surface-1)",
@@ -792,7 +792,7 @@ export default function DashboardPage() {
 
         {/* Live 3D FIG Canvas Preview */}
         <div
-          className="rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
+          className="xl:col-span-5 rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
           style={{
             borderColor: "var(--os-stroke)",
             background: "var(--os-surface-1)",
@@ -810,7 +810,7 @@ export default function DashboardPage() {
               </button>
             }
           />
-          <div className="mt-3 flex-1 min-h-[220px]">
+          <div className="mt-3 flex-1 min-h-[240px]">
             <MiniFigCanvas
               nodeCount={scorecard?.node_count}
               edgeCount={scorecard?.edge_count}
@@ -820,14 +820,13 @@ export default function DashboardPage() {
       </div>
 
       {/* ── Row 3 — Main Activity & Operational Grid ─────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        {/* Activity Feed — 2 cols */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
+        {/* Activity Feed — 7 cols */}
         <div
-          className="lg:col-span-2 flex flex-col rounded-xl border overflow-hidden backdrop-blur-md"
+          className="xl:col-span-7 flex flex-col rounded-xl border overflow-hidden backdrop-blur-md min-h-[220px] max-h-[480px]"
           style={{
             borderColor: "var(--os-stroke)",
             background: "var(--os-surface-1)",
-            height: "440px",
           }}
         >
           <PanelHeader
@@ -898,7 +897,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Right column: Scorecard Gauges & Quick Actions */}
-        <div className="flex flex-col gap-4">
+        <div className="xl:col-span-5 flex flex-col gap-4">
           {/* Graph Scorecard Gauges */}
           <div
             className="rounded-xl border overflow-hidden backdrop-blur-md"

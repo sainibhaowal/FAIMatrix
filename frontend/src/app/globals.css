@@ -365,17 +365,15 @@
     background: rgba(7, 10, 18, 0.4);
   }
 
-  /* Grid Overlay Refinement */
+  /* Dot Grid Overlay Refinement */
   .faim-grid {
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 0;
-    background-size: 40px 40px;
-    background-image:
-      linear-gradient(to right, rgba(34, 211, 238, 0.14) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(168, 85, 247, 0.14) 1px, transparent 1px);
-    opacity: 0.85;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.45;
   }
 }
 
