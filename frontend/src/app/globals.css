@@ -389,13 +389,7 @@
 
   /* Dot Grid Overlay Refinement */
   .faim-grid {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background-image: radial-gradient(rgba(255, 255, 255, 0.28) 1.2px, transparent 1.2px);
-    background-size: 24px 24px;
-    opacity: 0.3
+    display: none !important;
   }
 }
 

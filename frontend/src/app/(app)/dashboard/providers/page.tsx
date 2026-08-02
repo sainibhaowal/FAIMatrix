@@ -310,7 +310,7 @@ export default function ProvidersPage() {
         ].map((stat) => (
           <div
             key={stat.label}
-            className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
+            className="relative overflow-hidden rounded-[14px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-xl p-3.5 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]"
           >
             <div
               className="absolute inset-x-0 top-0 h-[2px]"
@@ -334,23 +334,23 @@ export default function ProvidersPage() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-[14px] border border-rose-500/20 bg-rose-500/5 px-4 py-3 flex items-center gap-3"
+          className="rounded-[14px] border border-rose-500/20 bg-rose-500/5 px-4 py-3 flex items-center gap-3 backdrop-blur-md"
         >
           <AlertCircle size={16} className="text-rose-500 flex-shrink-0" />
           <p className="text-sm text-rose-500">{error}</p>
         </motion.div>
       )}
 
-      {/* Main Section Shell (Domain Studio Style) */}
-      <section className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-6 space-y-5">
+      {/* Main Section Shell (Domain Studio Frosted Glass Style) */}
+      <section className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] p-6 space-y-5">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(circle at 14% 8%, rgba(6,182,212,0.12), transparent 28%), radial-gradient(circle at 82% 14%, rgba(255,255,255,0.03), transparent 24%)",
+              "radial-gradient(circle at 14% 8%, rgba(6,182,212,0.14), transparent 28%), radial-gradient(circle at 82% 14%, rgba(255,255,255,0.03), transparent 24%)",
           }}
         />
-        <div className="relative border-b border-white/6 pb-4 flex items-center justify-between">
+        <div className="relative border-b border-white/8 pb-4 flex items-center justify-between">
           <div>
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">
               UNIVERSAL AI ENDPOINT MANAGEMENT

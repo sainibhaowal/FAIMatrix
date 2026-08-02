@@ -330,79 +330,69 @@ export default function ProfilePage() {
         }
       />
 
-      {/* --- Profile Metric Strip --- */}
-      <div
-        className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
+      {/* --- Profile Metric Strip (Domain Studio MetricTile style) --- */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
-            label: "Access Level",
+            label: "ACCESS LEVEL",
             value: "Root Admin",
-            icon: <ShieldCheck size={18} />,
-            color: "text-cyan-200",
+            icon: <ShieldCheck size={16} />,
+            accent: "#06b6d4",
           },
           {
-            label: "Session Age",
+            label: "SESSION AGE",
             value: "2.4h",
-            icon: <Clock size={18} />,
-            color: "text-emerald-400",
+            icon: <Clock size={16} />,
+            accent: "#10b981",
           },
           {
-            label: "Graph Context",
+            label: "GRAPH CONTEXT",
             value: "Active",
-            icon: <Database size={18} />,
-            color: "text-amber-400",
+            icon: <Database size={16} />,
+            accent: "#f59e0b",
           },
           {
-            label: "Identity Hash",
+            label: "IDENTITY HASH",
             value: "U:621b",
-            icon: <Fingerprint size={18} />,
-            color: "text-slate-400",
+            icon: <Fingerprint size={16} />,
+            accent: "#8b5cf6",
           },
-        ].map((stat, i) => (
+        ].map((stat) => (
           <div
             key={stat.label}
-            className="relative flex flex-col justify-center px-6 py-3"
-            style={{
-              borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined,
-            }}
+            className="relative overflow-hidden rounded-[14px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-xl p-3.5 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]"
           >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+            <div
+              className="absolute inset-x-0 top-0 h-[2px]"
+              style={{ background: stat.accent }}
+            />
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
                 {stat.label}
               </p>
-              <div className="opacity-20">{stat.icon}</div>
+              <div className="opacity-40">{stat.icon}</div>
             </div>
-            <p
-              className="font-semibold tabular-nums leading-none"
-              style={{ fontSize: 26 }}
-            >
-              <span className={stat.color}>{stat.value}</span>
+            <p className="text-[20px] font-semibold tracking-tight text-white tabular-nums truncate">
+              {stat.value}
             </p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
-        {/* Left: Avatar Panel */}
+        {/* Left: Avatar Panel (Domain Studio Frosted Shell) */}
         <div className="lg:col-span-1">
-          <div
-            className="rounded-xl border overflow-hidden"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
+          <div className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
             <div
-              className="border-b px-5 py-1.5"
-              style={{ borderColor: "var(--os-stroke)" }}
-            >
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                Neural Avatar
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(circle at 14% 8%, rgba(6,182,212,0.14), transparent 30%)",
+              }}
+            />
+            <div className="relative border-b border-white/8 px-5 py-3">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">
+                NEURAL AVATAR
               </p>
             </div>
             <div className="p-8 flex flex-col items-center">
@@ -438,61 +428,59 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Right: Technical Details Panel */}
+        {/* Right: Technical Details Panel (Domain Studio Frosted Shell) */}
         <div className="lg:col-span-3 space-y-6">
-          <div
-            className="rounded-xl border overflow-hidden"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
+          <div className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
             <div
-              className="border-b px-5 py-1.5"
-              style={{ borderColor: "var(--os-stroke)" }}
-            >
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                Technical Parameters
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(circle at 14% 8%, rgba(139,92,246,0.14), transparent 30%), radial-gradient(circle at 82% 14%, rgba(255,255,255,0.03), transparent 24%)",
+              }}
+            />
+            <div className="relative border-b border-white/8 px-5 py-3">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">
+                TECHNICAL PARAMETERS
               </p>
             </div>
-            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+            <div className="relative p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+                <label className="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] block">
                   Name
                 </label>
-                <div className="text-sm font-medium text-slate-200">
+                <div className="text-sm font-semibold text-white">
                   {user?.name || "N/A"}
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+                <label className="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] block">
                   Email
                 </label>
-                <div className="text-sm font-medium text-slate-200">
+                <div className="text-sm font-semibold text-white">
                   {user?.email || "N/A"}
                 </div>
               </div>
               <div className="space-y-1 md:col-span-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+                <label className="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] block">
                   User ID
                 </label>
-                <div className="text-[11px] font-mono text-cyan-400 bg-cyan-400/5 px-3 py-2 rounded border border-cyan-400/10 break-all leading-relaxed">
+                <div className="text-[11px] font-mono text-cyan-300 bg-slate-950/60 px-3 py-2 rounded-xl border border-white/10 break-all leading-relaxed shadow-inner">
                   {userId || "N/A"}
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+                <label className="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] block">
                   Tenant ID
                 </label>
-                <div className="text-[11px] font-mono text-slate-400 bg-white/5 px-3 py-2 rounded border border-white/5 break-all">
+                <div className="text-[11px] font-mono text-slate-300 bg-slate-950/60 px-3 py-2 rounded-xl border border-white/10 break-all shadow-inner">
                   {tenantId}
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest block">
+                <label className="font-mono text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] block">
                   Graph ID
                 </label>
-                <div className="text-[11px] font-mono text-slate-400 bg-white/5 px-3 py-2 rounded border border-white/5 break-all">
+                <div className="text-[11px] font-mono text-slate-300 bg-slate-950/60 px-3 py-2 rounded-xl border border-white/10 break-all shadow-inner">
                   {graphId}
                 </div>
               </div>
