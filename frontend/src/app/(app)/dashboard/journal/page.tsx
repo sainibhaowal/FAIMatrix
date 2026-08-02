@@ -689,159 +689,131 @@ export default function JournalPage() {
 
       {isReady && (
         <>
-          {/* ── Metric strip ── */}
+          {/* ── Metric strip (Domain Studio Style) ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 shrink-0">
-            {[
-              {
-                label: "Total Events",
-                value:
-                  latest?.event_count != null
-                    ? latest.event_count.toLocaleString()
-                    : "—",
-                sub:
-                  newCount > 0 ? `+${newCount} since last refresh` : "All time",
-                icon: <Layers size={15} />,
-                color: "text-cyan-300",
-                topBorder: "border-t-2 border-t-cyan-400 shadow-[0_-4px_12px_rgba(34,211,238,0.15)]",
-                glow: "from-cyan-500/10 to-transparent",
-              },
-              {
-                label: "Last Kind",
-                value: latest?.last_kind ?? "—",
-                sub: latest?.last_kind
+            <MetricTile
+              label="TOTAL EVENTS"
+              value={
+                latest?.event_count != null
+                  ? latest.event_count.toLocaleString()
+                  : "—"
+              }
+              hint={newCount > 0 ? `+${newCount} since last refresh` : "All time"}
+              accent="#06b6d4"
+            />
+            <MetricTile
+              label="LAST KIND"
+              value={latest?.last_kind ?? "—"}
+              hint={
+                latest?.last_kind
                   ? getKindMeta(latest.last_kind).description
-                  : "Waiting for events",
-                icon: <Activity size={15} />,
-                color: latest?.last_kind
-                  ? getKindMeta(latest.last_kind).color
-                  : "text-slate-400",
-                topBorder: "border-t-2 border-t-violet-400 shadow-[0_-4px_12px_rgba(167,139,250,0.15)]",
-                glow: "from-violet-500/10 to-transparent",
-              },
-              {
-                label: "Last Activity",
-                value: relativeTime(latest?.last_ts ?? null),
-                sub: absoluteTime(latest?.last_ts ?? null),
-                icon: <Clock size={15} />,
-                color: "text-amber-300",
-                topBorder: "border-t-2 border-t-amber-400 shadow-[0_-4px_12px_rgba(251,191,36,0.15)]",
-                glow: "from-amber-500/10 to-transparent",
-              },
-              {
-                label: "Audit Integrity",
-                value: "Verified",
-                sub: "Checksum chain intact",
-                icon: <ShieldCheck size={15} />,
-                color: "text-emerald-400",
-                topBorder: "border-t-2 border-t-emerald-400 shadow-[0_-4px_12px_rgba(52,211,153,0.15)]",
-                glow: "from-emerald-500/10 to-transparent",
-              },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className={`relative flex flex-col justify-center px-5 py-4 rounded-xl border backdrop-blur-md bg-gradient-to-b ${stat.glow} ${stat.topBorder}`}
-                style={{
-                  borderColor: "var(--os-stroke)",
-                  backgroundColor: "rgba(9, 14, 26, 0.82)",
-                }}
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    {stat.label}
-                  </p>
-                  <div className="opacity-40">{stat.icon}</div>
-                </div>
-                <p
-                  className={`text-xl font-bold tabular-nums truncate leading-tight ${stat.color}`}
-                >
-                  {stat.value}
-                </p>
-                <p className="text-[10px] text-slate-500 font-medium mt-1 truncate">
-                  {stat.sub}
-                </p>
-              </div>
-            ))}
+                  : "Waiting for events"
+              }
+              accent="#8b5cf6"
+            />
+            <MetricTile
+              label="LAST ACTIVITY"
+              value={relativeTime(latest?.last_ts ?? null)}
+              hint={absoluteTime(latest?.last_ts ?? null)}
+              accent="#f59e0b"
+            />
+            <MetricTile
+              label="AUDIT INTEGRITY"
+              value="Verified"
+              hint="Checksum chain intact"
+              accent="#10b981"
+            />
           </div>
 
-          {/* ── Channel Stream Progress Bar ── */}
-          <div
-            className="flex items-center justify-between px-5 py-2.5 rounded-xl border shrink-0 backdrop-blur-md"
-            style={{
-              borderColor: "var(--os-stroke)",
-              backgroundColor: "rgba(9, 14, 26, 0.82)",
-            }}
-          >
+          {/* ── Channel Stream Progress Bar (Domain Studio Style) ── */}
+          <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5 shrink-0">
             <div className="flex items-center gap-3 w-full">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 shrink-0">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500 shrink-0">
                 AUDIT STREAM CHANNEL
               </span>
-              <div className="h-1.5 flex-1 rounded-full overflow-hidden bg-slate-900 border border-white/10 relative">
-                <div className="h-full w-full bg-gradient-to-r from-emerald-400 via-cyan-400 via-violet-400 to-amber-400 animate-pulse shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+              <div className="h-1.5 flex-1 rounded-full overflow-hidden bg-slate-950/80 border border-white/10 relative">
+                <div className="h-full rounded-full w-full bg-[linear-gradient(90deg,#10b981,#06b6d4,#8b5cf6,#f59e0b)] animate-pulse shadow-[0_0_10px_rgba(34,211,238,0.4)]" />
               </div>
-              <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-wider shrink-0">
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400 shrink-0">
                 {liveConnected ? "STREAMING" : "STANDBY"}
               </span>
             </div>
           </div>
 
-          {/* ── Main feed panel ── */}
-          <div
-            className="flex flex-col overflow-hidden rounded-xl border shrink-0 relative backdrop-blur-md"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "rgba(9, 14, 26, 0.85)",
-              height: "calc(100vh - 350px)",
-              minHeight: "380px",
-            }}
-          >
-            {/* Top colorful gradient accent line */}
-            <div className="h-[2px] w-full bg-gradient-to-r from-emerald-400 via-cyan-400 via-violet-400 to-amber-400" />
-
-            {/* Panel header + filter */}
+          {/* ── Main feed panel (Domain Studio SectionShell Style) ── */}
+          <section className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex-1 flex flex-col min-h-[380px]">
             <div
-              className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 shrink-0"
-              style={{ borderColor: "var(--os-stroke)" }}
-            >
-              <div className="flex items-center gap-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Event Stream
-                </p>
-                {!loading && (
-                  <span className="text-[10px] font-mono text-cyan-300/80 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
-                    {filteredEvents.length.toLocaleString()} event
-                    {filteredEvents.length !== 1 ? "s" : ""}
-                    {kindFilter ? " filtered" : " loaded"}
-                  </span>
-                )}
-              </div>
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(circle at 14% 8%, rgba(6,182,212,0.12), transparent 28%), radial-gradient(circle at 82% 14%, rgba(255,255,255,0.03), transparent 24%)",
+              }}
+            />
 
-              {/* Kind filter */}
-              <div className="flex items-center gap-2">
-                <Filter size={11} className="text-slate-400 shrink-0" />
-                <Select
-                  options={kindOptions}
-                  value={kindFilter}
-                  onChange={(val) => setKindFilter(val)}
-                  placeholder="ALL KINDS"
-                  size="sm"
-                  className="min-w-[170px]"
-                />
+            {/* Panel header + filter chips */}
+            <div className="relative border-b border-white/6 px-5 py-3.5 shrink-0">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">
+                    EVENT STREAM AUDIT
+                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <h2 className="text-base font-semibold tracking-tight text-white">
+                      Live Feed & Mutation History
+                    </h2>
+                    {!loading && (
+                      <span className="font-mono text-[10px] text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                        {filteredEvents.length.toLocaleString()} event
+                        {filteredEvents.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Filter chips (Domain Studio style) */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <FilterChip
+                    label="ALL KINDS"
+                    active={kindFilter === ""}
+                    onClick={() => setKindFilter("")}
+                    accent="#06b6d4"
+                  />
+                  {allKinds.slice(0, 5).map((k) => (
+                    <FilterChip
+                      key={k}
+                      label={k}
+                      active={kindFilter === k}
+                      onClick={() => setKindFilter(k)}
+                      accent="#8b5cf6"
+                    />
+                  ))}
+                  {allKinds.length > 5 && (
+                    <Select
+                      options={kindOptions}
+                      value={kindFilter}
+                      onChange={(val) => setKindFilter(val)}
+                      placeholder="MORE..."
+                      size="sm"
+                      className="min-w-[130px]"
+                    />
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Feed scroll area */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+            <div className="relative flex-1 overflow-y-auto custom-scrollbar min-h-0">
               {loading ? (
                 <div className="flex flex-col items-center justify-center h-full gap-3">
                   <div className="h-7 w-7 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin" />
-                  <p className="text-[11px] text-slate-500 uppercase tracking-widest font-bold">
+                  <p className="font-mono text-[11px] text-slate-500 uppercase tracking-widest font-bold">
                     Loading journal...
                   </p>
                 </div>
               ) : filteredEvents.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-6">
                   <History size={36} className="text-slate-700" />
-                  <p className="text-[11px] text-slate-500 uppercase tracking-widest font-bold">
+                  <p className="font-mono text-[11px] text-slate-500 uppercase tracking-widest font-bold">
                     {kindFilter
                       ? `No "${kindFilter}" events found`
                       : "No events recorded yet"}
@@ -864,10 +836,7 @@ export default function JournalPage() {
 
                   {/* Load older */}
                   {hasOlder && (
-                    <div
-                      className="px-5 py-4 border-t"
-                      style={{ borderColor: "var(--os-stroke)" }}
-                    >
+                    <div className="px-5 py-4 border-t border-white/6">
                       <Button
                         fullWidth
                         variant="outline"
@@ -875,7 +844,6 @@ export default function JournalPage() {
                         onClick={loadOlder}
                         loading={loadingOlder}
                         className="border-dashed text-slate-400 hover:text-white hover:border-cyan-500/40"
-                        style={{ borderColor: "var(--os-stroke)" }}
                       >
                         {loadingOlder ? "Loading..." : "Load Older Events"}
                       </Button>
@@ -884,7 +852,7 @@ export default function JournalPage() {
 
                   {!hasOlder && filteredEvents.length > 0 && (
                     <div className="px-5 py-4 text-center">
-                      <p className="text-[10px] text-slate-600 uppercase tracking-widest font-bold">
+                      <p className="font-mono text-[10px] text-slate-600 uppercase tracking-widest font-bold">
                         Beginning of journal
                       </p>
                     </div>
@@ -892,10 +860,71 @@ export default function JournalPage() {
                 </>
               )}
             </div>
-          </div>
+          </section>
         </>
       )}
     </div>
+  );
+}
+
+function MetricTile({
+  label,
+  value,
+  hint,
+  accent,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint: string;
+  accent: string;
+}) {
+  return (
+    <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+      <div className="absolute inset-x-0 top-0 h-[2px]" style={{ background: accent }} />
+      <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1.5 text-[18px] font-semibold leading-none tracking-tight text-white">
+        {value}
+      </p>
+      <p className="mt-1.5 text-[10px] leading-[1.125rem] text-slate-400 truncate">{hint}</p>
+    </div>
+  );
+}
+
+function FilterChip({
+  label,
+  active,
+  onClick,
+  accent = "#06b6d4",
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  accent?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-full border px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] transition-all duration-200"
+      style={
+        active
+          ? {
+              borderColor: `${accent}66`,
+              backgroundColor: `${accent}1F`,
+              color: accent,
+              boxShadow: `0 0 14px ${accent}22`,
+            }
+          : {
+              borderColor: "rgba(255,255,255,0.1)",
+              backgroundColor: "rgba(255,255,255,0.03)",
+              color: "rgba(148,163,184,0.75)",
+            }
+      }
+    >
+      {label}
+    </button>
   );
 }
 
