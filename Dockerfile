@@ -25,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install Python dependencies with persistent BuildKit package cache
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt gunicorn uvicorn[standard] psycopg2-binary redis qdrant-client
+    pip install --default-timeout=100 -r requirements.txt gunicorn uvicorn[standard] psycopg2-binary redis qdrant-client
 
 # Non-root user (security) - Create BEFORE copy to fix ownership
 RUN useradd -m -u 1000 -s /bin/false faim
