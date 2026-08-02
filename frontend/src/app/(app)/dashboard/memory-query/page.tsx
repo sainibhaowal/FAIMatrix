@@ -9,7 +9,7 @@ import { HistoryPanel } from "@/components/memoryquery/HistoryPanel";
 
 export default function MemoryQueryPage() {
   return (
-    <div className="flex h-full text-slate-100 overflow-hidden bg-[var(--os-bg)]">
+    <div className="flex h-full text-slate-100 overflow-hidden bg-transparent">
         {/*
             Main Command Space
             - Navigation is the global sidebar
