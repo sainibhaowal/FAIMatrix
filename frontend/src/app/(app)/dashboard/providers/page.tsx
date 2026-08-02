@@ -553,7 +553,7 @@ export default function ProvidersPage() {
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="max-w-md w-full bg-slate-900 border border-white/10 rounded-2xl p-6 shadow-2xl"
+              className="max-w-md w-full bg-[rgba(10,16,28,0.92)] backdrop-blur-2xl border border-white/10 rounded-[18px] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.6)] relative overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               {formStep === "config" && (
