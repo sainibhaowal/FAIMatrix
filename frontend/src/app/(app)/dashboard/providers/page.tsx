@@ -341,15 +341,8 @@ export default function ProvidersPage() {
         </motion.div>
       )}
 
-      {/* Main Section Shell (Domain Studio Frosted Glass Style) */}
+      {/* Main Section Shell (Clean Frosted Glass Style) */}
       <section className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)] p-6 space-y-5">
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(circle at 14% 8%, rgba(6,182,212,0.14), transparent 28%), radial-gradient(circle at 82% 14%, rgba(255,255,255,0.03), transparent 24%)",
-          }}
-        />
         <div className="relative border-b border-white/8 pb-4 flex items-center justify-between">
           <div>
             <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">

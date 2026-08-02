@@ -383,13 +383,6 @@ export default function ProfilePage() {
         {/* Left: Avatar Panel (Domain Studio Frosted Shell) */}
         <div className="lg:col-span-1">
           <div className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(circle at 14% 8%, rgba(6,182,212,0.14), transparent 30%)",
-              }}
-            />
             <div className="relative border-b border-white/8 px-5 py-3">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">
                 NEURAL AVATAR
@@ -431,13 +424,6 @@ export default function ProfilePage() {
         {/* Right: Technical Details Panel (Domain Studio Frosted Shell) */}
         <div className="lg:col-span-3 space-y-6">
           <div className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(circle at 14% 8%, rgba(139,92,246,0.14), transparent 30%), radial-gradient(circle at 82% 14%, rgba(255,255,255,0.03), transparent 24%)",
-              }}
-            />
             <div className="relative border-b border-white/8 px-5 py-3">
               <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">
                 TECHNICAL PARAMETERS
@@ -489,13 +475,6 @@ export default function ProfilePage() {
 
           {/* Authenticator Security (Domain Studio Frosted Glass Shell) */}
           <div className="relative overflow-hidden rounded-[18px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-2xl shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]">
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background:
-                  "radial-gradient(circle at 14% 8%, rgba(6,182,212,0.14), transparent 30%)",
-              }}
-            />
             <div className="relative border-b border-white/8 px-5 py-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <KeyRound size={14} className="text-cyan-400" />
