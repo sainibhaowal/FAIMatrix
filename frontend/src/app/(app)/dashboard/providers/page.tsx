@@ -275,66 +275,55 @@ export default function ProvidersPage() {
         }
       />
 
-      {/* Metrics Strip */}
-      <div
-        className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
+      {/* Top Metric Strip (Domain Studio MetricTile style) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
-            label: "Active Provider",
+            label: "ACTIVE PROVIDER",
             value: activeProvider?.name || "None",
-            icon: <Cpu size={18} />,
-            color: activeProvider ? "text-cyan-200" : "text-slate-500",
+            icon: <Cpu size={16} />,
+            accent: "#06b6d4",
           },
           {
-            label: "Active Model",
+            label: "ACTIVE MODEL",
             value: activeProvider?.activeModel || "—",
-            icon: <CheckCircle size={18} />,
-            color: "text-emerald-400",
+            icon: <CheckCircle size={16} />,
+            accent: "#10b981",
           },
           {
-            label: "Total Providers",
+            label: "TOTAL PROVIDERS",
             value: `${providers.length}`,
-            icon: <Radio size={18} />,
-            color: "text-amber-400",
+            icon: <Radio size={16} />,
+            accent: "#f59e0b",
           },
           {
-            label: "Connection Status",
+            label: "CONNECTION STATUS",
             value:
               activeProvider?.status === "online"
                 ? "Online"
                 : activeProvider
                   ? "Checking..."
                   : "Offline",
-            icon: <AlertCircle size={18} />,
-            color:
-              activeProvider?.status === "online"
-                ? "text-emerald-400"
-                : "text-slate-400",
+            icon: <AlertCircle size={16} />,
+            accent: activeProvider?.status === "online" ? "#10b981" : "#8b5cf6",
           },
-        ].map((stat, i) => (
+        ].map((stat) => (
           <div
             key={stat.label}
-            className="relative flex flex-col justify-center px-6 py-3"
-            style={{
-              borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined,
-            }}
+            className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
           >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+            <div
+              className="absolute inset-x-0 top-0 h-[2px]"
+              style={{ background: stat.accent }}
+            />
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
                 {stat.label}
               </p>
-              <div className="opacity-20">{stat.icon}</div>
+              <div className="opacity-40">{stat.icon}</div>
             </div>
-            <p
-              className="font-semibold tabular-nums leading-none"
-              style={{ fontSize: 18 }}
-            >
-              <span className={stat.color}>{stat.value}</span>
+            <p className="text-[18px] font-semibold tracking-tight text-white truncate">
+              {stat.value}
             </p>
           </div>
         ))}
@@ -345,33 +334,48 @@ export default function ProvidersPage() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3 flex items-center gap-3"
+          className="rounded-[14px] border border-rose-500/20 bg-rose-500/5 px-4 py-3 flex items-center gap-3"
         >
           <AlertCircle size={16} className="text-rose-500 flex-shrink-0" />
           <p className="text-sm text-rose-500">{error}</p>
         </motion.div>
       )}
 
-      {/* Providers Grid */}
-      <div className="space-y-4">
-        <h2 className="text-lg font-bold uppercase tracking-[0.2em] text-slate-300">
-          Configured Providers
-        </h2>
+      {/* Main Section Shell (Domain Studio Style) */}
+      <section className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-6 space-y-5">
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 14% 8%, rgba(6,182,212,0.12), transparent 28%), radial-gradient(circle at 82% 14%, rgba(255,255,255,0.03), transparent 24%)",
+          }}
+        />
+        <div className="relative border-b border-white/6 pb-4 flex items-center justify-between">
+          <div>
+            <p className="font-mono text-[10px] font-bold uppercase tracking-[0.28em] text-cyan-400">
+              UNIVERSAL AI ENDPOINT MANAGEMENT
+            </p>
+            <h2 className="mt-1 text-base font-semibold tracking-tight text-white">
+              Configured Providers
+            </h2>
+          </div>
+          <Button
+            size="sm"
+            leftIcon={<Plus size={14} />}
+            onClick={() => setShowAddForm(true)}
+          >
+            Add Provider
+          </Button>
+        </div>
 
         {providers.length === 0 ? (
-          <div
-            className="rounded-xl border overflow-hidden p-12 flex flex-col items-center gap-4 text-center"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
+          <div className="relative rounded-[14px] border border-dashed border-white/10 p-12 flex flex-col items-center gap-4 text-center bg-white/[0.01]">
             <Cpu size={32} className="text-slate-500 opacity-40" />
             <div>
-              <h3 className="text-sm font-bold text-slate-400 mb-2">
+              <h3 className="text-sm font-bold text-slate-300 mb-2">
                 No providers configured
               </h3>
-              <p className="text-xs text-slate-500 max-w-md mb-4">
+              <p className="text-xs text-slate-500 max-w-md mb-4 leading-relaxed">
                 Add your first LLM provider (LM Studio local server, OpenAI, or
                 any OpenAI-compatible endpoint) to start querying.
               </p>
@@ -385,19 +389,13 @@ export default function ProvidersPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 relative">
             {providers.map((provider) => (
               <motion.div
                 key={provider.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="rounded-xl border p-4 space-y-4"
-                style={{
-                  borderColor: provider.isActive
-                    ? "var(--primary-500)"
-                    : "var(--os-stroke)",
-                  background: "var(--os-surface-1)",
-                }}
+                className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4 space-y-4 shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
               >
                 {(() => {
                   const reasoning = providerReasoningCapability(provider);
@@ -539,7 +537,7 @@ export default function ProvidersPage() {
             ))}
           </div>
         )}
-      </div>
+      </section>
 
       {/* Add Provider Modal - Step 1 & 2 */}
       <AnimatePresence>

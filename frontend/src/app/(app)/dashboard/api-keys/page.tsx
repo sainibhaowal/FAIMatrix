@@ -520,58 +520,50 @@ export default function ApiKeysPage() {
         }
       />
 
-      {/* --- Metrics Scorecard (Storage Parity) --- */}
-      <div
-        className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
+      {/* --- Metrics Scorecard (Domain Studio MetricTile style) --- */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
           {
-            label: "Total Keys",
+            label: "TOTAL KEYS",
             value: summary.total,
             icon: KeyRound,
-            color: "text-cyan-200",
+            accent: "#06b6d4",
           },
           {
-            label: "Active Keys",
+            label: "ACTIVE KEYS",
             value: summary.active,
             icon: ShieldCheck,
-            color: "text-emerald-400",
+            accent: "#10b981",
           },
           {
-            label: "Revoked",
+            label: "REVOKED",
             value: summary.revoked,
             icon: ShieldOff,
-            color: "text-rose-400",
+            accent: "#f43f5e",
           },
           {
-            label: "Expired",
+            label: "EXPIRED",
             value: summary.expired,
             icon: RotateCcw,
-            color: "text-amber-400",
+            accent: "#f59e0b",
           },
-        ].map((stat, i) => (
+        ].map((stat) => (
           <div
             key={stat.label}
-            className="relative flex flex-col justify-center px-6 py-3"
-            style={{
-              borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined,
-            }}
+            className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
           >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+            <div
+              className="absolute inset-x-0 top-0 h-[2px]"
+              style={{ background: stat.accent }}
+            />
+            <div className="flex items-center justify-between mb-1.5">
+              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
                 {stat.label}
               </p>
-              <stat.icon size={18} className="opacity-20" />
+              <stat.icon size={16} className="opacity-40" />
             </div>
-            <p
-              className="font-semibold tabular-nums leading-none"
-              style={{ fontSize: 26 }}
-            >
-              <span className={stat.color}>{stat.value}</span>
+            <p className="text-[22px] font-semibold tracking-tight text-white tabular-nums">
+              {stat.value}
             </p>
           </div>
         ))}
