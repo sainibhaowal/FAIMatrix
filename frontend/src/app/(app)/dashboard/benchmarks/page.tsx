@@ -513,7 +513,6 @@ export default function BenchmarksPage() {
                   borderColor: "rgba(6,182,212,0.4)",
                   backgroundColor: "rgba(6,182,212,0.12)",
                   color: "#06b6d4",
-                  boxShadow: "0 0 14px rgba(6,182,212,0.2)",
                 }
               : {
                   borderColor: "rgba(255,255,255,0.1)",
@@ -534,7 +533,6 @@ export default function BenchmarksPage() {
                   borderColor: "rgba(139,92,246,0.4)",
                   backgroundColor: "rgba(139,92,246,0.12)",
                   color: "#8b5cf6",
-                  boxShadow: "0 0 14px rgba(139,92,246,0.2)",
                 }
               : {
                   borderColor: "rgba(255,255,255,0.1)",
