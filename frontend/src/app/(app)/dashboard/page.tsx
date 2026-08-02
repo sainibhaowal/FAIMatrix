@@ -764,141 +764,199 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* ── Row 2 — Live Visual Analytics Suite (Recharts & 3D FIG Canvas) ──────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        {/* Topology Dynamics Recharts Chart */}
-        <div
-          className="xl:col-span-7 rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
-          style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-1)",
-          }}
-        >
-          <PanelHeader
-            title="Graph Topology Spectrum"
-            subtitle="Real-time spectral radius, density, and entropy dynamics"
-            action={
-              scorecard?.graph_version != null && (
-                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded">
-                  Graph v{scorecard.graph_version}
-                </span>
-              )
-            }
-          />
-          <div className="mt-3 flex-1">
-            <GraphHealthChart data={healthHistory} />
-          </div>
-        </div>
-
-        {/* Live 3D FIG Canvas Preview */}
-        <div
-          className="xl:col-span-5 rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
-          style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-1)",
-          }}
-        >
-          <PanelHeader
-            title="Live Cortex 3D Graph"
-            subtitle="Realtime Node-Link cluster preview"
-            action={
-              <button
-                onClick={() => router.push("/dashboard/fig-view")}
-                className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
-              >
-                Inspect <ArrowRight size={10} />
-              </button>
-            }
-          />
-          <div className="mt-3 flex-1 min-h-[240px]">
-            <MiniFigCanvas
-              nodeCount={scorecard?.node_count}
-              edgeCount={scorecard?.edge_count}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Row 3 — Main Activity & Operational Grid ─────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start">
-        {/* Activity Feed — 7 cols */}
-        <div
-          className="xl:col-span-7 flex flex-col rounded-xl border overflow-hidden backdrop-blur-md min-h-[220px] max-h-[480px]"
-          style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-1)",
-          }}
-        >
-          <PanelHeader
-            title="Live Telemetry & Activity Feed"
-            subtitle="Real-time graph events — auto-updating every 10s"
-            action={
-              latestInfo && (
-                <div className="flex items-center space-x-3">
-                  <span className="text-[10px] font-mono text-slate-400">
-                    seq #{latestInfo.last_seq} · {latestInfo.event_count} total
+      {/* ── Main Operations Matrix — 3-Column Balanced Grid ──────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+        {/* ── COLUMN 1: Topology Spectrum & Live Activity Feed ────────────── */}
+        <div className="flex flex-col gap-4">
+          {/* Graph Topology Spectrum Chart */}
+          <div
+            className="rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <PanelHeader
+              title="Graph Topology Spectrum"
+              subtitle="Real-time spectral radius, density, and entropy dynamics"
+              action={
+                scorecard?.graph_version != null && (
+                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded">
+                    Graph v{scorecard.graph_version}
                   </span>
-                  <div className="w-24 hidden sm:block">
-                    <TelemetryVelocityChart data={telemetryHistory} />
-                  </div>
-                </div>
-              )
-            }
-          />
-          <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {eventsLoading ? (
-              <div className="flex flex-col gap-0">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="px-5 py-4 border-b"
-                    style={{ borderColor: "var(--os-stroke)" }}
-                  >
-                    <div className="h-4 w-3/4 rounded animate-pulse bg-slate-700/40" />
-                  </div>
-                ))}
-              </div>
-            ) : events.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full gap-3 text-slate-500">
-                <Activity size={28} className="opacity-30" />
-                <p className="text-sm font-mono">
-                  No events yet — ingest data to see activity
-                </p>
-              </div>
-            ) : (
-              events.map((ev) => {
-                const meta = eventMeta(ev.kind);
-                return (
-                  <div
-                    key={ev.id}
-                    className="group px-5 py-3 border-b last:border-0 transition-all hover:bg-slate-800/40"
-                    style={{ borderColor: "var(--os-stroke)" }}
-                  >
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-4 min-w-0">
-                        <span
-                          className={`text-[10px] font-black uppercase tracking-[0.12em] w-16 shrink-0 ${meta.color}`}
-                        >
-                          {meta.label}
-                        </span>
-                        <p className="text-sm text-slate-200 font-medium truncate font-mono">
-                          {eventSummary(ev)}
-                        </p>
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-mono shrink-0">
-                        {relTime(ev.ts)}
-                      </span>
+                )
+              }
+            />
+            <div className="mt-3 flex-1">
+              <GraphHealthChart data={healthHistory} />
+            </div>
+          </div>
+
+          {/* Live Telemetry & Activity Feed */}
+          <div
+            className="flex flex-col rounded-xl border overflow-hidden backdrop-blur-md"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <PanelHeader
+              title="Live Telemetry & Activity Feed"
+              subtitle="Real-time graph events — auto-updating every 10s"
+              action={
+                latestInfo && (
+                  <div className="flex items-center space-x-3">
+                    <span className="text-[10px] font-mono text-slate-400">
+                      seq #{latestInfo.last_seq} · {latestInfo.event_count} total
+                    </span>
+                    <div className="w-20 hidden sm:block">
+                      <TelemetryVelocityChart data={telemetryHistory} />
                     </div>
                   </div>
-                );
-              })
-            )}
+                )
+              }
+            />
+            <div className="max-h-[380px] overflow-y-auto custom-scrollbar">
+              {eventsLoading ? (
+                <div className="flex flex-col gap-0">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="px-5 py-4 border-b"
+                      style={{ borderColor: "var(--os-stroke)" }}
+                    >
+                      <div className="h-4 w-3/4 rounded animate-pulse bg-slate-700/40" />
+                    </div>
+                  ))}
+                </div>
+              ) : events.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-8 gap-3 text-slate-500">
+                  <Activity size={28} className="opacity-30" />
+                  <p className="text-xs font-mono">
+                    No events yet — ingest data to see activity
+                  </p>
+                </div>
+              ) : (
+                events.map((ev) => {
+                  const meta = eventMeta(ev.kind);
+                  return (
+                    <div
+                      key={ev.id}
+                      className="group px-4 py-3 border-b last:border-0 transition-all hover:bg-slate-800/40"
+                      style={{ borderColor: "var(--os-stroke)" }}
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span
+                            className={`text-[9px] font-black uppercase tracking-[0.12em] w-14 shrink-0 ${meta.color}`}
+                          >
+                            {meta.label}
+                          </span>
+                          <p className="text-xs text-slate-200 font-medium truncate font-mono">
+                            {eventSummary(ev)}
+                          </p>
+                        </div>
+                        <span className="text-[9px] text-slate-500 font-mono shrink-0">
+                          {relTime(ev.ts)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Right column: Scorecard Gauges & Quick Actions */}
-        <div className="xl:col-span-5 flex flex-col gap-4">
-          {/* Graph Scorecard Gauges */}
+        {/* ── COLUMN 2: Live 3D FIG Canvas & Storage Breakdown ──────────── */}
+        <div className="flex flex-col gap-4">
+          {/* Live 3D FIG Canvas Preview */}
+          <div
+            className="rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <PanelHeader
+              title="Live Cortex 3D Graph"
+              subtitle="Realtime Node-Link cluster preview"
+              action={
+                <button
+                  onClick={() => router.push("/dashboard/fig-view")}
+                  className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
+                >
+                  Inspect <ArrowRight size={10} />
+                </button>
+              }
+            />
+            <div className="mt-3 flex-1 min-h-[240px]">
+              <MiniFigCanvas
+                nodeCount={scorecard?.node_count}
+                edgeCount={scorecard?.edge_count}
+              />
+            </div>
+          </div>
+
+          {/* Storage Breakdown Chart */}
+          <div
+            className="rounded-xl border overflow-hidden backdrop-blur-md"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <PanelHeader
+              title="Storage Breakdown"
+              subtitle="Footprint per file type & status"
+              action={
+                <button
+                  onClick={() => router.push("/dashboard/storage")}
+                  className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
+                >
+                  Manage <ArrowRight size={10} />
+                </button>
+              }
+            />
+            <div className="p-4 space-y-3">
+              {storageLoading ? (
+                <div className="space-y-2">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="h-10 rounded-lg animate-pulse bg-slate-700/40"
+                    />
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <StorageModalityChart
+                    byType={storage?.by_type ?? {}}
+                    totalBytes={storage?.total_bytes ?? 0}
+                  />
+                  <div className="grid grid-cols-2 gap-2 pt-2">
+                    <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
+                      <p className="text-[10px] text-slate-500 font-mono">Total Size</p>
+                      <p className="text-xs font-mono font-bold text-cyan-400">
+                        {fmtBytes(storage?.total_bytes ?? 0)}
+                      </p>
+                    </div>
+                    <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
+                      <p className="text-[10px] text-slate-500 font-mono">Files Count</p>
+                      <p className="text-xs font-mono font-bold text-emerald-400">
+                        {storage?.total_files ?? 0}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── COLUMN 3: Topology Gauges, Actions, Security & Evolution ───── */}
+        <div className="flex flex-col gap-4">
+          {/* Topology Metrics Scorecard */}
           <div
             className="rounded-xl border overflow-hidden backdrop-blur-md"
             style={{
@@ -910,7 +968,7 @@ export default function DashboardPage() {
               title="Topology Metrics"
               subtitle="Scorecard gauges — D / H / λ"
             />
-            <div className="p-4 space-y-4">
+            <div className="p-4 space-y-3">
               {scorecardLoading ? (
                 <div className="grid grid-cols-3 gap-2">
                   {[0, 1, 2].map((i) => (
@@ -927,49 +985,10 @@ export default function DashboardPage() {
                   ))}
                 </div>
               )}
-
-              {/* Evolution status row */}
-              <div
-                className="flex items-center justify-between px-3.5 py-2.5 rounded-lg border"
-                style={{
-                  background: "var(--os-surface-2)",
-                  borderColor: "var(--os-stroke)",
-                }}
-              >
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
-                    Evolution Engine
-                  </p>
-                  <p
-                    className={`text-xs font-semibold mt-0.5 ${evolveHealthColor}`}
-                  >
-                    {evolveLoading
-                      ? "checking…"
-                      : evolveIsRunning
-                        ? "running"
-                        : evolveJobStatus}
-                  </p>
-                  {evolveLastRun && (
-                    <p className="text-[9px] text-slate-500 font-mono mt-0.5">
-                      last: {relTime(evolveLastRun)}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={runEvolve}
-                  loading={evolving}
-                  disabled={evolveIsRunning}
-                >
-                  <PlayCircle size={13} className="mr-1" />
-                  Run
-                </Button>
-              </div>
             </div>
           </div>
 
-          {/* Quick Actions */}
+          {/* Quick Command Matrix */}
           <div
             className="rounded-xl border overflow-hidden backdrop-blur-md"
             style={{
@@ -978,16 +997,16 @@ export default function DashboardPage() {
             }}
           >
             <PanelHeader title="Quick Command Matrix" />
-            <div className="p-3 space-y-2">
+            <div className="p-3 space-y-1.5">
               {QUICK_ACTIONS.map((qa) => (
                 <button
                   key={qa.href}
                   onClick={() => router.push(qa.href)}
                   aria-label={qa.label}
-                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/60 focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/60 focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all"
                   style={{ borderColor: "var(--os-stroke)" }}
                 >
-                  <span className="flex items-center gap-2.5">
+                  <span className="flex items-center gap-2">
                     <span className="text-cyan-400">{qa.icon}</span>
                     {qa.label}
                   </span>
@@ -995,7 +1014,7 @@ export default function DashboardPage() {
                     <span className="text-[9px] font-mono text-slate-500 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
                       {qa.keyHint}
                     </span>
-                    <ArrowRight size={13} className="text-slate-600" />
+                    <ArrowRight size={12} className="text-slate-600" />
                   </div>
                 </button>
               ))}
@@ -1005,13 +1024,13 @@ export default function DashboardPage() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
                 aria-label="Upload document to FAIM"
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-sm font-medium text-slate-300 hover:text-slate-100 hover:bg-cyan-950/40 border-cyan-800/40 hover:border-cyan-500/50 focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all disabled:opacity-50"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-cyan-950/40 border-cyan-800/40 hover:border-cyan-500/50 focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all disabled:opacity-50"
               >
-                <span className="flex items-center gap-2.5">
-                  <Upload size={14} className="text-cyan-400" />
+                <span className="flex items-center gap-2">
+                  <Upload size={13} className="text-cyan-400" />
                   {uploading ? "Uploading…" : "Upload to FAIM"}
                 </span>
-                <Sparkles size={13} className="text-cyan-400" />
+                <Sparkles size={12} className="text-cyan-400" />
               </button>
               <input
                 ref={fileInputRef}
@@ -1027,248 +1046,91 @@ export default function DashboardPage() {
               />
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ── Row 4 — Recharts Modality Breakdown & Operational Status ───────── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Storage Breakdown Chart */}
-        <div
-          className="rounded-xl border overflow-hidden backdrop-blur-md"
-          style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-1)",
-          }}
-        >
-          <PanelHeader
-            title="Storage Breakdown"
-            subtitle="Footprint per file type & status"
-            action={
-              <button
-                onClick={() => router.push("/dashboard/storage")}
-                className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
-              >
-                Manage <ArrowRight size={10} />
-              </button>
-            }
-          />
-          <div className="p-4 space-y-3">
-            {storageLoading ? (
-              <div className="space-y-2">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="h-10 rounded-lg animate-pulse bg-slate-700/40"
-                  />
-                ))}
-              </div>
-            ) : (
-              <>
-                <StorageModalityChart
-                  byType={storage?.by_type ?? {}}
-                  totalBytes={storage?.total_bytes ?? 0}
-                />
-                <div className="grid grid-cols-2 gap-2 pt-2">
-                  <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
-                    <p className="text-[10px] text-slate-500 font-mono">Total Size</p>
-                    <p className="text-xs font-mono font-bold text-cyan-400">
-                      {fmtBytes(storage?.total_bytes ?? 0)}
-                    </p>
-                  </div>
-                  <div className="bg-slate-900/60 p-2 rounded border border-slate-800 text-center">
-                    <p className="text-[10px] text-slate-500 font-mono">Files Count</p>
-                    <p className="text-xs font-mono font-bold text-emerald-400">
-                      {storage?.total_files ?? 0}
-                    </p>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Security & Keys */}
-        <div
-          className="rounded-xl border overflow-hidden backdrop-blur-md"
-          style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-1)",
-          }}
-        >
-          <PanelHeader
-            title="Security & Auth Keys"
-            subtitle="Tenant key management & ACL status"
-            action={
-              <button
-                onClick={() => router.push("/dashboard/api-keys")}
-                className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
-              >
-                Manage <ArrowRight size={10} />
-              </button>
-            }
-          />
-          <div className="p-4 space-y-3">
-            {keysLoading ? (
-              <div className="space-y-2">
-                {[0, 1].map((i) => (
-                  <div
-                    key={i}
-                    className="h-12 rounded-lg animate-pulse bg-slate-700/40"
-                  />
-                ))}
-              </div>
-            ) : (
-              <>
-                <div
-                  className="flex items-center justify-between px-4 py-3 rounded-xl border"
-                  style={{
-                    background: "var(--os-surface-2)",
-                    borderColor: "var(--os-stroke)",
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <KeyRound size={16} className="text-amber-400" />
-                    <div>
-                      <p className="text-xs font-semibold text-slate-200">
-                        API Keys
-                      </p>
-                      <p className="text-[10px] text-slate-500 font-mono">
-                        {keyCount?.active ?? 0} active of {keyCount?.total ?? 0}{" "}
-                        total
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    className={`h-2 w-2 rounded-full ${(keyCount?.active ?? 0) > 0 ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-slate-600"}`}
-                  />
-                </div>
-
-                <div
-                  className="flex items-center justify-between px-4 py-3 rounded-xl border"
-                  style={{
-                    background: "var(--os-surface-2)",
-                    borderColor: "var(--os-stroke)",
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <Shield
-                      size={16}
-                      className={
-                        healthOk ? "text-emerald-400" : "text-rose-400"
-                      }
-                    />
-                    <div>
-                      <p className="text-xs font-semibold text-slate-200">
-                        System Status
-                      </p>
-                      <p className="text-[10px] text-slate-500 font-mono">
-                        {health?.status ?? "checking"}
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    className={`h-2 w-2 rounded-full ${healthOk ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-rose-400 animate-pulse"}`}
-                  />
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  fullWidth
+          {/* Security & Auth Keys */}
+          <div
+            className="rounded-xl border overflow-hidden backdrop-blur-md"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <PanelHeader
+              title="Security & Auth Keys"
+              action={
+                <button
                   onClick={() => router.push("/dashboard/api-keys")}
+                  className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
                 >
-                  <KeyRound size={13} className="mr-1.5 text-amber-400" />
-                  Create New Key
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Evolution Engine Details */}
-        <div
-          className="rounded-xl border overflow-hidden backdrop-blur-md"
-          style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-1)",
-          }}
-        >
-          <PanelHeader
-            title="Evolution Engine"
-            subtitle="FAIM graph self-organization telemetry"
-          />
-          <div className="p-4 space-y-3">
-            {evolveLoading ? (
-              <div className="space-y-2">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="h-10 rounded-lg animate-pulse bg-slate-700/40"
-                  />
-                ))}
+                  Manage <ArrowRight size={10} />
+                </button>
+              }
+            />
+            <div className="p-3 space-y-2">
+              <div
+                className="flex items-center justify-between px-3 py-2 rounded-lg border"
+                style={{
+                  background: "var(--os-surface-2)",
+                  borderColor: "var(--os-stroke)",
+                }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <KeyRound size={14} className="text-amber-400" />
+                  <span className="text-xs font-semibold text-slate-200">
+                    {keyCount?.active ?? 0} active keys
+                  </span>
+                </div>
+                <div
+                  className={`h-2 w-2 rounded-full ${(keyCount?.active ?? 0) > 0 ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-slate-600"}`}
+                />
               </div>
-            ) : (
-              <>
-                {[
-                  {
-                    label: "Status",
-                    value: evolveIsRunning
-                      ? "running"
-                      : (evolveJobStatus ?? "—"),
-                    color: evolveHealthColor,
-                  },
-                  {
-                    label: "Last Run",
-                    value: relTime(evolveLastRun),
-                    color: "text-slate-300",
-                  },
-                  {
-                    label: "Version Delta",
-                    value: String(evolveStatus?.due?.version_delta ?? "—"),
-                    color: "text-cyan-400",
-                  },
-                  {
-                    label: "Due For Evolution",
-                    value: evolveStatus?.due?.is_due
-                      ? "Yes"
-                      : evolveStatus
-                        ? "No"
-                        : "—",
-                    color: evolveStatus?.due?.is_due
-                      ? "text-amber-400"
-                      : "text-emerald-400",
-                  },
-                ].map((row) => (
-                  <div
-                    key={row.label}
-                    className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                    style={{
-                      background: "var(--os-surface-2)",
-                      borderColor: "var(--os-stroke)",
-                    }}
-                  >
-                    <span className="text-xs text-slate-400 font-mono">{row.label}</span>
-                    <span
-                      className={`text-xs font-mono font-semibold ${row.color}`}
-                    >
-                      {row.value}
-                    </span>
-                  </div>
-                ))}
+            </div>
+          </div>
 
+          {/* Evolution Engine Panel */}
+          <div
+            className="rounded-xl border overflow-hidden backdrop-blur-md"
+            style={{
+              borderColor: "var(--os-stroke)",
+              background: "var(--os-surface-1)",
+            }}
+          >
+            <PanelHeader
+              title="Evolution Engine"
+              subtitle="FAIM graph self-organization"
+            />
+            <div className="p-3 space-y-2.5">
+              <div
+                className="flex items-center justify-between px-3 py-2 rounded-lg border"
+                style={{
+                  background: "var(--os-surface-2)",
+                  borderColor: "var(--os-stroke)",
+                }}
+              >
+                <div>
+                  <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">
+                    Status
+                  </p>
+                  <p className={`text-xs font-semibold ${evolveHealthColor}`}>
+                    {evolveLoading
+                      ? "checking…"
+                      : evolveIsRunning
+                        ? "running"
+                        : evolveJobStatus}
+                  </p>
+                </div>
                 <Button
                   variant="primary"
                   size="sm"
-                  fullWidth
                   onClick={runEvolve}
                   loading={evolving}
                   disabled={evolveIsRunning}
                 >
-                  <PlayCircle size={14} className="mr-1.5" />
+                  <PlayCircle size={13} className="mr-1" />
                   {evolveIsRunning ? "Running…" : "Run Evolution"}
                 </Button>
-              </>
-            )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
