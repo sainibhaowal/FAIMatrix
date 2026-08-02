@@ -502,24 +502,46 @@ export default function BenchmarksPage() {
         </p>
       </div>
 
-      <div className="flex items-center gap-2 rounded-xl border border-slate-700/60 bg-slate-900/30 p-2 w-fit">
+      <div className="flex flex-wrap items-center gap-2">
         <button
+          type="button"
           onClick={openSystemView}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+          className="rounded-full border px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] transition-all duration-200"
+          style={
             benchmarkView === "system"
-              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
-              : "text-slate-400 hover:text-slate-200"
-          }`}
+              ? {
+                  borderColor: "rgba(6,182,212,0.4)",
+                  backgroundColor: "rgba(6,182,212,0.12)",
+                  color: "#06b6d4",
+                  boxShadow: "0 0 14px rgba(6,182,212,0.2)",
+                }
+              : {
+                  borderColor: "rgba(255,255,255,0.1)",
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                  color: "rgba(148,163,184,0.75)",
+                }
+          }
         >
           Claimable Benchmarks
         </button>
         <button
+          type="button"
           onClick={openGlobalView}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+          className="rounded-full border px-3 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.12em] transition-all duration-200"
+          style={
             benchmarkView === "global"
-              ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/40"
-              : "text-slate-400 hover:text-slate-200"
-          }`}
+              ? {
+                  borderColor: "rgba(139,92,246,0.4)",
+                  backgroundColor: "rgba(139,92,246,0.12)",
+                  color: "#8b5cf6",
+                  boxShadow: "0 0 14px rgba(139,92,246,0.2)",
+                }
+              : {
+                  borderColor: "rgba(255,255,255,0.1)",
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                  color: "rgba(148,163,184,0.75)",
+                }
+          }
         >
           Internal Validation
         </button>
