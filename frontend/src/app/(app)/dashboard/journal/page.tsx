@@ -733,10 +733,10 @@ export default function JournalPage() {
             ].map((stat) => (
               <div
                 key={stat.label}
-                className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5"
+                className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] pl-4 pr-3.5 py-3.5"
               >
-                <div
-                  className="absolute inset-x-0 top-0 h-[2px]"
+                <span
+                  className="pointer-events-none absolute left-0 top-0 h-full w-[2px]"
                   style={{ background: stat.accent }}
                 />
                 <div className="flex items-center justify-between mb-1.5">

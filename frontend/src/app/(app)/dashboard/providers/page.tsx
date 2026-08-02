@@ -310,10 +310,10 @@ export default function ProvidersPage() {
         ].map((stat) => (
           <div
             key={stat.label}
-            className="relative overflow-hidden rounded-[14px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-xl p-3.5 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]"
+            className="relative overflow-hidden rounded-[14px] border border-white/10 bg-[rgba(10,16,28,0.75)] backdrop-blur-xl pl-4 pr-3.5 py-3.5 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]"
           >
-            <div
-              className="absolute inset-x-0 top-0 h-[2px]"
+            <span
+              className="pointer-events-none absolute left-0 top-0 h-full w-[2px]"
               style={{ background: stat.accent }}
             />
             <div className="flex items-center justify-between mb-1.5">
