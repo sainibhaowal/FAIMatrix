@@ -91,7 +91,7 @@ export const GraphHealthChart: React.FC<GraphHealthChartProps> = ({ data }) => {
       </div>
 
       {/* Recharts Canvas */}
-      <div className="h-[240px] w-full relative">
+      <div className="h-[300px] w-full relative">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={chartData}
