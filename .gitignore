@@ -85,3 +85,5 @@ deploy/ssl/
 # Development
 frontend/Docs/
 faim_native/store/raw/blobs/
+scratch_*.py
+*.scratch.*
