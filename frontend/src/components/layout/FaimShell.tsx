@@ -161,7 +161,7 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
       {/* -------------------------------------------------------------------- */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         {/* Grid Overlay */}
-        <div className="faim-grid opacity-20" />
+        <div className="faim-grid opacity-80" />
       </div>
 
       {/* -------------------------------------------------------------------- */}
