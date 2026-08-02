@@ -21,9 +21,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies (from root requirements.txt)
+# Install Python dependencies with persistent BuildKit package cache
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt gunicorn uvicorn[standard] psycopg2-binary redis qdrant-client
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt gunicorn uvicorn[standard] psycopg2-binary redis qdrant-client
 
 # Non-root user (security) - Create BEFORE copy to fix ownership
 RUN useradd -m -u 1000 -s /bin/false faim

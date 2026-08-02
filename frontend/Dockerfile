@@ -7,9 +7,10 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install dependencies (legacy-peer-deps for safety)
+# Install dependencies with persistent BuildKit npm cache
 COPY package*.json ./
-RUN npm config set fetch-retry-maxtimeout 120000 && \
+RUN --mount=type=cache,target=/root/.npm \
+  npm config set fetch-retry-maxtimeout 120000 && \
   npm config set fetch-retries 5 && \
   npm install --legacy-peer-deps
 
