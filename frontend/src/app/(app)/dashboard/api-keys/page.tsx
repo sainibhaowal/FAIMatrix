@@ -528,41 +528,49 @@ export default function ApiKeysPage() {
             value: summary.total,
             icon: KeyRound,
             accent: "#06b6d4",
+            textColor: "text-cyan-400",
           },
           {
             label: "ACTIVE KEYS",
             value: summary.active,
             icon: ShieldCheck,
             accent: "#10b981",
+            textColor: "text-emerald-400",
           },
           {
             label: "REVOKED",
             value: summary.revoked,
             icon: ShieldOff,
             accent: "#f43f5e",
+            textColor: "text-rose-400",
           },
           {
             label: "EXPIRED",
             value: summary.expired,
             icon: RotateCcw,
             accent: "#f59e0b",
+            textColor: "text-amber-400",
           },
         ].map((stat) => (
           <div
             key={stat.label}
-            className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.2)]"
+            className="relative overflow-hidden rounded-[16px] border p-4 backdrop-blur-xl transition-all duration-300"
+            style={{
+              borderColor: `${stat.accent}33`,
+              backgroundColor: "rgba(10, 16, 28, 0.75)",
+              boxShadow: `0 8px 32px 0 rgba(0,0,0,0.37), inset 0 1px 0 0 ${stat.accent}33`,
+            }}
           >
-            <div
-              className="absolute inset-x-0 top-0 h-[2px]"
-              style={{ background: stat.accent }}
-            />
-            <div className="flex items-center justify-between mb-1.5">
-              <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
+            <div className="flex items-center justify-between mb-2">
+              <p
+                className="font-mono text-[10px] font-bold uppercase tracking-[0.22em]"
+                style={{ color: stat.accent }}
+              >
                 {stat.label}
               </p>
-              <stat.icon size={16} className="opacity-40" />
+              <stat.icon size={16} style={{ color: stat.accent }} className="opacity-80" />
             </div>
-            <p className="text-[22px] font-semibold tracking-tight text-white tabular-nums">
+            <p className={`text-2xl font-bold tracking-tight ${stat.textColor} tabular-nums`}>
               {stat.value}
             </p>
           </div>
