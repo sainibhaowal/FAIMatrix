@@ -145,7 +145,7 @@ export function SidebarNav({
                     "group relative flex items-center justify-center w-11 h-11 rounded-xl mx-auto overflow-hidden",
                     "transition-all duration-300",
                     active
-                      ? "bg-primary-500/15 text-primary-300 shadow-[0_0_12px_rgba(34,211,238,0.15)]"
+                      ? "bg-primary-500/15 text-primary-300"
                       : "text-slate-400 hover:text-white hover:bg-white/5",
                   ].join(" ")}
                 >
@@ -238,7 +238,7 @@ function CollapsibleGroup({
                 "group relative flex items-center gap-2.5 rounded-2xl px-4 py-2 overflow-hidden",
                 "transition-all duration-300",
                 active
-                  ? "bg-primary-500/10 text-primary-200 border border-primary-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]"
+                  ? "bg-primary-500/10 text-primary-200 border border-primary-500/20"
                   : "text-slate-400 hover:text-white hover:bg-white/5 border border-transparent",
               ].join(" ")}
             >
@@ -260,7 +260,7 @@ function CollapsibleGroup({
               </span>
 
               {active && (
-                <div className="relative z-10 h-1.5 w-1.5 rounded-full bg-primary-400 shadow-[0_0_8px_rgba(34,211,238,0.6)] animate-pulse" />
+                <div className="relative z-10 h-1.5 w-1.5 rounded-full bg-primary-400 animate-pulse" />
               )}
             </Link>
           );
