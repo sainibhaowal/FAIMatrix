@@ -233,8 +233,8 @@ function ThemedSelect<T extends string>({
         onClick={() => setOpen(!open)}
         className="flex h-8 w-full items-center justify-between gap-2 rounded-lg border px-2.5 text-xs outline-none transition-all hover:bg-white/5 active:scale-[0.98]"
         style={{
-          background: "var(--os-surface-2)",
-          borderColor: "var(--os-stroke)",
+          background: "rgba(255, 255, 255, 0.03)",
+          borderColor: "rgba(255, 255, 255, 0.08)",
           color: "var(--text-primary)",
         }}
       >
@@ -257,10 +257,9 @@ function ThemedSelect<T extends string>({
               initial={{ opacity: 0, scale: 0.95, y: -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              className="absolute left-0 top-full z-[var(--z-dropdown)] w-full min-w-[120px] mt-1 overflow-hidden rounded-xl border p-1 shadow-2xl backdrop-blur-xl"
+              className="absolute left-0 top-full z-[var(--z-dropdown)] w-full min-w-[120px] mt-1 overflow-hidden rounded-xl border border-white/8 p-1 shadow-2xl backdrop-blur-xl"
               style={{
-                background: "rgba(10, 15, 25, 0.95)",
-                borderColor: "var(--os-stroke)",
+                background: "rgba(10, 15, 25, 0.96)",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
               }}
             >
@@ -1257,17 +1256,9 @@ export default function EvolutionPage() {
         }
       />
 
-      <div
-        className="overflow-hidden rounded-xl border !overflow-visible"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
-        <div
-          className="border-b px-5 py-1.5"
-          style={{ borderColor: "var(--os-stroke)" }}
-        >
+      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] !overflow-visible">
+        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
+        <div className="border-b border-white/6 px-5 py-2.5">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
@@ -1298,8 +1289,8 @@ export default function EvolutionPage() {
                 }}
                 containerClassName="md:col-span-2"
                 style={{
-                  background: "var(--os-surface-2)",
-                  borderColor: "var(--os-stroke)",
+                  background: "rgba(255,255,255,0.03)",
+                  borderColor: "rgba(255,255,255,0.08)",
                 }}
                 helperText="Universe graph id (for example U:...)."
               />
@@ -1311,13 +1302,7 @@ export default function EvolutionPage() {
               </div>
             </>
           ) : (
-            <div
-              className="md:col-span-3 rounded-xl border p-3"
-              style={{
-                background: "var(--os-surface-2)",
-                borderColor: "var(--os-stroke)",
-              }}
-            >
+            <div className="md:col-span-3 rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5">
               <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
                 Graph Context
               </p>
@@ -1376,7 +1361,7 @@ export default function EvolutionPage() {
 
           <div className="md:col-span-5">
             <div
-              className={`rounded-lg border px-3.5 py-2.5 text-[11px] leading-relaxed ${
+              className={`rounded-[14px] border px-4 py-3 text-[11px] leading-relaxed ${
                 evolveModePolicy.supported
                   ? ""
                   : "border-[var(--faim-error)]/30 bg-[var(--faim-error-muted)]"
@@ -1384,8 +1369,8 @@ export default function EvolutionPage() {
               style={
                 evolveModePolicy.supported
                   ? {
-                      borderColor: "rgba(99,102,241,0.18)",
-                      background: "rgba(99,102,241,0.05)",
+                      borderColor: "rgba(99,102,241,0.22)",
+                      background: "rgba(99,102,241,0.06)",
                       color: "var(--text-secondary)",
                     }
                   : { color: "var(--faim-error-text)" }
@@ -1404,17 +1389,9 @@ export default function EvolutionPage() {
         </div>
       </div>
 
-      <div
-        className="overflow-hidden rounded-[1.25rem] border"
-        style={{
-          borderColor: "rgba(90, 200, 255, 0.14)",
-          background:
-            "linear-gradient(180deg, rgba(12,16,28,0.96) 0%, rgba(12,16,28,0.92) 100%)",
-          boxShadow:
-            "0 24px 80px rgba(0,0,0,0.36), inset 0 1px 0 rgba(255,255,255,0.03)",
-        }}
-      >
-        <div className="border-b border-white/5 px-5 py-4">
+      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
+        <div className="border-b border-white/6 px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -1792,13 +1769,8 @@ export default function EvolutionPage() {
       </div>
 
       {/* --- Metrics Scorecard (Storage Parity) --- */}
-      <div
-        className="grid grid-cols-1 overflow-hidden rounded-xl border sm:grid-cols-2 xl:grid-cols-4"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
+      <div className="relative grid grid-cols-1 overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] sm:grid-cols-2 xl:grid-cols-4">
+        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-emerald-500/80 via-emerald-400/40 to-transparent rounded-full" />
         {[
           {
             label: "Fractal D",
@@ -1823,16 +1795,15 @@ export default function EvolutionPage() {
         ].map((stat, i) => (
           <div
             key={stat.label}
-            className="relative flex flex-col justify-center px-6 py-3"
-            style={{
-              borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined,
-            }}
+            className={`relative flex flex-col justify-center px-6 py-4 ${
+              i > 0 ? "border-t sm:border-t-0 sm:border-l border-white/6" : ""
+            }`}
           >
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
                 {stat.label}
               </p>
-              <stat.icon size={18} className="opacity-20" />
+              <stat.icon size={18} className="opacity-20 text-cyan-300" />
             </div>
             <p
               className="font-semibold tabular-nums leading-none text-cyan-200"
@@ -1845,17 +1816,9 @@ export default function EvolutionPage() {
       </div>
 
       <div className="grid items-start gap-4 lg:grid-cols-5">
-        <div
-          className="lg:col-span-3 flex flex-col h-[600px] lg:h-[850px] overflow-hidden rounded-xl border !overflow-visible"
-          style={{
-            background: "var(--os-surface-1)",
-            borderColor: "var(--os-stroke)",
-          }}
-        >
-          <div
-            className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
-            style={{ borderColor: "var(--os-stroke)" }}
-          >
+        <div className="relative lg:col-span-3 flex flex-col h-[600px] lg:h-[850px] overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] !overflow-visible">
+          <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
             <div>
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
                 Evolution Timeline
@@ -1878,8 +1841,7 @@ export default function EvolutionPage() {
                 {visibleTimeline.map((event) => (
                   <div
                     key={event.seq}
-                    className="group px-5 py-4 transition-all hover:bg-[var(--glass-hover)]"
-                    style={{ borderBottom: "1px solid var(--os-stroke)" }}
+                    className="group px-5 py-4 transition-all hover:bg-white/[0.02] border-b border-white/6"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant={eventBadgeVariant(event.kind)} size="sm">
@@ -1903,17 +1865,9 @@ export default function EvolutionPage() {
         </div>
 
         <div className="space-y-4 lg:col-span-2 flex flex-col h-[600px] lg:h-[850px] overflow-y-auto custom-scrollbar pr-1 pb-4">
-          <div
-            className="overflow-hidden rounded-xl border shrink-0"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
-            <div
-              className="border-b px-5 py-1.5"
-              style={{ borderColor: "var(--os-stroke)" }}
-            >
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
+            <div className="border-b border-white/6 px-5 py-2.5">
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
                 Latest Run Outcome
               </p>
@@ -1942,38 +1896,20 @@ export default function EvolutionPage() {
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div
-                      className="rounded-lg border p-2"
-                      style={{
-                        background: "var(--os-surface-2)",
-                        borderColor: "var(--os-stroke)",
-                      }}
-                    >
-                      <p className="text-slate-400">Merges</p>
+                    <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                      <p className="text-slate-400 text-xs">Merges</p>
                       <p className="font-semibold text-cyan-200">
                         {lastRun.merges}
                       </p>
                     </div>
-                    <div
-                      className="rounded-lg border p-2"
-                      style={{
-                        background: "var(--os-surface-2)",
-                        borderColor: "var(--os-stroke)",
-                      }}
-                    >
-                      <p className="text-slate-400">Prunes</p>
+                    <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                      <p className="text-slate-400 text-xs">Prunes</p>
                       <p className="font-semibold text-cyan-200">
                         {lastRun.prunes}
                       </p>
                     </div>
-                    <div
-                      className="rounded-lg border p-2"
-                      style={{
-                        background: "var(--os-surface-2)",
-                        borderColor: "var(--os-stroke)",
-                      }}
-                    >
-                      <p className="text-slate-400">Inventions</p>
+                    <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                      <p className="text-slate-400 text-xs">Inventions</p>
                       <p className="font-semibold text-cyan-200">
                         {lastRun.inventions}
                       </p>
@@ -2001,17 +1937,9 @@ export default function EvolutionPage() {
             </div>
           </div>
 
-          <div
-            className="overflow-hidden rounded-xl border shrink-0"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
-            <div
-              className="border-b px-5 py-1.5"
-              style={{ borderColor: "var(--os-stroke)" }}
-            >
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-purple-500/80 via-purple-400/40 to-transparent rounded-full" />
+            <div className="border-b border-white/6 px-5 py-2.5">
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
                 Runtime Snapshot
               </p>
@@ -2055,37 +1983,19 @@ export default function EvolutionPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-2 pt-1">
-                <div
-                  className="rounded-lg border p-2"
-                  style={{
-                    background: "var(--os-surface-2)",
-                    borderColor: "var(--os-stroke)",
-                  }}
-                >
+                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
                   <p className="text-[11px] text-slate-400">Complete</p>
                   <p className="font-semibold text-emerald-400">
                     {eventStats.completed}
                   </p>
                 </div>
-                <div
-                  className="rounded-lg border p-2"
-                  style={{
-                    background: "var(--os-surface-2)",
-                    borderColor: "var(--os-stroke)",
-                  }}
-                >
+                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
                   <p className="text-[11px] text-slate-400">Skipped</p>
                   <p className="font-semibold text-amber-400">
                     {eventStats.skipped}
                   </p>
                 </div>
-                <div
-                  className="rounded-lg border p-2"
-                  style={{
-                    background: "var(--os-surface-2)",
-                    borderColor: "var(--os-stroke)",
-                  }}
-                >
+                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
                   <p className="text-[11px] text-slate-400">Invention</p>
                   <p className="font-semibold text-violet-400">
                     {eventStats.inventionSummary}
@@ -2093,13 +2003,7 @@ export default function EvolutionPage() {
                 </div>
               </div>
 
-              <div
-                className="rounded-xl border p-3"
-                style={{
-                  background: "var(--os-surface-2)",
-                  borderColor: "var(--os-stroke)",
-                }}
-              >
+              <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
                 <p className="text-xs text-slate-400">Latest evolve event</p>
                 {latestEvolutionEvent ? (
                   <>
@@ -2143,17 +2047,9 @@ export default function EvolutionPage() {
             </div>
           </div>
 
-          <div
-            className="overflow-hidden rounded-xl border shrink-0"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
-            <div
-              className="border-b px-5 py-1.5"
-              style={{ borderColor: "var(--os-stroke)" }}
-            >
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-amber-500/80 via-amber-400/40 to-transparent rounded-full" />
+            <div className="border-b border-white/6 px-5 py-2.5">
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
                 Scheduler State
               </p>
@@ -2206,13 +2102,7 @@ export default function EvolutionPage() {
                       {evolveStatus.due.is_due ? "yes" : "no"}
                     </Badge>
                   </div>
-                  <div
-                    className="rounded-xl border p-3"
-                    style={{
-                      background: "var(--os-surface-2)",
-                      borderColor: "var(--os-stroke)",
-                    }}
-                  >
+                  <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
                     <p className="text-xs text-slate-400">Due reason</p>
                     <p className="mt-1 text-xs text-slate-200">
                       {humanizeDueReason(evolveStatus.due.reason)}
@@ -2261,17 +2151,9 @@ export default function EvolutionPage() {
             </div>
           </div>
 
-          <div
-            className="overflow-hidden rounded-xl border shrink-0"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
-            <div
-              className="border-b px-5 py-1.5"
-              style={{ borderColor: "var(--os-stroke)" }}
-            >
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-emerald-500/80 via-emerald-400/40 to-transparent rounded-full" />
+            <div className="border-b border-white/6 px-5 py-2.5">
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
                 Metric Details
               </p>
@@ -2304,17 +2186,9 @@ export default function EvolutionPage() {
             </div>
           </div>
 
-          <div
-            className="overflow-hidden rounded-xl border shrink-0"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
-          >
-            <div
-              className="border-b px-5 py-3"
-              style={{ borderColor: "var(--os-stroke)" }}
-            >
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-indigo-500/80 via-indigo-400/40 to-transparent rounded-full" />
+            <div className="border-b border-white/6 px-5 py-3">
               <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
                 Source Coverage
               </p>
@@ -2349,13 +2223,7 @@ export default function EvolutionPage() {
                   </div>
                 </>
               )}
-              <div
-                className="rounded-xl border p-3"
-                style={{
-                  background: "var(--os-surface-2)",
-                  borderColor: "var(--os-stroke)",
-                }}
-              >
+              <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
                 <p className="text-xs text-slate-400">Latest files</p>
                 {storageFiles.length === 0 ? (
                   <p className="mt-1 text-xs text-slate-400">
@@ -2366,11 +2234,7 @@ export default function EvolutionPage() {
                     {storageFiles.map((file) => (
                       <div
                         key={file.raw_id}
-                        className="flex items-center justify-between gap-2 rounded-lg border px-2 py-1"
-                        style={{
-                          background: "var(--os-surface-3)",
-                          borderColor: "var(--os-stroke)",
-                        }}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-2.5 py-1.5"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-xs text-slate-200">
