@@ -197,6 +197,7 @@ function KpiCell({
   color,
   loading,
   className,
+  accentColor,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -205,13 +206,21 @@ function KpiCell({
   color: string;
   loading?: boolean;
   className?: string;
+  accentColor?: string;
 }) {
   return (
     <div
-      className={`relative flex flex-col justify-center px-4 sm:px-6 py-4 border-slate-800/50 hover:bg-slate-800/20 transition-all ${className}`}
+      className={`relative flex flex-col justify-center px-4 sm:px-6 py-4 border-slate-800/50 hover:bg-white/[0.02] transition-all ${className}`}
     >
+      {/* Domain Studio accent bar — horizontal gradient at top */}
+      {accentColor && (
+        <div
+          className="absolute inset-x-0 top-0 h-[2px]"
+          style={{ background: `linear-gradient(90deg, ${accentColor}, transparent)` }}
+        />
+      )}
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
+        <p className="text-[10px] font-mono font-bold uppercase tracking-[0.22em] text-slate-500">
           {label}
         </p>
         <div className="opacity-40">{icon}</div>
@@ -242,12 +251,9 @@ function PanelHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div
-      className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3 shrink-0"
-      style={{ borderColor: "var(--os-stroke)" }}
-    >
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-3 shrink-0">
       <div>
-        <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400 flex items-center gap-1.5">
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-cyan-400 flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
           {title}
         </p>
@@ -272,20 +278,19 @@ function ScorecardGauge({
   color: string;
 }) {
   return (
-    <div
-      className="flex flex-col items-center justify-center gap-0.5 py-3 px-2 sm:px-4 rounded-xl border text-center transition-transform hover:scale-[1.02]"
-      style={{
-        background: "var(--os-surface-2)",
-        borderColor: "var(--os-stroke)",
-      }}
-    >
+    <div className="relative overflow-hidden flex flex-col items-center justify-center gap-0.5 py-3 px-2 sm:px-4 rounded-[14px] border border-white/8 bg-white/[0.03] text-center transition-transform hover:scale-[1.02]">
+      {/* Domain Studio vertical accent bar */}
+      <span
+        className="pointer-events-none absolute left-0 top-0 h-full w-[2px]"
+        style={{ background: `${color}88` }}
+      />
       <span
         className="font-mono text-[16px] sm:text-[18px] font-bold"
         style={{ color }}
       >
         {value > 0 ? value.toFixed(2) : "0"}
       </span>
-      <span className="text-[8px] sm:text-[9px] uppercase tracking-widest text-slate-500">
+      <span className="text-[8px] sm:text-[9px] uppercase tracking-[0.18em] text-slate-500">
         {label}
       </span>
       <span
@@ -713,13 +718,7 @@ export default function DashboardPage() {
       />
 
       {/* ── Row 1 — KPI Strip ────────────────────────────────────────────── */}
-      <div
-        className="grid grid-cols-2 xl:grid-cols-4 overflow-hidden rounded-xl border backdrop-blur-md shadow-2xl"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
+      <div className="grid grid-cols-2 xl:grid-cols-4 overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
         <KpiCell
           icon={<Dna size={18} />}
           label="Active Nodes"
@@ -731,6 +730,7 @@ export default function DashboardPage() {
           sub={`${scorecard?.edge_count?.toLocaleString() ?? "—"} edges`}
           color="text-cyan-300"
           loading={scorecardLoading}
+          accentColor="#22d3ee"
         />
         <KpiCell
           icon={<HardDrive size={18} />}
@@ -740,6 +740,7 @@ export default function DashboardPage() {
           color="text-emerald-400"
           loading={storageLoading}
           className="border-l"
+          accentColor="#34d399"
         />
         <KpiCell
           icon={<Shield size={18} />}
@@ -749,6 +750,7 @@ export default function DashboardPage() {
           color="text-amber-400"
           loading={keysLoading}
           className="border-t xl:border-t-0 xl:border-l"
+          accentColor="#fbbf24"
         />
         <KpiCell
           icon={<Zap size={18} />}
@@ -761,6 +763,7 @@ export default function DashboardPage() {
           }
           color={healthOk ? "text-emerald-400" : "text-rose-400"}
           className="border-t xl:border-t-0 border-l"
+          accentColor={healthOk ? "#34d399" : "#f87171"}
         />
       </div>
 
@@ -768,11 +771,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
         {/* Graph Topology Spectrum Chart — 2 COLUMNS WIDE */}
         <div
-          className="lg:col-span-2 rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
-          style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-1)",
-          }}
+          className="lg:col-span-2 rounded-[18px] border border-white/8 p-4 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex flex-col justify-between"
         >
           <PanelHeader
             title="Graph Topology Spectrum"
@@ -792,11 +791,7 @@ export default function DashboardPage() {
 
         {/* Live 3D FIG Canvas Preview — 1 COLUMN */}
         <div
-          className="lg:col-span-1 rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
-          style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-1)",
-          }}
+          className="lg:col-span-1 rounded-[18px] border border-white/8 p-4 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex flex-col justify-between"
         >
           <PanelHeader
             title="Live Cortex 3D Graph"
@@ -825,11 +820,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 flex flex-col gap-4">
           {/* Prominent Event Throughput Velocity Trend Card */}
           <div
-            className="rounded-xl border p-4 backdrop-blur-md flex flex-col justify-between"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
+            className="rounded-[18px] border border-white/8 p-4 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex flex-col justify-between"
           >
             <PanelHeader
               title="Event Ingestion & Velocity Trend"
@@ -849,11 +840,7 @@ export default function DashboardPage() {
 
           {/* Live Activity Log Feed */}
           <div
-            className="flex flex-col rounded-xl border overflow-hidden backdrop-blur-md"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
+            className="flex flex-col rounded-[18px] border border-white/8 overflow-hidden bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]"
           >
             <PanelHeader
               title="Live Telemetry & Activity Log"
@@ -865,8 +852,7 @@ export default function DashboardPage() {
                   {Array.from({ length: 4 }).map((_, i) => (
                     <div
                       key={i}
-                      className="px-5 py-4 border-b"
-                      style={{ borderColor: "var(--os-stroke)" }}
+                      className="px-5 py-4 border-b border-white/6"
                     >
                       <div className="h-4 w-3/4 rounded animate-pulse bg-slate-700/40" />
                     </div>
@@ -885,8 +871,7 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={ev.id}
-                      className="group px-4 py-3 border-b last:border-0 transition-all hover:bg-slate-800/40"
-                      style={{ borderColor: "var(--os-stroke)" }}
+                      className="group px-4 py-3 border-b border-white/6 last:border-0 transition-all hover:bg-white/[0.02]"
                     >
                       <div className="flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
@@ -915,12 +900,10 @@ export default function DashboardPage() {
         <div className="lg:col-span-1 flex flex-col gap-4">
           {/* Topology Metrics Scorecard */}
           <div
-            className="rounded-xl border overflow-hidden backdrop-blur-md"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
+            className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]"
           >
+            {/* Domain Studio vertical accent bar */}
+            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-cyan-400/60 via-cyan-400/20 to-transparent" />
             <PanelHeader
               title="Topology Metrics"
               subtitle="Scorecard gauges — D / H / λ"
@@ -947,12 +930,10 @@ export default function DashboardPage() {
 
           {/* Quick Command Matrix */}
           <div
-            className="rounded-xl border overflow-hidden backdrop-blur-md"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
+            className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]"
           >
+            {/* Domain Studio vertical accent bar */}
+            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-violet-400/60 via-violet-400/20 to-transparent" />
             <PanelHeader title="Quick Command Matrix" />
             <div className="p-3 space-y-1.5">
               {QUICK_ACTIONS.map((qa) => (
@@ -960,8 +941,7 @@ export default function DashboardPage() {
                   key={qa.href}
                   onClick={() => router.push(qa.href)}
                   aria-label={qa.label}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-slate-800/60 focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all"
-                  style={{ borderColor: "var(--os-stroke)" }}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-white/8 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all"
                 >
                   <span className="flex items-center gap-2">
                     <span className="text-cyan-400">{qa.icon}</span>
@@ -1006,12 +986,10 @@ export default function DashboardPage() {
 
           {/* Security & Auth Keys */}
           <div
-            className="rounded-xl border overflow-hidden backdrop-blur-md"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
+            className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]"
           >
+            {/* Domain Studio vertical accent bar */}
+            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-amber-400/60 via-amber-400/20 to-transparent" />
             <PanelHeader
               title="Security & Auth Keys"
               action={
@@ -1025,11 +1003,7 @@ export default function DashboardPage() {
             />
             <div className="p-3 space-y-2">
               <div
-                className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                style={{
-                  background: "var(--os-surface-2)",
-                  borderColor: "var(--os-stroke)",
-                }}
+                className="flex items-center justify-between px-3 py-2 rounded-[14px] border border-white/8 bg-white/[0.03]"
               >
                 <div className="flex items-center gap-2.5">
                   <KeyRound size={14} className="text-amber-400" />
@@ -1038,7 +1012,7 @@ export default function DashboardPage() {
                   </span>
                 </div>
                 <div
-                  className={`h-2 w-2 rounded-full ${(keyCount?.active ?? 0) > 0 ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-slate-600"}`}
+                  className={`h-2 w-2 rounded-full ${(keyCount?.active ?? 0) > 0 ? "bg-emerald-400" : "bg-slate-600"}`}
                 />
               </div>
             </div>
@@ -1046,23 +1020,17 @@ export default function DashboardPage() {
 
           {/* Evolution Engine Panel */}
           <div
-            className="rounded-xl border overflow-hidden backdrop-blur-md"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-1)",
-            }}
+            className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]"
           >
+            {/* Domain Studio vertical accent bar */}
+            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-emerald-400/60 via-emerald-400/20 to-transparent" />
             <PanelHeader
               title="Evolution Engine"
               subtitle="FAIM graph self-organization"
             />
             <div className="p-3 space-y-2.5">
               <div
-                className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                style={{
-                  background: "var(--os-surface-2)",
-                  borderColor: "var(--os-stroke)",
-                }}
+                className="flex items-center justify-between px-3 py-2 rounded-[14px] border border-white/8 bg-white/[0.03]"
               >
                 <div>
                   <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">
