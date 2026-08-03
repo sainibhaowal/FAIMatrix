@@ -34,7 +34,7 @@ export function GlassHeader({
             initial={{ height: 0 }}
             animate={{ height: "100%" }}
             transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
-            className="w-full shadow-[0_0_15px_rgba(34,211,238,0.3)]"
+            className="w-full"
             style={{ backgroundColor: accentColor }}
           />
         </div>
