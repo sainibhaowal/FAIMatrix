@@ -123,7 +123,8 @@ function BenchmarkResultsList({
   const [expanded, setExpanded] = useState<string | null>(null);
 
   return (
-    <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-6">
+    <div className="relative rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-6">
+      <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
       <h3 className="text-sm font-bold text-white mb-1">Benchmark Results</h3>
       <p className="text-[10px] text-slate-500 mb-4">
         Click any row to see the raw evidence data pulled from your live
@@ -135,11 +136,11 @@ function BenchmarkResultsList({
           return (
             <div
               key={bm.benchmark_id}
-              className="rounded-lg border border-slate-700/50 overflow-hidden"
+              className="rounded-[14px] border border-white/8 overflow-hidden"
             >
               <button
                 onClick={() => setExpanded(isOpen ? null : bm.benchmark_id)}
-                className="w-full flex items-center justify-between p-3 bg-slate-800/30 hover:bg-slate-800/60 transition-colors text-left"
+                className="w-full flex items-center justify-between p-3 bg-white/[0.02] hover:bg-white/[0.04] transition-colors text-left"
               >
                 <div className="flex items-center gap-2">
                   {isOpen ? (
@@ -173,7 +174,7 @@ function BenchmarkResultsList({
                 </div>
               </button>
               {isOpen && (
-                <div className="px-4 py-3 bg-slate-900/50 border-t border-slate-700/50 space-y-2">
+                <div className="px-4 py-3 bg-white/[0.02] border-t border-white/6 space-y-2">
                   <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">
                     Evidence from live database
                   </p>
@@ -181,7 +182,7 @@ function BenchmarkResultsList({
                     <EvidenceRow key={k} label={k} value={v} />
                   ))}
                   {bm.notes?.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-slate-700/40">
+                    <div className="mt-2 pt-2 border-t border-white/6">
                       {bm.notes.map((note, i) => (
                         <p
                           key={i}
@@ -192,7 +193,7 @@ function BenchmarkResultsList({
                       ))}
                     </div>
                   )}
-                  <div className="mt-2 pt-2 border-t border-slate-700/40">
+                  <div className="mt-2 pt-2 border-t border-white/6">
                     <EvidenceRow
                       label="evidence_hash (SHA-256)"
                       value={bm.evidence_hash}
@@ -446,7 +447,8 @@ export default function BenchmarksPage() {
   return (
     <div className="space-y-6">
       {criticalAlerts.length > 0 && (
-        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4">
+        <div className="relative rounded-[14px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] p-4 overflow-hidden">
+          <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-red-500 via-red-400/60 to-transparent" />
           <div className="flex items-center gap-3 text-red-400">
             <AlertCircle className="h-5 w-5 shrink-0" />
             <div>
@@ -491,7 +493,8 @@ export default function BenchmarksPage() {
         }
       />
 
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-[12px] text-slate-300">
+      <div className="relative rounded-[14px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] p-4 text-[12px] text-slate-300 overflow-hidden">
+        <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-500/80 via-amber-400/40 to-transparent" />
         <p className="font-semibold text-amber-300 mb-1">Public claim rule</p>
         <p>
           Only BEIR Retrieval, Efficiency Telemetry, and BM-1 through BM-9
@@ -546,7 +549,8 @@ export default function BenchmarksPage() {
       </div>
 
       {benchmarkView === "system" && !benchmark && !loading && (
-        <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-8 text-center">
+        <div className="relative rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-8 text-center">
+          <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/60 via-cyan-400/30 to-transparent rounded-full" />
           <div className="max-w-md mx-auto">
             <div className="w-12 h-12 rounded-full bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mx-auto mb-4">
               <Activity className="h-6 w-6 text-cyan-400" />
@@ -603,7 +607,7 @@ export default function BenchmarksPage() {
       {benchmarkView === "system" &&
         (signals ? (
           <div className="grid grid-cols-4 gap-4">
-            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                 Latency
               </p>
@@ -615,7 +619,7 @@ export default function BenchmarksPage() {
               <p className="text-[10px] text-slate-500 mt-1">p95 latency</p>
             </div>
 
-            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                 Traffic
               </p>
@@ -627,7 +631,7 @@ export default function BenchmarksPage() {
               <p className="text-[10px] text-slate-500 mt-1">requests/sec</p>
             </div>
 
-            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                 Errors
               </p>
@@ -639,7 +643,7 @@ export default function BenchmarksPage() {
               <p className="text-[10px] text-slate-500 mt-1">error rate</p>
             </div>
 
-            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                 Saturation
               </p>
@@ -661,7 +665,7 @@ export default function BenchmarksPage() {
             ].map((item) => (
               <div
                 key={item.label}
-                className="rounded-xl border border-slate-700 bg-slate-900/30 p-4"
+                className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4"
               >
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                   {item.label}
@@ -676,7 +680,7 @@ export default function BenchmarksPage() {
         ) : null)}
 
       {benchmarkView === "system" && (
-        <div className="flex gap-1 border-b border-slate-800 overflow-x-auto">
+        <div className="flex gap-1 border-b border-white/6 overflow-x-auto">
           {(SYSTEM_TABS as readonly Tab[]).map((tab) => (
             <button
               key={tab}
@@ -732,7 +736,7 @@ export default function BenchmarksPage() {
       {activeTab === "overview" && benchmark && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase">
                 Score
               </p>
@@ -740,7 +744,7 @@ export default function BenchmarksPage() {
                 {benchmark.overall_score.toFixed(0)}
               </p>
             </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase">
                 Nodes
               </p>
@@ -748,7 +752,7 @@ export default function BenchmarksPage() {
                 {benchmark.node_count}
               </p>
             </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase">
                 Edges
               </p>
@@ -756,7 +760,7 @@ export default function BenchmarksPage() {
                 {benchmark.edge_count}
               </p>
             </div>
-            <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-4">
+            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
               <p className="text-[10px] font-bold text-slate-500 uppercase">
                 Duration
               </p>
@@ -776,12 +780,12 @@ export default function BenchmarksPage() {
             {Object.entries(signals.saturation).map(([key, value]) => (
               <div
                 key={key}
-                className="rounded-xl border border-slate-700 bg-slate-900/30 p-4"
+                className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4"
               >
                 <p className="text-[10px] font-bold text-slate-500 uppercase mb-2">
                   {key.replace(/_/g, " ")}
                 </p>
-                <div className="w-full bg-slate-800 rounded-full h-2 mt-3">
+                <div className="w-full bg-white/[0.06] rounded-full h-2 mt-3">
                   <div
                     className="bg-gradient-to-r from-green-500 to-red-500 h-2 rounded-full"
                     style={{ width: `${Math.min(100, value || 0)}%` }}
@@ -798,7 +802,8 @@ export default function BenchmarksPage() {
 
       {activeTab === "stress" && stressResults && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-6">
+          <div className="relative rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-6">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-amber-500/80 via-amber-400/40 to-transparent rounded-full" />
             <h3 className="text-sm font-bold text-white mb-4">
               Load Test Results
             </h3>
@@ -806,7 +811,7 @@ export default function BenchmarksPage() {
               {stressResults.map((result) => (
                 <div
                   key={result.concurrency}
-                  className="p-4 bg-slate-800/30 rounded-lg"
+                  className="p-4 bg-white/[0.03] rounded-lg"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-medium text-slate-300">
@@ -890,7 +895,8 @@ export default function BenchmarksPage() {
 
       {activeTab === "export" && report && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-6">
+          <div className="relative rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-6">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-blue-500/80 via-blue-400/40 to-transparent rounded-full" />
             <h3 className="text-sm font-bold text-white mb-4">Export Report</h3>
             <div className="space-y-2 text-[11px] font-mono text-slate-400">
               <div>
@@ -916,7 +922,8 @@ export default function BenchmarksPage() {
       {/* ── Persistent Memory Validation ─────────────────────────── */}
       {activeTab === "track-b" && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-5">
+          <div className="relative rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-5">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-emerald-500/80 via-emerald-400/40 to-transparent rounded-full" />
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="font-bold text-white mb-1">
@@ -973,7 +980,7 @@ export default function BenchmarksPage() {
                   ].map(({ label, value }) => (
                     <div
                       key={label}
-                      className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3"
+                      className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3"
                     >
                       <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1">
                         {label}
@@ -1005,7 +1012,8 @@ export default function BenchmarksPage() {
       {/* ── Continuity Validation ────────────────────────────────── */}
       {activeTab === "track-c" && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-5">
+          <div className="relative rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-5">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-purple-500/80 via-purple-400/40 to-transparent rounded-full" />
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="font-bold text-white mb-1">
@@ -1071,7 +1079,7 @@ export default function BenchmarksPage() {
                   ].map(({ label, value, color }) => (
                     <div
                       key={label}
-                      className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3"
+                      className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3"
                     >
                       <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1">
                         {label}
@@ -1082,13 +1090,13 @@ export default function BenchmarksPage() {
                     </div>
                   ))}
                 </div>
-                <div className="rounded-lg border border-slate-700/50 bg-slate-800/20 overflow-hidden">
+                <div className="rounded-lg border border-white/8 bg-white/[0.02] overflow-hidden">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-4 pt-3 pb-2">
                     Per-Session Retention
                   </p>
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-slate-700/50">
+                      <tr className="border-b border-white/6">
                         <th className="text-left py-2 px-4 text-[10px] text-slate-500">
                           Session
                         </th>
@@ -1107,7 +1115,7 @@ export default function BenchmarksPage() {
                       {trackCResult.session_retention?.map((s: any) => (
                         <tr
                           key={s.session_id}
-                          className="border-b border-slate-800/30"
+                          className="border-b border-white/6"
                         >
                           <td className="py-2 px-4 font-mono text-slate-400 text-[11px]">
                             S{s.session_id}
@@ -1145,7 +1153,8 @@ export default function BenchmarksPage() {
       {/* ── Efficiency Telemetry ────────────────────────────────── */}
       {activeTab === "track-d" && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-5">
+          <div className="relative rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-5">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-orange-500/80 via-orange-400/40 to-transparent rounded-full" />
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="font-bold text-white mb-1">
@@ -1222,7 +1231,7 @@ export default function BenchmarksPage() {
                   ].map(({ label, value, color, decimal, isInt }) => (
                     <div
                       key={label}
-                      className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-3"
+                      className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3"
                     >
                       <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1">
                         {label}
@@ -1240,7 +1249,7 @@ export default function BenchmarksPage() {
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-slate-700/50 bg-slate-800/20 p-3">
+                  <div className="rounded-lg border border-white/8 bg-white/[0.02] p-3">
                     <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1">
                       Storage
                     </p>
@@ -1258,7 +1267,7 @@ export default function BenchmarksPage() {
                       </p>
                     )}
                   </div>
-                  <div className="rounded-lg border border-slate-700/50 bg-slate-800/20 p-3">
+                  <div className="rounded-lg border border-white/8 bg-white/[0.02] p-3">
                     <p className="text-[9px] text-slate-500 uppercase tracking-wider mb-1">
                       Quality / Storage
                     </p>
@@ -1296,7 +1305,8 @@ export default function BenchmarksPage() {
       {/* ── BEIR Retrieval Benchmark ─────────────────────────────── */}
       {activeTab === "track-a" && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-5">
+          <div className="relative rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-5">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
             <div className="flex items-start justify-between mb-3">
               <div>
                 <h3 className="font-bold text-white mb-1">
@@ -1322,7 +1332,7 @@ export default function BenchmarksPage() {
               </Button>
             </div>
             {trackAJob?.status === "running" && (
-              <div className="p-3 rounded-lg bg-slate-800/50 border border-slate-700/50 mb-4">
+              <div className="p-3 rounded-lg bg-white/[0.02] border border-white/8 mb-4">
                 <div className="flex items-center gap-2 mb-1">
                   <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
                   <span className="text-[11px] font-bold text-cyan-400">
@@ -1337,10 +1347,10 @@ export default function BenchmarksPage() {
             {trackAJob?.status === "completed" &&
               trackAJob.datasets?.length > 0 && (
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-slate-700/50 overflow-hidden">
+                  <div className="rounded-[14px] border border-white/8 overflow-hidden">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-slate-700/60 bg-slate-800/30">
+                        <tr className="border-b border-white/6 bg-white/[0.03]">
                           <th className="text-left py-2 px-4 text-[10px] text-slate-500 uppercase">
                             Dataset
                           </th>
@@ -1368,7 +1378,7 @@ export default function BenchmarksPage() {
                         {trackAJob.datasets.map((ds: any) => (
                           <tr
                             key={ds.dataset}
-                            className="border-b border-slate-800/30"
+                            className="border-b border-white/6"
                           >
                             <td className="py-3 px-4 font-bold text-slate-200">
                               {ds.dataset}
@@ -1415,7 +1425,8 @@ export default function BenchmarksPage() {
 
       {benchmarkView === "global" && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-slate-700 bg-slate-900/30 p-5">
+          <div className="relative rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-5">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-violet-500/80 via-violet-400/40 to-transparent rounded-full" />
             <div className="mb-4 flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="mb-2 font-bold text-white">Publication Suite</h3>
@@ -1525,7 +1536,7 @@ export default function BenchmarksPage() {
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-300 whitespace-nowrap border ${
                         activeTab === id
                           ? "border-cyan-500/40 bg-cyan-500/20 text-cyan-300"
-                          : "border-slate-700/50 text-slate-400 hover:border-slate-600"
+                          : "border-white/8 text-slate-400 hover:border-white/15"
                       }`}
                     >
                       {label}
@@ -1533,7 +1544,7 @@ export default function BenchmarksPage() {
                   ))}
                 </div>
                 {!publication && (
-                  <div className="rounded-lg border border-slate-700/50 bg-slate-800/20 p-5">
+                  <div className="rounded-lg border border-white/8 bg-white/[0.02] p-5">
                     <p className="text-[12px] text-slate-400">
                       Run the publication suite to unlock the measured results.
                       Internal scenario suites remain visible for validation but
@@ -1547,7 +1558,7 @@ export default function BenchmarksPage() {
             {/* BEIR Retrieval */}
             {publication && activeTab === "global-track-a" && (
               <div className="space-y-3 animate-in fade-in duration-300">
-                <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
+                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">
                     BEIR Retrieval Quality
                   </p>
@@ -1576,7 +1587,7 @@ export default function BenchmarksPage() {
                     ].map((item) => (
                       <div
                         key={item.label}
-                        className="rounded border border-slate-700/50 bg-slate-900/50 p-3 text-center"
+                        className="rounded border border-white/8 bg-white/[0.02] p-3 text-center"
                       >
                         <p className="text-[9px] text-slate-500 uppercase mb-1">
                           {item.label}
@@ -1596,7 +1607,7 @@ export default function BenchmarksPage() {
             {/* Persistent Memory */}
             {publication && activeTab === "global-track-b" && (
               <div className="space-y-3 animate-in fade-in duration-300">
-                <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
+                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">
                     Persistent Memory
                   </p>
@@ -1625,7 +1636,7 @@ export default function BenchmarksPage() {
                     ].map((item) => (
                       <div
                         key={item.label}
-                        className="rounded border border-slate-700/50 bg-slate-900/50 p-3 text-center"
+                        className="rounded border border-white/8 bg-white/[0.02] p-3 text-center"
                       >
                         <p className="text-[9px] text-slate-500 uppercase mb-1">
                           {item.label}
@@ -1645,7 +1656,7 @@ export default function BenchmarksPage() {
             {/* Continuity */}
             {publication && activeTab === "global-track-c" && (
               <div className="space-y-3 animate-in fade-in duration-300">
-                <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
+                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">
                     Long-Horizon Continuity
                   </p>
@@ -1674,7 +1685,7 @@ export default function BenchmarksPage() {
                     ].map((item) => (
                       <div
                         key={item.label}
-                        className="rounded border border-slate-700/50 bg-slate-900/50 p-3 text-center"
+                        className="rounded border border-white/8 bg-white/[0.02] p-3 text-center"
                       >
                         <p className="text-[9px] text-slate-500 uppercase mb-1">
                           {item.label}
@@ -1694,7 +1705,7 @@ export default function BenchmarksPage() {
             {/* Efficiency */}
             {publication && activeTab === "global-track-d" && (
               <div className="space-y-3 animate-in fade-in duration-300">
-                <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
+                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">
                     Efficiency
                   </p>
@@ -1723,7 +1734,7 @@ export default function BenchmarksPage() {
                     ].map((item) => (
                       <div
                         key={item.label}
-                        className="rounded border border-slate-700/50 bg-slate-900/50 p-3 text-center"
+                        className="rounded border border-white/8 bg-white/[0.02] p-3 text-center"
                       >
                         <p className="text-[9px] text-slate-500 uppercase mb-1">
                           {item.label}
@@ -1743,7 +1754,7 @@ export default function BenchmarksPage() {
             {/* Workflow */}
             {publication && activeTab === "global-track-e" && (
               <div className="space-y-3 animate-in fade-in duration-300">
-                <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
+                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">
                     Agent & API Workflow
                   </p>
@@ -1772,7 +1783,7 @@ export default function BenchmarksPage() {
                     ].map((item) => (
                       <div
                         key={item.label}
-                        className="rounded border border-slate-700/50 bg-slate-900/50 p-3 text-center"
+                        className="rounded border border-white/8 bg-white/[0.02] p-3 text-center"
                       >
                         <p className="text-[9px] text-slate-500 uppercase mb-1">
                           {item.label}
@@ -1792,7 +1803,7 @@ export default function BenchmarksPage() {
             {/* Real-World Tasks */}
             {publication && activeTab === "global-track-f" && (
               <div className="space-y-3 animate-in fade-in duration-300">
-                <div className="rounded-lg border border-slate-700/50 bg-slate-800/30 p-4">
+                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">
                     Real-World Tasks
                   </p>
@@ -1831,7 +1842,7 @@ export default function BenchmarksPage() {
                     ].map((item) => (
                       <div
                         key={item.label}
-                        className="rounded border border-slate-700/50 bg-slate-900/50 p-3 text-center"
+                        className="rounded border border-white/8 bg-white/[0.02] p-3 text-center"
                       >
                         <p className="text-[9px] text-slate-500 uppercase mb-1">
                           {item.label}
