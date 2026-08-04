@@ -35,8 +35,8 @@ type ManualSection =
   | "comparison";
 
 export default function MemoryQueryPage() {
-  // Modal overlay defaults to open when visiting FAIM Cortex
-  const [isManualModalOpen, setIsManualModalOpen] = useState(true);
+  // Modal overlay defaults to CLOSED - opens only when user clicks "Cortex Manual" button
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<ManualSection>("overview");
   const sectionContentRef = useRef<HTMLDivElement>(null);
 
@@ -49,10 +49,15 @@ export default function MemoryQueryPage() {
     { id: "comparison", label: "6. Capabilities vs RAG", icon: Activity },
   ];
 
-  // When clicking a section title from the list, update active section and close overlay modal
+  // When clicking a section title from the list, scroll right pane smoothly to that section
   const handleSelectSection = (id: ManualSection) => {
     setActiveSection(id);
-    setIsManualModalOpen(false); // Disappears so user can read / work and re-open via header button
+    if (sectionContentRef.current) {
+      const targetEl = sectionContentRef.current.querySelector(`#section-${id}`);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
   };
 
   return (
@@ -483,7 +488,7 @@ export default function MemoryQueryPage() {
               {/* Modal Footer */}
               <div className="flex items-center justify-between px-6 py-3 border-t border-white/6 bg-white/[0.01] shrink-0 text-xs">
                 <span className="text-[11px] text-slate-400">
-                  Select any chapter from the list to view it and automatically return to Cortex chat.
+                  Select any chapter from the list to navigate smoothly through the architecture guide.
                 </span>
                 <button
                   onClick={() => setIsManualModalOpen(false)}
