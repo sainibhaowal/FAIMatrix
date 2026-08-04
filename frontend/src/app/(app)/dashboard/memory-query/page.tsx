@@ -30,7 +30,6 @@ import {
   Check,
   Scale,
   Award,
-  Sparkles,
   Server,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -58,7 +57,7 @@ export default function MemoryQueryPage() {
   }, []);
 
   const sections: { id: ManualSection; label: string; icon: React.ElementType }[] = [
-    { id: "overview", label: "1. Overview & No-ML Principles", icon: Cpu },
+    { id: "overview", label: "1. Overview & Hardware Architecture", icon: Cpu },
     { id: "retrieval", label: "2. FAIM Native Retrieval Spine", icon: Database },
     { id: "loop", label: "3. 5-Step Control Loop & Router", icon: Zap },
     { id: "hops", label: "4. Adaptive 1–24+ Hop Engine", icon: GitBranch },
@@ -163,7 +162,7 @@ export default function MemoryQueryPage() {
                           FAIM Cortex — Master Enterprise Operating Architecture & System Manual
                         </h2>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Deterministic cognitive control loop, FAIM Native retrieval spine, 2.31M+ ConceptNet terms, 1–24+ adaptive hops & 3D FIG pulse proofs
+                          Deterministic cognitive control loop, CPU-first & optional CUDA GPU layer, 2.31M+ ConceptNet terms & 3D FIG pulse proofs
                         </p>
                       </div>
                     </div>
@@ -214,7 +213,7 @@ export default function MemoryQueryPage() {
                     {/* Right Dedicated Chapter Content Viewer */}
                     <div className="flex-1 min-w-0 p-6 overflow-y-auto custom-scrollbar bg-black/20">
                       <AnimatePresence mode="wait">
-                        {/* Chapter 1: Overview & No-ML Principles */}
+                        {/* Chapter 1: Overview & Hardware Architecture */}
                         {activeSection === "overview" && (
                           <motion.div
                             key="overview"
@@ -228,48 +227,48 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-cyan-300">
                                 <Cpu size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 1: Overview & No-ML Principles
+                                  Chapter 1: Overview & Hardware Architecture
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
-                                Enterprise Guarantee
+                                CPU-First + CUDA GPU Layer
                               </span>
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              <strong>FAIM Cortex</strong> is the cognitive memory synthesis engine powering the FAIM Matrix platform.
-                              A core question organizations ask is: <em>"How is FAIM so fast, accurate, and powerful without relying on heavy Machine Learning (ML) models or deep learning neural networks?"</em>
+                              <strong>FAIM Cortex</strong> is the cognitive memory synthesis engine powering FAIM Matrix.
+                              A key question is: <em>"Does FAIM require GPUs, or can it run on CPU? How does it scale for massive enterprise workloads?"</em>
                             </p>
 
                             <div className="grid gap-4 sm:grid-cols-2">
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-cyan-200 mb-1.5 flex items-center gap-1.5">
-                                  <ShieldCheck size={14} /> Deterministic Precision (No ML Drift)
+                                  <Server size={14} /> CPU-First Zero-Requirement Baseline
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Deep learning models drift and suffer from stochastic hallucinations because they predict probabilities across opaque neural weights. FAIM uses exact symbolic signatures, n-gram shingle buckets, and multi-source concept graphs for 100% reproducible, deterministic results.
+                                  FAIM does <strong>not require a GPU</strong> to function. Its core symbolic mathematics, n-gram shingle matching, and graph reasoning run at high speed on standard enterprise x86/ARM CPUs, making deployment lightweight and cost-effective.
                                 </p>
                               </div>
 
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
-                                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
-                                <h4 className="text-xs font-bold text-emerald-200 mb-1.5 flex items-center gap-1.5">
-                                  <Server size={14} /> Zero GPU Overhead
+                                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
+                                <h4 className="text-xs font-bold text-purple-200 mb-1.5 flex items-center gap-1.5">
+                                  <Zap size={14} /> Optional CUDA GPU Acceleration (`VectorBank`)
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Runs efficiently on standard enterprise CPU architecture with lightweight memory footprints. Eliminates multi-thousand dollar GPU cluster costs and model fine-tuning delays.
+                                  For massive scale (100M+ to billions of facts with sub-millisecond latency), FAIM includes an optional <strong>CUDA GPU Acceleration Layer</strong> (`FAIM_ACCEL_MODE=true`). CUDA kernels execute parallel inner-products and Compressed Sparse Row (CSR) matrix graph traversals directly in VRAM.
                                 </p>
                               </div>
                             </div>
 
                             <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.02] p-4 space-y-2">
-                              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
+                              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
                               <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                                <Award size={14} className="text-purple-400" /> Enterprise Value & Auditability
+                                <Award size={14} className="text-emerald-400" /> Key Difference: FAIM GPU Math vs Neural LLM GPUs
                               </h4>
                               <p className="text-[11px] text-slate-400 leading-relaxed">
-                                Separating <strong>retrieval reasoning</strong> from <strong>narration</strong> ensures compliance-grade transparency. Every claim made by FAIM Cortex is directly anchored to cryptographic SHA-256 evidence node hashes and exact source document lines.
+                                Neural LLMs use GPUs for non-deterministic probability sampling across billions of neural weights (causing hallucination and GPU memory hogging). FAIM uses GPUs strictly as a <strong>parallel linear algebra & CSR matrix math accelerator</strong> for 100% deterministic, zero-hallucination search!
                               </p>
                             </div>
                           </motion.div>
@@ -356,7 +355,7 @@ export default function MemoryQueryPage() {
                             className="space-y-6"
                           >
                             <div className="flex items-center justify-between border-b border-white/6 pb-3">
-                              <div className="flex items-center gap-2.5 text-zap-300 text-cyan-300">
+                              <div className="flex items-center gap-2.5 text-cyan-300">
                                 <Zap size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
                                   Chapter 3: 5-Step Control Loop & Router
@@ -669,8 +668,8 @@ export default function MemoryQueryPage() {
                                     <td className="py-3 px-4 text-amber-400/80">Drift & Stochastic Output</td>
                                   </tr>
                                   <tr>
-                                    <td className="py-3 px-4 font-semibold text-slate-200">Hardware & Infrastructure</td>
-                                    <td className="py-3 px-4 text-emerald-400 font-semibold">Standard Enterprise CPU (Zero GPU Required)</td>
+                                    <td className="py-3 px-4 font-semibold text-slate-200">Hardware & GPU Acceleration</td>
+                                    <td className="py-3 px-4 text-emerald-400 font-semibold">CPU-First (Optional CUDA GPU Layer)</td>
                                     <td className="py-3 px-4 text-slate-300">CPU Vector DB</td>
                                     <td className="py-3 px-4 text-red-400">High-cost multi-GPU clusters</td>
                                   </tr>
