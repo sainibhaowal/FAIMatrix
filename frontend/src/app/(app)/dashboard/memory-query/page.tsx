@@ -57,14 +57,14 @@ export default function MemoryQueryPage() {
   }, []);
 
   const sections: { id: ManualSection; label: string; icon: React.ElementType }[] = [
-    { id: "overview", label: "1. Overview & Hardware Architecture", icon: Cpu },
+    { id: "overview", label: "1. Core Architecture & Compute Layer", icon: Cpu },
     { id: "retrieval", label: "2. FAIM Native Retrieval Spine", icon: Database },
-    { id: "loop", label: "3. 5-Step Control Loop & Router", icon: Zap },
-    { id: "hops", label: "4. Adaptive 1–24+ Hop Engine", icon: GitBranch },
+    { id: "loop", label: "3. 5-Stage Control Loop & Router", icon: Zap },
+    { id: "hops", label: "4. Adaptive 1–24+ Hop Reasoning Engine", icon: GitBranch },
     { id: "branches", label: "5. 7 Parallel Cognitive Branches", icon: Layers },
-    { id: "scenarios", label: "6. Enterprise Scenarios & Life Cycles", icon: FileText },
-    { id: "writeback", label: "7. Durable Writebacks & Receipts", icon: RotateCcw },
-    { id: "benchmark", label: "8. Enterprise Comparison Matrix", icon: Scale },
+    { id: "scenarios", label: "6. Enterprise Lifecycle Scenarios", icon: FileText },
+    { id: "writeback", label: "7. Durable Memory Writebacks", icon: RotateCcw },
+    { id: "benchmark", label: "8. Technical Benchmark & Matrix", icon: Scale },
   ];
 
   const handleSelectSection = (id: ManualSection) => {
@@ -159,10 +159,10 @@ export default function MemoryQueryPage() {
                       </div>
                       <div>
                         <h2 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
-                          FAIM Cortex — Master Enterprise Operating Architecture & System Manual
+                          FAIM Cortex — Technical Specification & Operating Manual
                         </h2>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Deterministic cognitive control loop, CPU-first & optional CUDA GPU layer, 2.31M+ ConceptNet terms & 3D FIG pulse proofs
+                          Deterministic cognitive control loop, dual CPU/CUDA execution topology, 2.31M+ semantic base & 3D FIG pulse ledgers
                         </p>
                       </div>
                     </div>
@@ -213,7 +213,7 @@ export default function MemoryQueryPage() {
                     {/* Right Dedicated Chapter Content Viewer */}
                     <div className="flex-1 min-w-0 p-6 overflow-y-auto custom-scrollbar bg-black/20">
                       <AnimatePresence mode="wait">
-                        {/* Chapter 1: Overview & Hardware Architecture */}
+                        {/* Chapter 1: Core Architecture & Compute Layer */}
                         {activeSection === "overview" && (
                           <motion.div
                             key="overview"
@@ -227,37 +227,37 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-cyan-300">
                                 <Cpu size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 1: Overview & Hardware Architecture
+                                  Chapter 1: Core Architecture & Compute Layer
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
-                                CPU-First + CUDA GPU Layer
+                                Enterprise Compute Architecture
                               </span>
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              <strong>FAIM Cortex</strong> is the cognitive memory synthesis engine powering FAIM Matrix.
-                              A key question is: <em>"Does FAIM require GPUs, or can it run on CPU? How does it scale for massive enterprise workloads?"</em>
+                              <strong>FAIM Cortex</strong> is the cognitive memory synthesis engine of the FAIM Matrix architecture.
+                              The system decoupling separates high-speed symbolic graph retrieval from output narration, delivering high-precision memory synthesis across both edge and multi-node enterprise environments.
                             </p>
 
                             <div className="grid gap-4 sm:grid-cols-2">
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-cyan-200 mb-1.5 flex items-center gap-1.5">
-                                  <Server size={14} /> CPU-First Zero-Requirement Baseline
+                                  <Server size={14} /> CPU Native Execution Baseline
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  FAIM does <strong>not require a GPU</strong> to function. Its core symbolic mathematics, n-gram shingle matching, and graph reasoning run at high speed on standard enterprise x86/ARM CPUs, making deployment lightweight and cost-effective.
+                                  Standard deployments run directly on enterprise x86/ARM CPU architectures using SIMD vector instructions, eliminating compulsory GPU hardware requirements for core knowledge indexing and retrieval operations.
                                 </p>
                               </div>
 
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-purple-200 mb-1.5 flex items-center gap-1.5">
-                                  <Zap size={14} /> Optional CUDA GPU Acceleration (`VectorBank`)
+                                  <Zap size={14} /> Optional CUDA Acceleration (`VectorBank`)
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  For massive scale (100M+ to billions of facts with sub-millisecond latency), FAIM includes an optional <strong>CUDA GPU Acceleration Layer</strong> (`FAIM_ACCEL_MODE=true`). CUDA kernels execute parallel inner-products and Compressed Sparse Row (CSR) matrix graph traversals directly in VRAM.
+                                  For multi-million node graphs requiring sub-millisecond latency, FAIM enables an optional CUDA Acceleration Layer (`FAIM_ACCEL_MODE=true`). CUDA kernels execute parallel inner-products and Compressed Sparse Row (CSR) matrix graph operations directly in VRAM.
                                 </p>
                               </div>
                             </div>
@@ -265,10 +265,10 @@ export default function MemoryQueryPage() {
                             <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.02] p-4 space-y-2">
                               <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
                               <h4 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-                                <Award size={14} className="text-emerald-400" /> Key Difference: FAIM GPU Math vs Neural LLM GPUs
+                                <Award size={14} className="text-emerald-400" /> Mathematical Determinism Guarantee
                               </h4>
                               <p className="text-[11px] text-slate-400 leading-relaxed">
-                                Neural LLMs use GPUs for non-deterministic probability sampling across billions of neural weights (causing hallucination and GPU memory hogging). FAIM uses GPUs strictly as a <strong>parallel linear algebra & CSR matrix math accelerator</strong> for 100% deterministic, zero-hallucination search!
+                                Unlike neural LLM inference which uses GPUs for stochastic sampling across non-transparent weights, FAIM utilizes compute resources strictly for <strong>symbolic inner-products, n-gram shingle matching, and CSR graph operations</strong>, ensuring 100% reproducible, zero-hallucination results.
                               </p>
                             </div>
                           </motion.div>
@@ -292,12 +292,12 @@ export default function MemoryQueryPage() {
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
-                                Multi-Channel Index
+                                Multi-Channel Indexing
                               </span>
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              FAIM Native retrieval does not rely on simple BM25 keyword matching or raw vector similarity. It implements a multi-layer deterministic engine:
+                              Retrieval in FAIM Native operates across 4 complementary semantic channels centered around the `v_native` canonical dense vector core:
                             </p>
 
                             <div className="grid gap-3 sm:grid-cols-2">
@@ -307,7 +307,7 @@ export default function MemoryQueryPage() {
                                   <Binary size={14} /> 8 Semantic Signature Sidecars
                                 </div>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  During ingest, `RepresentationV2` extracts phrase shingles (n-grams), concept keys, alias families, transliterated tokens, stem families, morphology buckets, and temporal/relation cues.
+                                  `RepresentationV2` extracts phrase shingles (n-grams), concept keys, alias families, transliterated tokens, stem families, morphology buckets, and temporal/relation cues during document ingestion.
                                 </p>
                               </div>
 
@@ -317,7 +317,7 @@ export default function MemoryQueryPage() {
                                   <Search size={14} /> 2.31M+ ConceptNet Semantic Base
                                 </div>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Ships with an embedded 2,172,991 ConceptNet synonym archive, generating deterministic, source-tagged phrase and token expansions without neural query rewrites.
+                                  Integrates 2,172,991 ConceptNet synonym assertions to provide deterministic, source-tagged term and phrase expansions without neural query modification.
                                 </p>
                               </div>
 
@@ -327,7 +327,7 @@ export default function MemoryQueryPage() {
                                   <Globe size={14} /> Multilingual Concept Bridges
                                 </div>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Includes compressed TSV enterprise packs for cross-lingual concept coverage (EN, DE, etc.), performing deterministic transliteration and lemma matching.
+                                  Utilizes compressed TSV bridge packs for cross-language matching (EN, DE, etc.), enabling deterministic transliteration and lemma mapping.
                                 </p>
                               </div>
 
@@ -337,14 +337,14 @@ export default function MemoryQueryPage() {
                                   <BrainCircuit size={14} /> Graph-Learned Domain Memory
                                 </div>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Autonomous upload workers mine graph-local `concept_bundle` and `semantic_paraphrase` rows, adapting lexicon terms automatically after file uploads.
+                                  Autonomous ingestion operators dynamically mine graph-local `concept_bundle` and `semantic_paraphrase` records to adapt vocabulary definitions post-ingestion.
                                 </p>
                               </div>
                             </div>
                           </motion.div>
                         )}
 
-                        {/* Chapter 3: 5-Step Control Loop & Router */}
+                        {/* Chapter 3: 5-Stage Control Loop & Router */}
                         {activeSection === "loop" && (
                           <motion.div
                             key="loop"
@@ -358,16 +358,16 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-cyan-300">
                                 <Zap size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 3: 5-Step Control Loop & Router
+                                  Chapter 3: 5-Stage Control Loop & Router
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
-                                Specs 67 & 72
+                                Control Loop Spec 67
                               </span>
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              Cortex uses a small, deterministic task router to classify intent into core cognitive task types in sub-5ms without LLM classifier overhead.
+                              Turns are processed through a deterministic 5-stage pipeline, managed by an alias task router executing in sub-5ms latency:
                             </p>
 
                             <div className="rounded-[14px] border border-cyan-500/20 bg-cyan-500/[0.04] p-4 font-mono text-xs text-cyan-200 text-center flex flex-wrap items-center justify-center gap-2">
@@ -387,7 +387,7 @@ export default function MemoryQueryPage() {
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-cyan-200 mb-1.5">Deterministic Router</h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Maps turns into cognitive modes (direct, timeline, contradiction, provenance) using alias maps instead of LLM prompt classifiers.
+                                  Classifies queries into distinct operational modes (direct, timeline, contradiction, provenance) via static alias mapping without LLM classification overhead.
                                 </p>
                               </div>
 
@@ -395,7 +395,7 @@ export default function MemoryQueryPage() {
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-purple-200 mb-1.5">State Reduction</h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Reduces multi-branch evidence into a single inspectable `CortexBrainState` containing evidence nodes and reasoning edge paths.
+                                  Consolidates evidence from active branches into an auditable `CortexBrainState` structure containing candidate nodes and edge reasoning chains.
                                 </p>
                               </div>
                             </div>
@@ -416,7 +416,7 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-indigo-300">
                                 <GitBranch size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 4: Adaptive 1–24+ Hop Engine
+                                  Chapter 4: Adaptive 1–24+ Hop Reasoning Engine
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-indigo-400/80 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
@@ -425,15 +425,15 @@ export default function MemoryQueryPage() {
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              FAIM Cortex implements a <strong>real planner-driven adaptive hop runtime</strong> (`planner_enhanced.py`). Cortex thinking is <strong>on by default from the backend</strong>:
+                              Graph traversal depth is computed dynamically per query via `planner_enhanced.py`, enforcing strict bounded depth ceilings:
                             </p>
 
                             <div className="space-y-3">
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4 flex items-center justify-between gap-4">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                                 <div>
-                                  <p className="text-xs font-bold text-cyan-200">Shallow Direct Turns (1–3 Hops)</p>
-                                  <p className="text-[11px] text-slate-400 mt-1">Direct facts and single-document lookups stay at low depth for minimal latency.</p>
+                                  <p className="text-xs font-bold text-cyan-200">Shallow Direct Traversal (1–3 Hops)</p>
+                                  <p className="text-[11px] text-slate-400 mt-1">Applied for single-node facts and direct property lookups to maintain low execution latency.</p>
                                 </div>
                                 <span className="shrink-0 text-xs font-mono font-bold text-cyan-400 border border-cyan-500/30 px-2.5 py-1 rounded-md bg-cyan-500/10">1–3 Hops</span>
                               </div>
@@ -441,8 +441,8 @@ export default function MemoryQueryPage() {
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4 flex items-center justify-between gap-4">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
                                 <div>
-                                  <p className="text-xs font-bold text-purple-200">Adaptive Production Default (1–24 Hops)</p>
-                                  <p className="text-[11px] text-slate-400 mt-1">Multi-entity relationship mapping and investigative turns dynamically expand graph traversal depth.</p>
+                                  <p className="text-xs font-bold text-purple-200">Adaptive Traversal Default (1–24 Hops)</p>
+                                  <p className="text-[11px] text-slate-400 mt-1">Standard depth ceiling for multi-entity relational queries and complex path investigations.</p>
                                 </div>
                                 <span className="shrink-0 text-xs font-mono font-bold text-purple-400 border border-purple-500/30 px-2.5 py-1 rounded-md bg-purple-500/10">Default 24</span>
                               </div>
@@ -451,7 +451,7 @@ export default function MemoryQueryPage() {
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-400/80 via-amber-400/30 to-transparent" />
                                 <div>
                                   <p className="text-xs font-bold text-amber-200">Extended Bounded Ceiling (Up to 128 Hops)</p>
-                                  <p className="text-[11px] text-slate-400 mt-1">Configurable ceiling for deep domain reasoning across large, highly interconnected universe graphs.</p>
+                                  <p className="text-[11px] text-slate-400 mt-1">Configurable maximum boundary (`FAIM_CORTEX_MAX_HOPS`) for large, deeply interconnected knowledge topologies.</p>
                                 </div>
                                 <span className="shrink-0 text-xs font-mono font-bold text-amber-400 border border-amber-500/30 px-2.5 py-1 rounded-md bg-amber-500/10">Up to 128</span>
                               </div>
@@ -477,23 +477,23 @@ export default function MemoryQueryPage() {
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-purple-400/80 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full">
-                                Parallel Architecture
+                                Branch Architecture
                               </span>
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              During every turn, Cortex executes up to 7 structured reasoning branches in parallel before state reduction:
+                              The Cortex runtime dispatches up to 7 specialized analysis routines concurrently during each query cycle:
                             </p>
 
                             <div className="grid gap-3 sm:grid-cols-2">
                               {[
-                                { name: "1. Recall Branch", desc: "Retrieves core candidate nodes from multi-channel vector & lexical stores." },
-                                { name: "2. Timeline Branch", desc: "Reconstructs temporal lineages and resolves chronological event ordering." },
-                                { name: "3. Contradiction Branch", desc: "Scans graph assertions for conflicts, supersessions, and stale facts." },
-                                { name: "4. Concept Branch", desc: "Maps higher-order concept clusters and domain bundle relationships." },
-                                { name: "5. Prediction Branch", desc: "Evaluates trend implications and forward domain trajectories." },
-                                { name: "6. Provenance Branch", desc: "Exposes raw source files, chunk hashes, and graph traversal paths." },
-                                { name: "7. Continuity Branch", desc: "Carries context forward across turns from previous session turns." },
+                                { name: "1. Recall Branch", desc: "Retrieves candidate nodes from combined vector and multi-channel lexical indices." },
+                                { name: "2. Timeline Branch", desc: "Constructs temporal event sequences and orders chronological assertions." },
+                                { name: "3. Contradiction Branch", desc: "Evaluates assertion integrity to detect conflicting or superseded knowledge." },
+                                { name: "4. Concept Branch", desc: "Identifies concept clusters and domain-level entity groupings." },
+                                { name: "5. Prediction Branch", desc: "Projects structural graph trends and forward domain trajectories." },
+                                { name: "6. Provenance Branch", desc: "Traces exact document sources, node identifiers, and SHA-256 evidence hashes." },
+                                { name: "7. Continuity Branch", desc: "Maintains conversational context across multi-turn sessions." },
                               ].map((b) => (
                                 <div
                                   key={b.name}
@@ -508,7 +508,7 @@ export default function MemoryQueryPage() {
                           </motion.div>
                         )}
 
-                        {/* Chapter 6: Enterprise Scenarios & Life Cycles */}
+                        {/* Chapter 6: Enterprise Lifecycle Scenarios */}
                         {activeSection === "scenarios" && (
                           <motion.div
                             key="scenarios"
@@ -522,20 +522,20 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-sky-300">
                                 <FileText size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 6: Enterprise Scenarios & Life Cycles
+                                  Chapter 6: Enterprise Lifecycle Scenarios
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-sky-400/80 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-full">
-                                Real User Scenarios
+                                Operational Scenarios
                               </span>
                             </div>
 
                             <div className="space-y-4">
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4 space-y-1.5">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
-                                <h4 className="text-xs font-bold text-cyan-200">Scenario A: Grounded Factual Answer</h4>
+                                <h4 className="text-xs font-bold text-cyan-200">Scenario A: Grounded Fact Synthesis</h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Recalls candidate nodes, expands context, ranks top evidence, returns a cited answer, and highlights the evidence path in FIG View.
+                                  Retrieves relevant evidence nodes, validates path continuity, and synthesizes a fully cited response linked directly to verified graph entities.
                                 </p>
                               </div>
 
@@ -543,22 +543,22 @@ export default function MemoryQueryPage() {
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-400/80 via-amber-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-amber-200">Scenario B: Temporal Contradiction Resolution</h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Detects facts that changed over time, resolves <span className="text-emerald-400 font-mono">CURRENT</span> vs <span className="text-slate-500 font-mono">HISTORICAL</span> state, dims superseded nodes in 3D FIG View, and reports the active truth.
+                                  Identifies conflicting assertions over time, categorizing nodes into <span className="text-emerald-400 font-mono">CURRENT</span> and <span className="text-slate-500 font-mono">HISTORICAL</span> states while updating visual state in FIG View.
                                 </p>
                               </div>
 
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4 space-y-1.5">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
-                                <h4 className="text-xs font-bold text-purple-200">Scenario C: File Upload Memory Evolution</h4>
+                                <h4 className="text-xs font-bold text-purple-200">Scenario C: Continuous Memory Evolution</h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Uploading a new document ingests raw bytes, stores new memory packets, evolves graph topology, and surfaces updated facts on the next Cortex turn.
+                                  Document ingest pipeline creates new entity nodes and updates graph edges, making newly ingested facts instantly searchable on subsequent turns.
                                 </p>
                               </div>
                             </div>
                           </motion.div>
                         )}
 
-                        {/* Chapter 7: Durable Writebacks & Receipts */}
+                        {/* Chapter 7: Durable Memory Writebacks */}
                         {activeSection === "writeback" && (
                           <motion.div
                             key="writeback"
@@ -572,43 +572,43 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-amber-300">
                                 <RotateCcw size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 7: Durable Writebacks & Receipts
+                                  Chapter 7: Durable Memory Writebacks
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-amber-400/80 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
-                                Architecture Spec 72
+                                Execution Spec 72
                               </span>
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              Memory updates proposed during Cortex reasoning are structural changes requiring safety controls:
+                              Memory updates generated during Cortex reasoning follow strict structural persistence policies:
                             </p>
 
                             <div className="grid gap-4 sm:grid-cols-2">
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-400/80 via-amber-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-amber-200 mb-1 flex items-center gap-1.5">
-                                  <Lock size={13} /> Gatekept Structural Updates
+                                  <Lock size={13} /> Strict Access Controls
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Cortex gatekeeps structural writebacks into PostgreSQL, ensuring no rogue automated mutations bypass tenant scoping.
+                                  Structural graph modifications require explicit approval mechanisms to enforce tenant isolation and prevent unintended state drift.
                                 </p>
                               </div>
 
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-emerald-200 mb-1 flex items-center gap-1.5">
-                                  <Check size={13} /> Durable Execution & Receipts
+                                  <Check size={13} /> Idempotent Execution Path
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Approved writebacks execute through a durable, idempotent backend path (`writeback_executor.py`), recording execution receipts (`packet_hash`, `nodes_written`) for replay safety.
+                                  Approved writebacks are executed via `writeback_executor.py`, producing execution receipts containing `packet_hash` and `nodes_written` for replay verification.
                                 </p>
                               </div>
                             </div>
                           </motion.div>
                         )}
 
-                        {/* Chapter 8: Enterprise Comparison Matrix */}
+                        {/* Chapter 8: Technical Benchmark & Matrix */}
                         {activeSection === "benchmark" && (
                           <motion.div
                             key="benchmark"
@@ -622,11 +622,11 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-purple-300">
                                 <Scale size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 8: Enterprise Comparison Matrix
+                                  Chapter 8: Technical Benchmark & Matrix
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-purple-400/80 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full">
-                                Enterprise Claims
+                                System Benchmarks
                               </span>
                             </div>
 
@@ -637,47 +637,47 @@ export default function MemoryQueryPage() {
                                     <th className="py-3 px-4">Architecture Metric</th>
                                     <th className="py-3 px-4 text-cyan-300">FAIM Native & Cortex</th>
                                     <th className="py-3 px-4 text-slate-500">Traditional Chunk RAG</th>
-                                    <th className="py-3 px-4 text-slate-500">Heavy ML / LLM Agents</th>
+                                    <th className="py-3 px-4 text-slate-500">Heavy ML / LLM Architectures</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/6 text-slate-300">
                                   <tr>
                                     <td className="py-3 px-4 font-semibold text-slate-200">Retrieval & Indexing Spine</td>
                                     <td className="py-3 px-4 text-cyan-200 font-semibold">`v_native` + 8 Semantic Sidecars</td>
-                                    <td className="py-3 px-4 text-slate-500">Top-k text chunks</td>
-                                    <td className="py-3 px-4 text-slate-500">Heavy vector embeddings</td>
+                                    <td className="py-3 px-4 text-slate-500">Unstructured Text Chunks</td>
+                                    <td className="py-3 px-4 text-slate-500">Heavy Vector Embeddings</td>
                                   </tr>
                                   <tr>
-                                    <td className="py-3 px-4 font-semibold text-slate-200">Expansion Base</td>
-                                    <td className="py-3 px-4 text-cyan-200 font-semibold">2.31M+ ConceptNet terms + Multilingual TSVs</td>
-                                    <td className="py-3 px-4 text-slate-500">Flat keyword search</td>
-                                    <td className="py-3 px-4 text-slate-500">LLM query rewrite (stochastic)</td>
+                                    <td className="py-3 px-4 font-semibold text-slate-200">Expansion Engine</td>
+                                    <td className="py-3 px-4 text-cyan-200 font-semibold">2.31M+ ConceptNet Terms + Multilingual TSVs</td>
+                                    <td className="py-3 px-4 text-slate-500">Static Keyword Matching</td>
+                                    <td className="py-3 px-4 text-slate-500">Stochastic LLM Query Rewriting</td>
                                   </tr>
                                   <tr>
                                     <td className="py-3 px-4 font-semibold text-slate-200">Reasoning Depth</td>
                                     <td className="py-3 px-4 text-cyan-200 font-semibold">Adaptive 1–24+ Hops (Ceiling 128)</td>
-                                    <td className="py-3 px-4 text-slate-500">Single-pass 1-hop lookup</td>
-                                    <td className="py-3 px-4 text-slate-500">Unbounded agentic loops (slow)</td>
+                                    <td className="py-3 px-4 text-slate-500">Single-Pass 1-Hop Lookup</td>
+                                    <td className="py-3 px-4 text-slate-500">Unbounded Agent Loops</td>
                                   </tr>
                                   <tr>
-                                    <td className="py-3 px-4 font-semibold text-slate-200">Hallucination Protection</td>
+                                    <td className="py-3 px-4 font-semibold text-slate-200">Hallucination Verification</td>
                                     <td className="py-3 px-4 text-emerald-400 font-semibold flex items-center gap-1.5">
                                       <CheckCircle2 size={14} /> 100% Grounded (SHA-256 Hashes)
                                     </td>
-                                    <td className="py-3 px-4 text-amber-400/80">High Hallucination Risk</td>
-                                    <td className="py-3 px-4 text-amber-400/80">Drift & Stochastic Output</td>
+                                    <td className="py-3 px-4 text-amber-400/80">Unverified Context Chunks</td>
+                                    <td className="py-3 px-4 text-amber-400/80">Non-Deterministic Sampling Drift</td>
                                   </tr>
                                   <tr>
-                                    <td className="py-3 px-4 font-semibold text-slate-200">Hardware & GPU Acceleration</td>
+                                    <td className="py-3 px-4 font-semibold text-slate-200">Compute Hardware Profile</td>
                                     <td className="py-3 px-4 text-emerald-400 font-semibold">CPU-First (Optional CUDA GPU Layer)</td>
                                     <td className="py-3 px-4 text-slate-300">CPU Vector DB</td>
-                                    <td className="py-3 px-4 text-red-400">High-cost multi-GPU clusters</td>
+                                    <td className="py-3 px-4 text-red-400">Multi-GPU Clusters Required</td>
                                   </tr>
                                   <tr>
-                                    <td className="py-3 px-4 font-semibold text-slate-200">Visual Proof & Audit</td>
-                                    <td className="py-3 px-4 text-cyan-200">Full 3D FIG View Pulse Receipts</td>
-                                    <td className="py-3 px-4 text-slate-500">Black Box Text Output</td>
-                                    <td className="py-3 px-4 text-slate-500">Opaque Chain-of-Thought logs</td>
+                                    <td className="py-3 px-4 font-semibold text-slate-200">Visual Audit & Proof</td>
+                                    <td className="py-3 px-4 text-cyan-200">3D FIG View Pulse Ledgers</td>
+                                    <td className="py-3 px-4 text-slate-500">Unformatted Text Output</td>
+                                    <td className="py-3 px-4 text-slate-500">Opaque Internal Logs</td>
                                   </tr>
                                 </tbody>
                               </table>
