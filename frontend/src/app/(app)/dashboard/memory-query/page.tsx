@@ -21,6 +21,10 @@ import {
   Lock,
   X,
   ChevronRight,
+  Database,
+  Search,
+  Globe,
+  Binary,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatInterface } from "@/components/memoryquery/ChatInterface";
@@ -29,10 +33,10 @@ import { HistoryPanel } from "@/components/memoryquery/HistoryPanel";
 
 type ManualSection =
   | "overview"
+  | "retrieval"
   | "pipeline"
   | "modes"
   | "hops"
-  | "provenance"
   | "comparison";
 
 export default function MemoryQueryPage() {
@@ -45,12 +49,12 @@ export default function MemoryQueryPage() {
   }, []);
 
   const sections: { id: ManualSection; label: string; icon: React.ElementType }[] = [
-    { id: "overview", label: "1. Overview & Core Concept", icon: Cpu },
-    { id: "pipeline", label: "2. 6-Stage Execution Pipeline", icon: Layers },
-    { id: "modes", label: "3. Cognitive Answer Modes", icon: FileText },
-    { id: "hops", label: "4. Dynamic Hop Budgeting", icon: GitBranch },
-    { id: "provenance", label: "5. Provenance & Zero-Hallucination", icon: ShieldCheck },
-    { id: "comparison", label: "6. Capabilities vs RAG", icon: Activity },
+    { id: "overview", label: "1. Overview & Cortex Core", icon: Cpu },
+    { id: "retrieval", label: "2. FAIM Native Retrieval Spine", icon: Database },
+    { id: "pipeline", label: "3. 6-Stage Cognitive Pipeline", icon: Layers },
+    { id: "modes", label: "4. Cognitive Answer Modes", icon: FileText },
+    { id: "hops", label: "5. Dynamic Hop Budgeting", icon: GitBranch },
+    { id: "comparison", label: "6. Capabilities vs Standard RAG", icon: Activity },
   ];
 
   const handleSelectSection = (id: ManualSection) => {
@@ -148,7 +152,7 @@ export default function MemoryQueryPage() {
                           FAIM Cortex — Professional Operating Manual & Architecture
                         </h2>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Deterministic memory synthesis engine with bounded multi-hop graph reasoning & zero-hallucination provenance
+                          Deterministic memory synthesis engine built on FAIM Native retrieval, 2.31M+ ConceptNet semantics, and 3D FIG View receipts
                         </p>
                       </div>
                     </div>
@@ -212,49 +216,118 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-cyan-300">
                                 <Cpu size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 1: Overview & Core Concept
+                                  Chapter 1: Overview & Cortex Core
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
-                                Architecture 1.0
+                                Native Architecture
                               </span>
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              <strong>FAIM Cortex</strong> is the cognitive memory synthesis engine powering the FAIM Matrix platform.
-                              Unlike traditional Retrieval-Augmented Generation (RAG) which relies solely on top-k vector similarity and passes unstructured chunks to an LLM, FAIM Cortex performs <strong>planner-driven, bounded multi-hop graph reasoning</strong> directly over your live knowledge graph.
+                              <strong>FAIM Cortex</strong> is the cognitive memory synthesis engine of FAIM Matrix.
+                              Rather than treating retrieval as a single-pass chunk lookup, Cortex operates directly on top of the <strong>FAIM Native Retrieval Spine</strong>, combining dense vector indexing (`v_native`), 8 semantic signature sidecars, multi-source weighted expansions, and planner-driven graph traversal.
                             </p>
 
                             <div className="grid gap-4 sm:grid-cols-2">
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-cyan-200 mb-1.5 flex items-center gap-1.5">
-                                  <Zap size={13} /> Deterministic Architecture
+                                  <Zap size={13} /> Planner-Driven Reasoning
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Combines canonical semantics, a 2.31M+ term semantic registry base, ConceptNet broadening, and graph-learned domain memory for exact evidence identification.
+                                  Uses a deterministic alias router to classify turn intent into 8 core cognitive task types without LLM classifier latency or non-deterministic intent drift.
                                 </p>
                               </div>
 
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-purple-200 mb-1.5 flex items-center gap-1.5">
-                                  <ShieldCheck size={13} /> Zero Hallucination
+                                  <ShieldCheck size={13} /> Zero Hallucination Grounding
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Every output statement is strictly anchored to evidence node IDs and cryptographic SHA-256 evidence hashes.
+                                  Every statement is anchored strictly to retrieved evidence node IDs and cryptographic SHA-256 evidence hashes.
                                 </p>
                               </div>
                             </div>
 
                             <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.02] p-4 space-y-2">
                               <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
-                              <h4 className="text-xs font-bold text-slate-200">Core Objectives</h4>
+                              <h4 className="text-xs font-bold text-slate-200">Core System Principles</h4>
                               <ul className="text-[11px] text-slate-400 space-y-1.5 list-disc list-inside">
-                                <li>Eliminate non-deterministic LLM hallucination in corporate knowledge management.</li>
-                                <li>Provide clear graph traversal receipts visualised in real-time inside the 3D FIG View.</li>
-                                <li>Support self-directed domain learning and background memory refinement.</li>
+                                <li><strong>Vector Spine</strong>: `v_native` provides canonical dense representation without external model lock-in.</li>
+                                <li><strong>Explainable Fusion</strong>: Exposes exact query fusion summaries and phase scores in explain payloads.</li>
+                                <li><strong>3D Visual Proof</strong>: Emits pulse-v2 ledger events that illuminate reasoning paths in 3D FIG View.</li>
                               </ul>
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {activeSection === "retrieval" && (
+                          <motion.div
+                            key="retrieval"
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.2 }}
+                            className="space-y-6"
+                          >
+                            <div className="flex items-center justify-between border-b border-white/6 pb-3">
+                              <div className="flex items-center gap-2.5 text-cyan-300">
+                                <Database size={20} />
+                                <h3 className="text-base font-bold text-white uppercase tracking-wider">
+                                  Chapter 2: FAIM Native Retrieval Spine
+                                </h3>
+                              </div>
+                              <span className="text-[10px] font-mono text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
+                                Multi-Channel Index
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-300 leading-relaxed">
+                              FAIM Native retrieval does not rely on simple keyword BM25 or raw vector search alone. It implements a multi-channel retrieval engine:
+                            </p>
+
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+                                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
+                                <div className="flex items-center gap-1.5 text-cyan-300 mb-1 font-bold text-xs">
+                                  <Binary size={14} /> 8 Semantic Signature Sidecars
+                                </div>
+                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                  Ingest extracts phrase shingles (n-grams), concept keys, alias families, transliterated tokens, stem families, morphology buckets, and relation/time cues into `RepresentationV2`.
+                                </p>
+                              </div>
+
+                              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+                                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
+                                <div className="flex items-center gap-1.5 text-purple-300 mb-1 font-bold text-xs">
+                                  <Search size={14} /> 2.31M+ ConceptNet Semantic Base
+                                </div>
+                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                  Ships with an embedded 2,172,991 ConceptNet synonym archive, providing deterministic, source-tagged phrase and token expansion without neural query rewrites.
+                                </p>
+                              </div>
+
+                              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+                                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
+                                <div className="flex items-center gap-1.5 text-sky-300 mb-1 font-bold text-xs">
+                                  <Globe size={14} /> Multilingual Concept Bridges
+                                </div>
+                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                  Includes compressed TSV enterprise packs for cross-lingual concept coverage (EN, DE, etc.), performing deterministic transliteration and lemma matching.
+                                </p>
+                              </div>
+
+                              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+                                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
+                                <div className="flex items-center gap-1.5 text-emerald-300 mb-1 font-bold text-xs">
+                                  <BrainCircuit size={14} /> Graph-Learned Domain Memory
+                                </div>
+                                <p className="text-[11px] text-slate-400 leading-relaxed">
+                                  Autonomous upload workers mine graph-local `concept_bundle` and `semantic_paraphrase` rows, adapting lexicon terms automatically after file uploads.
+                                </p>
+                              </div>
                             </div>
                           </motion.div>
                         )}
@@ -272,7 +345,7 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-purple-300">
                                 <Layers size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 2: 6-Stage Execution Pipeline
+                                  Chapter 3: 6-Stage Cognitive Pipeline
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-purple-400/80 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full">
@@ -350,7 +423,7 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-sky-300">
                                 <FileText size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 3: Cognitive Answer Modes
+                                  Chapter 4: Cognitive Answer Modes
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-sky-400/80 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-full">
@@ -423,7 +496,7 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-indigo-300">
                                 <GitBranch size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 4: Dynamic Hop Budgeting
+                                  Chapter 5: Dynamic Hop Budgeting
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-indigo-400/80 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
@@ -466,57 +539,6 @@ export default function MemoryQueryPage() {
                           </motion.div>
                         )}
 
-                        {activeSection === "provenance" && (
-                          <motion.div
-                            key="provenance"
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -8 }}
-                            transition={{ duration: 0.2 }}
-                            className="space-y-6"
-                          >
-                            <div className="flex items-center justify-between border-b border-white/6 pb-3">
-                              <div className="flex items-center gap-2.5 text-emerald-300">
-                                <ShieldCheck size={20} />
-                                <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 5: Provenance & Zero Hallucination
-                                </h3>
-                              </div>
-                              <span className="text-[10px] font-mono text-emerald-400/80 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
-                                Strict Integrity
-                              </span>
-                            </div>
-
-                            <p className="text-xs text-slate-300 leading-relaxed">
-                              In traditional LLM apps, hallucination is a constant risk because the generative model generates facts from memory weights. FAIM Cortex separates <strong>retrieval reasoning</strong> from <strong>narration</strong>.
-                            </p>
-
-                            <div className="grid gap-4 sm:grid-cols-2">
-                              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
-                                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
-                                <div className="flex items-center gap-1.5 text-emerald-300 mb-1.5">
-                                  <Lock size={15} />
-                                  <span className="text-xs font-bold uppercase">Cryptographic Hashes</span>
-                                </div>
-                                <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Every ingested file and graph packet has a SHA-256 hash. Citation badges link directly back to verified raw source packets.
-                                </p>
-                              </div>
-
-                              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
-                                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
-                                <div className="flex items-center gap-1.5 text-cyan-300 mb-1.5">
-                                  <Share2 size={15} />
-                                  <span className="text-xs font-bold uppercase">FIG 3D Glow Receipts</span>
-                                </div>
-                                <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  The 3D FIG View displays visual receipts for every turn, causing the exact reasoning tree nodes to illuminate in real time.
-                                </p>
-                              </div>
-                            </div>
-                          </motion.div>
-                        )}
-
                         {activeSection === "comparison" && (
                           <motion.div
                             key="comparison"
@@ -530,7 +552,7 @@ export default function MemoryQueryPage() {
                               <div className="flex items-center gap-2.5 text-purple-300">
                                 <Activity size={20} />
                                 <h3 className="text-base font-bold text-white uppercase tracking-wider">
-                                  Chapter 6: Capabilities Comparison (Cortex vs RAG)
+                                  Chapter 6: Capabilities Comparison (FAIM Native vs RAG)
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-purple-400/80 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full">
@@ -543,11 +565,26 @@ export default function MemoryQueryPage() {
                                 <thead>
                                   <tr className="border-b border-white/6 bg-white/[0.03] text-[10px] uppercase font-bold text-slate-400 tracking-wider">
                                     <th className="py-3 px-4">Feature</th>
-                                    <th className="py-3 px-4 text-cyan-300">FAIM Cortex</th>
-                                    <th className="py-3 px-4 text-slate-500">Traditional RAG</th>
+                                    <th className="py-3 px-4 text-cyan-300">FAIM Native & Cortex</th>
+                                    <th className="py-3 px-4 text-slate-500">Traditional Chunk RAG</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/6 text-slate-300">
+                                  <tr>
+                                    <td className="py-3 px-4 font-semibold text-slate-200">Vector Spine</td>
+                                    <td className="py-3 px-4 text-cyan-200 font-semibold">`v_native` canonical dense core</td>
+                                    <td className="py-3 px-4 text-slate-500">Generic third-party embeddings</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="py-3 px-4 font-semibold text-slate-200">Semantic Sidecars</td>
+                                    <td className="py-3 px-4 text-cyan-200">8 channels (shingles, concepts, aliases, transliterations, stems, morphology, relations, time)</td>
+                                    <td className="py-3 px-4 text-slate-500">Raw text chunks only</td>
+                                  </tr>
+                                  <tr>
+                                    <td className="py-3 px-4 font-semibold text-slate-200">Expansion Engine</td>
+                                    <td className="py-3 px-4 text-cyan-200">2.31M+ ConceptNet terms + Multilingual TSV + Graph Domain Memory</td>
+                                    <td className="py-3 px-4 text-slate-500">Flat LLM query rewriting (non-deterministic)</td>
+                                  </tr>
                                   <tr>
                                     <td className="py-3 px-4 font-semibold text-slate-200">Reasoning Model</td>
                                     <td className="py-3 px-4 text-cyan-200">Bounded multi-hop graph traversal (1–24 hops default, up to 128)</td>
@@ -556,24 +593,14 @@ export default function MemoryQueryPage() {
                                   <tr>
                                     <td className="py-3 px-4 font-semibold text-slate-200">Hallucination Protection</td>
                                     <td className="py-3 px-4 text-emerald-400 font-semibold flex items-center gap-1.5">
-                                      <CheckCircle2 size={14} /> 100% grounded in evidence node hashes
+                                      <CheckCircle2 size={14} /> 100% grounded in evidence node SHA-256 hashes
                                     </td>
                                     <td className="py-3 px-4 text-amber-400/80">High risk of LLM hallucination</td>
                                   </tr>
                                   <tr>
-                                    <td className="py-3 px-4 font-semibold text-slate-200">Contradiction Scanning</td>
-                                    <td className="py-3 px-4 text-cyan-200">Automatic invariant & conflict branch scanning</td>
-                                    <td className="py-3 px-4 text-slate-500">Not supported</td>
-                                  </tr>
-                                  <tr>
-                                    <td className="py-3 px-4 font-semibold text-slate-200">3D Visual Receipts</td>
+                                    <td className="py-3 px-4 font-semibold text-slate-200">3D Visual Proof</td>
                                     <td className="py-3 px-4 text-cyan-200">Full 3D FIG View graph node glow & path receipts</td>
                                     <td className="py-3 px-4 text-slate-500">Black box text output</td>
-                                  </tr>
-                                  <tr>
-                                    <td className="py-3 px-4 font-semibold text-slate-200">Memory Autonomy</td>
-                                    <td className="py-3 px-4 text-cyan-200">Self-Evolve & Self-Invent background worker integration</td>
-                                    <td className="py-3 px-4 text-slate-500">Static index without auto-invention</td>
                                   </tr>
                                 </tbody>
                               </table>
