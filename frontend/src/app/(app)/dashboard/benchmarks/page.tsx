@@ -607,7 +607,8 @@ export default function BenchmarksPage() {
       {benchmarkView === "system" &&
         (signals ? (
           <div className="grid grid-cols-4 gap-4">
-            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                 Latency
               </p>
@@ -619,7 +620,8 @@ export default function BenchmarksPage() {
               <p className="text-[10px] text-slate-500 mt-1">p95 latency</p>
             </div>
 
-            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                 Traffic
               </p>
@@ -631,7 +633,8 @@ export default function BenchmarksPage() {
               <p className="text-[10px] text-slate-500 mt-1">requests/sec</p>
             </div>
 
-            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-400/80 via-amber-400/30 to-transparent" />
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                 Errors
               </p>
@@ -643,7 +646,8 @@ export default function BenchmarksPage() {
               <p className="text-[10px] text-slate-500 mt-1">error rate</p>
             </div>
 
-            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-orange-400/80 via-orange-400/30 to-transparent" />
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">
                 Saturation
               </p>
@@ -736,7 +740,8 @@ export default function BenchmarksPage() {
       {activeTab === "overview" && benchmark && (
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
               <p className="text-[10px] font-bold text-slate-500 uppercase">
                 Score
               </p>
@@ -744,7 +749,8 @@ export default function BenchmarksPage() {
                 {benchmark.overall_score.toFixed(0)}
               </p>
             </div>
-            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
               <p className="text-[10px] font-bold text-slate-500 uppercase">
                 Nodes
               </p>
@@ -752,7 +758,8 @@ export default function BenchmarksPage() {
                 {benchmark.node_count}
               </p>
             </div>
-            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
               <p className="text-[10px] font-bold text-slate-500 uppercase">
                 Edges
               </p>
@@ -760,7 +767,8 @@ export default function BenchmarksPage() {
                 {benchmark.edge_count}
               </p>
             </div>
-            <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-400/80 via-amber-400/30 to-transparent" />
               <p className="text-[10px] font-bold text-slate-500 uppercase">
                 Duration
               </p>

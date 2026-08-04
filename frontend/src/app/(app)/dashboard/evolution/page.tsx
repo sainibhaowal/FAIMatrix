@@ -1423,7 +1423,8 @@ export default function EvolutionPage() {
             </Badge>
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
+            <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
               <div className="flex items-center gap-2">
                 <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                   Control source
@@ -1442,7 +1443,8 @@ export default function EvolutionPage() {
                 {controlDraft?.updated_by ? ` · ${controlDraft.updated_by}` : ""}
               </p>
             </div>
-            <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
+            <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
               <div className="flex items-center gap-2">
                 <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                   Effective path
@@ -1460,7 +1462,8 @@ export default function EvolutionPage() {
                 {evolveStatus?.guardrails?.automation_path ?? "…"}
               </p>
             </div>
-            <div className="rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
+            <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-indigo-400/80 via-indigo-400/30 to-transparent" />
               <div className="flex items-center gap-2">
                 <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                   Execution layer
@@ -1507,7 +1510,8 @@ export default function EvolutionPage() {
 
             {controlDraft ? (
               <div className="mt-5 grid gap-4">
-                <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
@@ -1540,7 +1544,8 @@ export default function EvolutionPage() {
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
                     <div className="flex items-center gap-2">
                       <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                         Trigger mode
@@ -1578,7 +1583,8 @@ export default function EvolutionPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
                     <div className="flex items-center gap-2">
                       <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                         Self invent
@@ -1626,7 +1632,8 @@ export default function EvolutionPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/6 bg-gradient-to-r from-cyan-500/8 via-sky-500/5 to-indigo-500/8 p-4">
+                <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-gradient-to-r from-cyan-500/8 via-sky-500/5 to-indigo-500/8 p-4">
+                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                   <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                     Saved control
                   </p>
@@ -1678,7 +1685,8 @@ export default function EvolutionPage() {
 
             {evolveStatus?.guardrails ? (
               <div className="mt-5 grid gap-3">
-                <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                   <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                     State summary
                   </p>
@@ -1691,7 +1699,8 @@ export default function EvolutionPage() {
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                     <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                       Self evolve
                     </p>
@@ -1708,7 +1717,8 @@ export default function EvolutionPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
                     <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                       Self invent
                     </p>
@@ -1729,7 +1739,8 @@ export default function EvolutionPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-400/80 via-amber-400/30 to-transparent" />
                     <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                       Worker engine
                     </p>
@@ -1744,7 +1755,8 @@ export default function EvolutionPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
                     <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
                       Guardrail reason
                     </p>
@@ -1896,19 +1908,22 @@ export default function EvolutionPage() {
                     </span>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                    <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                      <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                       <p className="text-slate-400 text-xs">Merges</p>
                       <p className="font-semibold text-cyan-200">
                         {lastRun.merges}
                       </p>
                     </div>
-                    <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                    <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                      <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
                       <p className="text-slate-400 text-xs">Prunes</p>
                       <p className="font-semibold text-cyan-200">
                         {lastRun.prunes}
                       </p>
                     </div>
-                    <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                    <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                      <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
                       <p className="text-slate-400 text-xs">Inventions</p>
                       <p className="font-semibold text-cyan-200">
                         {lastRun.inventions}
@@ -1983,19 +1998,22 @@ export default function EvolutionPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-2 pt-1">
-                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
                   <p className="text-[11px] text-slate-400">Complete</p>
                   <p className="font-semibold text-emerald-400">
                     {eventStats.completed}
                   </p>
                 </div>
-                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-400/80 via-amber-400/30 to-transparent" />
                   <p className="text-[11px] text-slate-400">Skipped</p>
                   <p className="font-semibold text-amber-400">
                     {eventStats.skipped}
                   </p>
                 </div>
-                <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-violet-400/80 via-violet-400/30 to-transparent" />
                   <p className="text-[11px] text-slate-400">Invention</p>
                   <p className="font-semibold text-violet-400">
                     {eventStats.inventionSummary}
@@ -2003,7 +2021,8 @@ export default function EvolutionPage() {
                 </div>
               </div>
 
-              <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                 <p className="text-xs text-slate-400">Latest evolve event</p>
                 {latestEvolutionEvent ? (
                   <>
@@ -2223,7 +2242,8 @@ export default function EvolutionPage() {
                   </div>
                 </>
               )}
-              <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-indigo-400/80 via-indigo-400/30 to-transparent" />
                 <p className="text-xs text-slate-400">Latest files</p>
                 {storageFiles.length === 0 ? (
                   <p className="mt-1 text-xs text-slate-400">
