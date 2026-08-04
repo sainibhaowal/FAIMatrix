@@ -165,10 +165,10 @@ export default function MemoryQueryPage() {
                       </div>
                       <div>
                         <h2 className="text-sm font-bold text-white tracking-wide flex items-center gap-2">
-                          FAIM Cortex — Master Public Technical Architecture & System Manual
+                          FAIM Cortex — Master System Architecture & User Manual
                         </h2>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          Comprehensive deep-dive guide to FAIM Cortex cognitive reasoning, native multi-channel retrieval, 1–24+ hop graph traversal, and 3D FIG proofs
+                          Comprehensive guide to FAIM Cortex cognitive reasoning, native multi-channel retrieval, 1–24+ hop graph traversal, and 3D FIG proofs
                         </p>
                       </div>
                     </div>
@@ -187,7 +187,7 @@ export default function MemoryQueryPage() {
                     {/* Left Table of Contents Sidebar */}
                     <div className="w-64 sm:w-72 md:w-80 shrink-0 border-r border-white/6 bg-white/[0.01] p-4 space-y-2 overflow-y-auto custom-scrollbar">
                       <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500 mb-3 px-2 flex items-center gap-1.5">
-                        <Compass size={12} className="text-cyan-400" /> System Manual Chapters
+                        <Compass size={12} className="text-cyan-400" /> Manual Chapters
                       </p>
 
                       {sections.map((sec) => {
@@ -242,7 +242,7 @@ export default function MemoryQueryPage() {
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              <strong>FAIM Cortex</strong> represents a architectural shift in enterprise knowledge processing. Traditional AI memory platforms pass unstructured text chunks to an opaque Large Language Model (LLM), forcing the model to implicitly memorize and reason across probabilistic weights. FAIM Cortex cleanly decouples <strong>symbolic memory retrieval & graph reasoning</strong> from output narration.
+                              <strong>FAIM Cortex</strong> represents an architectural evolution in enterprise knowledge processing. Traditional AI memory platforms pass unstructured text chunks to an opaque Large Language Model (LLM), forcing the model to implicitly memorize and reason across probabilistic weights. FAIM Cortex cleanly decouples <strong>symbolic memory retrieval & graph reasoning</strong> from output narration.
                             </p>
 
                             <div className="space-y-4">
@@ -259,10 +259,10 @@ export default function MemoryQueryPage() {
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4 space-y-2">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-purple-200 flex items-center gap-1.5">
-                                  <Zap size={14} /> Optional CUDA Acceleration Layer (`VectorBank`)
+                                  <Zap size={14} /> Optional CUDA Acceleration Layer
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  For ultra-large-scale enterprise knowledge graphs containing 100M+ assertions, FAIM incorporates an optional high-throughput CUDA acceleration layer (`FAIM_ACCEL_MODE=true`). Custom CUDA kernels mirror knowledge vectors into VRAM to execute parallel inner products and Compressed Sparse Row (CSR) matrix graph traversals at sub-millisecond speeds.
+                                  For ultra-large-scale enterprise knowledge graphs containing 100M+ assertions, FAIM incorporates an optional high-throughput CUDA acceleration layer. Custom CUDA kernels mirror knowledge vectors into VRAM to execute parallel inner products and Compressed Sparse Row (CSR) matrix graph traversals at sub-millisecond speeds.
                                 </p>
                               </div>
 
@@ -302,7 +302,7 @@ export default function MemoryQueryPage() {
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              At the core of FAIM Cortex is the <strong>FAIM Native Retrieval Spine</strong>. Rather than relying on a single vector search or flat keyword matching, FAIM constructs 4 synergistic retrieval layers centered around the `v_native` canonical dense vector core:
+                              At the core of FAIM Cortex is the <strong>FAIM Native Retrieval Spine</strong>. Rather than relying on a single vector search or flat keyword matching, FAIM constructs 4 synergistic retrieval layers centered around the canonical dense vector core:
                             </p>
 
                             <div className="space-y-4">
@@ -310,10 +310,10 @@ export default function MemoryQueryPage() {
                               <div className="relative overflow-hidden rounded-[14px] border border-cyan-500/20 bg-cyan-500/[0.03] p-4 space-y-3">
                                 <div className="absolute top-0 left-0 bottom-0 w-[3px] bg-cyan-400" />
                                 <h4 className="text-xs font-bold text-cyan-200 flex items-center gap-2">
-                                  <Binary size={15} /> Detailed Breakdown of the 8 Semantic Signature Sidecars (`RepresentationV2`)
+                                  <Binary size={15} /> Detailed Breakdown of the 8 Semantic Signature Sidecars
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  During document ingestion, FAIM builds 8 additive, deterministic sidecar channels alongside the canonical dense vector (`v_native`). These sidecars allow query scoring to evaluate structural, morphological, and temporal evidence simultaneously:
+                                  During document ingestion, FAIM builds 8 additive, deterministic sidecar channels alongside the canonical dense vector. These sidecars allow query scoring to evaluate structural, morphological, and temporal evidence simultaneously:
                                 </p>
 
                                 <div className="grid gap-2 sm:grid-cols-2 text-[11px] text-slate-300">
@@ -350,7 +350,7 @@ export default function MemoryQueryPage() {
                                     <Search size={13} /> 2.31M+ ConceptNet Semantic Base
                                   </h4>
                                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                                    Includes 2,172,991 pre-compiled ConceptNet 5.7.0 synonym assertions, broadening search terms deterministically without stochastic LLM rewrites.
+                                    Includes 2,172,991 pre-compiled ConceptNet synonym assertions, broadening search terms deterministically without stochastic LLM rewrites.
                                   </p>
                                 </div>
 
@@ -368,7 +368,7 @@ export default function MemoryQueryPage() {
                                     <BrainCircuit size={13} /> Graph Domain Memory
                                   </h4>
                                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                                    Ingestion workers autonomously mine graph-local `concept_bundle` and `semantic_paraphrase` records to adapt jargon definitions post-ingestion.
+                                    Ingestion workers autonomously mine graph-local concept bundles and paraphrase records to adapt jargon definitions post-ingestion.
                                   </p>
                                 </div>
                               </div>
@@ -394,7 +394,7 @@ export default function MemoryQueryPage() {
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
-                                Control Loop Spec 67
+                                Deterministic Control Architecture
                               </span>
                             </div>
 
@@ -421,8 +421,8 @@ export default function MemoryQueryPage() {
                                 },
                                 {
                                   stage: "Stage 4",
-                                  title: "State Reduction (`CortexBrainState`)",
-                                  desc: "The reducer aggregates parallel branch evidence into a consolidated, inspectable CortexBrainState containing candidate nodes, edge weights, and reasoning chains.",
+                                  title: "State Reduction (Cortex Brain State)",
+                                  desc: "The reducer aggregates parallel branch evidence into a consolidated, inspectable brain state containing candidate nodes, edge weights, and reasoning chains.",
                                 },
                                 {
                                   stage: "Stage 5",
@@ -462,12 +462,12 @@ export default function MemoryQueryPage() {
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-indigo-400/80 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-full">
-                                Architecture Spec 69
+                                Multi-Hop Traversal Specification
                               </span>
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              Traditional retrieval engines perform a single-pass (1-hop) top-k vector search, failing when answers require navigating multi-step relational chains. FAIM Cortex incorporates an <strong>adaptive planner-driven hop runtime</strong> (`planner_enhanced.py`) that scales graph depth dynamically:
+                              Traditional retrieval engines perform a single-pass (1-hop) top-k vector search, failing when answers require navigating multi-step relational chains. FAIM Cortex incorporates an <strong>adaptive dynamic traversal planner</strong> that scales graph depth dynamically:
                             </p>
 
                             <div className="space-y-4">
@@ -492,7 +492,7 @@ export default function MemoryQueryPage() {
                                   <span className="text-[10px] font-mono font-bold text-amber-400">Up to 128 Hops</span>
                                   <h4 className="text-xs font-bold text-white">Extended Bounded Ceiling</h4>
                                   <p className="text-[11px] text-slate-400 leading-relaxed">
-                                    Configurable maximum boundary (`FAIM_CORTEX_MAX_HOPS`) for navigating massive, highly interconnected enterprise universe graphs.
+                                    Configurable maximum boundary for navigating massive, highly interconnected enterprise universe graphs.
                                   </p>
                                 </div>
                               </div>
@@ -527,12 +527,12 @@ export default function MemoryQueryPage() {
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-purple-400/80 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full">
-                                Branch Architecture
+                                Parallel Branch Engine
                               </span>
                             </div>
 
                             <p className="text-xs text-slate-300 leading-relaxed">
-                              During every turn, Cortex dispatches up to 7 specialized cognitive branch workers concurrently (`faim_native/core/cortex/branches.py`). Each branch evaluates distinct knowledge dimensions before aggregating results into the reducer:
+                              During every turn, Cortex dispatches up to 7 specialized cognitive branch workers concurrently. Each branch evaluates distinct knowledge dimensions before aggregating results into the reducer:
                             </p>
 
                             <div className="space-y-3">
@@ -612,7 +612,7 @@ export default function MemoryQueryPage() {
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-sky-400/80 bg-sky-500/10 border border-sky-500/20 px-2.5 py-1 rounded-full">
-                                Real Operational Flows
+                                Operational Workflows
                               </span>
                             </div>
 
@@ -666,7 +666,7 @@ export default function MemoryQueryPage() {
                                 </h3>
                               </div>
                               <span className="text-[10px] font-mono text-amber-400/80 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full">
-                                Execution Spec 72
+                                Durable Writeback Architecture
                               </span>
                             </div>
 
@@ -688,10 +688,10 @@ export default function MemoryQueryPage() {
                               <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4 space-y-2">
                                 <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
                                 <h4 className="text-xs font-bold text-emerald-200 flex items-center gap-1.5">
-                                  <Check size={14} /> Idempotent Backend Execution (`writeback_executor.py`)
+                                  <Check size={14} /> Idempotent Backend Execution
                                 </h4>
                                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                                  Upon policy approval, writebacks execute through a durable backend worker (`writeback_executor.py`), persisting execution receipts (`packet_hash`, `graph_version`, `nodes_written`) to ensure replay safety and exact transactional auditing.
+                                  Upon policy approval, writebacks execute through a durable backend worker, persisting execution receipts containing packet hash and written node metrics to ensure replay safety and exact transactional auditing.
                                 </p>
                               </div>
                             </div>
@@ -733,7 +733,7 @@ export default function MemoryQueryPage() {
                                 <tbody className="divide-y divide-white/6 text-slate-300">
                                   <tr>
                                     <td className="py-3 px-4 font-semibold text-slate-200">Retrieval & Indexing Spine</td>
-                                    <td className="py-3 px-4 text-cyan-200 font-semibold">`v_native` + 8 Semantic Sidecars</td>
+                                    <td className="py-3 px-4 text-cyan-200 font-semibold">Canonical Dense Core + 8 Semantic Sidecars</td>
                                     <td className="py-3 px-4 text-slate-500">Unstructured Text Chunks</td>
                                     <td className="py-3 px-4 text-slate-500">Heavy Vector Embeddings</td>
                                   </tr>
@@ -801,7 +801,7 @@ export default function MemoryQueryPage() {
                               {[
                                 {
                                   q: "Q1: Does FAIM Cortex rely on heavy Deep Learning models or ML training runs for retrieval?",
-                                  a: "No. FAIM Cortex uses a symbolic multi-channel indexing spine (v_native, 8 semantic signature sidecars, ConceptNet expansion, and Compressed Sparse Row matrix math) for 100% deterministic, reproducible retrieval without neural drift or retraining runs.",
+                                  a: "No. FAIM Cortex uses a symbolic multi-channel indexing spine (canonical dense core, 8 semantic signature sidecars, ConceptNet expansion, and Compressed Sparse Row matrix math) for 100% deterministic, reproducible retrieval without neural drift or retraining runs.",
                                 },
                                 {
                                   q: "Q2: Does FAIM Matrix require dedicated NVIDIA GPUs to operate?",
@@ -809,7 +809,7 @@ export default function MemoryQueryPage() {
                                 },
                                 {
                                   q: "Q3: How does FAIM utilize GPUs when enterprise GPU acceleration is enabled?",
-                                  a: "When FAIM_ACCEL_MODE=true is enabled, FAIM uses custom CUDA kernels (VectorBank) to accelerate linear algebra inner products and CSR graph matrix multiplication in VRAM for 100M+ node graphs at sub-millisecond speeds.",
+                                  a: "When CUDA acceleration is enabled, FAIM uses custom CUDA kernels to accelerate linear algebra inner products and CSR graph matrix multiplication in VRAM for 100M+ node graphs at sub-millisecond speeds.",
                                 },
                                 {
                                   q: "Q4: How does FAIM guarantee zero hallucinations compared to traditional LLM RAG pipelines?",
@@ -829,7 +829,7 @@ export default function MemoryQueryPage() {
                                 },
                                 {
                                   q: "Q8: Are memory writeback updates executed automatically into the database?",
-                                  a: "No. Structural writebacks into PostgreSQL require policy approval and execute through an idempotent, durable pipeline (writeback_executor.py) emitting verifiable execution receipts.",
+                                  a: "No. Structural writebacks into PostgreSQL require policy approval and execute through an idempotent, durable backend pipeline emitting verifiable execution receipts.",
                                 },
                               ].map((faq, idx) => (
                                 <div
