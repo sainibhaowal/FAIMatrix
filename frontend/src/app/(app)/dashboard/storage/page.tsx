@@ -90,8 +90,8 @@ function ThemedSelect<T extends string>({
         onClick={() => setOpen(!open)}
         className="flex h-8 w-full items-center justify-between gap-2 rounded-lg border px-2.5 text-xs outline-none transition-all hover:bg-white/5 active:scale-[0.98]"
         style={{
-          background: "var(--os-surface-2)",
-          borderColor: "var(--os-stroke)",
+          background: "rgba(255, 255, 255, 0.03)",
+          borderColor: "rgba(255, 255, 255, 0.08)",
           color: "var(--text-primary)",
         }}
       >
@@ -114,10 +114,9 @@ function ThemedSelect<T extends string>({
               initial={{ opacity: 0, scale: 0.95, y: -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              className="absolute left-0 top-9 z-[var(--z-dropdown)] w-full min-w-[120px] overflow-hidden rounded-xl border p-1 shadow-2xl backdrop-blur-xl"
+              className="absolute left-0 top-9 z-[var(--z-dropdown)] w-full min-w-[120px] overflow-hidden rounded-xl border border-white/8 p-1 shadow-2xl backdrop-blur-xl"
               style={{
-                background: "rgba(10, 15, 25, 0.95)",
-                borderColor: "var(--os-stroke)",
+                background: "rgba(10, 15, 25, 0.96)",
                 boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
               }}
             >
@@ -1784,32 +1783,17 @@ export default function StoragePage() {
       )}
 
       {/* ── Graph Scope ─────────────────────────────────────── */}
-      <div
-        className="overflow-hidden rounded-xl border"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
-          style={{ borderColor: "var(--os-stroke)" }}
-        >
-          <p
-            className="text-[10px] font-medium uppercase tracking-widest"
-            style={{ color: "var(--text-tertiary)" }}
-          >
+      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
             Graph Scope
           </p>
-
         </div>
 
         <div className="grid gap-3 px-5 py-4 md:grid-cols-3">
           <div>
-            <p
-              className="mb-1.5 text-[10px] font-medium uppercase tracking-wider"
-              style={{ color: "var(--text-tertiary)" }}
-            >
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500">
               Graph Scope
             </p>
             <Input
@@ -1835,24 +1819,12 @@ export default function StoragePage() {
               Reset
             </Button>
           </div>
-          <div
-            className="rounded-lg border px-3 py-2 text-xs"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "var(--os-surface-2)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            <p
-              className="text-[10px] uppercase tracking-widest"
-              style={{ color: "var(--text-tertiary)" }}
-            >
+          <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-2.5 text-xs">
+            <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
+            <p className="text-[10px] uppercase tracking-widest text-slate-500">
               Scope summary
             </p>
-            <p
-              className="mt-1 font-medium"
-              style={{ color: "var(--text-primary)" }}
-            >
+            <p className="mt-1 font-mono font-medium text-cyan-200">
               {activeGraphId}
             </p>
           </div>
@@ -1860,85 +1832,61 @@ export default function StoragePage() {
       </div>
 
       {/* ── Metric Strip ─────────────────────────────────────── */}
-      <div
-        className="grid grid-cols-2 overflow-hidden rounded-xl border xl:grid-cols-4"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
+      <div className="relative grid grid-cols-2 overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] xl:grid-cols-4">
+        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
         {[
           {
             label: "Total Files",
             value: summary?.total_files ?? 0,
             sub: "in graph",
             icon: <FileText size={18} />,
-            accent: "var(--faim-info)",
-            color: undefined,
+            accent: "from-cyan-400/80 via-cyan-400/30",
+            textColor: "text-cyan-200",
           },
           {
             label: "Stored",
             value: formatBytes(summary?.total_bytes ?? 0),
             sub: "raw bytes",
             icon: <HardDrive size={18} />,
-            accent: "var(--faim-secondary)",
-            color: undefined,
+            accent: "from-purple-400/80 via-purple-400/30",
+            textColor: "text-purple-200",
           },
           {
             label: "Ingested",
             value: ingestedCount,
             sub: `Dedup hits: ${dedupCount}`,
             icon: <CheckCircle2 size={18} />,
-            accent: "var(--faim-success)",
-            color: "var(--faim-success-text)",
+            accent: "from-emerald-400/80 via-emerald-400/30",
+            textColor: "text-emerald-400",
           },
           {
             label: "Failures",
             value: failedCount,
             sub: "needs retry",
             icon: <AlertCircle size={18} />,
-            accent: failedCount > 0 ? "var(--faim-error)" : "var(--os-stroke)",
-            color:
-              failedCount > 0
-                ? "var(--faim-error-text)"
-                : "var(--text-tertiary)",
+            accent: failedCount > 0 ? "from-red-400/80 via-red-400/30" : "from-amber-400/80 via-amber-400/30",
+            textColor: failedCount > 0 ? "text-red-400" : "text-slate-400",
           },
         ].map((m, i) => (
           <div
             key={m.label}
-            className="relative flex flex-col justify-center px-6 py-3"
-            style={{
-              borderLeft: i > 0 ? "1px solid var(--os-stroke)" : undefined,
-            }}
+            className={`relative flex flex-col justify-center px-6 py-4 ${
+              i > 0 ? "border-t xl:border-t-0 xl:border-l border-white/6" : ""
+            }`}
           >
+            <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/60 to-transparent xl:hidden" />
             <div className="flex items-center justify-between mb-2">
-              <p
-                className="text-[10px] font-medium uppercase tracking-widest"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
                 {m.label}
               </p>
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-lg border transition-all"
-                style={{
-                  background: `rgba(${m.accent === "var(--os-stroke)" ? "255,255,255" : "129,140,248"}, 0.03)`,
-                  borderColor: m.accent,
-                  color: m.accent,
-                }}
-              >
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-cyan-300">
                 {m.icon}
               </div>
             </div>
-            <p
-              className="font-semibold tabular-nums leading-none"
-              style={{ fontSize: 26, color: m.color ?? "var(--text-primary)" }}
-            >
+            <p className={`font-semibold tabular-nums leading-none ${m.textColor}`} style={{ fontSize: 26 }}>
               {m.value}
             </p>
-            <p
-              className="mt-2 text-[11px]"
-              style={{ color: "var(--text-tertiary)" }}
-            >
+            <p className="mt-2 text-[11px] text-slate-400">
               {m.sub}
             </p>
           </div>
@@ -1946,21 +1894,10 @@ export default function StoragePage() {
       </div>
 
       {/* ── Domain Memory ───────────────────────────────────── */}
-      <div
-        className="overflow-hidden rounded-xl border"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
-          style={{ borderColor: "var(--os-stroke)" }}
-        >
-          <p
-            className="text-[10px] font-medium uppercase tracking-widest"
-            style={{ color: "var(--text-tertiary)" }}
-          >
+      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-purple-500/80 via-purple-400/40 to-transparent rounded-full" />
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
             Domain Memory
           </p>
           <div className="flex items-center gap-2">
@@ -2004,55 +1941,42 @@ export default function StoragePage() {
                   value: domainMemory?.domain_autonomy_enabled
                     ? "enabled"
                     : "disabled",
+                  bar: "from-cyan-400/80 via-cyan-400/30",
                 },
                 {
                   label: "Lexicon rows",
                   value: domainMemory?.lexicon_total ?? 0,
+                  bar: "from-sky-400/80 via-sky-400/30",
                 },
                 {
                   label: "KB sources",
                   value: domainMemory?.source_total ?? 0,
+                  bar: "from-purple-400/80 via-purple-400/30",
                 },
                 {
                   label: "Graph version",
                   value: domainMemory?.graph_version ?? 0,
+                  bar: "from-indigo-400/80 via-indigo-400/30",
                 },
               ].map((item) => (
                 <div
                   key={item.label}
-                  className="rounded-xl border px-3 py-2"
-                  style={{
-                    borderColor: "var(--os-stroke)",
-                    background: "var(--os-surface-2)",
-                  }}
+                  className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-2.5"
                 >
-                  <p
-                    className="text-[10px] uppercase tracking-wider"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
+                  <div className={`absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b ${item.bar} to-transparent`} />
+                  <p className="text-[10px] uppercase tracking-wider text-slate-500">
                     {item.label}
                   </p>
-                  <p
-                    className="mt-1 text-sm font-semibold"
-                    style={{ color: "var(--text-primary)" }}
-                  >
+                  <p className="mt-1 text-sm font-semibold text-slate-100">
                     {item.value}
                   </p>
                 </div>
               ))}
             </div>
 
-            <div
-              className="rounded-xl border px-3 py-3"
-              style={{
-                borderColor: "var(--os-stroke)",
-                background: "var(--os-surface-2)",
-              }}
-            >
-              <p
-                className="text-[10px] uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-3">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">
                 Detected packs
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -2064,10 +1988,7 @@ export default function StoragePage() {
                   </Badge>
                 ))}
               </div>
-              <p
-                className="mt-2 text-[11px]"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+              <p className="mt-2 text-[11px] text-slate-400">
                 {domainMemory?.last_updated_at
                   ? `Last updated ${new Date(domainMemory.last_updated_at).toLocaleString()}`
                   : loadingDomainMemory
@@ -2076,23 +1997,12 @@ export default function StoragePage() {
               </p>
             </div>
 
-            <div
-              className="rounded-xl border px-3 py-3"
-              style={{
-                borderColor: "var(--os-stroke)",
-                background: "var(--os-surface-2)",
-              }}
-            >
-              <p
-                className="text-[10px] uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-3">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
+              <p className="text-[10px] uppercase tracking-wider text-slate-500">
                 Query-time effect
               </p>
-              <p
-                className="mt-1 text-xs leading-relaxed"
-                style={{ color: "var(--text-secondary)" }}
-              >
+              <p className="mt-1 text-xs leading-relaxed text-slate-300">
                 Domain links are learned into the graph and then re-used by the
                 query reranker. Open a query with `return_explain=true` to see
                 linked terms and per-node domain score components.
@@ -2100,25 +2010,14 @@ export default function StoragePage() {
             </div>
           </div>
 
-          <div
-            className="rounded-2xl border p-4"
-            style={{
-              borderColor: "var(--os-stroke)",
-              background: "linear-gradient(180deg, rgba(15,23,42,0.95), rgba(2,6,23,0.95))",
-            }}
-          >
+          <div className="relative overflow-hidden rounded-[16px] border border-white/8 bg-white/[0.02] p-4">
+            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-purple-500/80 via-purple-400/40 to-transparent rounded-full" />
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p
-                  className="text-[10px] font-medium uppercase tracking-widest"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
                   Top learned terms
                 </p>
-                <p
-                  className="mt-1 text-sm"
-                  style={{ color: "var(--text-secondary)" }}
-                >
+                <p className="mt-1 text-sm text-slate-300">
                   What FAIM currently knows for this graph
                 </p>
               </div>
@@ -2133,32 +2032,23 @@ export default function StoragePage() {
                 : []).map((term) => (
                 <div
                   key={`${term.surface_form}-${term.kind}-${term.canonical_form}`}
-                  className="rounded-xl border px-3 py-2.5"
-                  style={{
-                    borderColor: "rgba(148,163,184,0.18)",
-                    background: "rgba(15,23,42,0.65)",
-                  }}
+                  className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-2.5"
                 >
+                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p
-                        className="truncate text-sm font-medium"
-                        style={{ color: "var(--text-primary)" }}
-                      >
+                      <p className="truncate text-sm font-medium text-slate-100">
                         {term.surface_form}
                       </p>
-                      <p
-                        className="mt-0.5 truncate text-[11px]"
-                        style={{ color: "var(--text-tertiary)" }}
-                      >
+                      <p className="mt-0.5 truncate text-[11px] text-slate-400">
                         {term.kind} · {term.canonical_form}
                       </p>
                     </div>
                     <div className="text-right text-[11px] tabular-nums">
-                      <p style={{ color: "var(--text-secondary)" }}>
+                      <p className="text-slate-300">
                         support {term.support_count}
                       </p>
-                      <p style={{ color: "var(--text-tertiary)" }}>
+                      <p className="text-slate-500">
                         score {term.score.toFixed(2)}
                       </p>
                     </div>
@@ -2179,10 +2069,7 @@ export default function StoragePage() {
                 </div>
               ))}
               {!domainMemory?.top_terms?.length && (
-                <div
-                  className="rounded-xl border border-dashed px-3 py-8 text-center text-xs"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
+                <div className="rounded-[14px] border border-dashed border-white/10 px-3 py-8 text-center text-xs text-slate-400">
                   {loadingDomainMemory
                     ? "Loading autonomous domain memory..."
                     : "No learned domain memory yet for this graph."}
@@ -2194,22 +2081,11 @@ export default function StoragePage() {
       </div>
 
       {/* ── Upload Panel ─────────────────────────────────────── */}
-      <div
-        className="overflow-hidden rounded-xl border"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
+      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-amber-500/80 via-amber-400/40 to-transparent rounded-full" />
         {/* Section header */}
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
-          style={{ borderColor: "var(--os-stroke)" }}
-        >
-          <p
-            className="text-[10px] font-medium uppercase tracking-widest"
-            style={{ color: "var(--text-tertiary)" }}
-          >
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
             Upload Panel
           </p>
           <div className="flex items-center gap-2">
@@ -2249,7 +2125,7 @@ export default function StoragePage() {
               : { borderColor: "rgba(255,255,255,0.1)" }
           }
           transition={{ duration: 0.2 }}
-          className="mx-5 mt-5 flex h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed"
+          className="mx-5 mt-5 flex h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed border-indigo-500/30 bg-indigo-500/[0.02]"
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragOver(true);
@@ -2264,19 +2140,13 @@ export default function StoragePage() {
           >
             <UploadCloud size={18} />
           </div>
-          <p
-            className="text-sm font-medium"
-            style={{ color: "var(--text-primary)" }}
-          >
+          <p className="text-sm font-medium text-slate-100">
             Drop files here or click to browse
           </p>
-          <p className="text-xs" style={{ color: "var(--text-tertiary)" }}>
+          <p className="text-xs text-slate-400">
             Multi-file append-only · Queue keeps in-flight work
           </p>
-          <p
-            className="text-[11px] text-center max-w-lg leading-relaxed"
-            style={{ color: "var(--text-tertiary)" }}
-          >
+          <p className="text-[11px] text-center max-w-lg leading-relaxed text-slate-400">
             Scanned PDFs and images are OCR'd when enabled. Open Supported Files
             for policy, engine, and capability details.
           </p>
@@ -2323,14 +2193,7 @@ export default function StoragePage() {
             {
               label: "Extractor",
               node: (
-                <div
-                  className="flex h-8 items-center rounded-lg border px-2.5 text-xs font-medium"
-                  style={{
-                    background: "var(--os-surface-2)",
-                    borderColor: "var(--os-stroke)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
+                <div className="flex h-8 items-center rounded-lg border border-white/8 bg-white/[0.03] px-2.5 text-xs font-medium text-slate-200">
                   FAIM Native
                 </div>
               ),
@@ -2338,24 +2201,14 @@ export default function StoragePage() {
             {
               label: "Queue Depth",
               node: (
-                <div
-                  className="flex h-8 items-center rounded-lg border px-2.5 text-xs tabular-nums"
-                  style={{
-                    background: "var(--os-surface-2)",
-                    borderColor: "var(--os-stroke)",
-                    color: "var(--text-secondary)",
-                  }}
-                >
+                <div className="flex h-8 items-center rounded-lg border border-white/8 bg-white/[0.03] px-2.5 text-xs tabular-nums text-slate-200">
                   {queueItems.length} item(s)
                 </div>
               ),
             },
           ].map((c) => (
             <div key={c.label}>
-              <p
-                className="mb-1.5 text-[10px] font-medium uppercase tracking-wider"
-                style={{ color: "var(--text-tertiary)" }}
-              >
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500">
                 {c.label}
               </p>
               {c.node}
@@ -2365,7 +2218,7 @@ export default function StoragePage() {
 
         {/* Mode info */}
         <div
-          className={`mx-5 mb-4 rounded-lg border px-3.5 py-2.5 text-[11px] leading-relaxed ${
+          className={`mx-5 mb-4 rounded-[14px] border px-4 py-3 text-[11px] leading-relaxed ${
             ingestModePolicy.supported
               ? ""
               : "border-[var(--faim-error)]/30 bg-[var(--faim-error-muted)]"
@@ -2373,8 +2226,8 @@ export default function StoragePage() {
           style={
             ingestModePolicy.supported
               ? {
-                  borderColor: "rgba(99,102,241,0.18)",
-                  background: "rgba(99,102,241,0.05)",
+                  borderColor: "rgba(99,102,241,0.22)",
+                  background: "rgba(99,102,241,0.06)",
                   color: "var(--text-secondary)",
                 }
               : { color: "var(--faim-error-text)" }
@@ -2390,11 +2243,21 @@ export default function StoragePage() {
             ? "All profile/persist combinations supported by policy."
             : ingestModePolicy.reason}
         </div>
+      </div>
+
+      {/* ── File Catalog ─────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+            File Catalog
+          </p>
+        </div>
 
         {/* Pipeline bar */}
         <div
-          className="flex items-center gap-0 border-t px-5 py-3"
-          style={{ borderColor: "var(--os-stroke)" }}
+          className="flex items-center gap-0 border-t px-5 py-3 border-white/6"
         >
           {[
             {
