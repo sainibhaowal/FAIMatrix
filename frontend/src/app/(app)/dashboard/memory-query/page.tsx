@@ -31,6 +31,7 @@ import {
   Scale,
   Award,
   Server,
+  HelpCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatInterface } from "@/components/memoryquery/ChatInterface";
@@ -45,7 +46,8 @@ type ManualSection =
   | "branches"
   | "scenarios"
   | "writeback"
-  | "benchmark";
+  | "benchmark"
+  | "faq";
 
 export default function MemoryQueryPage() {
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
@@ -65,6 +67,7 @@ export default function MemoryQueryPage() {
     { id: "scenarios", label: "6. Enterprise Lifecycle Scenarios", icon: FileText },
     { id: "writeback", label: "7. Durable Memory Writebacks", icon: RotateCcw },
     { id: "benchmark", label: "8. Technical Benchmark & Matrix", icon: Scale },
+    { id: "faq", label: "9. Enterprise Technical FAQ", icon: HelpCircle },
   ];
 
   const handleSelectSection = (id: ManualSection) => {
@@ -681,6 +684,76 @@ export default function MemoryQueryPage() {
                                   </tr>
                                 </tbody>
                               </table>
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {/* Chapter 9: Enterprise Technical FAQ */}
+                        {activeSection === "faq" && (
+                          <motion.div
+                            key="faq"
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.2 }}
+                            className="space-y-6"
+                          >
+                            <div className="flex items-center justify-between border-b border-white/6 pb-3">
+                              <div className="flex items-center gap-2.5 text-cyan-300">
+                                <HelpCircle size={20} />
+                                <h3 className="text-base font-bold text-white uppercase tracking-wider">
+                                  Chapter 9: Enterprise Technical FAQ
+                                </h3>
+                              </div>
+                              <span className="text-[10px] font-mono text-cyan-400/80 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
+                                Frequently Asked Questions
+                              </span>
+                            </div>
+
+                            <div className="space-y-3">
+                              {[
+                                {
+                                  q: "Q1: Does FAIM Cortex rely on heavy Deep Learning models or ML training runs for retrieval?",
+                                  a: "No. FAIM Cortex uses a symbolic multi-channel indexing spine (v_native, 8 semantic signature sidecars, ConceptNet expansion, and Compressed Sparse Row matrix math) for 100% deterministic, reproducible retrieval without neural drift or retraining runs.",
+                                },
+                                {
+                                  q: "Q2: Does FAIM Matrix require dedicated NVIDIA GPUs to operate?",
+                                  a: "No. FAIM is built on a CPU-first execution baseline, enabling standard enterprise x86/ARM CPU servers to execute knowledge operations without compulsory GPU hardware.",
+                                },
+                                {
+                                  q: "Q3: How does FAIM utilize GPUs when enterprise GPU acceleration is enabled?",
+                                  a: "When FAIM_ACCEL_MODE=true is enabled, FAIM uses custom CUDA kernels (VectorBank) to accelerate linear algebra inner products and CSR graph matrix multiplication in VRAM for 100M+ node graphs at sub-millisecond speeds.",
+                                },
+                                {
+                                  q: "Q4: How does FAIM guarantee zero hallucinations compared to traditional LLM RAG pipelines?",
+                                  a: "Every statement emitted by Cortex is anchored directly to cryptographic SHA-256 evidence node hashes and exact source document lines. Unanchored claims are suppressed prior to narration.",
+                                },
+                                {
+                                  q: "Q5: Can FAIM run inside air-gapped enterprise environments without internet access?",
+                                  a: "Yes. The 2.31M+ ConceptNet semantic base and multilingual TSV bridge packs are fully embedded inside the local application binary and container without external cloud API dependencies.",
+                                },
+                                {
+                                  q: "Q6: How does FAIM resolve conflicting statements when documents update over time?",
+                                  a: "The Contradiction Branch and Transitive Contradiction Traversal engine automatically evaluate temporal lineage, marking superseded facts as HISTORICAL while promoting active assertions to CURRENT.",
+                                },
+                                {
+                                  q: "Q7: What happens during multi-hop graph reasoning if a goal entity is unreachable within the hop budget?",
+                                  a: "The adaptive 1–24+ hop engine applies deterministic frontier pruning and returns the strongest verified partial path along with confidence indicators rather than failing silently.",
+                                },
+                                {
+                                  q: "Q8: Are memory writeback updates executed automatically into the database?",
+                                  a: "No. Structural writebacks into PostgreSQL require policy approval and execute through an idempotent, durable pipeline (writeback_executor.py) emitting verifiable execution receipts.",
+                                },
+                              ].map((faq, idx) => (
+                                <div
+                                  key={idx}
+                                  className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-4 space-y-1.5"
+                                >
+                                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-purple-400/50 to-transparent" />
+                                  <h4 className="text-xs font-bold text-cyan-200">{faq.q}</h4>
+                                  <p className="text-[11px] text-slate-400 leading-relaxed">{faq.a}</p>
+                                </div>
+                              ))}
                             </div>
                           </motion.div>
                         )}
