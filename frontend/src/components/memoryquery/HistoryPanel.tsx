@@ -192,34 +192,50 @@ export function HistoryPanel() {
               brainSessions.slice(0, 4).map((session) => {
                 const isActive = session.session_id === activeThreadId;
                 return (
-                  <button
+                  <div
                     key={session.session_id}
                     onClick={() => switchThread(session.session_id)}
                     className={[
-                      "w-full rounded-lg border px-3 py-2 text-left transition-all",
+                      "w-full rounded-lg border px-3 py-2 text-left transition-all cursor-pointer group flex items-start justify-between gap-2",
                       isActive
                         ? "border-primary-500/25 bg-primary-500/10"
                         : "border-white/[0.05] bg-white/[0.02] hover:bg-white/[0.04]",
                     ].join(" ")}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[11px] font-semibold text-slate-200 line-clamp-1">
-                        {session.title || "Untitled session"}
-                      </span>
-                      <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-600">
-                        {session.turn_count} turns
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-2 text-[8px] uppercase tracking-[0.18em] text-slate-500">
-                      <Clock size={9} className="text-primary-300" />
-                      {session.last_task_type || "idle"}
-                      {session.last_confidence != null && (
-                        <span>
-                          · {Math.round((session.last_confidence ?? 0) * 100)}%
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold text-slate-200 line-clamp-1">
+                          {session.title || "Untitled session"}
                         </span>
-                      )}
+                        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-600">
+                          {session.turn_count} turns
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-[8px] uppercase tracking-[0.18em] text-slate-500">
+                        <Clock size={9} className="text-primary-300" />
+                        {session.last_task_type || "idle"}
+                        {session.last_confidence != null && (
+                          <span>
+                            · {Math.round((session.last_confidence ?? 0) * 100)}%
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteThread(session.session_id);
+                        setBrainSessions((prev) =>
+                          prev.filter((s) => s.session_id !== session.session_id),
+                        );
+                      }}
+                      className="h-6 w-6 shrink-0 flex items-center justify-center rounded-md hover:bg-rose-500/20 text-slate-500 hover:text-rose-400 transition-all mt-0.5"
+                      title="Delete Session"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
                 );
               })}
           </div>
@@ -227,9 +243,11 @@ export function HistoryPanel() {
 
         {brainTurns.length > 0 && (
           <div className="mb-3 rounded-xl border border-white/[0.05] bg-white/[0.02] p-3">
-            <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
-              <ChevronRight size={11} />
-              Active Turn Trail
+            <div className="flex items-center justify-between gap-2 text-[9px] font-black uppercase tracking-[0.24em] text-slate-500">
+              <div className="flex items-center gap-1.5">
+                <ChevronRight size={11} />
+                Active Turn Trail
+              </div>
             </div>
             <div className="mt-2 space-y-2">
               {brainTurns.map((turn) => (
@@ -335,7 +353,7 @@ export function HistoryPanel() {
                       >
                         {thread.title}
                       </span>
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0">
                         <button
                           onClick={(e) => startEdit(thread.id, thread.title, e)}
                           className="h-5 w-5 flex items-center justify-center rounded-md hover:bg-white/10 text-slate-500 hover:text-white transition-all"
@@ -346,7 +364,7 @@ export function HistoryPanel() {
                         <button
                           onClick={(e) => handleDelete(thread.id, e)}
                           className="h-5 w-5 flex items-center justify-center rounded-md hover:bg-rose-500/15 text-slate-500 hover:text-rose-400 transition-all"
-                          title="Delete"
+                          title="Delete Session"
                         >
                           <Trash2 size={10} />
                         </button>
