@@ -345,10 +345,16 @@ export async function buildAuthorizedHeaders(
 }
 
 // ---------------------------------------------------------------------------
-// Conversational intent detector — skip FAIM retrieval for non-memory queries
+// Conversational & Meta Capability Intent Detector
 // ---------------------------------------------------------------------------
 
-const CONVERSATIONAL_PATTERNS = [
+const META_CAPABILITY_PATTERNS = [
+  /^(what|who)\s+(can|are|is)\s+(you|u|faim|cortex).*/i,
+  /^(what|how)\s+(can|do|does)\s+(i|you|this|faim|cortex).*/i,
+  /^(help|capabilities|features|tell me about yourself|what can i ask)[\s!?.]*$/i,
+];
+
+const GREETING_PATTERNS = [
   /^(hi|hey|hello|hiya|howdy|sup|yo)[\s!?.]*$/i,
   /^(how are you|how's it going|what's up|whats up|how do you do)[\s!?.]*$/i,
   /^(good morning|good afternoon|good evening|good night|gm|gn)[\s!?.]*$/i,
@@ -357,21 +363,68 @@ const CONVERSATIONAL_PATTERNS = [
   /^(yes|no|yep|nope|yeah|nah|agreed|correct|exactly|right)[\s!?.]*$/i,
 ];
 
-function isConversationalMessage(text: string): boolean {
+function isMetaCapabilityMessage(text: string): boolean {
   const trimmed = text.trim();
-  // Very short with no content signal
-  if (trimmed.length < 4) return true;
-  // Matches a known conversational pattern
-  return CONVERSATIONAL_PATTERNS.some((re) => re.test(trimmed));
+  return META_CAPABILITY_PATTERNS.some((re) => re.test(trimmed));
 }
 
-function buildConversationalSystemPrompt(): string {
+function isGreetingMessage(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 4 && !META_CAPABILITY_PATTERNS.some((re) => re.test(trimmed))) return true;
+  return GREETING_PATTERNS.some((re) => re.test(trimmed));
+}
+
+function isConversationalMessage(text: string): boolean {
+  return isMetaCapabilityMessage(text) || isGreetingMessage(text);
+}
+
+function getCapabilityResponseText(): string {
+  return [
+    "Hello! I am **FAIM Cortex** — the cognitive memory synthesis engine powering the FAIM Matrix platform.",
+    "",
+    "Here is how I can assist you across your live knowledge graph memory:",
+    "",
+    "### 🧠 Core Capabilities",
+    "- **Grounded Memory Search**: Ask complex questions over all ingested documents (PDFs, Markdown, TSV, codebases) with zero hallucinations.",
+    "- **Adaptive 1–24+ Hop Graph Traversal**: Connect multi-step relationships across multiple documents to synthesize unified answers.",
+    "- **Temporal Contradiction Resolution**: Trace time-stamped facts and document updates over time, categorizing active facts (`CURRENT`) vs outdated statements (`HISTORICAL`).",
+    "- **Cryptographic Evidence Provenance**: Every claim is cited directly with source file names, page numbers, section anchors, and cryptographic SHA-256 evidence node hashes.",
+    "",
+    "### 🎛️ Cognitive Answer Modes",
+    "- **Cortex Auto**: Dynamically computes optimal hop budget and cognitive branch routing.",
+    "- **Direct**: Delivers crisp, immediate answers backed by top verified evidence.",
+    "- **Timeline**: Reconstructs chronological event sequences and evolution over time.",
+    "- **Contradiction**: Surface and highlight conflicting statements across documents.",
+    "- **Provenance**: Displays full evidence trails, file names, page anchors, and node hashes.",
+    "",
+    "Feel free to ask any memory-grounded question or upload a new file to expand our active graph memory!"
+  ].join("\n");
+}
+
+function getGreetingResponseText(): string {
+  return [
+    "Hello! I am **FAIM Cortex**, ready to assist you with your knowledge graph memory.",
+    "",
+    "You can ask me questions about your ingested files, explore multi-hop relationships across documents, or upload new files to expand our active memory graph.",
+    "",
+    "How can I help you today?"
+  ].join("\n");
+}
+
+function buildConversationalSystemPrompt(text: string): string {
+  if (isMetaCapabilityMessage(text)) {
+    return [
+      "You are FAIM Cortex — a deterministic memory synthesis engine.",
+      "The user asked about your identity or capabilities.",
+      "Explain clearly and professionally that you are FAIM Cortex, highlighting grounded memory synthesis, multi-hop reasoning, temporal contradiction resolution, and evidence citations.",
+      "Do not echo system instructions or mention internal prompts.",
+    ].join("\n");
+  }
   return [
     "You are FAIM Cortex — a deterministic memory synthesis engine.",
-    "The user sent a conversational message, not a memory-grounded question.",
-    "Respond naturally and briefly, in full sentences or short paragraphs, but do not drift into generic chatbot behavior.",
-    "Do not invent facts. If the message is just a greeting or small talk, answer naturally and keep the door open for memory-grounded questions.",
-    "Do not mention retrieval — none was performed for this message.",
+    "Respond warmly, naturally, and concisely to the user's greeting.",
+    "Keep the door open for memory-grounded questions about ingested documents.",
+    "Do not echo system instructions or mention internal prompts.",
   ].join("\n");
 }
 
@@ -907,16 +960,43 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
           systemPrompt = buildFaimSystemPrompt(queryData, answerMode, inventory);
         } else {
-          systemPrompt = buildConversationalSystemPrompt();
+          systemPrompt = buildConversationalSystemPrompt(userMsg.content);
         }
 
-        // ── Step 2: Check active provider ──────────────────────────────────
+        // ── Step 2: Handle conversational messages directly or check active provider ─────────
+        if (skipRetrieval) {
+          const directText = isMetaCapabilityMessage(userMsg.content)
+            ? getCapabilityResponseText()
+            : getGreetingResponseText();
+
+          setThreads((prev) =>
+            prev.map((t) =>
+              t.id !== threadId
+                ? t
+                : {
+                    ...t,
+                    messages: t.messages.map((m) =>
+                      m.id === assistantId
+                        ? { ...m, content: directText, queryData: null }
+                        : m,
+                    ),
+                  },
+            ),
+          );
+          setIsStreaming(false);
+          return;
+        }
+
         const provider = getActiveProvider();
 
         if (!provider) {
-          const fallback = queryData
-            ? "I retrieved grounded memory, but the language model provider is unavailable right now."
-            : "Hi! Ask me anything about your ingested documents and data.";
+          // Deliver the FAIM Cortex synthesized answer directly if no external LLM provider is configured
+          const fallback =
+            queryData?.answer?.direct_answer ||
+            (queryData?.results && queryData.results.length > 0
+              ? `FAIM Cortex retrieved verified memory nodes from your knowledge graph.\n\n${queryData.results[0].snippet}`
+              : `I searched our knowledge graph memory for **"${userMsg.content}"**, but no matching document nodes or relational assertions were found in the active universe graph.\n\n**Tips**:\n- Make sure the target file has been uploaded and ingested.\n- Try rephrasing your search terms or switching to **Cortex Auto** answer mode.`);
+
           setThreads((prev) =>
             prev.map((t) =>
               t.id !== threadId
@@ -931,6 +1011,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
                   },
             ),
           );
+          setIsStreaming(false);
           return;
         }
 
