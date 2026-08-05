@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from api.routers.query import QueryAnswer
 from core.cortex.branches import run_parallel_branches
+from core.cortex.cortexagi_tools import get_faim_native_tools
 from core.cortex.history import load_cortex_session_summary, load_recent_cortex_turns
 from core.cortex.persistence import persist_cortex_turn
 from core.cortex.planner import PlannedTurn, classify_turn
@@ -237,6 +238,7 @@ async def run_cortex_turn(
         ),
         "recent_turns": recent_turns,
         "session_summary": session_summary.model_dump() if session_summary else None,
+        "cortexagi_tools": [tool.__name__ for tool in get_faim_native_tools()],
     }
 
     reasoning_tree = await run_parallel_branches(branch_state)
