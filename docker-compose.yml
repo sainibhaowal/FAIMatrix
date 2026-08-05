@@ -53,10 +53,9 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Qdrant (Optional - Acceleration Only)
+  # Qdrant (Vector Acceleration Engine)
   # ---------------------------------------------------------------------------
   qdrant:
-    profiles: ["accel"]
     image: qdrant/qdrant:latest
     container_name: faim-qdrant
     ports:
@@ -70,7 +69,7 @@ services:
       - qdrant_data:/qdrant/storage
     healthcheck:
       test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8040' || exit 1"]
-      interval: 10s
+      interval: 5s
       timeout: 3s
       retries: 20
     networks: [faim-net]
@@ -145,8 +144,8 @@ services:
       FAIM_SELF_INVENT_LAMBDA_THRESHOLD: ${FAIM_SELF_INVENT_LAMBDA_THRESHOLD:-0.3}
       FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION: ${FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION:-0.01}
       FAIM_PROFILE_PERSIST_COMPAT_MODE: ${FAIM_PROFILE_PERSIST_COMPAT_MODE:-true}
-      REDIS_URL: ${REDIS_URL:-}
-      QDRANT_URL: ${QDRANT_URL:-}
+      REDIS_URL: ${REDIS_URL:-redis://:faim_pass@redis:8030/0}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:8040}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
 
     volumes:
@@ -157,6 +156,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      qdrant:
         condition: service_healthy
     healthcheck:
       test:
@@ -195,7 +196,9 @@ services:
     command: ["python", "-m", "orchestration.jobs.worker"]
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
-      REDIS_URL: ${REDIS_URL:-}
+      REDIS_URL: ${REDIS_URL:-redis://:faim_pass@redis:8030/0}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:8040}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       FAIM_RAW_STORE_PATH: /var/lib/faim/raw/blobs
       FAIM_AUTO_MIGRATE: "false"
       FAIM_OCR_ENABLED: ${FAIM_OCR_ENABLED:-false}
@@ -217,6 +220,8 @@ services:
       api:
         condition: service_started
       redis:
+        condition: service_healthy
+      qdrant:
         condition: service_healthy
     healthcheck:
       test:

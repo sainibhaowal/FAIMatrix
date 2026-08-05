@@ -78,7 +78,15 @@ class UUIDType(TypeDecorator):
         if value is None:
             return None
         if isinstance(value, UUID):
-            return str(value)
+            return str(value) if dialect.name != "postgresql" else value
+        if isinstance(value, str):
+            try:
+                val_uuid = UUID(value)
+                return val_uuid if dialect.name == "postgresql" else str(val_uuid)
+            except (ValueError, TypeError, AttributeError):
+                import uuid
+                val_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, value)
+                return val_uuid if dialect.name == "postgresql" else str(val_uuid)
         return value
 
     def process_result_value(self, value, dialect):
@@ -86,7 +94,10 @@ class UUIDType(TypeDecorator):
             return None
         if isinstance(value, UUID):
             return value
-        return UUID(value)
+        try:
+            return UUID(str(value))
+        except (ValueError, TypeError, AttributeError):
+            return str(value)
 
     def load_dialect_impl(self, dialect):
         if dialect.name == "postgresql":
