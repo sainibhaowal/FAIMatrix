@@ -450,54 +450,27 @@ function buildFaimSystemPrompt(
 
   const lines: string[] = [];
 
-  lines.push("You are FAIM Cortex.");
-  lines.push(
-    "Write the final answer as a natural markdown response from grounded FAIM evidence, not as a trace dump, card, or debug report.",
-  );
-  lines.push(
-    "The retrieval layer has already selected the useful memory. Your job is to synthesize it into one clear answer.",
-  );
-  lines.push(
-    "Use only the supplied evidence and direct inference from it. Do not invent outside facts.",
-  );
-  lines.push(
-    "If the evidence is insufficient, say that plainly instead of filling gaps.",
-  );
-  lines.push(
-    "Keep the answer readable and concise unless the question clearly needs more depth.",
-  );
-  lines.push(
-    "Use inline citations like [filename · p.N] when you can tie a claim to a source.",
-  );
-  lines.push(
-    "Do not mention internal panels, reasoning trees, writeback candidates, or other trace UI elements.",
-  );
-  buildAnswerModeGuidance(answerMode).forEach((line) => lines.push(line));
-  lines.push("");
-
-  if (inventory && inventory.totalFiles > 0) {
-    lines.push(
-      `MEMORY INVENTORY — ${inventory.totalFiles} document(s) are available:`,
-    );
-    const typeList = Object.entries(inventory.byType)
-      .map(([t, n]) => `${t.toUpperCase()} (${n})`)
-      .join(", ");
-    if (typeList) lines.push(`  File types: ${typeList}`);
-    lines.push("  Use filenames, pages, sections, and anchors as grounding.");
-    lines.push("");
-  }
-
-  lines.push("EVIDENCE SIGNALS:");
-  lines.push("  CURRENT    -> most recent authoritative source");
-  lines.push("  SUPERSEDED -> older source overridden by a newer node");
-  lines.push("  CONFLICTED -> evidence conflicts and should be surfaced honestly");
-  lines.push("  score >=80% -> strong support");
-  lines.push("  score 55-79% -> supporting evidence");
-  lines.push("  score <55% -> weak support");
-  lines.push(`  confidence ceiling: ${Math.round(conf * 100)}%`);
-  lines.push("");
+  lines.push("You are FAIM Cortex — the cognitive memory synthesis engine powering the FAIM Matrix platform.");
 
   if (spans.length > 0) {
+    lines.push(
+      "Synthesize a clear, accurate, markdown response grounded in the retrieved FAIM evidence.",
+    );
+    lines.push(
+      "Use inline citations like [filename · p.N] when tying claims to source documents.",
+    );
+    lines.push(
+      "Do not invent outside facts. Keep the answer readable and direct.",
+    );
+    buildAnswerModeGuidance(answerMode).forEach((line) => lines.push(line));
+    lines.push("");
+
+    if (inventory && inventory.totalFiles > 0) {
+      lines.push(
+        `MEMORY INVENTORY — ${inventory.totalFiles} document(s) available in active graph memory.`,
+      );
+    }
+
     lines.push("RETRIEVED EVIDENCE:");
     spans.forEach((s, i) => {
       const status = s.temporal_status ? ` [${s.temporal_status}]` : "";
@@ -507,26 +480,27 @@ function buildFaimSystemPrompt(
       );
       lines.push(`  ${s.text}`);
     });
-    lines.push("");
-  } else if (results.length === 0) {
-    lines.push("RETRIEVED EVIDENCE: none");
-    lines.push("  Answer honestly that no grounded memory was found.");
-    lines.push("");
-  }
 
-  if (contra.length > 0) {
-    lines.push("CONFLICT WARNING:");
-    contra.forEach((c) => lines.push(`  - ${c}`));
-    lines.push("  Preserve the conflict instead of pretending it is settled.");
-    lines.push("");
+    if (contra.length > 0) {
+      lines.push("");
+      lines.push("CONFLICT WARNING:");
+      contra.forEach((c) => lines.push(`  - ${c}`));
+    }
+  } else {
+    lines.push(
+      "The user sent a message or question where no specific document evidence spans were returned from graph memory.",
+    );
+    lines.push(
+      "If the user is asking a conversational question, greeting, or identity query (such as 'who are you', 'what can you do', 'hi', 'help'), respond naturally, articulately, and comprehensively as FAIM Cortex.",
+    );
+    lines.push(
+      "Explain clearly that you are FAIM Cortex — the cognitive memory synthesis engine powering FAIM Matrix, capable of grounded document search, 1–24+ hop graph reasoning, temporal contradiction resolution, and evidence provenance tracking.",
+    );
+    lines.push(
+      "If the user is asking for specific facts from a document that is not present in graph memory, politely state that no matching document memory was found.",
+    );
+    lines.push("Always maintain a professional, intelligent, conversational tone with complete sentences.");
   }
-
-  lines.push("RESPONSE CONTRACT:");
-  lines.push("  1. Answer naturally first.");
-  lines.push("  2. Use bullets only when they help the user.");
-  lines.push("  3. Keep tables out unless the user asks for them.");
-  lines.push("  4. Label any inference or prediction clearly.");
-  lines.push("  5. If evidence is missing, say exactly what is missing.");
 
   return lines.join("\n");
 }
@@ -911,14 +885,30 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const provider = getActiveProvider();
 
         if (!provider) {
-          // Deliver the FAIM Cortex synthesized answer directly if no external LLM provider is configured
-          const firstSpan = queryData?.answer?.supporting_spans?.[0]?.text;
-          const fallback =
-            queryData?.answer?.direct_answer ||
-            firstSpan ||
-            (queryData?.results && queryData.results.length > 0
-              ? `FAIM Cortex retrieved verified memory nodes (Node ID: \`${queryData.results[0].node_id}\`) from your knowledge graph.`
-              : `I searched our knowledge graph memory for **"${userMsg.content}"**, but no matching document nodes or relational assertions were found in the active universe graph.\n\n**Tips**:\n- Make sure the target file has been uploaded and ingested.\n- Try rephrasing your search terms or switching to **Cortex Auto** answer mode.`);
+          const textLower = userMsg.content.trim().toLowerCase();
+          const isGreeting = /^(hi|hey|hello|hiya|howdy|sup|yo)[\s!?.]*$/i.test(textLower);
+          const isIdentity = /^(who|what)\s+(are|is|can)\s+(you|u|faim|cortex).*/i.test(textLower) || textLower.includes("who are you") || textLower.includes("what can you do");
+
+          let fallback: string;
+          if (isIdentity) {
+            fallback =
+              "I am **FAIM Cortex** — the cognitive memory synthesis engine powering the FAIM Matrix platform.\n\n" +
+              "I perform grounded document retrieval with zero hallucinations, multi-hop relational graph reasoning across 1 to 24+ hops, temporal contradiction resolution (separating active `CURRENT` facts from outdated `HISTORICAL` statements), and cryptographic evidence provenance tracking with inline source citations.\n\n" +
+              "How can I assist you with your knowledge graph memory today?";
+          } else if (isGreeting) {
+            fallback =
+              "Hello! I am **FAIM Cortex**, ready to assist you with your knowledge graph memory.\n\n" +
+              "You can ask me questions about your ingested files, explore multi-hop relationships across documents, or upload new files to expand our active memory graph.\n\n" +
+              "What would you like to explore today?";
+          } else {
+            const firstSpan = queryData?.answer?.supporting_spans?.[0]?.text;
+            fallback =
+              queryData?.answer?.direct_answer ||
+              firstSpan ||
+              (queryData?.results && queryData.results.length > 0
+                ? `FAIM Cortex retrieved verified memory nodes (Node ID: \`${queryData.results[0].node_id}\`) from your knowledge graph.`
+                : `I searched our knowledge graph memory for **"${userMsg.content}"**, but no matching document nodes or relational assertions were found in the active universe graph.\n\n**Tips**:\n- Make sure the target file has been uploaded and ingested.\n- Try rephrasing your search terms or switching to **Cortex Auto** answer mode.`);
+          }
 
           setThreads((prev) =>
             prev.map((t) =>
