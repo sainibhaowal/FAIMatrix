@@ -991,10 +991,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         if (!provider) {
           // Deliver the FAIM Cortex synthesized answer directly if no external LLM provider is configured
+          const firstSpan = queryData?.answer?.supporting_spans?.[0]?.text;
           const fallback =
             queryData?.answer?.direct_answer ||
+            firstSpan ||
             (queryData?.results && queryData.results.length > 0
-              ? `FAIM Cortex retrieved verified memory nodes from your knowledge graph.\n\n${queryData.results[0].snippet}`
+              ? `FAIM Cortex retrieved verified memory nodes (Node ID: \`${queryData.results[0].node_id}\`) from your knowledge graph.`
               : `I searched our knowledge graph memory for **"${userMsg.content}"**, but no matching document nodes or relational assertions were found in the active universe graph.\n\n**Tips**:\n- Make sure the target file has been uploaded and ingested.\n- Try rephrasing your search terms or switching to **Cortex Auto** answer mode.`);
 
           setThreads((prev) =>
