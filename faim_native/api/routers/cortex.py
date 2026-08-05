@@ -15,9 +15,35 @@ if str(_parent) not in sys.path:
 
 from api.deps import FAIMContext, get_faim_context, get_tenant_id  # noqa: E402
 from core.cortex.history import (  # noqa: E402
+    delete_cortex_session,
     list_cortex_sessions,
     load_recent_cortex_turns,
 )
+
+
+@router.delete("/sessions/{session_id}")
+async def cortex_delete_session(
+    session_id: str,
+    graph_id: str,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+    tenant_id: str = Depends(get_tenant_id),
+):
+    """Delete a Cortex session and its associated turns."""
+
+    try:
+        success = delete_cortex_session(
+            ctx.session,
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+            session_id=session_id,
+        )
+        return {"session_id": session_id, "deleted": success}
+    except Exception as e:
+        if ctx.session is not None:
+            ctx.session.rollback()
+        logger.error(f"Failed to delete session {session_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
 from core.cortex.runtime import run_cortex_turn  # noqa: E402
 from core.cortex.schemas import (  # noqa: E402
     CortexSessionSummary,

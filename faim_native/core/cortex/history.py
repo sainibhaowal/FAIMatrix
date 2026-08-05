@@ -217,3 +217,31 @@ def load_cortex_session_summary(
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
+
+
+def delete_cortex_session(
+    session,
+    *,
+    tenant_id: str,
+    graph_id: str,
+    session_id: str,
+) -> bool:
+    """Delete a Cortex session and all its associated turns."""
+
+    from store.pg.models_faim import CortexSessionModel, CortexTurnModel
+
+    session.query(CortexTurnModel).filter(
+        CortexTurnModel.tenant_id == tenant_id,
+        CortexTurnModel.graph_id == graph_id,
+        CortexTurnModel.session_id == session_id,
+    ).delete(synchronize_session=False)
+
+    deleted_count = session.query(CortexSessionModel).filter(
+        CortexSessionModel.tenant_id == tenant_id,
+        CortexSessionModel.graph_id == graph_id,
+        CortexSessionModel.session_id == session_id,
+    ).delete(synchronize_session=False)
+
+    session.commit()
+    return deleted_count > 0
+
