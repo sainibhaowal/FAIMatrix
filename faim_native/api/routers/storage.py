@@ -778,6 +778,10 @@ def _emit_storage_audit_event(
         else:
             ctx.session.flush()
     except Exception as exc:  # nosec B110
+        try:
+            ctx.session.rollback()
+        except Exception:
+            pass
         logger.warning("Failed to emit storage audit event %s: %s", kind, exc)
 
 
