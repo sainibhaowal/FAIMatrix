@@ -1131,6 +1131,8 @@ export default function StoragePage() {
 
         const headers = await authHeaders();
 
+        let processingInterval: NodeJS.Timeout | null = null;
+
         const batch = await new Promise<UploadBatchResponse>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open("POST", "/api/v1/storage/uploads");
@@ -1140,14 +1142,17 @@ export default function StoragePage() {
           });
 
           if (controller.signal) {
-            controller.signal.addEventListener("abort", () => xhr.abort());
+            controller.signal.addEventListener("abort", () => {
+              if (processingInterval) clearInterval(processingInterval);
+              xhr.abort();
+            });
           }
 
           xhr.upload.onprogress = (event) => {
             if (event.lengthComputable && event.total > 0) {
               const uploadPercent = Math.min(
-                50,
-                Math.round((event.loaded / event.total) * 50),
+                25,
+                Math.round((event.loaded / event.total) * 25),
               );
               patchQueueItem(itemId, (item) => ({
                 ...item,
@@ -1155,10 +1160,25 @@ export default function StoragePage() {
                 progress: uploadPercent,
                 updatedAt: safeNow(),
               }));
+
+              // Once byte transfer completes, start smooth processing progression (25% -> 92%)
+              if (event.loaded >= event.total && !processingInterval) {
+                let currentProg = 25;
+                processingInterval = setInterval(() => {
+                  currentProg = Math.min(92, currentProg + Math.floor(Math.random() * 8) + 4);
+                  patchQueueItem(itemId, (item) => ({
+                    ...item,
+                    status: "ingesting",
+                    progress: currentProg,
+                    updatedAt: safeNow(),
+                  }));
+                }, 400);
+              }
             }
           };
 
           xhr.onload = () => {
+            if (processingInterval) clearInterval(processingInterval);
             let payload: unknown = null;
             if (xhr.responseText) {
               try {
@@ -1180,8 +1200,14 @@ export default function StoragePage() {
             }
           };
 
-          xhr.onerror = () => reject(new ApiError(500, "Network error during upload"));
-          xhr.onabort = () => reject(new DOMException("Aborted", "AbortError"));
+          xhr.onerror = () => {
+            if (processingInterval) clearInterval(processingInterval);
+            reject(new ApiError(500, "Network error during upload"));
+          };
+          xhr.onabort = () => {
+            if (processingInterval) clearInterval(processingInterval);
+            reject(new DOMException("Aborted", "AbortError"));
+          };
 
           xhr.send(formData);
         });
