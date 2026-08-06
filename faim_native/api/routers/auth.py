@@ -40,9 +40,9 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # Security Configuration
 # =============================================================================
 
-# Rate limiting: max 3 OTP requests per email per 15 minutes
+# Rate limiting: max 15 OTP requests per email per 15 minutes
 RATE_LIMIT_WINDOW_MINUTES = 15
-RATE_LIMIT_MAX_REQUESTS = 3
+RATE_LIMIT_MAX_REQUESTS = 15
 
 # Brute force protection: lock after 5 failed attempts for 30 minutes
 MAX_FAILED_ATTEMPTS = 5
@@ -601,6 +601,15 @@ async def request_otp(body: OTPRequestBody, request: Request):
         totp_enabled = bool(user and user.totp_enabled and mode == "login")
     finally:
         session.close()
+
+    # If user has TOTP enabled, return TOTP mode immediately without sending email or triggering rate limits
+    if totp_enabled:
+        return OTPRequestResponse(
+            success=True,
+            method="totp",
+            totp_enabled=True,
+            message="Please enter the code from your authenticator app.",
+        )
 
     # Check rate limit
     if not _check_rate_limit(email):
