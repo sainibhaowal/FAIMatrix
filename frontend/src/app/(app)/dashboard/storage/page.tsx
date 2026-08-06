@@ -1146,8 +1146,8 @@ export default function StoragePage() {
           xhr.upload.onprogress = (event) => {
             if (event.lengthComputable && event.total > 0) {
               const uploadPercent = Math.min(
-                39,
-                Math.round((event.loaded / event.total) * 40),
+                50,
+                Math.round((event.loaded / event.total) * 50),
               );
               patchQueueItem(itemId, (item) => ({
                 ...item,
