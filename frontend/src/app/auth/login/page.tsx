@@ -67,8 +67,9 @@ function LoginContent() {
       }
 
       if (res.ok && data.success) {
-        setTotpAvailable(Boolean(data.totp_enabled));
-        setFactorType("email_otp");
+        const isTotp = Boolean(data.totp_enabled);
+        setTotpAvailable(isTotp);
+        setFactorType(isTotp ? "totp" : "email_otp");
         setCode("");
         setStep("code");
       } else {
