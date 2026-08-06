@@ -374,15 +374,15 @@ class StorageFileRepo:
         )
         by_type = {mime or "application/octet-stream": int(c) for mime, c in type_rows}
 
-        from store.pg.models_faim import NodeModel, EdgeModel, ChunkModel, EventModel
+        from store.pg.models_faim import NodeModel, EdgeModel, NodeRepresentationV2Model, EventModel
 
         node_count = session.query(NodeModel).filter(NodeModel.tenant_id == self.tenant_id).count()
         edge_count = session.query(EdgeModel).filter(EdgeModel.tenant_id == self.tenant_id).count()
-        chunk_count = session.query(ChunkModel).filter(ChunkModel.tenant_id == self.tenant_id).count()
+        rep_count = session.query(NodeRepresentationV2Model).filter(NodeRepresentationV2Model.tenant_id == self.tenant_id).count()
         event_count = session.query(EventModel).filter(EventModel.tenant_id == self.tenant_id).count()
 
         raw_bytes = int(total_bytes)
-        graph_memory_bytes = (node_count * 1536) + (edge_count * 512) + (chunk_count * 2048)
+        graph_memory_bytes = (node_count * 2048) + (edge_count * 512) + (rep_count * 1536)
         event_log_bytes = event_count * 768
         total_user_footprint_bytes = raw_bytes + graph_memory_bytes + event_log_bytes
 
