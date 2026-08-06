@@ -2256,30 +2256,30 @@ async def request_delete_storage_file(
     item_before = _row_to_file_item(row)
 
     if hard_delete:
-        from store.pg.models_faim import NodeModel, NodeRepresentationV2Model, EdgeModel, StorageFileModel
+        from store.pg.models_faim import NodeModel, NodeRepresentationV2Model, StorageFileModel
 
-        # 1. Delete physical raw blob from disk
-        raw_ref = ctx.raw_repo.get_by_id(ctx.session, raw_uuid)
-        if raw_ref is not None:
-            store = _resolve_raw_store(ctx)
-            try:
-                delete_fn = getattr(store, "delete", None)
-                if callable(delete_fn):
-                    delete_fn(raw_ref)
-            except Exception as e:
-                logger.warning("Failed to delete raw blob for %s: %s", raw_uuid, e)
-            try:
-                ctx.raw_repo.delete_by_id(ctx.session, raw_uuid)
-            except Exception as e:
-                logger.warning("Failed to delete raw ref for %s: %s", raw_uuid, e)
-
-        # 2. Delete nodes, representations, and storage files for this raw_id
         try:
+            # 1. Delete physical raw blob from disk
+            raw_ref = ctx.raw_repo.get_by_id(ctx.session, raw_uuid)
+            if raw_ref is not None:
+                store = _resolve_raw_store(ctx)
+                try:
+                    delete_fn = getattr(store, "delete", None)
+                    if callable(delete_fn):
+                        delete_fn(raw_ref)
+                except Exception as e:
+                    logger.warning("Failed to delete raw blob for %s: %s", raw_uuid, e)
+                try:
+                    ctx.raw_repo.delete_by_id(ctx.session, raw_uuid)
+                except Exception as e:
+                    logger.warning("Failed to delete raw ref for %s: %s", raw_uuid, e)
+
+            # 2. Delete nodes (raw_id is Text), representations, and storage files for this raw_id
             ctx.session.query(NodeModel).filter(
                 and_(
                     NodeModel.tenant_id == ctx.tenant_id,
                     NodeModel.graph_id == graph_id,
-                    NodeModel.raw_id == raw_uuid,
+                    NodeModel.raw_id == str(raw_uuid),
                 )
             ).delete(synchronize_session=False)
 
@@ -2298,8 +2298,17 @@ async def request_delete_storage_file(
                     StorageFileModel.raw_id == raw_uuid,
                 )
             ).delete(synchronize_session=False)
+
+            ctx.session.commit()
         except Exception as e:
-            logger.warning("Failed to purge DB rows for %s: %s", raw_uuid, e)
+            logger.error("Failed to execute hard delete for %s: %s", raw_uuid, e)
+            try:
+                ctx.session.rollback()
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=500, detail=f"Failed to execute physical delete: {e}"
+            ) from e
 
         _emit_storage_audit_event(
             ctx=ctx,
@@ -2310,7 +2319,11 @@ async def request_delete_storage_file(
                 "reason": reason or "Hard delete requested",
             },
         )
-        ctx.session.commit()
+        try:
+            ctx.session.commit()
+        except Exception:
+            ctx.session.rollback()
+
         return item_before
 
     row = ctx.storage_file_repo.mark_delete_requested(
