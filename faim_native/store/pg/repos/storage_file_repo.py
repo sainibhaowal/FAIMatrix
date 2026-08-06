@@ -376,20 +376,36 @@ class StorageFileRepo:
 
         from store.pg.models_faim import NodeModel, EdgeModel, NodeRepresentationV2Model, EventModel
 
-        node_count = session.query(NodeModel).filter(NodeModel.tenant_id == self.tenant_id).count()
-        edge_count = session.query(EdgeModel).filter(EdgeModel.tenant_id == self.tenant_id).count()
-        rep_count = session.query(NodeRepresentationV2Model).filter(NodeRepresentationV2Model.tenant_id == self.tenant_id).count()
-        event_count = session.query(EventModel).filter(EventModel.tenant_id == self.tenant_id).count()
+        if total_files == 0:
+            graph_memory_bytes = 0
+            event_log_bytes = 0
+            total_user_footprint_bytes = 0
+        else:
+            nq = session.query(NodeModel).filter(NodeModel.tenant_id == self.tenant_id)
+            eq = session.query(EdgeModel).filter(EdgeModel.tenant_id == self.tenant_id)
+            rq = session.query(NodeRepresentationV2Model).filter(NodeRepresentationV2Model.tenant_id == self.tenant_id)
+            evq = session.query(EventModel).filter(EventModel.tenant_id == self.tenant_id)
 
-        raw_bytes = int(total_bytes)
-        graph_memory_bytes = (node_count * 2048) + (edge_count * 512) + (rep_count * 1536)
-        event_log_bytes = event_count * 768
-        total_user_footprint_bytes = raw_bytes + graph_memory_bytes + event_log_bytes
+            if graph_id:
+                nq = nq.filter(NodeModel.graph_id == graph_id)
+                eq = eq.filter(EdgeModel.graph_id == graph_id)
+                rq = rq.filter(NodeRepresentationV2Model.graph_id == graph_id)
+                evq = evq.filter(EventModel.graph_id == graph_id)
+
+            node_count = nq.count()
+            edge_count = eq.count()
+            rep_count = rq.count()
+            event_count = evq.count()
+
+            raw_bytes = int(total_bytes)
+            graph_memory_bytes = (node_count * 2048) + (edge_count * 512) + (rep_count * 1536)
+            event_log_bytes = event_count * 768
+            total_user_footprint_bytes = raw_bytes + graph_memory_bytes + event_log_bytes
 
         return {
             "total_files": int(total_files),
-            "total_bytes": raw_bytes,
-            "raw_bytes": raw_bytes,
+            "total_bytes": int(total_bytes),
+            "raw_bytes": int(total_bytes),
             "graph_memory_bytes": graph_memory_bytes,
             "event_log_bytes": event_log_bytes,
             "total_user_footprint_bytes": total_user_footprint_bytes,
