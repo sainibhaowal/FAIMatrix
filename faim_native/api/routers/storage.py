@@ -2256,7 +2256,7 @@ async def request_delete_storage_file(
     item_before = _row_to_file_item(row)
 
     if hard_delete:
-        from store.pg.models_faim import NodeModel, ChunkModel, EdgeModel, StorageFileModel
+        from store.pg.models_faim import NodeModel, NodeRepresentationV2Model, EdgeModel, StorageFileModel
 
         # 1. Delete physical raw blob from disk
         raw_ref = ctx.raw_repo.get_by_id(ctx.session, raw_uuid)
@@ -2273,7 +2273,7 @@ async def request_delete_storage_file(
             except Exception as e:
                 logger.warning("Failed to delete raw ref for %s: %s", raw_uuid, e)
 
-        # 2. Delete nodes, chunks, and edges for this raw_id
+        # 2. Delete nodes, representations, and storage files for this raw_id
         try:
             ctx.session.query(NodeModel).filter(
                 and_(
@@ -2283,11 +2283,11 @@ async def request_delete_storage_file(
                 )
             ).delete(synchronize_session=False)
 
-            ctx.session.query(ChunkModel).filter(
+            ctx.session.query(NodeRepresentationV2Model).filter(
                 and_(
-                    ChunkModel.tenant_id == ctx.tenant_id,
-                    ChunkModel.graph_id == graph_id,
-                    ChunkModel.raw_id == raw_uuid,
+                    NodeRepresentationV2Model.tenant_id == ctx.tenant_id,
+                    NodeRepresentationV2Model.graph_id == graph_id,
+                    NodeRepresentationV2Model.raw_id == raw_uuid,
                 )
             ).delete(synchronize_session=False)
 
