@@ -1150,29 +1150,31 @@ export default function StoragePage() {
 
           xhr.upload.onprogress = (event) => {
             if (event.lengthComputable && event.total > 0) {
-              const uploadPercent = Math.min(
-                25,
-                Math.round((event.loaded / event.total) * 25),
+              const bytePercent = Math.min(
+                30,
+                Math.max(1, Math.round((event.loaded / event.total) * 30)),
               );
               patchQueueItem(itemId, (item) => ({
                 ...item,
                 status: "uploading",
-                progress: uploadPercent,
+                progress: bytePercent,
                 updatedAt: safeNow(),
               }));
 
-              // Once byte transfer completes, start smooth processing progression (25% -> 92%)
+              // Once byte transfer completes, start granular 1% by 1% live ticker (31% -> 99%)
               if (event.loaded >= event.total && !processingInterval) {
-                let currentProg = 25;
+                let currentProg = Math.max(30, bytePercent);
                 processingInterval = setInterval(() => {
-                  currentProg = Math.min(92, currentProg + Math.floor(Math.random() * 8) + 4);
-                  patchQueueItem(itemId, (item) => ({
-                    ...item,
-                    status: "ingesting",
-                    progress: currentProg,
-                    updatedAt: safeNow(),
-                  }));
-                }, 400);
+                  if (currentProg < 99) {
+                    currentProg += 1;
+                    patchQueueItem(itemId, (item) => ({
+                      ...item,
+                      status: "ingesting",
+                      progress: currentProg,
+                      updatedAt: safeNow(),
+                    }));
+                  }
+                }, 150);
               }
             }
           };
