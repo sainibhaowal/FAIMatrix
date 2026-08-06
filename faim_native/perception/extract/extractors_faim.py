@@ -202,110 +202,117 @@ def extract_pdf_blocks(
     blocks: list[EvidenceBlock] = []
 
     try:
+        import gc
         import fitz
 
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         page_count = len(doc)
 
-        for page_num in range(page_count):
-            page = doc[page_num]
-            page_width = page.rect.width
+        try:
+            for page_num in range(page_count):
+                page = doc[page_num]
+                page_width = page.rect.width
 
-            # ── Extract tables first (get their bboxes to exclude from text) ──
-            table_results = _fitz_extract_tables(page)
-            table_bboxes = [bbox for bbox, _ in table_results]
+                # ── Extract tables first (only on documents <= 30 pages to prevent OOM) ──
+                table_results = _fitz_extract_tables(page) if page_count <= 30 else []
+                table_bboxes = [bbox for bbox, _ in table_results]
 
-            for tbl_idx, (_bbox, table_text) in enumerate(table_results):
-                anchor = BlockAnchor(doc_type="pdf", page=page_num + 1)
-                blocks.append(
-                    EvidenceBlock.create(
-                        raw_id=raw_id,
-                        anchor=anchor,
-                        content=table_text,
-                        block_type="table",
-                        confidence=1.0,
-                        metadata={"page_count": page_count, "table_index": tbl_idx},
-                    )
-                )
-
-            # ── Extract inline figure blocks (type=1 in get_text rawdict) ──
-            # These are embedded image regions within text pages — not OCR candidates.
-            figure_blocks = _extract_figure_blocks(
-                page=page,
-                raw_id=raw_id,
-                page_num=page_num,
-                page_count=page_count,
-                table_bboxes=table_bboxes,
-            )
-            blocks.extend(figure_blocks)
-            figure_bboxes = [
-                fb.anchor_json.get("bbox_x0")
-                and (
-                    fb.anchor_json.get("bbox_x0", 0),
-                    fb.anchor_json.get("bbox_y0", 0),
-                    fb.anchor_json.get("bbox_x1", 0),
-                    fb.anchor_json.get("bbox_y1", 0),
-                )
-                for fb in figure_blocks
-            ]
-            figure_bboxes = [b for b in figure_bboxes if b]
-
-            # ── Extract text blocks with layout-aware ordering ──
-            raw_blocks = page.get_text("blocks")  # (x0,y0,x1,y1,text,block_no,type)
-            text_blocks = [
-                b
-                for b in raw_blocks
-                if len(b) >= 5
-                and b[4].strip()
-                and b[6] == 0  # type 0 = text (type 1 = image)
-                and not any(_bbox_overlaps(b[:4], tb) for tb in table_bboxes)
-                and not any(_bbox_overlaps(b[:4], fb) for fb in figure_bboxes)
-            ]
-
-            ordered = _sort_reading_order(text_blocks, page_width)
-            page_text = "\n".join(b[4].strip() for b in ordered if b[4].strip())
-
-            if page_text.strip():
-                anchor = BlockAnchor(doc_type="pdf", page=page_num + 1)
-                blocks.append(
-                    EvidenceBlock.create(
-                        raw_id=raw_id,
-                        anchor=anchor,
-                        content=page_text.strip(),
-                        block_type="text",
-                        confidence=1.0,
-                        metadata={"page_count": page_count},
-                    )
-                )
-            elif page.get_images():
-                # Pure image page — attempt OCR
-                ocr_block = _extract_pdf_page_ocr_block(
-                    page=page,
-                    raw_id=raw_id,
-                    page_number=page_num + 1,
-                    page_count=page_count,
-                    image_count=len(page.get_images()),
-                )
-                if ocr_block is not None:
-                    blocks.append(ocr_block)
-                else:
+                for tbl_idx, (_bbox, table_text) in enumerate(table_results):
                     anchor = BlockAnchor(doc_type="pdf", page=page_num + 1)
                     blocks.append(
-                        _image_stub_block(
+                        EvidenceBlock.create(
                             raw_id=raw_id,
                             anchor=anchor,
-                            message="[IMAGE_STUB: Page contains image content requiring OCR]",
-                            filename="",
-                            size_bytes=len(file_bytes),
-                            metadata={
-                                "page_count": page_count,
-                                "image_count": len(page.get_images()),
-                                "ocr_pending": True,
-                            },
+                            content=table_text,
+                            block_type="table",
+                            confidence=1.0,
+                            metadata={"page_count": page_count, "table_index": tbl_idx},
                         )
                     )
 
-        doc.close()
+                # ── Extract inline figure blocks (type=1 in get_text rawdict) ──
+                figure_blocks = _extract_figure_blocks(
+                    page=page,
+                    raw_id=raw_id,
+                    page_num=page_num,
+                    page_count=page_count,
+                    table_bboxes=table_bboxes,
+                )
+                blocks.extend(figure_blocks)
+                figure_bboxes = [
+                    fb.anchor_json.get("bbox_x0")
+                    and (
+                        fb.anchor_json.get("bbox_x0", 0),
+                        fb.anchor_json.get("bbox_y0", 0),
+                        fb.anchor_json.get("bbox_x1", 0),
+                        fb.anchor_json.get("bbox_y1", 0),
+                    )
+                    for fb in figure_blocks
+                ]
+                figure_bboxes = [b for b in figure_bboxes if b]
+
+                # ── Extract text blocks with layout-aware ordering ──
+                raw_blocks = page.get_text("blocks")  # (x0,y0,x1,y1,text,block_no,type)
+                text_blocks = [
+                    b
+                    for b in raw_blocks
+                    if len(b) >= 5
+                    and b[4].strip()
+                    and b[6] == 0  # type 0 = text (type 1 = image)
+                    and not any(_bbox_overlaps(b[:4], tb) for tb in table_bboxes)
+                    and not any(_bbox_overlaps(b[:4], fb) for fb in figure_bboxes)
+                ]
+
+                ordered = _sort_reading_order(text_blocks, page_width)
+                page_text = "\n".join(b[4].strip() for b in ordered if b[4].strip())
+
+                if page_text.strip():
+                    anchor = BlockAnchor(doc_type="pdf", page=page_num + 1)
+                    blocks.append(
+                        EvidenceBlock.create(
+                            raw_id=raw_id,
+                            anchor=anchor,
+                            content=page_text.strip(),
+                            block_type="text",
+                            confidence=1.0,
+                            metadata={"page_count": page_count},
+                        )
+                    )
+                elif page.get_images():
+                    # Pure image page — attempt OCR
+                    ocr_block = _extract_pdf_page_ocr_block(
+                        page=page,
+                        raw_id=raw_id,
+                        page_number=page_num + 1,
+                        page_count=page_count,
+                        image_count=len(page.get_images()),
+                    )
+                    if ocr_block is not None:
+                        blocks.append(ocr_block)
+                    else:
+                        anchor = BlockAnchor(doc_type="pdf", page=page_num + 1)
+                        blocks.append(
+                            _image_stub_block(
+                                raw_id=raw_id,
+                                anchor=anchor,
+                                message="[IMAGE_STUB: Page contains image content requiring OCR]",
+                                filename="",
+                                size_bytes=len(file_bytes),
+                                metadata={
+                                    "page_count": page_count,
+                                    "image_count": len(page.get_images()),
+                                    "ocr_pending": True,
+                                },
+                            )
+                        )
+
+                del page
+                if page_num % 15 == 0:
+                    gc.collect()
+        finally:
+            doc.close()
+            gc.collect()
+
         if blocks:
             return blocks
 
