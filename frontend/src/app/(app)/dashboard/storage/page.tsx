@@ -1844,9 +1844,9 @@ export default function StoragePage() {
             textColor: "text-cyan-200",
           },
           {
-            label: "Stored",
-            value: formatBytes(summary?.total_bytes ?? 0),
-            sub: "raw bytes",
+            label: "Total Storage",
+            value: formatBytes((summary as any)?.total_user_footprint_bytes || summary?.total_bytes || 0),
+            sub: `Raw: ${formatBytes((summary as any)?.raw_bytes || summary?.total_bytes || 0)} · Graph: ${formatBytes((summary as any)?.graph_memory_bytes || 0)}`,
             icon: <HardDrive size={18} />,
             accent: "from-purple-400/80 via-purple-400/30",
             textColor: "text-purple-200",
@@ -2734,7 +2734,7 @@ export default function StoragePage() {
                             className="h-6 text-[11px]"
                             data-testid="storage-file-inspect"
                             data-raw-id={row.raw_id}
-                            disabled={busy || row.delete_requested}
+                            disabled={busy}
                             leftIcon={<FileSearch size={11} />}
                             onClick={() => {
                               void openProvenance(row.raw_id, "faim");
@@ -2763,7 +2763,7 @@ export default function StoragePage() {
                             className="h-6 text-[11px]"
                             data-testid="storage-file-technical"
                             data-raw-id={row.raw_id}
-                            disabled={busy || row.delete_requested}
+                            disabled={busy}
                             leftIcon={<Activity size={11} />}
                             onClick={() => {
                               void openProvenance(row.raw_id, "technical");
@@ -2775,11 +2775,7 @@ export default function StoragePage() {
                             size="xs"
                             variant="ghost"
                             className="h-6 text-[11px]"
-                            disabled={
-                              busy ||
-                              row.delete_requested ||
-                              !ingestModePolicy.supported
-                            }
+                            disabled={busy}
                             onClick={() => {
                               void runFileAction(row.raw_id, "ingest");
                             }}
@@ -2790,11 +2786,7 @@ export default function StoragePage() {
                             size="xs"
                             variant="ghost"
                             className="h-6 text-[11px]"
-                            disabled={
-                              busy ||
-                              row.ingest_status !== "failed" ||
-                              !ingestModePolicy.supported
-                            }
+                            disabled={busy}
                             leftIcon={<RotateCcw size={11} />}
                             onClick={() => {
                               void runFileAction(row.raw_id, "retry");
@@ -2806,12 +2798,12 @@ export default function StoragePage() {
                             size="xs"
                             variant="danger"
                             className="h-6 text-[11px]"
-                            disabled={busy || row.delete_requested}
+                            disabled={busy}
                             onClick={() => {
                               void runFileAction(row.raw_id, "delete");
                             }}
                           >
-                            Delete Req
+                            Delete
                           </Button>
                         </div>
                       </td>

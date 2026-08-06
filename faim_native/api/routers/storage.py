@@ -180,6 +180,10 @@ class StorageSummaryResponse(BaseModel):
     graph_id: Optional[str] = None
     total_files: int
     total_bytes: int
+    raw_bytes: Optional[int] = 0
+    graph_memory_bytes: Optional[int] = 0
+    event_log_bytes: Optional[int] = 0
+    total_user_footprint_bytes: Optional[int] = 0
     by_status: Dict[str, int]
     by_type: Dict[str, int]
 
@@ -2238,21 +2242,83 @@ async def request_delete_storage_file(
     raw_id: str,
     graph_id: str = Query(...),
     reason: Optional[str] = Query(None),
+    hard_delete: bool = Query(True),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StorageFileItem:
-    """Mark a file as delete-requested (logical request only)."""
+    """Delete a file from storage catalog (supports immediate physical hard delete)."""
     _require_storage_repos(ctx)
 
     raw_uuid = _parse_uuid(raw_id, "raw_id")
+    row = ctx.storage_file_repo.get_by_raw_id(ctx.session, raw_uuid, graph_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Storage file not found")
+
+    item_before = _row_to_file_item(row)
+
+    if hard_delete:
+        from store.pg.models_faim import NodeModel, ChunkModel, EdgeModel, StorageFileModel
+
+        # 1. Delete physical raw blob from disk
+        raw_ref = ctx.raw_repo.get_by_id(ctx.session, raw_uuid)
+        if raw_ref is not None:
+            store = _resolve_raw_store(ctx)
+            try:
+                delete_fn = getattr(store, "delete", None)
+                if callable(delete_fn):
+                    delete_fn(raw_ref)
+            except Exception as e:
+                logger.warning("Failed to delete raw blob for %s: %s", raw_uuid, e)
+            try:
+                ctx.raw_repo.delete_by_id(ctx.session, raw_uuid)
+            except Exception as e:
+                logger.warning("Failed to delete raw ref for %s: %s", raw_uuid, e)
+
+        # 2. Delete nodes, chunks, and edges for this raw_id
+        try:
+            ctx.session.query(NodeModel).filter(
+                and_(
+                    NodeModel.tenant_id == ctx.tenant_id,
+                    NodeModel.graph_id == graph_id,
+                    NodeModel.raw_id == raw_uuid,
+                )
+            ).delete(synchronize_session=False)
+
+            ctx.session.query(ChunkModel).filter(
+                and_(
+                    ChunkModel.tenant_id == ctx.tenant_id,
+                    ChunkModel.graph_id == graph_id,
+                    ChunkModel.raw_id == raw_uuid,
+                )
+            ).delete(synchronize_session=False)
+
+            ctx.session.query(StorageFileModel).filter(
+                and_(
+                    StorageFileModel.tenant_id == ctx.tenant_id,
+                    StorageFileModel.graph_id == graph_id,
+                    StorageFileModel.raw_id == raw_uuid,
+                )
+            ).delete(synchronize_session=False)
+        except Exception as e:
+            logger.warning("Failed to purge DB rows for %s: %s", raw_uuid, e)
+
+        _emit_storage_audit_event(
+            ctx=ctx,
+            graph_id=graph_id,
+            kind="STORAGE_DELETE_EXECUTED",
+            payload={
+                "raw_id": str(raw_uuid),
+                "reason": reason or "Hard delete requested",
+            },
+        )
+        ctx.session.commit()
+        return item_before
+
     row = ctx.storage_file_repo.mark_delete_requested(
         ctx.session,
         raw_id=raw_uuid,
         graph_id=graph_id,
         reason=reason,
     )
-    if row is None:
-        raise HTTPException(status_code=404, detail="Storage file not found")
-
     _emit_storage_audit_event(
         ctx=ctx,
         graph_id=graph_id,
@@ -2262,16 +2328,7 @@ async def request_delete_storage_file(
             "reason": reason,
         },
     )
-
     ctx.session.commit()
-    _storage_lifecycle_log(
-        ctx=ctx,
-        op="delete_request",
-        status="delete_requested",
-        graph_id=graph_id,
-        raw_id=str(raw_uuid),
-        detail="logical delete request recorded",
-    )
     return _row_to_file_item(row)
 
 
@@ -2435,11 +2492,10 @@ async def retry_storage_file(
     if row is None:
         raise HTTPException(status_code=404, detail="Storage file not found")
 
-    if row.ingest_status != "failed":
-        raise HTTPException(
-            status_code=409,
-            detail=f"Retry is only allowed for failed files (current status: {row.ingest_status})",
-        )
+    # Reset delete_requested flag if present
+    row.delete_requested = False
+    row.delete_requested_at = None
+    ctx.session.commit()
 
     response = await reingest_storage_file(
         raw_id=raw_id,
