@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1.7
 # FAIM-Native Production Dockerfile
 # =============================================================================
 # Multi-stage build for minimal image size and security.
