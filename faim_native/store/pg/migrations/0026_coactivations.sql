@@ -1,6 +1,6 @@
 -- Migration 0026: Add coactivations table
 CREATE TABLE IF NOT EXISTS coactivations (
-    tenant_id UUID NOT NULL,
+    tenant_id TEXT NOT NULL,
     graph_id TEXT NOT NULL,
     signature TEXT NOT NULL,
     members JSONB NOT NULL,
