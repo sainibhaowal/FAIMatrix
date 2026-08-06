@@ -167,6 +167,10 @@ def _emit_event(
             event_repo.emit(session, graph_id, event_type, payload)
         except Exception as e:
             logger.warning(f"Failed to persist event: {e}")
+            try:
+                session.rollback()
+            except Exception:
+                pass
 
 
 def _jobs_enabled() -> bool:
@@ -881,6 +885,12 @@ def run_ingest(
     except Exception as e:
         logger.error(f"[Ingest] Error: {e}")
         latency_ms = int((time.time() - start_time) * 1000)
+
+        if session is not None:
+            try:
+                session.rollback()
+            except Exception:
+                pass
 
         _emit_event(
             "INGEST_ERROR",
