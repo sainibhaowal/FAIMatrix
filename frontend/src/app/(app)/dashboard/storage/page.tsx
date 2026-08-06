@@ -472,8 +472,8 @@ function mapStorageStatus(status?: string | null): QueueStatus {
 
 function queueProgress(status: QueueStatus): number {
   if (status === "queued") return 0;
-  if (status === "uploading") return 30;
-  if (status === "ingesting") return 75;
+  if (status === "uploading") return 15;
+  if (status === "ingesting") return 65;
   return 100;
 }
 
@@ -1112,7 +1112,7 @@ export default function StoragePage() {
       patchQueueItem(itemId, (item) => ({
         ...item,
         status: "uploading",
-        progress: 20,
+        progress: 0,
         error: undefined,
         cancelRequested: false,
         updatedAt: safeNow(),
@@ -1130,31 +1130,62 @@ export default function StoragePage() {
         formData.append("files", current.file);
 
         const headers = await authHeaders();
-        const response = await fetch(`/api/v1/storage/uploads`, {
-          method: "POST",
-          headers,
-          body: formData,
-          signal: controller.signal,
+
+        const batch = await new Promise<UploadBatchResponse>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open("POST", "/api/v1/storage/uploads");
+
+          Object.entries(headers).forEach(([key, val]) => {
+            if (val) xhr.setRequestHeader(key, val);
+          });
+
+          if (controller.signal) {
+            controller.signal.addEventListener("abort", () => xhr.abort());
+          }
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable && event.total > 0) {
+              const uploadPercent = Math.min(
+                39,
+                Math.round((event.loaded / event.total) * 40),
+              );
+              patchQueueItem(itemId, (item) => ({
+                ...item,
+                status: "uploading",
+                progress: uploadPercent,
+                updatedAt: safeNow(),
+              }));
+            }
+          };
+
+          xhr.onload = () => {
+            let payload: unknown = null;
+            if (xhr.responseText) {
+              try {
+                payload = JSON.parse(xhr.responseText);
+              } catch {
+                payload = xhr.responseText;
+              }
+            }
+
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(payload as UploadBatchResponse);
+            } else {
+              reject(
+                new ApiError(
+                  xhr.status,
+                  normalizeApiError(payload, "Upload failed"),
+                ),
+              );
+            }
+          };
+
+          xhr.onerror = () => reject(new ApiError(500, "Network error during upload"));
+          xhr.onabort = () => reject(new DOMException("Aborted", "AbortError"));
+
+          xhr.send(formData);
         });
 
-        let payload: unknown = null;
-        const text = await response.text();
-        if (text) {
-          try {
-            payload = JSON.parse(text);
-          } catch {
-            payload = text;
-          }
-        }
-
-        if (!response.ok) {
-          throw new ApiError(
-            response.status,
-            normalizeApiError(payload, "Upload failed"),
-          );
-        }
-
-        const batch = payload as UploadBatchResponse;
         const result = batch.files?.[0];
         const status = mapStorageStatus(result?.status || batch.status);
 
