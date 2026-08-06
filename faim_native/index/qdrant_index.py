@@ -70,9 +70,9 @@ def _get_client() -> Any:
 
             api_key = _get_qdrant_api_key()
             if api_key:
-                _qdrant_client = QdrantClient(url=_get_qdrant_url(), api_key=api_key)
+                _qdrant_client = QdrantClient(url=_get_qdrant_url(), api_key=api_key, timeout=120.0)
             else:
-                _qdrant_client = QdrantClient(url=_get_qdrant_url())
+                _qdrant_client = QdrantClient(url=_get_qdrant_url(), timeout=120.0)
 
             # Test connection
             _qdrant_client.get_collections()

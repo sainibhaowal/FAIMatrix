@@ -206,6 +206,7 @@ def _upsert_index_sync(
     )
     index = FAIMIndex(project_id)
 
+    written = 0
     node_ids = [str(nid) for nid in (write_result.node_ids or [])]
     for idx, vector in enumerate(vectors):
         if idx < len(node_ids):
@@ -213,14 +214,18 @@ def _upsert_index_sync(
         else:
             # Defensive fallback if engine contract changes.
             node_id = str(getattr(vector, "node_id", "") or vector.vector_hash)
-        index.add(
-            graph_id=graph_id,
-            node_id=node_id,
-            vector=vector.v_native,
-            level=0,
-            kind="atom",
-        )
-    return len(vectors)
+        try:
+            index.add(
+                graph_id=graph_id,
+                node_id=node_id,
+                vector=vector.v_native,
+                level=0,
+                kind="atom",
+            )
+            written += 1
+        except Exception as exc:
+            logger.warning("Failed to upsert vector %s to Qdrant: %s", node_id, exc)
+    return written
 
 
 def _enqueue_async_index_upsert_job(

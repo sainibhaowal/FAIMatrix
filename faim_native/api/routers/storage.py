@@ -1548,7 +1548,10 @@ async def create_upload_batch(
                 failed += 1
                 result_entry.status = "failed"
                 result_entry.error = str(e.detail)
-                ctx.session.rollback()
+                try:
+                    ctx.session.rollback()
+                except Exception:
+                    pass
                 _storage_lifecycle_log(
                     ctx=ctx,
                     op="ingest",
@@ -1560,30 +1563,41 @@ async def create_upload_batch(
                     detail=f"ingest failed for {filename}",
                     level="warning",
                 )
-                JobStore.append_event(
-                    ctx.session,
-                    job_id,
-                    "step_progress",
-                    {
-                        "index": index,
-                        "filename": filename,
-                        "status": "failed",
-                        "error": result_entry.error,
-                        "requested_profile": result_entry.requested_profile,
-                        "requested_persist_mode": result_entry.requested_persist_mode,
-                        "requested_extractor_mode": result_entry.requested_extractor_mode,
-                        "effective_profile": result_entry.effective_profile,
-                        "effective_persist_mode": result_entry.effective_persist_mode,
-                        "effective_extractor_mode": result_entry.effective_extractor_mode,
-                        "durability_path": result_entry.durability_path,
-                    },
-                )
+                try:
+                    JobStore.append_event(
+                        ctx.session,
+                        job_id,
+                        "step_progress",
+                        {
+                            "index": index,
+                            "filename": filename,
+                            "status": "failed",
+                            "error": result_entry.error,
+                            "requested_profile": result_entry.requested_profile,
+                            "requested_persist_mode": result_entry.requested_persist_mode,
+                            "requested_extractor_mode": result_entry.requested_extractor_mode,
+                            "effective_profile": result_entry.effective_profile,
+                            "effective_persist_mode": result_entry.effective_persist_mode,
+                            "effective_extractor_mode": result_entry.effective_extractor_mode,
+                            "durability_path": result_entry.durability_path,
+                        },
+                    )
+                    ctx.session.commit()
+                except Exception as log_err:
+                    logger.warning("Failed to record upload step failure event: %s", log_err)
+                    try:
+                        ctx.session.rollback()
+                    except Exception:
+                        pass
             except Exception as e:
                 processed += 1
                 failed += 1
                 result_entry.status = "failed"
                 result_entry.error = str(e)
-                ctx.session.rollback()
+                try:
+                    ctx.session.rollback()
+                except Exception:
+                    pass
                 _storage_lifecycle_log(
                     ctx=ctx,
                     op="ingest",
@@ -1595,24 +1609,32 @@ async def create_upload_batch(
                     detail=f"ingest failed for {filename}",
                     level="warning",
                 )
-                JobStore.append_event(
-                    ctx.session,
-                    job_id,
-                    "step_progress",
-                    {
-                        "index": index,
-                        "filename": filename,
-                        "status": "failed",
-                        "error": str(e),
-                        "requested_profile": result_entry.requested_profile,
-                        "requested_persist_mode": result_entry.requested_persist_mode,
-                        "requested_extractor_mode": result_entry.requested_extractor_mode,
-                        "effective_profile": result_entry.effective_profile,
-                        "effective_persist_mode": result_entry.effective_persist_mode,
-                        "effective_extractor_mode": result_entry.effective_extractor_mode,
-                        "durability_path": result_entry.durability_path,
-                    },
-                )
+                try:
+                    JobStore.append_event(
+                        ctx.session,
+                        job_id,
+                        "step_progress",
+                        {
+                            "index": index,
+                            "filename": filename,
+                            "status": "failed",
+                            "error": str(e),
+                            "requested_profile": result_entry.requested_profile,
+                            "requested_persist_mode": result_entry.requested_persist_mode,
+                            "requested_extractor_mode": result_entry.requested_extractor_mode,
+                            "effective_profile": result_entry.effective_profile,
+                            "effective_persist_mode": result_entry.effective_persist_mode,
+                            "effective_extractor_mode": result_entry.effective_extractor_mode,
+                            "durability_path": result_entry.durability_path,
+                        },
+                    )
+                    ctx.session.commit()
+                except Exception as log_err:
+                    logger.warning("Failed to record upload step failure event: %s", log_err)
+                    try:
+                        ctx.session.rollback()
+                    except Exception:
+                        pass
 
         if cancel_triggered:
             if len(file_results) < requested_files:
