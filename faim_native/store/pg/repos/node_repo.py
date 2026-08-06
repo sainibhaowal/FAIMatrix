@@ -572,16 +572,19 @@ class NodeRepo:
                 updated_at = CURRENT_TIMESTAMP
         """)
         
-        self.session.execute(
-            stmt,
-            {
-                "tenant_id": self.tenant_id,
-                "graph_id": graph_id,
-                "signature": signature,
-                "members": members_json
-            }
-        )
-        self.session.flush()
+        try:
+            self.session.execute(
+                stmt,
+                {
+                    "tenant_id": str(self.tenant_id),
+                    "graph_id": graph_id,
+                    "signature": signature,
+                    "members": members_json
+                }
+            )
+            self.session.flush()
+        except Exception as exc:
+            logger.warning("Coactivation tracking failed (non-fatal): %s", exc)
 
     def get_pending_inventions(self, graph_id: str, min_count: int, limit: int = 100) -> List[dict]:
         """Fetch highly coactivated node sets that are pending invention."""
