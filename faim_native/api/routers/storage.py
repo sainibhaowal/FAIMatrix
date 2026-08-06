@@ -2274,20 +2274,34 @@ async def request_delete_storage_file(
                 except Exception as e:
                     logger.warning("Failed to delete raw ref for %s: %s", raw_uuid, e)
 
-            # 2. Delete nodes (raw_id is Text), representations, and storage files for this raw_id
+            # 2. Find node_ids associated with raw_id
+            nodes_to_del = (
+                ctx.session.query(NodeModel.node_id)
+                .filter(
+                    and_(
+                        NodeModel.tenant_id == ctx.tenant_id,
+                        NodeModel.graph_id == graph_id,
+                        NodeModel.raw_id == str(raw_uuid),
+                    )
+                )
+                .all()
+            )
+            node_ids = [n[0] for n in nodes_to_del if n[0]]
+
+            if node_ids:
+                ctx.session.query(NodeRepresentationV2Model).filter(
+                    and_(
+                        NodeRepresentationV2Model.tenant_id == ctx.tenant_id,
+                        NodeRepresentationV2Model.graph_id == graph_id,
+                        NodeRepresentationV2Model.node_id.in_(node_ids),
+                    )
+                ).delete(synchronize_session=False)
+
             ctx.session.query(NodeModel).filter(
                 and_(
                     NodeModel.tenant_id == ctx.tenant_id,
                     NodeModel.graph_id == graph_id,
                     NodeModel.raw_id == str(raw_uuid),
-                )
-            ).delete(synchronize_session=False)
-
-            ctx.session.query(NodeRepresentationV2Model).filter(
-                and_(
-                    NodeRepresentationV2Model.tenant_id == ctx.tenant_id,
-                    NodeRepresentationV2Model.graph_id == graph_id,
-                    NodeRepresentationV2Model.raw_id == raw_uuid,
                 )
             ).delete(synchronize_session=False)
 
