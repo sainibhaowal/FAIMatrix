@@ -53,7 +53,7 @@ OTP_EXPIRY_MINUTES = 10
 TOTP_ISSUER = "FAIMATRIX"
 TOTP_PERIOD_SECONDS = 30
 TOTP_DIGITS = 6
-TOTP_WINDOW = 1
+TOTP_WINDOW = 2
 RECOVERY_CODE_COUNT = 10
 RECOVERY_CODE_LENGTH = 10
 
@@ -681,11 +681,17 @@ async def verify_otp(body: OTPVerifyBody):
         user_record = repo.get_by_email(email)
 
         if factor_type == "totp":
-            if not user_record or not user_record.totp_enabled:
+            if not user_record:
                 _record_failed_attempt(email)
                 return OTPVerifyResponse(
                     success=False,
                     message="Invalid verification code.",
+                )
+            if not user_record.totp_enabled:
+                _record_failed_attempt(email)
+                return OTPVerifyResponse(
+                    success=False,
+                    message="Authenticator app is not enabled on this account. Please use email OTP code.",
                 )
             try:
                 secret = _decrypt_secret(user_record.totp_secret_encrypted or "")
