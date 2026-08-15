@@ -139,26 +139,77 @@ class CrossGalaxySynthesizer:
         galaxy_id: str,
         topic: Optional[str],
     ) -> List[Dict]:
-        """Query nodes from a specific galaxy."""
+        """Query nodes from a specific galaxy.
+
+        Uses the native ``nodes`` table joined to the Representation V2
+        sidecar (``node_repr_v2``) for normalized text. Best effort: any
+        failure yields an empty list rather than raising.
+        """
 
         try:
-            from faim.Faim_Native.store.pg.models_faim import MemoryNodeModel
+            from store.pg.models_faim import NodeModel, NodeRepresentationV2Model
 
-            query = self.session.query(MemoryNodeModel).filter(
-                MemoryNodeModel.tenant_id == self.tenant_id,
-                MemoryNodeModel.galaxy_id == galaxy_id,
+            query = self.session.query(NodeModel).filter(
+                NodeModel.tenant_id == self.tenant_id,
+                NodeModel.galaxy_id == galaxy_id,
             )
 
             if topic:
-                # Filter by topic relevance
-                query = query.filter(MemoryNodeModel.text.ilike(f"%{topic}%"))
+                # Filter by topic relevance against the representation text.
+                rows = query.limit(500).all()
+                node_ids = [r.node_id for r in rows]
 
-            models = query.all()
+                repr_rows = []
+                if node_ids:
+                    repr_rows = (
+                        self.session.query(NodeRepresentationV2Model)
+                        .filter(
+                            NodeRepresentationV2Model.tenant_id == self.tenant_id,
+                            NodeRepresentationV2Model.node_id.in_(node_ids),
+                        )
+                        .all()
+                    )
+                topic_lower = topic.lower()
+                by_id = {r.node_id: r for r in rows}
+                topic_nodes = set()
+                for r in repr_rows:
+                    if topic_lower in (r.normalized_text or "").lower():
+                        topic_nodes.add(r.node_id)
+                rows = [by_id[nid] for nid in node_ids if nid in topic_nodes]
+
+                models = rows
+            else:
+                models = query.limit(1000).all()
+
+            # Load representation text for every node (sidecar join).
+            repr_by_id: Dict[str, str] = {}
+            if models:
+                try:
+                    repr_rows = (
+                        self.session.query(NodeRepresentationV2Model)
+                        .filter(
+                            NodeRepresentationV2Model.tenant_id == self.tenant_id,
+                            NodeRepresentationV2Model.node_id.in_(
+                                [m.node_id for m in models]
+                            ),
+                        )
+                        .all()
+                    )
+                    repr_by_id = {
+                        str(r.node_id): r.normalized_text or ""
+                        for r in repr_rows
+                    }
+                except Exception:
+                    repr_by_id = {}
 
             return [
                 {
                     "node_id": str(m.node_id),
-                    "text": m.text,
+                    "text": repr_by_id.get(
+                        str(m.node_id),
+                        (m.anchor_json or {}).get("text", "")
+                        or (m.anchor_json or {}).get("canonical", ""),
+                    ),
                     "cognitive_type": getattr(m, "cognitive_type", None),
                     "galaxy_id": galaxy_id,
                     "timestamp": getattr(m, "timestamp", None),
@@ -404,7 +455,11 @@ class CrossGalaxySynthesizer:
         galaxy_nodes: Dict[str, List[Dict]],
         topic: Optional[str],
     ) -> List[CrossGalaxyInsight]:
-        """Create a unified summary across all galaxies."""
+        """Create a unified summary across all galaxies.
+
+        Only emits an insight when at least one galaxy contributed nodes;
+        an empty synthesis never fabricates a placeholder summary.
+        """
 
         # Count cognitive types across galaxies
         type_counts = defaultdict(lambda: defaultdict(int))
@@ -417,6 +472,9 @@ class CrossGalaxySynthesizer:
         # Build summary description
         total_nodes = sum(len(nodes) for nodes in galaxy_nodes.values())
         galaxy_count = len(galaxy_nodes)
+
+        if total_nodes == 0:
+            return []
 
         description = f"Analyzed {total_nodes} facts across {galaxy_count} documents"
 

@@ -31,6 +31,17 @@ def test_storage_routes_present():
     assert "/storage/reencryption/jobs" in paths
     assert "/storage/summary" in paths
     assert "/storage/backends/health" in paths
+    assert "/storage/graphs" in paths
+
+
+def test_storage_graph_list_endpoint_present():
+    from api.routers.storage import router
+
+    assert any(
+        getattr(route, "path", "") == "/storage/graphs"
+        and "GET" in (route.methods or set())
+        for route in router.routes
+    )
 
 
 def test_app_includes_storage_router_source():

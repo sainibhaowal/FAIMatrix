@@ -15,7 +15,7 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # =============================================================================
 # Constants
@@ -233,6 +233,7 @@ def estimate_D_fractal(
     vectors: List[List[float]],
     epsilons: Tuple[float, ...] = DEFAULT_CONFIG.epsilons,
     config: FractalConfig = DEFAULT_CONFIG,
+    distances: Optional[List[float]] = None,
 ) -> float:
     """Estimate fractal dimension D using correlation-dimension style.
 
@@ -246,6 +247,9 @@ def estimate_D_fractal(
         vectors: List of v_native vectors.
         epsilons: List of epsilon thresholds.
         config: Fractal configuration.
+        distances: Optional precomputed pairwise (1 - similarity) values in
+            stable i < j order, letting callers vectorize the quadratic
+            distance pass while keeping this module numpy-free.
 
     Returns:
         Estimated fractal dimension D_hat in [0, d_max].
@@ -256,11 +260,12 @@ def estimate_D_fractal(
         return 0.0
 
     # Compute pairwise distances (stable iteration order: i < j)
-    distances = []
-    for i in range(n):
-        for j in range(i + 1, n):
-            dist = _cosine_distance(vectors[i], vectors[j])
-            distances.append(dist)
+    if distances is None:
+        distances = []
+        for i in range(n):
+            for j in range(i + 1, n):
+                dist = _cosine_distance(vectors[i], vectors[j])
+                distances.append(dist)
 
     if not distances:
         return 0.0
@@ -516,6 +521,8 @@ def compute_diagnostics(
     graph_version: int,
     region_id: str = "global",
     config: FractalConfig = DEFAULT_CONFIG,
+    similarities: Optional[List[float]] = None,
+    distances: Optional[List[float]] = None,
 ) -> FractalDiagnostics:
     """Compute full fractal diagnostics for a graph/region.
 
@@ -527,24 +534,33 @@ def compute_diagnostics(
         graph_version: Current graph version.
         region_id: Region identifier.
         config: Fractal configuration.
+        similarities: Optional precomputed pairwise similarity values in stable
+            i < j order (vectorized callers may pass these to skip the
+            quadratic Python loop).
+        distances: Optional precomputed pairwise (1 - similarity) values.
 
     Returns:
         FractalDiagnostics with all metrics.
     """
     n = len(vectors)
 
+    if similarities is None:
+        similarities = []
+        for i in range(n):
+            for j in range(i + 1, n):
+                sim = _cosine_similarity(vectors[i], vectors[j])
+                similarities.append(sim)
+
+    if distances is None:
+        distances = [1.0 - s for s in similarities]
+
     # Compute s
     s = compute_scaling_s(config)
 
     # Compute D
-    D_hat = estimate_D_fractal(vectors, config.epsilons, config)
-
-    # Compute pairwise similarities for H and R
-    similarities = []
-    for i in range(n):
-        for j in range(i + 1, n):
-            sim = _cosine_similarity(vectors[i], vectors[j])
-            similarities.append(sim)
+    D_hat = estimate_D_fractal(
+        vectors, config.epsilons, config, distances=distances
+    )
 
     # Compute H
     H_hat = estimate_H_entropy(similarities, config.bins, config)

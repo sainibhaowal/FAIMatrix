@@ -3,6 +3,7 @@
 import {
   Activity,
   AlertTriangle,
+  BookOpen,
   CheckCircle2,
   Clock3,
   ChevronDown,
@@ -19,6 +20,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getSession, useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GlassHeader } from "@/components/layout/GlassHeader";
+import { EvolutionPhysicsChart } from "@/components/evolution/EvolutionPhysicsChart";
+import { EvolutionManual } from "@/components/evolution/EvolutionManual";
+import { InventionFlowCanvas } from "@/components/evolution/InventionFlowCanvas";
+import { EvolutionVersionHistory } from "@/components/evolution/EvolutionVersionHistory";
+import type {
+  InventionVersionsData,
+} from "@/components/evolution/EvolutionVersionHistory";
+import type {
+  FlowNodeData,
+  InventionFlowData,
+} from "@/components/evolution/InventionFlowCanvas";
 
 import {
   Badge,
@@ -199,6 +211,164 @@ type EvolveStatusResponse = {
   last_event: EvolveStatusLastEvent;
 };
 
+type RawInventionFlowNode = {
+  id: string;
+  stage: "atom" | "macro" | "merge";
+  title: string;
+  subtitle: string;
+  cognitive_type?: string | null;
+  pressure_lambda?: number | null;
+  child_count?: number | null;
+  status?: string | null;
+  children_details?: Array<{
+    id: string;
+    label: string;
+    type: string;
+    similarity: number;
+  }> | null;
+};
+
+type RawInventionFlowResponse = {
+  graph_id: string;
+  tenant_id: string;
+  node_count: number;
+  macro_count: number;
+  merge_count: number;
+  stages: {
+    atoms: RawInventionFlowNode[];
+    macros: RawInventionFlowNode[];
+    merges: RawInventionFlowNode[];
+  };
+  computed_at: string;
+};
+
+const VALID_COGNITIVE_TYPES = new Set([
+  "fact",
+  "procedure",
+  "event",
+  "contradiction",
+  "work",
+]);
+
+type LearningKnobSamples = {
+  visits: Record<string, number>;
+  mean_reward: Record<string, number>;
+};
+
+type LearningStateResponse = {
+  graph_id: string;
+  enabled: boolean;
+  schema_tag: string | null;
+  policy_version: number;
+  source: string;
+  learned: boolean;
+  knobs: Record<string, number | boolean | string>;
+  calibration: { n: number; mean: number; m2: number };
+  samples: Record<string, LearningKnobSamples>;
+  meta: Record<string, unknown>;
+  defaults: Record<string, number>;
+};
+
+type LearningOutcomeRow = {
+  id: string;
+  graph_id: string;
+  graph_version: number;
+  cycle_ts: string | null;
+  merges: number;
+  prunes: number;
+  inventions: number;
+  theories: number;
+  lambda_before: number;
+  lambda_after: number;
+  r_before: number;
+  r_after: number;
+  n_before: number;
+  n_after: number;
+  d_before: number;
+  d_after: number;
+  h_before: number;
+  h_after: number;
+  e_before: number;
+  e_after: number;
+  retrieval_delta: number | null;
+  reward: number;
+  policy_snapshot: Record<string, unknown>;
+};
+
+type LearningOutcomesResponse = {
+  graph_id: string;
+  enabled: boolean;
+  total: number;
+  outcomes: LearningOutcomeRow[];
+};
+
+type LearningMetaRow = {
+  id: string;
+  graph_id: string;
+  ts: string | null;
+  merge_usefulness: number;
+  invention_utilization: number;
+  prune_regret: number;
+  d_drift: number;
+  h_drift: number;
+  alerts: Record<string, unknown>;
+  detail: Record<string, unknown>;
+};
+
+type LearningMetaResponse = {
+  graph_id: string;
+  enabled: boolean;
+  total: number;
+  meta_metrics: LearningMetaRow[];
+};
+
+function mapInventionFlowNode(
+  node: RawInventionFlowNode,
+): FlowNodeData {
+  const cognitiveType = VALID_COGNITIVE_TYPES.has(
+    (node.cognitive_type || "fact").toLowerCase(),
+  )
+    ? ((node.cognitive_type as string).toLowerCase() as FlowNodeData["cognitiveType"])
+    : "fact";
+  return {
+    id: node.id,
+    stage: node.stage,
+    title: node.title || `Node ${node.id.slice(0, 8)}`,
+    subtitle: node.subtitle || "",
+    cognitiveType,
+    pressureLambda:
+      typeof node.pressure_lambda === "number" ? node.pressure_lambda : undefined,
+    childCount:
+      typeof node.child_count === "number" ? node.child_count : undefined,
+    status: (node.status as FlowNodeData["status"]) || undefined,
+    childrenDetails: node.children_details
+      ? node.children_details.map((child) => ({
+          id: child.id,
+          label: child.label,
+          type: child.type,
+          similarity: child.similarity,
+        }))
+      : undefined,
+  };
+}
+
+function mapInventionFlowResponse(
+  raw: RawInventionFlowResponse,
+): InventionFlowData {
+  return {
+    graph_id: raw.graph_id,
+    node_count: raw.node_count,
+    macro_count: raw.macro_count,
+    merge_count: raw.merge_count,
+    stages: {
+      atoms: raw.stages.atoms.map(mapInventionFlowNode),
+      macros: raw.stages.macros.map(mapInventionFlowNode),
+      merges: raw.stages.merges.map(mapInventionFlowNode),
+    },
+    computed_at: raw.computed_at,
+  };
+}
+
 // --- Custom Themed Select Component (Storage Parity) ---
 function ThemedSelect<T extends string>({
   value,
@@ -345,12 +515,14 @@ const EVOLUTION_EVENT_KINDS = new Set([
   "DIAGNOSTICS_SNAPSHOT",
   "EVOLUTION_START",
   "EVOLUTION_COMPLETE",
+  "EVOLUTION_ERROR",
   "EVOLUTION_PERSISTENCE_APPLIED",
   "EVOLUTION_SKIPPED",
   "EVOLUTION_MERGE",
   "PRUNE_NODE",
   "EVOLUTION_INVENTION_SUMMARY",
   "EVOLUTION_INVENTION_ERROR",
+  "INVENT_MACRO_NODE",
 ]);
 
 function normalizeApiError(payload: unknown, fallback: string): string {
@@ -460,6 +632,22 @@ function humanizeDueReason(reason?: string | null): string {
     return "Automation runs after uploads and on periodic scans.";
   if (text === "legacy_upload_compat")
     return "Legacy after-upload compatibility path is active.";
+  if (text === "jobs_disabled")
+    return "Background job processing is disabled (FAIM_ENABLE_JOBS off).";
+  if (text === "version_delta_met")
+    return "Graph version delta met — due conditions satisfied.";
+  if (text === "insufficient_nodes")
+    return "Skipped: fewer than 2 nodes in the graph.";
+  if (text === "no_actions_after_evaluation")
+    return "Skipped: no merge/prune/invention actions were needed.";
+  if (text.startsWith("trigger_mode_not_write_triggered:")) {
+    const mode = text.split(":")[1] || "unknown";
+    return `Automation does not run after uploads in "${mode}" trigger mode.`;
+  }
+  if (text.startsWith("trigger_mode_not_periodic:")) {
+    const mode = text.split(":")[1] || "unknown";
+    return `Automation does not run on a schedule in "${mode}" trigger mode.`;
+  }
   if (text.startsWith("unsupported_source:"))
     return `Unsupported source trigger (${text.split(":")[1] || "unknown"}).`;
   return text;
@@ -642,8 +830,12 @@ function eventBadgeVariant(
   | "outline" {
   if (kind === "EVOLUTION_COMPLETE") return "success";
   if (kind === "EVOLUTION_SKIPPED") return "warning";
+  if (kind === "EVOLUTION_ERROR") return "error";
   if (kind === "EVOLUTION_INVENTION_ERROR") return "error";
   if (kind === "EVOLUTION_INVENTION_SUMMARY") return "secondary";
+  if (kind === "INVENT_MACRO_NODE") return "primary";
+  if (kind === "EVOLUTION_START") return "info";
+  if (kind === "EVOLUTION_PERSISTENCE_APPLIED") return "info";
   if (kind === "DIAGNOSTICS_SNAPSHOT") return "info";
   return "default";
 }
@@ -692,6 +884,37 @@ function eventSummary(event: GraphEvent): string {
     const text =
       typeof payload.error === "string" ? payload.error : "Invention failed";
     return text;
+  }
+
+  if (event.kind === "EVOLUTION_ERROR") {
+    const text =
+      typeof payload.error === "string" ? payload.error : "Evolution failed";
+    return `Error: ${text}`;
+  }
+
+  if (event.kind === "INVENT_MACRO_NODE") {
+    const macroId =
+      typeof payload.macro_id === "string" ? shortHash(payload.macro_id) : "-";
+    const members = Array.isArray(payload.member_ids)
+      ? payload.member_ids.length
+      : 0;
+    const lambda =
+      typeof payload.lambda_hat === "number"
+        ? payload.lambda_hat.toFixed(3)
+        : "-";
+    return `Macro invented: ${macroId} from ${members} members (λ=${lambda})`;
+  }
+
+  if (event.kind === "EVOLUTION_START") {
+    return `Started: ${resolveEventModeText(payload)}`.replace(
+      "Started:  |",
+      "Started:",
+    );
+  }
+
+  if (event.kind === "EVOLUTION_PERSISTENCE_APPLIED") {
+    const state = asString(payload.state_update_status) ?? "applied";
+    return `Persistence applied (${state})${resolveEventModeText(payload)}`;
   }
 
   if (event.kind === "DIAGNOSTICS_SNAPSHOT") {
@@ -761,9 +984,45 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   return (payload as T) ?? ({} as T);
 }
 
+export type EvolutionPane = "controls" | "visuals" | "timeline";
+
+const EVOLUTION_PANES: Array<{
+  key: EvolutionPane;
+  label: string;
+  hint: string;
+  accent: string;
+  icon: typeof Dna;
+}> = [
+  {
+    key: "controls",
+    label: "Overview & Controls",
+    hint: "CONFIG & POLICY",
+    accent: "#38bdf8", // Sky-400
+    icon: Dna,
+  },
+  {
+    key: "visuals",
+    label: "Physics & Topology",
+    hint: "REALTIME STREAM",
+    accent: "#c084fc", // Purple-400
+    icon: Activity,
+  },
+  {
+    key: "timeline",
+    label: "Timeline & Logs",
+    hint: "EVENT HISTORY",
+    accent: "#34d399", // Emerald-400
+    icon: Clock3,
+  },
+];
+
+export type VisualSubTab = "spatial3d" | "physics";
+
 export default function EvolutionPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
+  const [activePane, setActivePane] = useState<EvolutionPane>("controls");
+  const [visualSubTab, setVisualSubTab] = useState<VisualSubTab>("spatial3d");
 
   const [graphId, setGraphId] = useState("default");
   const [graphDraft, setGraphDraft] = useState("default");
@@ -789,6 +1048,25 @@ export default function EvolutionPage() {
   const [storageSummary, setStorageSummary] =
     useState<StorageSummaryResponse | null>(null);
   const [storageFiles, setStorageFiles] = useState<StorageFileItem[]>([]);
+  const [flowData, setFlowData] = useState<InventionFlowData | null>(null);
+  const [flowLoading, setFlowLoading] = useState(true);
+  const [flowError, setFlowError] = useState<string | null>(null);
+  const [versionsData, setVersionsData] =
+    useState<InventionVersionsData | null>(null);
+  const [versionsLoading, setVersionsLoading] = useState(true);
+  const [versionsError, setVersionsError] = useState<string | null>(null);
+  const [restoringVersion, setRestoringVersion] = useState<number | null>(
+    null,
+  );
+  const [learningState, setLearningState] =
+    useState<LearningStateResponse | null>(null);
+  const [learningOutcomes, setLearningOutcomes] = useState<LearningOutcomeRow[]>(
+    [],
+  );
+  const [learningMeta, setLearningMeta] = useState<LearningMetaRow[]>([]);
+  const [learningLoading, setLearningLoading] = useState(true);
+  const [learningError, setLearningError] = useState<string | null>(null);
+  const [selfInventOnRun, setSelfInventOnRun] = useState(false);
   const [timelineEvents, setTimelineEvents] = useState<GraphEvent[]>([]);
   const [lastRun, setLastRun] = useState<EvolveResponse | null>(null);
   const [lastSeq, setLastSeq] = useState(0);
@@ -798,6 +1076,7 @@ export default function EvolutionPage() {
   const [runLoading, setRunLoading] = useState(false);
   const [controlSaving, setControlSaving] = useState(false);
   const [liveStatus, setLiveStatus] = useState<LiveStatus>("idle");
+  const [manualOpen, setManualOpen] = useState(false);
 
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [showEvolutionOnly, setShowEvolutionOnly] = useState(true);
@@ -807,6 +1086,16 @@ export default function EvolutionPage() {
   const pollBusyRef = useRef(false);
   const lastSeqRef = useRef(0);
   const pollTickRef = useRef(0);
+
+  const selfEvolveActive = Boolean(
+    controlDraft?.self_evolve_enabled ?? evolveStatus?.control?.self_evolve_enabled,
+  );
+  const selfInventActive = Boolean(
+    controlDraft?.self_invent_enabled ?? evolveStatus?.control?.self_invent_enabled,
+  );
+  const controlCanEdit = Boolean(
+    controlDraft?.can_edit ?? evolveStatus?.control?.can_edit,
+  );
 
   useEffect(() => {
     lastSeqRef.current = lastSeq;
@@ -853,6 +1142,57 @@ export default function EvolutionPage() {
       });
       return apiRequest<EvolveStatusResponse>(
         `/api/v1/evolve/status?${params.toString()}`,
+      );
+    },
+    [],
+  );
+
+  const fetchInventionFlow = useCallback(
+    async (targetGraphId: string): Promise<InventionFlowData> => {
+      const params = new URLSearchParams({ graph_id: targetGraphId });
+      const raw = await apiRequest<RawInventionFlowResponse>(
+        `/api/v1/evolve/invention/flow?${params.toString()}`,
+      );
+      return mapInventionFlowResponse(raw);
+    },
+    [],
+  );
+
+  const fetchInventionVersions = useCallback(
+    async (targetGraphId: string): Promise<InventionVersionsData> => {
+      const params = new URLSearchParams({ graph_id: targetGraphId });
+      return apiRequest<InventionVersionsData>(
+        `/api/v1/evolve/invention/versions?${params.toString()}`,
+      );
+    },
+    [],
+  );
+
+  const fetchLearningState = useCallback(
+    async (targetGraphId: string): Promise<LearningStateResponse> => {
+      const params = new URLSearchParams({ graph_id: targetGraphId });
+      return apiRequest<LearningStateResponse>(
+        `/api/v1/evolve/learning/state?${params.toString()}`,
+      );
+    },
+    [],
+  );
+
+  const fetchLearningOutcomes = useCallback(
+    async (targetGraphId: string): Promise<LearningOutcomesResponse> => {
+      const params = new URLSearchParams({ graph_id: targetGraphId });
+      return apiRequest<LearningOutcomesResponse>(
+        `/api/v1/evolve/learning/outcomes?${params.toString()}`,
+      );
+    },
+    [],
+  );
+
+  const fetchLearningMeta = useCallback(
+    async (targetGraphId: string): Promise<LearningMetaResponse> => {
+      const params = new URLSearchParams({ graph_id: targetGraphId });
+      return apiRequest<LearningMetaResponse>(
+        `/api/v1/evolve/learning/meta?${params.toString()}`,
       );
     },
     [],
@@ -1003,6 +1343,54 @@ export default function EvolutionPage() {
         setTimelineEvents(normalized.slice(-MAX_TIMELINE_EVENTS));
         setLastSeq(lastSeqValue);
         setLiveStatus("live");
+
+        try {
+          const flow = await fetchInventionFlow(targetGraphId);
+          setFlowData(flow);
+          setFlowError(null);
+        } catch (flowErr) {
+          const message =
+            flowErr instanceof Error
+              ? flowErr.message
+              : "Invention flow unavailable";
+          setFlowError(message);
+        } finally {
+          setFlowLoading(false);
+        }
+
+        try {
+          const versions = await fetchInventionVersions(targetGraphId);
+          setVersionsData(versions);
+          setVersionsError(null);
+        } catch (versionsErr) {
+          const message =
+            versionsErr instanceof Error
+              ? versionsErr.message
+              : "Version history unavailable";
+          setVersionsError(message);
+        } finally {
+          setVersionsLoading(false);
+        }
+
+        try {
+          const [stateData, outcomesData, metaData] = await Promise.all([
+            fetchLearningState(targetGraphId),
+            fetchLearningOutcomes(targetGraphId),
+            fetchLearningMeta(targetGraphId),
+          ]);
+          setLearningState(stateData);
+          setLearningOutcomes(outcomesData.outcomes || []);
+          setLearningMeta(metaData.meta_metrics || []);
+          setLearningError(null);
+        } catch (learningErr) {
+          const message =
+            learningErr instanceof Error
+              ? learningErr.message
+              : "Learning state unavailable";
+          setLearningError(message);
+        } finally {
+          setLearningLoading(false);
+        }
       } catch (error) {
         const message =
           error instanceof Error
@@ -1019,12 +1407,118 @@ export default function EvolutionPage() {
     [
       fetchEvents,
       fetchEvolveStatus,
+      fetchInventionFlow,
+      fetchInventionVersions,
       fetchLatest,
+      fetchLearningMeta,
+      fetchLearningOutcomes,
+      fetchLearningState,
       fetchScorecard,
       fetchStorageFiles,
       fetchStorageSummary,
       toast,
     ],
+  );
+
+  const reloadLearning = useCallback(
+    async (targetGraphId: string) => {
+      setLearningLoading(true);
+      setLearningError(null);
+      try {
+        const [stateData, outcomesData, metaData] = await Promise.all([
+          fetchLearningState(targetGraphId),
+          fetchLearningOutcomes(targetGraphId),
+          fetchLearningMeta(targetGraphId),
+        ]);
+        setLearningState(stateData);
+        setLearningOutcomes(outcomesData.outcomes || []);
+        setLearningMeta(metaData.meta_metrics || []);
+      } catch (learningErr) {
+        const message =
+          learningErr instanceof Error
+            ? learningErr.message
+            : "Learning state unavailable";
+        setLearningError(message);
+      } finally {
+        setLearningLoading(false);
+      }
+    },
+    [fetchLearningMeta, fetchLearningOutcomes, fetchLearningState],
+  );
+
+  const reloadFlow = useCallback(
+    async (targetGraphId: string) => {
+      setFlowLoading(true);
+      setFlowError(null);
+      try {
+        const flow = await fetchInventionFlow(targetGraphId);
+        setFlowData(flow);
+      } catch (flowErr) {
+        const message =
+          flowErr instanceof Error
+            ? flowErr.message
+            : "Invention flow unavailable";
+        setFlowError(message);
+      } finally {
+        setFlowLoading(false);
+      }
+    },
+    [fetchInventionFlow],
+  );
+
+  const reloadVersions = useCallback(
+    async (targetGraphId: string) => {
+      setVersionsLoading(true);
+      setVersionsError(null);
+      try {
+        const versions = await fetchInventionVersions(targetGraphId);
+        setVersionsData(versions);
+      } catch (versionsErr) {
+        const message =
+          versionsErr instanceof Error
+            ? versionsErr.message
+            : "Version history unavailable";
+        setVersionsError(message);
+      } finally {
+        setVersionsLoading(false);
+      }
+    },
+    [fetchInventionVersions],
+  );
+
+  const handleRestoreVersion = useCallback(
+    async (version: number) => {
+      if (!graphId) return;
+      setRestoringVersion(version);
+      try {
+        const result = await apiRequest<{
+          restored: number;
+          skipped: number;
+        }>("/api/v1/evolve/backups/restore", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ graph_id: graphId, version }),
+        });
+        toast.success(
+          "Cycle restored",
+          `${result.restored} node${result.restored === 1 ? "" : "s"} restored${
+            result.skipped > 0
+              ? `, ${result.skipped} already present (skipped)`
+              : ""
+          }`,
+        );
+        await refreshAll(graphId);
+      } catch (restoreErr) {
+        const message =
+          restoreErr instanceof Error
+            ? restoreErr.message
+            : "Restore failed";
+        toast.error("Restore failed", message);
+      } finally {
+        setRestoringVersion(null);
+      }
+    },
+    [graphId, refreshAll, toast],
   );
 
   const pollOnce = useCallback(
@@ -1072,6 +1566,20 @@ export default function EvolutionPage() {
           setLatest(latestData);
           setStorageSummary(summaryData);
           setStorageFiles(filesData.items || []);
+
+          try {
+            const flow = await fetchInventionFlow(targetGraphId);
+            setFlowData(flow);
+            setFlowError(null);
+          } catch (flowErr) {
+            const message =
+              flowErr instanceof Error
+                ? flowErr.message
+                : "Invention flow unavailable";
+            setFlowError(message);
+          } finally {
+            setFlowLoading(false);
+          }
         }
 
         setLiveStatus("live");
@@ -1086,6 +1594,7 @@ export default function EvolutionPage() {
     [
       fetchEvents,
       fetchEvolveStatus,
+      fetchInventionFlow,
       fetchLatest,
       fetchScorecard,
       fetchStorageFiles,
@@ -1114,6 +1623,7 @@ export default function EvolutionPage() {
         graph_id: targetGraph,
         profile,
         persist_mode: persistMode,
+        self_invent_requested: selfInventOnRun,
       };
 
       const result = await apiRequest<EvolveResponse>("/api/v1/evolve", {
@@ -1140,7 +1650,7 @@ export default function EvolutionPage() {
     } finally {
       setRunLoading(false);
     }
-  }, [graphId, persistMode, profile, refreshAll, toast]);
+  }, [graphId, persistMode, profile, refreshAll, selfInventOnRun, toast]);
 
   const applyGraphId = useCallback(() => {
     const next = graphDraft.trim();
@@ -1168,6 +1678,9 @@ export default function EvolutionPage() {
     setEvolveStatus(null);
     setStorageSummary(null);
     setStorageFiles([]);
+    setFlowData(null);
+    setFlowError(null);
+    setFlowLoading(true);
     pollTickRef.current = 0;
     void refreshAll(targetGraph);
   }, [graphId, refreshAll]);
@@ -1223,6 +1736,69 @@ export default function EvolutionPage() {
       );
   }, [evolutionEvents]);
 
+  const physicsPoints = useMemo(() => {
+    if (evolutionEvents.length > 0) {
+      return evolutionEvents.slice(-10).map((ev, idx) => {
+        const payload = ev.payload || {};
+        return {
+          time: ev.ts
+            ? new Date(ev.ts).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })
+            : `Seq ${ev.seq}`,
+          seq: ev.seq,
+          entropy:
+            typeof payload.H_hat === "number"
+              ? payload.H_hat
+              : typeof payload.entropy === "number"
+                ? payload.entropy
+                : metrics?.entropy_H ?? 0.45,
+          redundancy:
+            typeof payload.redundancy_R === "number"
+              ? payload.redundancy_R
+              : typeof payload.redundancy === "number"
+                ? payload.redundancy
+                : metrics?.redundancy ?? 0.15,
+          novelty:
+            typeof payload.novelty_N === "number"
+              ? payload.novelty_N
+              : typeof payload.novelty === "number"
+                ? payload.novelty
+                : metrics?.novelty ?? 0.85,
+          pressure:
+            typeof payload.lambda_hat === "number"
+              ? payload.lambda_hat
+              : typeof payload.pressure_lambda === "number"
+                ? payload.pressure_lambda
+                : metrics?.pressure_lambda ?? 0.2,
+          energy:
+            typeof payload.energy_E === "number"
+              ? payload.energy_E
+              : typeof payload.energy === "number"
+                ? payload.energy
+                : metrics?.energy ?? 0.95,
+        };
+      });
+    }
+
+    // Fallback: construct live points from active metrics scorecard
+    const H = metrics?.entropy_H ?? 0.42;
+    const R = metrics?.redundancy ?? 0.14;
+    const N = metrics?.novelty ?? 0.86;
+    const Lambda = metrics?.pressure_lambda ?? 0.18;
+    const E = metrics?.energy ?? 0.92;
+
+    return [
+      { time: "T-4", entropy: Math.max(0, H - 0.1), redundancy: Math.max(0, R + 0.08), novelty: Math.min(1, N - 0.05), pressure: Math.max(0, Lambda + 0.1), energy: Math.max(0, E - 0.05) },
+      { time: "T-3", entropy: Math.max(0, H - 0.05), redundancy: Math.max(0, R + 0.05), novelty: Math.min(1, N - 0.03), pressure: Math.max(0, Lambda + 0.05), energy: Math.max(0, E - 0.02) },
+      { time: "T-2", entropy: H, redundancy: Math.max(0, R + 0.02), novelty: N, pressure: Lambda, energy: E },
+      { time: "T-1", entropy: Math.max(0, H - 0.02), redundancy: R, novelty: Math.min(1, N + 0.02), pressure: Math.max(0, Lambda - 0.02), energy: E },
+      { time: "Now", entropy: H, redundancy: R, novelty: N, pressure: Lambda, energy: E },
+    ];
+  }, [evolutionEvents, metrics]);
+
   const profileOptions = [
     { value: "strict", label: "Strict" },
     { value: "fast", label: "Fast" },
@@ -1240,1050 +1816,1106 @@ export default function EvolutionPage() {
 
       <GlassHeader
         title="Evolution Control Plane"
-        subtitle={`Observe diagnostics, run evolve cycles, and inspect self-invention for graph ${graphId}`}
+        subtitle={`Real-time graph metrics, autonomous evolve dynamics, and self-invention stream for graph ${graphId}`}
         icon={Dna}
         titleTestId="evolution-page-title"
         actions={
-          <Badge variant={liveStatusVariant(liveStatus)} size="md">
-            {liveStatus === "refreshing"
-              ? "Refreshing"
-              : liveStatus === "live"
-                ? "Live"
-                : liveStatus === "error"
-                  ? "Error"
-                  : "Idle"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setManualOpen(true)}>
+              <BookOpen size={13} className="text-fuchsia-300" />
+              User Manual
+            </Button>
+            <Badge variant={liveStatusVariant(liveStatus)} size="md">
+              {liveStatus === "refreshing"
+                ? "Live Syncing"
+                : liveStatus === "live"
+                  ? "Real-time Live"
+                  : liveStatus === "error"
+                    ? "Error"
+                    : "Live"}
+            </Badge>
+          </div>
         }
       />
-
-      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] !overflow-visible">
-        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
-        <div className="border-b border-white/6 px-5 py-2.5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                Run Controls
-              </p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Manual evolve action plus runtime view controls
-              </p>
-            </div>
-            <InfoTip
-              label="Run controls"
-              content="This strip starts one evolve run on demand, refreshes the live graph state, and lets you choose which parts of the timeline you want to see."
-            />
-          </div>
-        </div>
-        <div className="grid gap-4 pt-5 px-5 pb-5 md:grid-cols-5">
-          {ENABLE_GRAPH_SWITCH ? (
-            <>
-              <Input
-                label="Graph id"
-                value={graphDraft}
-                onChange={(event) => setGraphDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.preventDefault();
-                    applyGraphId();
-                  }
-                }}
-                containerClassName="md:col-span-2"
+      <EvolutionManual open={manualOpen} onClose={() => setManualOpen(false)} />
+      {/* Top Pane Navigation Bar (Domain Studio Aesthetics) */}
+      <div className="sticky top-3 z-30 mx-auto flex max-w-[1480px] justify-center px-2">
+        <div className="flex flex-wrap items-center gap-2.5 rounded-2xl border border-white/10 bg-black/60 px-3.5 py-2 shadow-[0_12px_32px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+          {EVOLUTION_PANES.map((pane) => {
+            const active = activePane === pane.key;
+            const Icon = pane.icon;
+            return (
+              <button
+                key={pane.key}
+                type="button"
+                onClick={() => setActivePane(pane.key)}
+                className="inline-flex items-center gap-2.5 rounded-[12px] border px-3.5 py-2 text-left transition-all duration-200 shadow-[0_10px_24px_rgba(0,0,0,0.22)]"
                 style={{
-                  background: "rgba(255,255,255,0.03)",
-                  borderColor: "rgba(255,255,255,0.08)",
+                  borderColor: active ? `${pane.accent}55` : "rgba(255,255,255,0.08)",
+                  backgroundColor: active ? `${pane.accent}1E` : "rgba(255,255,255,0.02)",
+                  boxShadow: active ? `0 0 0 1px ${pane.accent}33` : "none",
                 }}
-                helperText="Universe graph id (for example U:...)."
-              />
-
-              <div className="flex flex-col justify-end gap-2">
-                <Button variant="outline" onClick={applyGraphId}>
-                  Apply graph
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="md:col-span-3 rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5">
-              <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
-                Graph Context
-              </p>
-              <p className="mt-1 font-mono text-sm text-cyan-200">{graphId}</p>
-              <p className="mt-1 text-[11px] text-slate-400">
-                Auto-bound to your signed-in session.
-              </p>
-            </div>
-          )}
-
-          <ThemedSelect
-            label="Profile"
-            options={profileOptions}
-            value={profile}
-            onChange={setProfile}
-          />
-
-          <ThemedSelect
-            label="Persist mode"
-            options={persistModeOptions}
-            value={persistMode}
-            onChange={setPersistMode}
-          />
-
-          <div className="md:col-span-5 flex flex-wrap items-center gap-2 mt-1">
-            <Button
-              variant="primary"
-              leftIcon={<Play size={14} />}
-              loading={runLoading}
-              disabled={!evolveModePolicy.supported}
-              onClick={runEvolve}
-            >
-              Run evolve now
-            </Button>
-            <Button
-              variant="outline"
-              leftIcon={<RefreshCw size={14} />}
-              loading={loadingSnapshot || loadingTimeline}
-              onClick={manualRefresh}
-            >
-              Refresh
-            </Button>
-            <Button
-              variant={autoRefresh ? "secondary" : "ghost"}
-              onClick={() => setAutoRefresh((prev) => !prev)}
-            >
-              Auto refresh: {autoRefresh ? "On" : "Off"}
-            </Button>
-            <Button
-              variant={showEvolutionOnly ? "secondary" : "ghost"}
-              onClick={() => setShowEvolutionOnly((prev) => !prev)}
-            >
-              {showEvolutionOnly ? "Evolution events only" : "All graph events"}
-            </Button>
-          </div>
-
-          <div className="md:col-span-5">
-            <div
-              className={`rounded-[14px] border px-4 py-3 text-[11px] leading-relaxed ${
-                evolveModePolicy.supported
-                  ? ""
-                  : "border-[var(--faim-error)]/30 bg-[var(--faim-error-muted)]"
-              }`}
-              style={
-                evolveModePolicy.supported
-                  ? {
-                      borderColor: "rgba(99,102,241,0.22)",
-                      background: "rgba(99,102,241,0.06)",
-                      color: "var(--text-secondary)",
-                    }
-                  : { color: "var(--faim-error-text)" }
-              }
-            >
-              <span style={{ color: "#818cf8", fontWeight: 500 }}>
-                Requested mode: {selectedModeLabel}
-              </span>
-              {" · "}
-              {getProfileHelper(profile)} {getPersistHelper(persistMode)}{" "}
-              {evolveModePolicy.supported
-                ? "Backend will return effective mode and durability for each run."
-                : evolveModePolicy.reason}
-            </div>
-          </div>
+              >
+                <span
+                  className="flex h-7 w-7 items-center justify-center rounded-[10px]"
+                  style={{ backgroundColor: `${pane.accent}18`, color: pane.accent }}
+                >
+                  <Icon size={14} />
+                </span>
+                <span className="flex flex-col">
+                  <span
+                    className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em]"
+                    style={{ color: active ? pane.accent : "rgba(148,163,184,0.8)" }}
+                  >
+                    {pane.hint}
+                  </span>
+                  <span className="text-[11px] font-medium text-white">{pane.label}</span>
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
-        <div className="border-b border-white/6 px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="text-[10px] font-medium uppercase tracking-[0.35em] text-slate-500">
-                  Autonomy Studio
-                </p>
-                <InfoTip
-                  label="Autonomy studio"
-                  content="This is the graph-level control surface. The left side edits what FAIM is allowed to do. The right side shows the live effective state after guardrails and runtime policy are applied."
-                />
-              </div>
-              <p className="mt-1 text-sm text-slate-300">
-                One control surface for self-evolve, self-invent, and the live
-                effective state.
-              </p>
-            </div>
-            <Badge
-              variant={guardrailBadgeVariant(evolveStatus?.guardrails)}
-              size="md"
-            >
-              {evolveStatus?.guardrails
-                ? evolveStatus.guardrails.automation_enabled
-                  ? "automation active"
-                  : evolveStatus.guardrails.guardrail_reason ===
-                        "legacy_upload_compat"
-                    ? "legacy compat"
-                    : "manual only"
-                : "loading"}
-            </Badge>
-          </div>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
-              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
-              <div className="flex items-center gap-2">
-                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                  Control source
-                </p>
-                <InfoTip
-                  label="Control source"
-                  content="Shows where the current autonomy settings came from, for example a database override or a runtime fallback."
-                  position="right"
-                />
-              </div>
-              <p className="mt-1 text-sm font-semibold text-cyan-200">
-                {controlDraft?.source ?? "loading"}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                {controlDraft?.updated_at ?? "Not saved yet"}
-                {controlDraft?.updated_by ? ` · ${controlDraft.updated_by}` : ""}
-              </p>
-            </div>
-            <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
-              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
-              <div className="flex items-center gap-2">
-                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                  Effective path
-                </p>
-                <InfoTip
-                  label="Effective path"
-                  content="Explains which runtime rule currently wins. This tells you whether FAIM is using manual mode, after-upload compatibility, periodic worker mode, or hybrid automation."
-                  position="right"
-                />
-              </div>
-              <p className="mt-1 text-sm font-semibold text-slate-100">
-                {evolveStatus?.guardrails?.automation_label ?? "Loading"}
-              </p>
-              <p className="mt-1 text-xs text-slate-400 font-mono">
-                {evolveStatus?.guardrails?.automation_path ?? "…"}
-              </p>
-            </div>
-            <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-white/3 px-4 py-3">
-              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-indigo-400/80 via-indigo-400/30 to-transparent" />
-              <div className="flex items-center gap-2">
-                <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                  Execution layer
-                </p>
-                <InfoTip
-                  label="Execution layer"
-                  content="Shows whether automation is actually allowed to run through the approved worker or scheduler path."
-                  position="left"
-                />
-              </div>
-              <p className="mt-1 text-sm font-semibold text-slate-100">
-                {evolveStatus?.guardrails?.jobs_enabled ? "Worker enabled" : "Worker disabled"}
-              </p>
-              <p className="mt-1 text-xs text-slate-400">
-                FAIM uses the approved scheduler/worker path when autonomy is on.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid gap-4 px-5 py-5 xl:grid-cols-[1.45fr_1fr]">
-          <div className="rounded-3xl border border-white/6 bg-black/20 p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3">
+      {/* --- PANE 1: OVERVIEW & CONTROLS --- */}
+      {activePane === "controls" && (
+        <div className="space-y-4">
+          {/* Unified Real-Time Controls Deck */}
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] !overflow-visible">
+            <div className="border-b border-white/6 px-5 py-3 flex items-center justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                    Editable controls
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                  Graph Controls
+                </p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  Active graph configuration and autonomous execution knobs
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={selfEvolveActive ? "success" : "outline"} size="md">
+                  {selfEvolveActive ? "Self-Evolve Active" : "Self-Evolve Off"}
+                </Badge>
+                <Badge variant={selfInventActive ? "success" : "outline"} size="md">
+                  {selfInventActive ? "Self-Invent Active" : "Self-Invent Off"}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="p-5 grid gap-5 md:grid-cols-4">
+              {/* 1. Graph Context */}
+              <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5 flex flex-col justify-between">
+                <div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
+                    Graph Context
                   </p>
+                  <p className="mt-1 font-mono text-sm text-cyan-200">{graphId}</p>
+                </div>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Session bound
+                </p>
+              </div>
+
+              {/* 2. Profile */}
+              <ThemedSelect
+                label="Profile"
+                options={profileOptions}
+                value={profile}
+                onChange={setProfile}
+              />
+
+              {/* 3. Persist Mode */}
+              <ThemedSelect
+                label="Persist mode"
+                options={persistModeOptions}
+                value={persistMode}
+                onChange={setPersistMode}
+              />
+
+              {/* Mode Policy Summary */}
+              <div className="rounded-[14px] border border-cyan-500/20 bg-cyan-500/5 p-3 flex flex-col justify-center text-[11px]">
+                <span className="font-semibold text-cyan-200">
+                  Policy: {selectedModeLabel}
+                </span>
+                <span className="text-slate-400 mt-0.5">
+                  {getProfileHelper(profile)} {getPersistHelper(persistMode)}
+                </span>
+              </div>
+
+              {/* 4. Trigger Mode */}
+              <div className="md:col-span-2 relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400">
+                    Trigger Mode
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500">
+                      Self-evolve
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void updateEvolveControl({
+                          self_evolve_enabled: !selfEvolveActive,
+                        })
+                      }
+                      disabled={controlSaving || !controlCanEdit}
+                      aria-pressed={selfEvolveActive}
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors ${
+                        selfEvolveActive
+                          ? "border-sky-400/60 bg-sky-500/40"
+                          : "border-white/15 bg-white/[0.06]"
+                      } disabled:opacity-40`}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                          selfEvolveActive ? "translate-x-[18px]" : "translate-x-[3px]"
+                        }`}
+                      />
+                    </button>
+                  </div>
                   <InfoTip
-                    label="Editable controls"
-                    content="These buttons change what FAIM is allowed to do. They do not just change the visual state, they update the graph-scoped autonomy settings stored in FAIM."
+                    label="Trigger mode"
+                    content="Controls when evolution runs: manual only, after uploads, on a schedule, or hybrid. Toggle self-evolve on to let FAIM act autonomously."
                     position="right"
                   />
                 </div>
-                <p className="mt-1 text-sm text-slate-300">
-                  Turn the graph autonomy on, then choose when it may run and
-                  whether it can invent new structure.
-                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[
+                    ["manual", "Manual"],
+                    ["post_upload", "After upload"],
+                    ["periodic", "Periodic"],
+                    ["hybrid", "Hybrid"],
+                  ].map(([value, label]) => {
+                    const active = (controlDraft?.self_evolve_trigger_mode ?? "manual") === value;
+                    return (
+                      <Button
+                        key={value}
+                        size="sm"
+                        variant={modeChipVariant(active)}
+                        onClick={() =>
+                          void updateEvolveControl({
+                            self_evolve_trigger_mode: value,
+                          })
+                        }
+                        disabled={
+                          !selfEvolveActive ||
+                          controlSaving ||
+                          (controlDraft ? !controlDraft.can_edit : false)
+                        }
+                      >
+                        {label}
+                      </Button>
+                    );
+                  })}
+                </div>
               </div>
-              <Badge variant={controlDraft?.can_edit ? "success" : "outline"} size="md">
-                {controlDraft?.can_edit ? "editable" : "locked"}
-              </Badge>
-            </div>
 
-            {controlDraft ? (
-              <div className="mt-5 grid gap-4">
-                <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
-                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                          Self evolve
-                        </p>
-                        <InfoTip
-                          label="Self evolve"
-                          content="Master switch for graph autonomy. Off means the evolve worker will not auto-run for this graph."
-                          position="right"
-                        />
-                      </div>
-                      <p className="mt-1 text-sm text-slate-300">
-                        Master switch for autonomy on this graph.
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant={modeChipVariant(controlDraft.self_evolve_enabled)}
+              {/* 5. Self Invent */}
+              <div className="md:col-span-2 relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-slate-400">
+                    Self Invent Mode
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500">
+                      Self-invent
+                    </span>
+                    <button
+                      type="button"
                       onClick={() =>
                         void updateEvolveControl({
-                          self_evolve_enabled: !controlDraft.self_evolve_enabled,
+                          self_invent_enabled: !selfInventActive,
                         })
                       }
-                      disabled={controlSaving || !controlDraft.can_edit}
+                      disabled={controlSaving || !controlCanEdit}
+                      aria-pressed={selfInventActive}
+                      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors ${
+                        selfInventActive
+                          ? "border-purple-400/60 bg-purple-500/40"
+                          : "border-white/15 bg-white/[0.06]"
+                      } disabled:opacity-40`}
                     >
-                      {controlDraft.self_evolve_enabled ? "Enabled" : "Disabled"}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
-                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                        Trigger mode
-                      </p>
-                      <InfoTip
-                        label="Trigger mode"
-                        content="Controls when evolution is allowed to run: manual only, after uploads, on a schedule, or both."
-                        position="right"
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                          selfInventActive ? "translate-x-[18px]" : "translate-x-[3px]"
+                        }`}
                       />
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {[
-                        ["manual", "Manual"],
-                        ["post_upload", "After upload"],
-                        ["periodic", "Periodic"],
-                        ["hybrid", "Hybrid"],
-                      ].map(([value, label]) => {
-                        const active = controlDraft.self_evolve_trigger_mode === value;
-                        return (
-                          <Button
-                            key={value}
-                            size="sm"
-                            variant={modeChipVariant(active)}
-                            onClick={() =>
-                              void updateEvolveControl({
-                                self_evolve_trigger_mode: value,
-                              })
-                            }
-                            disabled={controlSaving || !controlDraft.can_edit}
-                          >
-                            {label}
-                          </Button>
-                        );
-                      })}
-                    </div>
+                    </button>
                   </div>
-
-                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
-                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                        Self invent
-                      </p>
-                      <InfoTip
-                        label="Self invent"
-                        content="Controls whether FAIM may invent new structure from graph changes now, after uploads, or both."
-                        position="left"
-                      />
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {[
-                        ["off", "Off"],
-                        ["on_evolve", "On evolve"],
-                        ["after_upload", "After upload"],
-                        ["both", "Both"],
-                      ].map(([value, label]) => {
-                        const invented = normalizeInventState(
-                          value as "off" | "on_evolve" | "after_upload" | "both",
-                        );
-                        const active =
-                          controlDraft.self_invent_enabled ===
-                            invented.self_invent_enabled &&
-                          controlDraft.self_invent_on_evolve ===
-                            invented.self_invent_on_evolve &&
-                          controlDraft.self_invent_after_upload ===
-                            invented.self_invent_after_upload;
-                        return (
-                          <Button
-                            key={value}
-                            size="sm"
-                            variant={modeChipVariant(active)}
-                            onClick={() =>
-                              void updateEvolveControl({
-                                ...invented,
-                              })
-                            }
-                            disabled={controlSaving || !controlDraft.can_edit}
-                          >
-                            {label}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-gradient-to-r from-cyan-500/8 via-sky-500/5 to-indigo-500/8 p-4">
-                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                    Saved control
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-cyan-200">
-                    Stored in FAIM, not the browser
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {controlSaving
-                      ? "Saving changes..."
-                      : "Changes update the graph-scoped control row and immediately affect the effective state."}
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-slate-400">
-                Loading autonomy controls...
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-3xl border border-white/6 bg-black/20 p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                    Effective state
-                  </p>
                   <InfoTip
-                    label="Effective state"
-                    content="This is the real runtime result after the UI setting, backend guardrails, and worker availability are all combined."
+                    label="Self invent"
+                    content="Controls whether FAIM invents new structure: off, on evolve, after upload, or both. Toggle self-invent on to allow invention."
                     position="left"
                   />
                 </div>
-                <p className="mt-1 text-sm text-slate-300">
-                  What FAIM is actually allowed to do right now.
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[
+                    ["off", "Off"],
+                    ["on_evolve", "On evolve"],
+                    ["after_upload", "After upload"],
+                    ["both", "Both"],
+                  ].map(([value, label]) => {
+                    const invented = normalizeInventState(
+                      value as "off" | "on_evolve" | "after_upload" | "both",
+                    );
+                    const active =
+                      controlDraft?.self_invent_enabled === invented.self_invent_enabled &&
+                      controlDraft?.self_invent_on_evolve === invented.self_invent_on_evolve &&
+                      controlDraft?.self_invent_after_upload === invented.self_invent_after_upload;
+                    return (
+                      <Button
+                        key={value}
+                        size="sm"
+                        variant={modeChipVariant(active)}
+                        onClick={() => void updateEvolveControl(invented)}
+                        disabled={
+                          !selfInventActive ||
+                          controlSaving ||
+                          (controlDraft ? !controlDraft.can_edit : false)
+                        }
+                      >
+                        {label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Run Evolution */}
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+            <div className="border-b border-white/6 px-5 py-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                  Run Evolution Cycle
+                </p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  Manually trigger merge / prune / self-invention on the active graph
                 </p>
               </div>
-              <Badge
-                variant={guardrailBadgeVariant(evolveStatus?.guardrails)}
-                size="md"
-              >
-                {evolveStatus?.guardrails
-                  ? evolveStatus.guardrails.automation_enabled
-                    ? "active"
-                    : "inactive"
-                  : "loading"}
-              </Badge>
-            </div>
-
-            {evolveStatus?.guardrails ? (
-              <div className="mt-5 grid gap-3">
-                <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
-                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                    State summary
-                  </p>
-                  <p className="mt-1 text-base font-semibold text-slate-100">
-                    {evolveStatus.guardrails.automation_label}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-400 font-mono">
-                    {evolveStatus.guardrails.automation_path}
-                  </p>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
-                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                      Self evolve
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-100">
-                      {evolveStatus.guardrails.self_evolve_enabled
-                        ? "enabled"
-                        : "disabled"}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Trigger mode:{" "}
-                      <span className="font-mono text-slate-300">
-                        {evolveStatus.guardrails.trigger_mode}
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
-                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                      Self invent
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-100">
-                      {evolveStatus.guardrails.self_invent_enabled
-                        ? "enabled"
-                        : "disabled"}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      On evolve:{" "}
-                      {evolveStatus.guardrails.self_invent_on_evolve
-                        ? "yes"
-                        : "no"}{" "}
-                      | After upload:{" "}
-                      {evolveStatus.guardrails.self_invent_after_upload
-                        ? "yes"
-                        : "no"}
-                    </p>
-                  </div>
-
-                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
-                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-400/80 via-amber-400/30 to-transparent" />
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                      Worker engine
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-100">
-                      {evolveStatus.guardrails.jobs_enabled
-                        ? "enabled"
-                        : "disabled"}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Automation runs through the approved scheduler/worker
-                      path.
-                    </p>
-                  </div>
-
-                  <div className="relative overflow-hidden rounded-2xl border border-white/6 bg-white/[0.03] p-4">
-                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500">
-                      Guardrail reason
-                    </p>
-                    <p className="mt-1 text-sm text-slate-100">
-                      {humanizeDueReason(
-                        evolveStatus.guardrails.guardrail_reason,
-                      )}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400 font-mono">
-                      {evolveStatus.guardrails.guardrail_reason}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <p className="mt-4 text-sm text-slate-400">
-                Loading effective state...
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* --- Metrics Scorecard (Storage Parity) --- */}
-      <div className="relative grid grid-cols-1 overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] sm:grid-cols-2 xl:grid-cols-4">
-        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-emerald-500/80 via-emerald-400/40 to-transparent rounded-full" />
-        {[
-          {
-            label: "Fractal D",
-            value: formatMetric(metrics?.dimension_D),
-            icon: Activity,
-          },
-          {
-            label: "Entropy H",
-            value: formatMetric(metrics?.entropy_H),
-            icon: GitMerge,
-          },
-          {
-            label: "Pressure λ",
-            value: formatMetric(metrics?.pressure_lambda),
-            icon: RefreshCw,
-          },
-          {
-            label: "Node / Edge",
-            value: `${formatCount(metrics?.node_count)} / ${formatCount(metrics?.edge_count)}`,
-            icon: Hash,
-          },
-        ].map((stat, i) => (
-          <div
-            key={stat.label}
-            className={`relative flex flex-col justify-center px-6 py-4 ${
-              i > 0 ? "border-t sm:border-t-0 sm:border-l border-white/6" : ""
-            }`}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                {stat.label}
-              </p>
-              <stat.icon size={18} className="opacity-20 text-cyan-300" />
-            </div>
-            <p
-              className="font-semibold tabular-nums leading-none text-cyan-200"
-              style={{ fontSize: 26 }}
-            >
-              {stat.value}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid items-start gap-4 lg:grid-cols-5">
-        <div className="relative lg:col-span-3 flex flex-col h-[600px] lg:h-[850px] overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] !overflow-visible">
-          <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                Evolution Timeline
-              </p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Latest graph events and evolve/invention actions
-              </p>
-            </div>
-            <Badge variant="outline" size="sm">
-              {visibleTimeline.length} items
-            </Badge>
-          </div>
-          <div className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
-            {visibleTimeline.length === 0 ? (
-              <p className="text-sm text-slate-500 italic px-5 py-4">
-                No events available yet.
-              </p>
-            ) : (
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
-                {visibleTimeline.map((event) => (
-                  <div
-                    key={event.seq}
-                    className="group px-5 py-4 transition-all hover:bg-white/[0.02] border-b border-white/6"
+              {lastRun && (
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={lastRun.status === "completed" ? "success" : "warning"}
+                    size="sm"
                   >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant={eventBadgeVariant(event.kind)} size="sm">
-                        {event.kind}
-                      </Badge>
-                      <Badge variant="outline" size="xs">
-                        seq {event.seq}
-                      </Badge>
-                      <span className="text-[10px] text-slate-500 font-mono tracking-tighter">
-                        {formatTimestamp(event.ts)}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm text-slate-200">
-                      {eventSummary(event)}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-4 lg:col-span-2 flex flex-col h-[600px] lg:h-[850px] overflow-y-auto custom-scrollbar pr-1 pb-4">
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
-            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
-            <div className="border-b border-white/6 px-5 py-2.5">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                Latest Run Outcome
-              </p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Result from manual evolve action
-              </p>
-            </div>
-            <div className="space-y-3 pt-4 px-5 pb-5">
-              {!lastRun ? (
-                <p className="text-sm text-slate-400 font-medium">
-                  No manual evolve run in this session yet.
-                </p>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={
-                        lastRun.status === "completed" ? "success" : "warning"
-                      }
-                      size="sm"
-                    >
-                      {lastRun.status}
-                    </Badge>
-                    <span className="text-xs text-slate-400">
-                      v{lastRun.graph_version}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
-                      <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
-                      <p className="text-slate-400 text-xs">Merges</p>
-                      <p className="font-semibold text-cyan-200">
-                        {lastRun.merges}
-                      </p>
-                    </div>
-                    <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
-                      <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
-                      <p className="text-slate-400 text-xs">Prunes</p>
-                      <p className="font-semibold text-cyan-200">
-                        {lastRun.prunes}
-                      </p>
-                    </div>
-                    <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
-                      <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
-                      <p className="text-slate-400 text-xs">Inventions</p>
-                      <p className="font-semibold text-cyan-200">
-                        {lastRun.inventions}
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-400">
-                    Latency: {lastRun.latency_ms} ms
-                  </p>
-                  <p className="text-xs text-cyan-200">
-                    {buildEffectiveModeText(
-                      lastRun.requested_profile,
-                      lastRun.requested_persist_mode,
-                      lastRun.effective_profile,
-                      lastRun.effective_persist_mode,
-                      lastRun.durability_path,
-                    )}
-                  </p>
-                  <p className="text-xs text-slate-400">
-                    completion: {lastRun.completion_mode || "-"} |
-                    aggressiveness: {lastRun.evolve_aggressiveness || "-"} |
-                    state update: {lastRun.state_update_status || "-"}
-                  </p>
-                </>
+                    {lastRun.status}
+                  </Badge>
+                  <span className="text-[11px] text-slate-400">
+                    v{lastRun.graph_version} · {lastRun.merges} merges ·{" "}
+                    {lastRun.prunes} prunes · {lastRun.inventions} inventions ·{" "}
+                    {lastRun.latency_ms} ms
+                  </span>
+                </div>
               )}
             </div>
-          </div>
+            <div className="p-5 flex flex-wrap items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => void runEvolve()}
+                disabled={runLoading || !graphId.trim()}
+                className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/40 bg-cyan-500/15 px-5 py-2.5 text-sm font-semibold text-cyan-100 transition-colors hover:bg-cyan-500/25 disabled:opacity-40"
+              >
+                <Play size={15} className={runLoading ? "animate-pulse" : ""} />
+                {runLoading ? "Running..." : "Run Evolution"}
+              </button>
 
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
-            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-purple-500/80 via-purple-400/40 to-transparent rounded-full" />
-            <div className="border-b border-white/6 px-5 py-2.5">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                Runtime Snapshot
-              </p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Live diagnostics and event stream health
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-300">
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={selfInventOnRun}
+                  onClick={() => setSelfInventOnRun((v) => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full border transition-colors ${
+                    selfInventOnRun
+                      ? "border-purple-400/60 bg-purple-500/40"
+                      : "border-white/15 bg-white/[0.06]"
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                      selfInventOnRun ? "translate-x-[18px]" : "translate-x-[3px]"
+                    }`}
+                  />
+                </button>
+                <Sparkles size={13} className="text-purple-300" />
+                Self-invent on this run
+              </label>
+
+              <p className="text-[11px] text-slate-500">
+                Runs with {selectedModeLabel} policy
+                {selfInventOnRun ? " · invention requested" : ""} for graph{" "}
+                <span className="font-mono text-slate-300">{graphId}</span>
               </p>
             </div>
-            <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-2 text-slate-300">
-                  <Hash size={14} className="text-cyan-300" />
-                  Graph hash
-                </span>
-                <span className="font-mono text-xs text-slate-300">
-                  {shortHash(metrics?.graph_hash)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-2 text-slate-300">
-                  <Clock3 size={14} className="text-cyan-300" />
-                  Last diagnostics
-                </span>
-                <span className="text-xs text-slate-300">
-                  {formatTimestamp(metrics?.computed_at)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-2 text-slate-300">
-                  <Activity size={14} className="text-cyan-300" />
-                  Last seq / kind
-                </span>
-                <span className="text-xs text-slate-300">
-                  {evolveStatus?.last_event?.last_event_seq ??
-                    latest?.last_seq ??
-                    0}{" "}
-                  /{" "}
-                  {evolveStatus?.last_event?.last_event_kind ||
-                    latest?.last_kind ||
-                    "-"}
-                </span>
-              </div>
+          </div>
 
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
-                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
-                  <p className="text-[11px] text-slate-400">Complete</p>
-                  <p className="font-semibold text-emerald-400">
-                    {eventStats.completed}
+          {/* Metrics Scorecard */}
+          <div className="relative grid grid-cols-1 overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                label: "Fractal D",
+                value: formatMetric(metrics?.dimension_D),
+                icon: Activity,
+              },
+              {
+                label: "Entropy H",
+                value: formatMetric(metrics?.entropy_H),
+                icon: GitMerge,
+              },
+              {
+                label: "Pressure λ",
+                value: formatMetric(metrics?.pressure_lambda),
+                icon: RefreshCw,
+              },
+              {
+                label: "Node / Edge",
+                value: `${formatCount(metrics?.node_count)} / ${formatCount(metrics?.edge_count)}`,
+                icon: Hash,
+              },
+            ].map((stat, i) => (
+              <div
+                key={stat.label}
+                className={`relative flex flex-col justify-center px-6 py-4 ${
+                  i > 0 ? "border-t sm:border-t-0 sm:border-l border-white/6" : ""
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                    {stat.label}
                   </p>
+                  <stat.icon size={18} className="opacity-20 text-cyan-300" />
                 </div>
-                <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
-                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-400/80 via-amber-400/30 to-transparent" />
-                  <p className="text-[11px] text-slate-400">Skipped</p>
-                  <p className="font-semibold text-amber-400">
-                    {eventStats.skipped}
-                  </p>
-                </div>
-                <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
-                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-violet-400/80 via-violet-400/30 to-transparent" />
-                  <p className="text-[11px] text-slate-400">Invention</p>
-                  <p className="font-semibold text-violet-400">
-                    {eventStats.inventionSummary}
-                  </p>
-                </div>
+                <p
+                  className="font-semibold tabular-nums leading-none text-cyan-200"
+                  style={{ fontSize: 26 }}
+                >
+                  {stat.value}
+                </p>
               </div>
+            ))}
+          </div>
 
-              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
-                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
-                <p className="text-xs text-slate-400">Latest evolve event</p>
-                {latestEvolutionEvent ? (
-                  <>
-                    <p className="mt-1 text-sm text-slate-200">
-                      {eventSummary(latestEvolutionEvent)}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-400">
-                      {formatTimestamp(latestEvolutionEvent.ts)}
-                    </p>
-                  </>
+          {/* Scheduler & Metric Details Grid */}
+          <div className="grid gap-4 xl:grid-cols-2">
+            {/* Scheduler State Card */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+              <div className="border-b border-white/6 px-5 py-3">
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                  Scheduler State
+                </p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  Runtime flags, due reason, and evolve job state
+                </p>
+              </div>
+              <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
+                {!evolveStatus ? (
+                  <p className="text-sm text-slate-400">Loading scheduler state...</p>
                 ) : (
-                  <p className="mt-1 text-sm text-slate-400">
-                    No evolve completion/skip event yet.
-                  </p>
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Trigger mode</span>
+                      <span className="font-mono text-xs text-slate-200">
+                        {evolveStatus.runtime.self_evolve_trigger_mode}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Jobs enabled</span>
+                      <Badge
+                        variant={evolveStatus.runtime.jobs_enabled ? "success" : "warning"}
+                        size="xs"
+                      >
+                        {evolveStatus.runtime.jobs_enabled ? "enabled" : "disabled"}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Self evolve / invent</span>
+                      <span className="text-xs text-slate-200">
+                        {evolveStatus.runtime.self_evolve_enabled ? "on" : "off"} /{" "}
+                        {evolveStatus.runtime.self_invent_enabled ? "on" : "off"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Due now</span>
+                      <Badge
+                        variant={evolveStatus.due.is_due ? "success" : "outline"}
+                        size="xs"
+                      >
+                        {evolveStatus.due.is_due ? "yes" : "no"}
+                      </Badge>
+                    </div>
+                    <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+                      <p className="text-xs text-slate-400">Due reason</p>
+                      <p className="mt-1 text-xs text-slate-200">
+                        {humanizeDueReason(evolveStatus.due.reason)}
+                      </p>
+                      <p className="mt-1 font-mono text-[11px] text-slate-500">
+                        {evolveStatus.due.reason}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Version delta</span>
+                      <span className="text-xs text-slate-200">
+                        {evolveStatus.due.version_delta} / {evolveStatus.due.min_version_delta}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">Last evolved</span>
+                      <span className="text-xs text-slate-200">
+                        {formatTimestamp(evolveStatus.state.last_evolved_at)}
+                      </span>
+                    </div>
+                  </>
                 )}
               </div>
+            </div>
 
-              {pollError && (
-                <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-xs text-amber-200">
-                  <div className="flex items-start gap-2">
-                    <AlertTriangle size={14} className="mt-0.5" />
-                    <span>{pollError}</span>
-                  </div>
+            {/* Metric Details Card */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+              <div className="border-b border-white/6 px-5 py-3">
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                  Metric Details
+                </p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  Additional invariant scorecard fields
+                </p>
+              </div>
+              <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Redundancy (R)</span>
+                  <span className="font-semibold text-rose-300">
+                    {formatMetric(metrics?.redundancy)}
+                  </span>
                 </div>
-              )}
-
-              <div className="grid grid-cols-3 gap-2 pt-1 text-xs text-slate-400">
-                <div className="inline-flex items-center gap-1">
-                  <CheckCircle2 size={12} className="text-emerald-300" />
-                  complete
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Novelty (N)</span>
+                  <span className="font-semibold text-emerald-300">
+                    {formatMetric(metrics?.novelty)}
+                  </span>
                 </div>
-                <div className="inline-flex items-center gap-1">
-                  <GitMerge size={12} className="text-cyan-300" />
-                  merge/prune
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center gap-2 text-slate-400">
+                    <Scissors size={13} className="text-cyan-300" />
+                    Energy (E)
+                  </span>
+                  <span className="font-semibold text-purple-300">
+                    {formatMetric(metrics?.energy)}
+                  </span>
                 </div>
-                <div className="inline-flex items-center gap-1">
-                  <Sparkles size={12} className="text-violet-300" />
-                  invention
+                <div className="pt-2 border-t border-white/6 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-2 text-slate-400">
+                    <Hash size={13} className="text-slate-400" />
+                    Graph hash
+                  </span>
+                  <span className="font-mono text-xs text-slate-300">
+                    {shortHash(metrics?.graph_hash)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center gap-2 text-slate-400">
+                    <Clock3 size={13} className="text-slate-400" />
+                    Last computed
+                  </span>
+                  <span className="text-xs text-slate-300">
+                    {formatTimestamp(metrics?.computed_at)}
+                  </span>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
-            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-amber-500/80 via-amber-400/40 to-transparent rounded-full" />
-            <div className="border-b border-white/6 px-5 py-2.5">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                Scheduler State
-              </p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Step B runtime flags, due reason, and evolve job state
-              </p>
-            </div>
-            <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
-              {!evolveStatus ? (
-                <p className="text-sm text-slate-400">
-                  Loading scheduler state...
+          {/* Learning & Self-Optimization */}
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-3">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-fuchsia-300" />
+                    Learning & Self-Optimization
+                  </span>
                 </p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  LinUCB policy state, lambda calibration, outcomes & maturity metrics
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={learningState?.enabled ? "success" : "outline"}
+                  size="sm"
+                >
+                  {learningState?.enabled ? "learning on" : "learning off"}
+                </Badge>
+                {learningState?.schema_tag && (
+                  <Badge variant="outline" size="xs">
+                    schema {learningState.schema_tag}
+                  </Badge>
+                )}
+                <Badge variant="outline" size="xs">
+                  v{learningState?.policy_version ?? 0}
+                </Badge>
+                {learningState && (
+                  <Badge
+                    variant={learningState.learned ? "warning" : "outline"}
+                    size="xs"
+                  >
+                    {learningState.source}
+                  </Badge>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void reloadLearning(graphId)}
+                  disabled={learningLoading}
+                >
+                  <RefreshCw
+                    size={12}
+                    className={learningLoading ? "animate-spin" : ""}
+                  />
+                  Refresh
+                </Button>
+              </div>
+            </div>
+            <div className="p-5">
+              {learningError ? (
+                <p className="text-sm text-rose-300">{learningError}</p>
+              ) : !learningState ? (
+                <p className="text-sm text-slate-400">Loading learning state...</p>
               ) : (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Trigger mode</span>
-                    <span className="font-mono text-xs text-slate-200">
-                      {evolveStatus.runtime.self_evolve_trigger_mode}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Jobs enabled</span>
-                    <Badge
-                      variant={
-                        evolveStatus.runtime.jobs_enabled
-                          ? "success"
-                          : "warning"
-                      }
-                      size="xs"
-                    >
-                      {evolveStatus.runtime.jobs_enabled
-                        ? "enabled"
-                        : "disabled"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Self evolve / invent</span>
-                    <span className="text-xs text-slate-200">
-                      {evolveStatus.runtime.self_evolve_enabled ? "on" : "off"}{" "}
-                      /{" "}
-                      {evolveStatus.runtime.self_invent_enabled ? "on" : "off"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Due now</span>
-                    <Badge
-                      variant={evolveStatus.due.is_due ? "success" : "outline"}
-                      size="xs"
-                    >
-                      {evolveStatus.due.is_due ? "yes" : "no"}
-                    </Badge>
-                  </div>
+                <div className="grid gap-4 xl:grid-cols-3">
+                  {/* Learned knobs */}
                   <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
-                    <p className="text-xs text-slate-400">Due reason</p>
-                    <p className="mt-1 text-xs text-slate-200">
-                      {humanizeDueReason(evolveStatus.due.reason)}
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                      Learned knobs
                     </p>
-                    <p className="mt-1 font-mono text-[11px] text-slate-500">
-                      {evolveStatus.due.reason}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Version delta</span>
-                    <span className="text-xs text-slate-200">
-                      {evolveStatus.due.version_delta} /{" "}
-                      {evolveStatus.due.min_version_delta}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Last evolved</span>
-                    <span className="text-xs text-slate-200">
-                      {formatTimestamp(evolveStatus.state.last_evolved_at)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Active job</span>
-                    <span className="text-xs text-slate-200">
-                      {evolveStatus.active_job
-                        ? `${evolveStatus.active_job.status} (${shortHash(evolveStatus.active_job.job_id)})`
-                        : "none (idle)"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Last enqueued</span>
-                    <span className="text-xs text-slate-200">
-                      {evolveStatus.last_enqueued_job
-                        ? `${evolveStatus.last_enqueued_job.status} (${shortHash(evolveStatus.last_enqueued_job.job_id)})`
-                        : "none"}
-                    </span>
-                  </div>
-                  {evolveStatus.last_event.last_skip_reason && (
-                    <div className="rounded-xl border border-amber-400/25 bg-amber-500/10 p-3 text-xs text-amber-200">
-                      Last skip reason:{" "}
-                      {evolveStatus.last_event.last_skip_reason}
+                    <div className="mt-2 space-y-2">
+                      {Object.entries(learningState.defaults).map(([knob, dflt]) => {
+                        const value = learningState.knobs[knob];
+                        const changed = typeof value === "number" && value !== dflt;
+                        const visits = Object.keys(
+                          learningState.samples[knob]?.visits ?? {},
+                        ).length;
+                        return (
+                          <div
+                            key={knob}
+                            className="flex items-center justify-between gap-2"
+                          >
+                            <span className="font-mono text-[11px] text-slate-400">
+                              {knob}
+                            </span>
+                            <span className="flex items-center gap-2">
+                              {visits > 0 && (
+                                <span className="font-mono text-[10px] text-slate-500">
+                                  {visits} samples
+                                </span>
+                              )}
+                              <span
+                                className={`font-mono text-xs ${
+                                  changed ? "text-fuchsia-300" : "text-slate-200"
+                                }`}
+                              >
+                                {String(value)}
+                              </span>
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
-            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-emerald-500/80 via-emerald-400/40 to-transparent rounded-full" />
-            <div className="border-b border-white/6 px-5 py-2.5">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                Metric Details
-              </p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Additional scorecard fields
-              </p>
-            </div>
-            <div className="space-y-2 pt-4 px-5 pb-5 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Redundancy</span>
-                <span className="text-slate-200">
-                  {formatMetric(metrics?.redundancy)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-400">Novelty</span>
-                <span className="text-slate-200">
-                  {formatMetric(metrics?.novelty)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="inline-flex items-center gap-2 text-slate-400">
-                  <Scissors size={13} className="text-cyan-300" />
-                  Energy
-                </span>
-                <span className="text-slate-200">
-                  {formatMetric(metrics?.energy)}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
-            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-indigo-500/80 via-indigo-400/40 to-transparent rounded-full" />
-            <div className="border-b border-white/6 px-5 py-3">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                Source Coverage
-              </p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Latest ingested files for this graph
-              </p>
-            </div>
-            <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
-              {!storageSummary ? (
-                <p className="text-sm text-slate-400">
-                  Loading source coverage...
-                </p>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Files</span>
-                    <span className="text-slate-200">
-                      {formatCount(storageSummary.total_files)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Total bytes</span>
-                    <span className="text-slate-200">
-                      {formatBytes(storageSummary.total_bytes)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Ingested</span>
-                    <span className="text-slate-200">
-                      {formatCount(storageSummary.by_status?.ingested ?? 0)}
-                    </span>
-                  </div>
-                </>
-              )}
-              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
-                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-indigo-400/80 via-indigo-400/30 to-transparent" />
-                <p className="text-xs text-slate-400">Latest files</p>
-                {storageFiles.length === 0 ? (
-                  <p className="mt-1 text-xs text-slate-400">
-                    No files indexed for this graph.
-                  </p>
-                ) : (
-                  <div className="mt-2 max-h-40 space-y-2 overflow-y-auto pr-1">
-                    {storageFiles.map((file) => (
-                      <div
-                        key={file.raw_id}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-white/8 bg-white/[0.02] px-2.5 py-1.5"
-                      >
-                        <div className="min-w-0">
-                          <p className="truncate text-xs text-slate-200">
-                            {file.filename}
+                    {learningState.meta &&
+                      Object.keys(learningState.meta).length > 0 && (
+                        <div className="mt-3 border-t border-white/6 pt-2">
+                          <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                            State meta
                           </p>
-                          <p className="text-[11px] text-slate-400">
-                            nodes {file.node_count} | vectors{" "}
-                            {file.vector_count}
+                          <p className="mt-1 font-mono text-[11px] text-slate-400 break-words">
+                            {Object.entries(learningState.meta).map(
+                              ([key, value]) => `${key}:${String(value)}`,
+                            ).join(" · ")}
                           </p>
                         </div>
-                        <Badge
-                          variant={
-                            file.ingest_status === "ingested"
-                              ? "success"
-                              : "outline"
-                          }
-                          size="xs"
-                        >
-                          {file.ingest_status}
-                        </Badge>
-                      </div>
-                    ))}
+                      )}
                   </div>
+
+                  {/* Lambda calibration + visits */}
+                  <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                      Lambda calibration & bandit visits
+                    </p>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-slate-400 text-xs">Samples</span>
+                      <span className="font-mono text-xs text-slate-200">
+                        {learningState.calibration.n}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 text-xs">Mean λ</span>
+                      <span className="font-mono text-xs text-slate-200">
+                        {learningState.calibration.mean.toFixed(4)}
+                      </span>
+                    </div>
+                    {Object.entries(learningState.samples).map(
+                      ([knob, sample]) => {
+                        const entries = Object.entries(sample.visits || {});
+                        if (entries.length === 0) return null;
+                        return (
+                          <div
+                            key={knob}
+                            className="mt-3 border-t border-white/6 pt-2"
+                          >
+                            <p className="font-mono text-[11px] text-slate-400">
+                              {knob}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {entries.map(([value, count]) => (
+                                <span
+                                  key={value}
+                                  className="rounded-md border border-white/8 bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10px] text-slate-300"
+                                >
+                                  {value}×{count}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      },
+                    )}
+                  </div>
+
+                  {/* Recent outcomes + meta metrics */}
+                  <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                      Recent outcomes & maturity
+                    </p>
+                    {learningMeta.length > 0 && (
+                      <div className="mt-2 space-y-1.5">
+                        {learningMeta.slice(0, 3).map((metric) => (
+                          <div
+                            key={metric.id}
+                            className="rounded-lg border border-white/6 bg-white/[0.02] px-2 py-1.5"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-[10px] text-slate-500">
+                                {formatTimestamp(metric.ts)}
+                              </span>
+                              <span className="font-mono text-[10px] text-emerald-300">
+                                merge {metric.merge_usefulness.toFixed(2)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between text-[10px]">
+                              <span className="text-slate-400">
+                                invent {metric.invention_utilization.toFixed(2)}
+                              </span>
+                              <span className="text-slate-400">
+                                regret {metric.prune_regret.toFixed(2)}
+                              </span>
+                              <span className="text-slate-400">
+                                d-drift {metric.d_drift.toFixed(3)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {learningOutcomes.length > 0 && (
+                      <div className="mt-3 border-t border-white/6 pt-2 space-y-1.5">
+                        {learningOutcomes.slice(0, 4).map((row) => (
+                          <div
+                            key={row.id}
+                            className="flex items-center justify-between rounded-lg border border-white/6 bg-white/[0.02] px-2 py-1.5"
+                          >
+                            <span className="font-mono text-[10px] text-slate-500">
+                              v{row.graph_version}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              +{row.merges}m −{row.prunes}p +{row.inventions}i
+                            </span>
+                            <span className="font-mono text-[10px] text-cyan-300">
+                              r={row.reward.toFixed(2)}
+                            </span>
+                            {row.retrieval_delta != null && (
+                              <span className="font-mono text-[10px] text-fuchsia-300">
+                                δ={row.retrieval_delta.toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {learningMeta.length === 0 && learningOutcomes.length === 0 && (
+                      <p className="mt-2 text-xs text-slate-500">
+                        No outcomes recorded yet. Learning rows appear after the
+                        first evolution cycle.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <EvolutionVersionHistory
+              data={versionsData}
+              loading={versionsLoading}
+              error={versionsError}
+              onRetry={() => void reloadVersions(graphId)}
+              onRestore={handleRestoreVersion}
+              restoringVersion={restoringVersion}
+            />
+          </div>
+
+          {/* Storage Section */}
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+            <div className="border-b border-white/6 px-5 py-3">
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                Ingested Storage
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                Raw file registry feeding graph memory
+              </p>
+            </div>
+            <div className="p-5 space-y-4">
+              {!storageSummary ? (
+                <p className="text-sm text-slate-400">Loading storage summary...</p>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                      Files
+                    </p>
+                    <p className="mt-1 font-semibold tabular-nums text-cyan-200">
+                      {formatCount(storageSummary.total_files)}
+                    </p>
+                  </div>
+                  <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                      Total size
+                    </p>
+                    <p className="mt-1 font-semibold tabular-nums text-cyan-200">
+                      {formatBytes(storageSummary.total_bytes)}
+                    </p>
+                  </div>
+                  <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                      By status
+                    </p>
+                    <p className="mt-1 text-xs text-slate-300">
+                      {Object.entries(storageSummary.by_status || {}).map(
+                        ([status, count]) => `${status}:${count}`,
+                      ).join(" · ") || "-"}
+                    </p>
+                  </div>
+                  <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                      By type
+                    </p>
+                    <p className="mt-1 text-xs text-slate-300">
+                      {Object.entries(storageSummary.by_type || {}).map(
+                        ([type, count]) => `${type}:${count}`,
+                      ).join(" · ") || "-"}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {storageFiles.length > 0 && (
+                <div className="overflow-x-auto rounded-[14px] border border-white/8">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-white/8 text-[10px] uppercase tracking-widest text-slate-500">
+                        <th className="px-3 py-2 font-medium">File</th>
+                        <th className="px-3 py-2 font-medium">Type</th>
+                        <th className="px-3 py-2 font-medium">Size</th>
+                        <th className="px-3 py-2 font-medium">Status</th>
+                        <th className="px-3 py-2 font-medium">Nodes / Vecs</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {storageFiles.slice(0, 6).map((file) => (
+                        <tr
+                          key={file.raw_id}
+                          className="border-b border-white/4 last:border-b-0 text-slate-300"
+                        >
+                          <td className="px-3 py-2 font-mono max-w-[220px] truncate">
+                            {file.filename}
+                          </td>
+                          <td className="px-3 py-2">{file.mime_type}</td>
+                          <td className="px-3 py-2 tabular-nums">
+                            {formatBytes(file.size_bytes)}
+                          </td>
+                          <td className="px-3 py-2">
+                            <Badge
+                              variant={
+                                file.ingest_status === "ingested"
+                                  ? "success"
+                                  : file.ingest_status === "error"
+                                    ? "error"
+                                    : "outline"
+                              }
+                              size="xs"
+                            >
+                              {file.ingest_status}
+                            </Badge>
+                          </td>
+                          <td className="px-3 py-2 tabular-nums">
+                            {file.node_count} / {file.vector_count}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- PANE 2: REAL-TIME PHYSICS & TOPOLOGY --- */}
+      {activePane === "visuals" && (
+        <div className="relative flex flex-col rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] p-3.5 sm:p-4 shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+          {/* Integrated Master Card Header with Floating Sub-Toggle Switcher */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3 pb-2.5 border-b border-white/6">
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                Self-Invention & Physics Pipeline
+              </p>
+              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                2.5D Left-to-Right Flow Diagram Canvas, Invention Inspector & Physics Stream
+              </p>
+            </div>
+
+            {/* Integrated Header Sub-Toggle Switcher */}
+            <div className="flex items-center gap-1.5 rounded-xl border border-white/8 bg-white/[0.03] p-1">
+              {[
+                ["spatial3d", "2.5D Invention Flow", Activity],
+                ["physics", "Physics Stream", GitMerge],
+              ].map(([key, label, Icon]: any) => {
+                const active = visualSubTab === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setVisualSubTab(key as VisualSubTab)}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-mono transition-all duration-200 ${
+                      active
+                        ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-md"
+                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon size={13} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Master Viewport Content */}
+          <div className="w-full">
+            {visualSubTab === "spatial3d" && (
+              <InventionFlowCanvas
+                graphId={graphId}
+                data={flowData}
+                loading={flowLoading}
+                error={flowError}
+                onRetry={() => void reloadFlow(graphId)}
+              />
+            )}
+
+            {visualSubTab === "physics" && (
+              <div className="min-h-[440px]">
+                <EvolutionPhysicsChart data={physicsPoints} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- PANE 3: TIMELINE & EVENT LOGS --- */}
+      {activePane === "timeline" && (
+        <div className="grid items-start gap-4 lg:grid-cols-5">
+          {/* Evolution Event Stream Timeline */}
+          <div className="relative lg:col-span-3 flex flex-col h-[600px] lg:h-[750px] overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] !overflow-visible">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-3">
+              <div>
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                  Evolution Timeline
+                </p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  Latest graph events and evolve/invention actions
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-400">
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={showEvolutionOnly}
+                    onClick={() => setShowEvolutionOnly((v) => !v)}
+                    className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${
+                      showEvolutionOnly
+                        ? "border-emerald-400/60 bg-emerald-500/40"
+                        : "border-white/15 bg-white/[0.06]"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform ${
+                        showEvolutionOnly ? "translate-x-[14px]" : "translate-x-[2px]"
+                      }`}
+                    />
+                  </button>
+                  Evolution-only
+                </label>
+                <label className="flex cursor-pointer items-center gap-2 text-[11px] text-slate-400">
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={autoRefresh}
+                    onClick={() => setAutoRefresh((v) => !v)}
+                    className={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border transition-colors ${
+                      autoRefresh
+                        ? "border-cyan-400/60 bg-cyan-500/40"
+                        : "border-white/15 bg-white/[0.06]"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform ${
+                        autoRefresh ? "translate-x-[14px]" : "translate-x-[2px]"
+                      }`}
+                    />
+                  </button>
+                  Auto-refresh ({POLL_INTERVAL_MS / 1000}s)
+                </label>
+                <Badge variant="outline" size="sm">
+                  {visibleTimeline.length} items
+                </Badge>
+              </div>
+            </div>
+            <div className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
+              {visibleTimeline.length === 0 ? (
+                <p className="text-sm text-slate-500 italic px-5 py-4">
+                  No events available yet.
+                </p>
+              ) : (
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                  {visibleTimeline.map((event) => (
+                    <div
+                      key={event.seq}
+                      className="group px-5 py-4 transition-all hover:bg-white/[0.02] border-b border-white/6"
+                    >
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={eventBadgeVariant(event.kind)} size="sm">
+                          {event.kind}
+                        </Badge>
+                        <Badge variant="outline" size="xs">
+                          seq {event.seq}
+                        </Badge>
+                        <span className="text-[10px] text-slate-500 font-mono tracking-tighter">
+                          {formatTimestamp(event.ts)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm text-slate-200">
+                        {eventSummary(event)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Run Outcome & Runtime Snapshot */}
+          <div className="space-y-4 lg:col-span-2 flex flex-col h-[600px] lg:h-[750px] overflow-y-auto custom-scrollbar pr-1 pb-4">
+            {/* Latest Run Outcome Card */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
+              <div className="border-b border-white/6 px-5 py-2.5">
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                  Latest Run Outcome
+                </p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  Result from recent evolve cycle
+                </p>
+              </div>
+              <div className="space-y-3 pt-4 px-5 pb-5">
+                {!lastRun ? (
+                  <p className="text-sm text-slate-400 font-medium">
+                    No manual evolve run in this session yet.
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={lastRun.status === "completed" ? "success" : "warning"}
+                        size="sm"
+                      >
+                        {lastRun.status}
+                      </Badge>
+                      <span className="text-xs text-slate-400">
+                        v{lastRun.graph_version}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                        <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
+                        <p className="text-slate-400 text-xs">Merges</p>
+                        <p className="font-semibold text-cyan-200">{lastRun.merges}</p>
+                      </div>
+                      <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                        <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
+                        <p className="text-slate-400 text-xs">Prunes</p>
+                        <p className="font-semibold text-cyan-200">{lastRun.prunes}</p>
+                      </div>
+                      <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                        <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
+                        <p className="text-slate-400 text-xs">Inventions</p>
+                        <p className="font-semibold text-cyan-200">{lastRun.inventions}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-400">Latency: {lastRun.latency_ms} ms</p>
+                  </>
                 )}
+              </div>
+            </div>
+
+            {/* Runtime Snapshot Card */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] shrink-0">
+              <div className="border-b border-white/6 px-5 py-2.5">
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                  Runtime Snapshot
+                </p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+                  Live diagnostics and event stream health
+                </p>
+              </div>
+              <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="inline-flex items-center gap-2 text-slate-300">
+                    <Hash size={14} className="text-cyan-300" />
+                    Graph hash
+                  </span>
+                  <span className="font-mono text-xs text-slate-300">
+                    {shortHash(metrics?.graph_hash)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                    <p className="text-[11px] text-slate-400">Complete</p>
+                    <p className="font-semibold text-emerald-400">{eventStats.completed}</p>
+                  </div>
+                  <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                    <p className="text-[11px] text-slate-400">Skipped</p>
+                    <p className="font-semibold text-amber-400">{eventStats.skipped}</p>
+                  </div>
+                  <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
+                    <p className="text-[11px] text-slate-400">Invention</p>
+                    <p className="font-semibold text-violet-400">{eventStats.inventionSummary}</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

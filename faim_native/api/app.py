@@ -227,6 +227,7 @@ def create_app() -> FastAPI:
         benchmarks_router,
         cortex_router,
         domain_router,
+        embedding_providers_router,
         events_router,
         evolve_router,
         graph_router,
@@ -235,7 +236,10 @@ def create_app() -> FastAPI:
         memory_router,
         metrics_router,
         node_router,
+        ocr_providers_router,
         query_router,
+        reasoning_router,
+        reranker_router,
         storage_router,
     )
     from api.routers.faim_bench import router as faim_bench_router
@@ -249,9 +253,14 @@ def create_app() -> FastAPI:
     app.include_router(benchmarks_router, prefix=prefix)
     app.include_router(cortex_router, prefix=prefix)
     app.include_router(domain_router, prefix=prefix)
+    app.include_router(embedding_providers_router, prefix=prefix)
     app.include_router(events_router, prefix=prefix)
     app.include_router(ingest_router, prefix=prefix)
+    app.include_router(ocr_providers_router, prefix=prefix)
     app.include_router(query_router, prefix=prefix)
+    app.include_router(reasoning_router, prefix=prefix)
+    app.include_router(reranker_router, prefix=prefix)
+
     app.include_router(memory_router, prefix=prefix)
     app.include_router(node_router, prefix=prefix)
     app.include_router(evolve_router, prefix=prefix)

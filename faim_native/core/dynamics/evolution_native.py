@@ -17,7 +17,9 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
 
 # Flexible imports
 try:
@@ -69,6 +71,54 @@ def _cosine(a, b):
     if norm_a == 0 or norm_b == 0:
         return 0.0
     return dot / (norm_a * norm_b)
+
+
+def _vectorized_cosine_matrix(vectors: List[List[float]]) -> Optional[np.ndarray]:
+    """Full symmetric cosine matrix computed in one BLAS pass.
+
+    Returns None when the matrix cannot be produced (ragged vectors), letting
+    callers fall back to the pure-Python pairwise path. Off-diagonal values are
+    numerically identical to ``_cosine`` up to floating-point noise.
+
+    Args:
+        vectors: List of v_native vectors (len >= 2, all same dimension).
+
+    Returns:
+        Float64 array of shape (n, n) or None.
+    """
+    if len(vectors) < 2:
+        return None
+    dim = len(vectors[0])
+    if any(len(v) != dim for v in vectors):
+        return None
+    V = np.asarray(vectors, dtype=np.float64)
+    norms = np.sqrt((V * V).sum(axis=1))
+    # Zero-norm rows produce cosine 0.0 against everything (Python parity).
+    norms[norms == 0.0] = 1.0
+    U = V / norms[:, None]
+    S = U @ U.T
+    return S
+
+
+def _upper_triangle_floats(S: np.ndarray) -> Optional[List[float]]:
+    """Flatten the strict upper triangle (i < j) as Python floats.
+
+    Order matches the pure-Python ``for i ... for j in range(i+1, n)`` walk.
+    """
+    if S is None:
+        return None
+    n = S.shape[0]
+    rows, cols = np.triu_indices(n, k=1)
+    return [float(v) for v in S[rows, cols]]
+
+
+def _node_max_similarities(S: np.ndarray) -> Optional[List[float]]:
+    """Max similarity per row, excluding the node's self-similarity (diagonal)."""
+    if S is None:
+        return None
+    T = S.copy()
+    np.fill_diagonal(T, -np.inf)
+    return [float(v) for v in T.max(axis=1)]
 
 
 @dataclass
@@ -151,6 +201,8 @@ def _resolve_invention_settings(runtime_config: Optional[Any]) -> Dict[str, Any]
         "min_redundancy_reduction": 0.01,
         "max_macros_per_cycle": 3,
         "event_window": 5000,
+        "synthesis_bridge_enabled": False,
+        "synthesis_max_macros": 0,
     }
 
     cfg = runtime_config
@@ -203,6 +255,20 @@ def _resolve_invention_settings(runtime_config: Optional[Any]) -> Dict[str, Any]
                 defaults["event_window"],
             )
         ),
+        "synthesis_bridge_enabled": bool(
+            getattr(
+                cfg,
+                "self_invent_synthesis_bridge_enabled",
+                defaults["synthesis_bridge_enabled"],
+            )
+        ),
+        "synthesis_max_macros": int(
+            getattr(
+                cfg,
+                "self_invent_synthesis_max_macros",
+                defaults["synthesis_max_macros"],
+            )
+        ),
     }
 
 
@@ -212,6 +278,8 @@ def compute_graph_diagnostics(
     edges: List,
     graph_version: int,
     config: FractalConfig = DEFAULT_CONFIG,
+    similarities: Optional[List[float]] = None,
+    distances: Optional[List[float]] = None,
 ) -> FractalDiagnostics:
     """Compute diagnostics for a graph.
 
@@ -221,6 +289,8 @@ def compute_graph_diagnostics(
         edges: List of edge models.
         graph_version: Current graph version.
         config: Fractal configuration.
+        similarities: Optional precomputed pairwise similarities (i < j order).
+        distances: Optional precomputed pairwise (1 - similarity) values.
 
     Returns:
         FractalDiagnostics.
@@ -243,6 +313,8 @@ def compute_graph_diagnostics(
         graph_version=graph_version,
         region_id="global",
         config=config,
+        similarities=similarities,
+        distances=distances,
     )
 
 
@@ -312,6 +384,56 @@ def adapt_prune_policy(
     )
 
 
+def _resolve_merge_winner(
+    node_a: Any,
+    node_b: Any,
+    score: float,
+    winner_selector: Optional[Any],
+) -> Tuple[Any, Any, Dict[str, Any]]:
+    """Pick merge winner/loser (semantic when selector provided).
+
+    Returns:
+        (winner_id, loser_id, meta)
+    """
+    if winner_selector is not None:
+        try:
+            decision = winner_selector(node_a, node_b)
+            if decision is not None and decision.winner_id is not None:
+                winner_id = decision.winner_id
+                loser_id = decision.loser_id
+                meta = dict(decision.meta or {})
+                meta.update(
+                    {
+                        "merge_reason": "high_similarity",
+                        "winner_hash": (
+                            node_a.vector_hash
+                            if str(winner_id) == str(node_a.node_id)
+                            else node_b.vector_hash
+                        ),
+                        "loser_hash": (
+                            node_b.vector_hash
+                            if str(winner_id) == str(node_a.node_id)
+                            else node_a.vector_hash
+                        ),
+                        "score_winner": getattr(decision, "winner_score", 0.0),
+                        "score_loser": getattr(decision, "loser_score", 0.0),
+                    }
+                )
+                return winner_id, loser_id, meta
+        except Exception:  # nosec B110 - fall back to legacy on any error
+            pass
+    merge_result = merge_vectors(
+        a_id=node_a.node_id,
+        b_id=node_b.node_id,
+        a_hash=node_a.vector_hash,
+        b_hash=node_b.vector_hash,
+        score=score,
+    )
+    meta = dict(merge_result.meta)
+    meta["selector"] = "legacy_hash"
+    return merge_result.winner_id, merge_result.loser_id, meta
+
+
 def evolve_once(
     graph_id: str,
     node_repo: NodeRepo,
@@ -327,6 +449,8 @@ def evolve_once(
     runtime_config: Optional[Any] = None,
     invention_overrides: Optional[Dict[str, Any]] = None,
     event_context: Optional[Dict[str, Any]] = None,
+    winner_selector: Optional[Any] = None,
+    lambda_gate: Optional[Dict[str, Any]] = None,
 ) -> EvolutionResult:
     """Run one evolution cycle with D/H/λ diagnostics.
 
@@ -349,6 +473,9 @@ def evolve_once(
         merge_threshold: Base threshold for merge.
         prune_policy: Base prune policy (optional).
         fractal_config: Fractal configuration.
+        winner_selector: Optional callable (node_a, node_b) -> WinnerDecision.
+            When provided, merge winners are chosen semantically; otherwise
+            the legacy lexicographic-hash selector is used.
 
     Returns:
         EvolutionResult summary with diagnostics.
@@ -372,6 +499,38 @@ def evolve_once(
     nodes = node_repo.list_nodes(graph_id, limit=1000)
     edges = edge_repo.list_all_edges(graph_id, limit=10000)
 
+    # Detect backend so the SQL path stays untouched and SQLite can use the
+    # vectorized (single BLAS) similarity pass below.
+    _sess = getattr(node_repo, "session", None)
+    is_pg = False
+    if _sess and hasattr(_sess, "bind") and _sess.bind and hasattr(_sess.bind, "dialect"):
+        is_pg = _sess.bind.dialect.name == "postgresql"
+
+    # Vectorized pair similarity, computed ONCE and reused for diagnostics,
+    # prune max-similarity and merge scoring (removes the three quadratic
+    # pure-Python passes). Falls back to the original path on any mismatch.
+    sim_matrix_np = None
+    sims_flat = None
+    node_vectors = None
+    use_embeddings = False
+    
+    # Check if embedding vectors are available on nodes
+    if not is_pg and len(nodes) >= 2:
+        # Prefer embedding vectors if available, fallback to native
+        if all(hasattr(n, 'v_embedding') and n.v_embedding is not None for n in nodes):
+            node_vectors = [n.v_embedding for n in nodes]
+            use_embeddings = True
+        elif all(n.v_native is not None for n in nodes):
+            node_vectors = [n.v_native for n in nodes]
+        
+        if node_vectors is not None:
+            try:
+                sim_matrix_np = _vectorized_cosine_matrix(node_vectors)
+            except Exception:  # nosec B110 - fall back to pure-Python cosine
+                sim_matrix_np = None
+            if sim_matrix_np is not None and sim_matrix_np.shape[0] == len(nodes):
+                sims_flat = _upper_triangle_floats(sim_matrix_np)
+
     # 1. Compute diagnostics (even for < 2 nodes)
     diagnostics = compute_graph_diagnostics(
         graph_id=graph_id,
@@ -379,11 +538,12 @@ def evolve_once(
         edges=edges,
         graph_version=current_version,
         config=fractal_config,
+        similarities=sims_flat,
+        distances=[1.0 - s for s in sims_flat] if sims_flat is not None else None,
     )
     result.diagnostics = diagnostics
 
     # 2. Emit DIAGNOSTICS_SNAPSHOT event
-    _sess = getattr(node_repo, "session", None)
     _emit_graph_event(
         session=_sess,
         event_repo=event_repo,
@@ -392,6 +552,43 @@ def evolve_once(
         payload=diagnostics.to_event_payload(),
         result=result,
     )
+
+    # Lambda gate: skip evolution if lambda is below threshold
+    if lambda_gate is not None:
+        gate_enabled = bool(lambda_gate.get("enabled", False))
+        gate_min = float(lambda_gate.get("min_lambda", 0.0))
+        if gate_enabled and diagnostics.lambda_hat < gate_min:
+            result.skip_reason = "lambda_below_gate"
+            _emit_graph_event(
+                session=_sess,
+                event_repo=event_repo,
+                graph_id=graph_id,
+                kind="EVOLUTION_SKIPPED",
+                payload=_with_event_context(
+                    {
+                        "reason": result.skip_reason,
+                        "graph_version": current_version,
+                        "node_count": len(nodes),
+                        "edge_count": len(edges),
+                        "D_hat": diagnostics.D_hat,
+                        "H_hat": diagnostics.H_hat,
+                        "lambda_hat": diagnostics.lambda_hat,
+                        "redundancy_R": diagnostics.redundancy_R,
+                        "novelty_N": diagnostics.novelty_N,
+                        "energy_E": diagnostics.energy_E,
+                        "lambda_gate_min": gate_min,
+                    },
+                    event_context,
+                ),
+                result=result,
+            )
+            return result
+
+    # Lambda-driven action scaling
+    if lambda_gate is not None and bool(lambda_gate.get("scale_actions", False)):
+        # Scale max_actions by lambda (lambda in [0,1] -> scale in [0.5, 1.5])
+        scale = 0.5 + diagnostics.lambda_hat
+        max_actions = max(1, int(round(max_actions * scale)))
 
     if len(nodes) < 2:
         result.skip_reason = "insufficient_nodes"
@@ -409,6 +606,9 @@ def evolve_once(
                     "D_hat": diagnostics.D_hat,
                     "H_hat": diagnostics.H_hat,
                     "lambda_hat": diagnostics.lambda_hat,
+                    "redundancy_R": diagnostics.redundancy_R,
+                    "novelty_N": diagnostics.novelty_N,
+                    "energy_E": diagnostics.energy_E,
                 },
                 event_context,
             ),
@@ -420,13 +620,14 @@ def evolve_once(
     adapted_merge_threshold = adapt_merge_threshold(merge_threshold, diagnostics)
     adapted_prune_policy = adapt_prune_policy(base_prune_policy, diagnostics)
 
-    is_pg = False
-    if _sess and hasattr(_sess, "bind") and _sess.bind and hasattr(_sess.bind, "dialect"):
-        is_pg = _sess.bind.dialect.name == "postgresql"
-
     # Build similarity matrix
     if is_pg:
         sim_matrix = node_repo.get_max_similarities(graph_id, adapted_prune_policy.min_similarity_for_redundancy)
+    elif sim_matrix_np is not None:
+        node_ids = [n.node_id for n in nodes]
+        sim_matrix = dict(
+            zip(node_ids, _node_max_similarities(sim_matrix_np), strict=True)
+        )
     else:
         sim_matrix = compute_similarity_matrix(nodes, _cosine)
 
@@ -448,23 +649,19 @@ def evolve_once(
             if not node_a or not node_b:
                 continue
 
-            merge_result = merge_vectors(
-                a_id=id_a,
-                b_id=id_b,
-                a_hash=node_a.vector_hash,
-                b_hash=node_b.vector_hash,
-                score=score,
+            winner_id, loser_id, merge_meta = _resolve_merge_winner(
+                node_a, node_b, score, winner_selector
             )
 
-            merged_ids.add(merge_result.loser_id)
+            merged_ids.add(loser_id)
 
             # Add opposition edge
             edge_repo.add_opposition_edge(
                 graph_id=graph_id,
-                a_id=merge_result.winner_id,
-                b_id=merge_result.loser_id,
+                a_id=winner_id,
+                b_id=loser_id,
                 weight=score,
-                meta=merge_result.meta,
+                meta=merge_meta,
             )
 
             # Emit event
@@ -474,10 +671,11 @@ def evolve_once(
                 graph_id=graph_id,
                 kind="EVOLUTION_MERGE",
                 payload={
-                    "winner_id": str(merge_result.winner_id),
-                    "loser_id": str(merge_result.loser_id),
+                    "winner_id": str(winner_id),
+                    "loser_id": str(loser_id),
                     "score": score,
                     "adapted_threshold": adapted_merge_threshold,
+                    "selector": merge_meta.get("selector", "legacy_hash"),
                 },
                 result=result,
             )
@@ -486,8 +684,8 @@ def evolve_once(
             result.actions.append(
                 {
                     "type": "merge",
-                    "winner": str(merge_result.winner_id),
-                    "loser": str(merge_result.loser_id),
+                    "winner": str(winner_id),
+                    "loser": str(loser_id),
                 }
             )
             action_count += 1
@@ -504,26 +702,27 @@ def evolve_once(
                 if node_b.node_id in merged_ids:
                     continue
 
-                score = opposition_score(node_a.v_native, node_b.v_native)
+                if sim_matrix_np is not None:
+                    score = max(0.0, float(sim_matrix_np[i, j]))
+                elif use_embeddings:
+                    score = opposition_score(node_a.v_embedding, node_b.v_embedding)
+                else:
+                    score = opposition_score(node_a.v_native, node_b.v_native)
 
                 if should_merge(score, adapted_merge_threshold):
-                    merge_result = merge_vectors(
-                        a_id=node_a.node_id,
-                        b_id=node_b.node_id,
-                        a_hash=node_a.vector_hash,
-                        b_hash=node_b.vector_hash,
-                        score=score,
+                    winner_id, loser_id, merge_meta = _resolve_merge_winner(
+                        node_a, node_b, score, winner_selector
                     )
 
-                    merged_ids.add(merge_result.loser_id)
+                    merged_ids.add(loser_id)
 
                     # Add opposition edge
                     edge_repo.add_opposition_edge(
                         graph_id=graph_id,
-                        a_id=merge_result.winner_id,
-                        b_id=merge_result.loser_id,
+                        a_id=winner_id,
+                        b_id=loser_id,
                         weight=score,
-                        meta=merge_result.meta,
+                        meta=merge_meta,
                     )
 
                     # Emit event
@@ -533,10 +732,11 @@ def evolve_once(
                         graph_id=graph_id,
                         kind="EVOLUTION_MERGE",
                         payload={
-                            "winner_id": str(merge_result.winner_id),
-                            "loser_id": str(merge_result.loser_id),
+                            "winner_id": str(winner_id),
+                            "loser_id": str(loser_id),
                             "score": score,
                             "adapted_threshold": adapted_merge_threshold,
+                            "selector": merge_meta.get("selector", "legacy_hash"),
                         },
                         result=result,
                     )
@@ -545,8 +745,8 @@ def evolve_once(
                     result.actions.append(
                         {
                             "type": "merge",
-                            "winner": str(merge_result.winner_id),
-                            "loser": str(merge_result.loser_id),
+                            "winner": str(winner_id),
+                            "loser": str(loser_id),
                         }
                     )
                     action_count += 1
@@ -569,6 +769,42 @@ def evolve_once(
             continue
 
         if can_prune(node, max_sim, adapted_prune_policy):
+            # Pre-action backup: snapshot node + sidecars before deletion so
+            # the cycle is fully reversible (no data loss possible).
+            if _sess is not None:
+                try:
+                    from store.pg.repos.evolution_backup_repo import (
+                        EvolutionBackupRepo,
+                        _serialize_row,
+                    )
+                    from store.pg.repos.representation_repo import RepresentationRepo
+
+                    backup_repo = EvolutionBackupRepo(
+                        session=_sess, tenant_id=node_repo.tenant_id
+                    )
+                    repr_rows = RepresentationRepo(
+                        session=_sess, tenant_id=node_repo.tenant_id
+                    ).list_by_node_ids(graph_id=graph_id, node_ids=[str(node.node_id)])
+                    repr_json = _serialize_row(repr_rows[0]) if repr_rows else None
+                    edge_rows = edge_repo.list_edges_for_node(
+                        graph_id, node.node_id
+                    )
+                    backup_repo.snapshot_model(
+                        graph_id=graph_id,
+                        node=node,
+                        action_type="prune",
+                        reason="low_usage_high_redundancy",
+                        version=current_version,
+                        repr_json=repr_json,
+                        edges_json=[_serialize_row(e) for e in edge_rows],
+                    )
+                except Exception:  # nosec B110 - backup failure must not block evolution
+                    logger.warning(
+                        "Pre-action backup failed for node=%s",
+                        node.node_id,
+                        exc_info=True,
+                    )
+
             # Delete edges first
             edge_repo.delete_edges_for_node(graph_id, node.node_id)
 
@@ -625,6 +861,14 @@ def evolve_once(
         if "event_window" in invention_overrides:
             invention_settings["event_window"] = max(
                 100, int(invention_overrides["event_window"])
+            )
+        if "synthesis_bridge_enabled" in invention_overrides:
+            invention_settings["synthesis_bridge_enabled"] = bool(
+                invention_overrides["synthesis_bridge_enabled"]
+            )
+        if "synthesis_max_macros" in invention_overrides:
+            invention_settings["synthesis_max_macros"] = max(
+                0, int(invention_overrides["synthesis_max_macros"])
             )
     invention_allowed = bool(
         invention_settings["enabled"] and invention_settings["on_evolve"]
@@ -689,6 +933,74 @@ def evolve_once(
                 result=result,
             )
 
+    # 7b. Optional cross-galaxy synthesis invention bridge.
+    # High-confidence synthesis insights spanning multiple galaxies become
+    # macro-node invention candidates. Bounded, λ-gated, best effort.
+    synthesis_bridge_enabled = bool(
+        invention_settings.get("synthesis_bridge_enabled", False)
+    )
+    synthesis_max_macros = int(
+        invention_settings.get("synthesis_max_macros", 0) or 0
+    )
+    if (
+        invention_allowed
+        and synthesis_bridge_enabled
+        and synthesis_max_macros > 0
+        and _sess is not None
+    ):
+        try:
+            from core.dynamics.invention_native import (
+                run_synthesis_invention_cycle,
+            )
+
+            synthesis_result = run_synthesis_invention_cycle(
+                graph_id=graph_id,
+                session=_sess,
+                node_repo=node_repo,
+                edge_repo=edge_repo,
+                event_repo=event_repo,
+                lambda_hat=diagnostics.lambda_hat,
+                lambda_threshold=invention_settings["lambda_threshold"],
+                max_macros=synthesis_max_macros,
+            )
+            if synthesis_result.macros_created > 0:
+                action_count += synthesis_result.macros_created
+                result.inventions += synthesis_result.macros_created
+                result.actions.append(
+                    {
+                        "type": "invention_synthesis",
+                        "count": synthesis_result.macros_created,
+                        "macro_ids": [
+                            str(mid) for mid in synthesis_result.macro_ids
+                        ],
+                    }
+                )
+                _emit_graph_event(
+                    session=_sess,
+                    event_repo=event_repo,
+                    graph_id=graph_id,
+                    kind="EVOLUTION_INVENTION_SYNTHESIS_SUMMARY",
+                    payload={
+                        "inventions": synthesis_result.macros_created,
+                        "skipped_candidates": synthesis_result.skipped_candidates,
+                        "macro_ids": [
+                            str(mid) for mid in synthesis_result.macro_ids
+                        ],
+                    },
+                    result=result,
+                )
+            result.events_emitted += synthesis_result.events_emitted
+        except Exception as exc:
+            logger.warning("Synthesis invention pass failed: %s", exc)
+            _emit_graph_event(
+                session=_sess,
+                event_repo=event_repo,
+                graph_id=graph_id,
+                kind="EVOLUTION_INVENTION_SYNTHESIS_ERROR",
+                payload={"error": str(exc)[:300]},
+                result=result,
+            )
+
     # 8. Bump graph version if any actions
     if action_count > 0:
         new_version = graph_version_repo.bump(
@@ -700,6 +1012,25 @@ def evolve_once(
                 f"{result.inventions} inventions"
             ),
         )
+
+        # Re-attribute this cycle's pre-bump backups to the new version so
+        # version history can offer per-cycle restore.
+        if _sess is not None:
+            try:
+                from store.pg.repos.evolution_backup_repo import EvolutionBackupRepo
+
+                EvolutionBackupRepo(
+                    session=_sess, tenant_id=node_repo.tenant_id
+                ).retag(
+                    graph_id=graph_id,
+                    from_version=current_version,
+                    to_version=int(new_version),
+                )
+            except Exception:  # nosec B110 - retag is best-effort bookkeeping
+                logger.warning(
+                    "Backup version retag failed for graph=%s", graph_id,
+                    exc_info=True,
+                )
 
         _emit_graph_event(
             session=_sess,
@@ -715,6 +1046,9 @@ def evolve_once(
                     "D_hat": diagnostics.D_hat,
                     "H_hat": diagnostics.H_hat,
                     "lambda_hat": diagnostics.lambda_hat,
+                    "redundancy_R": diagnostics.redundancy_R,
+                    "novelty_N": diagnostics.novelty_N,
+                    "energy_E": diagnostics.energy_E,
                     "diagnostics_hash": diagnostics.diagnostics_hash,
                 },
                 event_context,
@@ -741,6 +1075,9 @@ def evolve_once(
                     "D_hat": diagnostics.D_hat,
                     "H_hat": diagnostics.H_hat,
                     "lambda_hat": diagnostics.lambda_hat,
+                    "redundancy_R": diagnostics.redundancy_R,
+                    "novelty_N": diagnostics.novelty_N,
+                    "energy_E": diagnostics.energy_E,
                 },
                 event_context,
             ),

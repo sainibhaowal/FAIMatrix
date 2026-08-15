@@ -212,6 +212,11 @@ class StorageSupportedTypesResponse(BaseModel):
     ocr_engine: str
     ocr_fail_closed: bool
     ocr_capable_extensions: List[str]
+    ocr_model_name: Optional[str] = None
+    embedding_enabled: bool = True
+    embedding_provider: Optional[str] = None
+    embedding_model: Optional[str] = None
+
 
 
 class StorageDomainMemoryTerm(BaseModel):
@@ -2278,7 +2283,8 @@ async def request_delete_storage_file(
     item_before = _row_to_file_item(row)
 
     if hard_delete:
-        from store.pg.models_faim import NodeModel, NodeRepresentationV2Model, StorageFileModel
+        from store.pg.graph_cleanup import purge_graph_artifacts_for_raw_ids
+        from store.pg.models_faim import StorageFileModel
 
         try:
             # 1. Delete physical raw blob from disk
@@ -2296,36 +2302,26 @@ async def request_delete_storage_file(
                 except Exception as e:
                     logger.warning("Failed to delete raw ref for %s: %s", raw_uuid, e)
 
-            # 2. Find node_ids associated with raw_id
-            nodes_to_del = (
-                ctx.session.query(NodeModel.node_id)
-                .filter(
-                    and_(
-                        NodeModel.tenant_id == ctx.tenant_id,
-                        NodeModel.graph_id == graph_id,
-                        NodeModel.raw_id == str(raw_uuid),
-                    )
-                )
-                .all()
+            # 2. Purge ALL graph artifacts for this raw file atomically:
+            #    edges touching its nodes, coactivations referencing them,
+            #    node_repr_v2 rows, then the nodes themselves. This guarantees
+            #    a file delete never leaves orphaned edges behind.
+            purge_summary = purge_graph_artifacts_for_raw_ids(
+                session=ctx.session,
+                tenant_id=ctx.tenant_id,
+                graph_id=graph_id,
+                raw_ids=[raw_uuid],
             )
-            node_ids = [n[0] for n in nodes_to_del if n[0]]
-
-            if node_ids:
-                ctx.session.query(NodeRepresentationV2Model).filter(
-                    and_(
-                        NodeRepresentationV2Model.tenant_id == ctx.tenant_id,
-                        NodeRepresentationV2Model.graph_id == graph_id,
-                        NodeRepresentationV2Model.node_id.in_(node_ids),
-                    )
-                ).delete(synchronize_session=False)
-
-            ctx.session.query(NodeModel).filter(
-                and_(
-                    NodeModel.tenant_id == ctx.tenant_id,
-                    NodeModel.graph_id == graph_id,
-                    NodeModel.raw_id == str(raw_uuid),
-                )
-            ).delete(synchronize_session=False)
+            logger.info(
+                "hard delete graph artifact purge",
+                extra={
+                    "tenant_id": ctx.tenant_id,
+                    "graph_id": graph_id,
+                    "raw_id": str(raw_uuid),
+                    "op": "storage_hard_delete",
+                    "deleted": purge_summary,
+                },
+            )
 
             ctx.session.query(StorageFileModel).filter(
                 and_(
@@ -2912,6 +2908,32 @@ async def get_storage_supported_types(
         ocr_engine = "unavailable"
         ocr_fail_closed = False
 
+    ocr_model_name = "PaddleOCR v6 (CPU Ultra / MKLDNN)" if ocr_engine.startswith("paddle") else ocr_engine
+    try:
+        from perception.extract.ocr_providers import get_ocr_registry
+        reg = get_ocr_registry()
+        active_p = reg.get_active()
+        if active_p:
+            ocr_model_name = active_p.model_info.display_name
+            ocr_engine = active_p.model_info.id
+            if active_p.is_available():
+                ocr_enabled = True
+    except Exception:
+        pass
+
+    embedding_provider = "Managed Local Runtime"
+    embedding_model = "bge-small-en-v1.5"
+    embedding_enabled = True
+    try:
+        from encoding.embedding_providers import get_embedding_registry
+        emb_reg = get_embedding_registry()
+        active_emb = emb_reg.get_active()
+        if active_emb:
+            embedding_provider = active_emb.model_info.display_name
+            embedding_model = active_emb.model_info.name or active_emb.model_info.id
+    except Exception:
+        pass
+
     categories: Dict[str, List[str]] = {
         "documents": [],
         "images": [],
@@ -2990,7 +3012,12 @@ async def get_storage_supported_types(
         ocr_engine=ocr_engine,
         ocr_fail_closed=ocr_fail_closed,
         ocr_capable_extensions=ocr_capable_extensions,
+        ocr_model_name=ocr_model_name,
+        embedding_enabled=embedding_enabled,
+        embedding_provider=embedding_provider,
+        embedding_model=embedding_model,
     )
+
 
 
 @router.get("/maintenance/history", response_model=StorageMaintenanceHistoryResponse)
@@ -3051,6 +3078,133 @@ async def get_storage_maintenance_history(
         total=len(items),
         items=items,
     )
+
+
+class StorageOrphanSweepResponse(BaseModel):
+    """Result of an orphan graph-artifact sweep for a graph."""
+
+    graph_id: str
+    edges_removed: int = 0
+    coactivations_removed: int = 0
+    status: str = "ok"
+
+
+@router.post("/graphs/{graph_id}/sweep-orphans", response_model=StorageOrphanSweepResponse)
+async def sweep_orphan_graph_artifacts(
+    graph_id: str,
+    limit: int = Query(10000, ge=1, le=100000),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageOrphanSweepResponse:
+    """Repair endpoint: remove edges/coactivations that reference missing nodes.
+
+    Only touches the tenant's own graph. Safe to run repeatedly; idempotent.
+    """
+    _require_storage_repos(ctx)
+
+    from store.pg.graph_cleanup import (
+        sweep_orphan_coactivations,
+        sweep_orphan_edges,
+    )
+
+    edges = sweep_orphan_edges(ctx.session, ctx.tenant_id, graph_id, limit=limit)
+    coacts = sweep_orphan_coactivations(ctx.session, ctx.tenant_id, graph_id)
+    ctx.session.commit()
+
+    logger.info(
+        "orphan sweep executed",
+        extra={
+            "tenant_id": ctx.tenant_id,
+            "graph_id": graph_id,
+            "op": "orphan_sweep",
+            "edges_removed": edges,
+            "coactivations_removed": coacts,
+        },
+    )
+
+    return StorageOrphanSweepResponse(
+        graph_id=graph_id,
+        edges_removed=edges,
+        coactivations_removed=coacts,
+        status="ok",
+    )
+
+
+class StorageGraphItem(BaseModel):
+    """A tenant graph with summary counts for the frontend graph selector."""
+
+    graph_id: str
+    node_count: int = 0
+    edge_count: int = 0
+    version: int = 0
+    last_updated: Optional[str] = None
+
+
+class StorageGraphListResponse(BaseModel):
+    """List of tenant graphs with lightweight summary counts."""
+
+    items: List[StorageGraphItem]
+    total: int
+
+
+@router.get("/graphs", response_model=StorageGraphListResponse)
+async def list_storage_graphs(
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageGraphListResponse:
+    """List all graphs visible to the tenant (with node/edge/version counts).
+
+    Backs the frontend graph selector (fetchGraphsSoft) with real data instead
+    of an empty stub.
+    """
+    _require_storage_repos(ctx)
+
+    from sqlalchemy import func
+
+    from store.pg.models_faim import (
+        EdgeModel,
+        GraphVersionModel,
+        NodeModel,
+    )
+
+    node_counts = dict(
+        ctx.session.query(
+            NodeModel.graph_id, func.count(NodeModel.node_id)
+        )
+        .filter(NodeModel.tenant_id == ctx.tenant_id)
+        .group_by(NodeModel.graph_id)
+        .all()
+    )
+    edge_counts = dict(
+        ctx.session.query(
+            EdgeModel.graph_id, func.count(EdgeModel.edge_id)
+        )
+        .filter(EdgeModel.tenant_id == ctx.tenant_id)
+        .group_by(EdgeModel.graph_id)
+        .all()
+    )
+    versions = {
+        gv.graph_id: gv
+        for gv in ctx.session.query(GraphVersionModel)
+        .filter(GraphVersionModel.tenant_id == ctx.tenant_id)
+        .all()
+    }
+
+    graph_ids = sorted(set(node_counts) | set(edge_counts) | set(versions))
+    items: List[StorageGraphItem] = []
+    for gid in graph_ids:
+        gv = versions.get(gid)
+        items.append(
+            StorageGraphItem(
+                graph_id=gid,
+                node_count=int(node_counts.get(gid, 0)),
+                edge_count=int(edge_counts.get(gid, 0)),
+                version=int(gv.version) if gv else 0,
+                last_updated=(
+                    gv.updated_at.isoformat() if gv and gv.updated_at else None
+                ),
+            )
+        )
+
+    return StorageGraphListResponse(items=items, total=len(items))
 
 
 @router.get("/summary", response_model=StorageSummaryResponse)
