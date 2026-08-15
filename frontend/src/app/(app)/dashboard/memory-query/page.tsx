@@ -35,11 +35,16 @@ import {
   Code2,
   Workflow,
   Sparkles,
+  Wifi,
+  WifiOff,
+  MessageSquare,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChatInterface } from "@/components/memoryquery/ChatInterface";
 import { ChatComposer } from "@/components/memoryquery/ChatComposer";
 import { HistoryPanel } from "@/components/memoryquery/HistoryPanel";
+import { CortexChat } from "@/components/memoryquery/CortexChat";
+import { useUser } from "@/contexts/UserContext";
 
 type ManualSection =
   | "overview"
@@ -52,10 +57,14 @@ type ManualSection =
   | "benchmark"
   | "faq";
 
+type ChatMode = "http" | "websocket";
+
 export default function MemoryQueryPage() {
+  const { graphId } = useUser();
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<ManualSection>("overview");
   const [mounted, setMounted] = useState(false);
+  const [chatMode, setChatMode] = useState<ChatMode>("http");
 
   useEffect(() => {
     setMounted(true);
@@ -93,43 +102,64 @@ export default function MemoryQueryPage() {
             <span className="inline-flex items-center gap-1 rounded-full border border-cyan-400/25 bg-cyan-500/10 px-2 py-0.5 text-[9px] font-semibold text-cyan-300">
               <Zap size={9} /> Active Engine
             </span>
-          </div>
-
-          {/* Small Top Header Manual Trigger Button */}
-          <button
-            onClick={() => setIsManualModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-xs font-semibold tracking-wide transition-all shadow-[0_0_15px_rgba(6,182,212,0.1)] active:scale-95"
-            title="Open FAIM Cortex Operating Manual"
-          >
-            <BookOpen size={13} />
-            <span>Cortex Manual</span>
-          </button>
-        </div>
-
-        {/* Workspace: Dynamic Message Stream + Composer */}
-        <div className="flex-1 flex flex-col min-h-0 relative">
-          <ChatInterface />
-
-          <div className="absolute bottom-0 left-0 right-0 z-30 invisible pointer-events-none">
-            <div className="visible pointer-events-auto w-full">
-              <ChatComposer />
+            <div className="ml-2 flex items-center gap-1 rounded-lg border border-white/10 bg-black/30 p-0.5">
+              <button
+                onClick={() => setChatMode("http")}
+                className={`rounded-md px-2 py-0.5 text-[10px] font-semibold transition ${
+                  chatMode === "http" ? "bg-cyan-500/20 text-cyan-300" : "text-slate-500 hover:text-slate-300"
+                }`}
+                title="HTTP Query Mode"
+              >
+                HTTP
+              </button>
+              <button
+                onClick={() => setChatMode("websocket")}
+                className={`rounded-md px-2 py-0.5 text-[10px] font-semibold transition ${
+                  chatMode === "websocket" ? "bg-cyan-500/20 text-cyan-300" : "text-slate-500 hover:text-slate-300"
+                }`}
+                title="Real-time WebSocket Chat Mode"
+              >
+                <Wifi size={10} className="inline mr-1" />
+                WebSocket
+              </button>
             </div>
           </div>
+
+        </div>
+        {/* Workspace: Dynamic Message Stream + Composer */}
+        <div className="flex-1 flex flex-col min-h-0 relative">
+          {chatMode === "http" ? (
+            <>
+              <ChatInterface />
+              <div className="absolute bottom-0 left-0 right-0 z-30 invisible pointer-events-none">
+                <div className="visible pointer-events-auto w-full">
+                  <ChatComposer />
+                </div>
+              </div>
+            </>
+          ) : (
+            <CortexChat
+              graphId={graphId || "default-graph"}
+              tenantId="default"
+            />
+          )}
         </div>
       </div>
 
       {/* Intelligence Sidebar - Floating Right Anchor */}
-      <div className="hidden xl:block shrink-0 h-full w-[360px] pt-2.5 pl-2.5 pr-2.5 pb-0">
-        <div
-          className="h-full rounded-t-[28px] overflow-hidden border-t border-l border-r shadow-2xl"
-          style={{
-            borderColor: "rgba(255,255,255,0.08)",
-            background: "linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))",
-          }}
-        >
-          <HistoryPanel />
+      {chatMode === "http" && (
+        <div className="hidden xl:block shrink-0 h-full w-[360px] pt-2.5 pl-2.5 pr-2.5 pb-0">
+          <div
+            className="h-full rounded-t-[28px] overflow-hidden border-t border-l border-r shadow-2xl"
+            style={{
+              borderColor: "rgba(255,255,255,0.08)",
+              background: "linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))",
+            }}
+          >
+            <HistoryPanel />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── OVERLAY MODAL via PORTAL: Floating Fullscreen Backdrop (No Sidebar Clashing) ── */}
       {mounted &&

@@ -78,9 +78,20 @@ export function fetchNodeSubgraph(
 }
 
 export async function fetchGraphsSoft(): Promise<GraphSummary[]> {
-  // Backend has no /graphs list endpoint — rely on universe resolution fallback
-  // in TopBar instead. Returning empty avoids a noisy 404 in the console.
-  return [];
+  try {
+    const res = await apiGet<{
+      items: { graph_id: string; node_count: number }[];
+      total: number;
+    }>(`/storage/graphs`);
+    return (res.items || []).map((g) => ({
+      id: g.graph_id,
+      name: g.graph_id,
+    }));
+  } catch {
+    // Backend unavailable or endpoint not ready — the TopBar falls back to
+    // the universe-resolution path, so an empty list is a safe degradation.
+    return [];
+  }
 }
 
 // =============================================================================

@@ -548,6 +548,32 @@ def run_ingest(
         vectors = vectorize_blocks(blocks)
         from encoding.representation_v2 import build_representation_v2_for_block
 
+        # Generate embedding vectors if embedding provider is available
+        embedding_vectors: List[Optional[List[float]]] = []
+        try:
+            from encoding import get_active_embedding_provider
+            provider = get_active_embedding_provider()
+            if provider and provider.is_available():
+                texts = [block.content for block in blocks if hasattr(block, "content")]
+                if texts:
+                    emb_result = provider.encode(texts)
+                    # Align embeddings with blocks (some blocks may not have content)
+                    emb_idx = 0
+                    for block in blocks:
+                        if hasattr(block, "content") and emb_idx < len(emb_result.vectors):
+                            embedding_vectors.append(emb_result.vectors[emb_idx])
+                            emb_idx += 1
+                        else:
+                            embedding_vectors.append(None)
+                    logger.info(f"[Ingest] Generated {len([v for v in embedding_vectors if v])} embedding vectors ({emb_result.dimension} dim)")
+                else:
+                    embedding_vectors = [None] * len(blocks)
+            else:
+                embedding_vectors = [None] * len(blocks)
+        except Exception as e:
+            logger.warning(f"[Ingest] Embedding generation skipped: {e}")
+            embedding_vectors = [None] * len(blocks)
+
         reprs_v2 = []
         for block in blocks:
             if all(
@@ -601,6 +627,7 @@ def run_ingest(
             raw_id=raw_id,
             packet_hash=packet_hash,
             reprs_v2=reprs_v2,
+            embedding_vectors=embedding_vectors,
         )
         _finish_phase("write", phase_started)
 

@@ -124,7 +124,8 @@ def test_storage_full_lifecycle_upload_to_delete_and_retention_dry_run(monkeypat
     assert "events" in prov_body
 
     delete_req = client.delete(
-        f"/api/v1/storage/files/{raw_id}?graph_id={graph_id}&reason=phase-f-delete-test",
+        f"/api/v1/storage/files/{raw_id}?graph_id={graph_id}"
+        f"&reason=phase-f-delete-test&hard_delete=false",
         headers=headers,
     )
     assert delete_req.status_code == 200
@@ -263,3 +264,84 @@ def test_storage_cancel_flow_marks_cancel_requested(monkeypatch):
     )
     assert cancel_again.status_code == 200
     assert cancel_again.json()["cancel_requested"] is True
+
+
+def test_storage_graph_list_endpoint_returns_real_counts(monkeypatch):
+    """GET /storage/graphs returns real per-graph node/edge/version counts."""
+    from runtime.context import close_session, get_repos
+
+    tenant_id = "tenant_pf_graphlist"
+    graph_id = f"phase-f-graphlist-{uuid4().hex[:8]}"
+    client, headers = _mk_client(monkeypatch, tenant_id, "pf_graphlist_key")
+
+    repos = get_repos(tenant_id)
+    session = repos["session"]
+    try:
+        # Create graph_version row to register the graph.
+        from store.pg.models_faim import GraphVersionModel, NodeModel
+
+        session.add(
+            GraphVersionModel(
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                version=3,
+                reason="graph-list test",
+            )
+        )
+        session.add_all(
+            [
+                NodeModel(
+                    node_id=uuid4(),
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    kind="atom",
+                    vector_hash="gl-hash-1",
+                    raw_id=str(uuid4()),
+                    v_native=[0.1],
+                ),
+                NodeModel(
+                    node_id=uuid4(),
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    kind="atom",
+                    vector_hash="gl-hash-2",
+                    raw_id=str(uuid4()),
+                    v_native=[0.2],
+                ),
+            ]
+        )
+        session.commit()
+    finally:
+        close_session(session)
+
+    resp = client.get("/api/v1/storage/graphs", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] >= 1
+    graph = next((g for g in body["items"] if g["graph_id"] == graph_id), None)
+    assert graph is not None
+    assert graph["node_count"] == 2
+    assert graph["version"] == 3
+    assert graph["last_updated"]
+
+    # Tenant isolation: a second tenant sees no graphs from the first.
+    tenant2 = "tenant_pf_graphlist_b"
+    _mk_client_tenant2 = None
+    from api.app import create_app as _create_app2
+    from api.middleware.auth import reload_tenant_keys as _reload2
+    from fastapi.testclient import TestClient as _TC2
+    from runtime.config import reset_config as _reset2
+
+    monkeypatch.setenv(
+        "TENANT_KEYS_JSON",
+        f'{{"{tenant_id}":["pf_graphlist_key"],"{tenant2}":["pf_graphlist_key_b"]}}',
+    )
+    _reset2()
+    _reload2()
+    client2 = _TC2(_create_app2())
+    resp2 = client2.get(
+        "/api/v1/storage/graphs",
+        headers={"X-Tenant-Id": tenant2, "X-Api-Key": "pf_graphlist_key_b"},
+    )
+    assert resp2.status_code == 200, resp2.text
+    assert all(g["graph_id"] != graph_id for g in resp2.json()["items"])

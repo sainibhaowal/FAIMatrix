@@ -174,13 +174,6 @@ export interface ReasoningCapability {
   matched?: string;
 }
 
-/**
- * Best-effort detector for providers/models that advertise native reasoning.
- *
- * FAIM Cortex thinking does not depend on this; Cortex reasoning is always on.
- * This helper is only for UI copy/status because every provider exposes
- * reasoning controls and streamed thinking tokens differently.
- */
 export function providerModelLooksReasoningCapable(
   provider: Pick<Provider, "type" | "name" | "activeModel"> | null | undefined,
 ): boolean {
@@ -231,15 +224,6 @@ export function providerReasoningCapability(
   return { supported: false, confidence: "unknown" };
 }
 
-/**
- * Normalize a provider base URL
- * - Strips trailing slashes
- * - Adds /v1 if missing
- * Examples:
- *   "http://localhost:1234" → "http://localhost:1234/v1"
- *   "http://localhost:1234/" → "http://localhost:1234/v1"
- *   "http://localhost:1234/v1" → "http://localhost:1234/v1"
- */
 export function normalizeBaseUrl(url: string): string {
   let normalized = url.trim().replace(/\/$/, "");
   if (!normalized.endsWith("/v1")) {
@@ -249,22 +233,43 @@ export function normalizeBaseUrl(url: string): string {
 }
 
 /**
- * Load all providers from localStorage
+ * Load all providers from localStorage (with auto-deduplication by name/baseUrl)
  */
 export function loadProviders(): Provider[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(LS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    const list: Provider[] = JSON.parse(raw);
+
+    // Auto-deduplicate duplicate records by name/baseUrl
+    const deduplicated: Provider[] = [];
+    const seen = new Set<string>();
+
+    for (const p of list) {
+      const key = `${p.name.toLowerCase().trim()}_${normalizeBaseUrl(p.baseUrl)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduplicated.push(p);
+      } else {
+        // If duplicate was active, make sure the retained item keeps active status
+        if (p.isActive) {
+          const existing = deduplicated.find((x) => `${x.name.toLowerCase().trim()}_${normalizeBaseUrl(x.baseUrl)}` === key);
+          if (existing) existing.isActive = true;
+        }
+      }
+    }
+
+    if (deduplicated.length !== list.length) {
+      saveProviders(deduplicated);
+    }
+    return deduplicated;
   } catch {
     console.error("Failed to load providers from localStorage");
     return [];
   }
 }
 
-/**
- * Save providers to localStorage
- */
 export function saveProviders(providers: Provider[]): void {
   if (typeof window === "undefined") return;
   try {
@@ -275,34 +280,54 @@ export function saveProviders(providers: Provider[]): void {
 }
 
 /**
- * Add a new provider
+ * Add or update provider cleanly without creating duplicates
  */
 export function addProvider(provider: Omit<Provider, "id">): Provider {
-  const newProvider: Provider = {
-    ...provider,
-    id: crypto.randomUUID(),
-  };
+  const normUrl = normalizeBaseUrl(provider.baseUrl);
   const providers = loadProviders();
 
-  // If this is the first provider, make it active
-  if (providers.length === 0) {
-    newProvider.isActive = true;
-  } else {
-    newProvider.isActive = false;
-  }
+  // Find existing provider by name or normalized base URL
+  const existingIndex = providers.findIndex(
+    (p) =>
+      p.name.toLowerCase().trim() === provider.name.toLowerCase().trim() ||
+      normalizeBaseUrl(p.baseUrl) === normUrl
+  );
 
-  providers.push(newProvider);
-  saveProviders(providers);
-  return newProvider;
+  // Deactivate all others so only the target provider is active
+  providers.forEach((p) => {
+    p.isActive = false;
+  });
+
+  if (existingIndex >= 0) {
+    // Update existing provider entry
+    const existing = providers[existingIndex];
+    const updatedProvider: Provider = {
+      ...existing,
+      ...provider,
+      baseUrl: normUrl,
+      isActive: true,
+      id: existing.id,
+    };
+    providers[existingIndex] = updatedProvider;
+    saveProviders(providers);
+    return updatedProvider;
+  } else {
+    // Insert new provider entry
+    const newProvider: Provider = {
+      ...provider,
+      baseUrl: normUrl,
+      isActive: true,
+      id: crypto.randomUUID(),
+    };
+    providers.push(newProvider);
+    saveProviders(providers);
+    return newProvider;
+  }
 }
 
-/**
- * Remove a provider by ID
- */
 export function removeProvider(id: string): void {
   const providers = loadProviders().filter((p) => p.id !== id);
 
-  // If the removed provider was active, activate the first one
   if (providers.length > 0 && !providers.some((p) => p.isActive)) {
     providers[0].isActive = true;
   }
@@ -310,9 +335,6 @@ export function removeProvider(id: string): void {
   saveProviders(providers);
 }
 
-/**
- * Update a provider (merge with existing)
- */
 export function updateProvider(
   id: string,
   updates: Partial<Provider>,
@@ -327,9 +349,6 @@ export function updateProvider(
   return providers[index];
 }
 
-/**
- * Set a provider as active (deactivate others)
- */
 export function setActiveProvider(id: string): void {
   const providers = loadProviders();
   providers.forEach((p) => {
@@ -338,42 +357,47 @@ export function setActiveProvider(id: string): void {
   saveProviders(providers);
 }
 
-/**
- * Get the active provider
- */
-export function getActiveProvider(): Provider | null {
-  const providers = loadProviders();
-  return providers.find((p) => p.isActive) || null;
-}
-
-/**
- * Set the active model for a provider
- */
 export function setActiveModel(providerId: string, model: string): void {
   const providers = loadProviders();
   const provider = providers.find((p) => p.id === providerId);
-  if (provider && provider.models.includes(model)) {
+
+  if (provider) {
     provider.activeModel = model;
     saveProviders(providers);
   }
 }
 
-/**
- * Update models for a provider (e.g., after discovery)
- */
 export function updateProviderModels(
   providerId: string,
   models: string[],
 ): void {
-  const provider = updateProvider(providerId, {
-    models,
-    activeModel: models[0] || "",
-    status: models.length > 0 ? "online" : "offline",
-    lastChecked: Date.now(),
-  });
+  const providers = loadProviders();
+  const provider = providers.find((p) => p.id === providerId);
 
-  // If activeModel is not in the new list, pick the first
-  if (provider && !models.includes(provider.activeModel)) {
-    setActiveModel(providerId, models[0] || "");
+  if (provider) {
+    provider.models = models;
+    if (!models.includes(provider.activeModel)) {
+      provider.activeModel = models[0] || "";
+    }
+    saveProviders(providers);
   }
+}
+
+export function updateProviderStatus(
+  providerId: string,
+  status: ProviderStatus,
+): void {
+  const providers = loadProviders();
+  const provider = providers.find((p) => p.id === providerId);
+
+  if (provider) {
+    provider.status = status;
+    provider.lastChecked = Date.now();
+    saveProviders(providers);
+  }
+}
+
+export function getActiveProvider(): Provider | null {
+  const providers = loadProviders();
+  return providers.find((p) => p.isActive) || null;
 }

@@ -24,7 +24,12 @@ psutil
 datasets
 huggingface_hub
 transformers>=5.0.0
+sentence-transformers
 nltk>=3.9.4
 requests>=2.32.4
 pytest>=9.0.3
 pytest-xdist
+paddlepaddle
+paddleocr
+
+

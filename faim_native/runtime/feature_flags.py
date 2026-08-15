@@ -47,6 +47,7 @@ class FeatureFlags:
     self_evolve_min_version_delta: int = 1
     self_evolve_max_actions: int = 25
     self_evolve_scan_interval_seconds: int = 60
+    evolution_learning_enabled: bool = False
     profile_persist_compat_mode: bool = True
     auth_db_primary: bool = True
     auth_env_fallback_enabled: bool = False
@@ -89,6 +90,9 @@ def get_feature_flags() -> FeatureFlags:
         self_evolve_max_actions=_parse_int("FAIM_SELF_EVOLVE_MAX_ACTIONS", 25),
         self_evolve_scan_interval_seconds=_parse_int(
             "FAIM_SELF_EVOLVE_SCAN_INTERVAL_SECONDS", 60
+        ),
+        evolution_learning_enabled=_parse_bool(
+            "FAIM_EVOLUTION_LEARNING_ENABLED", False
         ),
         profile_persist_compat_mode=_parse_bool(
             "FAIM_PROFILE_PERSIST_COMPAT_MODE", True
@@ -145,6 +149,11 @@ def validate_feature_flags(flags: FeatureFlags) -> Tuple[List[str], List[str]]:
         errors.append("FAIM_SELF_EVOLVE_MAX_ACTIONS must be >= 1")
     if flags.self_evolve_scan_interval_seconds < 30:
         errors.append("FAIM_SELF_EVOLVE_SCAN_INTERVAL_SECONDS must be >= 30")
+    if env in {"prod", "production"} and flags.evolution_learning_enabled:
+        warnings.append(
+            "FAIM_EVOLUTION_LEARNING_ENABLED=true in production: learned knobs "
+            "override fixed evolution constants (hard bounds always enforced)."
+        )
     if env in {"prod", "production"} and flags.profile_persist_compat_mode:
         warnings.append(
             "FAIM_PROFILE_PERSIST_COMPAT_MODE=true keeps legacy profile/persist behavior; disable only after R2 rollout validation."

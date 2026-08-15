@@ -394,7 +394,17 @@ file: (binary file data)
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| POST | `/v1/evolve` | Required | Run evolution cycle |
+| POST | `/v1/evolve` | Required | Run one evolution cycle |
+| GET | `/v1/evolve/status` | Required | Evolution status & history for a graph |
+| PATCH | `/v1/evolve/control` | Required | Update evolution automation guardrails |
+| GET | `/v1/evolve/invention/flow` | Required | Self-invention flow history |
+| GET | `/v1/evolve/invention/versions` | Required | Invented version history per node |
+| GET | `/v1/evolve/backups` | Required | List pre-action evolution backup snapshots |
+| POST | `/v1/evolve/backups/restore` | Required | Restore pruned nodes from a backup |
+| GET | `/v1/evolve/learning/state` | Required | Learned policy state (knobs + calibration) |
+| GET | `/v1/evolve/learning/outcomes` | Required | Recent evolution feedback/outcome rows |
+| GET | `/v1/evolve/learning/meta` | Required | Recent maturity (meta-metric) rows |
+| GET | `/v1/evolve/metrics` | Required | Scrapeable evolution health snapshot (monitoring) |
 
 #### POST /v1/evolve
 
@@ -424,6 +434,216 @@ file: (binary file data)
   "latency_ms": 3200
 }
 ```
+
+#### GET /v1/evolve/status?graph_id=...
+
+Returns the current evolution state and guardrail summary for a graph.
+
+**Response: 200 OK**
+```json
+{
+  "graph_id": "graph_ab12",
+  "tenant_id": "tenant_abc",
+  "enabled": true,
+  "self_evolve_enabled": true,
+  "jobs_enabled": true,
+  "trigger_mode": "hybrid",
+  "automation_path": "hybrid",
+  "automation_enabled": true,
+  "last_completed_version": 44,
+  "last_completed_at": "2026-08-10T15:00:00Z",
+  "cycles": [{ "version": 44, "merges": 8, "prunes": 2, "completed_at": "..." }]
+}
+```
+
+#### PATCH /v1/evolve/control
+
+Adjust evolution automation guardrails for a graph (requires evolvable tenant).
+
+**Request:**
+```json
+{
+  "graph_id": "graph_ab12",
+  "self_evolve_enabled": true,
+  "trigger_mode": "hybrid"
+}
+```
+
+**Response: 200 OK** — updated `EvolveStatusResponse`, or `409` when the tenant is not evolvable.
+
+#### GET /v1/evolve/invention/flow?graph_id=...
+
+**Response: 200 OK**
+```json
+{
+  "graph_id": "graph_ab12",
+  "inventions": [
+    {
+      "version": 3,
+      "id": "macro_001",
+      "kind": "macro",
+      "anchor": {"source": "coactivation", "block_id": "b1"},
+      "reason": "coactivation",
+      "lambda_threshold": 0.3,
+      "lambda_hat": 0.55,
+      "created_at": "2026-08-10T15:10:00Z"
+    }
+  ]
+}
+```
+
+#### GET /v1/evolve/invention/versions?node_id=...&graph_id=...
+
+**Response: 200 OK** — invented version history for a node, newest first.
+
+#### GET /v1/evolve/backups?graph_id=...&limit=50
+
+Lists pre-action backup snapshots recorded before prune actions (used by restore).
+
+**Response: 200 OK**
+```json
+{
+  "graph_id": "graph_ab12",
+  "count": 5,
+  "items": [
+    {
+      "backup_id": "uuid",
+      "node_id": "uuid",
+      "action_type": "prune",
+      "reason": "low_usage_high_redundancy",
+      "version": 44,
+      "created_at": "2026-08-10T15:00:01Z"
+    }
+  ]
+}
+```
+
+#### POST /v1/evolve/backups/restore
+
+Restore previously pruned nodes (idempotent; already-present nodes are skipped).
+
+**Request:**
+```json
+{
+  "graph_id": "graph_ab12",
+  "version": 44,
+  "backup_ids": ["uuid1", "uuid2"]
+}
+```
+
+**Response: 200 OK**
+```json
+{
+  "graph_id": "graph_ab12",
+  "restored": 2,
+  "skipped": 0,
+  "node_ids": ["uuid1", "uuid2"]
+}
+```
+
+#### GET /v1/evolve/learning/state?graph_id=...
+
+Read-only learned policy state: knobs (with source/learned flags), λ calibration,
+per-arm samples, and the defaults they are compared against.
+
+**Response: 200 OK**
+```json
+{
+  "graph_id": "graph_ab12",
+  "enabled": true,
+  "policy_version": 7,
+  "source": "learned",
+  "learned": true,
+  "knobs": {"merge_threshold": 0.96, "prune_min_similarity": 0.98},
+  "calibration": {"lambda_mu": 0.52, "lambda_sigma": 0.11},
+  "samples": {},
+  "defaults": {"merge_threshold": 0.95, "prune_min_similarity": 0.98}
+}
+```
+
+#### GET /v1/evolve/learning/outcomes?graph_id=...&limit=20
+
+Recent evolution feedback rows (newest first). Populated only when learning is enabled.
+
+#### GET /v1/evolve/learning/meta?graph_id=...&limit=20
+
+Recent maturity rows (e.g. `merge_usefulness`) used by the learning dashboard.
+
+#### GET /v1/evolve/theories?graph_id=...
+
+Cognitive theories derived during self-evolution (correlation, redundancy, hierarchy composition, cognitive composition). Theories are λ-gated, bounded per cycle, and idempotent.
+
+**Response: 200 OK**
+```json
+{
+  "graph_id": "prod-maturity-graph",
+  "total": 2,
+  "theories": [
+    {
+      "theory_id": "corr_Atlas",
+      "theory_type": "correlation",
+      "graph_id": "prod-maturity-graph",
+      "description": "Concept 'Atlas' appears in 2 galaxies",
+      "lambda_hat": 0.72,
+      "evidence_nodes": [
+        {"node_id": "01a00315-...", "galaxy_id": "galaxy-alpha"},
+        {"node_id": "01a00315-...", "galaxy_id": "galaxy-beta"}
+      ],
+      "created_at": "2026-08-15T01:30:00Z"
+    }
+  ]
+}
+```
+
+#### GET /v1/evolve/metrics?graph_id=...
+
+Scrapeable health snapshot designed for monitoring / alerting (Prometheus, cron, PagerDuty).
+
+**Response: 200 OK**
+```json
+{
+  "graph_id": "graph_ab12",
+  "tenant_id": "tenant_abc",
+  "generated_at": "2026-08-11T09:00:00Z",
+  "cycles": {
+    "count": 12,
+    "last_version": 44,
+    "last_completed_at": "2026-08-10T15:00:00Z",
+    "last_merges": 8,
+    "last_prunes": 2,
+    "last_inventions": 0
+  },
+  "data_safety": {
+    "backups_available": 2,
+    "latest_cycle_prunes": 2,
+    "latest_cycle_backups": 2,
+    "coverage_ok": true
+  },
+  "learning": {
+    "enabled": true,
+    "policy_version": 7,
+    "source": "learned",
+    "learned": true,
+    "outcomes_count": 25,
+    "reward_trend_slope": 0.031,
+    "knob_drift_count": 1,
+    "trust_ready": true,
+    "trust_threshold": 20
+  },
+  "alerts": []
+}
+```
+
+**Alert codes** (monitor severities):
+
+| Level | Code | Meaning |
+|-------|------|---------|
+| critical | `backup_coverage_gap` | Nodes were pruned without a pre-action backup — possible data loss |
+| warning | `learning_cold_start` | Learning active but below the 20-outcome trust threshold |
+| info | `no_cycles_recorded` / `learning_waiting` / `learning_disabled` | Expected cold-start notices |
+
+See `scripts/scrape_evolve_metrics.py` to export these as Prometheus text and
+page on critical severity (exit code `2`).
 
 ---
 

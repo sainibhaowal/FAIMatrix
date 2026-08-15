@@ -31,7 +31,7 @@ Before implementation:
 2. Find exact paths and dependencies
 3. Build a clear end to end full plan
 4. Identify risks, gaps, and validation steps
-5. Wait for approval if this task is plan-first
+5. don't Wait for approval if this task is plan-first then start  to wrok
 
 During implementation:
 

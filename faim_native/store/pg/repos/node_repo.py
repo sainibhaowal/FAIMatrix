@@ -49,6 +49,7 @@ class NodeRepo:
         *,
         cognitive_type: Optional[str] = None,
         galaxy_id: Optional[str] = None,
+        v_embedding: Optional[List[float]] = None,
     ) -> UUID:
         """Upsert an atom node from FAIMVector.
 
@@ -60,6 +61,7 @@ class NodeRepo:
             vector: FAIMVector to store.
             cognitive_type: Cognitive classification (fact, event, procedure, etc.)
             galaxy_id: Source document/galaxy grouping ID.
+            v_embedding: Optional semantic embedding vector (e.g., bge-m3 1024-dim).
 
         Returns:
             node_id of upserted node.
@@ -72,7 +74,9 @@ class NodeRepo:
             existing.touch_count += 1
             existing.last_access = now
             existing.updated_at = now
-            # Update cognitive fields if newly provided
+            # Update embedding and cognitive fields if newly provided
+            if v_embedding and not existing.v_embedding:
+                existing.v_embedding = v_embedding
             if cognitive_type and not existing.cognitive_type:
                 existing.cognitive_type = cognitive_type
             if galaxy_id and not existing.galaxy_id:
@@ -91,6 +95,7 @@ class NodeRepo:
             block_id=vector.block_id,
             anchor_json=vector.anchor_dict,
             v_native=list(vector.v_native),
+            v_embedding=v_embedding or getattr(vector, 'v_embedding', None),
             opp_signature=vector.opp_signature,
             residual=int(vector.residual * 1e9),
             level=vector.level,
@@ -115,6 +120,7 @@ class NodeRepo:
         residual: float = 0.0,
         cognitive_type: Optional[str] = None,
         galaxy_id: Optional[str] = None,
+        v_embedding: Optional[List[float]] = None,
     ) -> UUID:
         """Create a macro node (level > 0).
 
@@ -127,6 +133,7 @@ class NodeRepo:
             residual: Residual value.
             cognitive_type: Cognitive classification (fact, event, procedure, etc.)
             galaxy_id: Source document/galaxy grouping ID.
+            v_embedding: Optional semantic embedding vector (e.g., bge-m3 1024-dim).
 
         Returns:
             node_id of created node.
@@ -142,6 +149,7 @@ class NodeRepo:
             block_id=None,
             anchor_json=None,
             v_native=v_native,
+            v_embedding=v_embedding,
             opp_signature=opp_signature,
             residual=int(residual * 1e9),
             level=level,
@@ -168,6 +176,7 @@ class NodeRepo:
         level: int = 1,
         cognitive_type: Optional[str] = None,
         galaxy_id: Optional[str] = None,
+        v_embedding: Optional[List[float]] = None,
     ) -> UUID:
         """Upsert a non-atom deterministic node such as a concept node."""
         existing = self.get_by_vector_hash(graph_id, vector_hash)
@@ -175,6 +184,7 @@ class NodeRepo:
         if existing:
             existing.kind = kind
             existing.v_native = v_native
+            existing.v_embedding = v_embedding
             existing.opp_signature = opp_signature
             existing.residual = int(residual * 1e9)
             existing.level = level
@@ -196,6 +206,7 @@ class NodeRepo:
             block_id=None,
             anchor_json=None,
             v_native=v_native,
+            v_embedding=v_embedding,
             opp_signature=opp_signature,
             residual=int(residual * 1e9),
             level=level,
@@ -416,6 +427,67 @@ class NodeRepo:
             self.session.flush()
             return True
         return False
+
+    def restore_node(self, graph_id: str, node_json: Dict[str, Any]) -> bool:
+        """Re-insert a previously backed-up node with its original identity.
+
+        No-op (returns False) if the node already exists. ``node_json`` is a
+        serialized NodeModel row (isoformat datetimes, str UUIDs).
+
+        Returns:
+            True if the node was restored, False if it already existed.
+        """
+        node_id = self._coerce_uuid(node_json.get("node_id"))
+        if node_id is None:
+            return False
+        if self.get_node(graph_id, node_id) is not None:
+            return False
+
+        def _dt(value: Any) -> Optional[datetime]:
+            if value is None:
+                return None
+            if isinstance(value, datetime):
+                return value
+            try:
+                return datetime.fromisoformat(str(value))
+            except (TypeError, ValueError):
+                return None
+
+        now = datetime.now(timezone.utc)
+        residual_raw = node_json.get("residual", 0)
+        residual_int = (
+            int(residual_raw)
+            if isinstance(residual_raw, int)
+            else int(float(residual_raw or 0) * 1e9)
+        ) or 0
+        previous = node_json.get("created_at")
+        created_at = _dt(previous) if previous else now
+
+        node = NodeModel(
+            node_id=node_id,
+            tenant_id=self.tenant_id,
+            graph_id=graph_id,
+            kind=str(node_json.get("kind", "atom") or "atom"),
+            vector_hash=str(node_json.get("vector_hash", "") or ""),
+            raw_id=node_json.get("raw_id"),
+            block_id=node_json.get("block_id"),
+            anchor_json=node_json.get("anchor_json"),
+            v_native=node_json.get("v_native", []),
+            opp_signature=node_json.get("opp_signature"),
+            residual=residual_int,
+            level=int(node_json.get("level", 0) or 0),
+            touch_count=int(node_json.get("touch_count", 0) or 0),
+            last_access=_dt(node_json.get("last_access")),
+            long_term=bool(node_json.get("long_term", False)),
+            cluster_id=node_json.get("cluster_id"),
+            cognitive_type=node_json.get("cognitive_type"),
+            galaxy_id=node_json.get("galaxy_id"),
+            created_at=created_at,
+            updated_at=now,
+        )
+        self.session.add(node)
+        self.session.flush()
+        return True
 
     def touch_node(self, graph_id: str, node_id: UUID) -> None:
         """Increment touch_count and update last_access."""

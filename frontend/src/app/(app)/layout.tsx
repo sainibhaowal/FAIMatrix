@@ -10,17 +10,20 @@
 import { FaimShell } from "@/components/layout/FaimShell";
 import { AuthGuard, ErrorBoundary } from "@/components";
 import { ProviderProvider } from "@/contexts/ProviderContext";
+import { EmbeddingProviderProvider } from "@/contexts/EmbeddingProviderContext";
 import { ChatProvider } from "@/contexts/ChatContext";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
       <ProviderProvider>
-        <ChatProvider>
-          <FaimShell>
-            <ErrorBoundary>{children}</ErrorBoundary>
-          </FaimShell>
-        </ChatProvider>
+        <EmbeddingProviderProvider>
+          <ChatProvider>
+            <FaimShell>
+              <ErrorBoundary>{children}</ErrorBoundary>
+            </FaimShell>
+          </ChatProvider>
+        </EmbeddingProviderProvider>
       </ProviderProvider>
     </AuthGuard>
   );

@@ -650,7 +650,7 @@ export default function DashboardPage() {
     {
       label: "Open FIG View",
       icon: <Network size={14} />,
-      href: "/dashboard/fig-view",
+      href: "/dashboard/graph",
       keyHint: "⌘G",
     },
     {
@@ -798,7 +798,7 @@ export default function DashboardPage() {
             subtitle="Realtime Node-Link cluster preview"
             action={
               <button
-                onClick={() => router.push("/dashboard/fig-view")}
+                onClick={() => router.push("/dashboard/graph")}
                 className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
               >
                 Inspect <ArrowRight size={10} />

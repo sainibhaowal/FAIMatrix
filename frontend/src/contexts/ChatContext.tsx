@@ -884,6 +884,22 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         const provider = getActiveProvider();
 
+        const isRerankerActive = (() => {
+          if (typeof window === "undefined") return true;
+          try {
+            const saved = window.localStorage.getItem("faim.rerankerProvider");
+            if (!saved) return false;
+            const parsed = JSON.parse(saved);
+            return parsed.status === "healthy" && Boolean(parsed.name);
+          } catch {
+            return false;
+          }
+        })();
+
+        const rerankerNotice = isRerankerActive
+          ? ""
+          : "> ⚠️ **Notice**: ReRanker is unconfigured. For better retrieval precision and evidence matching, please connect a ReRanker in **Providers** setup.\n\n";
+
         if (!provider) {
           const textLower = userMsg.content.trim().toLowerCase();
           const isGreeting = /^(hi|hey|hello|hiya|howdy|sup|yo)[\s!?.]*$/i.test(textLower);
@@ -908,6 +924,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               (queryData?.results && queryData.results.length > 0
                 ? `FAIM Cortex retrieved verified memory nodes (Node ID: \`${queryData.results[0].node_id}\`) from your knowledge graph.`
                 : `I searched our knowledge graph memory for **"${userMsg.content}"**, but no matching document nodes or relational assertions were found in the active universe graph.\n\n**Tips**:\n- Make sure the target file has been uploaded and ingested.\n- Try rephrasing your search terms or switching to **Cortex Auto** answer mode.`);
+          }
+
+          if (rerankerNotice) {
+            fallback = rerankerNotice + fallback;
           }
 
           setThreads((prev) =>
@@ -956,7 +976,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         // Stream token by token
         const reader = chatRes.body?.getReader();
         const decoder = new TextDecoder();
-        let accumulated = "";
+        let accumulated = rerankerNotice;
 
         if (reader) {
           outer: while (true) {

@@ -145,6 +145,20 @@ def run_storage_retention_cleanup(
                 note=reason,
             )
 
+            # Purge graph artifacts (edges, coactivations, reprs, nodes) so
+            # irreversible retention cleanup never leaves orphaned edges.
+            try:
+                from store.pg.graph_cleanup import purge_graph_artifacts_for_raw_ids
+
+                purge_graph_artifacts_for_raw_ids(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_text,
+                    raw_ids=[raw_uuid],
+                )
+            except Exception as exc:  # nosec B110
+                logger.warning("Graph artifact purge failed for %s: %s", raw_id_text, exc)
+
             if event_repo is not None:
                 try:
                     event_repo.emit(

@@ -148,6 +148,9 @@ class FAIMConfig:
     self_invent_min_coactivation_count: int = 3
     self_invent_lambda_threshold: float = 0.3
     self_invent_min_redundancy_reduction: float = 0.01
+    self_evolve_lambda_gate_enabled: bool = False
+    self_evolve_lambda_gate_min: float = 0.05
+    self_evolve_lambda_action_scale: bool = False
     self_evolve_enabled: bool = False
     self_evolve_trigger_mode: str = "manual"
     self_evolve_min_interval_seconds: int = 300
@@ -156,7 +159,7 @@ class FAIMConfig:
     self_evolve_scan_interval_seconds: int = 60
     profile_persist_compat_mode: bool = True
     ocr_enabled: bool = False
-    ocr_engine: str = "tesseract"
+    ocr_engine: str = "paddleocr_v6"
     ocr_fail_closed: bool = False
     ocr_languages: str = "eng"
     ocr_timeout_seconds: int = 20
@@ -231,9 +234,9 @@ class FAIMConfig:
                 errors.append("Production requires FAIM_ENCRYPTION_AT_REST=true")
             if not self.encryption_fail_closed:
                 errors.append("Production requires FAIM_ENCRYPTION_FAIL_CLOSED=true")
-            if self.ocr_enabled and self.ocr_engine != "tesseract":
+            if self.ocr_enabled and self.ocr_engine not in ("tesseract", "paddleocr", "paddleocr_v6", "paddle"):
                 errors.append(
-                    "Production OCR currently supports only FAIM_OCR_ENGINE=tesseract"
+                    "Production OCR supports FAIM_OCR_ENGINE=tesseract, paddleocr, paddleocr_v6, or paddle"
                 )
             if not self.auth_db_primary:
                 errors.append("Production requires FAIM_AUTH_DB_PRIMARY=true")
@@ -246,7 +249,7 @@ class FAIMConfig:
                     "Production requires FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED=true"
                 )
 
-        if self.ocr_engine not in ("tesseract",):
+        if self.ocr_engine not in ("tesseract", "paddleocr", "paddleocr_v6", "paddle"):
             errors.append(f"Unsupported OCR engine: {self.ocr_engine}")
         if self.ocr_timeout_seconds < 1:
             errors.append("FAIM_OCR_TIMEOUT_SECONDS must be >= 1")
@@ -288,6 +291,9 @@ class FAIMConfig:
             errors.append("FAIM_SELF_EVOLVE_MAX_ACTIONS must be >= 1")
         if self.self_evolve_scan_interval_seconds < 30:
             errors.append("FAIM_SELF_EVOLVE_SCAN_INTERVAL_SECONDS must be >= 30")
+        if self.self_evolve_lambda_gate_enabled:
+            if not (0.0 <= self.self_evolve_lambda_gate_min <= 1.0):
+                errors.append("FAIM_SELF_EVOLVE_LAMBDA_GATE_MIN must be in [0, 1]")
 
         return errors
 
@@ -383,6 +389,15 @@ def load_config() -> FAIMConfig:
         self_invent_min_redundancy_reduction=parse_float_env(
             "FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION", 0.01
         ),
+        self_evolve_lambda_gate_enabled=parse_bool_env(
+            "FAIM_SELF_EVOLVE_LAMBDA_GATE_ENABLED", False
+        ),
+        self_evolve_lambda_gate_min=parse_float_env(
+            "FAIM_SELF_EVOLVE_LAMBDA_GATE_MIN", 0.05
+        ),
+        self_evolve_lambda_action_scale=parse_bool_env(
+            "FAIM_SELF_EVOLVE_LAMBDA_ACTION_SCALE", False
+        ),
         self_evolve_enabled=parse_bool_env("FAIM_SELF_EVOLVE_ENABLED", False),
         self_evolve_trigger_mode=(
             os.environ.get("FAIM_SELF_EVOLVE_TRIGGER_MODE", "manual").strip().lower()
@@ -402,8 +417,8 @@ def load_config() -> FAIMConfig:
             "FAIM_PROFILE_PERSIST_COMPAT_MODE", True
         ),
         ocr_enabled=parse_bool_env("FAIM_OCR_ENABLED", False),
-        ocr_engine=os.environ.get("FAIM_OCR_ENGINE", "tesseract").strip().lower()
-        or "tesseract",
+        ocr_engine=os.environ.get("FAIM_OCR_ENGINE", "paddleocr_v6").strip().lower()
+        or "paddleocr_v6",
         ocr_fail_closed=parse_bool_env("FAIM_OCR_FAIL_CLOSED", False),
         ocr_languages=os.environ.get("FAIM_OCR_LANGS", "eng").strip() or "eng",
         ocr_timeout_seconds=parse_int_env("FAIM_OCR_TIMEOUT_SECONDS", 20),

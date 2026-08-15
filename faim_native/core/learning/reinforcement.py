@@ -46,10 +46,11 @@ class ReinforcementLearner:
     - Source reliability weights
     """
 
-    def __init__(self, feedback_store: FeedbackStore):
+    def __init__(self, feedback_store: FeedbackStore, learning_repo=None):
         self.feedback_store = feedback_store
         self.pattern_stats: Dict[str, PatternStats] = {}
         self.threshold_adjustments: Dict[str, float] = {}
+        self.learning_repo = learning_repo
 
     def learn_from_feedback(self, tenant_id: str) -> Dict[str, Any]:
         """
@@ -67,21 +68,56 @@ class ReinforcementLearner:
         # Calculate threshold adjustments
         thresholds_adjusted = self._adjust_thresholds(tenant_id)
 
+        # Persist learned stats so they survive restarts.
+        self._persist_pattern_stats(tenant_id)
+
         return {
             "patterns_updated": patterns_updated,
             "thresholds_adjusted": thresholds_adjusted,
             "feedback_summary": stats,
         }
 
+    def _persist_pattern_stats(self, tenant_id: str) -> int:
+        """Write the current learned pattern stats to durable storage."""
+        if self.learning_repo is None:
+            return 0
+        persisted = 0
+        for pattern_hash, pstats in self.pattern_stats.items():
+            try:
+                self.learning_repo.upsert(
+                    {
+                        "pattern_hash": pattern_hash,
+                        "query_signature": pstats.query_signature,
+                        "total_uses": pstats.total_uses,
+                        "successful_uses": pstats.successful_uses,
+                        "failed_uses": pstats.failed_uses,
+                        "average_rating": pstats.average_rating,
+                        "correction_rate": pstats.correction_rate,
+                        "reliability_score": pstats.reliability_score,
+                        "threshold_adjustment": self.threshold_adjustments.get(
+                            pattern_hash, 0.0
+                        ),
+                        "first_seen": pstats.first_seen,
+                        "last_used": pstats.last_used,
+                    }
+                )
+                persisted += 1
+            except Exception:
+                # Persistence is best effort; never block learning.
+                continue
+        return persisted
+
     def _update_pattern_stats(self, tenant_id: str) -> int:
         """Update statistics for all patterns with new feedback."""
-        # Query distinct pattern hashes
-        # Note: In real implementation, query database for distinct hashes
-        # For now, work with cached patterns
+        # Discover distinct pattern hashes with feedback for this tenant.
+        try:
+            pattern_hashes = self.feedback_store.list_distinct_patterns(tenant_id)
+        except Exception:
+            pattern_hashes = list(self.pattern_stats.keys())
 
         updated = 0
 
-        for pattern_hash in list(self.pattern_stats.keys()):
+        for pattern_hash in pattern_hashes:
             feedbacks = self.feedback_store.get_feedback_for_pattern(pattern_hash)
 
             if len(feedbacks) >= 3:  # Minimum samples for learning
