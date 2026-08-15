@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, Dict, Optional
 from uuid import uuid4
 
-from api.routers.query import QueryAnswer
 from core.cortex.branches import run_parallel_branches
 from core.cortex.cortexagi_tools import get_faim_native_tools
 from core.cortex.history import load_cortex_session_summary, load_recent_cortex_turns
@@ -265,6 +264,8 @@ async def run_cortex_turn(
     persist_cortex_turn(session, brain_state)
 
     duration_ms = (time.perf_counter() - start) * 1000.0
+
+    from api.routers.query import QueryAnswer
 
     return CortexTurnResponse(
         tenant_id=tenant_id,

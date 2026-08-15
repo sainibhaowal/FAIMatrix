@@ -19,7 +19,6 @@ from sqlalchemy.orm import Session
 from store.pg.models_faim import GraphVersionModel, JobModel
 from store.pg.repos.graph_version_repo import GraphVersionRepo
 from store.pg.repos.self_evolution_state_repo import (
-    SelfEvolutionControlState,
     SelfEvolutionStateRepo,
 )
 
@@ -665,6 +664,25 @@ def scan_and_enqueue_due_self_evolve_jobs(
             errors=0,
             trigger_mode=trigger_mode,
             reason="jobs_disabled",
+        )
+
+    # Refuse to scan when the trigger mode forbids periodic automation. The
+    # mode gate must be cheap and at the scan boundary so non-periodic
+    # deployments never run due-graph selection or materialize scheduler state.
+    source_key = str(source or "").strip().lower() or "periodic_worker"
+    if _is_periodic_source(source_key) and trigger_mode not in {
+        "periodic",
+        "hybrid",
+    }:
+        return SelfEvolveScanSummary(
+            tenant_id=tenant_id,
+            scanned_graphs=0,
+            enqueued=0,
+            existing=0,
+            skipped=0,
+            errors=0,
+            trigger_mode=trigger_mode,
+            reason=f"trigger_mode_not_periodic:{trigger_mode or 'unknown'}",
         )
 
     state_repo = SelfEvolutionStateRepo(session=session, tenant_id=tenant_id)

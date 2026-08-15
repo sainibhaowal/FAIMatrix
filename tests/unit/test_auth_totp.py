@@ -125,7 +125,9 @@ async def test_otp_request_default_email_when_totp_disabled(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_otp_request_keeps_email_default_when_totp_enabled(monkeypatch):
+async def test_otp_request_routes_totp_user_to_authenticator_app(monkeypatch):
+    """A TOTP-enabled user must be challenged by the authenticator app, not
+    sent an email OTP (email OTP would bypass the second factor)."""
     monkeypatch.setenv("NEXTAUTH_SECRET", "test-secret-for-totp")
     fake_session = _FakeSession()
     _FakeUserRepo.user = UserModel(
@@ -141,8 +143,10 @@ async def test_otp_request_keeps_email_default_when_totp_enabled(monkeypatch):
     monkeypatch.setattr(runtime_context, "get_session", lambda: fake_session)
     monkeypatch.setattr(user_repo_module, "UserRepository", _FakeUserRepo)
     monkeypatch.setattr(auth_router, "_check_rate_limit", lambda _email: True)
-    monkeypatch.setattr(auth_router, "_record_rate_limit", lambda _email: None)
-    monkeypatch.setattr(auth_router, "_send_otp_email", lambda _email, _code: True)
+    sent_emails = []
+    monkeypatch.setattr(
+        auth_router, "_send_otp_email", lambda _email, _code: sent_emails.append(_email) or True
+    )
 
     response = await auth_router.request_otp(
         auth_router.OTPRequestBody(email="user@example.com", mode="login"),
@@ -150,8 +154,10 @@ async def test_otp_request_keeps_email_default_when_totp_enabled(monkeypatch):
     )
 
     assert response.success is True
-    assert response.method == "email_otp"
+    assert response.method == "totp"
     assert response.totp_enabled is True
+    # No email OTP may be sent for a TOTP user (no 2FA bypass).
+    assert sent_emails == []
 
 
 @pytest.mark.asyncio

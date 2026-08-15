@@ -19,7 +19,11 @@ import {
   Key,
   Download,
   ServerCog,
+  ScanText,
+  Cpu,
+  Zap,
 } from "lucide-react";
+
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { getSession, useSession } from "next-auth/react";
@@ -273,7 +277,12 @@ type StorageSupportedTypesResponse = {
   ocr_engine: string;
   ocr_fail_closed: boolean;
   ocr_capable_extensions: string[];
+  ocr_model_name?: string | null;
+  embedding_enabled?: boolean;
+  embedding_provider?: string | null;
+  embedding_model?: string | null;
 };
+
 
 type StorageDomainMemoryTerm = {
   surface_form: string;
@@ -2147,7 +2156,7 @@ export default function StoragePage() {
           <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
             Upload Panel
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant="ghost"
@@ -2159,11 +2168,27 @@ export default function StoragePage() {
               {supportedTypes ? ` (${supportedTypes.total_extensions})` : ""}
             </Button>
             {supportedTypes && (
+              <Link href="/dashboard/providers?tab=ocr" title="Open OCR provider settings">
+                <Badge
+                  size="xs"
+                  variant={supportedTypes.ocr_enabled ? "success" : "warning"}
+                  className="gap-1 font-mono cursor-pointer hover:brightness-125 transition-all"
+                >
+                  <ScanText size={10} />
+                  {supportedTypes.ocr_enabled
+                    ? `OCR: ${supportedTypes.ocr_model_name || (supportedTypes.ocr_engine.includes("paddle") ? "PaddleOCR v6" : supportedTypes.ocr_engine)}`
+                    : "OCR off"}
+                </Badge>
+              </Link>
+            )}
+            {supportedTypes && (
               <Badge
                 size="xs"
-                variant={supportedTypes.ocr_enabled ? "success" : "warning"}
+                variant="info"
+                className="gap-1 font-mono border-primary-500/30 bg-primary-500/10 text-primary-300"
               >
-                {supportedTypes.ocr_enabled ? "OCR on" : "OCR off"}
+                <Cpu size={10} />
+                {`Embedding: ${supportedTypes.embedding_model || "bge-small-en-v1.5"}`}
               </Badge>
             )}
             <Button size="sm" variant="ghost" onClick={clearTerminalQueueItems}>
@@ -2171,6 +2196,7 @@ export default function StoragePage() {
             </Button>
           </div>
         </div>
+
 
         {/* Hero Drop Zone */}
         <motion.div
@@ -2969,7 +2995,7 @@ export default function StoragePage() {
               <div className="space-y-4">
                 <Card className="os-card rounded-2xl space-y-2">
                   <h4 className="text-xs font-semibold text-slate-300">
-                    Limits and OCR Policy
+                    Limits, OCR & Embedding Policy
                   </h4>
                   <div className="grid grid-cols-1 gap-2 text-xs text-slate-300 sm:grid-cols-2">
                     <p>
@@ -2990,18 +3016,35 @@ export default function StoragePage() {
                       {supportedTypes.total_content_types}
                     </p>
                     <p>
-                      <span className="text-slate-500">OCR enabled:</span>{" "}
-                      {String(supportedTypes.ocr_enabled)}
+                      <span className="text-slate-500">OCR engine:</span>{" "}
+                      <span className="text-emerald-400 font-mono font-semibold">
+                        {supportedTypes.ocr_model_name || supportedTypes.ocr_engine}
+                      </span>
                     </p>
                     <p>
-                      <span className="text-slate-500">OCR engine:</span>{" "}
-                      {supportedTypes.ocr_engine}
+                      <span className="text-slate-500">OCR status:</span>{" "}
+                      <span className={supportedTypes.ocr_enabled ? "text-emerald-400 font-semibold" : "text-amber-400"}>
+                        {supportedTypes.ocr_enabled ? "ONLINE (Active)" : "OFF"}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Embedding model:</span>{" "}
+                      <span className="text-primary-300 font-mono font-semibold">
+                        {supportedTypes.embedding_model || "bge-small-en-v1.5"}
+                      </span>
+                    </p>
+                    <p>
+                      <span className="text-slate-500">Embedding runtime:</span>{" "}
+                      <span className="text-primary-300">
+                        {supportedTypes.embedding_provider || "Managed Local Runtime"}
+                      </span>
                     </p>
                     <p>
                       <span className="text-slate-500">OCR fail-closed:</span>{" "}
                       {String(supportedTypes.ocr_fail_closed)}
                     </p>
                   </div>
+
                 </Card>
 
                 <Card className="os-card rounded-2xl space-y-2">

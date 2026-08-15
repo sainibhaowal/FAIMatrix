@@ -118,9 +118,13 @@ class SelfEvolutionStateRepo:
         graph_id: str,
         session: Optional[Session] = None,
     ) -> SelfEvolutionControlState:
-        """Resolve the effective control state for one graph."""
+        """Resolve the effective control state for one graph.
+
+        Read-only: never materializes a state row just to evaluate control.
+        Write paths use ``get_or_create`` / ``mark_*`` explicitly.
+        """
         sess = self._resolve_session(session)
-        row = self.get_or_create(graph_id=graph_id, session=sess)
+        row = self.get(graph_id=graph_id, session=sess)
 
         try:
             from runtime.feature_flags import get_feature_flags

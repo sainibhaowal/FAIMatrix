@@ -6,16 +6,27 @@ Deterministic, auditable, zero ML.
 
 from __future__ import annotations
 
-from .calibration import ConfidenceCalibrator
+from .evolution_policy import (
+    KNOB_DEFAULTS,
+    KNOB_GRIDS,
+    ArmState,
+    EvolutionPolicy,
+    LambdaCalibration,
+    ResolvedKnobs,
+    compute_reward,
+)
 from .feedback_store import FeedbackStore, ReasoningFeedback
-from .pattern_matcher import LearnedPattern, PatternMatcher
 from .reinforcement import ReinforcementLearner
 
 __all__ = [
     "FeedbackStore",
     "ReasoningFeedback",
-    "PatternMatcher",
-    "LearnedPattern",
     "ReinforcementLearner",
-    "ConfidenceCalibrator",
+    "ArmState",
+    "LambdaCalibration",
+    "ResolvedKnobs",
+    "EvolutionPolicy",
+    "KNOB_DEFAULTS",
+    "KNOB_GRIDS",
+    "compute_reward",
 ]

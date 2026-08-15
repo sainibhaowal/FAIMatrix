@@ -323,6 +323,28 @@ class EdgeRepo:
             .all()
         )
 
+    def list_edges_for_node(
+        self,
+        graph_id: str,
+        node_id: UUID,
+    ) -> List[EdgeModel]:
+        """List every edge touching a node (as src or dst) for backup."""
+        node_id = self._coerce_uuid(node_id) or node_id
+        return (
+            self.session.query(EdgeModel)
+            .filter(
+                and_(
+                    EdgeModel.tenant_id == self.tenant_id,
+                    EdgeModel.graph_id == graph_id,
+                    or_(
+                        EdgeModel.src_node_id == node_id,
+                        EdgeModel.dst_node_id == node_id,
+                    ),
+                )
+            )
+            .all()
+        )
+
     def delete_edges_for_node(
         self,
         graph_id: str,

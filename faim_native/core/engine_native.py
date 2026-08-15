@@ -122,6 +122,7 @@ class FAIMNativeEngine:
         raw_id: Optional[str] = None,
         packet_hash: Optional[str] = None,
         reprs_v2: Optional[List[Any]] = None,
+        embedding_vectors: Optional[List[Optional[List[float]]]] = None,
     ) -> WriteResult:
         """Write atom vectors to graph.
 
@@ -171,12 +172,14 @@ class FAIMNativeEngine:
                 context={"source_type": "document"},
             )
 
-            # 2. Upsert atom node with cognitive classification
+            # 2. Upsert atom node with cognitive classification and semantic embedding
+            emb_vec = embedding_vectors[idx] if embedding_vectors and idx < len(embedding_vectors) else None
             node_id = self.node_repo.upsert_atom_node(
                 graph_id,
                 vector,
                 cognitive_type=classification.cognitive_type.value,
                 galaxy_id=classification.galaxy_id,
+                v_embedding=emb_vec,
             )
             result.node_ids.append(node_id)
             result.nodes_written += 1

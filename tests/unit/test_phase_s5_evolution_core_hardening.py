@@ -119,6 +119,50 @@ def test_s5_evolve_emits_skip_reason_when_no_actions():
         session.close()
 
 
+def test_s5_evolve_event_payloads_carry_full_invariant_metrics():
+    """EVOLUTION_COMPLETE/SKIPPED payloads must expose R/N/E for the physics stream."""
+    session, node_repo, edge_repo, event_repo, gv_repo, engine_repo = _build_repos()
+    try:
+        graph_id = "graph_s5_invariants"
+        _write_text(
+            engine_repo,
+            graph_id,
+            "quantum gradient sparse manifold alpha",
+            "raw-inv-a",
+        )
+        _write_text(
+            engine_repo,
+            graph_id,
+            "bookkeeping invoice threshold ledger omega",
+            "raw-inv-b",
+        )
+
+        result = evolve_once(
+            graph_id=graph_id,
+            node_repo=node_repo,
+            edge_repo=edge_repo,
+            event_repo=event_repo,
+            graph_version_repo=gv_repo,
+            merge_threshold=0.999,
+            prune_policy=PrunePolicy(
+                min_age_days=365.0,
+                max_touch_count=0,
+                min_similarity_for_redundancy=1.0,
+                protect_macros=True,
+            ),
+            self_invent_requested=False,
+        )
+        assert result.skip_reason == "no_actions_after_evaluation"
+
+        events = event_repo.get_all(session, graph_id=graph_id, limit=300)
+        for kind in ("DIAGNOSTICS_SNAPSHOT", "EVOLUTION_SKIPPED"):
+            payload = [e.payload for e in events if e.kind == kind][-1]
+            for key in ("D_hat", "H_hat", "lambda_hat", "redundancy_R", "novelty_N", "energy_E"):
+                assert key in payload, f"{kind} missing {key}"
+    finally:
+        session.close()
+
+
 def test_s5_run_evolve_passes_config_and_request_flags(monkeypatch):
     session, node_repo, edge_repo, event_repo, gv_repo, _ = _build_repos()
     captured = {}

@@ -631,6 +631,232 @@ def run_invention_cycle(
     return result
 
 
+# =============================================================================
+# Cross-galaxy synthesis → invention bridge
+# =============================================================================
+
+
+def invent_from_synthesis_insights(
+    graph_id: str,
+    *,
+    session: Any,
+    node_repo: NodeRepo,
+    edge_repo: EdgeRepo,
+    event_repo: Any,
+    insights: List[Any],
+    lambda_hat: float,
+    lambda_threshold: float = LAMBDA_THRESHOLD,
+    max_macros: int = 3,
+    min_evidence: int = 2,
+    min_confidence: float = 0.6,
+    galaxy_count_for_cross: int = 2,
+) -> InventionResult:
+    """Invent macro nodes from cross-galaxy synthesis insights.
+
+    A synthesized insight (correlation, trend, causal chain) that draws
+    evidence from >= ``galaxy_count_for_cross`` distinct galaxies is a
+    natural invention candidate: its evidence nodes represent a recurring
+    cross-document pattern worth abstracting into a macro.
+
+    Rules (mirror coactivation invention):
+    - λ >= lambda_threshold (evolution pressure).
+    - confidence >= min_confidence.
+    - evidence spans >= galaxy_count_for_cross distinct galaxies.
+    - bounded by max_macros per cycle.
+    - idempotent: an existing macro with the same member hash is reused.
+
+    Never raises; best effort.
+    """
+    result = InventionResult(lambda_hat=lambda_hat)
+    if lambda_hat < lambda_threshold:
+        result.skipped_candidates += 1
+        return result
+
+    def _evidence_node_ids(insight: Any) -> List[str]:
+        evidence = getattr(insight, "evidence_nodes", None) or []
+        node_ids: List[str] = []
+        for ev in evidence:
+            nid = None
+            if isinstance(ev, dict):
+                nid = ev.get("node_id")
+            elif hasattr(ev, "node_id"):
+                nid = getattr(ev, "node_id", None)
+            if nid:
+                node_ids.append(str(nid))
+        return list(dict.fromkeys(node_ids))
+
+    def _supporting_galaxies(insight: Any) -> List[str]:
+        primary = getattr(insight, "primary_galaxy", None) or ""
+        supporting = list(getattr(insight, "supporting_galaxies", None) or [])
+        galaxies = set(str(g) for g in [primary] + supporting if g)
+        return sorted(galaxies)
+
+    candidates = []
+    for insight in insights:
+        try:
+            confidence = float(getattr(insight, "confidence", 0.0) or 0.0)
+            node_ids = _evidence_node_ids(insight)
+            galaxies = _supporting_galaxies(insight)
+            if (
+                confidence < min_confidence
+                or len(node_ids) < min_evidence
+                or len(galaxies) < galaxy_count_for_cross
+            ):
+                result.skipped_candidates += 1
+                continue
+            candidates.append((node_ids, galaxies, confidence))
+        except Exception:
+            result.skipped_candidates += 1
+            continue
+
+    # Deterministic order: highest confidence first, then stable hash.
+    candidates.sort(
+        key=lambda c: (-c[2], str(sorted(c[0])))
+    )
+    candidates = candidates[: max(0, int(max_macros))]
+
+    for node_ids, galaxies, confidence in candidates:
+        member_ids: List[UUID] = []
+        for nid in node_ids:
+            try:
+                parsed = UUID(str(nid))
+            except (ValueError, TypeError):
+                continue
+            if node_repo.get_by_id(graph_id, parsed) is None:
+                continue
+            member_ids.append(parsed)
+        if len(member_ids) < min_evidence:
+            result.skipped_candidates += 1
+            continue
+
+        vector_hash = compute_macro_hash([str(mid) for mid in member_ids])
+        existing_macro = node_repo.get_by_vector_hash(graph_id, vector_hash)
+        if existing_macro is not None:
+            continue
+
+        try:
+            with session.begin_nested():
+                macro_id = invent_macro(
+                    graph_id=graph_id,
+                    member_ids=member_ids,
+                    node_repo=node_repo,
+                    edge_repo=edge_repo,
+                    event_repo=event_repo,
+                    lambda_hat=lambda_hat,
+                    coactivation_count=2,
+                    skip_lambda_check=False,
+                    lambda_threshold=lambda_threshold,
+                    min_count=2,
+                    min_reduction=0.0,
+                )
+        except IntegrityError:
+            macro_id = None
+        except Exception:
+            macro_id = None
+
+        if macro_id is None:
+            result.skipped_candidates += 1
+            continue
+
+        result.macros_created += 1
+        result.events_emitted += 1
+        result.macro_ids.append(macro_id)
+
+        try:
+            event_repo.emit(
+                session=session,
+                graph_id=graph_id,
+                kind="EVOLUTION_INVENTION_SYNTHESIS",
+                payload={
+                    "macro_id": str(macro_id),
+                    "member_ids": [str(m) for m in member_ids],
+                    "lambda_hat": round(lambda_hat, 6),
+                    "confidence": round(float(confidence), 6),
+                    "galaxies": galaxies,
+                },
+            )
+        except Exception:
+            pass
+
+    return result
+
+
+def _synthesize_for_graph(
+    graph_id: str,
+    session: Any,
+    tenant_id: str,
+    max_galaxies: int = 5,
+) -> List[Any]:
+    """Run cross-galaxy synthesis over the graph's galaxies (best effort)."""
+    try:
+        from core.reasoning.cross_galaxy import CrossGalaxySynthesizer
+
+        galaxy_ids = []
+        from store.pg.models_faim import NodeModel
+
+        rows = (
+            session.query(NodeModel.galaxy_id)
+            .filter(
+                NodeModel.tenant_id == tenant_id,
+                NodeModel.galaxy_id.isnot(None),
+                NodeModel.galaxy_id != "",
+            )
+            .distinct()
+            .limit(max_galaxies)
+            .all()
+        )
+        galaxy_ids = [r[0] for r in rows]
+        if len(galaxy_ids) < 2:
+            return []
+
+        synthesizer = CrossGalaxySynthesizer(session, tenant_id)
+        return synthesizer.synthesize(
+            galaxy_ids=galaxy_ids,
+            topic=None,
+            max_galaxies=max_galaxies,
+        )
+    except Exception:
+        return []
+
+
+def run_synthesis_invention_cycle(
+    graph_id: str,
+    *,
+    session: Any,
+    node_repo: NodeRepo,
+    edge_repo: EdgeRepo,
+    event_repo: Any,
+    lambda_hat: float,
+    lambda_threshold: float = LAMBDA_THRESHOLD,
+    max_macros: int = 3,
+    insights: Optional[List[Any]] = None,
+) -> InventionResult:
+    """Run a bounded cross-galaxy synthesis invention pass on the graph.
+
+    When ``insights`` are provided they are used directly; otherwise the
+    graph's galaxies are synthesized on the fly (best effort). This is the
+    runtime-safe bridge that wires cross-galaxy synthesis into the
+    self-invention flow.
+    """
+    if insights is None:
+        insights = _synthesize_for_graph(
+            graph_id,
+            session=session,
+            tenant_id=node_repo.tenant_id,
+        )
+    return invent_from_synthesis_insights(
+        graph_id,
+        session=session,
+        node_repo=node_repo,
+        edge_repo=edge_repo,
+        event_repo=event_repo,
+        insights=insights,
+        lambda_hat=lambda_hat,
+        lambda_threshold=lambda_threshold,
+        max_macros=max_macros,
+    )
+
+
 # Exports
 __all__ = [
     "InventionResult",
@@ -644,4 +870,6 @@ __all__ = [
     "find_coactivation_sets",
     "invent_macro",
     "run_invention_cycle",
+    "invent_from_synthesis_insights",
+    "run_synthesis_invention_cycle",
 ]

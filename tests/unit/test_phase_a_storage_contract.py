@@ -53,6 +53,9 @@ def test_storage_response_models_contain_minimum_required_fields():
         "StorageCryptoRotationResponse": storage_router_module.StorageCryptoRotationResponse,
         "StorageCryptoRotationJobResponse": storage_router_module.StorageCryptoRotationJobResponse,
         "StorageSupportedTypesResponse": storage_router_module.StorageSupportedTypesResponse,
+        "StorageDomainMemoryTerm": storage_router_module.StorageDomainMemoryTerm,
+        "StorageDomainMemorySource": storage_router_module.StorageDomainMemorySource,
+        "StorageDomainMemoryResponse": storage_router_module.StorageDomainMemoryResponse,
     }
 
     for model_name, required_fields in REQUIRED_MODEL_FIELDS.items():

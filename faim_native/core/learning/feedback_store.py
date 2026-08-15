@@ -14,7 +14,7 @@ from uuid import uuid4
 
 # Database imports
 try:
-    from faim.Faim_Native.store.pg.models_faim import ReasoningFeedbackModel
+    from store.pg.models_feedback import ReasoningFeedbackModel
 except (ImportError, RuntimeError, ModuleNotFoundError):
     ReasoningFeedbackModel = Any
 
@@ -40,10 +40,6 @@ class ReasoningFeedback:
 
     # User feedback
     user_rating: float  # 0.0 to 1.0
-    user_correction: Optional[str] = None
-    correction_type: Optional[str] = (
-        None  # "factual", "incomplete", "wrong_inference", "irrelevant"
-    )
 
     # Pattern identification
     pattern_hash: str  # Hash of reasoning structure
@@ -51,6 +47,10 @@ class ReasoningFeedback:
 
     # Metadata
     created_at: datetime
+    user_correction: Optional[str] = None
+    correction_type: Optional[str] = (
+        None  # "factual", "incomplete", "wrong_inference", "irrelevant"
+    )
     processed: bool = False
 
     def to_dict(self) -> Dict[str, Any]:
@@ -208,7 +208,7 @@ class FeedbackStore:
             pattern_hash=feedback.pattern_hash,
             query_signature=feedback.query_signature,
             created_at=feedback.created_at,
-            processed=feedback.processed,
+            processed="1" if feedback.processed else "0",
         )
 
         self.session.add(model)
@@ -241,6 +241,16 @@ class FeedbackStore:
             self._cache[f.feedback_id] = f
 
         return feedbacks
+
+    def list_distinct_patterns(self, tenant_id: str) -> List[str]:
+        """List distinct pattern hashes with feedback for a tenant."""
+        rows = (
+            self.session.query(ReasoningFeedbackModel.pattern_hash)
+            .filter(ReasoningFeedbackModel.tenant_id == tenant_id)
+            .distinct()
+            .all()
+        )
+        return [r[0] for r in rows if r[0]]
 
     def get_feedback_stats(
         self,

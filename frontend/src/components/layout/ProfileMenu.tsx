@@ -119,7 +119,7 @@ export function ProfileMenu() {
                   Profile
                 </Link>
                 <Link
-                  href="/dashboard/settings"
+                  href="/dashboard/profile"
                   onClick={() => setOpen(false)}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-slate-300 hover:bg-slate-800/50 hover:text-white transition-colors"
                 >

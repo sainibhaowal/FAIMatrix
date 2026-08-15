@@ -115,10 +115,14 @@ async def faim_fig_focus_node(node_id: str) -> Dict[str, Any]:
 
 def get_faim_native_tools() -> list:
     """Return list of executable FAIM Native domain tool callables."""
-    return [
+    from core.cortex.cortex_storage_tools import get_cortex_storage_tools
+
+    tools = [
         faim_search_multichannel,
         faim_traverse_microbatch,
         faim_prune_contradictions,
         faim_trigger_evolution,
         faim_fig_focus_node,
     ]
+    tools.extend(get_cortex_storage_tools())
+    return tools

@@ -448,7 +448,9 @@ class NodeModel(Base):
     block_id = Column(Text, nullable=True)
     anchor_json = Column(JSONBType, nullable=True)
     v_native = Column(JSONBType, nullable=False)
+    v_embedding = Column(JSONBType, nullable=True)  # 0034: semantic embedding vector (e.g., bge-m3 1024-dim)
     opp_signature = Column(JSONBType, nullable=True)
+
     residual = Column(BigInteger, nullable=False, default=0)  # Stored as int * 1e9
     level = Column(Integer, nullable=False, default=0)
     touch_count = Column(Integer, nullable=False, default=0)
@@ -487,6 +489,9 @@ class NodeModel(Base):
             "block_id": self.block_id,
             "anchor_json": self.anchor_json,
             "v_native": self.v_native,
+            "v_embedding": self.v_embedding,
+            "v_vector": self.v_vector,
+            "v_embedding_vector": self.v_embedding_vector,
             "opp_signature": self.opp_signature,
             "residual": self.residual / 1e9 if self.residual else 0.0,
             "level": self.level,
@@ -521,6 +526,50 @@ class GraphClusterModel(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+
+# -----------------------------------------------------------------------------
+# EvolutionBackupModel - pre-action snapshots for safe undo (0033)
+# -----------------------------------------------------------------------------
+
+
+class EvolutionBackupModel(Base):
+    """Append-only snapshot of every node evolution is about to delete.
+
+    Written before destructive actions (prunes) so any cycle can be undone
+    without data loss. Restore re-inserts the node row, its representation
+    sidecar and its touching edges (opposition + semantic).
+    """
+
+    __tablename__ = "evolution_backups"
+
+    backup_id = Column(UUIDType, primary_key=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    version = Column(Integer, nullable=False, default=0, index=True)
+    action_type = Column(String(32), nullable=False, default="prune")
+    node_id = Column(UUIDType, nullable=False, index=True)
+    reason = Column(Text, nullable=True)
+    node_json = Column(JSONBType, nullable=False)
+    repr_json = Column(JSONBType, nullable=True)
+    edges_json = Column(JSONBType, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary (safe for API responses)."""
+        return {
+            "backup_id": str(self.backup_id),
+            "graph_id": self.graph_id,
+            "version": int(self.version or 0),
+            "action_type": self.action_type,
+            "node_id": str(self.node_id),
+            "reason": self.reason,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
 
 
 # -----------------------------------------------------------------------------
@@ -1105,6 +1154,25 @@ class SelfEvolutionStateModel(Base):
     )
 
 
+class ServiceSettingModel(Base):
+    """Per-tenant durable service settings (key/value).
+
+    Used for operator-facing provider state such as reranker
+    activation. Kept generic so future service toggles reuse it.
+    """
+
+    __tablename__ = "service_settings"
+
+    tenant_id = Column(String(64), primary_key=True)
+    key = Column(String(128), primary_key=True)
+    value_json = Column(JSONBType, nullable=False, default=dict)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
 # -----------------------------------------------------------------------------
 # Cortex runtime state (Phase 3)
 # -----------------------------------------------------------------------------
@@ -1236,6 +1304,44 @@ class CortexReasoningNodeModel(Base):
     )
 
 
+class CortexToolApprovalModel(Base):
+    """Human-in-the-loop approval ledger for agent tool actions.
+
+    Cortex agents may propose risky storage actions (upload, delete,
+    reingest, retry). The proposed action is recorded here with a
+    ``pending`` status; an operator approves or rejects it. Approved
+    actions are executed once and a receipt is stored.
+    """
+
+    __tablename__ = "cortex_tool_approvals"
+
+    # Use Integer for SQLite compatibility in tests; Postgres still maps
+    # this to an auto-incrementing identity/serial style primary key.
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    session_id = Column(String(64), nullable=True, index=True)
+    turn_id = Column(String(64), nullable=True, index=True)
+    tool_name = Column(String(128), nullable=False, index=True)
+    status = Column(String(32), nullable=False, default="pending", index=True)
+    execution_status = Column(String(32), nullable=False, default="pending")
+    args_json = Column(JSONBType, nullable=False, default=dict)
+    reason = Column(Text, nullable=False, default="")
+    proposed_by = Column(String(128), nullable=False, default="agent_cortex")
+    decision_by = Column(String(128), nullable=True)
+    decision_note = Column(Text, nullable=True)
+    execution_receipt_json = Column(JSONBType, nullable=True, default=dict)
+    execution_error = Column(Text, nullable=True)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    decided_at = Column(DateTime(timezone=True), nullable=True)
+    executed_at = Column(DateTime(timezone=True), nullable=True)
+
+
 class CortexWritebackCandidateModel(Base):
     """Proposed memory writeback from Cortex."""
 
@@ -1337,6 +1443,198 @@ class BenchmarkBaselineModel(Base):
 
 
 # -----------------------------------------------------------------------------
+# Evolution learning models (Phase 0032 — opt-in via feature flags)
+# -----------------------------------------------------------------------------
+
+
+class EvolutionOutcomeModel(Base):
+    """Per-cycle evolution outcome row (before/after metrics + reward)."""
+
+    __tablename__ = "evolution_outcomes"
+
+    id = Column(UUIDType, primary_key=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    graph_version = Column(BigInteger, nullable=False, default=0)
+    cycle_ts = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    merges = Column(Integer, nullable=False, default=0)
+    prunes = Column(Integer, nullable=False, default=0)
+    inventions = Column(Integer, nullable=False, default=0)
+    theories = Column(Integer, nullable=False, default=0)
+    lambda_before = Column(Float, nullable=False, default=0.0)
+    lambda_after = Column(Float, nullable=False, default=0.0)
+    r_before = Column(Float, nullable=False, default=0.0)
+    r_after = Column(Float, nullable=False, default=0.0)
+    n_before = Column(Float, nullable=False, default=0.0)
+    n_after = Column(Float, nullable=False, default=0.0)
+    d_before = Column(Float, nullable=False, default=0.0)
+    d_after = Column(Float, nullable=False, default=0.0)
+    h_before = Column(Float, nullable=False, default=0.0)
+    h_after = Column(Float, nullable=False, default=0.0)
+    e_before = Column(Float, nullable=False, default=0.0)
+    e_after = Column(Float, nullable=False, default=0.0)
+    retrieval_delta = Column(Float, nullable=True)
+    reward = Column(Float, nullable=False, default=0.0)
+    policy_snapshot = Column(JSONBType, nullable=False, default=dict)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": str(self.id),
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "graph_version": self.graph_version,
+            "cycle_ts": self.cycle_ts.isoformat() if self.cycle_ts else None,
+            "merges": self.merges,
+            "prunes": self.prunes,
+            "inventions": self.inventions,
+            "theories": self.theories,
+            "lambda_before": self.lambda_before,
+            "lambda_after": self.lambda_after,
+            "r_before": self.r_before,
+            "r_after": self.r_after,
+            "n_before": self.n_before,
+            "n_after": self.n_after,
+            "d_before": self.d_before,
+            "d_after": self.d_after,
+            "h_before": self.h_before,
+            "h_after": self.h_after,
+            "e_before": self.e_before,
+            "e_after": self.e_after,
+            "retrieval_delta": self.retrieval_delta,
+            "reward": self.reward,
+            "policy_snapshot": self.policy_snapshot or {},
+        }
+
+
+class EvolutionPolicyStateModel(Base):
+    """Per-graph learned policy state (bandit arms + lambda calibration)."""
+
+    __tablename__ = "evolution_policy_state"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    policy_version = Column(Integer, nullable=False, default=0)
+    arms = Column(JSONBType, nullable=False, default=dict)
+    lambda_calibration = Column(JSONBType, nullable=False, default=dict)
+    meta = Column(JSONBType, nullable=False, default=dict)
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "policy_version": self.policy_version,
+            "arms": self.arms or {},
+            "lambda_calibration": self.lambda_calibration or {},
+            "meta": self.meta or {},
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class EvolutionMetaMetricModel(Base):
+    """Rolling maturity meta-metrics proving evolution quality."""
+
+    __tablename__ = "evolution_meta_metrics"
+
+    id = Column(UUIDType, primary_key=True)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    ts = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+    merge_usefulness = Column(Float, nullable=False, default=0.0)
+    invention_utilization = Column(Float, nullable=False, default=0.0)
+    prune_regret = Column(Float, nullable=False, default=0.0)
+    d_drift = Column(Float, nullable=False, default=0.0)
+    h_drift = Column(Float, nullable=False, default=0.0)
+    alerts = Column(JSONBType, nullable=False, default=dict)
+    detail = Column(JSONBType, nullable=False, default=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary."""
+        return {
+            "id": str(self.id),
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "ts": self.ts.isoformat() if self.ts else None,
+            "merge_usefulness": self.merge_usefulness,
+            "invention_utilization": self.invention_utilization,
+            "prune_regret": self.prune_regret,
+            "d_drift": self.d_drift,
+            "h_drift": self.h_drift,
+            "alerts": self.alerts or {},
+            "detail": self.detail or {},
+        }
+
+
+# -----------------------------------------------------------------------------
+# Graph theories (Phase EV-5 — durable self-evolution theories)
+# -----------------------------------------------------------------------------
+
+
+class GraphTheoryModel(Base):
+    """A durable symbolic theory generated by the self-evolution loop.
+
+    A theory is a bounded, deterministic generalization derived from
+    observed graph structure (cross-galaxy correlations, redundancy
+    clusters, hierarchy composition, cognitive-type distribution) gated
+    by evolution pressure λ. Theories survive restarts and are surfaced
+    through the evolve API.
+    """
+
+    __tablename__ = "graph_theories"
+
+    # Use Integer for SQLite compatibility in tests; Postgres still maps
+    # this to an auto-incrementing identity/serial style primary key.
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    theory_id = Column(String(64), nullable=False)
+    tenant_id = Column(String(64), nullable=False, index=True)
+    graph_id = Column(String(64), nullable=False, index=True)
+    theory_type = Column(String(32), nullable=False)
+    description = Column(Text, nullable=False, default="")
+    confidence = Column(Float, nullable=False, default=0.0)
+    evidence_node_ids = Column(JSONBType, nullable=False, default=list)
+    metadata_json = Column(JSONBType, nullable=False, default=dict)
+    graph_version = Column(Integer, nullable=False, default=0)
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "theory_id": self.theory_id,
+            "tenant_id": self.tenant_id,
+            "graph_id": self.graph_id,
+            "theory_type": self.theory_type,
+            "description": self.description,
+            "confidence": self.confidence,
+            "evidence_node_ids": self.evidence_node_ids or [],
+            "metadata": self.metadata_json or {},
+            "graph_version": self.graph_version,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+# -----------------------------------------------------------------------------
 # Table creation helper
 # -----------------------------------------------------------------------------
 
@@ -1350,6 +1648,7 @@ def create_all_tables(engine) -> None:
     # Ensure optional models are imported into Base metadata.
     from store.pg import models_auth as _models_auth  # noqa: F401
     from store.pg import models_crypto as _models_crypto  # noqa: F401
+    from store.pg import models_feedback as _models_feedback  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     _ensure_additive_compat_columns(engine)

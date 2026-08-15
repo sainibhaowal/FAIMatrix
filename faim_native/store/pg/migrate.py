@@ -162,9 +162,9 @@ def _sqlite_rewrite_sql_content(sql_content: str) -> str:
     # Ignore pgvector specific statements
     rewritten = re.sub(r"(?i)CREATE EXTENSION.*?;", "", rewritten)
     rewritten = re.sub(r"(?i)vector\(\d+\)", "JSON", rewritten)
-    rewritten = re.sub(r"(?i)CREATE INDEX.*?USING hnsw.*?;", "", rewritten)
-    rewritten = re.sub(r"(?i)CREATE OR REPLACE FUNCTION.*?\$\$ LANGUAGE plpgsql;", "", rewritten, flags=re.DOTALL)
-    rewritten = re.sub(r"(?i)DROP TRIGGER.*?;\s*CREATE TRIGGER.*?EXECUTE FUNCTION.*?;", "", rewritten, flags=re.DOTALL)
+    rewritten = re.sub(r"(?is)CREATE INDEX.*?USING hnsw.*?;", "", rewritten)
+    rewritten = re.sub(r"(?is)CREATE OR REPLACE FUNCTION.*?\$\$ LANGUAGE plpgsql;", "", rewritten, flags=re.DOTALL)
+    rewritten = re.sub(r"(?is)DROP TRIGGER.*?;\s*CREATE TRIGGER.*?EXECUTE FUNCTION.*?;", "", rewritten)
     return rewritten
 
 
@@ -209,6 +209,10 @@ def _sqlite_compatible_statements(statement: str) -> List[str]:
     if not content:
         return []
 
+    # Skip HNSW index statements (PostgreSQL-specific)
+    if re.search(r"(?i)CREATE INDEX.*USING hnsw", content):
+        return []
+    
     if re.match(r"(?is)^COMMENT\s+ON\s+", content):
         return []
     if "alter column" in content.lower():

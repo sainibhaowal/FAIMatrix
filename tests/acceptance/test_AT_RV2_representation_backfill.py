@@ -48,6 +48,7 @@ def test_representation_v2_rebuild_backfills_existing_graph(monkeypatch, tmp_pat
     from store.pg.repos.event_repo import EventRepo
     from store.pg.repos.graph_version_repo import GraphVersionRepo
     from store.pg.repos.node_repo import NodeRepo
+    from store.pg.repos.representation_repo import CHANNELS
 
     tenant_id = "tenant_rv2_backfill"
     api_key = "rv2_backfill_key"
@@ -152,7 +153,7 @@ def test_representation_v2_rebuild_backfills_existing_graph(monkeypatch, tmp_pat
             session_verify.query(GraphRepresentationStatsModel)
             .filter_by(tenant_id=tenant_id, graph_id=graph_id)
             .count()
-            == 6
+            == len(CHANNELS)
         )
         latest_events = repos_verify["event_repo"].get_all(
             session_verify,

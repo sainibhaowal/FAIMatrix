@@ -188,20 +188,97 @@ class PipelineStats(BaseModel):
 async def pipeline_stats():
     """System and pipeline performance statistics (Stage-12).
 
-    Used by the frontend status indicators.
+    Computes REAL values from live infra instead of hardcoded placeholders:
+      - redis / qdrant connectivity from live clients
+      - queue depth from pending durable jobs
+      - hot cache size from Redis dbsize
+      - throughput from recently completed jobs
+    Every subsystem is best-effort: a healthy default is returned when a
+    dependency is unavailable so the UI never breaks.
     """
     import os
 
-    # Simplified health check for performance
+    from sqlalchemy import text
+
+    gpu_available = os.getenv("FAIM_ACCEL_MODE", "false").lower() == "true"
+    gpu_active = gpu_available
+
+    # --- Live Redis health + hot cache size --------------------------------
+    redis_ok = False
+    hot_cache_size = 0
+    queue_depth = 0
+    throughput = 0.0
+    try:
+        from cache.redis_client import _get_client as get_redis_client
+
+        rclient = get_redis_client()
+        if rclient is not None:
+            rclient.ping()
+            redis_ok = True
+            try:
+                hot_cache_size = int(rclient.dbsize() or 0)
+            except Exception:  # nosec B110
+                pass
+    except Exception:  # nosec B110
+        redis_ok = False
+
+    # --- Qdrant health ------------------------------------------------------
+    qdrant_ok = False
+    try:
+        import httpx
+
+        qdrant_url = os.getenv(
+            "QDRANT_URL", "http://localhost:8040"
+        ).rstrip("/")
+        resp = httpx.get(f"{qdrant_url}/healthz", timeout=1.0)
+        qdrant_ok = resp.status_code in (200, 404)
+    except Exception:  # nosec B110
+        qdrant_ok = False
+
+    # --- Durable job queue depth + throughput from live DB ------------------
+    session = None
+    try:
+        from runtime.context import get_session
+
+        session = get_session()
+        pending = session.execute(
+            text("SELECT count(*) FROM jobs WHERE status IN ('pending', 'running')")
+        ).scalar()
+        queue_depth = int(pending or 0)
+
+        recent = session.execute(
+            text(
+                "SELECT count(*), COALESCE(EXTRACT(EPOCH FROM "
+                "(now() - min(updated_at))), 0) FROM jobs "
+                "WHERE status = 'done' AND updated_at > now() - interval '10 minutes'"
+            )
+        ).fetchone()
+        if recent and recent[0]:
+            done_count = int(recent[0])
+            window_seconds = float(recent[1]) if recent[1] else 600.0
+            throughput = (
+                round(done_count / max(window_seconds, 1.0), 2)
+                if window_seconds > 0
+                else float(done_count)
+            )
+    except Exception:  # nosec B110
+        pass
+    finally:
+        if session is not None:
+            try:
+                session.close()
+            except Exception:  # nosec B110
+                pass
+
     return PipelineStats(
-        gpu_available=os.getenv("FAIM_ACCEL_MODE", "false").lower() == "true",
-        gpu_active=os.getenv("FAIM_ACCEL_MODE", "false").lower() == "true",
-        throughput=0.0,  # Real-time metrics would come from redis/metrics
-        hot_cache_size=0,
-        queue_depth=0,
+        gpu_available=gpu_available,
+        gpu_active=gpu_active,
+        throughput=throughput,
+        hot_cache_size=hot_cache_size,
+        queue_depth=queue_depth,
         system_health=SystemHealth(
-            redis=True,
-            qdrant=True,
+            redis=redis_ok,
+            qdrant=qdrant_ok,
             encryption=True,
         ),
     )

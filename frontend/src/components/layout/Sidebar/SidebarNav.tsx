@@ -28,6 +28,8 @@ import {
   Search,
   Cpu,
   ServerCog,
+  Brain,
+  AlertTriangle,
 } from "lucide-react";
 
 import Logo from "@/components/brand/Logo";
@@ -59,9 +61,10 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/journal", label: "Journal", icon: MessageSquare },
       { href: "/dashboard/benchmarks", label: "Benchmarks", icon: BarChart3 },
       { href: "/dashboard/evolution", label: "Evolution", icon: Dna },
+      { href: "/dashboard/providers", label: "Providers", icon: Cpu },
       { href: "/dashboard/api-keys", label: "API Keys", icon: Shield },
       { href: "/dashboard/storage", label: "Storage", icon: HardDrive },
-      { href: "/dashboard/providers", label: "Providers", icon: Cpu },
+      { href: "/dashboard/approval-queue", label: "Approval Queue", icon: AlertTriangle },
     ],
   },
   {
