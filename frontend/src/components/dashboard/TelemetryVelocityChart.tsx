@@ -24,17 +24,16 @@ interface TelemetryVelocityChartProps {
 export const TelemetryVelocityChart: React.FC<TelemetryVelocityChartProps> = ({
   data,
 }) => {
-  const chartData =
-    data.length > 0
-      ? data
-      : [
-          { seq: 1, time: "10s ago", velocity: 2 },
-          { seq: 2, time: "8s ago", velocity: 5 },
-          { seq: 3, time: "6s ago", velocity: 3 },
-          { seq: 4, time: "4s ago", velocity: 8 },
-          { seq: 5, time: "2s ago", velocity: 4 },
-          { seq: 6, time: "now", velocity: 6 },
-        ];
+  const chartData = data.length > 0 ? data : [];
+
+  if (chartData.length === 0) {
+    return (
+      <div className="h-[140px] w-full flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/[0.01] text-slate-500">
+        <span className="text-[11px] font-mono">No velocity data yet</span>
+        <p className="text-[9px] text-slate-600">Event velocity appears after graph activity</p>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[140px] w-full relative pt-1">

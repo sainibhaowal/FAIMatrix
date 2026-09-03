@@ -71,6 +71,7 @@ deploy/env.vpsprod
 # Runtime & Data
 Runtime/
 **/Runtime/
+faim_native/models/embeddings/
 deploy/ssl/
 *.pem
 *.key
