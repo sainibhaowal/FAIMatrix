@@ -34,16 +34,18 @@ export const StorageModalityChart: React.FC<StorageModalityChartProps> = ({
     count: count,
   }));
 
-  const displayData =
-    chartData.length > 0
-      ? chartData
-      : [
-          { name: "PDF", count: 4 },
-          { name: "TEXT", count: 8 },
-          { name: "TABLE", count: 3 },
-          { name: "IMAGE", count: 2 },
-          { name: "RAW", count: 1 },
-        ];
+  if (chartData.length === 0) {
+    return (
+      <div className="flex flex-col h-full w-full">
+        <div className="h-[180px] w-full flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/[0.01] text-slate-500">
+          <span className="text-[11px] font-mono">No storage data yet</span>
+          <p className="text-[9px] text-slate-600">File types appear after document ingestion</p>
+        </div>
+      </div>
+    );
+  }
+
+  const displayData = chartData;
 
   return (
     <div className="flex flex-col h-full w-full">
