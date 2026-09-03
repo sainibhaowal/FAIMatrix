@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import {
+  BookOpen,
   Cpu,
   Bot,
   Database,
@@ -21,6 +22,9 @@ import {
   Zap,
   ScanText,
   FileText,
+  KeyRound,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams } from "next/navigation";
@@ -30,6 +34,7 @@ import { useProviders } from "@/contexts/ProviderContext";
 import { useEmbeddingProviders } from "@/contexts/EmbeddingProviderContext";
 import { discoverProviderModels } from "@/lib/providerDiscovery";
 import { discoverEmbeddingModels, testEmbeddingProvider } from "@/lib/embeddingProviderDiscovery";
+import { ProvidersManual } from "@/components/manuals/ProvidersManual";
 
 type Tab = "navigator" | "llm" | "embedding" | "reranker" | "ocr" | "web";
 type LeftViewMode = "inventory" | "select_family";
@@ -50,7 +55,7 @@ const LLM_FAMILIES: FamilyOption[] = [
     code: "OPENCODE-ZEN",
     type: "custom",
     defaultUrl: "http://localhost:55606/v1",
-    models: ["opencode-zen-coder", "opencode-deep-reasoner", "claude-fable-5"],
+    models: [],
   },
   {
     id: "lmstudio",
@@ -58,7 +63,7 @@ const LLM_FAMILIES: FamilyOption[] = [
     code: "LMSTUDIO",
     type: "local",
     defaultUrl: "http://localhost:1234/v1",
-    models: ["gemma-2-9b-it", "llama-3.2-3b-instruct", "qwen2.5-coder-7b", "deepseek-r1-distill-qwen-7b"],
+    models: [],
   },
   {
     id: "ollama",
@@ -66,7 +71,7 @@ const LLM_FAMILIES: FamilyOption[] = [
     code: "OLLAMA",
     type: "local",
     defaultUrl: "http://localhost:11434/v1",
-    models: ["llama3.2:latest", "qwen2.5-coder:7b", "deepseek-r1:8b", "mistral:latest"],
+    models: [],
   },
   {
     id: "openai",
@@ -74,7 +79,7 @@ const LLM_FAMILIES: FamilyOption[] = [
     code: "OPENAI",
     type: "openai",
     defaultUrl: "https://api.openai.com/v1",
-    models: ["gpt-4o", "gpt-4o-mini", "o1", "o3-mini"],
+    models: [],
   },
   {
     id: "anthropic",
@@ -82,7 +87,7 @@ const LLM_FAMILIES: FamilyOption[] = [
     code: "ANTHROPIC",
     type: "custom",
     defaultUrl: "https://api.anthropic.com/v1",
-    models: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022", "claude-3-opus-20240229"],
+    models: [],
   },
   {
     id: "google",
@@ -90,7 +95,7 @@ const LLM_FAMILIES: FamilyOption[] = [
     code: "GOOGLE",
     type: "custom",
     defaultUrl: "https://generativelanguage.googleapis.com/v1beta",
-    models: ["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash-exp"],
+    models: [],
   },
   {
     id: "groq",
@@ -98,7 +103,7 @@ const LLM_FAMILIES: FamilyOption[] = [
     code: "GROQ",
     type: "custom",
     defaultUrl: "https://api.groq.com/openai/v1",
-    models: ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "gemma2-9b-it"],
+    models: [],
   },
   {
     id: "openrouter",
@@ -106,7 +111,7 @@ const LLM_FAMILIES: FamilyOption[] = [
     code: "OPENROUTER",
     type: "custom",
     defaultUrl: "https://openrouter.ai/api/v1",
-    models: ["anthropic/claude-3.5-sonnet", "deepseek/deepseek-r1", "meta-llama/llama-3.3-70b-instruct"],
+    models: [],
   },
   {
     id: "openai-compatible",
@@ -114,7 +119,7 @@ const LLM_FAMILIES: FamilyOption[] = [
     code: "CUSTOM",
     type: "custom",
     defaultUrl: "http://localhost:8000/v1",
-    models: ["custom-model-v1"],
+    models: [],
   },
 ];
 
@@ -252,28 +257,34 @@ function CustomSelect({
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
             className="absolute z-50 left-0 right-0 top-full bg-slate-950/95 backdrop-blur-2xl border border-primary-500/30 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85)] p-1.5 max-h-52 overflow-y-auto custom-scrollbar mt-1.5"
           >
-            {normalizedOptions.map((opt) => {
-              const isSelected = opt.value === value;
-              return (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt.value);
-                    setIsOpen(false);
-                  }}
-                  className={[
-                    "w-full px-3 py-1.5 rounded-lg text-xs font-mono text-left flex items-center justify-between transition-all duration-150 my-0.5",
-                    isSelected
-                      ? "bg-primary-500/25 text-primary-200 font-bold border-l-2 border-primary-400 shadow-[0_0_12px_rgba(34,211,238,0.1)]"
-                      : "text-slate-300 hover:bg-white/10 hover:text-white hover:translate-x-0.5",
-                  ].join(" ")}
-                >
-                  <span className="truncate">{opt.label}</span>
-                  {isSelected && <CheckCircle2 size={13} className="text-primary-400 shrink-0 ml-2" />}
-                </button>
-              );
-            })}
+            {normalizedOptions.length === 0 ? (
+              <div className="p-3 text-center text-slate-500 font-mono text-[11px]">
+                No models discovered yet. Enter API key/URL and click "Test Ping" to fetch live models.
+              </div>
+            ) : (
+              normalizedOptions.map((opt) => {
+                const isSelected = opt.value === value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                    }}
+                    className={[
+                      "w-full px-3 py-1.5 rounded-lg text-xs font-mono text-left flex items-center justify-between transition-all duration-150 my-0.5",
+                      isSelected
+                        ? "bg-primary-500/25 text-primary-200 font-bold border-l-2 border-primary-400 shadow-[0_0_12px_rgba(34,211,238,0.1)]"
+                        : "text-slate-300 hover:bg-white/10 hover:text-white hover:translate-x-0.5",
+                    ].join(" ")}
+                  >
+                    <span className="truncate">{opt.label}</span>
+                    {isSelected && <CheckCircle2 size={13} className="text-primary-400 shrink-0 ml-2" />}
+                  </button>
+                );
+              })
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -339,6 +350,7 @@ export default function ProvidersPage() {
       ? (requested as Tab)
       : "navigator";
   });
+  const [manualOpen, setManualOpen] = useState(false);
 
   // Left panel view state for each tab
   const [llmLeftView, setLlmLeftView] = useState<LeftViewMode>("inventory");
@@ -371,8 +383,8 @@ export default function ProvidersPage() {
   const [llmAuthProtocol, setLlmAuthProtocol] = useState("local no key");
   const [llmRuntimeUrl, setLlmRuntimeUrl] = useState(LLM_FAMILIES[0].defaultUrl);
   const [llmApiKey, setLlmApiKey] = useState("");
-  const [llmDiscoveredModels, setLlmDiscoveredModels] = useState<string[]>(LLM_FAMILIES[0].models);
-  const [llmSelectedModel, setLlmSelectedModel] = useState<string>(LLM_FAMILIES[0].models[0] || "");
+  const [llmDiscoveredModels, setLlmDiscoveredModels] = useState<string[]>([]);
+  const [llmSelectedModel, setLlmSelectedModel] = useState<string>("");
   const [isDiscoveringLLM, setIsDiscoveringLLM] = useState(false);
   const [llmStatusMessage, setLlmStatusMessage] = useState<string | null>(null);
 
@@ -402,13 +414,56 @@ export default function ProvidersPage() {
     }
   }, [activeLLM]);
 
+  // Automatic dynamic model discovery when API Key or Runtime URL changes
+  useEffect(() => {
+    if (!selectedLLMFamily) return;
+
+    // Check if key is needed for this family
+    const requiresKey =
+      selectedLLMFamily.type === "openai" ||
+      selectedLLMFamily.id === "anthropic" ||
+      selectedLLMFamily.id === "google" ||
+      selectedLLMFamily.id === "groq" ||
+      selectedLLMFamily.id === "openrouter";
+
+    // If key is required but not provided, clear models
+    if (requiresKey && !llmApiKey.trim()) {
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsDiscoveringLLM(true);
+      setLlmStatusMessage(null);
+      try {
+        const disc = await discoverProviderModels(llmRuntimeUrl, llmApiKey.trim() || undefined);
+        if (disc.models && disc.models.length > 0) {
+          setLlmDiscoveredModels(disc.models);
+          setLlmSelectedModel((prev) => (prev && disc.models.includes(prev) ? prev : disc.models[0]));
+          setLlmStatusMessage(`✓ Automatically discovered ${disc.models.length} live models.`);
+        }
+      } catch (err: any) {
+        // Only show status error if user explicitly entered a key or pinged
+        if (llmApiKey.trim()) {
+          setLlmStatusMessage(`✕ Model discovery failed: ${err.message || "Invalid credentials or unreachable endpoint"}`);
+        }
+      } finally {
+        setIsDiscoveringLLM(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [llmApiKey, llmRuntimeUrl, selectedLLMFamily]);
+
   // Embedding Setup Form State
   const [selectedEmbeddingFamily, setSelectedEmbeddingFamily] = useState<FamilyOption | null>(null);
   const [embeddingName, setEmbeddingName] = useState(EMBEDDING_FAMILIES[0].name);
   const [embeddingAuthProtocol, setEmbeddingAuthProtocol] = useState("No Authentication");
   const [embeddingUrl, setEmbeddingUrl] = useState(EMBEDDING_FAMILIES[0].defaultUrl);
+  const [embeddingApiKey, setEmbeddingApiKey] = useState("");
+  const [showLlmApiKey, setShowLlmApiKey] = useState(false);
+  const [showEmbeddingApiKey, setShowEmbeddingApiKey] = useState(false);
   const [embeddingDiscoveredModels, setEmbeddingDiscoveredModels] = useState<string[]>(EMBEDDING_FAMILIES[0].models);
-  const [embeddingSelectedModel, setEmbeddingSelectedModel] = useState(EMBEDDING_FAMILIES[0].models[0] || "");
+  const [embeddingSelectedModel, setEmbeddingSelectedModel] = useState<string>(EMBEDDING_FAMILIES[0].models[0] || "");
   const [isDiscoveringEmbedding, setIsDiscoveringEmbedding] = useState(false);
   const [embeddingTesting, setEmbeddingTesting] = useState(false);
   const [embeddingTestResult, setEmbeddingTestResult] = useState<string | null>(null);
@@ -500,11 +555,31 @@ export default function ProvidersPage() {
   const handleSelectLLMFamily = (fam: FamilyOption) => {
     setSelectedLLMFamily(fam);
     setLlmRuntimeUrl(fam.defaultUrl);
-    setLlmDiscoveredModels(fam.models);
-    setLlmSelectedModel(fam.models[0] || "");
+    setLlmApiKey(""); // Cleanly reset API key so it is never carried over to another provider
+    setLlmDiscoveredModels([]);
+    setLlmSelectedModel("");
+    setLlmStatusMessage(null);
     if (fam.type === "local") {
       setLlmAuthProtocol("local no key");
-    } else if (fam.id === "anthropic" || fam.id === "openai" || fam.id === "groq") {
+      // Auto-trigger discovery for local endpoints (Ollama, LM Studio)
+      setIsDiscoveringLLM(true);
+      discoverProviderModels(fam.defaultUrl)
+        .then((res) => {
+          if (res.models && res.models.length > 0) {
+            setLlmDiscoveredModels(res.models);
+            setLlmSelectedModel(res.models[0]);
+            setLlmStatusMessage(`✓ Discovered ${res.models.length} local models.`);
+          } else {
+            setLlmStatusMessage("No models detected on local runtime yet.");
+          }
+        })
+        .catch(() => {
+          setLlmStatusMessage("Local runtime not running or unreachable on default port.");
+        })
+        .finally(() => {
+          setIsDiscoveringLLM(false);
+        });
+    } else if (fam.id === "anthropic" || fam.id === "openai" || fam.id === "groq" || fam.id === "google") {
       setLlmAuthProtocol("API Key");
     } else {
       setLlmAuthProtocol("Bearer Token");
@@ -517,6 +592,11 @@ export default function ProvidersPage() {
     setEmbeddingUrl(fam.defaultUrl);
     setEmbeddingDiscoveredModels(fam.models);
     setEmbeddingSelectedModel(fam.models[0] || "");
+    if (fam.type === "local" || fam.id === "sentence-transformers") {
+      setEmbeddingAuthProtocol("No Authentication");
+    } else {
+      setEmbeddingAuthProtocol("API Key");
+    }
   };
 
   const handleSelectRerankerFamily = (fam: FamilyOption) => {
@@ -530,27 +610,28 @@ export default function ProvidersPage() {
     setIsDiscoveringLLM(true);
     setLlmStatusMessage(null);
     try {
+      const modelToTest = llmSelectedModel || (llmDiscoveredModels.length > 0 ? llmDiscoveredModels[0] : "");
+      if (!modelToTest) {
+        setLlmStatusMessage("✕ Please enter credentials / URL and discover or select a model first.");
+        return;
+      }
+
       const pingRes = await fetch("/api/provider/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           providerUrl: llmRuntimeUrl,
-          apiKey: llmApiKey || undefined,
-          model: llmSelectedModel,
+          apiKey: llmApiKey.trim() || undefined,
+          model: modelToTest,
           messages: [{ role: "user", content: "ping" }],
         }),
       });
 
       if (pingRes.ok) {
-        setLlmStatusMessage(`✓ Ping verified: Selected model "${llmSelectedModel}" responded (1-token test)!`);
+        setLlmStatusMessage(`✓ Ping verified: Model "${modelToTest}" is online and responsive!`);
       } else {
-        const disc = await discoverProviderModels(llmRuntimeUrl, llmApiKey || undefined);
-        if (disc.models && disc.models.length > 0) {
-          setLlmDiscoveredModels(disc.models);
-          setLlmStatusMessage(`✓ Endpoint reachable: Discovered ${disc.models.length} models.`);
-        } else {
-          setLlmStatusMessage(`✕ Ping failed: Provider returned HTTP ${pingRes.status}`);
-        }
+        const errData = await pingRes.json().catch(() => ({}));
+        setLlmStatusMessage(`✕ Ping failed: ${errData.message || `Provider returned HTTP ${pingRes.status}`}`);
       }
     } catch (e: any) {
       setLlmStatusMessage(`✕ Ping failed: ${e.message || "Endpoint offline or unreachable"}`);
@@ -619,6 +700,7 @@ export default function ProvidersPage() {
 
       const success = await testEmbeddingProvider({
         baseUrl: embeddingUrl,
+        apiKey: embeddingApiKey || undefined,
         model: embeddingSelectedModel,
       });
       if (success) {
@@ -634,18 +716,36 @@ export default function ProvidersPage() {
   };
 
   const handleUpdateEmbeddingConnectivity = async () => {
-    const providerId = await addEmbeddingProvider(
-      embeddingName,
-      "custom",
-      embeddingUrl,
-      "",
-      embeddingSelectedModel
-    );
-    if (providerId) {
-      setEmbeddingActive(providerId);
+    setIsDiscoveringEmbedding(true);
+    try {
+      let modelsToSave = embeddingDiscoveredModels;
+      try {
+        const isLocal = selectedEmbeddingFamily?.type === "local" || selectedEmbeddingFamily?.id === "sentence-transformers";
+        if (!isLocal) {
+          const disc = await discoverEmbeddingModels(embeddingUrl, embeddingApiKey || undefined);
+          if (disc.models && disc.models.length > 0) {
+            modelsToSave = disc.models;
+          }
+        }
+      } catch {}
+
+      const providerId = await addEmbeddingProvider(
+        embeddingName,
+        (selectedEmbeddingFamily?.type || "custom") as any,
+        embeddingUrl,
+        embeddingApiKey || undefined,
+        embeddingSelectedModel
+      );
+      if (providerId) {
+        setEmbeddingActive(providerId);
+      }
+      setEmbeddingLeftView("inventory");
+      setActiveTab("navigator");
+    } catch (e: any) {
+      setEmbeddingTestResult(e.message || "Failed to update embedding provider.");
+    } finally {
+      setIsDiscoveringEmbedding(false);
     }
-    setEmbeddingLeftView("inventory");
-    setActiveTab("navigator");
   };
 
   const handleTestRerankerPing = async () => {
@@ -1010,14 +1110,27 @@ export default function ProvidersPage() {
 
 
   return (
-    <div className="space-y-4">
-      {/* FAIM Glass Header */}
-      <GlassHeader
+    <>
+      <div className="space-y-4">
+        {/* FAIM Glass Header */}
+        <GlassHeader
         title="Providers"
         subtitle="MANAGE FOUNDATION MODELS AND RUNTIME CONNECTIVITY"
         icon={Cpu}
         accentColor="var(--faim-primary)"
-        actions={<TabToggle active={activeTab} onChange={setActiveTab} />}
+        actions={
+        <>
+          <Button
+            variant="outline"
+            leftIcon={<BookOpen size={13} />}
+            onClick={() => setManualOpen(true)}
+            className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 backdrop-blur-md h-10 px-5 text-[11px] font-bold uppercase tracking-[0.2em]"
+          >
+            User Manual
+          </Button>
+          <TabToggle active={activeTab} onChange={setActiveTab} />
+        </>
+      }
       />
 
       <AnimatePresence mode="wait">
@@ -1699,6 +1812,43 @@ export default function ProvidersPage() {
                   </div>
                 </div>
 
+                {/* API Key / Token Input Field */}
+                {(llmAuthProtocol === "API Key" ||
+                  llmAuthProtocol === "Bearer Token" ||
+                  selectedLLMFamily.type === "openai" ||
+                  selectedLLMFamily.id === "anthropic" ||
+                  selectedLLMFamily.id === "google" ||
+                  selectedLLMFamily.id === "groq" ||
+                  selectedLLMFamily.id === "openrouter" ||
+                  selectedLLMFamily.id === "opencode-zen") && (
+                  <div className="space-y-1">
+                    <label className="font-mono text-[10px] font-bold tracking-wider text-primary-400 uppercase flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <KeyRound size={12} className="text-primary-400" />
+                        {llmAuthProtocol === "Bearer Token" ? "BEARER TOKEN" : "API KEY"} ({selectedLLMFamily.name.toUpperCase()})
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-normal">Stored securely in browser session</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showLlmApiKey ? "text" : "password"}
+                        value={llmApiKey}
+                        onChange={(e) => setLlmApiKey(e.target.value)}
+                        placeholder={`Enter ${selectedLLMFamily.name} ${llmAuthProtocol === "Bearer Token" ? "Token" : "API Key"}...`}
+                        className="w-full bg-slate-950/70 border border-primary-500/40 rounded-xl pl-3 pr-10 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-400 transition-all font-mono placeholder:text-slate-600 shadow-inner"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLlmApiKey(!showLlmApiKey)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-primary-400 transition-colors"
+                        title={showLlmApiKey ? "Hide Key" : "Show Key"}
+                      >
+                        {showLlmApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Chat Model Selection with CustomSelect */}
                 <div className="space-y-1">
                   <label className="font-mono text-[10px] font-bold tracking-wider text-slate-400 uppercase">
@@ -2064,6 +2214,39 @@ export default function ProvidersPage() {
                     )}
                   </div>
                 </div>
+
+                {/* API Key Input Field for Embedding */}
+                {(embeddingAuthProtocol === "API Key" ||
+                  embeddingAuthProtocol === "Bearer Token" ||
+                  selectedEmbeddingFamily?.type === "openai" ||
+                  selectedEmbeddingFamily?.id === "openai-embed") && (
+                  <div className="space-y-1">
+                    <label className="font-mono text-[10px] font-bold tracking-wider text-primary-400 uppercase flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <KeyRound size={12} className="text-primary-400" />
+                        {embeddingAuthProtocol === "Bearer Token" ? "BEARER TOKEN" : "API KEY"} ({selectedEmbeddingFamily.name.toUpperCase()})
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-normal">Stored securely in browser session</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showEmbeddingApiKey ? "text" : "password"}
+                        value={embeddingApiKey}
+                        onChange={(e) => setEmbeddingApiKey(e.target.value)}
+                        placeholder={`Enter ${selectedEmbeddingFamily.name} API Key...`}
+                        className="w-full bg-slate-950/70 border border-primary-500/40 rounded-xl pl-3 pr-10 py-2 text-xs text-slate-200 focus:outline-none focus:border-primary-400 transition-all font-mono placeholder:text-slate-600 shadow-inner"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEmbeddingApiKey(!showEmbeddingApiKey)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-primary-400 transition-colors"
+                        title={showEmbeddingApiKey ? "Hide Key" : "Show Key"}
+                      >
+                        {showEmbeddingApiKey ? <EyeOff size={14} /> : <Eye size={14} />}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Embedding Model with CustomSelect */}
                 <div className="space-y-1">
@@ -3224,5 +3407,7 @@ export default function ProvidersPage() {
         )}
       </AnimatePresence>
     </div>
+    <ProvidersManual open={manualOpen} onClose={() => setManualOpen(false)} />
+  </>
   );
 }

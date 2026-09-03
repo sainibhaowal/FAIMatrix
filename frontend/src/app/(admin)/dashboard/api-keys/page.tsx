@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BookOpen,
   ChevronDown,
   Copy,
   Eye,
@@ -28,6 +29,7 @@ import {
   useToast,
 } from "@/components/ui";
 import { GlassHeader } from "@/components/layout/GlassHeader";
+import { ApiKeysManual } from "@/components/manuals/ApiKeysManual";
 
 type ApiKeyItem = {
   tenant_id: string;
@@ -290,6 +292,7 @@ export default function ApiKeysPage() {
   const [auditItems, setAuditItems] = useState<ApiKeyAuditItem[]>([]);
   const [loadingKeys, setLoadingKeys] = useState(false);
   const [loadingAudit, setLoadingAudit] = useState(false);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const [includeRevoked, setIncludeRevoked] = useState(true);
   const [auditKeyFilter, setAuditKeyFilter] = useState("all");
@@ -496,27 +499,38 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div className="relative min-h-screen space-y-4 pb-8 text-slate-100 px-1">
-      <div className="faim-grid" />
+    <>
+      <div className="relative min-h-screen space-y-4 pb-8 text-slate-100 px-1">
+        <div className="faim-grid" />
 
-      <GlassHeader
+        <GlassHeader
         title="API Keys"
         subtitle="Manage Secure Access Matrix and Tenant-Scoped Lifecycle"
         icon={KeyRound}
         titleTestId="api-keys-page-title"
         actions={
-          <Button
-            variant="outline"
-            leftIcon={<RefreshCw size={14} />}
-            onClick={() => {
-              void loadKeys();
-              void loadAudit();
-            }}
-            className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 backdrop-blur-md h-10 px-5 text-[11px] font-bold uppercase tracking-[0.2em]"
-            disabled={loadingKeys || loadingAudit}
-          >
-            Refresh Matrix
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              leftIcon={<BookOpen size={13} />}
+              onClick={() => setManualOpen(true)}
+              className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 backdrop-blur-md h-10 px-5 text-[11px] font-bold uppercase tracking-[0.2em]"
+            >
+              User Manual
+            </Button>
+            <Button
+              variant="outline"
+              leftIcon={<RefreshCw size={14} />}
+              onClick={() => {
+                void loadKeys();
+                void loadAudit();
+              }}
+              className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 backdrop-blur-md h-10 px-5 text-[11px] font-bold uppercase tracking-[0.2em]"
+              disabled={loadingKeys || loadingAudit}
+            >
+              Refresh Matrix
+            </Button>
+          </>
         }
       />
 
@@ -1007,5 +1021,7 @@ export default function ApiKeysPage() {
         </div>
       </div>
     </div>
+    <ApiKeysManual open={manualOpen} onClose={() => setManualOpen(false)} />
+  </>
   );
 }

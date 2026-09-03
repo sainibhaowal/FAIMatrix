@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BookOpen,
   FileSearch,
   FileText,
   RefreshCw,
@@ -35,6 +36,7 @@ import React, {
   useState,
 } from "react";
 import { GlassHeader } from "@/components/layout/GlassHeader";
+import { StorageManual } from "@/components/manuals/StorageManual";
 
 import {
   Badge,
@@ -595,6 +597,7 @@ export default function StoragePage() {
     (session as { graphId?: string } | null)?.graphId || "default";
   const [graphScopeInput, setGraphScopeInput] = useState(sessionGraphId);
   const [graphScope, setGraphScope] = useState(sessionGraphId);
+  const [manualOpen, setManualOpen] = useState(false);
 
   const [files, setFiles] = useState<StorageFileItem[]>([]);
   const [summary, setSummary] = useState<StorageSummary | null>(null);
@@ -1814,32 +1817,42 @@ export default function StoragePage() {
   }
 
   return (
-    <div className="relative space-y-4 pb-8 text-slate-100 px-1">
-      <div className="faim-grid" />
+    <>
+      <div className="relative space-y-4 pb-8 text-slate-100 px-1">
+        <div className="faim-grid" />
 
-      <GlassHeader
+        <GlassHeader
         title="Storage Control"
         titleTestId="storage-page-title"
         subtitle={`Immutable Provenance & Ingest Lifecycle · Graph Scope: ${activeGraphId}`}
         icon={Database}
         actions={
-          <div className="flex items-center gap-2">
-
-            <label
-              className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/5 px-5 h-10 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
-              style={{ color: "var(--text-primary)" }}
+          <>
+            <Button
+              variant="outline"
+              leftIcon={<BookOpen size={13} />}
+              onClick={() => setManualOpen(true)}
+              className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 backdrop-blur-md h-10 px-5 text-[11px] font-bold uppercase tracking-[0.2em]"
             >
-              <UploadCloud size={14} className="opacity-80" />
-              Upload Matrix
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                onChange={onInputFiles}
-                disabled={!ingestModePolicy.supported}
-              />
-            </label>
-          </div>
+              User Manual
+            </Button>
+            <div className="flex items-center gap-2">
+              <label
+                className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/5 px-5 h-10 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
+                style={{ color: "var(--text-primary)" }}
+              >
+                <UploadCloud size={14} className="opacity-80" />
+                Upload Matrix
+                <input
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={onInputFiles}
+                  disabled={!ingestModePolicy.supported}
+                />
+              </label>
+            </div>
+          </>
         }
       />
 
@@ -3788,5 +3801,7 @@ export default function StoragePage() {
         )}
       </AnimatePresence>
     </div>
+    <StorageManual open={manualOpen} onClose={() => setManualOpen(false)} />
+  </>
   );
 }

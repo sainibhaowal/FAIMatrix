@@ -33,18 +33,10 @@ export const GraphHealthChart: React.FC<GraphHealthChartProps> = ({ data }) => {
     spectral: true,
   });
 
-  const chartData = data.length > 0 ? data : [
-    { time: "00:00", entropy: 0, density: 0, spectral_radius: 0 },
-    { time: "04:00", entropy: 0.12, density: 0.05, spectral_radius: 0.2 },
-    { time: "08:00", entropy: 0.35, density: 0.18, spectral_radius: 0.45 },
-    { time: "12:00", entropy: 0.58, density: 0.32, spectral_radius: 0.68 },
-    { time: "16:00", entropy: 0.72, density: 0.41, spectral_radius: 0.81 },
-    { time: "20:00", entropy: 0.85, density: 0.49, spectral_radius: 0.92 },
-  ];
+  const chartData = data.length > 0 ? data : [];
 
-  return (
+  const EmptyState = () => (
     <div className="flex flex-col h-full w-full">
-      {/* Series Toggle Controls */}
       <div className="flex items-center justify-between mb-3 px-1">
         <div className="flex items-center space-x-2">
           <button
@@ -81,7 +73,7 @@ export const GraphHealthChart: React.FC<GraphHealthChartProps> = ({ data }) => {
             className={`px-2 py-0.5 rounded text-[10px] font-mono tracking-wider transition-colors border ${
               activeSeries.spectral
                 ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
-                : "bg-slate-800/40 text-slate-700/30"
+                : "bg-slate-800/40 text-slate-500 border-slate-700/30"
             }`}
           >
             ● Spectral (Λ)
@@ -90,7 +82,71 @@ export const GraphHealthChart: React.FC<GraphHealthChartProps> = ({ data }) => {
         <span className="text-[10px] text-slate-500 font-mono">Realtime Scorecard</span>
       </div>
 
-      {/* Recharts Canvas */}
+      <div className="h-[300px] w-full relative">
+        <div className="flex flex-col items-center justify-center h-full w-full gap-3 bg-slate-950/60 rounded border border-slate-800/50">
+          <span className="w-12 h-12 rounded-full border-2 border-cyan-500/30 flex items-center justify-center">
+            <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </span>
+          <p className="text-xs font-mono text-slate-400">No scorecard history yet</p>
+          <p className="text-[10px] text-slate-600">Graph health metrics appear after activity</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (chartData.length === 0) {
+    return <EmptyState />;
+  }
+
+  return (
+    <div className="flex flex-col h-full w-full">
+      <div className="flex items-center justify-between mb-3 px-1">
+        <div className="flex items-center space-x-2">
+          <button
+            type="button"
+            onClick={() =>
+              setActiveSeries((s) => ({ ...s, entropy: !s.entropy }))
+            }
+            className={`px-2 py-0.5 rounded text-[10px] font-mono tracking-wider transition-colors border ${
+              activeSeries.entropy
+                ? "bg-cyan-500/20 text-cyan-300 border-cyan-500/40"
+                : "bg-slate-800/40 text-slate-500 border-slate-700/30"
+            }`}
+          >
+            ● Entropy (H)
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setActiveSeries((s) => ({ ...s, density: !s.density }))
+            }
+            className={`px-2 py-0.5 rounded text-[10px] font-mono tracking-wider transition-colors border ${
+              activeSeries.density
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                : "bg-slate-800/40 text-slate-500 border-slate-700/30"
+            }`}
+          >
+            ● Density (D)
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              setActiveSeries((s) => ({ ...s, spectral: !s.spectral }))
+            }
+            className={`px-2 py-0.5 rounded text-[10px] font-mono tracking-wider transition-colors border ${
+              activeSeries.spectral
+                ? "bg-purple-500/20 text-purple-300 border-purple-500/40"
+                : "bg-slate-800/40 text-slate-500 border-slate-700/30"
+            }`}
+          >
+            ● Spectral (Λ)
+          </button>
+        </div>
+        <span className="text-[10px] text-slate-500 font-mono">Realtime Scorecard</span>
+      </div>
+
       <div className="h-[300px] w-full relative">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
