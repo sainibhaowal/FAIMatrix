@@ -538,28 +538,28 @@ export function CommandCenterManual({
               cells: [
                 "Evolution Workers",
                 "Asynchronous background workers executing graph entropy reduction and memory self-organization passes.",
-                <span className="font-mono text-[10px] text-emerald-300">IDLE · RUNNING (X active) · OFFLINE</span>,
+                <span key="evolution-workers" className="font-mono text-[10px] text-emerald-300">IDLE · RUNNING (X active) · OFFLINE</span>,
               ],
             },
             {
               cells: [
                 "Ingest Pipeline",
                 "Multi-stage document parsing, markdown extraction, token chunking, and semantic embedding generation.",
-                <span className="font-mono text-[10px] text-cyan-300">IDLE · QUEUED · N jobs/s throughput</span>,
+                <span key="ingest-pipeline" className="font-mono text-[10px] text-cyan-300">IDLE · QUEUED · N jobs/s throughput</span>,
               ],
             },
             {
               cells: [
                 "Vector Index",
                 "Qdrant HNSW vector search database connection health, payload filtering, and indexing status.",
-                <span className="font-mono text-[10px] text-violet-300">CONNECTED · DISCONNECTED</span>,
+                <span key="vector-index" className="font-mono text-[10px] text-violet-300">CONNECTED · DISCONNECTED</span>,
               ],
             },
             {
               cells: [
                 "GPU Accelerator",
                 "NVIDIA CUDA hardware offloading for embedding inference and deep neural re-ranking models.",
-                <span className="font-mono text-[10px] text-amber-300">CUDA ACTIVE · CPU FALLBACK · DISABLED</span>,
+                <span key="gpu-accelerator" className="font-mono text-[10px] text-amber-300">CUDA ACTIVE · CPU FALLBACK · DISABLED</span>,
               ],
             },
           ]}
