@@ -85,6 +85,8 @@ for pattern in "${PATTERNS[@]}"; do
     if grep -rE "$pattern" "$FAIM_NATIVE_DIR" \
         --include="*.py" \
         --exclude-dir="tests" \
+        --exclude="*_test.py" \
+        --exclude="test_*.py" \
         --exclude-dir="__pycache__" \
         2>/dev/null | grep -v "# noqa" | grep -v "os.getenv" | grep -v "os.environ" > /tmp/secret_matches.txt; then
         

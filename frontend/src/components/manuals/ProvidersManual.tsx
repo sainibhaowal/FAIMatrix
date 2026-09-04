@@ -96,13 +96,13 @@ export function ProvidersManual({ open, onClose }: { open: boolean; onClose: () 
         <DTable
           head={["Property", "Description"]}
           rows={[
-            { cells: [<span className="font-mono">id</span>, "Unique system identifier"] },
-            { cells: [<span className="font-mono">name</span>, "Human-readable label"] },
-            { cells: [<span className="font-mono">code</span>, "Machine-readable slug (e.g. openai)"] },
-            { cells: [<span className="font-mono">type</span>, "openai / anthropic / google / custom / local"] },
-            { cells: [<span className="font-mono">defaultUrl</span>, "API base URL"] },
-            { cells: [<span className="font-mono">models</span>, "Comma-separated model names"] },
-            { cells: [<span className="font-mono">status</span>, "active / inactive / deprecated"] },
+            { cells: [<span key="id" className="font-mono">id</span>, "Unique system identifier"] },
+            { cells: [<span key="name" className="font-mono">name</span>, "Human-readable label"] },
+            { cells: [<span key="code" className="font-mono">code</span>, "Machine-readable slug (e.g. openai)"] },
+            { cells: [<span key="type" className="font-mono">type</span>, "openai / anthropic / google / custom / local"] },
+            { cells: [<span key="default-url" className="font-mono">defaultUrl</span>, "API base URL"] },
+            { cells: [<span key="models" className="font-mono">models</span>, "Comma-separated model names"] },
+            { cells: [<span key="status" className="font-mono">status</span>, "active / inactive / deprecated"] },
           ]}
         />
         <p>

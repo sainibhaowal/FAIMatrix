@@ -49,8 +49,8 @@ export function ApiKeysManual({ open, onClose }: { open: boolean; onClose: () =>
         <DTable
           head={["Header", "Value", "Purpose"]}
           rows={[
-            { cells: [<span className="font-mono text-cyan-300">X-Api-Key</span>, "the plaintext key", "Proves possession of the credential"] },
-            { cells: [<span className="font-mono text-cyan-300">X-Tenant-Id</span>, "tenant id (e.g. default)", "Selects the tenant namespace"] },
+            { cells: [<span key="api-key" className="font-mono text-cyan-300">X-Api-Key</span>, "the plaintext key", "Proves possession of the credential"] },
+            { cells: [<span key="tenant-id" className="font-mono text-cyan-300">X-Tenant-Id</span>, "tenant id (e.g. default)", "Selects the tenant namespace"] },
           ]}
         />
         <Callout tone="warn" title="Tenant isolation">
@@ -92,13 +92,13 @@ export function ApiKeysManual({ open, onClose }: { open: boolean; onClose: () =>
         <DTable
           head={["Scope", "Allows"]}
           rows={[
-            { cells: [<span className="font-mono">storage.read</span>, "List and inspect stored files and provenance"] },
-            { cells: [<span className="font-mono">storage.write</span>, "Upload and ingest new files"] },
-            { cells: [<span className="font-mono">storage.approve</span>, "Approve or reject pending storage actions"] },
-            { cells: [<span className="font-mono">graph.read</span>, "Read knowledge graph state"] },
-            { cells: [<span className="font-mono">graph.write</span>, "Mutate the knowledge graph"] },
-            { cells: [<span className="font-mono">keys.manage</span>, "Create, rotate and revoke API keys"] },
-            { cells: [<span className="font-mono">cortex.chat</span>, "Use the Cortex reasoning/chat engine"] },
+            { cells: [<span key="storage-read" className="font-mono">storage.read</span>, "List and inspect stored files and provenance"] },
+            { cells: [<span key="storage-write" className="font-mono">storage.write</span>, "Upload and ingest new files"] },
+            { cells: [<span key="storage-approve" className="font-mono">storage.approve</span>, "Approve or reject pending storage actions"] },
+            { cells: [<span key="graph-read" className="font-mono">graph.read</span>, "Read knowledge graph state"] },
+            { cells: [<span key="graph-write" className="font-mono">graph.write</span>, "Mutate the knowledge graph"] },
+            { cells: [<span key="keys-manage" className="font-mono">keys.manage</span>, "Create, rotate and revoke API keys"] },
+            { cells: [<span key="cortex-chat" className="font-mono">cortex.chat</span>, "Use the Cortex reasoning/chat engine"] },
           ]}
         />
       </SectionHeading>

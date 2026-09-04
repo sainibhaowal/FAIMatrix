@@ -5,13 +5,40 @@ import {
   ManualShell,
   SectionHeading,
   SubHeading,
+  type TocItem,
 } from "@/components/manuals/ManualShell";
 
-const CortexManual: React.FC = () => {
+const TOC: TocItem[] = [
+  { id: "overview", label: "1. Inline Approval Flow" },
+  { id: "architecture", label: "2. Architecture Overview" },
+  { id: "modal", label: "3. Inline Approval Modal" },
+  { id: "history-panel", label: "4. Approval History Panel" },
+  { id: "integration", label: "5. CortexChat Integration" },
+  { id: "responsive", label: "6. Responsive Design" },
+  { id: "heartbeat", label: "7. WebSocket Heartbeat" },
+  { id: "use-cases", label: "8. Use Cases & User Flows" },
+  { id: "activity-flows", label: "9. Activity Flow" },
+  { id: "sequence", label: "10. Sequence Diagrams" },
+  { id: "configuration", label: "11. Configuration" },
+  { id: "troubleshooting", label: "12. Troubleshooting" },
+  { id: "workflow", label: "13. End-to-End Workflow" },
+];
+
+export function CortexManual({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   return (
     <ManualShell
+      open={open}
+      onClose={onClose}
       title="FAIM Cortex Manual"
-      description="Comprehensive documentation for the FAIM Cortex system"
+      subtitle="Inline approvals · WebSocket chat · audit history"
+      toc={TOC}
+      accent="#22d3ee"
     >
       <SectionHeading id="overview" kicker="Chapter 7b" title="7b. Inline Approval Flow & History Panel">
         <p>
@@ -68,7 +95,7 @@ const CortexManual: React.FC = () => {
         <ul className="list-disc list-inside text-slate-400 space-y-1 mt-2">
           <li>xl+ screens (1280px+): Sidebar always visible by default, toggle hides/shows</li>
           <li>lg screens (1024-1279px): Sidebar hidden by default, toggle shows</li>
-          <li>md/sm screens (<1024px): Sidebar hidden, toggle shows as overlay panel</li>
+          <li>md/sm screens (&lt;1024px): Sidebar hidden, toggle shows as overlay panel</li>
           <li>Chat area: Flex-1 expands to fill available space when sidebar hidden</li>
           <li>Padding: sm:px-6 sm:py-6 on container, sm:px-6 sm:py-4 on messages area</li>
           <li>Touch targets: Minimum 44px for all interactive elements on mobile</li>
@@ -101,10 +128,10 @@ Trigger: Cortex proposes storage_delete tool
 Flow:
   1. CortexChat receives tool_call WS event (approval_id: 42)
   2. InlineApprovalModal opens in chat stream (portal)
-  3. Operator reviews: tool=storage_delete, args={path:"/data/old.pdf"}, reason="Cleanup"
+  3. Operator reviews: tool=storage_delete, args=&#123;path:"/data/old.pdf"&#125;, reason="Cleanup"
   4. Operator enters note: "Approved per retention policy"
   5. Operator clicks Approve (Cmd+Enter)
-  6. Frontend sends: {"type":"approve_tool","payload":{"approval_id":42,"note":"Approved per retention policy"}}
+  6. Frontend sends: &#123;"type":"approve_tool","payload":&#123;"approval_id":42,"note":"Approved per retention policy"&#125;&#125;
   7. Backend: updates tool_approvals status="approved", executes tool
   8. Backend emits tool_approved WS event
   9. CortexChat: shows "✅ Tool approved and executed", removes from pending
@@ -120,11 +147,11 @@ Actor: Security Officer
 Trigger: Cortex proposes storage_ingest with suspicious path
 Flow:
   1. CortexChat receives tool_call WS event (approval_id: 43)
-  2. InlineApprovalModal opens: tool=storage_ingest, args={path:"/etc/passwd"}
+  2. InlineApprovalModal opens: tool=storage_ingest, args=&#123;path:"/etc/passwd"&#125;
   3. Officer reviews: reason="Ingest system file", suspicious path
   3. Officer enters note: "Denied - path traversal attempt detected"
   4. Officer clicks Deny
-  4. Frontend sends: {"type":"reject_tool","payload":{"approval_id":43,"note":"Denied - path traversal attempt detected"}}
+  4. Frontend sends: &#123;"type":"reject_tool","payload":&#123;"approval_id":43,"note":"Denied - path traversal attempt detected"&#125;&#125;
   5. Backend: updates tool_approvals status="rejected", logs rejection
   6. Backend emits tool_rejected WS event
   7. CortexChat: shows "❌ Tool rejected", removes from pending
@@ -167,7 +194,7 @@ Result: Compliance verified, audit trail complete
 │        │         │            INLINE MODAL OPENS (Portal)               │   │           │
 │        │         │  ┌─────────────────────────────────────────────────┐ │   │           │
 │        │         │  │ Tool: storage_delete  ID: #42  Status: PENDING │ │   │           │
-│        │         │  │ Args: {path: "/data/old.pdf"}                    │ │   │           │
+│        │         │  │ Args: &#123;path: "/data/old.pdf"&#125;                    │ │   │           │
 │        │         │  │ Reason: Cleanup old backup files                 │ │   │           │
 │        │         │  │ [Expand Args ▼]  [Note: ________________]       │ │   │           │
 │        │         │  │ [Deny]                    [Approve ⌘+Enter]    │ │   │           │
@@ -216,7 +243,7 @@ User          CortexChat        WebSocket         Backend API         Database
   │             │                 │                   │                   │
   │             │──approve_tool──►│                   │                   │
   │             │                 │                   │──POST /tool-      │
-  │             │                 │   approvals/{id}  │
+  │             │                 │   approvals/&#123;id&#125;  │
   │             │                 │                   │──UPDATE
   │             │                 │                   │  tool_approvals
 │             │                 │                   │  SET status=
@@ -248,7 +275,7 @@ Officer       │                 │                   │                   �
   │             │──reject_tool────►│                   │                   │
   │             │   (with note)   │                   │                   │
   │             │                 │                   │──POST /tool-      │
-  │             │                 │   approvals/{id}  │
+  │             │                 │   approvals/&#123;id&#125;  │
   │             │                 │                   │──UPDATE
   │             │                 │                   │  tool_approvals
 │             │                 │                   │  SET status=
@@ -306,41 +333,41 @@ FAIM_APPROVAL_MAX_RECONNECTS=5
         <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
           <p className="text-xs font-bold text-cyan-300 mb-2">Tenant Policy Configuration (JSON):</p>
           <pre className="text-[9px] font-mono text-slate-400 overflow-x-auto">
-{
-  "approval_policy": {
+&#123;
+  "approval_policy": &#123;
     "default_action": "pending_review",
     "auto_approve_tools": ["storage_ingest", "search"],
     "require_note_on_reject": true,
     "require_note_on_approve": false,
     "auto_expire_hours": 24,
     "notify_on_pending": true,
-    "escalation": {
+    "escalation": &#123;
       "enabled": true,
       "after_hours": 4,
       "escalate_to": ["security@company.com", "admin@company.com"]
-    }
-  }
-}
+    &#125;
+  &#125;
+&#125;
           </pre>
         </div>
         <div className="p-3 bg-slate-900/50 rounded-lg border border-slate-700/50">
           <p className="text-xs font-bold text-cyan-300 mb-2">Frontend Customization (React Props):</p>
           <pre className="text-[9px] font-mono text-slate-400 overflow-x">
 InlineApprovalModal props:
-  approval={approvalObject}
-  onApprove={(id, note) => handleApprove(id, note)}
-  onReject={(id, note) => handleReject(id, note)}
-  onClose={() => setIsModalOpen(false)}
-  isLoading={false}
-  showArgsDefaultExpanded={true}
-  requireNote={false}
-  customActionLabels={{ approve: "Confirm", reject: "Decline", cancel: "Dismiss" }}
+  approval=&#123;approvalObject&#125;
+  onApprove=&#123;(id, note) =&gt; handleApprove(id, note)&#125;
+  onReject=&#123;(id, note) =&gt; handleReject(id, note)&#125;
+  onClose=&#123;() =&gt; setIsModalOpen(false)&#125;
+  isLoading=&#123;false&#125;
+  showArgsDefaultExpanded=&#123;true&#125;
+  requireNote=&#123;false&#125;
+  customActionLabels=&#123;&#123; approve: "Confirm", reject: "Decline", cancel: "Dismiss" &#125;&#125;
 
 ApprovalHistoryPanel props:
-  threadId={currentThreadId}
-  showFilter={true}
-  pageSize={20}
-  onRowClick={(approval) => {}}
+  threadId=&#123;currentThreadId&#125;
+  showFilter=&#123;true&#125;
+  pageSize=&#123;20&#125;
+  onRowClick=&#123;(approval) =&gt; &#123;&#125;&#125;
           </pre>
         </div>
       </SectionHeading>
@@ -377,10 +404,10 @@ ApprovalHistoryPanel props:
         <div className="p-3 bg-slate-900/50 rounded-lg border border-cyan-500/30">
           <p className="text-xs font-bold text-cyan-300 mb-2">Best Practice: Sidebar Management</p>
           <ul className="list-disc list-inside text-xs text-slate-400 space-y-1 ml-4">
-            <li>Keep sidebar closed on mobile (<1024px) for maximum chat space</li>
+            <li>Keep sidebar closed on mobile (&lt;1024px) for maximum chat space</li>
             <li>Use localStorage to persist sidebarOpen preference</li>
             <li>Test on actual mobile devices</li>
-            <li>Verify touch targets >= 44px</li>
+            <li>Verify touch targets &gt;= 44px</li>
           </ul>
         </div>
       </SectionHeading>
@@ -401,7 +428,7 @@ ApprovalHistoryPanel props:
 │  2. TOOL CALL DETECTION                                                                  │
 │     ├─ Cortex identifies tool requiring approval (e.g., storage_delete)                 │
 │     ├─ Backend creates approval record: INSERT INTO tool_approvals (status='pending')  │
-│     ├─ Backend emits WS: {type: "tool_call", payload: {approval_id: 42, tool_name, args, reason}}│
+│     ├─ Backend emits WS: &#123;type: "tool_call", payload: &#123;approval_id: 42, tool_name, args, reason&#125;&#125;│
 │     └─ Frontend receives via WebSocket onToolCall callback                              │
 │                                                                                          │
 │  3. INLINE MODAL PRESENTATION                                                            │
@@ -414,16 +441,16 @@ ApprovalHistoryPanel props:
 │  4. USER DECISION                                                                        │
 │     ├─ APPROVE path:                                                                    │
 │     │  ├─ User clicks Approve (or ⌘+Enter)                                             │
-│     │  ├─ Frontend sends: WS.send({type:"approve_tool", payload:{approval_id, note}}) │
+│     │  ├─ Frontend sends: WS.send(&#123;type:"approve_tool", payload:&#123;approval_id, note&#125;&#125;) │
 │     │  ├─ Backend: UPDATE tool_approvals SET status='approved', note=?, executed_at=NOW│
 │     │  ├─ Backend executes tool, writes result to pulse_v2 ledger                      │
-│     │  └─ Backend emits WS: {type: "tool_approved", payload: {approval_id, result}}   │
+│     │  └─ Backend emits WS: &#123;type: "tool_approved", payload: &#123;approval_id, result&#125;&#125;   │
 │     │                                                                                   │
 │     └─ REJECT path:                                                                     │
 │        ├─ User clicks Deny (or Escape)                                                 │
-│        ├─ Frontend sends: WS.send({type:"reject_tool", payload:{approval_id, note}})  │
+│        ├─ Frontend sends: WS.send(&#123;type:"reject_tool", payload:&#123;approval_id, note&#125;&#125;)  │
 │        ├─ Backend: UPDATE tool_approvals SET status='rejected', note=?, rejected_at=NOW│
-│        └─ Backend emits WS: {type: "tool_rejected", payload: {approval_id, reason}}   │
+│        └─ Backend emits WS: &#123;type: "tool_rejected", payload: &#123;approval_id, reason&#125;&#125;   │
 │                                                                                          │
 │  5. FRONTEND RESOLUTION                                                                  │
 │     ├─ CortexChat receives tool_approved/tool_rejected WS event                        │

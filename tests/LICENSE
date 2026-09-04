@@ -1,1 +1,6 @@
-TODO: Decide FAIM license (MIT / Apache-2.0 / Proprietary).
+# License pointer
+
+FAIM-Native source code is licensed under the Apache License 2.0.
+The canonical license text is in the repository root at `../LICENSE`.
+
+Documentation and original non-code assets are covered by `../LICENSE-DOCS.md`.
