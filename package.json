@@ -18,6 +18,7 @@
     "faim:cleanup": "docker system prune -f",
     "tsc": "cd frontend && npm run typecheck",
     "eslint": "cd frontend && npm run lint",
-    "prettier": "cd frontend && npm run format:check"
+    "prettier": "cd frontend && npm run format:check",
+    "release": "semantic-release"
   }
 }

@@ -1,0 +1,18 @@
+# Registry-only production override used by the manual GitHub deployment.
+# Local development and the existing manual VPS build flow are unchanged.
+services:
+  migrate:
+    image: ${FAIM_IMAGE_PREFIX:?FAIM_IMAGE_PREFIX required}/backend:${FAIM_IMAGE_TAG:?FAIM_IMAGE_TAG required}
+    build: !reset null
+
+  api:
+    image: ${FAIM_IMAGE_PREFIX:?FAIM_IMAGE_PREFIX required}/backend:${FAIM_IMAGE_TAG:?FAIM_IMAGE_TAG required}
+    build: !reset null
+
+  worker:
+    image: ${FAIM_IMAGE_PREFIX:?FAIM_IMAGE_PREFIX required}/backend:${FAIM_IMAGE_TAG:?FAIM_IMAGE_TAG required}
+    build: !reset null
+
+  frontend:
+    image: ${FAIM_IMAGE_PREFIX:?FAIM_IMAGE_PREFIX required}/frontend:${FAIM_IMAGE_TAG:?FAIM_IMAGE_TAG required}
+    build: !reset null
