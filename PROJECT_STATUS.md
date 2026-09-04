@@ -8,6 +8,8 @@ The project is ambitious by design: it spans ingestion, evidence preservation, n
 
 For the formal research framing, limits of current claims, and evaluation questions, read [`RESEARCH_POSITIONING.md`](RESEARCH_POSITIONING.md). For the current maturity interpretation and safe evaluation procedure, read [`EXPERIMENTAL_STATUS.md`](EXPERIMENTAL_STATUS.md). For planned hardening and release criteria, read [`ROADMAP.md`](ROADMAP.md).
 
+The implementation-grounded component inventory and lifecycle diagrams are in [`docs/END_TO_END_ARCHITECTURE.md`](docs/END_TO_END_ARCHITECTURE.md). They intentionally distinguish current services from optional integrations and future infrastructure.
+
 ## Present in the repository
 
 - FastAPI API with health, readiness, authentication, tenant auth, memory, ingest, query, graph, events, evolution, storage, Cortex, and benchmark routes;
