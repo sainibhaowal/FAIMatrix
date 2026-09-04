@@ -53,10 +53,10 @@ export function ApprovalQueueManual({ open, onClose }: { open: boolean; onClose:
         <DTable
           head={["Card", "Color", "Meaning"]}
           rows={[
-            { cells: ["Total", <span className="text-slate-300">neutral</span>, "All approval records in the queue"] },
-            { cells: ["Pending", <span className="text-amber-300">amber</span>, "Awaiting a human decision"] },
-            { cells: ["Approved", <span className="text-emerald-300">emerald</span>, "Granted and (normally) executed"] },
-            { cells: ["Rejected", <span className="text-rose-300">rose</span>, "Denied with a recorded reason"] },
+            { cells: ["Total", <span key="total" className="text-slate-300">neutral</span>, "All approval records in the queue"] },
+            { cells: ["Pending", <span key="pending" className="text-amber-300">amber</span>, "Awaiting a human decision"] },
+            { cells: ["Approved", <span key="approved" className="text-emerald-300">emerald</span>, "Granted and (normally) executed"] },
+            { cells: ["Rejected", <span key="rejected" className="text-rose-300">rose</span>, "Denied with a recorded reason"] },
           ]}
         />
       </SectionHeading>
@@ -97,10 +97,10 @@ export function ApprovalQueueManual({ open, onClose }: { open: boolean; onClose:
         <DTable
           head={["Execution", "Icon", "Meaning"]}
           rows={[
-            { cells: ["executed", <span className="text-emerald-300">✓ Executed</span>, "The approved action ran successfully"] },
-            { cells: ["failed", <span className="text-rose-300">✗ Failed</span>, "Approved but execution errored"] },
-            { cells: ["skipped", <span className="text-amber-300">⊘ Skipped</span>, "Approved but not run (e.g. superseded)"] },
-            { cells: ["pending", <span className="text-slate-400">—</span>, "Not yet executed"] },
+            { cells: ["executed", <span key="executed" className="text-emerald-300">✓ Executed</span>, "The approved action ran successfully"] },
+            { cells: ["failed", <span key="failed" className="text-rose-300">✗ Failed</span>, "Approved but execution errored"] },
+            { cells: ["skipped", <span key="skipped" className="text-amber-300">⊘ Skipped</span>, "Approved but not run (e.g. superseded)"] },
+            { cells: ["pending", <span key="execution-pending" className="text-slate-400">—</span>, "Not yet executed"] },
           ]}
         />
       </SectionHeading>
