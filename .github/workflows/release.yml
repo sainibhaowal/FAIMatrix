@@ -1,0 +1,58 @@
+name: Semantic release
+
+# Releases are deliberately manual. Run this workflow from the GitHub Actions
+# UI after the desired commits have reached main.
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Validate the next release without creating a tag or release
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: semantic-release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Analyze and publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install semantic-release tooling
+        run: |
+          npm install --no-save --ignore-scripts \
+            --package-lock=false \
+            semantic-release@24 \
+            @semantic-release/changelog@6 \
+            @semantic-release/commit-analyzer@13 \
+            @semantic-release/github@11 \
+            @semantic-release/git@10 \
+            @semantic-release/release-notes-generator@14
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            npx semantic-release --dry-run
+          else
+            npx semantic-release
+          fi

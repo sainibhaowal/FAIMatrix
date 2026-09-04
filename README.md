@@ -355,6 +355,7 @@ Readiness is stronger than liveness: it checks database connectivity, required t
 - [Experimental status and safe use](EXPERIMENTAL_STATUS.md)
 - [Research positioning](RESEARCH_POSITIONING.md)
 - [Roadmap and release gates](ROADMAP.md)
+- [CI, semantic releases, and VPS deployment](CI_CD.md)
 - [Security reporting policy](SECURITY.md)
 - [Support guide](SUPPORT.md)
 - [Contributing guide](CONTRIBUTING.md)

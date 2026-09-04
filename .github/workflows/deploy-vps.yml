@@ -1,0 +1,171 @@
+name: Deploy research VPS
+
+# Production deployment is deliberately manual. It never runs for ordinary
+# pushes or pull requests; use the Actions UI after CI has passed and review the
+# production environment approval before the deploy job starts.
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Image tag to deploy (blank uses the short commit SHA)
+        required: false
+        type: string
+      confirm:
+        description: Confirm that this is an intentional VPS deployment
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+concurrency:
+  group: research-vps-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_PREFIX: ghcr.io/sainibhaowal/faimatrix
+
+jobs:
+  build-images:
+    name: Build and publish immutable images
+    if: inputs.confirm == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: tag
+        shell: bash
+        run: |
+          requested='${{ inputs.image_tag }}'
+          if [[ -n "$requested" ]]; then
+            tag="$requested"
+          else
+            tag="sha-${GITHUB_SHA:0:12}"
+          fi
+          if [[ ! "$tag" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "Invalid Docker image tag: $tag" >&2
+            exit 1
+          fi
+          echo "image_tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and publish backend image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/backend:${{ steps.tag.outputs.image_tag }}
+            ${{ env.IMAGE_PREFIX }}/backend:sha-${{ github.sha }}
+          cache-from: type=gha,scope=faim-backend
+          cache-to: type=gha,mode=max,scope=faim-backend
+          provenance: true
+          sbom: true
+
+      - name: Build and publish frontend image
+        uses: docker/build-push-action@v7
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          build-args: |
+            NEXTAUTH_SECRET=ci-build-placeholder
+            NEXTAUTH_URL=https://faimatrix.com
+            API_HOST=faim-api:8000
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tag.outputs.image_tag }}
+            ${{ env.IMAGE_PREFIX }}/frontend:sha-${{ github.sha }}
+          cache-from: type=gha,scope=faim-frontend
+          cache-to: type=gha,mode=max,scope=faim-frontend
+          provenance: true
+          sbom: true
+
+  deploy:
+    name: Pull images and update VPS
+    if: inputs.confirm == true
+    needs: build-images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://faimatrix.com
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_PORT: ${{ secrets.VPS_PORT || '22' }}
+      VPS_PATH: ${{ secrets.VPS_PATH || '/opt/faim/FAIM' }}
+      VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+      VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+      GHCR_DEPLOY_USERNAME: ${{ secrets.GHCR_DEPLOY_USERNAME }}
+      GHCR_DEPLOY_TOKEN: ${{ secrets.GHCR_DEPLOY_TOKEN }}
+      IMAGE_TAG: ${{ needs.build-images.outputs.image_tag }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure SSH trust
+        shell: bash
+        run: |
+          test -n "$VPS_HOST"
+          test -n "$VPS_USER"
+          test -n "$VPS_SSH_KEY"
+          test -n "$VPS_KNOWN_HOSTS"
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$VPS_SSH_KEY" > "$HOME/.ssh/faim-vps"
+          chmod 600 "$HOME/.ssh/faim-vps"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Copy deployment descriptors
+        shell: bash
+        run: |
+          target="$VPS_USER@$VPS_HOST"
+          ssh_cmd=(ssh -i "$HOME/.ssh/faim-vps" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          rsync_ssh="ssh -i $HOME/.ssh/faim-vps -p $VPS_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes"
+          "${ssh_cmd[@]}" "$target" "mkdir -p '$VPS_PATH/scripts' '$VPS_PATH/deploy'"
+          rsync -az -e "$rsync_ssh" \
+            docker-compose.yml docker-compose.vps.yml docker-compose.registry.yml \
+            "$target:$VPS_PATH/"
+          rsync -az -e "$rsync_ssh" \
+            scripts/vps_deploy_ci.sh scripts/vps_smoke.sh \
+            "$target:$VPS_PATH/scripts/"
+          rsync -az -e "$rsync_ssh" \
+            deploy/Caddyfile.vps \
+            "$target:$VPS_PATH/deploy/"
+
+      - name: Authenticate VPS to GHCR
+        shell: bash
+        run: |
+          test -n "$GHCR_DEPLOY_USERNAME"
+          test -n "$GHCR_DEPLOY_TOKEN"
+          target="$VPS_USER@$VPS_HOST"
+          ssh_cmd=(ssh -i "$HOME/.ssh/faim-vps" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          printf '%s' "$GHCR_DEPLOY_TOKEN" | \
+            "${ssh_cmd[@]}" "$target" "docker login ghcr.io --username '$GHCR_DEPLOY_USERNAME' --password-stdin"
+
+      - name: Deploy exact image tag
+        shell: bash
+        run: |
+          target="$VPS_USER@$VPS_HOST"
+          ssh_cmd=(ssh -i "$HOME/.ssh/faim-vps" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes)
+          "${ssh_cmd[@]}" "$target" \
+            "cd '$VPS_PATH' && FAIM_IMAGE_PREFIX='$IMAGE_PREFIX' FAIM_IMAGE_TAG='$IMAGE_TAG' ./scripts/vps_deploy_ci.sh"
+
