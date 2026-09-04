@@ -13,6 +13,13 @@ All notable changes to FAIM-Native should be recorded here. This project is stil
 - Added explicit experimental-use boundaries and research-positioning language.
 - Added public-facing experimental status, research positioning, and roadmap documents.
 
+### CI/CD
+
+- Added parallel pull-request and manual CI quality checks.
+- Added manual semantic-release configuration with `vX.Y.Z` tags.
+- Added manual GHCR image publishing and guarded VPS deployment workflow.
+- Added registry Compose override and non-volume Docker cleanup deployment script.
+
 ### Release discipline
 
 Future entries should include:
