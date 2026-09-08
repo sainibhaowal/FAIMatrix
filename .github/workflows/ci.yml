@@ -17,6 +17,8 @@ jobs:
     name: Backend tests
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      FAIM_PYTEST_ISOLATE_DB: "1"
     steps:
       - name: Check out source
         uses: actions/checkout@v4
