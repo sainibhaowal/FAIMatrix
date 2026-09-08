@@ -84,7 +84,8 @@ deploy/ssl/
 .pytest_cache/
 
 # Development
-frontend/Docs/
+/frontend/Docs/
+/docs/
 faim_native/store/raw/blobs/
 scratch_*.py
 *.scratch.*
