@@ -36,7 +36,8 @@ def get_default_database_url() -> str:
     return str(
         os.getenv("TEST_DATABASE_URL")
         or os.getenv("FAIM_DATABASE_URL")
-        or os.getenv("DATABASE_URL", "sqlite:///Runtime/faim_test.db")
+        or os.getenv("DATABASE_URL")
+        or os.getenv("FAIM_TEST_DATABASE_URL", "sqlite:///Runtime/faim_test.db")
     )
 
 

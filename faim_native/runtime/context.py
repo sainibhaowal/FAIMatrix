@@ -47,7 +47,9 @@ def _is_production_env() -> bool:
 def _get_engine():
     """Get or create SQLAlchemy engine."""
     global _engine, _engine_db_url, _SessionLocal
-    db_url = os.getenv("DATABASE_URL", "sqlite:///Runtime/faim_test.db")
+    db_url = os.getenv("DATABASE_URL") or os.getenv(
+        "FAIM_TEST_DATABASE_URL", "sqlite:///Runtime/faim_test.db"
+    )
     if _engine is None or _engine_db_url != db_url:
         if _engine is not None:
             try:
