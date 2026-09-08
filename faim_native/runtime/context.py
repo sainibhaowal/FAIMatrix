@@ -58,6 +58,15 @@ def _get_engine():
                 pass
         from sqlalchemy import create_engine
 
+        # SQLite creates the database file but not missing parent
+        # directories.  This matters on clean checkouts where the ignored
+        # Runtime directory is absent; it is a no-op for PostgreSQL and
+        # in-memory SQLite URLs.
+        if db_url.startswith("sqlite"):
+            from store.pg.session import ensure_sqlite_parent
+
+            ensure_sqlite_parent(db_url)
+
         _engine = create_engine(db_url, echo=False)
         _engine_db_url = db_url
         _SessionLocal = None
