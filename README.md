@@ -2,7 +2,7 @@
 
 <p align="center">
   <strong>Fractal Antisymmetric Inheritance Memory</strong><br />
-  A deterministic, end-to-end memory graph engine for developers building retrieval, reasoning, and agent systems.
+  A native-first memory graph engine with deterministic core paths for developers building retrieval, reasoning, and agent systems.
 </p>
 
 <p align="center">
@@ -37,16 +37,16 @@ The result is a memory substrate designed for systems that need continuity, audi
 
 ## End-to-end system
 
-The following is the current implemented topology, based on `docker-compose.yml`, `docker-compose.vps.yml`, `api/app.py`, `runtime/context.py`, the ingest/query flows, and the durable worker. It separates the public edge, application services, canonical data, and optional acceleration paths.
+The following is the current implemented logical topology, based on the Compose services, FastAPI application, runtime context, ingest/query flows, and durable worker. It separates the deployment-provided edge, application services, canonical data, and optional acceleration paths without assuming a particular host, domain, or gateway.
 
 ```mermaid
 flowchart TB
     CLIENT["Browser or external API client"]
     OPERATOR["Operator or maintainer"]
-    DNS["DNS + TLS<br/>faimatrix.com"]
+    EDGE["Deployment-provided edge<br/>ingress / TLS as configured"]
 
-    subgraph EDGE["Public edge — VPS only"]
-        CADDY["Caddy 2<br/>TLS, headers, compression"]
+    subgraph PUBLIC["Application edge"]
+        PROXY["Reverse proxy / ingress<br/>routing and security headers"]
         FRONTEND["Next.js frontend<br/>UI, auth session, API proxy"]
     end
 
@@ -64,8 +64,8 @@ flowchart TB
 
     subgraph TRUTH["Durable canonical plane"]
         POSTGRES[("PostgreSQL<br/>graph, events, jobs, metadata")]
-        RAW["Raw blob store<br/>named volume locally<br/>VPS bind mount in production"]
-        BACKUPS["Backup artifacts<br/>database + raw files"]
+        RAW["Content-addressed raw store<br/>configured storage path"]
+        BACKUPS["Backup artifacts<br/>operator-managed database + raw copies"]
     end
 
     subgraph ACCEL["Optional acceleration and coordination"]
@@ -78,10 +78,10 @@ flowchart TB
         SSE["PostgreSQL event journal<br/>SSE replay by sequence"]
     end
 
-    CLIENT --> DNS --> CADDY
-    OPERATOR --> CADDY
-    CADDY --> FRONTEND
-    CADDY -->|health endpoints| API
+    CLIENT --> EDGE --> PROXY
+    OPERATOR --> PROXY
+    PROXY --> FRONTEND
+    PROXY -->|health endpoints| API
     FRONTEND -->|internal /api/v1 proxy| API
     CLIENT -. local mode: direct ports .-> FRONTEND
     CLIENT -. local mode: direct API .-> API
@@ -110,11 +110,11 @@ flowchart TB
     POSTGRES --> BACKUPS
 ```
 
-> **Accuracy boundary:** The current Compose stack does not deploy Kafka, Kubernetes, an external object store, Prometheus, a service mesh, or a mandatory hosted LLM. OCR and embedding-provider adapters exist as optional integration paths. PostgreSQL is the authoritative state; Redis and Qdrant are not independent sources of truth.
+> **Accuracy boundary:** The current Compose stack does not deploy Kafka, Kubernetes, an external object store, Prometheus, a service mesh, or a mandatory hosted LLM. OCR and embedding-provider adapters exist as optional integration paths. PostgreSQL is the authoritative state; Redis and Qdrant are not independent sources of truth. Public ingress, TLS termination, domains, and host-specific gateways are deployment concerns and are intentionally not specified here.
 
 ### The real lifecycle in plain language
 
-1. **Reach the edge.** In VPS mode, DNS and Caddy terminate HTTPS. Caddy serves the Next.js frontend and routes health endpoints to FastAPI. In local mode, the frontend and API are reached directly on their mapped ports.
+1. **Reach the edge.** A deployment-provided reverse proxy or ingress may terminate TLS, route normal traffic to Next.js, and route health endpoints to FastAPI. In local Compose mode, the frontend and API can be reached directly on their mapped ports.
 2. **Authenticate the request.** FastAPI middleware resolves a JWT/NextAuth session or API key, normalizes tenant scope, applies request IDs/rate limits/security headers, and passes a repository context to the route.
 3. **Accept and preserve input.** Ingest validates JSON or multipart content, writes the raw payload to the raw store, records metadata/audit events in PostgreSQL, and computes a content/packet identity for idempotent retry handling.
 4. **Perceive and encode.** The native extractor creates ordered `EvidenceBlock` records with anchors. Packet validation and canonicalization run before deterministic native encoding; optional OCR or embedding providers enrich the path when configured.
@@ -131,7 +131,7 @@ flowchart TB
 sequenceDiagram
     autonumber
     participant C as Client
-    participant E as Caddy / Next.js edge
+    participant E as Application edge (when present)
     participant A as FastAPI API
     participant M as Auth + tenant middleware
     participant R as Raw blob store
@@ -179,23 +179,28 @@ sequenceDiagram
     participant R as Redis optional
     participant Q as Qdrant optional
     participant P as PostgreSQL truth
-    participant S as Scoring and reasoning
+    participant S as In-process scoring and reranking
     participant J as Event journal
 
     C->>A: Query text, graph_id, profile, k
     A->>P: Resolve tenant-scoped repositories
     A->>R: Check cache when enabled
     alt Cache hit
-        R-->>A: Cached result
+        R-->>A: Cached candidate IDs and scores
     else Cache miss
-        A->>Q: Candidate vectors for non-strict profile
-        Q-->>A: Candidate IDs and distances
-        A->>P: Load graph nodes, edges, evidence, versions
-        P-->>A: Canonical graph state
-        A->>S: Combine similarity, graph, novelty, recency, usage, opposition
-        S-->>A: Ranked results and explanation payload
-        A->>R: Store result when enabled
+        alt Non-strict profile and index available
+            A->>Q: Fetch candidate vectors
+            Q-->>A: Candidate IDs and distances
+        else Strict profile or index unavailable
+            A->>P: Recall candidates from canonical graph
+            P-->>A: Candidate IDs and scores
+        end
+        A->>R: Attempt to store candidate IDs and scores when enabled
     end
+    A->>P: Load graph nodes, edges, evidence, versions
+    P-->>A: Canonical graph state
+    A->>S: Combine similarity, graph, novelty, recency, usage, opposition
+    S-->>A: Ranked results and explanation payload
     A->>P: Persist touches and QUERY events
     P->>J: Append query lifecycle record
     A-->>C: Results, graph hash, query hash, metrics, provenance
@@ -203,10 +208,12 @@ sequenceDiagram
 
 ### Evolution and control sequence
 
+Manual `POST /api/v1/evolve` runs a guarded cycle directly in the API process. Scheduled and job-backed evolution, invention, indexing, and maintenance use the durable worker path shown below.
+
 ```mermaid
 sequenceDiagram
     autonumber
-    participant O as Operator or Cortex
+    participant O as Operator, Cortex, or scheduler
     participant A as API / approval route
     participant P as PostgreSQL
     participant W as Worker
@@ -216,36 +223,41 @@ sequenceDiagram
     participant U as UI SSE stream
 
     O->>A: Request evolution, invention, or approved tool action
-    A->>P: Validate tenant, policy, and approval state
-    A->>P: Enqueue or record durable job
-    W->>P: Claim job and emit JOB_STARTED
-    W->>R: Acquire coordination lock when configured
-    W->>B: Capture pre-action backup metadata
-    W->>G: Diagnose, merge, prune, or synthesize guarded changes
-    G->>P: Commit graph version and event journal entries
-    W->>P: Record job steps, outcome, and JOB_DONE/FAILED
-    W->>R: Invalidate affected cache keys
+    A->>P: Authenticate tenant and resolve policy/controls
+    alt Direct guarded API evolution
+        A->>R: Acquire coordination lock when configured
+        A->>B: Attempt pre-action backup metadata capture
+        A->>G: Diagnose, merge, prune, or synthesize guarded changes
+        G->>P: Commit graph version and event journal entries
+    else Job-backed evolution or maintenance
+        A->>P: Enqueue durable job
+        W->>P: Claim job and emit JOB_STARTED
+        W->>R: Acquire coordination lock when configured
+        W->>B: Attempt pre-action backup metadata capture
+        W->>G: Diagnose, merge, prune, or synthesize guarded changes
+        G->>P: Commit graph version and event journal entries
+        W->>P: Record job steps, outcome, and JOB_DONE/FAILED
+        W->>R: Invalidate affected cache keys
+    end
     U->>P: Poll event journal by sequence
     P-->>U: Progress, completion, and audit events
 ```
 
-### Deployment topology
+### Runtime topology (deployment-neutral)
 
 ```mermaid
 flowchart LR
-    INTERNET["Internet"] --> DNS["faimatrix.com"]
-    DNS --> CADDY["Caddy 2<br/>80/443"]
-    CADDY --> FE["faim-frontend-vps<br/>8010"]
-    CADDY --> APIH["faim-api-vps<br/>8000<br/>health only"]
-    FE --> API["faim-api-vps<br/>internal API"]
+    CLIENT["Client or browser"] --> EDGE["Deployment edge<br/>TLS / ingress as configured"]
+    EDGE --> FE["Next.js frontend"]
+    EDGE --> APIH["FastAPI health, readiness,<br/>and version routes"]
+    FE --> API["FastAPI internal API"]
 
-    subgraph DATA["Persistent VPS data"]
-        PG["faim-postgres-vps<br/>Runtime/vps/postgres"]
-        RD["faim-redis-vps<br/>Runtime/vps/redis"]
-        QD["faim-qdrant-vps<br/>Runtime/vps/qdrant"]
-        RAW["Runtime/vps/raw"]
-        BAK["Runtime/vps/backups"]
-        CAD["Runtime/vps/caddy_data + caddy_config"]
+    subgraph DATA["Configured persistent data"]
+        PG["PostgreSQL<br/>canonical state"]
+        RD["Redis optional<br/>cache and locks"]
+        QD["Qdrant optional<br/>vector acceleration"]
+        RAW["Content-addressed<br/>raw store"]
+        BAK["Backup artifacts"]
     end
 
     API --> PG
@@ -253,15 +265,16 @@ flowchart LR
     API --> QD
     API --> RAW
     API --> BAK
-    WORKER["faim-worker-vps"] --> PG
+    WORKER["Durable worker"] --> PG
     WORKER --> RD
     WORKER --> QD
     WORKER --> RAW
-    MIGRATE["faim-migrate-vps<br/>one-shot"] --> PG
-    CADDY --> CAD
+    MIGRATE["Migration job<br/>one-shot"] --> PG
 ```
 
-For the component inventory, failure behavior, local-versus-VPS differences, and known boundaries, see [`docs/END_TO_END_ARCHITECTURE.md`](docs/END_TO_END_ARCHITECTURE.md).
+The public edge is intentionally deployment-neutral. The repository does not require a particular DNS name, TLS provider, reverse proxy, host address, or gateway layout. Keep credentials, host-specific compose overrides, and operator runbooks outside public architecture diagrams.
+
+For the component inventory, failure behavior, local-versus-hosted differences, and known boundaries, see [`docs/END_TO_END_ARCHITECTURE.md`](docs/END_TO_END_ARCHITECTURE.md).
 
 ## Capabilities
 
@@ -277,7 +290,7 @@ For the component inventory, failure behavior, local-versus-VPS differences, and
 ### Durable ingestion and multimodal evidence
 
 - JSON base64 ingestion and multipart upload ingestion;
-- immutable raw storage with deduplication and provenance;
+- content-addressed raw storage with deduplication and provenance; explicit retention controls govern deletion;
 - PDF, DOCX, PPTX, XLSX, text, image, and related extraction paths represented in the core contracts;
 - OCR provider registry with PaddleOCR, Tesseract, EasyOCR, and custom-provider integration points;
 - durable upload jobs, cancellation, retry, re-ingestion, maintenance history, retention, and raw-file re-encryption flows.
@@ -293,7 +306,7 @@ For the component inventory, failure behavior, local-versus-VPS differences, and
 ### Operations and security
 
 - PostgreSQL as the canonical source of truth;
-- Redis-backed caching, locks, and durable job coordination;
+- Redis-backed caching and locks, with PostgreSQL-backed durable job coordination;
 - Qdrant-backed vector acceleration with native fallback paths;
 - versioned migrations with readiness checks for database connectivity, required tables, and applied schema version;
 - JWT/NextAuth integration and tenant-scoped API keys;
@@ -444,14 +457,14 @@ For request and response contracts, start with [`FAIM_API_DOCUMENTATION.md`](<do
 
 | Principle | Meaning in FAIM-Native |
 | --- | --- |
-| Raw truth is immutable | Source bytes are content-addressed with SHA-256 and retained separately from derived graph state |
+| Raw source is addressable | Source bytes are content-addressed with SHA-256 and retained separately from derived graph state; explicit retention may delete them |
 | PostgreSQL is canonical | Relational metadata, graph state, events, versions, and operational records have a durable source of truth |
 | Evidence stays addressable | Blocks carry deterministic ordering and anchors back to their raw source |
-| Determinism is explicit | Canonical JSON, stable hashes, fixed vector dimensions, and strict profiles make replay and comparison possible |
+| Core determinism is explicit | Canonical JSON, stable hashes, fixed vector dimensions, and strict profiles make replay and comparison possible for fixed inputs and configuration |
 | Evolution is controlled | Guardrails, intervals, action limits, diagnostics, backups, and restore APIs bound automated change |
-| Tenants are isolated | Auth context, repositories, graph reads, event streams, and storage paths carry tenant scope |
+| Tenant scope is explicit | Auth context, repositories, graph reads, event streams, and storage paths carry tenant scope; deployments must verify isolation |
 | Acceleration is secondary | Redis and Qdrant improve speed or coordination; the durable graph remains authoritative |
-| Every mutation leaves a trail | Ingest, query, evolution, storage, approval, and diagnostics flows emit structured events or audit records |
+| Mutations are observable | Ingest, query, evolution, storage, approval, and diagnostics flows emit structured events or audit records where the selected path supports them |
 
 ## Configuration highlights
 
@@ -511,25 +524,11 @@ The acceptance suite covers tenant isolation, strict determinism, idempotent ing
 
 ## Deployment and operations
 
-### Docker/VPS workflow
+### Containerized deployment
 
-The repository includes a hardened multi-service Docker image and VPS helpers:
+The repository includes a hardened multi-service Compose stack and environment-specific deployment helpers. Use the operator runbook for the target environment, keep credentials and host-specific overrides outside source control, and validate `/health`, `/ready`, `/version`, logs, backups, and rollback procedures before exposing traffic.
 
-```bash
-npm run faim:vps:sync
-npm run faim:vps:up
-npm run faim:vps:smoke
-npm run faim:vps:backup
-```
-
-Stop or restore with care:
-
-```bash
-npm run faim:vps:down
-npm run faim:vps:restore
-```
-
-Read [`docs/vps-production.md`](docs/vps-production.md), [`DEPLOYMENT.md`](<docs/2) BackEnd/Deployment_Ops/DEPLOYMENT.md>), and [`RUNBOOK.md`](<docs/2) BackEnd/Deployment_Ops/RUNBOOK.md>) before using a remote environment. The VPS scripts intentionally keep real environment files and backups outside normal source synchronization.
+Read [`CI_CD.md`](CI_CD.md), [`DEPLOYMENT.md`](<docs/2) BackEnd/Deployment_Ops/DEPLOYMENT.md>), and [`RUNBOOK.md`](<docs/2) BackEnd/Deployment_Ops/RUNBOOK.md>) before using a remote environment.
 
 ### Operational checks
 
@@ -548,7 +547,7 @@ Readiness is stronger than liveness: it checks database connectivity, required t
 - [Experimental status and safe use](EXPERIMENTAL_STATUS.md)
 - [Research positioning](RESEARCH_POSITIONING.md)
 - [Roadmap and release gates](ROADMAP.md)
-- [CI, semantic releases, and VPS deployment](CI_CD.md)
+- [CI, semantic releases, and deployment](CI_CD.md)
 - [End-to-end architecture and runtime boundaries](docs/END_TO_END_ARCHITECTURE.md)
 - [Security reporting policy](SECURITY.md)
 - [Support guide](SUPPORT.md)

@@ -4,8 +4,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-VPS_HOST="${VPS_HOST:-root@144.91.118.196}"
-VPS_PATH="${VPS_PATH:-/opt/faim/FAIM}"
+VPS_HOST="${VPS_HOST:-}"
+VPS_PATH="${VPS_PATH:-}"
+
+if [[ -z "$VPS_HOST" ]]; then
+  echo "VPS_HOST is required (for example, deploy@host.example)" >&2
+  exit 2
+fi
+if [[ -z "$VPS_PATH" ]]; then
+  echo "VPS_PATH is required (for example, /srv/faim)" >&2
+  exit 2
+fi
 
 cd "$PROJECT_ROOT"
 
