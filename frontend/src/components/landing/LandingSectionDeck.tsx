@@ -300,8 +300,8 @@ const GROUPS: DeckGroup[] = [
       },
       {
         key: "comparison",
-        label: "RAG Comparison",
-        summary: "Why FAIM differs from generic RAG.",
+        label: "Systems Comparison",
+        summary: "Source-backed capability matrix across memory and retrieval systems.",
         node: <RAGComparison />,
       },
       {

@@ -98,9 +98,10 @@ export default function HybridRecall() {
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto text-lg">
-            Standard RAG is a best-guess. FAIM is a calculation. Our three-layer
-            retrieval pipeline moves beyond simple similarity to provide logical
-            precision and deterministic stability.
+            Vector search is one retrieval primitive. FAIM composes dense,
+            sparse, graph, evidence, and lifecycle signals; its core scoring is
+            reproducible when inputs are fixed, while external providers remain
+            variable.
           </p>
         </motion.div>
 

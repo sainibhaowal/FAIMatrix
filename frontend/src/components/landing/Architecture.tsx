@@ -84,13 +84,14 @@ export default function Architecture() {
           <h2 className="mt-4 text-4xl md:text-5xl font-bold text-white">
             Two Layers.{" "}
             <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-              One Deterministic Truth.
+              One Inspectable Memory Boundary.
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto text-lg">
-            The core engine still owns storage, retrieval, ranking, and answer
-            composition. The application layer is where you add UI, workflow
-            logic, or optional LLM translation.
+            The core engine owns durable memory, retrieval, ranking, and
+            evidence composition. The application layer is where you add UI,
+            workflow logic, or optional LLM translation; provider outputs are
+            kept explicit rather than presented as deterministic guarantees.
           </p>
         </motion.div>
 
@@ -188,8 +189,8 @@ export default function Architecture() {
             <span className="text-white font-medium">
               The engine is the brain.
             </span>{" "}
-            It stores, links, retrieves, ranks, and answers from deterministic
-            graph-native memory.{" "}
+            It stores, links, retrieves, ranks, and answers from graph-native
+            memory with reproducible core paths.{" "}
             <span className="text-white font-medium">
               The application layer is optional orchestration.
             </span>{" "}
