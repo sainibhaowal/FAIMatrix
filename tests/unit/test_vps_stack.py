@@ -17,6 +17,7 @@ def test_vps_compose_keeps_app_private_and_sets_public_origin():
     assert "NEXTAUTH_URL:" in content and "https://faimatrix.com" in content
     assert "RESEND_API_KEY" in content
     assert "Runtime/vps" in content
+    assert "API_HOST: faim-api-vps:8000" in content
 
 
 def test_vps_caddy_routes_backend_health_and_frontend():
