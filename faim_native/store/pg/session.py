@@ -20,10 +20,12 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Generator, Optional
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import Engine
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 
@@ -44,6 +46,27 @@ def get_default_database_url() -> str:
 # Backward-compatible module constant (runtime uses call-time resolver).
 DEFAULT_DATABASE_URL = get_default_database_url()
 _SESSION_FACTORY_CACHE: dict[str, "SessionFactory"] = {}
+
+
+def ensure_sqlite_parent(db_url: str) -> None:
+    """Ensure a file-backed SQLite database has a writable parent directory.
+
+    Clean checkouts do not necessarily contain the ignored ``Runtime``
+    directory used by the local/test fallback.  SQLite creates the database
+    file itself, but it cannot create missing parent directories.  Creating
+    only the resolved parent keeps this helper safe for arbitrary configured
+    SQLite paths and is a no-op for in-memory databases.
+    """
+    try:
+        parsed = make_url(str(db_url))
+    except Exception:
+        return
+    if parsed.get_backend_name() != "sqlite":
+        return
+    database = parsed.database
+    if not database or database == ":memory:" or database.startswith("file:"):
+        return
+    Path(database).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
 
 
 def _get_cached_factory(db_url: str) -> "SessionFactory":
@@ -94,6 +117,7 @@ def get_engine(
 
     # SQLite-specific configuration
     if db_url.startswith("sqlite"):
+        ensure_sqlite_parent(db_url)
         engine = create_engine(
             db_url,
             echo=echo,
