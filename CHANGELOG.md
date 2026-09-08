@@ -1,3 +1,11 @@
+## [0.5.2](https://github.com/sainibhaowal/FAIMatrix/compare/v0.5.1...v0.5.2) (2026-09-08)
+
+
+### Bug Fixes
+
+* isolate VPS caddy upstream names ([320b993](https://github.com/sainibhaowal/FAIMatrix/commit/320b9936ae475f820fcee466ef78db9fc5839dc2))
+* point VPS frontend proxy at unique API service ([279f5dd](https://github.com/sainibhaowal/FAIMatrix/commit/279f5ddf9b5e42f9ea143f0bad9d264c8ef98cbd))
+
 ## [0.5.1](https://github.com/sainibhaowal/FAIMatrix/compare/v0.5.0...v0.5.1) (2026-09-08)
 
 
