@@ -75,6 +75,9 @@ class InventionResult:
     signatures_tracked: int = 0
     skipped_candidates: int = 0
     last_event_seq: int = 0
+    # Non-fatal subsystem failures are returned to the evolution orchestrator
+    # instead of being indistinguishable from an empty/no-op cycle.
+    errors: List[str] = field(default_factory=list)
 
 
 def _l2_normalize(vector: List[float]) -> List[float]:
@@ -500,8 +503,9 @@ def run_invention_cycle(
 
     try:
         latest_seq = int(event_repo.get_max_seq(session, graph_id))
-    except Exception:
+    except Exception as exc:
         latest_seq = 0
+        result.errors.append(f"event_cursor:{type(exc).__name__}")
     result.last_event_seq = latest_seq
     signature_snapshot: Dict[str, Dict[str, Any]] = {}
     
@@ -512,8 +516,9 @@ def run_invention_cycle(
             min_count=min_coactivation_count,
             limit=max_macros_per_cycle * 2
         )
-    except Exception:
+    except Exception as exc:
         candidates = []
+        result.errors.append(f"candidate_load:{type(exc).__name__}")
 
     # 2. Iterate and invent
     for data in candidates:
@@ -566,8 +571,8 @@ def run_invention_cycle(
             # Already exists, just mark it invented
             try:
                 node_repo.mark_invented(graph_id, signature)
-            except Exception:
-                pass
+            except Exception as exc:
+                result.errors.append(f"mark_invented:{type(exc).__name__}")
             snapshot_entry = signature_snapshot.get(signature) if isinstance(signature, str) else None
             if snapshot_entry is not None:
                 snapshot_entry["invented"] = True
@@ -595,10 +600,11 @@ def run_invention_cycle(
                 macro_id = existing_macro.node_id
                 try:
                     node_repo.mark_invented(graph_id, signature)
-                except Exception:
-                    pass
-        except Exception:
+                except Exception as exc:
+                    result.errors.append(f"mark_invented:{type(exc).__name__}")
+        except Exception as exc:
             macro_id = None
+            result.errors.append(f"macro_create:{type(exc).__name__}")
         
         if macro_id is None:
             result.skipped_candidates += 1
@@ -607,8 +613,8 @@ def run_invention_cycle(
         # Successfully invented! Mark it in the table.
         try:
             node_repo.mark_invented(graph_id, signature)
-        except Exception:
-            pass
+        except Exception as exc:
+            result.errors.append(f"mark_invented:{type(exc).__name__}")
         snapshot_entry = signature_snapshot.get(signature) if isinstance(signature, str) else None
         if snapshot_entry is not None:
             snapshot_entry["invented"] = True
@@ -705,8 +711,9 @@ def invent_from_synthesis_insights(
                 result.skipped_candidates += 1
                 continue
             candidates.append((node_ids, galaxies, confidence))
-        except Exception:
+        except Exception as exc:
             result.skipped_candidates += 1
+            result.errors.append(f"insight_parse:{type(exc).__name__}")
             continue
 
     # Deterministic order: highest confidence first, then stable hash.
@@ -751,8 +758,9 @@ def invent_from_synthesis_insights(
                 )
         except IntegrityError:
             macro_id = None
-        except Exception:
+        except Exception as exc:
             macro_id = None
+            result.errors.append(f"synthesis_macro_create:{type(exc).__name__}")
 
         if macro_id is None:
             result.skipped_candidates += 1
@@ -775,8 +783,8 @@ def invent_from_synthesis_insights(
                     "galaxies": galaxies,
                 },
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            result.errors.append(f"synthesis_event_emit:{type(exc).__name__}")
 
     return result
 
@@ -786,6 +794,7 @@ def _synthesize_for_graph(
     session: Any,
     tenant_id: str,
     max_galaxies: int = 5,
+    errors: Optional[List[str]] = None,
 ) -> List[Any]:
     """Run cross-galaxy synthesis over the graph's galaxies (best effort)."""
     try:
@@ -815,7 +824,9 @@ def _synthesize_for_graph(
             topic=None,
             max_galaxies=max_galaxies,
         )
-    except Exception:
+    except Exception as exc:
+        if errors is not None:
+            errors.append(f"synthesis_load:{type(exc).__name__}")
         return []
 
 
@@ -838,13 +849,15 @@ def run_synthesis_invention_cycle(
     runtime-safe bridge that wires cross-galaxy synthesis into the
     self-invention flow.
     """
+    errors: List[str] = []
     if insights is None:
         insights = _synthesize_for_graph(
             graph_id,
             session=session,
             tenant_id=node_repo.tenant_id,
+            errors=errors,
         )
-    return invent_from_synthesis_insights(
+    result = invent_from_synthesis_insights(
         graph_id,
         session=session,
         node_repo=node_repo,
@@ -855,6 +868,8 @@ def run_synthesis_invention_cycle(
         lambda_threshold=lambda_threshold,
         max_macros=max_macros,
     )
+    result.errors.extend(errors)
+    return result
 
 
 # Exports

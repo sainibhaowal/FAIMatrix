@@ -12,7 +12,8 @@
  *   Error: { error: string, message: string }
  */
 
-import { normalizeBaseUrl } from "@/lib/providers";
+import { isSafeProviderUrl, normalizeBaseUrl } from "@/lib/providers";
+import { getToken } from "next-auth/jwt";
 
 export const runtime = "nodejs";
 
@@ -63,6 +64,8 @@ interface DiscoverError {
 
 export async function POST(req: Request): Promise<Response> {
   try {
+    const token = await getToken({ req: req as never, secret: process.env.NEXTAUTH_SECRET });
+    if (!token) return Response.json({ error: "unauthorized", message: "Authentication required" }, { status: 401 });
     const body = (await req.json()) as DiscoverRequest;
     const { baseUrl, apiKey } = body;
 
@@ -74,6 +77,9 @@ export async function POST(req: Request): Promise<Response> {
     }
 
     const normalizedUrl = normalizeBaseUrl(baseUrl);
+    if (!isSafeProviderUrl(normalizedUrl)) {
+      return Response.json({ error: "unknown", message: "Only HTTP(S) provider URLs are allowed" }, { status: 400 });
+    }
     const resolvedUrl = resolveLocalhostUrl(normalizedUrl);
     const modelsUrl = `${resolvedUrl}/models`;
 

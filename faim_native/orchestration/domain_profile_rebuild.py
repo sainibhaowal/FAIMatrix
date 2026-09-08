@@ -357,8 +357,11 @@ def run_domain_profile_rebuild(
                     meta={"surface_form": row["surface_form"], "source": "autonomous_domain"},
                 )
                 result.edges_written += 1
-            except Exception:
-                pass
+            except Exception as exc:
+                if len(result.errors) < max_errors:
+                    result.errors.append(
+                        f"domain_edge:{row.get('surface_form', '')}:{type(exc).__name__}"
+                    )
 
     for semantic_edge in semantic_memory.semantic_edges:
         try:
@@ -371,8 +374,11 @@ def run_domain_profile_rebuild(
                 meta=dict(semantic_edge.meta),
             )
             result.edges_written += 1
-        except Exception:
-            pass
+        except Exception as exc:
+            if len(result.errors) < max_errors:
+                result.errors.append(
+                    f"semantic_edge:{getattr(semantic_edge, 'semantic_type', '')}:{type(exc).__name__}"
+                )
 
     result.lexicon_written = repo.merge_lexicon(graph_id=graph_id, rows=merged_rows)
     if (
@@ -406,8 +412,28 @@ def run_domain_profile_rebuild(
                         "graph_version": result.graph_version,
                     },
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                if len(result.errors) < max_errors:
+                    result.errors.append(
+                        f"event_emit:DOMAIN_PROFILE_REBUILD:{type(exc).__name__}"
+                    )
+    if result.errors and event_repo is not None:
+        try:
+            event_repo.emit(
+                session,
+                graph_id,
+                "DOMAIN_PROFILE_REBUILD_FAILED",
+                {
+                    "files_scanned": result.files_scanned,
+                    "files_failed": result.files_failed,
+                    "error_count": len(result.errors),
+                    "errors": result.errors[:max_errors],
+                },
+            )
+        except Exception:
+            # The result.errors list is the durable API-visible signal; event
+            # emission cannot turn a failed rebuild into a hidden success.
+            pass
     return result
 
 

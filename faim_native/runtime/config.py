@@ -4,11 +4,15 @@ Loads and validates environment configuration for production.
 
 Required env vars:
 - DATABASE_URL
-- TENANT_KEYS_JSON
+
+``TENANT_KEYS_JSON`` remains required only for legacy environment-key
+authentication. A production process using DB-primary authentication with env
+fallback disabled may leave it unset after keys have been one-time bootstrapped
+into ``tenant_api_keys``.
 
 Optional env vars:
 - ADMIN_KEYS_JSON
-- FAIM_PROFILE_DEFAULT (STRICT/FAST/RELAXED)
+- FAIM_PROFILE_DEFAULT (STRICT/BALANCED/FAST/RELAXED)
 - FAIM_ENABLE_INDEX, FAIM_ENABLE_CACHE, FAIM_ENABLE_JOBS
 - FAIM_ENCRYPTION_FAIL_CLOSED
 - FAIM_STORAGE_HARD_DELETE_ENABLED
@@ -60,6 +64,19 @@ from typing import Any, Dict, List, Optional
 # =============================================================================
 
 TENANT_ID_REGEX = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+def _is_production_environment() -> bool:
+    """Return true if either deployment mode signal explicitly says production.
+
+    Treat conflicting variables fail-closed: ``FAIM_MODE=development`` cannot
+    weaken a simultaneously configured ``FAIM_ENV=production``.
+    """
+    values = (
+        os.environ.get("FAIM_MODE", ""),
+        os.environ.get("FAIM_ENV", ""),
+    )
+    return any(str(value).strip().lower() in {"prod", "production"} for value in values)
 
 
 def validate_tenant_id(tenant_id: str) -> bool:
@@ -201,7 +218,8 @@ class FAIMConfig:
         if not self.database_url:
             errors.append("DATABASE_URL is required")
 
-        if not self.tenant_keys:
+        db_only_auth = self.auth_db_primary and not self.auth_env_fallback_enabled
+        if not self.tenant_keys and not db_only_auth:
             errors.append("TENANT_KEYS_JSON is required and cannot be empty")
 
         # Validate tenant IDs
@@ -215,7 +233,7 @@ class FAIMConfig:
                 errors.append(f"Tenant {tenant_id} has no valid keys")
 
         # Validate profile
-        if self.profile_default not in ("STRICT", "FAST", "RELAXED"):
+        if self.profile_default not in ("STRICT", "BALANCED", "FAST", "RELAXED"):
             errors.append(f"Invalid profile: {self.profile_default}")
 
         if self.storage_hard_delete_enabled and not self.enable_jobs:
@@ -227,14 +245,19 @@ class FAIMConfig:
                 "FAIM_SELF_INVENT_AFTER_UPLOAD requires FAIM_ENABLE_JOBS=true"
             )
 
-        env = os.environ.get("FAIM_ENV", "").strip().lower()
+        env_is_production = _is_production_environment()
         encryption_enabled = parse_bool_env("FAIM_ENCRYPTION_AT_REST", False)
-        if env in ("prod", "production"):
+        if env_is_production:
             if not encryption_enabled:
                 errors.append("Production requires FAIM_ENCRYPTION_AT_REST=true")
             if not self.encryption_fail_closed:
                 errors.append("Production requires FAIM_ENCRYPTION_FAIL_CLOSED=true")
-            if self.ocr_enabled and self.ocr_engine not in ("tesseract", "paddleocr", "paddleocr_v6", "paddle"):
+            if self.ocr_enabled and self.ocr_engine not in (
+                "tesseract",
+                "paddleocr",
+                "paddleocr_v6",
+                "paddle",
+            ):
                 errors.append(
                     "Production OCR supports FAIM_OCR_ENGINE=tesseract, paddleocr, paddleocr_v6, or paddle"
                 )
@@ -247,6 +270,11 @@ class FAIMConfig:
             if not self.auth_scope_enforcement_enabled:
                 errors.append(
                     "Production requires FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED=true"
+                )
+            if os.environ.get("FAIM_TENANT_KEY_BOOTSTRAP_JSON", "").strip():
+                errors.append(
+                    "FAIM_TENANT_KEY_BOOTSTRAP_JSON is bootstrap-only and must not "
+                    "be set for a long-running production process"
                 )
 
         if self.ocr_engine not in ("tesseract", "paddleocr", "paddleocr_v6", "paddle"):

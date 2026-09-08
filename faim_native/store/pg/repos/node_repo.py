@@ -50,6 +50,8 @@ class NodeRepo:
         cognitive_type: Optional[str] = None,
         galaxy_id: Optional[str] = None,
         v_embedding: Optional[List[float]] = None,
+        valid_from: Optional[datetime] = None,
+        valid_to: Optional[datetime] = None,
     ) -> UUID:
         """Upsert an atom node from FAIMVector.
 
@@ -81,6 +83,10 @@ class NodeRepo:
                 existing.cognitive_type = cognitive_type
             if galaxy_id and not existing.galaxy_id:
                 existing.galaxy_id = galaxy_id
+            if valid_from is not None:
+                existing.valid_from = valid_from
+            if valid_to is not None:
+                existing.valid_to = valid_to
             self.session.flush()
             return existing.node_id
 
@@ -101,6 +107,8 @@ class NodeRepo:
             level=vector.level,
             touch_count=1,
             last_access=now,
+            valid_from=valid_from,
+            valid_to=valid_to,
             cognitive_type=cognitive_type,
             galaxy_id=galaxy_id,
             created_at=now,
@@ -179,7 +187,18 @@ class NodeRepo:
         v_embedding: Optional[List[float]] = None,
     ) -> UUID:
         """Upsert a non-atom deterministic node such as a concept node."""
-        existing = self.get_by_vector_hash(graph_id, vector_hash)
+        # PostgreSQL stores vector_hash in VARCHAR(64).  Domain/fact keys may
+        # legitimately be longer (for example ``fact:<sha256>``); persist a
+        # deterministic 64-character digest instead of allowing a production
+        # DataError or silently truncating the identity.
+        import hashlib
+
+        persisted_vector_hash = str(vector_hash or "")
+        if len(persisted_vector_hash) > 64:
+            persisted_vector_hash = hashlib.sha256(
+                persisted_vector_hash.encode("utf-8")
+            ).hexdigest()
+        existing = self.get_by_vector_hash(graph_id, persisted_vector_hash)
         now = datetime.now(timezone.utc)
         if existing:
             existing.kind = kind
@@ -201,7 +220,7 @@ class NodeRepo:
             tenant_id=self.tenant_id,
             graph_id=graph_id,
             kind=kind,
-            vector_hash=vector_hash,
+            vector_hash=persisted_vector_hash,
             raw_id=None,
             block_id=None,
             anchor_json=None,

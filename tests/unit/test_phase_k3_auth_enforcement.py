@@ -32,6 +32,84 @@ def test_authenticate_tenant_key_db_primary_success(monkeypatch):
     assert decision.scopes == ["memory.read"]
 
 
+def test_development_key_bypass_is_impossible_in_production(monkeypatch):
+    from api.middleware import auth as auth_module
+
+    monkeypatch.setenv("FAIM_MODE", "production")
+    monkeypatch.setenv("FAIM_ALLOW_DEV_AUTH_BYPASS", "true")
+    monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "true")
+    monkeypatch.setattr(
+        auth_module,
+        "_verify_db_tenant_key",
+        lambda tenant_id, api_key, request_id=None: auth_module.AuthDecision(
+            valid=False, reason="invalid_credentials"
+        ),
+    )
+    decision = auth_module.authenticate_tenant_key("default", "test-key")
+    assert decision.valid is False
+    assert decision.auth_method != "default_dev"
+
+
+def test_conflicting_mode_and_environment_still_force_production_auth(monkeypatch):
+    """A development mode value cannot weaken an explicit production env."""
+    from api.middleware import auth as auth_module
+
+    monkeypatch.setenv("FAIM_MODE", "development")
+    monkeypatch.setenv("FAIM_ENV", "production")
+    monkeypatch.setenv("FAIM_ALLOW_DEV_AUTH_BYPASS", "true")
+    monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "false")
+    monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
+    monkeypatch.setattr(auth_module, "_verify_env_tenant_key", lambda *_: True)
+    monkeypatch.setattr(
+        auth_module,
+        "_verify_db_tenant_key",
+        lambda tenant_id, api_key, request_id=None: auth_module.AuthDecision(
+            valid=False, reason="invalid_credentials"
+        ),
+    )
+
+    decision = auth_module.authenticate_tenant_key("default", "test-key")
+    assert decision.valid is False
+    assert decision.auth_method != "default_dev"
+
+
+def test_development_key_bypass_requires_explicit_non_production_flag(monkeypatch):
+    from api.middleware import auth as auth_module
+
+    monkeypatch.delenv("FAIM_MODE", raising=False)
+    monkeypatch.setenv("FAIM_ALLOW_DEV_AUTH_BYPASS", "false")
+    monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "true")
+    monkeypatch.setattr(
+        auth_module,
+        "_verify_db_tenant_key",
+        lambda tenant_id, api_key, request_id=None: auth_module.AuthDecision(
+            valid=False, reason="invalid_credentials"
+        ),
+    )
+    decision = auth_module.authenticate_tenant_key("default", "admin")
+    assert decision.valid is False
+
+
+def test_production_forces_database_auth_even_if_legacy_env_fallback_is_set(
+    monkeypatch,
+):
+    from api.middleware import auth as auth_module
+
+    monkeypatch.setenv("FAIM_MODE", "production")
+    monkeypatch.setenv("FAIM_AUTH_DB_PRIMARY", "false")
+    monkeypatch.setenv("FAIM_AUTH_ENV_FALLBACK_ENABLED", "true")
+    monkeypatch.setattr(auth_module, "_verify_env_tenant_key", lambda *_: True)
+    monkeypatch.setattr(
+        auth_module,
+        "_verify_db_tenant_key",
+        lambda tenant_id, api_key, request_id=None: auth_module.AuthDecision(
+            valid=False, reason="invalid_credentials"
+        ),
+    )
+    decision = auth_module.authenticate_tenant_key("tenant", "legacy-key")
+    assert decision.valid is False
+
+
 def test_authenticate_tenant_key_env_fallback_only_when_enabled(monkeypatch):
     from api.middleware import auth as auth_module
 

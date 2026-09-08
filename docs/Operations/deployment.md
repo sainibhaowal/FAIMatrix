@@ -82,7 +82,7 @@ Copy `env.template` to `.env` and set the following required values:
 | Variable            | Description       | Example                         |
 | ------------------- | ----------------- | ------------------------------- |
 | `POSTGRES_PASSWORD` | Database password | `secure_random_password`        |
-| `TENANT_KEYS_JSON`  | Tenant API keys   | `{"tenant1": ["key1", "key2"]}` |
+| `TENANT_KEYS_JSON`  | Legacy env fallback; keep `{}` for DB-only auth | `{}` |
 | `ADMIN_KEYS_JSON`   | Admin API keys    | `{"admin": "admin_key"}`        |
 | `FAIM_ADMIN_KEY`    | Backend admin key  | `secure_admin_key`              |
 | `FAIM_MASTER_KEY`   | Raw store master key (hex) | `64-hex-chars` |

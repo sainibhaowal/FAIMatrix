@@ -89,7 +89,7 @@ def _make_context(
 ):
     from runtime.context import get_repos
 
-    repos = get_repos(tenant_id)
+    repos = get_repos(tenant_id, session=session)
     return SimpleNamespace(
         session=session,
         tenant_id=tenant_id,

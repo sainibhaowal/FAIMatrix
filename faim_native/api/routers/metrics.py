@@ -109,6 +109,47 @@ async def get_scorecard(
     or computes on demand via fractal_physics.
     """
     try:
+        # Prefer the bounded, versioned cache populated on graph writes and
+        # evolution.  This keeps scorecard reads independent of graph size.
+        from store.pg.models_faim import GraphDiagnosticsCacheModel
+
+        gv = ctx.gv_repo.get_or_create(ctx.session, graph_id)
+        # Lightweight unit contexts and event-replay callers may intentionally
+        # provide a non-SQLAlchemy session.  The cache is an optimization, so
+        # skip it when the session cannot query and retain the event-backed
+        # response contract.  Real production contexts always expose query().
+        cached = None
+        query = getattr(ctx.session, "query", None)
+        if callable(query):
+            cached = (
+                query(GraphDiagnosticsCacheModel)
+                .filter(
+                    GraphDiagnosticsCacheModel.tenant_id
+                    == getattr(ctx, "tenant_id", ""),
+                    GraphDiagnosticsCacheModel.graph_id == graph_id,
+                )
+                .first()
+            )
+        node_count = ctx.node_repo.count(graph_id)
+        edge_count = ctx.edge_repo.count(graph_id)
+        if cached is not None and int(cached.graph_version or 0) >= int(gv.version or 0):
+            return MetricsScorecard(
+                graph_id=graph_id,
+                graph_version=gv.version,
+                graph_hash=cached.diagnostics_hash or "",
+                dimension_D=float(cached.d_hat or 0.0),
+                entropy_H=float(cached.h_hat or 0.0),
+                pressure_lambda=float(cached.lambda_hat or 0.0),
+                node_count=node_count,
+                edge_count=edge_count,
+                redundancy=float(cached.redundancy or 0.0),
+                novelty=float(cached.novelty or 0.0),
+                energy=float(cached.energy or 0.0),
+                computed_at=(
+                    cached.computed_at.isoformat() if cached.computed_at else None
+                ),
+            )
+
         # Try to get from latest snapshot event
         events = ctx.event_repo.get_by_seq(
             ctx.session,
@@ -122,13 +163,6 @@ async def get_scorecard(
             if e.kind == "DIAGNOSTICS_SNAPSHOT":
                 diagnostics_event = e
                 break
-
-        # Get graph version
-        gv = ctx.gv_repo.get_or_create(ctx.session, graph_id)
-
-        # Get counts
-        node_count = ctx.node_repo.count(graph_id)
-        edge_count = ctx.edge_repo.count(graph_id)
 
         if diagnostics_event:
             payload = _payload_dict(diagnostics_event.payload)

@@ -68,6 +68,9 @@ class TheoryResult:
     lambda_hat: float = 0.0
     skipped_candidates: int = 0
     source: str = "theory_native"
+    # A theory pass is best-effort, but failures must remain observable to the
+    # evolution job/API instead of looking like a legitimate empty result.
+    errors: List[str] = field(default_factory=list)
 
 
 def _theory_id(graph_id: str, theory_type: str, seed: str) -> str:
@@ -111,6 +114,7 @@ def _load_node_texts(
     tenant_id: str,
     graph_id: str,
     node_ids: List[str],
+    errors: Optional[List[str]] = None,
 ) -> Dict[str, str]:
     """Build node_id → text map from the Representation V2 sidecar.
 
@@ -137,7 +141,9 @@ def _load_node_texts(
             for r in rows
             if r.normalized_text
         }
-    except Exception:
+    except Exception as exc:
+        if errors is not None:
+            errors.append(f"representation_load:{type(exc).__name__}")
         return {}
 
 
@@ -368,7 +374,8 @@ def run_theory_cycle(
 
     try:
         nodes = node_repo.list_nodes(graph_id, limit=1000)
-    except Exception:
+    except Exception as exc:
+        result.errors.append(f"node_load:{type(exc).__name__}")
         result.skipped_candidates += 1
         return result
     if not nodes:
@@ -380,6 +387,7 @@ def run_theory_cycle(
         getattr(node_repo, "tenant_id", ""),
         graph_id,
         [str(n.node_id) for n in nodes],
+        errors=result.errors,
     )
 
     candidates: List[Theory] = []
@@ -393,7 +401,8 @@ def run_theory_cycle(
             redundant_pairs = node_repo.find_redundant_pairs(
                 graph_id, threshold=0.85, limit=200
             )
-        except Exception:
+        except Exception as exc:
+            result.errors.append(f"redundancy_scan:{type(exc).__name__}")
             redundant_pairs = []
     if redundant_pairs:
         candidates.extend(
@@ -420,9 +429,10 @@ def run_theory_cycle(
             )
             result.theories_created += 1
             result.theory_ids.append(theory.theory_id)
-        except Exception:
+        except Exception as exc:
             # Persistence is best effort; never block evolution.
             result.skipped_candidates += 1
+            result.errors.append(f"theory_persist:{type(exc).__name__}")
 
     return result
 

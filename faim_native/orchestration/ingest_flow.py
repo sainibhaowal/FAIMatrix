@@ -49,6 +49,7 @@ class FAIMProfile(str, Enum):
     """FAIM execution profile."""
 
     STRICT = "strict"  # Deterministic, no GPU, exact algorithms
+    BALANCED = "balanced"  # Bounded acceleration with adaptive safeguards
     FAST = "fast"  # May use GPU, approximate algorithms
     RELAXED = "relaxed"  # Most permissive
 
@@ -293,6 +294,8 @@ def run_ingest(
     event_repo: Optional[Any] = None,
     gv_repo: Optional[Any] = None,
     extraction_settings: Optional[Dict[str, Any]] = None,
+    valid_from: Optional[datetime] = None,
+    valid_to: Optional[datetime] = None,
 ) -> IngestResult:
     """Run the FAIM-native ingest pipeline.
 
@@ -326,6 +329,12 @@ def run_ingest(
         content will not create duplicate nodes.
     """
     start_time = time.time()
+    if valid_from is not None and valid_from.tzinfo is None:
+        valid_from = valid_from.replace(tzinfo=timezone.utc)
+    if valid_to is not None and valid_to.tzinfo is None:
+        valid_to = valid_to.replace(tzinfo=timezone.utc)
+    if valid_from is not None and valid_to is not None and valid_to <= valid_from:
+        raise ValueError("valid_to must be later than valid_from")
     perf_start = time.perf_counter()
     events_emitted: List[str] = []
     phase_latency_ms: Dict[str, int] = {}
@@ -552,6 +561,7 @@ def run_ingest(
         embedding_vectors: List[Optional[List[float]]] = []
         try:
             from encoding import get_active_embedding_provider
+
             provider = get_active_embedding_provider()
             if provider and provider.is_available():
                 texts = [block.content for block in blocks if hasattr(block, "content")]
@@ -560,12 +570,16 @@ def run_ingest(
                     # Align embeddings with blocks (some blocks may not have content)
                     emb_idx = 0
                     for block in blocks:
-                        if hasattr(block, "content") and emb_idx < len(emb_result.vectors):
+                        if hasattr(block, "content") and emb_idx < len(
+                            emb_result.vectors
+                        ):
                             embedding_vectors.append(emb_result.vectors[emb_idx])
                             emb_idx += 1
                         else:
                             embedding_vectors.append(None)
-                    logger.info(f"[Ingest] Generated {len([v for v in embedding_vectors if v])} embedding vectors ({emb_result.dimension} dim)")
+                    logger.info(
+                        f"[Ingest] Generated {len([v for v in embedding_vectors if v])} embedding vectors ({emb_result.dimension} dim)"
+                    )
                 else:
                     embedding_vectors = [None] * len(blocks)
             else:
@@ -628,6 +642,8 @@ def run_ingest(
             packet_hash=packet_hash,
             reprs_v2=reprs_v2,
             embedding_vectors=embedding_vectors,
+            valid_from=valid_from,
+            valid_to=valid_to,
         )
         _finish_phase("write", phase_started)
 
@@ -649,6 +665,52 @@ def run_ingest(
             f"[Ingest] Write complete: {write_result.nodes_written} nodes, "
             f"{write_result.merges} merges, version={write_result.graph_version}"
         )
+
+        # Diagnostics are a versioned write-side snapshot.  Keeping this work
+        # off the read path prevents graph-wide scans for every user query.
+        # A cache failure never invalidates the canonical ingest transaction;
+        # it is surfaced in the event stream for operators and rebuilt on the
+        # next versioned read.
+        try:
+            from orchestration.query_flow import refresh_graph_diagnostics
+
+            diagnostics_payload = refresh_graph_diagnostics(
+                session,
+                tenant_id,
+                graph_id,
+                graph_version=write_result.graph_version,
+            )
+            _emit_event(
+                "DIAGNOSTICS_CACHE_REFRESHED",
+                graph_id,
+                {
+                    "graph_version": write_result.graph_version,
+                    "diagnostics_hash": diagnostics_payload.get("diagnostics_hash"),
+                    "computed_at": diagnostics_payload.get("diagnostics_computed_at"),
+                    "node_count": diagnostics_payload.get("node_count", 0),
+                    "edge_count": diagnostics_payload.get("edge_count", 0),
+                },
+                event_repo,
+                session=session,
+            )
+            events_emitted.append("DIAGNOSTICS_CACHE_REFRESHED")
+        except Exception as exc:  # cache is auxiliary; canonical write remains valid
+            logger.exception(
+                "Diagnostics cache refresh failed for tenant=%s graph=%s",
+                tenant_id,
+                graph_id,
+            )
+            _emit_event(
+                "DIAGNOSTICS_CACHE_REFRESH_FAILED",
+                graph_id,
+                {
+                    "graph_version": write_result.graph_version,
+                    "error_type": type(exc).__name__,
+                },
+                event_repo,
+                session=session,
+            )
+            events_emitted.append("DIAGNOSTICS_CACHE_REFRESH_FAILED")
 
         # =====================================================================
         # STEP 5b: Secondary durability path (index acceleration)

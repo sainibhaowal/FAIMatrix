@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -44,9 +45,15 @@ class QueryRequest(BaseModel):
     graph_id: str = Field(..., description="Graph to query")
     query_text: str = Field(..., description="User query text")
     k: int = Field(10, ge=1, le=100, description="Number of results")
-    profile: str = Field("STRICT", description="STRICT, BALANCED, or FAST")
+    profile: str = Field("STRICT", description="STRICT, BALANCED, RELAXED, or FAST")
     return_explain: bool = Field(False, description="Include explain payload")
-    include_historical: bool = Field(True, description="Include soft-suppressed historical nodes in contradiction resolution")
+    include_historical: bool = Field(
+        True, description="Include historical or expired evidence"
+    )
+    as_of: Optional[datetime] = Field(
+        None,
+        description="Return only evidence valid at this ISO-8601 instant; defaults to current view.",
+    )
 
 
 class ScoreComponents(BaseModel):
@@ -126,6 +133,10 @@ class QueryMetrics(BaseModel):
     cache_hit: float = 0.0
     phase5_sparse_candidates: float = 0.0
     phase5_dense_candidates: float = 0.0
+    degraded_feature_count: float = 0.0
+    diagnostics_graph_version: int = 0
+    diagnostics_computed_at: Optional[str] = None
+    diagnostics_cached: float = 0.0
 
 
 class QueryResponse(BaseModel):
@@ -142,6 +153,7 @@ class QueryResponse(BaseModel):
     answer: Optional[QueryAnswer] = None
     metrics: QueryMetrics
     duration_ms: float
+    degraded_features: List[str] = Field(default_factory=list)
 
 
 # =============================================================================
@@ -150,9 +162,11 @@ class QueryResponse(BaseModel):
 
 PROFILE_MAP = {
     "STRICT": FAIMProfile.STRICT,
+    "BALANCED": FAIMProfile.BALANCED,
     "RELAXED": FAIMProfile.RELAXED,
     "FAST": FAIMProfile.FAST,
     "strict": FAIMProfile.STRICT,
+    "balanced": FAIMProfile.BALANCED,
     "relaxed": FAIMProfile.RELAXED,
     "fast": FAIMProfile.FAST,
 }
@@ -195,7 +209,12 @@ async def query_graph(
         from orchestration.query_flow import run_query
 
         # Parse profile
-        profile = PROFILE_MAP.get(request.profile, FAIMProfile.STRICT)
+        profile = PROFILE_MAP.get(request.profile.strip().upper())
+        if profile is None:
+            raise HTTPException(
+                status_code=422,
+                detail="profile must be one of: STRICT, BALANCED, RELAXED, FAST",
+            )
 
         # Execute query
         result = run_query(
@@ -209,6 +228,7 @@ async def query_graph(
             index=ctx.index if profile != FAIMProfile.STRICT else None,
             cache=ctx.cache,
             include_historical=request.include_historical,
+            as_of=request.as_of,
         )
         # Query flow updates touch_count / query events, so persist changes.
         ctx.session.commit()
@@ -252,6 +272,7 @@ async def query_graph(
             answer=(QueryAnswer(**result.answer) if result.answer else None),
             metrics=QueryMetrics(**result.metrics),
             duration_ms=result.duration_ms,
+            degraded_features=result.degraded_features,
         )
 
     except HTTPException:

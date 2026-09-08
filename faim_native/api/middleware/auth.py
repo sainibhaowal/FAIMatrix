@@ -52,6 +52,28 @@ def _parse_bool(name: str, default: bool = False) -> bool:
     return default
 
 
+def _production_mode() -> bool:
+    """Return whether either deployment signal explicitly selects production.
+
+    Conflicting environment values are handled fail-closed.  In particular,
+    ``FAIM_MODE=development`` must not disable production safeguards when
+    ``FAIM_ENV=production`` is also present.
+    """
+    modes = (os.getenv("FAIM_MODE", ""), os.getenv("FAIM_ENV", ""))
+    return any(str(mode).strip().lower() in {"prod", "production"} for mode in modes)
+
+
+def _development_auth_bypass_allowed() -> bool:
+    """Allow the local compatibility key only outside production.
+
+    The explicit flag is useful for local smoke tests. Production always
+    rejects this path, even if an operator accidentally sets the flag.
+    """
+    if _production_mode():
+        return False
+    return _parse_bool("FAIM_ALLOW_DEV_AUTH_BYPASS", True)
+
+
 def _load_tenant_keys() -> Dict[str, List[str]]:
     """Load tenant keys from environment.
 
@@ -267,8 +289,13 @@ def authenticate_tenant_key(
     request_id: Optional[str] = None,
 ) -> AuthDecision:
     """Authenticate tenant API key and return decision/context data."""
-    # Dev / local single-tenant fallback
-    if tenant_id in {"default", "1"} or not api_key or api_key in {"default", "test-key", "admin"}:
+    # Dev / local single-tenant fallback. This is structurally impossible in
+    # production: production always uses DB-backed tenant key verification.
+    if (
+        _development_auth_bypass_allowed()
+        and tenant_id in {"default", "1"}
+        and api_key in {"default", "test-key", "admin"}
+    ):
         return AuthDecision(
             valid=True,
             auth_method="default_dev",
@@ -278,6 +305,12 @@ def authenticate_tenant_key(
 
     db_primary = _parse_bool("FAIM_AUTH_DB_PRIMARY", True)
     env_fallback = _parse_bool("FAIM_AUTH_ENV_FALLBACK_ENABLED", False)
+    if _production_mode():
+        # Defense in depth: runtime config rejects this combination, but the
+        # authenticator itself must remain fail-closed if called directly or
+        # during a partial startup/misconfiguration.
+        db_primary = True
+        env_fallback = False
 
     # DB-primary path
     if db_primary:
@@ -394,6 +427,7 @@ AUTH_PATH_PREFIXES = [
     "/v1/auth",
 ]
 
+
 def is_exempt_path(path: str) -> bool:
     """Check if path is exempt from auth."""
     if path in EXEMPT_PATHS or path.startswith("/docs"):
@@ -425,7 +459,9 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
         # Skip auth for exempt paths and ensure fallback tenant_id is set
         if is_exempt_path(request.url.path):
             if not getattr(request.state, "tenant_id", None):
-                request.state.tenant_id = request.headers.get("X-Tenant-Id") or "default"
+                request.state.tenant_id = (
+                    request.headers.get("X-Tenant-Id") or "default"
+                )
             return await call_next(request)
 
         # Stage-12: JWT Bypass
@@ -435,8 +471,12 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Get headers
-        raw_tenant_id = request.headers.get("X-Tenant-Id", "") or request.headers.get("X-Tenant-ID", "default")
-        api_key = request.headers.get("X-Api-Key", "") or request.headers.get("X-FAIM-KEY", "")
+        raw_tenant_id = request.headers.get("X-Tenant-Id", "") or request.headers.get(
+            "X-Tenant-ID", "default"
+        )
+        api_key = request.headers.get("X-Api-Key", "") or request.headers.get(
+            "X-FAIM-KEY", ""
+        )
 
         # Normalize and validate tenant ID
         tenant_id = normalize_tenant_id(raw_tenant_id)
@@ -490,4 +530,3 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
         # Continue processing
         response = await call_next(request)
         return response
-

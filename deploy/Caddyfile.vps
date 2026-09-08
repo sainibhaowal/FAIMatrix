@@ -1,4 +1,6 @@
-faimatrix.com {
+# TLS is terminated by the existing VPS gateway.  This proxy intentionally
+# listens on plain HTTP inside the FAIM stack and is not internet-facing.
+:80 {
   encode gzip zstd
 
   header {
@@ -17,8 +19,4 @@ faimatrix.com {
   handle {
     reverse_proxy frontend:8010
   }
-}
-
-www.faimatrix.com {
-  redir https://faimatrix.com{uri} permanent
 }
