@@ -1,3 +1,13 @@
+## [0.5.1](https://github.com/sainibhaowal/FAIMatrix/compare/v0.5.0...v0.5.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* create sqlite parent directories for clean test runs ([4703023](https://github.com/sainibhaowal/FAIMatrix/commit/4703023fc7c944ec689dda065dc4f843d08877ab))
+* harden production deployment and memory runtime ([499b9d5](https://github.com/sainibhaowal/FAIMatrix/commit/499b9d52fdc5b60eb674ec3cff9ec313a63c8651))
+* track frontend libraries and isolate CI test databases ([62cc956](https://github.com/sainibhaowal/FAIMatrix/commit/62cc95607ae30112e64e77ebbf6333867c79d8b3))
+* use frozen pnpm installs in frontend CI and image ([b62167b](https://github.com/sainibhaowal/FAIMatrix/commit/b62167be0fdcae57ff74cd93daccce1c5078ef3b))
+
 # Changelog
 
 All notable changes to FAIM-Native should be recorded here. This project is still evolving, so historical stage reports under `docs/` are implementation records rather than stable release guarantees.
