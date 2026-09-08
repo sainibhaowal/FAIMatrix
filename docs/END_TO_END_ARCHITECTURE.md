@@ -47,7 +47,7 @@ The important rule is that Qdrant and Redis are derived or coordination systems.
 
 ### VPS mode
 
-The VPS overlay exposes only Caddy on ports 80 and 443. PostgreSQL, Redis, Qdrant, API, worker, frontend, and migration services remain on the Compose network or have their host ports reset. Caddy routes `/health`, `/ready`, and `/version` to FastAPI and sends the normal web request to Next.js. The frontend's internal API proxy reaches `faim-api:8000`.
+The VPS overlay exposes only Caddy on ports 80 and 443. PostgreSQL, Redis, Qdrant, API, worker, frontend, and migration services remain on the Compose network or have their host ports reset. Caddy routes `/health`, `/ready`, and `/version` to FastAPI and sends the normal web request to Next.js. The frontend's internal API proxy reaches the unique VPS API service at `faim-api-vps:8000` (local Compose keeps its `faim-api:8000` alias).
 
 ```mermaid
 flowchart LR
