@@ -14,6 +14,7 @@ from typing import Generator
 
 import pytest
 
+
 def _configure_isolated_test_database() -> None:
     """Give each pytest process a writable SQLite database when requested."""
     worker_id = os.environ.get("PYTEST_XDIST_WORKER")
@@ -42,7 +43,11 @@ def _configure_isolated_test_database() -> None:
     suffix = worker_id or str(os.getpid())
     runtime_dir = Path(tempfile.gettempdir()) / f"faim_pytest_{os.getpid()}"
     runtime_dir.mkdir(mode=0o700, exist_ok=True)
-    os.environ["DATABASE_URL"] = f"sqlite:///{runtime_dir}/faim_test_{suffix}.db"
+    test_database_url = f"sqlite:///{runtime_dir}/faim_test_{suffix}.db"
+    # Keep a test-only fallback available for config tests that deliberately
+    # remove DATABASE_URL before later runtime tests execute in the same worker.
+    os.environ["FAIM_TEST_DATABASE_URL"] = test_database_url
+    os.environ["DATABASE_URL"] = test_database_url
     if not worker_id:
         # Mark this value so xdist workers replace the inherited master path.
         os.environ["FAIM_PYTEST_MASTER_DB"] = "1"
