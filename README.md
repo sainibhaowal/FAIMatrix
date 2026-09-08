@@ -25,7 +25,7 @@ See [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for maturity, verification, and kno
 
 Most retrieval systems stop at “embed, search, return chunks.” FAIM-Native keeps the whole memory lifecycle visible:
 
-- raw inputs are preserved as SHA-256-addressed blobs;
+- raw inputs are stored as SHA-256-addressed blobs, with explicit retention controls governing deletion;
 - extracted evidence keeps anchors and provenance;
 - deterministic vectors and semantic representations become graph nodes;
 - graph writes emit events and advance a graph version;
@@ -107,7 +107,9 @@ flowchart TB
     WORKER --> RAW
     WORKER -. cache invalidation / locks .-> REDIS
     MIGRATE --> POSTGRES
-    POSTGRES --> BACKUPS
+    POSTGRES -. backup source .-> BACKUPS
+    RAW -. backup source .-> BACKUPS
+    OPERATOR -. invokes backup tooling .-> BACKUPS
 ```
 
 > **Accuracy boundary:** The current Compose stack does not deploy Kafka, Kubernetes, an external object store, Prometheus, a service mesh, or a mandatory hosted LLM. OCR and embedding-provider adapters exist as optional integration paths. PostgreSQL is the authoritative state; Redis and Qdrant are not independent sources of truth. Public ingress, TLS termination, domains, and host-specific gateways are deployment concerns and are intentionally not specified here.
@@ -119,7 +121,7 @@ flowchart TB
 3. **Accept and preserve input.** Ingest validates JSON or multipart content, writes the raw payload to the raw store, records metadata/audit events in PostgreSQL, and computes a content/packet identity for idempotent retry handling.
 4. **Perceive and encode.** The native extractor creates ordered `EvidenceBlock` records with anchors. Packet validation and canonicalization run before deterministic native encoding; optional OCR or embedding providers enrich the path when configured.
 5. **Commit canonical graph state.** The graph engine writes nodes, edges, versions, provenance, and lifecycle events to PostgreSQL. This is the durable write boundary.
-6. **Handle secondary acceleration.** Depending on profile and flags, Qdrant is updated inline, queued as a durable PostgreSQL job, or skipped. Redis may cache query results and coordinate locks; neither replaces PostgreSQL.
+6. **Handle secondary acceleration.** Depending on profile and flags, Qdrant is updated inline, queued as a durable PostgreSQL job, or skipped. Redis may cache query candidates and coordinate locks; neither replaces PostgreSQL.
 7. **Process background work.** The worker polls and claims rows from the PostgreSQL `jobs` table. It executes secondary indexing, evolution, invention, maintenance, retention, re-encryption, and related workflows, recording job events and outcomes.
 8. **Query and explain.** Query reads canonical graph state, optionally consults Redis/Qdrant, calculates graph-aware scores, records touches/events, and returns ranked nodes with hashes, metrics, evidence anchors, and explanations.
 9. **Stream state changes.** The SSE endpoint replays the PostgreSQL event journal by sequence number. The frontend can resume from its last sequence and receive progress, completion, job, and evolution events.
