@@ -15,14 +15,32 @@ from typing import Generator
 import pytest
 
 worker_id = os.environ.get("PYTEST_XDIST_WORKER")
-if worker_id:
+explicit_test_database = any(
+    os.environ.get(name) for name in ("TEST_DATABASE_URL", "FAIM_DATABASE_URL")
+)
+master_isolated_database = os.environ.get("FAIM_PYTEST_MASTER_DB") == "1"
+if (
+    worker_id
+    and not explicit_test_database
+    and (not os.environ.get("DATABASE_URL") or master_isolated_database)
+):
     # Use a fresh, per-process temporary database.  Reusing checked-out
     # Runtime files makes parallel runs inherit stale ownership/mode bits from
     # Docker (for example UID 1000), which can turn an otherwise isolated test
-    # into a read-only SQLite failure.
+    # into a read-only SQLite failure.  The fallback also covers a clean
+    # checkout where the ignored Runtime directory does not exist at all.
+    suffix = worker_id or str(os.getpid())
     runtime_dir = Path(tempfile.gettempdir()) / f"faim_pytest_{os.getpid()}"
     runtime_dir.mkdir(mode=0o700, exist_ok=True)
-    os.environ["DATABASE_URL"] = f"sqlite:///{runtime_dir}/faim_test_{worker_id}.db"
+    os.environ["DATABASE_URL"] = f"sqlite:///{runtime_dir}/faim_test_{suffix}.db"
+elif (
+    not worker_id and not explicit_test_database and not os.environ.get("DATABASE_URL")
+):
+    # Mark this value so xdist workers replace the inherited master path.
+    runtime_dir = Path(tempfile.gettempdir()) / f"faim_pytest_{os.getpid()}"
+    runtime_dir.mkdir(mode=0o700, exist_ok=True)
+    os.environ["DATABASE_URL"] = f"sqlite:///{runtime_dir}/faim_test_{os.getpid()}.db"
+    os.environ["FAIM_PYTEST_MASTER_DB"] = "1"
 
 # Setup path for isolated imports (avoid triggering faim.__init__)
 _FAIM_NATIVE_ROOT = Path(__file__).parent.parent
