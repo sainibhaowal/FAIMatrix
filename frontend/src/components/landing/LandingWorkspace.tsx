@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { Footer, Hero } from "@/components";
 import LandingSectionDeck from "./LandingSectionDeck";
+import ProjectStatusBanner from "./ProjectStatusBanner";
 
 const VIEWS = new Set(["hero", "core", "platform", "proof", "ops", "scale", "footer"]);
 
@@ -26,6 +27,9 @@ export default function LandingWorkspace() {
     <main data-faim-view={view} className="faim-landing-workspace min-h-screen">
       {view === "hero" && (
         <div id="hero" className="min-h-screen">
+          <div className="px-3 pt-6 sm:px-6 lg:px-10">
+            <ProjectStatusBanner />
+          </div>
           <Hero />
         </div>
       )}

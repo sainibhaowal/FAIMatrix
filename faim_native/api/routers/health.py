@@ -63,7 +63,7 @@ class ReadinessResponse(BaseModel):
 
 
 @router.get("/ready", response_model=ReadinessResponse)
-async def readiness_check():
+def readiness_check():
     """Readiness check endpoint (Stage-10 Hardened).
 
     Checks:
@@ -185,7 +185,7 @@ class PipelineStats(BaseModel):
 
 
 @router.get("/pipeline/stats", response_model=PipelineStats)
-async def pipeline_stats():
+def pipeline_stats():
     """System and pipeline performance statistics (Stage-12).
 
     Computes REAL values from live infra instead of hardcoded placeholders:

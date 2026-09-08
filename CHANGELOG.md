@@ -22,6 +22,17 @@ All notable changes to FAIM-Native should be recorded here. This project is stil
 
 ## Unreleased
 
+### Reliability and UI
+
+- Run readiness and pipeline diagnostics in FastAPI's synchronous worker pool,
+  and use the production gunicorn worker configuration so a slow graph or
+  storage operation cannot stall the API liveness path.
+- Correct the dashboard pipeline-stat request to use the authenticated
+  `/api/v1/pipeline/stats` contract.
+- Label the public landing page as the FAIMATRIX project experiment alpha
+  research preview; capability and performance claims remain subject to
+  validation.
+
 ### Documentation and project policy
 
 - Added Apache License 2.0 licensing for source code.
