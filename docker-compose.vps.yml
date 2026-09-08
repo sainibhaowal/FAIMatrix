@@ -86,9 +86,9 @@ services:
       args:
         NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET required}
         NEXTAUTH_URL: ${NEXTAUTH_URL:-https://faimatrix.com}
-        API_HOST: faim-api:8000
+        API_HOST: faim-api-vps:8000
     environment:
-      API_HOST: faim-api:8000
+      API_HOST: faim-api-vps:8000
       NEXTAUTH_URL: ${NEXTAUTH_URL:-https://faimatrix.com}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET required}
 
