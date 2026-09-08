@@ -7,12 +7,12 @@ WORKDIR /app
 RUN apk add --no-cache libc6-compat
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install dependencies with persistent BuildKit npm cache
-COPY package*.json ./
-RUN --mount=type=cache,target=/root/.npm \
-  npm config set fetch-retry-maxtimeout 120000 && \
-  npm config set fetch-retries 5 && \
-  npm install --legacy-peer-deps
+# Install the pinned package manager and dependencies from the committed lockfile.
+# Keeping this frozen prevents an image build from silently changing the dependency tree.
+RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
+COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,id=faim-pnpm-store,target=/root/.local/share/pnpm/store \
+  pnpm install --frozen-lockfile --prefer-offline
 
 # Copy code. Build args provide the production env values needed at build time.
 COPY . .
@@ -33,7 +33,7 @@ RUN if [ -n "$NEXTAUTH_SECRET" ]; then \
   printf "NEXTAUTH_SECRET=%s\nNEXTAUTH_URL=%s\n" "$NEXTAUTH_SECRET" "$NEXTAUTH_URL" >> .env; \
   fi
 
-RUN npm run build
+RUN pnpm run build
 
 # Runner stage
 FROM node:22-alpine AS runner
