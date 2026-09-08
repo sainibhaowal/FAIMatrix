@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 const PILLARS = [
   {
     title: "Determinism is Mandatory",
-    desc: "A query should not return different results because the index 'approximated' a neighbor. FAIM is built on VP-Trees and WAND for 100% stable, repeatable truth.",
+    desc: "FAIM uses deterministic ordering and bounded algorithms in core paths. Approximate indexes and external providers are called out explicitly, so repeatability can be evaluated under fixed inputs and settings.",
     icon: "🎯",
   },
   {
@@ -15,12 +15,12 @@ const PILLARS = [
   },
   {
     title: "Evidence-First Synthesis",
-    desc: "We don't 'generate' answers; we synthesize them from extracted truth. Every response is grounded in spatial anchors and cited evidence blocks.",
+    desc: "The core can select evidence spans and source anchors for citation-first answers. Optional model-generated language remains a separate, variable layer.",
     icon: "🔍",
   },
   {
     title: "Privacy by Design",
-    desc: "Multi-tenancy isn't a feature; it's the core. Every node and edge is crypto-isolated via tenant_id scoping from the storage layer up.",
+    desc: "Multi-tenancy is part of the core design. Every node and edge is tenant-scoped through the authenticated storage path; encryption and isolation still require correct deployment configuration and verification.",
     icon: "🔐",
   },
 ];
@@ -46,7 +46,7 @@ export default function Manifesto() {
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
             We are building the engine for teams who can&apos;t afford to guess.
-            No hallucinations, no jitter, no context blindness.
+            Evidence-first, inspectable responses; no unsupported guarantees.
           </p>
         </motion.div>
 

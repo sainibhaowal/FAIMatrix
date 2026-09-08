@@ -12,12 +12,12 @@ const FAQS: FAQItem[] = [
   {
     question: "How deep does reasoning go?",
     answer:
-      "Traditional systems stop at fetch-and-summarize. FAIM uses planner-driven bounded graph reasoning instead: simple questions can stay at 1-3 hops, deeper investigative turns can expand through the live Cortex runtime up to 24 hops by default, and advanced deployments can raise the bounded ceiling to 128 hops through configuration. Provenance, determinism, and citation integrity stay intact at every step.",
+      "FAIM uses planner-driven bounded graph reasoning: simple questions can stay shallow, while deeper investigative turns can expand through the configured Cortex runtime. Provenance and citation metadata are emitted where the selected path supports them; model-generated explanations may vary.",
   },
   {
     question: "How does the semantic router work?",
     answer:
-      "Unlike LLMs that 'think' for several seconds to classify intent, FAIM uses a deterministic alias map and pattern overrides. This allows the system to map your query to 8 core cognitive tasks in under 10ms with zero latency, zero drift, and zero hallucination risk.",
+      "FAIM uses a deterministic alias map and pattern overrides to route queries to its configured cognitive tasks without requiring an LLM classifier. The routing decision is repeatable with fixed configuration; latency and end-to-end answer quality are deployment-dependent.",
   },
   {
     question: "Is FAIMATRIX a vector database?",
@@ -32,12 +32,12 @@ const FAQS: FAQItem[] = [
   {
     question: "How is this different from using OpenAI embeddings + Pinecone?",
     answer:
-      "Three fundamental differences: (1) FAIM\u2019s 256-dim vectors are computed deterministically with no API call \u2014 same input always produces the same vector. (2) FAIM adds mathematical structure on top: inheritance fractions, antisymmetric merge, fractal physics, 8 invariants. Pinecone just stores and does similarity search. (3) FAIM works offline, air-gapped. Pinecone + OpenAI require cloud connectivity.",
+      "Three practical differences: (1) FAIM\u2019s native vectors are computed locally and repeatably when the encoder configuration is fixed. (2) FAIM adds graph structure, lifecycle controls, evidence, and invariant checks around retrieval; managed vector services focus on indexed retrieval and are composed with application logic for these concerns. (3) FAIM can run without cloud APIs; using hosted providers such as OpenAI or Pinecone introduces external service dependencies.",
   },
   {
     question: 'What does "deterministic" actually mean here?',
     answer:
-      "It means: given the same input data and the same graph state, every operation produces exactly the same result. Same vectors, same inheritance fractions, same merge decisions (winner selected by SHA-256 hash comparison), same scores. Run it 10,000 times \u2014 identical output. This is mathematically enforced, not approximately reproducible.",
+      "It means the core operations are designed to repeat when input data, graph state, configuration, dependency versions, and index settings are fixed. Approximate ANN search, OCR, and LLM/provider calls can vary, so we do not claim every end-to-end response is identical.",
   },
   {
     question: "Can I use FAIM with my existing LLM (GPT-4, Claude, etc.)?",
@@ -47,17 +47,17 @@ const FAQS: FAQItem[] = [
   {
     question: "What is the golden ratio doing in a memory engine?",
     answer:
-      "The scaling factor s = 1/\u03C6 \u2248 0.618 is the fixed point of the recurrence s = 1/(1+s). It guarantees self-similar energy scaling across hierarchy levels. Energy E = mean_L2_norm \u00D7 s must stay \u2264 2.0 \u2014 this is a mathematical stability bound. The golden ratio isn\u2019t decorative; it\u2019s the only value that maintains consistent scaling at every depth.",
+      "The implementation uses s = 1/\u03C6 \u2248 0.618, the fixed point of s = 1/(1+s), as one of its scaling parameters. The engine checks its configured energy bound as an invariant; this is an internal stability rule, not a universal guarantee about retrieval quality.",
   },
   {
     question: "How does multi-tenant isolation work?",
     answer:
-      "Every tenant gets cryptographically isolated data. The middleware layer extracts tenant_id from every request and enforces it at the database level. Tenants cannot access each other\u2019s graphs, nodes, edges, or events. This is enforced by the auth middleware, not application logic \u2014 a tenant literally cannot construct a query that touches another tenant\u2019s data.",
+      "Requests are authenticated, scoped to a tenant, and constrained by database access paths. Protected fields use the configured encryption controls. Isolation must still be verified through deployment configuration and tenant-isolation attack tests; the landing page does not treat it as a blanket guarantee.",
   },
   {
     question: "Is FAIM suitable for production?",
     answer:
-      "FAIM runs in Docker with PostgreSQL, Redis, and Qdrant. It has defined SpeedBudget profiles (STRICT through SCALE), rate limiting, JWT + API key authentication, scoped permissions, tenant isolation, a write-behind queue, and graph autonomy controls that are explicit and default-off. The STRICT profile targets p95 retrieve latency of 10ms at 1M nodes. All of this is in the current codebase \u2014 not a roadmap.",
+      "FAIM runs in Docker with PostgreSQL, Redis, and optional Qdrant acceleration. It includes SpeedBudget profiles, rate limiting, JWT + API-key authentication, scoped permissions, tenant controls, a write-behind queue, and explicit default-off autonomy controls. Latency and throughput depend on graph size, hardware, configuration, and workload; see the benchmark surface for measured runs.",
   },
 ];
 

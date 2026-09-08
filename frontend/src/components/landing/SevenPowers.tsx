@@ -18,7 +18,7 @@ const POWERS: Power[] = [
   {
     number: "01",
     title: "Deterministic Core",
-    headline: "The original FAIM engine is still the source of truth.",
+    headline: "The original FAIM engine remains the memory boundary.",
     description:
       "FAIM still writes 256-dimensional native vectors, computes inheritance fractions, verifies 8 invariants, hashes graph state, and evolves without randomness. Everything else was added around this core, not in place of it.",
     codeSnippet: `// engine_native.py — deterministic core
@@ -106,7 +106,7 @@ dominance = suppress_weaker_conflicts(top_n)`,
     title: "Scale, Multilingual, Multimodal",
     headline: "Hybrid Physics-Based Graph Recall beyond plain brute force.",
     description:
-      "FAIM uses a three-layer pipeline: VP-Tree for dense semantic similarity, WAND for sparse lexical precision, and graph-expanded recall for logical context. It scales better and handles richer evidence types while remaining 100% deterministic.",
+      "FAIM uses a three-layer pipeline: VP-Tree for dense semantic similarity, WAND for sparse lexical precision, and graph-expanded recall for logical context. Core ordering is reproducible when inputs and settings are fixed; approximate indexes and provider layers are documented separately.",
     codeSnippet: `// query_flow.py — Hybrid recall pipeline
 sparse = wand.shortlist(query)
 dense = vptree.shortlist(v_native)

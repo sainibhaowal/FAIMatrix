@@ -19,13 +19,13 @@ const STAGES: PipelineStage[] = [
     id: "stage-1",
     title: "Stage 1: Sparse shortlist",
     subtitle: "Inverted Posting Lists & WAND Pruning",
-    desc: "The query splits into Porter-stemmed and skip-gram tokens. Using a highly optimized inverted index, FAIM runs Block-Max WAND to compute dynamic score upper bounds, pruning non-matching node ranges in microseconds before vector execution.",
+    desc: "The query splits into Porter-stemmed and skip-gram tokens. FAIM uses Block-Max WAND score bounds to prune non-matching ranges before vector execution; latency and pruning rate are deployment-dependent and benchmarked separately.",
     math: "S_{sparse} = \\sum_{t \\in Q} \\text{WAND}(t, d)",
     specs: [
-      { label: "Complexity", value: "Sublinear O(log N)" },
+      { label: "Complexity", value: "Bounded shortlist" },
       { label: "Data Path", value: "PostgreSQL inverted_index" },
       { label: "Memory Cache", value: "Redis postings shortlist" },
-      { label: "Pruning Rate", value: "> 92% candidates skipped" }
+      { label: "Pruning Rate", value: "Not yet measured" }
     ],
     accentColor: "text-cyan-400",
     glow: "border-cyan-500/20 bg-cyan-500/[0.03]"
@@ -33,14 +33,14 @@ const STAGES: PipelineStage[] = [
   {
     id: "stage-2",
     title: "Stage 2: Dense shortlist",
-    subtitle: "Deterministic Vector HNSW & VP-Tree Scans",
-    desc: "In parallel, the query's 256-dimensional native vector is checked against a deterministic HNSW index. Traditional HNSW entry levels are stochastic, but FAIM locks in absolute determinism using a stable hash value to map levels.",
+    subtitle: "Native Vector HNSW & VP-Tree Scans",
+    desc: "In parallel, the query's 256-dimensional native vector is checked against the native ANN path. Stable-hash level assignment makes the configured traversal repeatable; ANN recall and latency still depend on graph state and search settings.",
     math: "\\text{Level}(D) = \\text{Hash}(\\text{node\\_id}) \\pmod{\\text{Max\\_Level}}",
     specs: [
       { label: "Index Type", value: "Stable-Hash Level HNSW" },
       { label: "Dimensions", value: "256-dim v_native" },
       { label: "Search Metric", value: "Cosine Distance (No-ML)" },
-      { label: "Latency p95", value: "< 0.8ms" }
+      { label: "Latency p95", value: "Not yet measured" }
     ],
     accentColor: "text-purple-400",
     glow: "border-purple-500/20 bg-purple-500/[0.03]"
@@ -70,7 +70,7 @@ const STAGES: PipelineStage[] = [
       { label: "Blended Signals", value: "7 distinct channels" },
       { label: "Conflict Resolver", value: "Pairwise Dominance" },
       { label: "Chronological filter", value: "Created_at timestamp" },
-      { label: "Execution Mode", value: "100% Deterministic" }
+      { label: "Execution Mode", value: "Core path; providers vary" }
     ],
     accentColor: "text-emerald-400",
     glow: "border-emerald-500/20 bg-emerald-500/[0.03]"
@@ -96,7 +96,7 @@ export default function AdvancedADIPipeline() {
             The 4-Stage Progressive ADI Retrieval Pipeline
           </h2>
           <p className="text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed">
-            By executing deterministic relational algebra, sparse pruning, stable HNSW graphs, and multi-hop diffusion in sequence, FAIM achieves extreme search recall and zero-hallucination accuracy in microseconds.
+            The pipeline composes relational algebra, sparse pruning, native vector search, bounded graph diffusion, and multi-signal reranking. Core scoring is inspectable; recall, latency, and answer quality must be established with the benchmark harness.
           </p>
         </div>
 
@@ -177,7 +177,7 @@ export default function AdvancedADIPipeline() {
                 Bilingual Concept Bridges & Layout Linearization
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                FAIM maps English and German terms directly onto language-agnostic conceptual nodes. During query times, unstructured tabular data is linearized into normalized semiclon grids, allowing layout coordinates and perceptual hashes to boost results with zero transformer dependencies.
+                FAIM maps English and German terms onto language-agnostic conceptual nodes. During query time, unstructured tabular data is linearized into normalized grids, allowing layout coordinates and perceptual hashes to contribute without requiring transformer inference in the core path.
               </p>
             </div>
             <div className="border-t border-slate-800/80 pt-6 space-y-3">
@@ -203,15 +203,15 @@ export default function AdvancedADIPipeline() {
                 Extractive Answer Synthesis
               </span>
               <h3 className="text-2xl font-black text-white tracking-tight mt-2 mb-4">
-                Confidence Intervals & Contradiction Resolution
+                Evidence Scores & Contradiction Resolution
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                Instead of generating conversational text stochastically, FAIM extracts exact sentence spans directly from source nodes. It evaluates contradiction warning notes and scores a mathematically complete confidence interval, ensuring 100% auditable answers.
+                FAIM can select sentence spans directly from source nodes and attach contradiction notes. Its evidence score is an internal ranking signal, not a statistical confidence interval or an accuracy guarantee.
               </p>
             </div>
             <div className="border-t border-slate-800/80 pt-6">
               <div className="rounded-2xl bg-slate-950 border border-slate-900 p-4 font-mono text-[10px] text-purple-300">
-                S_confidence = clamp( 0.45*S_avg + 0.30*S_breadth + 0.25*S_active - S_penalty )
+                S_evidence = clamp( 0.45*S_avg + 0.30*S_breadth + 0.25*S_active - S_penalty )
               </div>
             </div>
           </div>

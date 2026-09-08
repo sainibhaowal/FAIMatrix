@@ -59,7 +59,7 @@ const SUBNAV: Record<string, SubItem[]> = {
     { key: "recall", label: "Hybrid recall", summary: "Dense plus graph-aware recall." },
     { key: "comparison", label: "Systems comparison", summary: "Source-backed capability matrix across memory and retrieval systems." },
     { key: "adi", label: "ADI pipeline", summary: "Deterministic end-to-end pipeline." },
-    { key: "pillars", label: "Pillars", summary: "Enterprise pillars and guarantees." },
+    { key: "pillars", label: "Pillars", summary: "Enterprise pillars and controls." },
     { key: "engine", label: "7 powers", summary: "Core engine powers." },
   ],
   proof: [

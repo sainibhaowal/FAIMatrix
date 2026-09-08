@@ -62,7 +62,8 @@ export default function Hero() {
               FAIMATRIX is a structured knowledge engine powered by a
               deterministic semantic router. It combines 256-dim deterministic
               vectors with guarded memory writebacks, graph diffusion, and
-              zero-hallucination Cortex synthesis.
+              evidence-linked Cortex synthesis; optional model output remains
+              an explicit application-layer dependency.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -143,7 +144,7 @@ export default function Hero() {
         <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-400 sm:grid-cols-2">
           <div className="rounded-xl border border-cyan-300/10 bg-cyan-300/[0.025] px-4 py-3">
             <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-200/80">Deterministic semantic router</p>
-            <p className="mt-1">Zero-latency classification powered by a seeded alias map and pattern overrides. No ML black-boxes, just deterministic intelligence.</p>
+            <p className="mt-1">Seeded alias and pattern classification with no LLM required for this path. Latency depends on deployment and is reported in the benchmark surface.</p>
           </div>
           <div className="rounded-xl border border-indigo-300/10 bg-indigo-300/[0.025] px-4 py-3">
             <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-indigo-200/80">Guarded writeback safety</p>

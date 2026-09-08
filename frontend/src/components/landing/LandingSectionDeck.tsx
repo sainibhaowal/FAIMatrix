@@ -195,10 +195,9 @@ function FutureMassiveScaling() {
             FAIM at Massive Scale: The GPU-Accelerated Cognitive Core
           </h2>
           <p className="text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed">
-            By offloading FAIM's deterministic relational algebra and graph
-            structures to parallel GPU clusters, we bypass the massive computing
-            bottlenecks of deep learning models, delivering enterprise-grade
-            search speed and fact integrity at a fraction of the cost.
+            This roadmap explores offloading FAIM's relational algebra and graph
+            structures to parallel GPU clusters. It is a design direction, not a
+            published speed, cost, or correctness result.
           </p>
         </div>
 
@@ -206,19 +205,19 @@ function FutureMassiveScaling() {
           {[
             {
               title: "CUDA-Accelerated Vectors",
-              desc: "Offload dense 256-d vector recall to thousands of parallel CUDA cores using GPU-accelerated FAISS/cUML. Search across 100M+ nodes in <1ms.",
+              desc: "Explore dense 256-d vector recall on GPU-accelerated FAISS/cuML. Scale and latency targets require a reproducible benchmark before publication.",
             },
             {
               title: "Sparse Matrix Graph TCT",
-              desc: "Represent the knowledge graph as a sparse adjacency matrix in VRAM. Run 2-hop Transitive Contradiction Traversal in parallel with zero database delays.",
+              desc: "Represent the knowledge graph as a sparse adjacency matrix in VRAM and evaluate bounded contradiction traversal in parallel. Database and traversal latency remain to be measured.",
             },
             {
               title: "Parallel Blending Formula",
-              desc: "Blend multi-channel sparse sidecars (skip-grams, exact words, document structure) dynamically on the GPU. Constant-time score synthesis without CPU overhead.",
+              desc: "Blend multi-channel sparse sidecars (skip-grams, exact words, document structure) on the GPU. Throughput and complexity depend on implementation and workload.",
             },
             {
               title: "Zero-Trust Local Clusters",
-              desc: "Run 100% locally and securely on affordable GPU clusters (e.g. NVIDIA L4). Perfect data isolation with zero cloud vendor dependencies.",
+              desc: "Run self-hosted on GPU clusters such as NVIDIA L4 when configured. Data residency and tenant isolation depend on deployment controls; cloud dependencies are optional.",
             },
           ].map((item) => (
             <div
@@ -313,7 +312,7 @@ const GROUPS: DeckGroup[] = [
       {
         key: "pillars",
         label: "Pillars",
-        summary: "Enterprise pillars and guarantees.",
+        summary: "Enterprise pillars and controls.",
         node: <EnterprisePillars />,
       },
       {

@@ -75,7 +75,7 @@ const PIPELINE_STAGES = [
     description:
       "Blocks become a MemoryPacket with a unique packet_hash (SHA-256 of all blocks).",
     detail:
-      "This hash is the idempotency key \u2014 upload the same file twice, same hash, zero duplicates.",
+      "This hash is used as an idempotency key; the write path records whether content is new or already stored.",
     output: "packet_hash, memory_packet",
   },
   {
@@ -98,7 +98,7 @@ const PIPELINE_STAGES = [
     ),
     color: "purple",
     description:
-      "Each block \u2192 256-dimensional FAIMVector. Deterministic encoding: same text = same vector, always.",
+      "Each block \u2192 256-dimensional FAIMVector. Encoding is repeatable when the encoder version and configuration are fixed.",
     detail:
       "No embedding API. Native deterministic encoding path. Every vector gets a SHA-256 vector_hash.",
     output: "faim_vectors[], vector_hashes[]",
@@ -221,8 +221,9 @@ export default function IngestionPipeline() {
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            Five deterministic stages. Every step produces a verifiable hash.
-            Upload the same file twice \u2014 zero duplicates, guaranteed.
+            Five inspectable stages. Every step produces a verifiable hash.
+            Re-uploading the same content produces the same packet hash; the
+            idempotent write path determines whether it is new or already stored.
           </p>
         </motion.div>
 

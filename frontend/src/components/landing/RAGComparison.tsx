@@ -537,6 +537,9 @@ export default function RAGComparison() {
           </div>
 
           <div className="overflow-x-auto">
+            <p className="border-b border-slate-800 bg-slate-950/60 px-5 py-2 text-[10px] text-slate-500 sm:hidden">
+              Swipe horizontally to compare all systems.
+            </p>
             <table className="min-w-[2240px] w-full table-fixed border-collapse text-left">
               <thead>
                 <tr className="border-b border-slate-800 bg-slate-900/80">
@@ -609,6 +612,19 @@ export default function RAGComparison() {
               linked
             </span>
           </div>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-1 rounded-xl border border-slate-800/80 bg-slate-950/60 px-4 py-3 text-[10px] leading-5 text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <span>
+            Source review date: 2026-09-08 · capability review, not a
+            performance certification.
+          </span>
+          <a
+            href="/benchmarks"
+            className="font-semibold text-cyan-300 transition-colors hover:text-cyan-200"
+          >
+            View measured results →
+          </a>
         </div>
 
         <div className="mt-10 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
