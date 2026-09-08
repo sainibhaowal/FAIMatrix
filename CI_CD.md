@@ -20,7 +20,7 @@ The frontend formatting check is not currently a required gate because the repos
 
 This workflow is manual-only. Run a dry run first, review the calculated version and notes, then run it again with `dry_run=false`.
 
-The release configuration is in [`.releaserc.json`](.releaserc.json). Conventional `feat:` commits produce a minor release and `fix:` commits produce a patch release; `BREAKING CHANGE:` produces a major release. A successful release creates a `vX.Y.Z` Git tag, GitHub release notes, and updates `CHANGELOG.md`.
+The release configuration is in [`.releaserc.json`](.releaserc.json). Conventional `feat:` commits produce a minor release and `fix:` commits produce a patch release; `BREAKING CHANGE:` produces a major release. A successful release creates a `vX.Y.Z` Git tag, GitHub release notes, and updates `CHANGELOG.md`. If the commit range contains no releasable Conventional Commit, semantic-release exits successfully but publishes nothing; review the workflow log for “no release is published”. Release and VPS deployment are separate manual workflows; publishing a release does not implicitly SSH to the VPS.
 
 The earlier documentation commit was intentionally pushed without a tag. Future tags are created only when this manual release workflow is run successfully.
 
@@ -28,7 +28,11 @@ The earlier documentation commit was intentionally pushed without a tag. Future 
 
 ### `Deploy research VPS` — `.github/workflows/deploy-vps.yml`
 
-This workflow is also manual-only and requires the confirmation checkbox plus approval from the `production` GitHub environment.
+This workflow is also manual-only and requires `confirm=true`. GitHub environment
+protection rules may add an approval gate when the repository plan supports it;
+this repository currently has a `main`-only production branch policy and no
+reviewer rule. An unconfirmed run fails explicitly and does not silently appear
+successful.
 
 1. GitHub Actions builds the backend image and frontend image with BuildKit.
 2. Images are pushed to GHCR with an immutable commit-based or manually supplied tag.
@@ -36,8 +40,17 @@ This workflow is also manual-only and requires the confirmation checkbox plus ap
 4. The VPS authenticates to GHCR and pulls that exact tag.
 5. PostgreSQL, Redis, and Qdrant are kept running; migrations run before application replacement.
 6. API, worker, and frontend are updated with Compose `--wait` and without `docker compose down`.
-7. `https://faimatrix.com` is checked at `/health`, `/ready`, `/version`, and `/`.
-8. Only after smoke checks pass, unused containers, images, build cache, and system resources are pruned.
+7. `https://faimatrix.com` is checked at `/health`, `/ready`, `/version`, and `/`; every endpoint must return an actual 2xx response (redirects such as a Cloudflare Access login are rejected).
+8. No global Docker prune is performed. Unrelated containers, images, build
+   caches, and persistent data remain untouched; cleanup is an explicit
+   operator-controlled maintenance task.
+
+The FAIM VPS override publishes no host ports. Its private Caddy joins the
+existing `aurelinx_default` Docker network so the independent gateway can
+reverse-proxy to it, while the deployment workflow never edits or reloads
+`/opt/gateway/Caddyfile`. Add and validate the public `faimatrix.com` gateway
+route as a separate operator change with a backup when you are ready to expose
+the service.
 
 The deploy does not run `docker volume prune`, `docker system prune --volumes`, or any command that intentionally removes the persistent PostgreSQL, Redis, Qdrant, raw-data, backup, or Caddy volumes. It also does not use `docker compose down`.
 
@@ -47,18 +60,41 @@ Compose service replacement on one host is designed to minimize interruption by 
 
 Create a `production` environment and, preferably, require a reviewer before the deploy job can start. Add these environment secrets:
 
+The workflow checks these values inside the approved deploy job (not the image-build job), so environment-scoped secrets are supported and missing credentials fail closed before any SSH or service change.
+
 - `VPS_HOST` — VPS hostname or address;
 - `VPS_USER` — restricted deployment user, preferably not root;
 - `VPS_PORT` — SSH port, optional if `22`;
 - `VPS_PATH` — application directory, optional if `/opt/faim/FAIM`;
 - `VPS_SSH_KEY` — private deploy key in OpenSSH format;
-- `VPS_KNOWN_HOSTS` — pinned `ssh-keyscan` output for the VPS host;
-- `GHCR_DEPLOY_USERNAME` — GitHub username or machine account for package reads; and
-- `GHCR_DEPLOY_TOKEN` — classic token with only `read:packages` for private GHCR images.
+- `VPS_KNOWN_HOSTS` — pinned `ssh-keyscan` output for the VPS host.
+
+The workflow uses its short-lived GitHub job token for GHCR login. It does not
+require or retain a long-lived GHCR personal-access token on the VPS.
 
 The VPS must already contain `deploy/env.vpsprod` with real production secrets and persistent `Runtime/vps` directories. That file is never synchronized from GitHub.
 
-For a private GHCR package, the VPS needs a read-capable token. For a public package, anonymous pulls may work, but keeping the package private until the deployment path is reviewed is safer.
+For database-only production auth, keep `TENANT_KEYS_JSON={}`. To establish a
+first tenant key without retaining plaintext in that file, an operator may add
+a temporary `FAIM_TENANT_KEY_BOOTSTRAP_JSON` line containing the documented
+tenant-to-key JSON map. During deployment, the VPS helper runs the backend
+image bootstrap after migrations, stores only Argon2id hashes, and removes only
+that temporary line after success. Treat the temporary value as an
+operator-supplied secret: do not place it in GitHub workflow logs, source
+control, or a long-running API/worker environment.
+See [`docs/PRODUCTION_HARDENING.md`](docs/PRODUCTION_HARDENING.md) for the
+manual dry-run and rotation procedure.
+
+Before an actual update, validate the installed VPS configuration without changing services:
+
+```bash
+FAIM_IMAGE_PREFIX=ghcr.io/sainibhaowal/faimatrix \\
+FAIM_IMAGE_TAG=preflight \\
+./scripts/vps_deploy_ci.sh --preflight-only
+```
+
+For a private GHCR package, the deployment job authenticates the VPS with its
+short-lived job token before pulling the exact immutable image tag.
 
 ## VPS preparation checklist
 
@@ -69,4 +105,3 @@ For a private GHCR package, the VPS needs a read-capable token. For a public pac
 - Confirm DNS and TLS for `faimatrix.com`.
 - Confirm `/health`, `/ready`, `/version`, and `/` work before the first automated deployment.
 - Test backup and restore before loading irreplaceable data.
-

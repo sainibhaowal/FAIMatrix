@@ -434,14 +434,15 @@ async def graph_neighborhood(
                 truncated = True
                 truncation_reason = "edge_cap"
                 break
-            edge_seen.add(ekey)
-            if el_cap > 0:
-                collected_edges.append(edge)
             if other not in visited:
                 if len(visited) >= nl:
                     truncated = True
                     truncation_reason = "node_cap"
                     break
+            edge_seen.add(ekey)
+            if el_cap > 0:
+                collected_edges.append(edge)
+            if other not in visited:
                 visited.add(other)
                 distances[str(other)] = d + 1
                 next_frontier.add(other)

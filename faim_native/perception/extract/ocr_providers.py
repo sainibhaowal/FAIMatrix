@@ -131,6 +131,11 @@ class OCRProvider(ABC):
         """Check if provider dependencies/runtime are available."""
         pass
 
+    def warm_up(self, languages: Optional[str] = None) -> None:
+        """Load local model resources before serving traffic."""
+        if not self.is_available():
+            raise OCRUnavailableError(f"OCR provider {self.model_info.id} is unavailable")
+
     @abstractmethod
     def extract_image_bytes(
         self,
@@ -269,6 +274,12 @@ class PaddleOCRv6Provider(OCRProvider):
 
             self._instances[target_lang] = engine
         return self._instances[target_lang]
+
+    def warm_up(self, languages: Optional[str] = None) -> None:
+        if not self.is_available():
+            raise OCRUnavailableError("PaddleOCR dependencies are not installed")
+        lang = (languages or self._default_lang or "en").split(",")[0].strip() or "en"
+        self._get_engine(lang)
 
     def extract_image_bytes(
         self,
@@ -821,6 +832,14 @@ class OCRProviderRegistry:
     def get_active_id(self) -> str:
         """Get the active OCR provider ID."""
         return self._active_provider_id
+
+    def warm_up_active(self, languages: Optional[str] = None) -> str:
+        """Load the active provider before serving traffic."""
+        provider = self.get_active()
+        if provider is None:
+            raise OCRUnavailableError("No active OCR provider is registered")
+        provider.warm_up(languages=languages)
+        return self.get_active_id()
 
 
 # =============================================================================

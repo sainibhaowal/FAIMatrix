@@ -35,9 +35,11 @@ router = APIRouter(prefix="/cortex", tags=["cortex"])
 
 PROFILE_MAP = {
     "STRICT": FAIMProfile.STRICT,
+    "BALANCED": FAIMProfile.BALANCED,
     "RELAXED": FAIMProfile.RELAXED,
     "FAST": FAIMProfile.FAST,
     "strict": FAIMProfile.STRICT,
+    "balanced": FAIMProfile.BALANCED,
     "relaxed": FAIMProfile.RELAXED,
     "fast": FAIMProfile.FAST,
 }
@@ -66,7 +68,12 @@ async def cortex_turn(
 
     try:
         from core.cortex.runtime import run_cortex_turn
-        profile = PROFILE_MAP.get(request.profile, FAIMProfile.RELAXED)
+        profile = PROFILE_MAP.get(request.profile.strip().upper())
+        if profile is None:
+            raise HTTPException(
+                status_code=422,
+                detail="profile must be one of: STRICT, BALANCED, RELAXED, FAST",
+            )
         result = await run_cortex_turn(
             session=ctx.session,
             tenant_id=tenant_id,
@@ -655,4 +662,3 @@ async def _reject_tool_via_ws(tenant_id: str, approval_id: int, note: Optional[s
         ))
     finally:
         close_session(ctx_session)
-

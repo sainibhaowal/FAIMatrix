@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import time
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -41,6 +42,7 @@ Vector = Tuple[float, ...]
 
 _qdrant_client = None
 _qdrant_available = None  # None = not checked, True/False = known
+_qdrant_last_check = 0.0
 
 
 def _get_qdrant_url() -> str:
@@ -58,11 +60,20 @@ def _get_client() -> Any:
 
     Returns None if Qdrant is unavailable.
     """
-    global _qdrant_client, _qdrant_available
+    global _qdrant_client, _qdrant_available, _qdrant_last_check
 
-    # Already checked and unavailable
+    # An outage must not become permanent for the lifetime of the worker.  We
+    # retain the bounded fallback between probes, then retry the real service.
     if _qdrant_available is False:
-        return None
+        retry_seconds_raw = os.getenv("FAIM_QDRANT_RETRY_SECONDS", "15")
+        try:
+            retry_seconds = max(1.0, float(retry_seconds_raw))
+        except ValueError:
+            retry_seconds = 15.0
+        if time.monotonic() - _qdrant_last_check < retry_seconds:
+            return None
+        _qdrant_available = None
+        _qdrant_client = None
 
     if _qdrant_client is None:
         try:
@@ -77,18 +88,29 @@ def _get_client() -> Any:
             # Test connection
             _qdrant_client.get_collections()
             _qdrant_available = True
+            _qdrant_last_check = time.monotonic()
             logger.info(f"Connected to Qdrant at {_get_qdrant_url()}")
 
         except ImportError:
             logger.warning("qdrant-client not installed, using fallback")
             _qdrant_available = False
             _qdrant_client = None
+            _qdrant_last_check = time.monotonic()
         except Exception as e:
             logger.warning(f"Qdrant unavailable: {e}, using fallback")
             _qdrant_available = False
             _qdrant_client = None
+            _qdrant_last_check = time.monotonic()
 
     return _qdrant_client
+
+
+def reset_qdrant_connection() -> None:
+    """Force the next index operation to probe Qdrant immediately."""
+    global _qdrant_client, _qdrant_available, _qdrant_last_check
+    _qdrant_client = None
+    _qdrant_available = None
+    _qdrant_last_check = 0.0
 
 
 def is_qdrant_available() -> bool:
@@ -572,5 +594,6 @@ __all__ = [
     "VECTOR_DIMENSION",
     "BruteForceIndex",
     "FAIMIndex",
+    "reset_qdrant_connection",
     "is_qdrant_available",
 ]

@@ -70,6 +70,9 @@ class StorageFileItem(BaseModel):
     mime_type: str
     size_bytes: int
     sha256: str
+    # Canonical catalog status.  `ingest_status` remains for backward
+    # compatibility; both fields are populated from the same database value.
+    status: str
     ingest_status: str
     packet_hash: Optional[str] = None
     node_count: int = 0
@@ -991,6 +994,16 @@ def _trigger_autonomous_domain_adaptation(
             source,
             exc,
         )
+        _emit_storage_audit_event(
+            ctx=ctx,
+            graph_id=graph_id,
+            kind="DOMAIN_PROFILE_REBUILD_FAILED",
+            payload={
+                "source": source,
+                "error_type": type(exc).__name__,
+                "status": "trigger_failed",
+            },
+        )
         return None
 
 
@@ -1002,6 +1015,7 @@ def _row_to_file_item(row: Any) -> StorageFileItem:
         mime_type=row.mime_type,
         size_bytes=int(row.size_bytes or 0),
         sha256=row.sha256,
+        status=row.ingest_status or "unknown",
         ingest_status=row.ingest_status,
         packet_hash=row.packet_hash,
         node_count=int(row.node_count or 0),
@@ -2754,13 +2768,17 @@ async def rebuild_domain_profile_for_graph(
     _storage_lifecycle_log(
         ctx=ctx,
         op="domain_profile_rebuild",
-        status="completed",
+        status=("partial_failed" if result.errors else "completed"),
         graph_id=graph_id,
-        detail="domain profile rebuild completed",
+        detail=(
+            "domain profile rebuild completed with errors"
+            if result.errors
+            else "domain profile rebuild completed"
+        ),
     )
 
     return StorageDomainProfileRebuildResponse(
-        status="ok",
+        status=("partial_failed" if result.errors else "ok"),
         graph_id=graph_id,
         files_scanned=result.files_scanned,
         files_loaded=result.files_loaded,

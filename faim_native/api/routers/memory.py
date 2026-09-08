@@ -80,7 +80,11 @@ class MemorySearchResponse(BaseModel):
     profile: str
     results: List[MemorySearchResult]
     answer: Optional[Dict[str, Any]] = None
-    metrics: Dict[str, float]
+    # Diagnostics metadata includes numeric values as well as the cache hash
+    # and RFC3339 computation timestamp.  Keep this contract lossless instead
+    # of forcing metadata through a float-only schema (which turns a valid
+    # search response into a 500 during Pydantic validation).
+    metrics: Dict[str, Any]
     duration_ms: float
 
 

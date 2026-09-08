@@ -29,6 +29,16 @@ env:
   IMAGE_PREFIX: ghcr.io/sainibhaowal/faimatrix
 
 jobs:
+  require-confirmation:
+    name: Require explicit deployment confirmation
+    if: inputs.confirm != true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stop unconfirmed deployment
+        run: |
+          echo "Deployment was not started. Re-run this workflow with confirm=true." >&2
+          exit 1
+
   build-images:
     name: Build and publish immutable images
     if: inputs.confirm == true
@@ -80,6 +90,11 @@ jobs:
           provenance: true
           sbom: true
 
+      - name: Generate ephemeral frontend build secret
+        id: frontend-build-secret
+        shell: bash
+        run: echo "nextauth_secret=$(openssl rand -hex 32)" >> "$GITHUB_OUTPUT"
+
       - name: Build and publish frontend image
         uses: docker/build-push-action@v7
         with:
@@ -87,7 +102,7 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           build-args: |
-            NEXTAUTH_SECRET=ci-build-placeholder
+            NEXTAUTH_SECRET=${{ steps.frontend-build-secret.outputs.nextauth_secret }}
             NEXTAUTH_URL=https://faimatrix.com
             API_HOST=faim-api:8000
           tags: |
@@ -114,12 +129,24 @@ jobs:
       VPS_PATH: ${{ secrets.VPS_PATH || '/opt/faim/FAIM' }}
       VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
       VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
-      GHCR_DEPLOY_USERNAME: ${{ secrets.GHCR_DEPLOY_USERNAME }}
-      GHCR_DEPLOY_TOKEN: ${{ secrets.GHCR_DEPLOY_TOKEN }}
+      # The job-scoped GitHub token has packages:write above and is valid only
+      # for this deployment.  Do not keep a long-lived GHCR PAT on the VPS.
+      GHCR_DEPLOY_USERNAME: ${{ github.actor }}
+      GHCR_DEPLOY_TOKEN: ${{ github.token }}
       IMAGE_TAG: ${{ needs.build-images.outputs.image_tag }}
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Validate production deployment credentials
+        shell: bash
+        run: |
+          for value in VPS_HOST VPS_USER VPS_SSH_KEY VPS_KNOWN_HOSTS; do
+            if [[ -z "${!value:-}" ]]; then
+              echo "Missing required production secret: $value" >&2
+              exit 1
+            fi
+          done
 
       - name: Configure SSH trust
         shell: bash
@@ -168,4 +195,3 @@ jobs:
           ssh_cmd=(ssh -i "$HOME/.ssh/faim-vps" -p "$VPS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes)
           "${ssh_cmd[@]}" "$target" \
             "cd '$VPS_PATH' && FAIM_IMAGE_PREFIX='$IMAGE_PREFIX' FAIM_IMAGE_TAG='$IMAGE_TAG' ./scripts/vps_deploy_ci.sh"
-

@@ -21,6 +21,19 @@ export interface Provider {
   lastChecked?: number; // timestamp
 }
 
+/** Validate upstream URLs before the server-side provider proxy fetches them. */
+export function isSafeProviderUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    if (url.username || url.password) return false;
+    const hostname = url.hostname.toLowerCase();
+    return hostname !== "169.254.169.254" && hostname !== "metadata.google.internal";
+  } catch {
+    return false;
+  }
+}
+
 const LS_KEY = "faim.providers";
 
 function normalizeReasoningLabel(value: string): string {

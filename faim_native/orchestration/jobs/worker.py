@@ -278,6 +278,18 @@ class Worker:
         if result.status == "error":
             raise RuntimeError(result.error)
 
+        if result.advanced_warnings:
+            JobStore.append_event(
+                session,
+                job_id,
+                "step_progress",
+                {
+                    "message": "Evolution completed with degraded advanced components",
+                    "status": "completed_with_warnings",
+                    "warnings": result.advanced_warnings,
+                },
+            )
+
         JobStore.append_event(
             session,
             job_id,
@@ -490,8 +502,14 @@ class Worker:
                 "edges_written": result.edges_written,
                 "detected_packs": result.detected_packs,
                 "graph_version": result.graph_version,
+                "errors": result.errors[:25],
             },
         )
+
+        if result.errors:
+            raise RuntimeError(
+                f"Domain adaptation completed with {len(result.errors)} error(s)"
+            )
 
     def _run_storage_upload_job(self, session, tenant_id, graph_id, payload, job_id):
         """Execute durable upload ingest work after the HTTP request returns."""

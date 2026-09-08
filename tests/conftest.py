@@ -16,8 +16,12 @@ import pytest
 
 worker_id = os.environ.get("PYTEST_XDIST_WORKER")
 if worker_id:
-    runtime_dir = Path(__file__).parent.parent / "Runtime"
-    runtime_dir.mkdir(exist_ok=True)
+    # Use a fresh, per-process temporary database.  Reusing checked-out
+    # Runtime files makes parallel runs inherit stale ownership/mode bits from
+    # Docker (for example UID 1000), which can turn an otherwise isolated test
+    # into a read-only SQLite failure.
+    runtime_dir = Path(tempfile.gettempdir()) / f"faim_pytest_{os.getpid()}"
+    runtime_dir.mkdir(mode=0o700, exist_ok=True)
     os.environ["DATABASE_URL"] = f"sqlite:///{runtime_dir}/faim_test_{worker_id}.db"
 
 # Setup path for isolated imports (avoid triggering faim.__init__)

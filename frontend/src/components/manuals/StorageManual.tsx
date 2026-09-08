@@ -81,7 +81,7 @@ const TOC: TocItem[] = [
     id: "profiles",
     label: "4. Upload Profiles & Persist Policies",
     children: [
-      { id: "profile-modes", label: "Profile Comparison (STRICT, RELAXED, FAST)" },
+      { id: "profile-modes", label: "Profile Comparison (STRICT, BALANCED, RELAXED, FAST)" },
       { id: "persist-modes", label: "Persist Validation Modes" },
       { id: "policy-engine-visual", label: "UI Mode Policy Decision Tree" },
     ],
@@ -591,7 +591,7 @@ export function StorageManual({ open, onClose }: { open: boolean; onClose: () =>
           FAIM provides configurable extraction profiles and persist modes to optimize processing depth based on file complexity and domain requirements.
         </p>
 
-        <SubHeading id="profile-modes">Profiles: STRICT, RELAXED, FAST</SubHeading>
+        <SubHeading id="profile-modes">Profiles: STRICT, BALANCED, RELAXED, FAST</SubHeading>
         <DTable
           head={["Profile", "Extraction Depth", "Sidecar Level", "Recommended Use Case"]}
           rows={[
@@ -613,7 +613,15 @@ export function StorageManual({ open, onClose }: { open: boolean; onClose: () =>
             },
             {
               cells: [
-                <span key="3" className="font-mono font-bold text-purple-300">STRICT</span>,
+                <span key="3" className="font-mono font-bold text-sky-300">BALANCED</span>,
+                "Standard extraction with bounded acceleration and adaptive safeguards",
+                "Core sidecars + deterministic semantic expansion",
+                "General research and knowledge-base ingestion",
+              ],
+            },
+            {
+              cells: [
+                <span key="4" className="font-mono font-bold text-purple-300">STRICT</span>,
                 "Deep hierarchical entity extraction + deep contradiction checking",
                 "Complete 8 Sidecars + Multi-lingual bridges + full validation",
                 "Legal policies, compliance standards, and medical assertions",
