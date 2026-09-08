@@ -13,10 +13,13 @@
 
   @backend_health path /health /ready /version
   handle @backend_health {
-    reverse_proxy api:8000
+    # This Caddy instance also joins the shared gateway network.  Use the
+    # FAIM container name instead of the generic `api` alias so Docker DNS
+    # cannot resolve an unrelated project's service on that second network.
+    reverse_proxy faim-api-vps:8000
   }
 
   handle {
-    reverse_proxy frontend:8010
+    reverse_proxy faim-frontend-vps:8010
   }
 }
