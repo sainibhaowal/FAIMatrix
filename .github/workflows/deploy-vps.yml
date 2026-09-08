@@ -104,7 +104,7 @@ jobs:
           build-args: |
             NEXTAUTH_SECRET=${{ steps.frontend-build-secret.outputs.nextauth_secret }}
             NEXTAUTH_URL=https://faimatrix.com
-            API_HOST=faim-api:8000
+            API_HOST=faim-api-vps:8000
           tags: |
             ${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tag.outputs.image_tag }}
             ${{ env.IMAGE_PREFIX }}/frontend:sha-${{ github.sha }}
