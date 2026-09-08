@@ -52,7 +52,7 @@ ENTRYPOINT ["/app/scripts/entrypoint.sh"]
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD curl -f http://localhost:8000/ready || exit 1
+    CMD curl --fail --silent --show-error --max-time 5 http://localhost:8000/ready || exit 1
 
 # Default command (imports 'api.app' which is in faim_native/)
 CMD ["gunicorn", "api.app:app", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "-b", "0.0.0.0:8000"]
