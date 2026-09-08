@@ -91,7 +91,7 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
       </svg>
     ),
-    description: "Zero-leak WebGL rendering with a static asset registry. Engineered for production stability across large-scale 3D cognitive constellations.",
+    description: "WebGL rendering uses a static asset registry and bounded client resources. Rendering behavior depends on graph size, browser, and device.",
   },
   {
     title: "Elastic Persistence",
@@ -100,7 +100,7 @@ const FEATURES = [
         <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
       </svg>
     ),
-    description: "100% native force-directed elasticity. Stretch and pull atoms with zero lag while the Gravitational Anchor keeps the globe tightly grouped.",
+    description: "Native force-directed elasticity. Stretch and pull atoms while the Gravitational Anchor keeps the globe grouped; interaction speed depends on graph size and device.",
   },
   {
     title: "Event Timeline",

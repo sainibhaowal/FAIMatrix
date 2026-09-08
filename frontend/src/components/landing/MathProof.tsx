@@ -164,15 +164,15 @@ export default function MathProof() {
             Mathematical Foundation
           </motion.span>
           <h2 className="text-3xl md:text-5xl font-bold text-white tracking-tight leading-tight">
-            Provably Correct. <br className="hidden md:block" />
+            Invariant-Checked. <br className="hidden md:block" />
             <span className="bg-gradient-to-r from-cyan-400 to-emerald-400 bg-clip-text text-transparent">
               Every Engine Cycle.
             </span>
           </h2>
           <p className="mt-6 text-slate-400 max-w-2xl mx-auto text-lg leading-relaxed">
-            8 mathematical invariants verified on every write operation. Not
-            &ldquo;best effort&rdquo; — mathematically enforced at the core
-            layer.
+            8 mathematical invariants are checked on write operations. These
+            are core consistency rules, not a universal guarantee of answer
+            quality.
           </p>
         </motion.div>
 
@@ -286,8 +286,8 @@ export default function MathProof() {
                 The golden ratio reciprocal isn&apos;t decoration. It&apos;s the
                 fixed point of{" "}
                 <code className="text-amber-200/50">s = 1/(1+s)</code>,
-                guaranteeing self-similar scaling across hierarchy levels.
-                Energy is bounded because the physics demands it.
+                supporting self-similar scaling across hierarchy levels. The
+                configured energy bound is checked as an engine invariant.
               </p>
             </div>
 

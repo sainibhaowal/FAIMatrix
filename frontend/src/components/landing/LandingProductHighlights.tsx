@@ -6,7 +6,7 @@ const HIGHLIGHTS = [
   {
     title: "Deterministic Semantic Routing",
     tag: "Scale-Ready",
-    text: "Deterministic classification through a seeded alias map. Zero-latency, zero-ML overhead, and 100% predictable.",
+    text: "Deterministic classification through a seeded alias map. No LLM is required for this path; repeatability depends on fixed configuration.",
   },
   {
     title: "Deterministic Intel",

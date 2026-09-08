@@ -78,7 +78,7 @@ const PILLARS = [
   {
     title: "Tenant Isolation",
     subtitle: "SaaS-Ready Security",
-    desc: "Every graph, node, and edge is crypto-isolated via mandatory tenant_id scoping. Built for production-scale multi-tenancy from day one.",
+    desc: "Every graph, node, and edge is tenant-scoped through the authenticated storage path. Encryption and isolation still depend on deployment configuration and security verification.",
     tech: "tenant_id scoping",
     icon: (
       <svg

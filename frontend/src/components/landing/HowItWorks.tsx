@@ -72,7 +72,7 @@ const PIPELINE_STEPS = [
     number: "06",
     title: "Answer",
     description:
-      "Top evidence is turned into a deterministic answer with full provenance. Cortex persists structured reasoning state, exact traversal-path metadata when available, and a pulse-v2 reason source ledger that explains why each visible graph node glows. Approved writebacks now execute through a durable, idempotent memory path and record receipts.",
+      "Top evidence is assembled into a citation-first answer with provenance where the selected path supports it. Cortex persists structured reasoning state, traversal-path metadata when available, and a pulse-v2 reason source ledger. Approved writebacks execute through a durable, idempotent memory path and record receipts; optional generated language can vary.",
     detail: "span selection -> traversal branch -> pulse-v2 ledger -> citation-first answer -> approved writeback receipts",
     gradient: "from-emerald-500 to-cyan-500",
     icon: (

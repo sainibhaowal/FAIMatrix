@@ -173,7 +173,7 @@ export default function Architecture() {
         >
           <div className="flex flex-col items-center gap-2 text-slate-600">
             <p className="text-xs font-medium tracking-wider uppercase text-slate-500">
-              App layer changes. Core guarantees stay the same.
+              App layer changes. Core contracts stay explicit.
             </p>
           </div>
         </motion.div>

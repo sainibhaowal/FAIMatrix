@@ -68,7 +68,7 @@ const features = [
     ),
     title: "Document Intelligence",
     description:
-      "FAIM Native extractor handles multi-column PDFs, complex tables, scanned page OCR when enabled, DOCX, PPTX, XLSX, images, and code — zero ML dependencies, all deterministic.",
+      "FAIM Native extractor handles multi-column PDFs, complex tables, scanned-page OCR when enabled, DOCX, PPTX, XLSX, images, and code. Core extraction is local; OCR and model-assisted paths are optional and can vary by provider and configuration.",
     gradient: "from-orange-500 to-amber-500",
     link: "/features/document-intelligence",
   },
@@ -88,7 +88,7 @@ const features = [
     ),
     title: "Deterministic Security",
     description:
-      "Mathematical identity anchoring with absolute data purges. Your privacy is enforced by laws of logic.",
+      "Identity anchoring, tenant-scoped access, encryption controls, and auditable data lifecycle operations support privacy-aware deployments.",
     gradient: "from-green-500 to-emerald-500",
     link: "/features/security",
   },

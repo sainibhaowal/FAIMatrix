@@ -33,9 +33,9 @@ const USE_CASES: UseCase[] = [
       </svg>
     ),
     reason:
-      "Air-gapped operation. Zero cloud dependencies. Runs on 2 CPU + 1GB RAM.",
+      "Air-gapped operation is supported when configured. The STRICT profile is designed for 2 CPU + 1GB RAM.",
     features: [
-      "Zero network required — runs fully offline",
+      "Offline operation is available when external integrations are disabled",
       "Deterministic results for audit compliance",
       "Cryptographic integrity on every data point",
       "Tamper-evident immutable audit trail",
@@ -91,10 +91,10 @@ const USE_CASES: UseCase[] = [
       </svg>
     ),
     reason:
-      "Mathematical stability proofs. Immutable audit trail. Deterministic outputs.",
+      "Mathematical invariants, an immutable audit trail, and reproducible core outputs.",
     features: [
       "Provable stability bounds (E \u2264 2.0)",
-      "Deterministic — same input, same output",
+      "Reproducible core behavior with fixed inputs and settings",
       "Immutable event journal for auditing",
       "Mathematical invariant verification",
     ],
@@ -149,12 +149,12 @@ const USE_CASES: UseCase[] = [
       </svg>
     ),
     reason:
-      "Fully explainable. Deterministic. No black-box ML in the core engine.",
+      "Inspectable scoring and no black-box ML required in the core engine.",
     features: [
       "Deterministic multi-signal scoring breakdown",
       "Complete decision audit trail",
       "No black-box neural components",
-      "Reproducible results for any input",
+      "Reproducible results when inputs and settings are fixed",
     ],
     gradient: "from-blue-500 to-cyan-500",
     borderHover: "hover:border-blue-500/50",
@@ -180,9 +180,9 @@ const USE_CASES: UseCase[] = [
     reason:
       "Reproducible experiments. Novel fractal physics framework. Publishable mathematics.",
     features: [
-      "100% reproducible results",
-      "Novel fractal dimension estimation",
-      "Published mathematical framework",
+      "Reproducible experiments with pinned inputs and versions",
+      "Fractal dimension estimation",
+      "Documented mathematical framework",
       "Open for peer review and extension",
     ],
     gradient: "from-purple-500 to-violet-500",
