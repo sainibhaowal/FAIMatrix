@@ -62,6 +62,7 @@ class EvolveResponse(BaseModel):
     state_update_status: Optional[str] = None
     state_update_error: Optional[str] = None
     learning: Optional[Dict[str, Any]] = None
+    advanced_warnings: List[Dict[str, str]] = []
     error: Optional[str] = None
 
 
@@ -1118,6 +1119,7 @@ async def evolve_graph(
             state_update_status=result.state_update_status,
             state_update_error=result.state_update_error,
             learning=result.learning,
+            advanced_warnings=result.advanced_warnings,
             error=result.error,
         )
 

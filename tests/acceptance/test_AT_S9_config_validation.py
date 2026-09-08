@@ -30,12 +30,13 @@ class TestConfigValidation(unittest.TestCase):
 
         reset_config()
 
-    def test_rejects_empty_tenant_keys(self):
-        """Config rejects empty TENANT_KEYS_JSON."""
+    def test_rejects_empty_tenant_keys_when_legacy_env_auth_is_enabled(self):
+        """Legacy env-key auth requires a nonempty tenant-key map."""
         from runtime.config import load_config
 
         os.environ["DATABASE_URL"] = "postgresql://localhost/test"
         os.environ["TENANT_KEYS_JSON"] = "{}"
+        os.environ["FAIM_AUTH_ENV_FALLBACK_ENABLED"] = "true"
 
         with self.assertRaises(ValueError) as ctx:
             load_config()

@@ -425,6 +425,62 @@ class GraphVersionModel(Base):
 
 
 # -----------------------------------------------------------------------------
+# GraphDiagnosticsCacheModel - versioned, query-safe metrics snapshot
+# -----------------------------------------------------------------------------
+
+
+class GraphDiagnosticsCacheModel(Base):
+    """Latest diagnostics snapshot for a tenant/graph.
+
+    Diagnostics are deliberately versioned with the graph.  A query can read
+    this small row instead of scanning the complete graph; a stale/missing row
+    is refreshed by the write/evolution path (or, as a safe compatibility
+    fallback, once by the first reader after a graph change).
+    """
+
+    __tablename__ = "graph_diagnostics_cache"
+
+    tenant_id = Column(String(64), primary_key=True)
+    graph_id = Column(String(64), primary_key=True)
+    graph_version = Column(BigInteger, nullable=False, default=0)
+    node_count = Column(Integer, nullable=False, default=0)
+    edge_count = Column(Integer, nullable=False, default=0)
+    cr = Column(Float, nullable=False, default=0.0)
+    redundancy = Column(Float, nullable=False, default=0.0)
+    d_hat = Column(Float, nullable=False, default=0.0)
+    h_hat = Column(Float, nullable=False, default=0.0)
+    lambda_hat = Column(Float, nullable=False, default=0.0)
+    novelty = Column(Float, nullable=False, default=0.0)
+    energy = Column(Float, nullable=False, default=0.0)
+    diagnostics_hash = Column(String(64), nullable=False, default="")
+    computed_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    def to_metrics(self, *, avg_touch: float = 1.0) -> Dict[str, Any]:
+        return {
+            "node_count": int(self.node_count or 0),
+            "edge_count": int(self.edge_count or 0),
+            "avg_touch": float(avg_touch),
+            "CR": float(self.cr or 0.0),
+            "R": float(self.redundancy or 0.0),
+            "D_hat": float(self.d_hat or 0.0),
+            "H_hat": float(self.h_hat or 0.0),
+            "lambda_hat": float(self.lambda_hat or 0.0),
+            "novelty": float(self.novelty or 0.0),
+            "energy": float(self.energy or 0.0),
+            "diagnostics_hash": self.diagnostics_hash or "",
+            "diagnostics_graph_version": int(self.graph_version or 0),
+            "diagnostics_computed_at": (
+                self.computed_at.isoformat() if self.computed_at else None
+            ),
+            "diagnostics_cached": 1.0,
+        }
+
+
+# -----------------------------------------------------------------------------
 # NodeModel - Maps to nodes table
 # -----------------------------------------------------------------------------
 
@@ -455,6 +511,10 @@ class NodeModel(Base):
     level = Column(Integer, nullable=False, default=0)
     touch_count = Column(Integer, nullable=False, default=0)
     last_access = Column(DateTime(timezone=True), nullable=True)
+    # Optional evidence-validity interval.  NULL preserves the legacy meaning:
+    # the evidence has no asserted validity boundary.
+    valid_from = Column(DateTime(timezone=True), nullable=True, index=True)
+    valid_to = Column(DateTime(timezone=True), nullable=True, index=True)
     long_term = Column(
         Boolean, nullable=False, default=False
     )  # 0018: exempt from cold pruning
@@ -497,6 +557,8 @@ class NodeModel(Base):
             "level": self.level,
             "touch_count": self.touch_count,
             "last_access": self.last_access.isoformat() if self.last_access else None,
+            "valid_from": self.valid_from.isoformat() if self.valid_from else None,
+            "valid_to": self.valid_to.isoformat() if self.valid_to else None,
             "long_term": self.long_term,
             "cluster_id": self.cluster_id,
             "cognitive_type": self.cognitive_type,
@@ -1724,3 +1786,15 @@ def _ensure_additive_compat_columns(engine) -> None:
                         f"ADD COLUMN {column_name} {ddl_type}"
                     )
                 )
+
+    try:
+        node_columns = {col["name"] for col in inspector.get_columns("nodes")}
+    except Exception:
+        node_columns = set()
+    if node_columns:
+        with engine.begin() as conn:
+            for column_name in ("valid_from", "valid_to"):
+                if column_name not in node_columns:
+                    conn.execute(
+                        text(f"ALTER TABLE nodes ADD COLUMN {column_name} TIMESTAMPTZ")
+                    )

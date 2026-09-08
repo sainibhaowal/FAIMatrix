@@ -20,7 +20,7 @@ class PolicyOperation(str, Enum):
     EVOLVE = "evolve"
 
 
-VALID_PROFILES = {"strict", "fast", "relaxed"}
+VALID_PROFILES = {"strict", "balanced", "fast", "relaxed"}
 VALID_PERSIST_MODES = {"strict", "relaxed"}
 
 
@@ -72,6 +72,8 @@ def _durability_path_for_mode(persist_mode: str) -> str:
 def _evolve_aggressiveness_for_profile(profile: str) -> str:
     if profile == "strict":
         return "conservative"
+    if profile == "balanced":
+        return "balanced"
     if profile == "fast":
         return "performance"
     return "adaptive"
@@ -105,6 +107,17 @@ def _evolve_runtime_knobs(
             "evolve_invention_mode": "conservative",
             "evolve_invention_requested_default": False,
             "evolve_invention_max_macros_cap": 1,
+        }
+    if profile == "balanced":
+        return {
+            "evolve_action_budget_scale": 0.8,
+            "evolve_merge_threshold": 0.95,
+            "evolve_prune_min_age_days": 7.0,
+            "evolve_prune_max_touch_count": 1,
+            "evolve_prune_similarity_threshold": 0.98,
+            "evolve_invention_mode": "balanced",
+            "evolve_invention_requested_default": True,
+            "evolve_invention_max_macros_cap": 3,
         }
     if profile == "fast":
         return {

@@ -23,8 +23,8 @@ import json
 import math
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -745,6 +745,30 @@ def inheritance_weighted_expansion(
 # =============================================================================
 
 
+def _node_temporal_status(node: Any, as_of: Optional[datetime]) -> Optional[str]:
+    """Return an honest validity label without inferring unsupported lineage."""
+    if node is None:
+        return None
+    valid_from = getattr(node, "valid_from", None)
+    valid_to = getattr(node, "valid_to", None)
+    if valid_from is None and valid_to is None:
+        return None
+    instant = as_of or datetime.now(timezone.utc)
+    if instant.tzinfo is None:
+        instant = instant.replace(tzinfo=timezone.utc)
+    # SQLite does not round-trip timezone offsets for DateTime columns. Treat
+    # a naive persisted value as UTC, matching the storage contract.
+    if valid_from is not None and valid_from.tzinfo is None:
+        valid_from = valid_from.replace(tzinfo=timezone.utc)
+    if valid_to is not None and valid_to.tzinfo is None:
+        valid_to = valid_to.replace(tzinfo=timezone.utc)
+    if valid_to is not None and valid_to <= instant:
+        return "EXPIRED"
+    if valid_from is not None and valid_from > instant:
+        return "FUTURE"
+    return "CURRENT"
+
+
 def rerank_faim(
     session,
     tenant_id: str,
@@ -761,6 +785,7 @@ def rerank_faim(
     query_text: str = "",
     query_repr_v2=None,
     include_historical: bool = True,
+    as_of: Optional[datetime] = None,
 ) -> List[Dict[str, Any]]:
     """Re-rank candidates using FAIM physics scoring.
 
@@ -773,15 +798,19 @@ def rerank_faim(
     from store.pg.repos.representation_repo import RepresentationRepo
 
     # Load candidate nodes
-    nodes = (
-        session.query(NodeModel)
-        .filter(
+    node_query = session.query(NodeModel).filter(
             NodeModel.tenant_id == tenant_id,
             NodeModel.graph_id == graph_id,
             NodeModel.node_id.in_(candidate_ids),
         )
-        .all()
-    )
+    if as_of is not None:
+        if as_of.tzinfo is None:
+            as_of = as_of.replace(tzinfo=timezone.utc)
+        node_query = node_query.filter(
+            (NodeModel.valid_from.is_(None)) | (NodeModel.valid_from <= as_of),
+            (NodeModel.valid_to.is_(None)) | (NodeModel.valid_to > as_of),
+        )
+    nodes = node_query.all()
 
     # Score each node
     scored = []
@@ -1142,7 +1171,9 @@ def rerank_faim(
     # Apply temporal status and lineage mapping
     for r in scored:
         nid = r["node_id"]
-        r["temporal_status"] = temporal_labels.get(nid)
+        r["temporal_status"] = temporal_labels.get(nid) or _node_temporal_status(
+            next((node for node in nodes if node.node_id == nid), None), as_of
+        )
         r["superseded_by"] = superseded_by_map.get(nid)
         r["supersedes"] = supersedes_map.get(nid, [])
         r.pop("repr_v2", None)

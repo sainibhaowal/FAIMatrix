@@ -202,6 +202,7 @@ services:
       dockerfile: Dockerfile
     container_name: faim-worker
     command: ["python", "-m", "orchestration.jobs.worker"]
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
       REDIS_URL: ${REDIS_URL:-redis://:faim_pass@redis:8030/0}

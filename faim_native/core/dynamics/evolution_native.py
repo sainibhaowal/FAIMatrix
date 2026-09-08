@@ -141,6 +141,7 @@ class EvolutionResult:
     actions: List[Dict[str, Any]] = field(default_factory=list)
     diagnostics: Optional[FractalDiagnostics] = None
     skip_reason: Optional[str] = None
+    warnings: List[Dict[str, str]] = field(default_factory=list)
 
 
 def _emit_graph_event(
@@ -899,6 +900,14 @@ def evolve_once(
                 event_window=invention_settings["event_window"],
             )
             result.inventions = invention_result.macros_created
+            for error in list(getattr(invention_result, "errors", []) or []):
+                result.warnings.append(
+                    {
+                        "component": "self_invention",
+                        "code": "partial_failure",
+                        "message": str(error)[:200],
+                    }
+                )
             if invention_result.macros_created > 0:
                 action_count += invention_result.macros_created
                 result.actions.append(
@@ -924,6 +933,13 @@ def evolve_once(
             result.events_emitted += invention_result.events_emitted
         except Exception as exc:
             logger.warning("Self-invention pass failed: %s", exc)
+            result.warnings.append(
+                {
+                    "component": "self_invention",
+                    "code": "cycle_failed",
+                    "message": type(exc).__name__,
+                }
+            )
             _emit_graph_event(
                 session=_sess,
                 event_repo=event_repo,
@@ -975,6 +991,14 @@ def evolve_once(
                         ],
                     }
                 )
+            for error in list(getattr(synthesis_result, "errors", []) or []):
+                result.warnings.append(
+                    {
+                        "component": "invention_synthesis",
+                        "code": "partial_failure",
+                        "message": str(error)[:200],
+                    }
+                )
                 _emit_graph_event(
                     session=_sess,
                     event_repo=event_repo,
@@ -992,6 +1016,13 @@ def evolve_once(
             result.events_emitted += synthesis_result.events_emitted
         except Exception as exc:
             logger.warning("Synthesis invention pass failed: %s", exc)
+            result.warnings.append(
+                {
+                    "component": "invention_synthesis",
+                    "code": "cycle_failed",
+                    "message": type(exc).__name__,
+                }
+            )
             _emit_graph_event(
                 session=_sess,
                 event_repo=event_repo,

@@ -158,17 +158,11 @@ async def get_latest_event(
     # Real total count via SQL COUNT — not capped by pagination
     total_count = ctx.event_repo.count(ctx.session, graph_id=graph_id)
 
-    # Fetch only the last few events to find latest seq/kind and snapshot hash
-    recent = ctx.event_repo.get_by_seq(
-        ctx.session,
-        graph_id=graph_id,
-        after_seq=0,
-        limit=50,
-    )
-
-    last_event = recent[-1] if recent else None
+    # Read the latest row directly. Pagination from seq=0 returns the oldest page.
+    last_event = ctx.event_repo.get_latest(ctx.session, graph_id=graph_id)
 
     snapshot_hash = None
+    recent = ctx.event_repo.get_all(ctx.session, graph_id=graph_id, limit=5000)
     for e in reversed(recent):
         if e.kind == "DIAGNOSTICS_SNAPSHOT":
             snapshot_hash = e.payload.get("graph_hash")

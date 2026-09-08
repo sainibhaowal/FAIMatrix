@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -68,6 +68,7 @@ class EvolveResult:
     state_update_status: str = "not_required"
     state_update_error: Optional[str] = None
     learning: Optional[Dict[str, Any]] = None
+    advanced_warnings: List[Dict[str, str]] = field(default_factory=list)
     error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -92,6 +93,7 @@ class EvolveResult:
             "state_update_status": self.state_update_status,
             "state_update_error": self.state_update_error,
             "learning": self.learning,
+            "advanced_warnings": self.advanced_warnings,
             "error": self.error,
         }
 
@@ -640,6 +642,7 @@ def run_evolve(
     """
     start_time = time.time()
     events_emitted: List[str] = []
+    advanced_warnings: List[Dict[str, str]] = []
 
     # Normalize requested values
     if isinstance(profile, str):
@@ -917,6 +920,15 @@ def run_evolve(
                     winner_selector=winner_selector,
                     lambda_gate=lambda_gate,
                 )
+                for warning in list(getattr(result, "warnings", []) or []):
+                    advanced_warnings.append(dict(warning))
+                    _emit_event(
+                        "EVOLUTION_COMPONENT_DEGRADED",
+                        graph_id,
+                        dict(warning),
+                        event_repo,
+                        session=session,
+                    )
 
                 # evolve_once emits DIAGNOSTICS_SNAPSHOT and either
                 # EVOLUTION_COMPLETE or EVOLUTION_SKIPPED.
@@ -951,7 +963,59 @@ def run_evolve(
                         snapshot = result.diagnostics.to_metrics_snapshot(graph_hash)
                         diagnostics_dict = snapshot.to_dict()
                     except Exception as e:
-                        logger.warning(f"Failed to convert diagnostics: {e}")
+                        warning = {
+                            "component": "diagnostics_snapshot",
+                            "code": "conversion_failed",
+                            "message": type(e).__name__,
+                        }
+                        advanced_warnings.append(warning)
+                        _emit_event(
+                            "EVOLUTION_COMPONENT_DEGRADED",
+                            graph_id,
+                            warning,
+                            event_repo,
+                            session=session,
+                        )
+                        logger.warning("Failed to convert diagnostics: %s", e)
+
+                    try:
+                        from orchestration.query_flow import persist_graph_diagnostics_snapshot
+
+                        persist_graph_diagnostics_snapshot(
+                            session,
+                            tenant_id,
+                            graph_id,
+                            result.diagnostics,
+                            graph_version=result.graph_version,
+                        )
+                        _emit_event(
+                            "DIAGNOSTICS_CACHE_REFRESHED",
+                            graph_id,
+                            {
+                                "graph_version": result.graph_version,
+                                "diagnostics_hash": getattr(
+                                    result.diagnostics, "diagnostics_hash", ""
+                                ),
+                                "source": "evolution",
+                            },
+                            event_repo,
+                            session=session,
+                        )
+                        events_emitted.append("DIAGNOSTICS_CACHE_REFRESHED")
+                    except Exception as exc:
+                        warning = {
+                            "component": "diagnostics_cache",
+                            "code": "persist_failed",
+                            "message": type(exc).__name__,
+                        }
+                        advanced_warnings.append(warning)
+                        _emit_event(
+                            "EVOLUTION_COMPONENT_DEGRADED",
+                            graph_id,
+                            warning,
+                            event_repo,
+                            session=session,
+                        )
 
                 state_update_status = "not_required"
                 state_update_error: Optional[str] = None
@@ -988,6 +1052,20 @@ def run_evolve(
                         ),
                     )
                     theories_created = theory_result.theories_created
+                    for error in list(getattr(theory_result, "errors", []) or []):
+                        warning = {
+                            "component": "theory_generation",
+                            "code": "partial_failure",
+                            "message": str(error)[:200],
+                        }
+                        advanced_warnings.append(warning)
+                        _emit_event(
+                            "EVOLUTION_COMPONENT_DEGRADED",
+                            graph_id,
+                            warning,
+                            event_repo,
+                            session=session,
+                        )
                     if theories_created > 0:
                         _emit_event(
                             "EVOLUTION_THEORY_SUMMARY",
@@ -1003,7 +1081,20 @@ def run_evolve(
                         )
                         events_emitted.append("EVOLUTION_THEORY_SUMMARY")
                         session.commit()
-                except Exception:  # nosec B110 - theories are best effort
+                except Exception as exc:  # nosec B110 - theories are best effort
+                    warning = {
+                        "component": "theory_generation",
+                        "code": "cycle_failed",
+                        "message": type(exc).__name__,
+                    }
+                    advanced_warnings.append(warning)
+                    _emit_event(
+                        "EVOLUTION_COMPONENT_DEGRADED",
+                        graph_id,
+                        warning,
+                        event_repo,
+                        session=session,
+                    )
                     logger.warning(
                         "[Evolve] Theory generation skipped graph=%s: %s",
                         graph_id,
@@ -1151,6 +1242,7 @@ def run_evolve(
                     state_update_status=state_update_status,
                     state_update_error=state_update_error,
                     learning=learning_summary,
+                    advanced_warnings=advanced_warnings,
                 )
 
             except Exception as e:
@@ -1207,6 +1299,7 @@ def run_evolve(
                         else "core_sync_state_best_effort"
                     ),
                     state_update_status="error",
+                    advanced_warnings=advanced_warnings,
                     error=str(e),
                 )
     finally:

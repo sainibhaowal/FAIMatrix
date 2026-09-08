@@ -14,7 +14,8 @@ from __future__ import annotations
 
 import os
 import sys
-from dataclasses import dataclass
+import logging
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
@@ -42,6 +43,8 @@ from encoding.text_vectorizer import vectorize_text  # noqa: E402
 from orchestration.ingest_flow import FAIMProfile  # noqa: E402
 from store.journal.event_journal import EventJournal  # noqa: E402
 
+logger = logging.getLogger(__name__)
+
 # =============================================================================
 # Query Result
 # =============================================================================
@@ -58,10 +61,11 @@ class QueryResult:
     query_hash: str
     k: int
     results: List[Dict[str, Any]]
-    metrics: Dict[str, float]
+    metrics: Dict[str, Any]
     profile: FAIMProfile
     duration_ms: float = 0.0
     answer: Optional[Dict[str, Any]] = None
+    degraded_features: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to API response dict."""
@@ -79,6 +83,7 @@ class QueryResult:
             ),
             "results": self.results,
             "answer": self.answer,
+            "degraded_features": self.degraded_features,
             "metrics": self.metrics,
             "duration_ms": self.duration_ms,
         }
@@ -173,12 +178,34 @@ def emit_query_complete(
 # =============================================================================
 
 
-def get_graph_metrics(session, tenant_id: str, graph_id: str) -> Dict[str, float]:
-    """Get graph metrics for query scoring."""
-    from sqlalchemy import func
-    from store.pg.models_faim import NodeModel
+def refresh_graph_diagnostics(
+    session,
+    tenant_id: str,
+    graph_id: str,
+    *,
+    graph_version: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Compute and persist one versioned diagnostics snapshot.
 
-    # Quick stats
+    This is called after graph mutations/evolution.  Query reads use the
+    resulting bounded cache row and therefore do not scan nodes/edges on every
+    request.  The stale-read fallback below exists only for legacy graphs that
+    predate the cache migration.
+    """
+    from sqlalchemy import func
+    from core.dynamics.evolution_native import compute_graph_diagnostics
+    from store.pg.models_faim import (
+        EdgeModel,
+        GraphDiagnosticsCacheModel,
+        NodeModel,
+    )
+    from store.pg.repos.graph_version_repo import GraphVersionRepo
+
+    if graph_version is None:
+        graph_version = GraphVersionRepo(tenant_id=tenant_id).get_version(
+            session, graph_id
+        )
+
     stats = (
         session.query(
             func.count(NodeModel.node_id),
@@ -191,20 +218,166 @@ def get_graph_metrics(session, tenant_id: str, graph_id: str) -> Dict[str, float
         .first()
     )
 
-    node_count = stats[0] or 0
+    node_count = int(stats[0] or 0)
     avg_touch = float(stats[1]) if stats[1] else 1.0
 
-    return {
+    nodes = (
+        session.query(NodeModel)
+        .filter(NodeModel.tenant_id == tenant_id, NodeModel.graph_id == graph_id)
+        .all()
+    )
+    edges = (
+        session.query(EdgeModel)
+        .filter(EdgeModel.tenant_id == tenant_id, EdgeModel.graph_id == graph_id)
+        .all()
+    )
+    diagnostics = compute_graph_diagnostics(
+        graph_id=graph_id,
+        nodes=nodes,
+        edges=edges,
+        graph_version=graph_version,
+    )
+    payload: Dict[str, Any] = {
         "node_count": node_count,
+        "edge_count": len(edges),
         "avg_touch": avg_touch,
-        "CR": 1.0,  # Placeholder
-        "R": 0.0,  # Placeholder
-        "D_hat": 0.5,
-        "H_hat": 0.5,
-        "lambda_hat": 0.5,
-        "novelty": 0.0,
-        "energy": 0.0,
+        "CR": round(node_count / len(edges), 6) if edges else 0.0,
+        "R": round(diagnostics.redundancy_R, 6),
+        "D_hat": round(diagnostics.D_hat, 6),
+        "H_hat": round(diagnostics.H_hat, 6),
+        "lambda_hat": round(diagnostics.lambda_hat, 6),
+        "novelty": round(diagnostics.novelty_N, 6),
+        "energy": round(diagnostics.energy_E, 6),
+        "diagnostics_hash": diagnostics.diagnostics_hash,
+        "diagnostics_graph_version": int(graph_version or 0),
+        "diagnostics_computed_at": datetime.now(timezone.utc).isoformat(),
+        "diagnostics_cached": 1.0,
     }
+
+    cached = (
+        session.query(GraphDiagnosticsCacheModel)
+        .filter(
+            GraphDiagnosticsCacheModel.tenant_id == tenant_id,
+            GraphDiagnosticsCacheModel.graph_id == graph_id,
+        )
+        .first()
+    )
+    now = datetime.now(timezone.utc)
+    if cached is None:
+        cached = GraphDiagnosticsCacheModel(
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+        )
+        session.add(cached)
+    cached.graph_version = int(graph_version or 0)
+    cached.node_count = node_count
+    cached.edge_count = len(edges)
+    cached.cr = payload["CR"]
+    cached.redundancy = payload["R"]
+    cached.d_hat = payload["D_hat"]
+    cached.h_hat = payload["H_hat"]
+    cached.lambda_hat = payload["lambda_hat"]
+    cached.novelty = payload["novelty"]
+    cached.energy = payload["energy"]
+    cached.diagnostics_hash = diagnostics.diagnostics_hash
+    cached.computed_at = now
+    session.flush()
+    payload["diagnostics_computed_at"] = now.isoformat()
+    return payload
+
+
+def persist_graph_diagnostics_snapshot(
+    session,
+    tenant_id: str,
+    graph_id: str,
+    diagnostics: Any,
+    *,
+    graph_version: int,
+) -> Dict[str, Any]:
+    """Persist diagnostics already computed by evolution without rescanning."""
+    from sqlalchemy import func
+    from store.pg.models_faim import EdgeModel, GraphDiagnosticsCacheModel, NodeModel
+
+    node_count = int(
+        session.query(func.count(NodeModel.node_id))
+        .filter(NodeModel.tenant_id == tenant_id, NodeModel.graph_id == graph_id)
+        .scalar()
+        or 0
+    )
+    edge_count = int(
+        session.query(func.count(EdgeModel.edge_id))
+        .filter(EdgeModel.tenant_id == tenant_id, EdgeModel.graph_id == graph_id)
+        .scalar()
+        or 0
+    )
+    now = datetime.now(timezone.utc)
+    cached = (
+        session.query(GraphDiagnosticsCacheModel)
+        .filter(
+            GraphDiagnosticsCacheModel.tenant_id == tenant_id,
+            GraphDiagnosticsCacheModel.graph_id == graph_id,
+        )
+        .first()
+    )
+    if cached is None:
+        cached = GraphDiagnosticsCacheModel(tenant_id=tenant_id, graph_id=graph_id)
+        session.add(cached)
+    cached.graph_version = int(graph_version or 0)
+    cached.node_count = node_count
+    cached.edge_count = edge_count
+    cached.cr = round(node_count / edge_count, 6) if edge_count else 0.0
+    cached.redundancy = round(float(getattr(diagnostics, "redundancy_R", 0.0) or 0.0), 6)
+    cached.d_hat = round(float(getattr(diagnostics, "D_hat", 0.0) or 0.0), 6)
+    cached.h_hat = round(float(getattr(diagnostics, "H_hat", 0.0) or 0.0), 6)
+    cached.lambda_hat = round(float(getattr(diagnostics, "lambda_hat", 0.0) or 0.0), 6)
+    cached.novelty = round(float(getattr(diagnostics, "novelty_N", 0.0) or 0.0), 6)
+    cached.energy = round(float(getattr(diagnostics, "energy_E", 0.0) or 0.0), 6)
+    cached.diagnostics_hash = str(getattr(diagnostics, "diagnostics_hash", "") or "")
+    cached.computed_at = now
+    session.flush()
+    return cached.to_metrics()
+
+
+def get_graph_metrics(session, tenant_id: str, graph_id: str) -> Dict[str, Any]:
+    """Read bounded cached diagnostics; refresh only on a stale/missing row."""
+    from sqlalchemy import func
+    from store.pg.models_faim import GraphDiagnosticsCacheModel, NodeModel
+    from store.pg.repos.graph_version_repo import GraphVersionRepo
+
+    stats = (
+        session.query(
+            func.count(NodeModel.node_id),
+            func.avg(NodeModel.touch_count),
+        )
+        .filter(
+            NodeModel.tenant_id == tenant_id,
+            NodeModel.graph_id == graph_id,
+        )
+        .first()
+    )
+    node_count = int(stats[0] or 0)
+    avg_touch = float(stats[1]) if stats[1] else 1.0
+    graph_version = GraphVersionRepo(tenant_id=tenant_id).get_version(session, graph_id)
+    cached = (
+        session.query(GraphDiagnosticsCacheModel)
+        .filter(
+            GraphDiagnosticsCacheModel.tenant_id == tenant_id,
+            GraphDiagnosticsCacheModel.graph_id == graph_id,
+        )
+        .first()
+    )
+    if cached is None or int(cached.graph_version or 0) < int(graph_version or 0):
+        # Compatibility backfill for graphs created before migration 0041.  It
+        # runs once per version, then every query is a bounded cache read.
+        return refresh_graph_diagnostics(
+            session,
+            tenant_id,
+            graph_id,
+            graph_version=graph_version,
+        )
+    metrics = cached.to_metrics(avg_touch=avg_touch)
+    metrics["node_count"] = node_count
+    return metrics
 
 
 # =============================================================================
@@ -405,6 +578,7 @@ def run_query(
     index=None,
     cache=None,
     include_historical: bool = True,
+    as_of: Optional[datetime] = None,
     graph_max_hops: Optional[int] = None,
     graph_max_neighbors: Optional[int] = None,
     graph_decay: Optional[float] = None,
@@ -438,9 +612,16 @@ def run_query(
     import time
 
     start_time = time.perf_counter()
+    degraded_features: List[str] = []
+
+    def _degraded(feature: str, exc: Exception) -> None:
+        """Expose non-fatal retrieval degradation without leaking internals."""
+        if feature not in degraded_features:
+            degraded_features.append(feature)
+        logger.warning("Query feature degraded: %s", feature, exc_info=exc)
 
     # Initialize journal
-    journal = EventJournal(session)
+    journal = EventJournal(session, tenant_id=tenant_id)
 
     # Compute query hash
     query_hash = compute_query_hash(query_text, graph_id)
@@ -491,7 +672,8 @@ def run_query(
             phaseb_expansions,
             max_total_terms=36,
         )
-    except Exception:
+    except Exception as exc:
+        _degraded("canonical_query_expansion", exc)
         canonical_query_text = query_text
         expanded_query_text = query_text
         canonicalized = None
@@ -521,7 +703,8 @@ def run_query(
             phaseb_expansions,
             max_total_terms=40,
         )
-    except Exception:
+    except Exception as exc:
+        _degraded("domain_entity_linking", exc)
         pass
 
     domain_candidate_ids: List[UUID] = []
@@ -556,7 +739,8 @@ def run_query(
             graph_id=graph_id,
             linked_terms=linked_terms,
         )
-    except Exception:
+    except Exception as exc:
+        _degraded("domain_knowledge_expansion", exc)
         domain_candidate_ids = []
         domain_scores = {}
 
@@ -576,7 +760,8 @@ def run_query(
             phaseb_expansions,
             max_total_terms=44,
         )
-    except Exception:
+    except Exception as exc:
+        _degraded("semantic_registry_expansion", exc)
         pass
 
     semantic_registry_info: Dict[str, Any] = {}
@@ -608,7 +793,8 @@ def run_query(
         )
         snapshot = load_semantic_registry_snapshot()
         semantic_registry_info["registry_term_count"] = snapshot.total_terms
-    except Exception:
+    except Exception as exc:
+        _degraded("idf_weighting", exc)
         semantic_registry_info = {}
 
     phaseb_expansion_info = {
@@ -649,7 +835,8 @@ def run_query(
     try:
         _idf = compute_idf_weights(session, tenant_id, graph_id)
         q_vec = apply_idf(tuple(q_vec), _idf)
-    except Exception:
+    except Exception as exc:
+        _degraded("inheritance_query_expansion", exc)
         # If IDF computation fails (e.g., empty graph), continue with unweighted q_vec
         pass
 
@@ -713,7 +900,8 @@ def run_query(
                 if parsed:
                     candidates = parsed
                     cache_hit = True
-        except Exception:
+        except Exception as exc:
+            _degraded("query_cache", exc)
             cache_hit = False
 
     if not candidates:
@@ -775,7 +963,8 @@ def run_query(
                     merged_candidates,
                     key=lambda item: (-item[1], str(item[0])),
                 )[: max(200, k * 20)]
-            except Exception:
+            except Exception as exc:
+                _degraded("phase5_hybrid_recall", exc)
                 phase5_sparse_candidates = []
                 phase5_dense_candidates = []
                 candidates = []
@@ -823,7 +1012,8 @@ def run_query(
                         (str(node_id), float(score)) for node_id, score in candidates
                     ],
                 )
-            except Exception:
+            except Exception as exc:
+                _degraded("index_candidate_recall", exc)
                 pass
 
     candidate_ids = [c[0] for c in candidates]
@@ -845,7 +1035,8 @@ def run_query(
                 query_repr=query_repr_v2,
                 node_ids=candidate_ids,
             )
-        except Exception:
+        except Exception as exc:
+            _degraded("lexical_scoring", exc)
             lexical_scores = {}
 
     if domain_candidate_ids:
@@ -880,7 +1071,8 @@ def run_query(
             steps=effective_graph_diffusion_steps,
         )
         candidate_ids = _stable_union_ids(candidate_ids, graph_candidate_ids)
-    except Exception:
+    except Exception as exc:
+        _degraded("graph_semantic_expansion", exc)
         graph_scores = {}
         graph_paths = {}
 
@@ -902,6 +1094,7 @@ def run_query(
         query_text=canonical_query_text,
         query_repr_v2=query_repr_v2,
         include_historical=include_historical,
+        as_of=as_of,
     )
     query_fusion_summary = _build_query_fusion_summary(
         candidate_ids=candidate_ids,
@@ -988,7 +1181,8 @@ def run_query(
                     score_components=r.get("score_components", {}),
                     explain_payload=explain_payload,
                 )
-            except Exception:
+            except Exception as exc:
+                _degraded("reason_ledger", exc)
                 reason_ledger = {
                     "protocol": "pulse-v2",
                     "trace_id": None,
@@ -1017,10 +1211,12 @@ def run_query(
             query_hash=query_hash,
             graph_id=graph_id,
         )
-    except Exception:
+    except Exception as exc:
+        _degraded("answer_synthesis", exc)
         answer = None
 
     metrics["cache_hit"] = 1.0 if cache_hit else 0.0
+    metrics["degraded_feature_count"] = float(len(degraded_features))
     metrics["phaseb_expansion_terms"] = float(len(phaseb_expansions))
     metrics["phaseb_expansion_sources"] = float(
         len(phaseb_expansion_info.get("source_counts", {}))
@@ -1046,6 +1242,7 @@ def run_query(
         k=k,
         results=results,
         answer=answer,
+        degraded_features=degraded_features,
         metrics=metrics,
         profile=profile,
         duration_ms=duration_ms,

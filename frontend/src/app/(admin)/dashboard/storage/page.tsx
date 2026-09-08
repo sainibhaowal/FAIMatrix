@@ -2269,6 +2269,7 @@ export default function StoragePage() {
                   onChange={setProfile}
                   options={[
                     { value: "strict", label: "strict" },
+                    { value: "balanced", label: "balanced" },
                     { value: "fast", label: "fast" },
                     { value: "relaxed", label: "relaxed" },
                   ]}

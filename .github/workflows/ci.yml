@@ -106,8 +106,70 @@ jobs:
       - name: Validate local Compose configuration
         run: docker compose config --quiet
 
+      - name: Prepare VPS Compose environment
+        run: cp deploy/env.vpsprod.example deploy/env.vpsprod
+
       - name: Validate VPS registry Compose configuration
         run: docker compose -f docker-compose.yml -f docker-compose.vps.yml -f docker-compose.registry.yml --profile accel config --quiet
+
+  production-network-e2e:
+    name: Postgres Redis Qdrant network E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Start real service stack
+        run: docker compose -f docker-compose.test.yml up -d --build
+
+      - name: Wait for API and Qdrant
+        run: |
+          for i in $(seq 1 60); do
+            curl -fsS http://localhost:8001/ready >/dev/null && curl -fsS http://localhost:8041/readyz >/dev/null && break
+            sleep 2
+          done
+          curl -fsS http://localhost:8001/ready >/dev/null
+          curl -fsS http://localhost:8041/readyz >/dev/null
+
+      - name: Provision and verify a real non-default tenant key
+        shell: bash
+        run: |
+          tenant_key=$(docker compose -f docker-compose.test.yml exec -T api-test \
+            python -c 'from runtime.context import close_session, get_session; from store.pg.repos.auth_repo import AuthRepo; s=get_session(); _, key=AuthRepo(s).create_tenant_key(tenant_id="ci-tenant", scopes=["memory.read", "memory.write"]); s.commit(); close_session(s); print(key)' \
+            | tail -n 1)
+          test -n "$tenant_key"
+          echo "::add-mask::$tenant_key"
+          echo "CI_TENANT_KEY=$tenant_key" >> "$GITHUB_ENV"
+          echo "CI_TENANT_ID=ci-tenant" >> "$GITHUB_ENV"
+
+      - name: Verify real indexed ingest and retrieval path
+        shell: bash
+        run: |
+          payload=$(printf 'FAIM production network index verification' | base64 -w0)
+          response=$(curl -fsS -X POST http://localhost:8001/api/v1/ingest \
+            -H 'Content-Type: application/json' \
+            -H "X-Tenant-Id: $CI_TENANT_ID" -H "X-Api-Key: $CI_TENANT_KEY" \
+            -d "{\"graph_id\":\"ci-qdrant-e2e\",\"filename\":\"qdrant-e2e.txt\",\"content_type\":\"text/plain\",\"profile\":\"fast\",\"persist_mode\":\"strict\",\"bytes_base64\":\"$payload\"}")
+          echo "$response" | python -c 'import json,sys; d=json.load(sys.stdin); assert d["status"] in {"completed","dedup_hit"}, d; print(d)'
+          collections=$(curl -fsS http://localhost:8041/collections)
+          echo "$collections" | grep -q 'faim_'
+          curl -fsS http://localhost:8001/api/v1/query \
+            -H 'Content-Type: application/json' \
+            -H "X-Tenant-Id: $CI_TENANT_ID" -H "X-Api-Key: $CI_TENANT_KEY" \
+            -d '{"graph_id":"ci-qdrant-e2e","query_text":"production network index","profile":"FAST","k":1}' \
+            | python -c 'import json,sys; d=json.load(sys.stdin); assert d["results"], d; print(d["metrics"])'
+
+          wrong_status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -X POST http://localhost:8001/api/v1/query \
+            -H 'Content-Type: application/json' \
+            -H 'X-Tenant-Id: another-tenant' -H "X-Api-Key: $CI_TENANT_KEY" \
+            -d '{"graph_id":"ci-qdrant-e2e","query_text":"should be denied","profile":"FAST","k":1}')
+          test "$wrong_status" = "401"
+
+      - name: Stop real service stack
+        if: always()
+        run: docker compose -f docker-compose.test.yml down -v
 
   security-audit:
     name: Security audit

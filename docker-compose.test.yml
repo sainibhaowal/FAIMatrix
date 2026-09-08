@@ -46,6 +46,21 @@ services:
     networks: [faim-test-net]
     restart: unless-stopped
 
+  qdrant-test:
+    image: qdrant/qdrant:v1.14.1
+    container_name: faim-qdrant-test
+    ports:
+      - "8041:6333"
+    volumes:
+      - qdrant_test_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [faim-test-net]
+    restart: unless-stopped
+
   api-test:
     image: faim-api-test:latest
     build:
@@ -65,8 +80,13 @@ services:
       DATABASE_URL: postgresql://faim:faim_test_password@postgres-test:8020/faim_native
       FAIM_RAW_STORE_PATH: /var/lib/faim/raw/blobs
       FAIM_AUTO_MIGRATE: "true"
+      FAIM_AUTH_DB_PRIMARY: "true"
+      FAIM_AUTH_ENV_FALLBACK_ENABLED: "false"
+      FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED: "true"
       NEXTAUTH_SECRET: playwright-e2e-secret
       REDIS_URL: redis://:faim_test_password@redis-test:8030/0
+      FAIM_ENABLE_INDEX: "true"
+      QDRANT_URL: http://qdrant-test:6333
     volumes:
       - raw_test_data:/var/lib/faim/raw
     ports:
@@ -75,6 +95,8 @@ services:
       postgres-test:
         condition: service_healthy
       redis-test:
+        condition: service_healthy
+      qdrant-test:
         condition: service_healthy
     healthcheck:
       test:
@@ -92,6 +114,7 @@ volumes:
   postgres_test_data:
   redis_test_data:
   raw_test_data:
+  qdrant_test_data:
 
 networks:
   faim-test-net:

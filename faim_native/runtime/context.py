@@ -168,7 +168,7 @@ def _get_raw_store(tenant_id: str):
 # =============================================================================
 
 
-def get_repos(tenant_id: str) -> Dict[str, Any]:
+def get_repos(tenant_id: str, session: Any = None) -> Dict[str, Any]:
     """Get all repositories for a tenant.
 
     Args:
@@ -177,7 +177,13 @@ def get_repos(tenant_id: str) -> Dict[str, Any]:
     Returns:
         Dict with session and all repos.
     """
-    session = get_session()
+    # Callers that already own a transaction (for example Cortex writeback)
+    # must be able to bind repositories to that exact session.  Creating a
+    # second runtime session here can trigger an unnecessary schema bootstrap
+    # and breaks transaction atomicity under read-only or externally managed
+    # database connections.  Preserve the old behavior when no session is
+    # supplied.
+    session = session or get_session()
 
     # Import repos
     from store.pg.repos.edge_repo import EdgeRepo

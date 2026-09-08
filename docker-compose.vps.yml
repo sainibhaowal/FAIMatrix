@@ -95,9 +95,9 @@ services:
   caddy:
     image: caddy:2-alpine
     container_name: faim-caddy-vps
-    ports:
-      - "80:80"
-      - "443:443"
+    # The independent gateway is the only public TLS endpoint.  This Caddy
+    # instance is reachable exclusively through the shared external Docker
+    # network; it publishes no host ports.
     volumes:
       - ./deploy/Caddyfile.vps:/etc/caddy/Caddyfile:ro
       - ./Runtime/vps/caddy_data:/data
@@ -107,5 +107,12 @@ services:
         condition: service_healthy
       frontend:
         condition: service_started
-    networks: [faim-net]
+    networks: [faim-net, gateway-net]
     restart: unless-stopped
+
+networks:
+  gateway-net:
+    # `independent-gateway-caddy` already belongs to this VPS network.  Only
+    # the FAIM proxy joins it, keeping API, worker, and data services private.
+    external: true
+    name: aurelinx_default

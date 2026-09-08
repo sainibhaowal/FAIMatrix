@@ -123,6 +123,8 @@ class FAIMNativeEngine:
         packet_hash: Optional[str] = None,
         reprs_v2: Optional[List[Any]] = None,
         embedding_vectors: Optional[List[Optional[List[float]]]] = None,
+        valid_from: Optional[Any] = None,
+        valid_to: Optional[Any] = None,
     ) -> WriteResult:
         """Write atom vectors to graph.
 
@@ -180,6 +182,8 @@ class FAIMNativeEngine:
                 cognitive_type=classification.cognitive_type.value,
                 galaxy_id=classification.galaxy_id,
                 v_embedding=emb_vec,
+                valid_from=valid_from,
+                valid_to=valid_to,
             )
             result.node_ids.append(node_id)
             result.nodes_written += 1

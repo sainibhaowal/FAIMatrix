@@ -113,7 +113,9 @@ class CortexTurnRequest(BaseModel):
         default=None, description="Optional conversation/session id"
     )
     k: int = Field(15, ge=1, le=100, description="Number of results to recall")
-    profile: str = Field("RELAXED", description="STRICT, RELAXED, or FAST")
+    profile: str = Field(
+        "RELAXED", description="STRICT, BALANCED, RELAXED, or FAST"
+    )
     return_explain: bool = Field(True, description="Include explain payload")
     answer_mode: str = Field(
         "direct",

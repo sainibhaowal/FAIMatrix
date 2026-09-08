@@ -48,11 +48,20 @@ jobs:
             @semantic-release/release-notes-generator@14
 
       - name: Run semantic-release
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -o pipefail
+          log_file="$(mktemp)"
           if [[ "${{ inputs.dry_run }}" == "true" ]]; then
-            npx semantic-release --dry-run
+            npx semantic-release --dry-run 2>&1 | tee "$log_file"
           else
-            npx semantic-release
+            npx semantic-release 2>&1 | tee "$log_file"
+            if grep -qi "no release is published\|no relevant changes" "$log_file"; then
+              {
+                echo "### Semantic release"
+                echo "No release was published: the commit range contains no releasable Conventional Commit."
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
           fi

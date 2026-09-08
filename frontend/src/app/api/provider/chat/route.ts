@@ -18,6 +18,8 @@
  *   data: { "choices": [{ "delta": { "content": "token" } }] }
  */
 
+import { isSafeProviderUrl } from "@/lib/providers";
+
 export const runtime = "nodejs";
 
 /**
@@ -59,6 +61,9 @@ interface ChatRequest {
 
 export async function POST(req: Request): Promise<Response> {
   try {
+    const { getToken } = await import("next-auth/jwt");
+    const token = await getToken({ req: req as never, secret: process.env.NEXTAUTH_SECRET });
+    if (!token) return new Response(JSON.stringify({ error: "unauthorized", message: "Authentication required" }), { status: 401, headers: { "Content-Type": "application/json" } });
     const body = (await req.json()) as ChatRequest;
     const { providerUrl, apiKey, model, messages, systemPrompt } = body;
 
@@ -79,6 +84,9 @@ export async function POST(req: Request): Promise<Response> {
       : messages;
 
     // Resolve localhost URLs for Docker environments
+    if (!isSafeProviderUrl(providerUrl)) {
+      return new Response(JSON.stringify({ error: "invalid_request", message: "Only HTTP(S) provider URLs are allowed" }), { status: 400, headers: { "Content-Type": "application/json" } });
+    }
     const resolvedUrl = resolveLocalhostUrl(providerUrl);
     const chatUrl = `${resolvedUrl}/chat/completions`;
 

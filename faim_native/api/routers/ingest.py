@@ -11,6 +11,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from datetime import datetime
 from typing import Any, Optional
 from uuid import UUID
 
@@ -53,6 +54,8 @@ class IngestRequest(BaseModel):
     content_type: Optional[str] = None
     profile: str = "strict"  # strict, fast, relaxed
     persist_mode: str = "relaxed"  # strict, relaxed
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
 
 
 class IngestResponse(BaseModel):
@@ -151,6 +154,72 @@ def _normalize_failure_reason(error: Optional[str]) -> str:
     if "extract" in text_value:
         return "extract_error"
     return "ingest_error"
+
+
+def _trigger_domain_rebuild_after_ingest(*, ctx: FAIMContext, graph_id: str) -> None:
+    """Populate Domain Studio after a successful ordinary ingest.
+
+    Production deployments with workers receive a durable job.  Local/single
+    process deployments use the same real rebuild synchronously so the API
+    contract remains deterministic; no fake lexicon or graph is returned.
+    """
+    try:
+        from orchestration.domain_autonomy import (
+            enqueue_domain_autonomy_if_needed,
+            run_domain_autonomy_now,
+        )
+
+        jobs_raw = os.getenv("FAIM_ENABLE_JOBS", "").strip().lower()
+        if jobs_raw in {"1", "true", "yes", "on"}:
+            scheduled = enqueue_domain_autonomy_if_needed(
+                session=ctx.session,
+                tenant_id=ctx.tenant_id,
+                graph_id=graph_id,
+                source="ordinary_ingest",
+                request_id=ctx.request_id,
+            )
+            logger.info(
+                "Domain rebuild scheduled after ingest graph=%s status=%s job=%s",
+                graph_id,
+                scheduled.status,
+                scheduled.job_id,
+            )
+            return
+        run_domain_autonomy_now(
+            session=ctx.session,
+            tenant_id=ctx.tenant_id,
+            graph_id=graph_id,
+            raw_repo=ctx.raw_repo,
+            storage_file_repo=ctx.storage_file_repo,
+            raw_store=ctx.raw_store,
+            node_repo=ctx.node_repo,
+            gv_repo=ctx.gv_repo,
+            event_repo=ctx.event_repo,
+        )
+        # The rebuild uses the request session and must be committed explicitly;
+        # otherwise the subsequent request sees an empty Domain Studio.
+        ctx.session.commit()
+        logger.info("Domain rebuild completed after ingest graph=%s", graph_id)
+    except Exception:
+        # Canonical ingest has already succeeded; expose the secondary failure
+        # in logs/events without turning a durable upload into a false failure.
+        logger.exception("Domain rebuild failed after ordinary ingest graph=%s", graph_id)
+        if ctx.session:
+            try:
+                ctx.session.rollback()
+            except Exception:
+                logger.debug("Could not rollback failed domain rebuild transaction", exc_info=True)
+        try:
+            if ctx.event_repo and ctx.session:
+                ctx.event_repo.emit(
+                    ctx.session,
+                    graph_id,
+                    "DOMAIN_PROFILE_REBUILD_FAILED",
+                    {"source": "ordinary_ingest", "status": "trigger_failed"},
+                )
+                ctx.session.flush()
+        except Exception:
+            logger.debug("Could not persist domain rebuild failure event", exc_info=True)
 
 
 def _ingest_lifecycle_log(
@@ -485,6 +554,8 @@ async def ingest_file(
             edge_repo=ctx.edge_repo,
             event_repo=ctx.event_repo,
             gv_repo=ctx.gv_repo,
+            valid_from=request.valid_from,
+            valid_to=request.valid_to,
         )
         _track_storage_ingest_result(
             ctx=ctx,
@@ -493,6 +564,7 @@ async def ingest_file(
             result=result,
         )
         if result.status in {"completed", "dedup_hit"}:
+            _trigger_domain_rebuild_after_ingest(ctx=ctx, graph_id=request.graph_id)
             _maybe_enqueue_self_evolve(
                 ctx=ctx,
                 graph_id=request.graph_id,
@@ -574,6 +646,8 @@ async def ingest_upload(
     graph_id: str = Form(...),
     profile: str = Form("strict"),
     persist_mode: str = Form("relaxed"),
+    valid_from: Optional[datetime] = Form(None),
+    valid_to: Optional[datetime] = Form(None),
     file: UploadFile = File(...),  # noqa: B008
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> IngestResponse:
@@ -639,6 +713,8 @@ async def ingest_upload(
             edge_repo=ctx.edge_repo,
             event_repo=ctx.event_repo,
             gv_repo=ctx.gv_repo,
+            valid_from=valid_from,
+            valid_to=valid_to,
         )
         _track_storage_ingest_result(
             ctx=ctx,
@@ -647,6 +723,7 @@ async def ingest_upload(
             result=result,
         )
         if result.status in {"completed", "dedup_hit"}:
+            _trigger_domain_rebuild_after_ingest(ctx=ctx, graph_id=graph_id)
             _maybe_enqueue_self_evolve(
                 ctx=ctx,
                 graph_id=graph_id,

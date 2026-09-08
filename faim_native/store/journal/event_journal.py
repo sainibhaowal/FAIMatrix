@@ -121,14 +121,14 @@ class EventJournal:
         events = journal.read("graph1", after_seq=0, limit=100)
     """
 
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, tenant_id: str = "default") -> None:
         """Initialize journal with a database session.
 
         Args:
             session: SQLAlchemy session for database operations.
         """
         self._session = session
-        self._repo = EventRepo()
+        self._repo = EventRepo(tenant_id=tenant_id)
 
     def append(self, event: EventRecord) -> EventRecord:
         """Append an event to the journal.

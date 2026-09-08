@@ -1801,6 +1801,7 @@ export default function EvolutionPage() {
 
   const profileOptions = [
     { value: "strict", label: "Strict" },
+    { value: "balanced", label: "Balanced" },
     { value: "fast", label: "Fast" },
     { value: "relaxed", label: "Relaxed" },
   ];

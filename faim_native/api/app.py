@@ -278,6 +278,45 @@ def create_app() -> FastAPI:
     @app.on_event("startup")
     async def startup_event():
         logger.info("FAIM-Native API starting up...")
+        import os
+
+        # Optional production prewarm: initialize OCR model resources before
+        # accepting uploads, so the first user does not pay a model-download
+        # penalty.  Required mode fails readiness/startup rather than silently
+        # serving an unbounded or unavailable OCR path.
+        if os.getenv("FAIM_OCR_PREWARM", "false").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
+            import asyncio
+
+            from perception.extract.ocr_providers import get_ocr_registry
+
+            timeout_raw = os.getenv("FAIM_OCR_PREWARM_TIMEOUT_SECONDS", "300")
+            try:
+                prewarm_timeout = max(1, int(timeout_raw))
+            except ValueError:
+                prewarm_timeout = 300
+            try:
+                provider_id = await asyncio.wait_for(
+                    asyncio.to_thread(
+                        get_ocr_registry().warm_up_active,
+                        os.getenv("FAIM_OCR_LANGS", "eng"),
+                    ),
+                    timeout=prewarm_timeout,
+                )
+                logger.info("OCR provider prewarmed: %s", provider_id)
+            except Exception as exc:
+                logger.critical("OCR prewarm failed: %s", exc)
+                if os.getenv("FAIM_OCR_PREWARM_REQUIRED", "true").strip().lower() in {
+                    "1",
+                    "true",
+                    "yes",
+                    "on",
+                }:
+                    raise RuntimeError("Required OCR prewarm failed") from exc
 
         # Phase A: feature-flag guardrails + contract freeze checks
         try:
@@ -307,8 +346,6 @@ def create_app() -> FastAPI:
             raise
 
         # Stage-10: Auto-migrate if enabled (default=false)
-        import os
-
         from store.pg.migrate import run_up
 
         if os.getenv("FAIM_AUTO_MIGRATE", "false").lower() == "true":
