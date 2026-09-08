@@ -106,14 +106,26 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: faim-api
+    # Keep the API responsive while a synchronous graph/storage operation is
+    # running.  The image ships gunicorn and this is the production command;
+    # the previous single uvicorn worker allowed one blocked request to stall
+    # liveness, readiness, and every user request in the container.
     command:
       [
-        "uvicorn",
+        "gunicorn",
         "api.app:app",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8000",
+        "--workers",
+        "4",
+        "--worker-class",
+        "uvicorn.workers.UvicornWorker",
+        "--bind",
+        "0.0.0.0:8000",
+        "--timeout",
+        "120",
+        "--graceful-timeout",
+        "30",
+        "--keep-alive",
+        "5",
       ]
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
@@ -170,8 +182,14 @@ services:
     healthcheck:
       test:
         [
-          "CMD-SHELL",
-          "curl -fsS http://localhost:8000/ready | grep -q 'status'",
+          "CMD",
+          "curl",
+          "--fail",
+          "--silent",
+          "--show-error",
+          "--max-time",
+          "5",
+          "http://localhost:8000/ready",
         ]
       interval: 10s
       timeout: 8s

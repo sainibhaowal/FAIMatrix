@@ -597,7 +597,8 @@ export default function DashboardPage() {
   // Pipeline / infrastructure stats (gpu, queue, cache, throughput)
   const fetchPipelineStats = useCallback(async () => {
     try {
-      const res = await fetch("/api/health/pipeline/stats");
+      const headers = await authHeaders();
+      const res = await fetch("/api/v1/pipeline/stats", { headers });
       if (!res.ok) return;
       const data = await readJsonSafely<{
         gpu_available: boolean;
