@@ -25,8 +25,13 @@ def test_vps_caddy_routes_backend_health_and_frontend():
     assert ":80 {" in content
     assert "faimatrix.com" not in content
     assert "www.faimatrix.com" not in content
-    assert "reverse_proxy api:8000" in content
-    assert "reverse_proxy frontend:8010" in content
+    # The FAIM Caddy container also joins the shared gateway network.  Generic
+    # service aliases can resolve to another project's container there, so the
+    # VPS proxy must use FAIM's unique container names.
+    assert "reverse_proxy faim-api-vps:8000" in content
+    assert "reverse_proxy faim-frontend-vps:8010" in content
+    assert "reverse_proxy api:8000" not in content
+    assert "reverse_proxy frontend:8010" not in content
     assert "Strict-Transport-Security" in content
 
 
