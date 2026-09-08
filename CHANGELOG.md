@@ -1,3 +1,16 @@
+# [0.6.0](https://github.com/sainibhaowal/FAIMatrix/compare/v0.5.2...v0.6.0) (2026-09-08)
+
+
+### Bug Fixes
+
+* keep production API responsive and label alpha preview ([bbe360f](https://github.com/sainibhaowal/FAIMatrix/commit/bbe360f06ff8d0193cdf4a352a0672d01c52bdc0))
+* **marketing:** align landing claims with evidence ([06ca55e](https://github.com/sainibhaowal/FAIMatrix/commit/06ca55e0efc6697d6b709eb6e0f8a9b0d530d535))
+
+
+### Features
+
+* **marketing:** add evidence-led systems comparison ([4e332ad](https://github.com/sainibhaowal/FAIMatrix/commit/4e332ad7dceac7e1f8bd741e0aecb645b96e6655))
+
 ## [0.5.2](https://github.com/sainibhaowal/FAIMatrix/compare/v0.5.1...v0.5.2) (2026-09-08)
 
 
