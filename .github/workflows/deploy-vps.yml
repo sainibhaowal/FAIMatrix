@@ -66,6 +66,17 @@ jobs:
           fi
           echo "image_tag=$tag" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve application release version
+        id: app-version
+        shell: bash
+        run: |
+          version="$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Could not resolve a semantic release version from Git tags" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -105,6 +116,7 @@ jobs:
             NEXTAUTH_SECRET=${{ steps.frontend-build-secret.outputs.nextauth_secret }}
             NEXTAUTH_URL=https://faimatrix.com
             API_HOST=faim-api-vps:8000
+            NEXT_PUBLIC_APP_VERSION=${{ steps.app-version.outputs.version }}
           tags: |
             ${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tag.outputs.image_tag }}
             ${{ env.IMAGE_PREFIX }}/frontend:sha-${{ github.sha }}

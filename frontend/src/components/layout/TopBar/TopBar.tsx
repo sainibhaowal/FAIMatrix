@@ -18,6 +18,7 @@ import { Breadcrumbs } from "../Breadcrumbs";
 import { IconChevron } from "./IconChevron";
 import { Dropdown } from "./Dropdown";
 import { UserDropdownContent } from "./ProfileMenu/UserDropdownContent";
+import { APP_VERSION } from "@/lib/appVersion";
 import { NotificationCenter } from "./NotificationBell/NotificationCenter";
 import { readJsonSafely } from "@/lib/safeFetch";
 
@@ -171,7 +172,7 @@ export function TopBar({
 
   // --- Health State ---
   const [health, setHealth] = useState<Health>("unknown");
-  const [version, setVersion] = useState<string | null>(null);
+  const [version] = useState<string>(APP_VERSION);
   const [healthAt, setHealthAt] = useState<string | null>(null);
   const [gpu, setGpu] = useState<{
     enabled?: boolean;
@@ -244,7 +245,6 @@ export function TopBar({
         const h = await fetchHealth();
         if (cancelled) return;
         setHealth(h.status);
-        setVersion(h.version ?? null);
         setGpu(h.gpu ?? null);
         setHealthAt(new Date().toISOString());
       } catch {

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useSession, signOut } from "next-auth/react";
+import { APP_VERSION } from "@/lib/appVersion";
 
 export function UserDropdownContent({
   goControl,
@@ -60,7 +61,7 @@ export function UserDropdownContent({
       </div>
 
       <div className="mt-3 border-t border-white/5 pt-2 text-center text-[10px] text-slate-600">
-        FAIMATRIX v0.1.0-beta
+        FAIMATRIX release v{APP_VERSION}
       </div>
     </div>
   );
