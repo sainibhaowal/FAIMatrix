@@ -148,7 +148,7 @@ export const GraphHealthChart: React.FC<GraphHealthChartProps> = ({ data }) => {
       </div>
 
       <div className="h-[300px] w-full relative">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: -25, bottom: 0 }}

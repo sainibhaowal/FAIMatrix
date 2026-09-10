@@ -62,6 +62,19 @@ interface DiscoverError {
   message: string;
 }
 
+function networkErrorCode(error: unknown): string | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const candidate = error as {
+    code?: unknown;
+    cause?: { code?: unknown };
+  };
+  return typeof candidate.code === "string"
+    ? candidate.code
+    : typeof candidate.cause?.code === "string"
+      ? candidate.cause.code
+      : undefined;
+}
+
 export async function POST(req: Request): Promise<Response> {
   try {
     const token = await getToken({ req: req as never, secret: process.env.NEXTAUTH_SECRET });
@@ -104,14 +117,16 @@ export async function POST(req: Request): Promise<Response> {
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
-    } catch (error: any) {
+    } catch (error: unknown) {
       clearTimeout(timeoutId);
+      const message = error instanceof Error ? error.message : "Unknown network error";
+      const code = networkErrorCode(error);
       console.error(`[Provider Discovery] Fetch error:`, {
-        message: error.message,
-        code: error.code,
+        message,
+        code,
       });
 
-      if (error.name === "AbortError") {
+      if (error instanceof Error && error.name === "AbortError") {
         return Response.json(
           {
             error: "timeout",
@@ -121,10 +136,7 @@ export async function POST(req: Request): Promise<Response> {
         );
       }
 
-      if (
-        error.code === "ECONNREFUSED" ||
-        error.message?.includes("ECONNREFUSED")
-      ) {
+      if (code === "ECONNREFUSED" || message.includes("ECONNREFUSED")) {
         return Response.json(
           {
             error: "offline",
@@ -134,7 +146,13 @@ export async function POST(req: Request): Promise<Response> {
         );
       }
 
-      if (error.code === "ENOTFOUND" || error.message?.includes("ENOTFOUND")) {
+      if (
+        code === "ENOTFOUND" ||
+        code === "EAI_AGAIN" ||
+        code === "EHOSTUNREACH" ||
+        code === "ENETUNREACH" ||
+        message.includes("ENOTFOUND")
+      ) {
         return Response.json(
           {
             error: "offline",
@@ -144,10 +162,20 @@ export async function POST(req: Request): Promise<Response> {
         );
       }
 
+      if (code === "ECONNRESET" || code === "ETIMEDOUT") {
+        return Response.json(
+          {
+            error: "offline",
+            message: `Unable to reach ${modelsUrl}. Check that the provider is running and reachable from the FAIM server.`,
+          } as DiscoverError,
+          { status: 503 },
+        );
+      }
+
       return Response.json(
         {
           error: "unknown",
-          message: `Network error: ${error.message}`,
+          message: `Network error: ${message}`,
         } as DiscoverError,
         { status: 500 },
       );

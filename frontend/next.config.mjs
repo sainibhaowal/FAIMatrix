@@ -46,6 +46,12 @@ const nextConfig = {
         source: "/api/health",
         destination: `${apiUrl}/health`,
       },
+      // Backward compatibility for cached dashboard bundles released before
+      // pipeline stats moved under the versioned API namespace.
+      {
+        source: "/api/health/pipeline/stats",
+        destination: `${apiUrl}/api/v1/pipeline/stats`,
+      },
       {
         source: "/api/ready",
         destination: `${apiUrl}/ready`,

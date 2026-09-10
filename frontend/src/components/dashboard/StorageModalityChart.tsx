@@ -50,7 +50,7 @@ export const StorageModalityChart: React.FC<StorageModalityChartProps> = ({
   return (
     <div className="flex flex-col h-full w-full">
       <div className="h-[180px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={180}>
           <BarChart
             data={displayData}
             margin={{ top: 10, right: 10, left: -25, bottom: 0 }}

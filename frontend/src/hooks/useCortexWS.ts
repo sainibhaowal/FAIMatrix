@@ -56,6 +56,8 @@ export function useCortexWS({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reconnectAttemptsRef = useRef(0);
+  const connectingRef = useRef(false);
+  const activeSessionIdRef = useRef<string | null>(null);
   const maxReconnectAttempts = 5;
   const baseReconnectDelay = 1000;
 
@@ -77,8 +79,9 @@ export function useCortexWS({
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
-    if (state.connecting) return;
+    if (connectingRef.current) return;
 
+    connectingRef.current = true;
     setState((prev) => ({ ...prev, connecting: true, error: null }));
 
     const wsUrl = new URL(`${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000"}/api/v1/cortex/ws/chat`);
@@ -89,7 +92,10 @@ export function useCortexWS({
     wsRef.current = ws;
 
     ws.onopen = () => {
-      setState((prev) => ({ ...prev, connected: true, connecting: false, error: null, sessionId: sessionId || `ws_${graphId}` }));
+      const activeSessionId = sessionId || `ws_${graphId}`;
+      activeSessionIdRef.current = activeSessionId;
+      connectingRef.current = false;
+      setState((prev) => ({ ...prev, connected: true, connecting: false, error: null, sessionId: activeSessionId }));
       reconnectAttemptsRef.current = 0;
       console.log("[CortexWS] Connected");
     };
@@ -112,6 +118,7 @@ export function useCortexWS({
     };
 
     ws.onclose = (event) => {
+      connectingRef.current = false;
       setState((prev) => ({ ...prev, connected: false, connecting: false }));
       console.log("[CortexWS] Disconnected:", event.code, event.reason);
 
@@ -129,6 +136,7 @@ export function useCortexWS({
     };
 
     ws.onerror = (event) => {
+      connectingRef.current = false;
       console.error("[CortexWS] Error:", event);
       setState((prev) => ({ ...prev, error: "WebSocket error" }));
       onError?.("WebSocket connection error");
@@ -144,6 +152,8 @@ export function useCortexWS({
       wsRef.current.close(1000, "Client disconnect");
       wsRef.current = null;
     }
+    connectingRef.current = false;
+    activeSessionIdRef.current = null;
     setState((prev) => ({ ...prev, connected: false, connecting: false }));
   }, []);
 
@@ -151,7 +161,7 @@ export function useCortexWS({
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       const msg: CortexWSMessage = {
         ...message,
-        session_id: state.sessionId ?? undefined,
+        session_id: activeSessionIdRef.current ?? undefined,
         graph_id: graphId,
       };
       wsRef.current.send(JSON.stringify(msg));
