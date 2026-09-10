@@ -452,7 +452,7 @@ export default function FigViewPage() {
       }
     }
     return null;
-  }, [messages, selectedNodeId]);
+  }, [graphId, messages, selectedNodeId]);
 
   const liveInteractionPulse = useMemo(
     () =>

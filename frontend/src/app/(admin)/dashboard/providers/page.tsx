@@ -199,6 +199,21 @@ const WEB_FAMILIES: FamilyOption[] = [
   },
 ];
 
+function isLocalProviderUrl(value: string): boolean {
+  try {
+    const hostname = new URL(value).hostname.toLowerCase();
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function isPublicBrowserSession(): boolean {
+  if (typeof window === "undefined") return false;
+  const hostname = window.location.hostname.toLowerCase();
+  return hostname !== "localhost" && hostname !== "127.0.0.1" && hostname !== "::1";
+}
+
 // FAIM Custom Dropdown Component (Glass rounded-square floating menu style)
 interface CustomSelectProps {
   value: string;
@@ -418,6 +433,15 @@ export default function ProvidersPage() {
   useEffect(() => {
     if (!selectedLLMFamily) return;
 
+    // A public deployment cannot reach an LLM bound to the browser user's
+    // localhost. Do not create a failing background request for that case.
+    if (isPublicBrowserSession() && isLocalProviderUrl(llmRuntimeUrl)) {
+      setLlmStatusMessage(
+        "Local model discovery is unavailable from the hosted dashboard. Run FAIM locally or use a provider URL reachable from this server.",
+      );
+      return;
+    }
+
     // Check if key is needed for this family
     const requiresKey =
       selectedLLMFamily.type === "openai" ||
@@ -561,24 +585,6 @@ export default function ProvidersPage() {
     setLlmStatusMessage(null);
     if (fam.type === "local") {
       setLlmAuthProtocol("local no key");
-      // Auto-trigger discovery for local endpoints (Ollama, LM Studio)
-      setIsDiscoveringLLM(true);
-      discoverProviderModels(fam.defaultUrl)
-        .then((res) => {
-          if (res.models && res.models.length > 0) {
-            setLlmDiscoveredModels(res.models);
-            setLlmSelectedModel(res.models[0]);
-            setLlmStatusMessage(`✓ Discovered ${res.models.length} local models.`);
-          } else {
-            setLlmStatusMessage("No models detected on local runtime yet.");
-          }
-        })
-        .catch(() => {
-          setLlmStatusMessage("Local runtime not running or unreachable on default port.");
-        })
-        .finally(() => {
-          setIsDiscoveringLLM(false);
-        });
     } else if (fam.id === "anthropic" || fam.id === "openai" || fam.id === "groq" || fam.id === "google") {
       setLlmAuthProtocol("API Key");
     } else {

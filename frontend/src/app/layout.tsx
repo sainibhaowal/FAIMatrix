@@ -12,6 +12,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  // Resolve relative Open Graph and Twitter image paths against the canonical
+  // public URL in every build, rather than Next's localhost fallback.
+  metadataBase: new URL("https://faimatrix.ai"),
   title: {
     default: "FAIMATRIX - Fractal AI Memory",
     template: "%s | FAIMATRIX",

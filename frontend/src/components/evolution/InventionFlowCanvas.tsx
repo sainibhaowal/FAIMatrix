@@ -203,7 +203,10 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
     setTransform({ x: 0, y: 0, scale: 1 });
   }, []);
 
-  const stages = data?.stages ?? { atoms: [], macros: [], merges: [] };
+  const stages = useMemo(
+    () => data?.stages ?? { atoms: [], macros: [], merges: [] },
+    [data?.stages],
+  );
 
   const applyFilters = useCallback(
     (nodes: FlowNodeData[]): FlowNodeData[] => {

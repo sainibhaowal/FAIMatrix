@@ -127,7 +127,7 @@ export function CommandPalette({
       },
 
     ],
-    [session?.isAdmin],
+    [],
   );
 
   const results = useMemo(() => {

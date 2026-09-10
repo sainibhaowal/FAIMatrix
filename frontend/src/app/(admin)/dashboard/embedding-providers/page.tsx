@@ -237,7 +237,7 @@ export default function EmbeddingProvidersPage() {
     } finally {
       setFormLoading(false);
     }
-  }, [addEmbeddingProvider, discoveredModels, formData, selectedModel]);
+  }, [addEmbeddingProvider, formData, selectedModel]);
 
   const handleCopyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
