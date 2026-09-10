@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/sainibhaowal/FAIMatrix/compare/v0.6.0...v0.6.1) (2026-09-10)
+
+
+### Bug Fixes
+
+* harden provider discovery and dashboard runtime ([0554cbf](https://github.com/sainibhaowal/FAIMatrix/commit/0554cbf1e4797ed84880c1ac816cdae027af63a9))
+
 # [0.6.0](https://github.com/sainibhaowal/FAIMatrix/compare/v0.5.2...v0.6.0) (2026-09-08)
 
 
