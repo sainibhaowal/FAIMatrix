@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { APP_VERSION } from "@/lib/appVersion";
 
 const footerLinks = {
   product: [
@@ -93,7 +94,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="flex flex-col items-start justify-between gap-3 pt-5 text-xs sm:flex-row sm:items-center">
           <p className="text-slate-500">
-            © 2026 FAIMATRIX. All rights reserved.
+            © 2026 FAIMATRIX · Release v{APP_VERSION}. All rights reserved.
           </p>
           <div className="flex items-center gap-2 text-slate-500">
             <span>Built with</span>
