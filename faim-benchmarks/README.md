@@ -40,6 +40,8 @@ cp .env.example .env
 ## Run BEIR Retrieval Benchmarks
 ```bash
 faim-bench beir --dataset scifact --top-k 20 --seed 42 --out-dir results
+# Release-evidence mode: retain per-query IDs, metrics, latency, and safe diagnostics
+faim-bench beir --dataset scifact --top-k 20 --seed 42 --retain-query-traces --out-dir results
 # Optional bounded concurrency for a real API load test:
 faim-bench beir --dataset scifact --top-k 20 --seed 42 --ingest-workers 4 --out-dir results
 # Optional public memory-write path (reported separately from file ingest):
@@ -70,8 +72,21 @@ faim-bench beir --dataset scifact --max-queries 100 --out-dir results
 Before publishing a report, verify that FAIM is configured with a scoped key or
 bearer token, every claimed comparison system has `status=completed`, no system
 has `status=failed`, the report hash is present, and the run used the intended
-dataset and seed. Missing competitor credentials are acceptable only when the
-published report clearly shows them as `skipped`.
+dataset and seed. Retrieval publication also requires retained per-query traces
+and non-secret embedding provider/model/revision metadata. Missing competitor
+credentials are acceptable only when the published report clearly shows them as
+`skipped`.
+
+The trace artifact contains document IDs, qrel IDs, metrics, latency, and
+whitelisted adapter diagnostics. It does not contain query text, document text,
+credentials, or provider response bodies. Set these non-secret variables when
+running FAIM retrieval benchmarks so the signed artifact identifies the model:
+
+```bash
+export FAIM_EMBEDDING_PROVIDER_ID=local
+export FAIM_EMBEDDING_MODEL_ID=ibm-granite-granite-embedding-97m-multilingual-r2
+export FAIM_EMBEDDING_MODEL_REVISION=<pinned-model-revision>
+```
 
 ## Run Harness Verification Tests
 ```bash

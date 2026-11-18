@@ -313,12 +313,32 @@ class FaimHttpAdapter:
         answer = data.get("answer") or {}
         spans = [str(s.get("text") or "") for s in answer.get("supporting_spans", []) if s.get("text")]
         answer_text = str(answer.get("direct_answer") or "") or "\n".join(spans)
+        response_metrics = data.get("metrics") or {}
+        safe_metrics = {
+            key: response_metrics[key]
+            for key in (
+                "cache_hit",
+                "phase5_sparse_candidates",
+                "phase5_dense_candidates",
+                "degraded_feature_count",
+                "node_count",
+                "diagnostics_cached",
+            )
+            if key in response_metrics
+        }
+        degraded = data.get("degraded_features") or []
+        safe_metadata = {
+            "response_metrics": safe_metrics,
+            "degraded_features": [str(item) for item in degraded[:20]],
+            "result_count": len(retrieved_ids),
+        }
         return QueryOutcome(
             query_id=query_id,
             retrieved_doc_ids=retrieved_ids,
             retrieved_texts=spans,
             answer_text=answer_text,
             latency_ms=latency_ms,
+            metadata=safe_metadata,
         )
 
     def close(self) -> None:

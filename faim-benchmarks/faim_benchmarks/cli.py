@@ -71,6 +71,14 @@ def _run_metadata(argv: List[str]) -> dict:
         "faim_batch_size": os.getenv("FAIM_BENCH_FAIM_BATCH_SIZE", "0"),
         "faim_repr_v2_enabled": os.getenv("FAIM_REPR_V2_ENABLED", "unspecified"),
         "faim_phase5_enabled": os.getenv("FAIM_PHASE5_ENABLED", "unspecified"),
+        "faim_enable_index": os.getenv("FAIM_ENABLE_INDEX", "unspecified"),
+        "model_provenance": {
+            "embedding_provider_id": os.getenv("FAIM_EMBEDDING_PROVIDER_ID", "unspecified"),
+            "embedding_model_id": os.getenv("FAIM_EMBEDDING_MODEL_ID", "unspecified"),
+            "embedding_model_revision": os.getenv("FAIM_EMBEDDING_MODEL_REVISION", "unspecified"),
+            "reranker_model_id": os.getenv("FAIM_RERANKER_MODEL_ID", "unspecified"),
+            "reranker_model_revision": os.getenv("FAIM_RERANKER_MODEL_REVISION", "unspecified"),
+        },
         "faim_db_idle_in_transaction_timeout_ms": os.getenv(
             "FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "unspecified"
         ),
@@ -127,6 +135,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     beir.add_argument("--seed", type=int, default=42)
     beir.add_argument("--bootstrap", type=int, default=300)
     beir.add_argument(
+        "--retain-query-traces",
+        action="store_true",
+        help="Retain per-query IDs, metrics, latency, and safe adapter diagnostics in the signed JSON artifact",
+    )
+    beir.add_argument(
         "--systems",
         default=None,
         help="Comma-separated comparison scope (for example: faim,bm25); default: all adapters",
@@ -177,6 +190,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 bootstrap_iterations=args.bootstrap,
                 ingest_workers=args.ingest_workers,
                 run_metadata=run_metadata,
+                retain_query_traces=args.retain_query_traces,
             )
         else:
             split = (

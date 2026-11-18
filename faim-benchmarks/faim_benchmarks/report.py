@@ -44,6 +44,25 @@ def evaluate_publication_gate(result: Dict[str, Any]) -> Dict[str, Any]:
     if not run_metadata.get("git_commit") or run_metadata.get("git_commit") == "unavailable":
         reasons.append("git commit is unavailable")
 
+    if result.get("suite_type") == "retrieval_beir":
+        if run_metadata.get("query_traces_retained") is not True:
+            reasons.append("per-query retrieval traces were not retained")
+        model_provenance = run_metadata.get("model_provenance") or {}
+        required_model_fields = (
+            "embedding_provider_id",
+            "embedding_model_id",
+            "embedding_model_revision",
+        )
+        missing_model_fields = [
+            field
+            for field in required_model_fields
+            if model_provenance.get(field) in {None, "", "unspecified"}
+        ]
+        if missing_model_fields:
+            reasons.append(
+                "model provenance is incomplete: " + ", ".join(missing_model_fields)
+            )
+
     return {
         "ready": not reasons,
         "reasons": reasons,
@@ -107,6 +126,9 @@ def render_markdown_report(result: Dict[str, Any]) -> str:
             )
 
     lines.append("")
+    if result.get("run_metadata", {}).get("query_traces_retained") is True:
+        lines.append("Per-query retrieval traces are retained in the signed JSON artifact without query or document text.")
+        lines.append("")
     gate = result.get("publication_gate", {})
     if not gate.get("ready", False):
         lines.append("**Publication blockers:** " + "; ".join(gate.get("reasons", [])))

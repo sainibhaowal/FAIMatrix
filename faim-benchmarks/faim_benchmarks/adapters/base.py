@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 
 class AdapterConfigError(RuntimeError):
@@ -26,7 +26,9 @@ class QueryOutcome:
     retrieved_texts: List[str] = field(default_factory=list)
     answer_text: str = ""
     latency_ms: float = 0.0
-    metadata: Dict[str, str] = field(default_factory=dict)
+    # Adapter-owned diagnostics only. Adapters must not place query text,
+    # document text, credentials, or provider responses here.
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class MemorySystemAdapter(Protocol):

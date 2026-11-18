@@ -82,7 +82,14 @@ def test_local_beir_runner_and_signed_reports(tmp_path: Path):
     unconfigured_mem0 = Mem0Adapter(api_key="")
     bm25 = BM25BaselineAdapter()
 
-    result = run_retrieval_benchmark(split=split, adapters=[faim, bm25, unconfigured_mem0], top_k=5, seed=42, bootstrap_iterations=50)
+    result = run_retrieval_benchmark(
+        split=split,
+        adapters=[faim, bm25, unconfigured_mem0],
+        top_k=5,
+        seed=42,
+        bootstrap_iterations=50,
+        retain_query_traces=True,
+    )
     json_path, md_path = write_signed_artifacts(result, tmp_path / "results")
     saved = json.loads(json_path.read_text(encoding="utf-8"))
 
@@ -93,6 +100,9 @@ def test_local_beir_runner_and_signed_reports(tmp_path: Path):
     by_sys = {s["system"]: s for s in saved["systems"]}
     assert by_sys["FAIM-Native"]["status"] == "completed"
     assert by_sys["FAIM-Native"]["metrics"]["recall@5"] == 1.0
+    assert by_sys["FAIM-Native"]["query_trace_count"] == 1
+    assert by_sys["FAIM-Native"]["query_traces"][0]["retrieved_doc_ids"] == ["d1"]
+    assert "query_text" not in by_sys["FAIM-Native"]["query_traces"][0]
     assert by_sys["BM25-Baseline"]["metrics"]["recall@5"] == 1.0
     assert by_sys["Mem0"]["status"] == "skipped"
 
