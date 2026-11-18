@@ -135,6 +135,23 @@ def main(argv: Optional[List[str]] = None) -> int:
     beir.add_argument("--seed", type=int, default=42)
     beir.add_argument("--bootstrap", type=int, default=300)
     beir.add_argument(
+        "--min-ndcg-at-10",
+        type=float,
+        default=None,
+        help="Publication gate: minimum FAIM-Native nDCG@10 (0-1)",
+    )
+    beir.add_argument(
+        "--max-query-p95-ms",
+        type=float,
+        default=None,
+        help="Publication gate: maximum FAIM-Native query p95 latency in milliseconds",
+    )
+    beir.add_argument(
+        "--require-faim-beats-bm25",
+        action="store_true",
+        help="Publication gate: require FAIM-Native nDCG@10 to exceed BM25-Baseline",
+    )
+    beir.add_argument(
         "--retain-query-traces",
         action="store_true",
         help="Retain per-query IDs, metrics, latency, and safe adapter diagnostics in the signed JSON artifact",
@@ -171,6 +188,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     try:
         adapters, selected_systems = _select_adapters(adapters, args.systems)
         run_metadata = _run_metadata(effective_argv)
+        if args.command == "beir":
+            run_metadata["quality_gates"] = {
+                "min_ndcg_at_10": args.min_ndcg_at_10,
+                "max_query_p95_ms": args.max_query_p95_ms,
+                "require_faim_beats_bm25": bool(args.require_faim_beats_bm25),
+            }
         if selected_systems is not None:
             run_metadata["selected_systems"] = selected_systems
             run_metadata["comparison_scope"] = "explicit"

@@ -42,6 +42,10 @@ cp .env.example .env
 faim-bench beir --dataset scifact --top-k 20 --seed 42 --out-dir results
 # Release-evidence mode: retain per-query IDs, metrics, latency, and safe diagnostics
 faim-bench beir --dataset scifact --top-k 20 --seed 42 --retain-query-traces --out-dir results
+# Example explicit release gates (the run is NOT READY when any gate fails)
+faim-bench beir --dataset scifact --top-k 20 --seed 42 \
+  --retain-query-traces --min-ndcg-at-10 0.70 --max-query-p95-ms 500 \
+  --require-faim-beats-bm25 --out-dir results
 # Optional bounded concurrency for a real API load test:
 faim-bench beir --dataset scifact --top-k 20 --seed 42 --ingest-workers 4 --out-dir results
 # Optional public memory-write path (reported separately from file ingest):

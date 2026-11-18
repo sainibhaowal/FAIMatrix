@@ -62,6 +62,41 @@ def evaluate_publication_gate(result: Dict[str, Any]) -> Dict[str, Any]:
             reasons.append(
                 "model provenance is incomplete: " + ", ".join(missing_model_fields)
             )
+        quality_gates = run_metadata.get("quality_gates") or {}
+        min_ndcg = quality_gates.get("min_ndcg_at_10")
+        max_p95 = quality_gates.get("max_query_p95_ms")
+        require_beats_bm25 = quality_gates.get("require_faim_beats_bm25") is True
+        if min_ndcg is not None and not 0.0 <= float(min_ndcg) <= 1.0:
+            reasons.append("invalid quality gate: min_ndcg_at_10 must be between 0 and 1")
+        if max_p95 is not None and float(max_p95) <= 0.0:
+            reasons.append("invalid quality gate: max_query_p95_ms must be positive")
+
+        completed = {
+            row.get("system"): row
+            for row in systems
+            if row.get("status") == "completed"
+        }
+        faim_row = completed.get("FAIM-Native")
+        bm25_row = completed.get("BM25-Baseline")
+        if faim_row:
+            faim_ndcg = float((faim_row.get("metrics") or {}).get("ndcg@10", 0.0))
+            faim_p95 = float((faim_row.get("latency_ms") or {}).get("query_p95", 0.0))
+            if min_ndcg is not None and faim_ndcg < float(min_ndcg):
+                reasons.append(
+                    f"FAIM-Native nDCG@10 {faim_ndcg:.4f} is below gate {float(min_ndcg):.4f}"
+                )
+            if max_p95 is not None and faim_p95 > float(max_p95):
+                reasons.append(
+                    f"FAIM-Native query p95 {faim_p95:.2f} ms exceeds gate {float(max_p95):.2f} ms"
+                )
+            if require_beats_bm25 and bm25_row:
+                bm25_ndcg = float((bm25_row.get("metrics") or {}).get("ndcg@10", 0.0))
+                if faim_ndcg <= bm25_ndcg:
+                    reasons.append(
+                        f"FAIM-Native nDCG@10 {faim_ndcg:.4f} does not exceed BM25 {bm25_ndcg:.4f}"
+                    )
+        elif min_ndcg is not None or max_p95 is not None or require_beats_bm25:
+            reasons.append("quality gates require a completed FAIM-Native system")
 
     return {
         "ready": not reasons,
@@ -126,6 +161,10 @@ def render_markdown_report(result: Dict[str, Any]) -> str:
             )
 
     lines.append("")
+    quality_gates = result.get("run_metadata", {}).get("quality_gates") or {}
+    if any(value is not None and value is not False for value in quality_gates.values()):
+        lines.append(f"- **Quality gates:** `{json.dumps(quality_gates, sort_keys=True)}`")
+        lines.append("")
     if result.get("run_metadata", {}).get("query_traces_retained") is True:
         lines.append("Per-query retrieval traces are retained in the signed JSON artifact without query or document text.")
         lines.append("")
