@@ -63,8 +63,13 @@ def run_retrieval_benchmark(
     bootstrap_iterations: int = 300,
     ingest_workers: int = 1,
     run_metadata: Optional[Dict[str, Any]] = None,
+    retain_query_traces: bool = False,
 ) -> Dict[str, Any]:
-    """Run an identical BEIR retrieval split across every configured adapter."""
+    """Run an identical BEIR retrieval split across every configured adapter.
+
+    Query traces retain IDs, scores, latency, and adapter-owned diagnostics only;
+    they never include query or document text.
+    """
     if not split.queries:
         raise ValueError("Retrieval benchmark split has no queries")
 
@@ -176,6 +181,7 @@ def run_retrieval_benchmark(
             continue
 
         query_latencies: List[float] = []
+        query_traces: List[Dict[str, Any]] = []
         per_query_scores: Dict[str, List[float]] = {
             "recall@5": [],
             "recall@10": [],
@@ -204,6 +210,17 @@ def run_retrieval_benchmark(
             ir = compute_ir_metrics(qres.retrieved_doc_ids, split.qrels.get(qid, {}), k_values=(1, 3, 5, 10))
             for metric_name in per_query_scores:
                 per_query_scores[metric_name].append(ir[metric_name])
+            if retain_query_traces:
+                query_traces.append(
+                    {
+                        "query_id": str(qid),
+                        "latency_ms": round(float(qres.latency_ms), 3),
+                        "retrieved_doc_ids": [str(doc_id) for doc_id in qres.retrieved_doc_ids],
+                        "relevant_doc_ids": sorted(str(doc_id) for doc_id, score in split.qrels.get(qid, {}).items() if float(score) > 0),
+                        "metrics": {key: round(float(value), 6) for key, value in ir.items()},
+                        "metadata": dict(qres.metadata or {}),
+                    }
+                )
 
         if len(query_latencies) != len(split.queries):
             continue
@@ -214,26 +231,28 @@ def run_retrieval_benchmark(
         }
         agg_metrics = {metric_name: ci["mean"] for metric_name, ci in cis.items()}
 
-        systems_out.append(
-            {
-                "system": adapter.name,
-                "system_type": adapter.system_type,
-                "status": "completed",
-                "namespace": namespace,
-                "corpus_docs": len(split.corpus),
-                "queries_evaluated": len(split.queries),
-                "ingest_errors": ingest_errors,
-                "metrics": agg_metrics,
-                "confidence_intervals": cis,
-                "latency_ms": {
-                    "ingest_p50": percentile(ingest_latencies, 50),
-                    "ingest_p95": percentile(ingest_latencies, 95),
-                    "query_p50": percentile(query_latencies, 50),
-                    "query_p95": percentile(query_latencies, 95),
-                    "query_p99": percentile(query_latencies, 99),
-                },
-            }
-        )
+        system_result = {
+            "system": adapter.name,
+            "system_type": adapter.system_type,
+            "status": "completed",
+            "namespace": namespace,
+            "corpus_docs": len(split.corpus),
+            "queries_evaluated": len(split.queries),
+            "ingest_errors": ingest_errors,
+            "metrics": agg_metrics,
+            "confidence_intervals": cis,
+            "latency_ms": {
+                "ingest_p50": percentile(ingest_latencies, 50),
+                "ingest_p95": percentile(ingest_latencies, 95),
+                "query_p50": percentile(query_latencies, 50),
+                "query_p95": percentile(query_latencies, 95),
+                "query_p99": percentile(query_latencies, 99),
+            },
+        }
+        if retain_query_traces:
+            system_result["query_traces"] = query_traces
+            system_result["query_trace_count"] = len(query_traces)
+        systems_out.append(system_result)
 
     return {
         "run_id": run_id,
@@ -241,7 +260,10 @@ def run_retrieval_benchmark(
         "dataset": split.name,
         "dataset_metadata": getattr(split, "metadata", {}),
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "run_metadata": run_metadata or {},
+        "run_metadata": {
+            **(run_metadata or {}),
+            "query_traces_retained": bool(retain_query_traces),
+        },
         "hyperparameters": {
             "top_k": top_k,
             "seed": seed,
