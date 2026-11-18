@@ -164,6 +164,10 @@ def _trigger_domain_rebuild_after_ingest(*, ctx: FAIMContext, graph_id: str) -> 
     contract remains deterministic; no fake lexicon or graph is returned.
     """
     try:
+        domain_enabled = os.getenv("FAIM_DOMAIN_AUTONOMY_ENABLED", "").strip().lower()
+        if domain_enabled in {"0", "false", "no", "off"}:
+            return
+
         from orchestration.domain_autonomy import (
             enqueue_domain_autonomy_if_needed,
             run_domain_autonomy_now,
@@ -443,6 +447,15 @@ def _maybe_enqueue_self_evolve(
     persist_mode: str,
 ) -> None:
     """Best-effort shared self-evolve enqueue after successful ingest writes."""
+    jobs_enabled = os.getenv("FAIM_ENABLE_JOBS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    self_evolve_enabled = os.getenv("FAIM_SELF_EVOLVE_ENABLED", "").strip().lower()
+    if not jobs_enabled or self_evolve_enabled in {"0", "false", "no", "off"}:
+        return
     try:
         from orchestration.self_evolve_scheduler import enqueue_self_evolve_if_due
 

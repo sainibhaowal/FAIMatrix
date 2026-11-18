@@ -15,6 +15,7 @@ from __future__ import annotations
 import os
 import sys
 import logging
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,6 +36,8 @@ from core.query.query_engine import (  # noqa: E402
     compute_query_hash,
     inheritance_weighted_expansion,
     recall_candidates_brute_force,
+    recall_candidates_index,
+    recall_candidates_semantic_embedding,
     recall_with_graph_expansion,
     rerank_faim,
 )
@@ -609,8 +612,6 @@ def run_query(
     Returns:
         QueryResult with ranked nodes and metrics.
     """
-    import time
-
     start_time = time.perf_counter()
     degraded_features: List[str] = []
 
@@ -842,13 +843,30 @@ def run_query(
 
     # 2c. Inheritance-weighted query expansion (Phase 7)
     try:
-        _seeds = recall_candidates_brute_force(
-            session=session,
-            tenant_id=tenant_id,
-            graph_id=graph_id,
-            q_vec=tuple(q_vec),
-            n=20,
-        )
+        if index is not None and profile != FAIMProfile.STRICT:
+            _seeds = recall_candidates_index(
+                index=index,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                q_vec=tuple(q_vec),
+                n=20,
+            )
+        else:
+            _seeds = recall_candidates_brute_force(
+                session=session,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                q_vec=tuple(q_vec),
+                n=20,
+            )
+        if not _seeds and index is not None and profile != FAIMProfile.STRICT:
+            _seeds = recall_candidates_brute_force(
+                session=session,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                q_vec=tuple(q_vec),
+                n=20,
+            )
         if _seeds:
             _seed_ids = [node_id for node_id, _ in _seeds]
             q_vec = inheritance_weighted_expansion(
@@ -980,9 +998,9 @@ def run_query(
                 n=200,
             )
         else:
-            # Use index for acceleration
-            from core.query.query_engine import recall_candidates_index
-
+            # Use index for acceleration.  The helper is imported at module
+            # scope so the FAST path and the graph-semantic seed path share
+            # the same symbol without creating a function-local shadow.
             candidates = recall_candidates_index(
                 index=index,
                 tenant_id=tenant_id,
@@ -1023,13 +1041,21 @@ def run_query(
             from store.pg.repos.representation_repo import RepresentationRepo
 
             repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
-            lexical_candidates = repr_repo.top_k_lexical(
-                graph_id=graph_id,
-                query_repr=query_repr_v2,
-                k=max(200, k * 20),
-            )
-            lexical_candidate_ids = [node_id for node_id, _score in lexical_candidates]
-            candidate_ids = _stable_union_ids(candidate_ids, lexical_candidate_ids)
+            # Phase 5 already produced a deterministic sparse lexical
+            # shortlist.  Rescanning every representation here defeats the
+            # bounded-recall path on large graphs and can make one query
+            # exceed the API request budget.  Keep the legacy full lexical
+            # scan only when the Phase 5 shortlist is unavailable.
+            if not phase5_sparse_candidates:
+                lexical_candidates = repr_repo.top_k_lexical(
+                    graph_id=graph_id,
+                    query_repr=query_repr_v2,
+                    k=max(200, k * 20),
+                )
+                lexical_candidate_ids = [
+                    node_id for node_id, _score in lexical_candidates
+                ]
+                candidate_ids = _stable_union_ids(candidate_ids, lexical_candidate_ids)
             lexical_scores = repr_repo.score_node_ids(
                 graph_id=graph_id,
                 query_repr=query_repr_v2,
@@ -1049,13 +1075,30 @@ def run_query(
         from store.pg.repos.edge_repo import EdgeRepo
         from store.pg.repos.node_repo import NodeRepo
 
-        seed_pairs = recall_candidates_brute_force(
-            session=session,
-            tenant_id=tenant_id,
-            graph_id=graph_id,
-            q_vec=tuple(q_vec),
-            n=30,
-        )
+        if index is not None and profile != FAIMProfile.STRICT:
+            seed_pairs = recall_candidates_index(
+                index=index,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                q_vec=tuple(q_vec),
+                n=30,
+            )
+        else:
+            seed_pairs = recall_candidates_brute_force(
+                session=session,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                q_vec=tuple(q_vec),
+                n=30,
+            )
+        if not seed_pairs and index is not None and profile != FAIMProfile.STRICT:
+            seed_pairs = recall_candidates_brute_force(
+                session=session,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                q_vec=tuple(q_vec),
+                n=30,
+            )
         seed_score_map = {node_id: max(0.0, score) for node_id, score in seed_pairs}
         graph_candidate_ids, graph_scores, graph_paths = build_graph_semantic_scores(
             edge_repo=EdgeRepo(session=session, tenant_id=tenant_id),
@@ -1076,6 +1119,35 @@ def run_query(
         graph_scores = {}
         graph_paths = {}
 
+    # Optional dense semantic embedding (e.g., Granite 97M R2) for hybrid recall + rerank
+    query_embedding: Optional[List[float]] = None
+    try:
+        from encoding import get_active_embedding_provider
+
+        emb_provider = get_active_embedding_provider()
+        if emb_provider and emb_provider.is_available():
+            query_embedding = emb_provider.encode_single(expanded_query_text or query_text)
+    except Exception as exc:
+        _degraded("semantic_embedding_encode", exc)
+        query_embedding = None
+
+    if query_embedding:
+        try:
+            sem_candidates = recall_candidates_semantic_embedding(
+                session=session,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                q_emb=query_embedding,
+                n=max(50, k * 5),
+            )
+            if sem_candidates:
+                candidate_ids = _stable_union_ids(
+                    candidate_ids,
+                    [node_id for node_id, _score in sem_candidates],
+                )
+        except Exception as exc:
+            _degraded("semantic_embedding_recall", exc)
+
     # 5. Re-rank with FAIM scoring
     weights = STRICT_WEIGHTS if profile == FAIMProfile.STRICT else DEFAULT_WEIGHTS
     ranked = rerank_faim(
@@ -1095,6 +1167,7 @@ def run_query(
         query_repr_v2=query_repr_v2,
         include_historical=include_historical,
         as_of=as_of,
+        query_embedding=query_embedding,
     )
     query_fusion_summary = _build_query_fusion_summary(
         candidate_ids=candidate_ids,

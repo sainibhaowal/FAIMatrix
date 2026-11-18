@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 from uuid import UUID
 
-from sqlalchemy import and_, asc
+from sqlalchemy import and_, asc, text
 from sqlalchemy.orm import Session
 
 try:
@@ -73,6 +73,11 @@ class RepresentationRepo:
         Returns:
             "inserted", "updated", or "unchanged"
         """
+        # Representation statistics are graph-scoped and rebuilt/incremented
+        # in the same transaction as the node sidecar write.  Serialize only
+        # this graph's representation updates so concurrent API writers cannot
+        # race while creating the composite-key stats rows.
+        self._lock_graph_stats(graph_id)
         existing = (
             self.session.query(NodeRepresentationV2Model)
             .filter(
@@ -144,6 +149,13 @@ class RepresentationRepo:
         self.session.flush()
         self._incremental_update_graph_stats(graph_id, representation)
         return "inserted"
+
+    def _lock_graph_stats(self, graph_id: str) -> None:
+        """Acquire a transaction-scoped lock for this graph's stats sidecar."""
+        self.session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+            {"lock_key": f"representation-v2:{self.tenant_id}:{graph_id}"},
+        )
 
     def list_by_node_ids(
         self,

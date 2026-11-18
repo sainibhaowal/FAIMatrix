@@ -18,7 +18,7 @@ import logging
 import math
 import os
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 from uuid import UUID
 
 from .qdrant_collections import (
@@ -43,6 +43,7 @@ Vector = Tuple[float, ...]
 _qdrant_client = None
 _qdrant_available = None  # None = not checked, True/False = known
 _qdrant_last_check = 0.0
+_ensured_collections: Set[str] = set()
 
 
 def _get_qdrant_url() -> str:
@@ -111,6 +112,7 @@ def reset_qdrant_connection() -> None:
     _qdrant_client = None
     _qdrant_available = None
     _qdrant_last_check = 0.0
+    _ensured_collections.clear()
 
 
 def is_qdrant_available() -> bool:
@@ -288,7 +290,9 @@ class FAIMIndex:
         return is_qdrant_available()
 
     def _ensure_collection(self) -> None:
-        """Ensure collection exists in Qdrant."""
+        """Ensure collection exists in Qdrant (cached per process)."""
+        if self._collection in _ensured_collections:
+            return
         client = _get_client()
         if client is None:
             return
@@ -308,6 +312,7 @@ class FAIMIndex:
                     ),
                 )
                 logger.info(f"Created Qdrant collection: {self._collection}")
+            _ensured_collections.add(self._collection)
         except Exception as e:
             logger.warning(f"Failed to ensure collection: {e}")
 
@@ -428,19 +433,34 @@ class FAIMIndex:
         try:
             from qdrant_client.models import FieldCondition, Filter, MatchValue
 
-            results = client.search(
-                collection_name=self._collection,
-                query_vector=list(query_vec),
-                query_filter=Filter(
-                    must=[
-                        FieldCondition(
-                            key="graph_id",
-                            match=MatchValue(value=str(graph_id)),
-                        ),
-                    ]
-                ),
-                limit=k,
+            query_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="graph_id",
+                        match=MatchValue(value=str(graph_id)),
+                    ),
+                ]
             )
+            # qdrant-client 1.16 removed the legacy ``search`` method in
+            # favor of ``query_points``.  Support both APIs so a production
+            # dependency upgrade cannot silently turn every query into a
+            # brute-force fallback scan.
+            if hasattr(client, "search"):
+                results = client.search(
+                    collection_name=self._collection,
+                    query_vector=list(query_vec),
+                    query_filter=query_filter,
+                    limit=k,
+                )
+            else:
+                response = client.query_points(
+                    collection_name=self._collection,
+                    query=list(query_vec),
+                    query_filter=query_filter,
+                    limit=k,
+                    with_payload=True,
+                )
+                results = response.points
 
             raw_results = [(r.payload["node_id"], r.score) for r in results]
 
@@ -470,20 +490,32 @@ class FAIMIndex:
         try:
             from qdrant_client.models import FieldCondition, Filter, MatchValue
 
-            results = client.search(
-                collection_name=self._collection,
-                query_vector=list(query_vec),
-                query_filter=Filter(
-                    must=[
-                        FieldCondition(
-                            key="graph_id",
-                            match=MatchValue(value=str(graph_id)),
-                        ),
-                    ]
-                ),
-                score_threshold=1.0 - radius,
-                limit=limit,
+            query_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="graph_id",
+                        match=MatchValue(value=str(graph_id)),
+                    ),
+                ]
             )
+            if hasattr(client, "search"):
+                results = client.search(
+                    collection_name=self._collection,
+                    query_vector=list(query_vec),
+                    query_filter=query_filter,
+                    score_threshold=1.0 - radius,
+                    limit=limit,
+                )
+            else:
+                response = client.query_points(
+                    collection_name=self._collection,
+                    query=list(query_vec),
+                    query_filter=query_filter,
+                    score_threshold=1.0 - radius,
+                    limit=limit,
+                    with_payload=True,
+                )
+                results = response.points
 
             raw_results = [(r.payload["node_id"], r.score) for r in results]
 
@@ -581,6 +613,7 @@ class FAIMIndex:
 
         try:
             client.delete_collection(collection_name=self._collection)
+            _ensured_collections.discard(self._collection)
             logger.info(f"Deleted collection: {self._collection}")
         except Exception as e:
             logger.warning(f"Qdrant delete collection failed: {e}")

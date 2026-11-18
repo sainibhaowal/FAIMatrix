@@ -1,21 +1,36 @@
 # FAIM-Native
 
 <p align="center">
-  <strong>Fractal Antisymmetric Inheritance Memory</strong><br />
-  A native-first memory graph engine with deterministic core paths for developers building retrieval, reasoning, and agent systems.
+  <img src="assets/faim-readme-banner.png" alt="FAIM-Native sci-fi memory graph banner" />
 </p>
 
 <p align="center">
-  <em>Raw evidence → structured memory → graph evolution → explainable retrieval</em>
+  <strong>Fractal Antisymmetric Inheritance Memory</strong><br />
+  A native-first memory graph engine for durable, explainable retrieval and agent systems.
 </p>
 
-![FAIM-Native memory graph and developer console](assets/faim-native-hero.png)
+<p align="center">
+  <em>Raw evidence → structured memory → controlled graph evolution → auditable retrieval</em>
+</p>
 
-FAIM-Native is a research-oriented, native-first platform for turning documents, events, and multimodal evidence into a durable memory graph. It is a large-scope systems project under substantial active development, combining a FastAPI API, deterministic perception and encoding, graph-native operators, PostgreSQL persistence, optional retrieval acceleration, background jobs, and a Next.js workspace into one repository.
+<table align="center">
+  <tr>
+    <td align="center"><strong>Release stage</strong><br />Preview · Alpha</td>
+    <td align="center"><strong>Runtime</strong><br />Docker Compose</td>
+    <td align="center"><strong>Interfaces</strong><br />REST · MCP · SSE</td>
+    <td align="center"><strong>Canonical data</strong><br />PostgreSQL</td>
+  </tr>
+</table>
 
-> **Project posture:** FAIM-Native is an actively evolving research and engineering system. Performance numbers, benchmark results, and production readiness should be established from the repository's benchmark and validation suites for the deployment being evaluated.
+> **Use this declaration:** FAIM-Native is a **Docker-backed Preview Alpha**. It is ready for controlled local evaluation, demos, and invited integration testing. It is **not yet a public beta, release candidate, or production release**.
 
-> **Experimental / unstable:** FAIM-Native is not a finished product. Many features, contracts, integrations, and operational procedures are still being developed, tested, or redesigned. Do **not** use it as the sole system of record for personal productivity, business-critical, production, safety-critical, regulated, or irreplaceable-data workloads. Evaluate it only in an isolated environment with disposable, synthetic, or safely backed-up data until a stable release and deployment-specific validation are published.
+> **Safety boundary:** Do not use this checkout as the sole system of record for personal productivity, business-critical, production, safety-critical, regulated, or irreplaceable-data workloads. Use isolated infrastructure with synthetic, redacted, disposable, or safely backed-up data until the deployment-specific production gates are complete.
+
+FAIM-Native turns documents, events, and multimodal evidence into a durable memory graph. It combines a FastAPI API, deterministic perception and encoding, graph-native operators, PostgreSQL persistence, optional Redis/Qdrant acceleration, durable background jobs, a Next.js workspace, MCP access, and a public black-box benchmark harness.
+
+### Verification snapshot
+
+The current local checkout has been exercised against the real Docker stack: API, worker, PostgreSQL, Redis, Qdrant, and frontend. Health/readiness, migrations, authenticated storage/providers/events/graph/evolution surfaces, MCP, live ingest/query, and the benchmark harness have been smoke-tested. The latest backend run recorded **1010 passed, 1 skipped**; the public harness recorded **4 passed**. Browser E2E was not claimed when the browser host was unavailable. Published competitor numbers below are external references from their own reports, not reproduced scores from the FAIM run.
 
 The project explores an alternative memory architecture in which raw evidence remains addressable, derived knowledge is represented as a versioned graph, retrieval includes graph context and explanations, and memory evolution is treated as a controlled lifecycle. This is a research direction and engineering hypothesis—not a claim of universal novelty, priority, or superiority over vector search, RAG, knowledge graphs, agent-memory systems, or any other approach. See [`RESEARCH_POSITIONING.md`](RESEARCH_POSITIONING.md) for the comparison and evaluation discipline.
 
@@ -327,12 +342,79 @@ For the component inventory, failure behavior, local-versus-hosted differences, 
 | [`faim_native/orchestration`](faim_native/orchestration) | Ingest/query/evolve flows, background jobs, rebuilds, and performance work |
 | [`faim_native/store`](faim_native/store) | PostgreSQL repositories, migrations, raw blobs, crypto, journal, and persistence contracts |
 | [`faim_native/index`](faim_native/index) | Qdrant index, deterministic ANN, inverted index, collections, and index wiring |
-| [`faim_native/benchmarks`](faim_native/benchmarks) | Retrieval, persistence, continuity, efficiency, real-world task, and publication suites |
+| [`faim-benchmarks`](faim-benchmarks) | Standalone public black-box benchmarks for FAIM, BM25, and configured external memory systems |
 | [`frontend`](frontend) | Next.js dashboard, marketing/docs surfaces, authentication, graph views, and tests |
 | [`scripts`](scripts) | Local demos, verification, smoke tests, backup/restore, deployment, and security automation |
 | [`docs`](docs) | API, architecture, operations, security, benchmark, and implementation documentation |
 
+## Public benchmarking
+
+The standalone [`faim-benchmarks`](faim-benchmarks) package is the public comparison
+harness. It calls FAIM only through its HTTP API, uses the same locked dataset split
+and scorer for every configured adapter, skips systems without credentials, and
+writes integrity-hashed JSON plus Markdown reports.
+
+```bash
+cd faim-benchmarks
+python -m pip install -e ".[datasets,dev]"
+cp .env.example .env
+pytest -q
+faim-bench beir --dataset scifact --max-queries 100 --out-dir results
+```
+
+Set `FAIM_BASE_URL` plus either `FAIM_API_KEY`/`FAIM_TENANT_ID` or
+`FAIM_BEARER_TOKEN` before a live run. Competitor keys are optional; an unconfigured
+adapter is recorded as `skipped`, never as a fabricated score. Do not publish a
+report until the JSON integrity hash, dataset identity, seed, and completed-system
+statuses have been reviewed.
+
+### Latest complete external run
+
+The latest complete run is the full official **BeIR/SciFact** split: **5,183 corpus
+documents and 300 test queries**, pinned to corpus/query revision
+`b3b5335604bf5ee3c4447671af975ea25143d4f5` and qrels revision
+`2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029`. It used the real Docker HTTP path,
+strict persistence, four API workers, Phase 5 and Representation V2, embedding
+prewarm, and PostgreSQL idle-transaction/lock timeouts. Both selected systems
+completed all 300 queries with zero ingest errors.
+
+| System | Dataset / protocol | Recall@5 | nDCG@10 | Query p50 | Status |
+| --- | --- | ---: | ---: | ---: | --- |
+| **FAIM-Native** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | 17,373 ms | Completed |
+| **BM25 baseline** | Same SciFact split and scorer | 0.7193 | 0.6644 | 35 ms | Completed |
+
+On this run, FAIM's nDCG@10 was **0.6127 below** the BM25 baseline and its query
+median was approximately **495× slower**. This is a real result, not a readiness
+claim: the harness publication gate remains `NOT READY` because the Git worktree
+was dirty, and the retrieval quality/latency gap independently means FAIM should
+not be presented as competitive with BM25 yet.
+
+Evidence artifacts:
+
+- [`ret_scifact_20261117T214211Z_ccef064a.md`](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md)
+- [`ret_scifact_20261117T214211Z_ccef064a.json`](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.json)
+
+### Public competitor references (not directly comparable)
+
+The following are published vendor or paper results on **different datasets,
+tasks, answer models, and metrics**. They are included for context only; they
+are not merged into the SciFact table and were not reproduced by FAIM's harness.
+
+| System | Public benchmark and published result | Comparability note |
+| --- | --- | --- |
+| Mem0 | LoCoMo: **92.5** overall across 1,540 questions; Mem0 also reports 94.4 on LongMemEval and 64.1 on BEAM-1M | Conversational memory / judge-based evaluation, not document retrieval; vendor-reported. [Mem0 Research](https://mem0.ai/research) |
+| Zep / Graphiti | DMR: **94.8%** versus MemGPT 93.4%; the paper also reports up to 18.5% accuracy improvement on LongMemEval | Different memory benchmark and protocol; the paper's “up to” result is not a single SciFact-equivalent score. [Zep paper](https://arxiv.org/abs/2501.13956) |
+| Supermemory | LongMemEval-S: **97% Recall@20** across 500 questions; published comparison includes Zep 71.2% and full-context 60.2% | Different dataset, aggregation, and GPT-4o judging; vendor-reported. [Supermemory Research](https://supermemory.ai/research/) |
+| Letta | Letta publishes Context-Bench V2 and a model-oriented agent-memory leaderboard, but no single directly comparable SciFact retrieval score | Keep separate until FAIM runs the same public protocol. [Context-Bench V2](https://www.letta.com/blog/evaluating-memory-in-production-agents/) · [Letta Leaderboard](https://www.letta.com/blog/letta-leaderboard/) |
+
+These references do **not** establish that FAIM beats or loses to each vendor
+on their own task. A fair head-to-head comparison requires one locked public
+dataset, identical query set, scorer, answer model, top-k, indexing policy,
+hardware budget, and published raw results for every system.
+
 ## Quick start with Docker
+
+The supported evaluation path is the real multi-container application, not a mocked API. Run the Compose stack, wait for readiness, then exercise an authenticated ingest and query before evaluating features.
 
 ### Prerequisites
 
@@ -351,7 +433,8 @@ Replace every `CHANGE_ME_*` value in `.env`. The default Compose stack expects s
 ### 2. Start the full stack
 
 ```bash
-npm run faim:up
+docker compose config --quiet
+docker compose up -d --build
 npm run faim:ps
 ```
 
@@ -375,7 +458,10 @@ The `migrate` service is a one-shot migration job. The API's `FAIM_AUTO_MIGRATE`
 curl -fsS http://localhost:8000/health
 curl -fsS http://localhost:8000/ready
 curl -fsS http://localhost:8000/version
+docker compose ps
 ```
+
+Continue only when the API and worker report `healthy`, readiness reports connected dependencies and matching migrations, and the migration service has completed successfully.
 
 Open these surfaces after the checks pass:
 
@@ -393,6 +479,10 @@ npm run faim:down       # Stop the stack
 npm run faim:update     # Fast-forward pull and rebuild
 npm run faim:accel:up   # Start the acceleration profile when configured
 ```
+
+### 4. Run the end-to-end Docker smoke path
+
+After configuring a tenant-scoped API key, run the protected ingest/query flow below. Then verify the event journal, graph surface, storage backend health, evolution status, provider registry, and authenticated MCP endpoint. The same sequence is used for release verification; a passing unit suite alone is not a Docker release check.
 
 ## Run a real ingest and query
 

@@ -67,7 +67,61 @@ def _get_engine():
 
             ensure_sqlite_parent(db_url)
 
-        _engine = create_engine(db_url, echo=False)
+        engine_connect_args = {}
+        if db_url.startswith("postgresql"):
+            idle_ms = max(
+                1_000,
+                int(
+                    os.getenv(
+                        "FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "60000"
+                    )
+                ),
+            )
+            lock_ms = max(
+                1_000,
+                int(os.getenv("FAIM_DB_LOCK_TIMEOUT_MS", "120000")),
+            )
+            engine_connect_args["options"] = (
+                f"-c idle_in_transaction_session_timeout={idle_ms} "
+                f"-c lock_timeout={lock_ms}"
+            )
+
+        _engine = create_engine(
+            db_url,
+            echo=False,
+            connect_args=engine_connect_args,
+        )
+        if db_url.startswith("postgresql"):
+            # A request-scoped session must never hold a graph-version lock
+            # indefinitely if a client disconnects or a handler stalls after
+            # its last statement.  Bound both idle-in-transaction lifetime and
+            # lock waits at the database connection boundary so every API and
+            # worker process gets the same safety behavior.
+            from sqlalchemy import event
+
+            def _configure_postgres_timeouts(dbapi_connection, _connection_record):
+                cursor = dbapi_connection.cursor()
+                try:
+                    idle_ms = max(
+                        1_000,
+                        int(
+                            os.getenv(
+                                "FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "60000"
+                            )
+                        ),
+                    )
+                    lock_ms = max(
+                        1_000,
+                        int(os.getenv("FAIM_DB_LOCK_TIMEOUT_MS", "120000")),
+                    )
+                    cursor.execute(
+                        f"SET idle_in_transaction_session_timeout = {idle_ms}"
+                    )
+                    cursor.execute(f"SET lock_timeout = {lock_ms}")
+                finally:
+                    cursor.close()
+
+            event.listen(_engine, "connect", _configure_postgres_timeouts)
         _engine_db_url = db_url
         _SessionLocal = None
 

@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
-from sqlalchemy import and_, asc, select, text
+from sqlalchemy import and_, asc, desc, or_, select, text
 from sqlalchemy.orm import Session
 
 # Flexible imports
@@ -368,6 +368,25 @@ class NodeRepo:
             .all()
         )
 
+    def list_macros(self, graph_id: str, limit: int = 30) -> List[NodeModel]:
+        """List macro (and level > 0 hierarchical) nodes newest-first."""
+        return (
+            self.session.query(NodeModel)
+            .filter(
+                and_(
+                    NodeModel.tenant_id == self.tenant_id,
+                    NodeModel.graph_id == graph_id,
+                    or_(NodeModel.kind == "macro", NodeModel.level > 0),
+                )
+            )
+            .order_by(
+                desc(NodeModel.created_at),
+                asc(NodeModel.node_id),
+            )
+            .limit(limit)
+            .all()
+        )
+
     def list_by_raw_id(
         self,
         graph_id: str,
@@ -568,6 +587,37 @@ class NodeRepo:
             .all()
         )
         return [(n.node_id, n.v_native, n.level or 0) for n in nodes]
+
+    def get_all_vectors_with_level_and_hash(self, graph_id: str) -> List[tuple]:
+        """Get ordered vector candidates with level and hash in one query.
+
+        The native write engine uses this snapshot for both inheritance and
+        antisym candidate selection.  Keeping the hash in the same query
+        avoids a per-vector ``list_nodes`` round trip during batch ingest.
+        """
+        nodes = (
+            self.session.query(
+                NodeModel.node_id,
+                NodeModel.v_native,
+                NodeModel.level,
+                NodeModel.vector_hash,
+            )
+            .filter(
+                and_(
+                    NodeModel.tenant_id == self.tenant_id,
+                    NodeModel.graph_id == graph_id,
+                )
+            )
+            .order_by(
+                asc(NodeModel.created_at),
+                asc(NodeModel.node_id),
+            )
+            .all()
+        )
+        return [
+            (n.node_id, n.v_native, n.level or 0, n.vector_hash)
+            for n in nodes
+        ]
 
     def find_redundant_pairs(self, graph_id: str, threshold: float, limit: int = 1000) -> List[tuple]:
         """Find highly similar node pairs using pgvector HNSW index.
