@@ -19,7 +19,7 @@ from faim_benchmarks.adapters import (
 from faim_benchmarks.adapters.base import IngestOutcome
 from faim_benchmarks.datasets import load_beir_split, load_locomo_split, load_longmemeval_split
 from faim_benchmarks.metrics import bootstrap_ci, compute_ir_metrics, exact_match, token_f1
-from faim_benchmarks.report import compute_payload_sha256, write_signed_artifacts
+from faim_benchmarks.report import compute_payload_sha256, evaluate_publication_gate, write_signed_artifacts
 from faim_benchmarks.runner import run_conversational_benchmark, run_retrieval_benchmark
 
 
@@ -259,3 +259,46 @@ def test_failed_adapter_is_reported_without_aborting_other_systems():
     assert "simulated upstream outage" in rows["Broken-System"]["reason"]
     assert rows["Broken-System"]["metrics"] == {}
     assert rows["BM25-Baseline"]["status"] == "completed"
+
+
+def test_retrieval_quality_gates_block_underperforming_faim():
+    gate = evaluate_publication_gate(
+        {
+            "suite_type": "retrieval_beir",
+            "systems": [
+                {
+                    "system": "FAIM-Native",
+                    "status": "completed",
+                    "metrics": {"ndcg@10": 0.40},
+                    "latency_ms": {"query_p95": 900.0},
+                },
+                {
+                    "system": "BM25-Baseline",
+                    "status": "completed",
+                    "metrics": {"ndcg@10": 0.60},
+                    "latency_ms": {"query_p95": 10.0},
+                },
+            ],
+            "dataset_metadata": {"sampling": {}, "source_type": "local_beir_folder"},
+            "run_metadata": {
+                "git_commit": "abc123",
+                "git_worktree_dirty": False,
+                "query_traces_retained": True,
+                "model_provenance": {
+                    "embedding_provider_id": "local",
+                    "embedding_model_id": "model",
+                    "embedding_model_revision": "rev",
+                },
+                "quality_gates": {
+                    "min_ndcg_at_10": 0.50,
+                    "max_query_p95_ms": 500.0,
+                    "require_faim_beats_bm25": True,
+                },
+            },
+        }
+    )
+
+    assert gate["ready"] is False
+    assert any("below gate" in reason for reason in gate["reasons"])
+    assert any("exceeds gate" in reason for reason in gate["reasons"])
+    assert any("does not exceed BM25" in reason for reason in gate["reasons"])
