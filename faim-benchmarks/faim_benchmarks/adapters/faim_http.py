@@ -323,6 +323,7 @@ class FaimHttpAdapter:
                 "degraded_feature_count",
                 "node_count",
                 "diagnostics_cached",
+                "stage_timings_ms",
             )
             if key in response_metrics
         }

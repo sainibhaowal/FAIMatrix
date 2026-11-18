@@ -69,6 +69,12 @@ def test_local_beir_runner_and_signed_reports(tmp_path: Path):
                 json={
                     "results": [{"node_id": "n1", "score": 0.99, "evidence": {"raw_id": raw_d1}}],
                     "answer": {"direct_answer": "Fractal antisymmetric inheritance memory", "supporting_spans": []},
+                    "metrics": {
+                        "phase5_sparse_candidates": 20,
+                        "phase5_dense_candidates": 20,
+                        "stage_timings_ms": {"candidate_recall_ms": 1.25, "rerank_ms": 2.5},
+                    },
+                    "degraded_features": [],
                 },
             )
         return httpx.Response(404)
@@ -103,6 +109,7 @@ def test_local_beir_runner_and_signed_reports(tmp_path: Path):
     assert by_sys["FAIM-Native"]["query_trace_count"] == 1
     assert by_sys["FAIM-Native"]["query_traces"][0]["retrieved_doc_ids"] == ["d1"]
     assert "query_text" not in by_sys["FAIM-Native"]["query_traces"][0]
+    assert by_sys["FAIM-Native"]["query_traces"][0]["metadata"]["response_metrics"]["stage_timings_ms"]["rerank_ms"] == 2.5
     assert by_sys["BM25-Baseline"]["metrics"]["recall@5"] == 1.0
     assert by_sys["Mem0"]["status"] == "skipped"
 
