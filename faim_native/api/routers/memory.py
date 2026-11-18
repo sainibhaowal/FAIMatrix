@@ -57,6 +57,12 @@ class MemorySearchRequest(BaseModel):
     k: int = Field(10, ge=1, le=100)
     profile: str = Field("strict")
     return_explain: bool = Field(False)
+    graph_max_hops: Optional[int] = Field(
+        None,
+        ge=1,
+        le=24,
+        description="Maximum graph traversal hop depth (1-24). Defaults to 2 when omitted.",
+    )
 
 
 class MemorySearchResult(BaseModel):
@@ -377,6 +383,15 @@ def _maybe_enqueue_self_evolve(
     persist_mode: str,
 ) -> None:
     """Best-effort shared self-evolve enqueue for memory write success path."""
+    jobs_enabled = os.getenv("FAIM_ENABLE_JOBS", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    self_evolve_enabled = os.getenv("FAIM_SELF_EVOLVE_ENABLED", "").strip().lower()
+    if not jobs_enabled or self_evolve_enabled in {"0", "false", "no", "off"}:
+        return
     try:
         from orchestration.self_evolve_scheduler import enqueue_self_evolve_if_due
 
@@ -416,6 +431,10 @@ def _maybe_trigger_domain_autonomy(
         )
 
         if getattr(ctx, "session", None) is None:
+            return None
+
+        domain_enabled = os.getenv("FAIM_DOMAIN_AUTONOMY_ENABLED", "").strip().lower()
+        if domain_enabled in {"0", "false", "no", "off"}:
             return None
 
         if os.getenv("FAIM_ENABLE_JOBS", "").strip().lower() in {"1", "true", "yes", "on"}:
@@ -476,6 +495,7 @@ async def memory_search(
             return_explain=body.return_explain,
             index=ctx.index if profile != FAIMProfile.STRICT else None,
             cache=ctx.cache,
+            graph_max_hops=body.graph_max_hops,
         )
         # Query flow mutates usage metrics/events (touch_count), so persist it.
         ctx.session.commit()

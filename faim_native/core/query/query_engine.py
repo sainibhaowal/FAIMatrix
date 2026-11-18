@@ -25,7 +25,7 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
 # Flexible imports
@@ -83,6 +83,7 @@ FUSION_LAYER_WEIGHTS = {
     "domain_memory": 0.10,
     "reranker_v2": 0.18,
     "late_interaction": 0.11,
+    "semantic_embedding": 0.20,
 }
 
 
@@ -769,6 +770,57 @@ def _node_temporal_status(node: Any, as_of: Optional[datetime]) -> Optional[str]
     return "CURRENT"
 
 
+def _cosine_similarity_lists(left: Sequence[float], right: Sequence[float]) -> float:
+    """Compute clamped [0.0, 1.0] cosine similarity for optional dense embeddings."""
+    if not left or not right or len(left) != len(right):
+        return 0.0
+    dot = 0.0
+    norm_l = 0.0
+    norm_r = 0.0
+    for a, b in zip(left, right):
+        fa = float(a)
+        fb = float(b)
+        dot += fa * fb
+        norm_l += fa * fa
+        norm_r += fb * fb
+    if norm_l <= 0.0 or norm_r <= 0.0:
+        return 0.0
+    sim = dot / (math.sqrt(norm_l) * math.sqrt(norm_r))
+    return max(0.0, min(1.0, sim))
+
+
+def recall_candidates_semantic_embedding(
+    session,
+    tenant_id: str,
+    graph_id: str,
+    q_emb: Sequence[float],
+    n: int = 50,
+) -> List[Tuple[UUID, float]]:
+    """Recall top candidates by dense v_embedding cosine similarity when populated."""
+    if not q_emb:
+        return []
+    from store.pg.models_faim import NodeModel
+
+    nodes = (
+        session.query(NodeModel.node_id, NodeModel.v_embedding)
+        .filter(
+            NodeModel.tenant_id == tenant_id,
+            NodeModel.graph_id == graph_id,
+            NodeModel.v_embedding.isnot(None),
+        )
+        .limit(max(2000, n * 20))
+        .all()
+    )
+    scored: List[Tuple[UUID, float]] = []
+    for node_id, v_emb in nodes:
+        if isinstance(v_emb, list) and len(v_emb) == len(q_emb):
+            sim = _cosine_similarity_lists(q_emb, v_emb)
+            if sim > 0.0:
+                scored.append((node_id, sim))
+    scored.sort(key=lambda item: (-item[1], str(item[0])))
+    return scored[:n]
+
+
 def rerank_faim(
     session,
     tenant_id: str,
@@ -786,6 +838,7 @@ def rerank_faim(
     query_repr_v2=None,
     include_historical: bool = True,
     as_of: Optional[datetime] = None,
+    query_embedding: Optional[Sequence[float]] = None,
 ) -> List[Dict[str, Any]]:
     """Re-rank candidates using FAIM physics scoring.
 
@@ -855,9 +908,20 @@ def rerank_faim(
                 "domain_memory": 0.0,
                 "reranker_v2": 0.0,
                 "late_interaction": 0.0,
+                "semantic_embedding": 0.0,
             },
             "active_layers": ["core"],
         }
+
+        sem_emb_score = 0.0
+        if query_embedding and isinstance(node.v_embedding, list):
+            sem_emb_score = _cosine_similarity_lists(query_embedding, node.v_embedding)
+            if sem_emb_score > 0.0:
+                sem_emb_bonus = FUSION_LAYER_WEIGHTS["semantic_embedding"] * sem_emb_score
+                score = round(score + sem_emb_bonus, 6)
+                fusion_debug["contributions"]["semantic_embedding"] = round(sem_emb_bonus, 6)
+                fusion_debug["active_layers"].append("semantic_embedding")
+        components["semantic_emb"] = round(sem_emb_score, 6)
 
         lex_score = 0.0
         lex_components: Dict[str, float] = {}
@@ -949,8 +1013,17 @@ def rerank_faim(
             }
         )
 
+
     # --- PHASE 4: Deterministic reranker v2 ---
     if query_text and query_repr_v2 is not None and scored:
+        # Contradiction suppression is pairwise.  Keep it bounded to the
+        # strongest deterministic candidates; the full candidate set still
+        # participates in base scoring and final top-k ordering.
+        phase4_limit = max(50, k * 2)
+        phase4_scored = sorted(
+            scored,
+            key=lambda item: (-float(item.get("score", 0.0)), str(item["node_id"])),
+        )[:phase4_limit]
         phase4_candidates = [
             RerankerV2Candidate(
                 node_id=item["node_id"],
@@ -958,7 +1031,7 @@ def rerank_faim(
                 representation=item.get("repr_v2"),
                 base_score=float(item["score"]),
             )
-            for item in scored
+            for item in phase4_scored
         ]
         phase4_totals, phase4_components, phase4_explain, phase4_suppressed = (
             score_reranker_v2(
@@ -992,7 +1065,20 @@ def rerank_faim(
 
     # --- PHASE C: FAIM-native late interaction ---
     if query_repr_v2 is not None and scored:
+        # Late interaction is materially more expensive than the base score.
+        # Apply it only to the strongest deterministic shortlist; the full
+        # candidate set still participates in base scoring and final ordering.
+        phasec_limit = max(50, k * 2)
+        phasec_ids = {
+            item["node_id"]
+            for item in sorted(
+                scored,
+                key=lambda item: (-float(item.get("score", 0.0)), str(item["node_id"])),
+            )[:phasec_limit]
+        }
         for item in scored:
+            if item["node_id"] not in phasec_ids:
+                continue
             repr_v2 = item.get("repr_v2")
             late_interaction = score_late_interaction_native(
                 query_repr=query_repr_v2,
@@ -1033,8 +1119,19 @@ def rerank_faim(
         from store.pg.models_faim import EdgeModel, NodeModel
         from collections import defaultdict
 
+        # Temporal contradiction checks are pairwise over candidate ancestry.
+        # They are only able to change the final top-k, so keep this expensive
+        # phase bounded to the strongest deterministic shortlist while the
+        # full candidate set still participates in base scoring.
+        temporal_limit = max(50, k * 5)
+        temporal_candidate_ids = [
+            item["node_id"] for item in scored[:temporal_limit]
+        ]
+
         # 1. Resolve Ancestors for each candidate (up to 2-hop inheritance paths)
-        ancestors: Dict[UUID, set] = {cid: {cid} for cid in candidate_ids}
+        ancestors: Dict[UUID, set] = {
+            cid: {cid} for cid in temporal_candidate_ids
+        }
 
         # Hop 1 of inheritance lookup
         hop1_edges = (
@@ -1043,7 +1140,7 @@ def rerank_faim(
                 EdgeModel.tenant_id == tenant_id,
                 EdgeModel.graph_id == graph_id,
                 EdgeModel.kind == "inheritance",
-                EdgeModel.dst_node_id.in_(candidate_ids),
+                EdgeModel.dst_node_id.in_(temporal_candidate_ids),
             )
             .all()
         )
@@ -1071,14 +1168,14 @@ def rerank_faim(
                 hop2_parents[edge.dst_node_id].add(edge.src_node_id)
 
             # Map second hop to original candidates
-            for cid in candidate_ids:
+            for cid in temporal_candidate_ids:
                 for p1 in hop1_parents[cid]:
                     for p2 in hop2_parents[p1]:
                         ancestors[cid].add(p2)
 
         # Collect all unique ancestors to perform a single batch query for opposition
         all_ancestors = set()
-        for cid in candidate_ids:
+        for cid in temporal_candidate_ids:
             all_ancestors.update(ancestors[cid])
 
         # 2. Query opposition edges among all ancestors in the candidate space
@@ -1102,10 +1199,10 @@ def rerank_faim(
 
             # 3. Detect contradictions between candidate pairs
             contradictions = []
-            for i in range(len(candidate_ids)):
-                for j in range(i + 1, len(candidate_ids)):
-                    ci = candidate_ids[i]
-                    cj = candidate_ids[j]
+            for i in range(len(temporal_candidate_ids)):
+                for j in range(i + 1, len(temporal_candidate_ids)):
+                    ci = temporal_candidate_ids[i]
+                    cj = temporal_candidate_ids[j]
                     conflicting = False
                     for anc_i in ancestors[ci]:
                         for anc_j in ancestors[cj]:
@@ -1167,6 +1264,7 @@ def rerank_faim(
 
                 if to_suppress:
                     scored = [r for r in scored if r["node_id"] not in to_suppress]
+
 
     # Apply temporal status and lineage mapping
     for r in scored:

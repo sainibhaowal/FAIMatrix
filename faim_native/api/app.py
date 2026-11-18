@@ -208,15 +208,6 @@ def create_app() -> FastAPI:
     app.add_middleware(SecurityHeadersMiddleware)
     logger.info("SecurityHeadersMiddleware registered")
 
-    # Latency Collection (for benchmarks)
-    try:
-        from api.middleware.latency_collector import LatencyCollectorMiddleware
-
-        app.add_middleware(LatencyCollectorMiddleware)
-        logger.info("LatencyCollectorMiddleware registered")
-    except Exception as e:
-        logger.warning(f"Failed to register LatencyCollectorMiddleware: {e}")
-
     # ==========================================================================
     # Routers
     # ==========================================================================
@@ -224,35 +215,33 @@ def create_app() -> FastAPI:
     from api.routers import (
         api_keys_router,
         auth_router,
-        benchmarks_router,
-        cortex_router,
-        domain_router,
         embedding_providers_router,
         events_router,
         evolve_router,
         graph_router,
         health_router,
         ingest_router,
+        mcp_router,
         memory_router,
         metrics_router,
         node_router,
+        oauth_router,
         ocr_providers_router,
         query_router,
         reasoning_router,
         reranker_router,
         storage_router,
     )
-    from api.routers.faim_bench import router as faim_bench_router
 
     # Health routes (no prefix - for external status checks)
     app.include_router(health_router)
+    # OAuth 2.1 + Remote MCP routes (root metadata + /mcp + /api/v1/oauth/code)
+    app.include_router(oauth_router)
+    app.include_router(mcp_router)
 
     # API v1 routes (consistent /api/v1 prefix)
     prefix = "/api/v1"
     app.include_router(auth_router, prefix=prefix)
-    app.include_router(benchmarks_router, prefix=prefix)
-    app.include_router(cortex_router, prefix=prefix)
-    app.include_router(domain_router, prefix=prefix)
     app.include_router(embedding_providers_router, prefix=prefix)
     app.include_router(events_router, prefix=prefix)
     app.include_router(ingest_router, prefix=prefix)
@@ -268,7 +257,6 @@ def create_app() -> FastAPI:
     app.include_router(metrics_router, prefix=prefix)
     app.include_router(api_keys_router, prefix=prefix)
     app.include_router(storage_router, prefix=prefix)
-    app.include_router(faim_bench_router, prefix=prefix)
     app.include_router(health_router, prefix=prefix)
 
     # ==========================================================================
@@ -317,6 +305,47 @@ def create_app() -> FastAPI:
                     "on",
                 }:
                     raise RuntimeError("Required OCR prewarm failed") from exc
+
+        # Optional production prewarm: load the active embedding model before
+        # accepting requests.  Local CPU models are intentionally lazy-loaded
+        # by the provider registry, but paying that cost on the first query
+        # can exceed an otherwise reasonable client timeout.  Each gunicorn
+        # worker warms its own provider instance, which makes cold-start
+        # behavior explicit and observable instead of request-dependent.
+        if os.getenv("FAIM_EMBEDDING_PREWARM", "false").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
+            import asyncio
+
+            from encoding import get_active_embedding_provider
+
+            timeout_raw = os.getenv("FAIM_EMBEDDING_PREWARM_TIMEOUT_SECONDS", "300")
+            try:
+                prewarm_timeout = max(1, int(timeout_raw))
+            except ValueError:
+                prewarm_timeout = 300
+            try:
+                def _prewarm_embedding() -> str:
+                    provider = get_active_embedding_provider()
+                    if provider is None:
+                        raise RuntimeError("No active embedding provider is configured")
+                    provider.encode_single("FAIM embedding startup prewarm")
+                    return provider.model_info.name
+
+                provider_name = await asyncio.wait_for(
+                    asyncio.to_thread(_prewarm_embedding),
+                    timeout=prewarm_timeout,
+                )
+                logger.info("Embedding provider prewarmed: %s", provider_name)
+            except Exception as exc:
+                logger.critical("Embedding prewarm failed: %s", exc)
+                if os.getenv(
+                    "FAIM_EMBEDDING_PREWARM_REQUIRED", "true"
+                ).strip().lower() in {"1", "true", "yes", "on"}:
+                    raise RuntimeError("Required embedding prewarm failed") from exc
 
         # Phase A: feature-flag guardrails + contract freeze checks
         try:

@@ -132,14 +132,51 @@ def get_engine(
             cursor.close()
 
     else:
-        # PostgreSQL configuration
+        # Normalize postgresql:// to postgresql+psycopg2:// if no driver is specified,
+        # so psycopg2-binary is used reliably across all SQLAlchemy 2.x environments.
+        if db_url.startswith("postgresql://"):
+            db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+        # PostgreSQL configuration.  Pass the safety settings as connection
+        # startup options as well as applying them on connect below.  Startup
+        # options cover every pooled connection, including drivers that do
+        # not reliably invoke SQLAlchemy's connect event before first use.
+        idle_ms = max(
+            1_000,
+            int(os.getenv("FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "60000")),
+        )
+        lock_ms = max(
+            1_000,
+            int(os.getenv("FAIM_DB_LOCK_TIMEOUT_MS", "120000")),
+        )
         engine = create_engine(
             db_url,
             echo=echo,
             pool_size=pool_size,
             max_overflow=max_overflow,
             pool_pre_ping=True,  # Verify connections before use
+            connect_args={
+                "options": (
+                    f"-c idle_in_transaction_session_timeout={idle_ms} "
+                    f"-c lock_timeout={lock_ms}"
+                )
+            },
         )
+
+        # Apply the same request-safety bounds used by the runtime context
+        # engine.  API and worker code also construct sessions through this
+        # shared factory; without these connection-level settings, an aborted
+        # handler could leave an idle transaction holding graph-version locks.
+        @event.listens_for(engine, "connect")
+        def set_postgres_timeouts(dbapi_connection, _connection_record):
+            cursor = dbapi_connection.cursor()
+            try:
+                cursor.execute(
+                    f"SET idle_in_transaction_session_timeout = {idle_ms}"
+                )
+                cursor.execute(f"SET lock_timeout = {lock_ms}")
+            finally:
+                cursor.close()
 
     return engine
 

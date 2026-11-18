@@ -666,51 +666,24 @@ def run_ingest(
             f"{write_result.merges} merges, version={write_result.graph_version}"
         )
 
-        # Diagnostics are a versioned write-side snapshot.  Keeping this work
-        # off the read path prevents graph-wide scans for every user query.
-        # A cache failure never invalidates the canonical ingest transaction;
-        # it is surfaced in the event stream for operators and rebuilt on the
-        # next versioned read.
-        try:
-            from orchestration.query_flow import refresh_graph_diagnostics
-
-            diagnostics_payload = refresh_graph_diagnostics(
-                session,
-                tenant_id,
-                graph_id,
-                graph_version=write_result.graph_version,
-            )
-            _emit_event(
-                "DIAGNOSTICS_CACHE_REFRESHED",
-                graph_id,
-                {
-                    "graph_version": write_result.graph_version,
-                    "diagnostics_hash": diagnostics_payload.get("diagnostics_hash"),
-                    "computed_at": diagnostics_payload.get("diagnostics_computed_at"),
-                    "node_count": diagnostics_payload.get("node_count", 0),
-                    "edge_count": diagnostics_payload.get("edge_count", 0),
-                },
-                event_repo,
-                session=session,
-            )
-            events_emitted.append("DIAGNOSTICS_CACHE_REFRESHED")
-        except Exception as exc:  # cache is auxiliary; canonical write remains valid
-            logger.exception(
-                "Diagnostics cache refresh failed for tenant=%s graph=%s",
-                tenant_id,
-                graph_id,
-            )
-            _emit_event(
-                "DIAGNOSTICS_CACHE_REFRESH_FAILED",
-                graph_id,
-                {
-                    "graph_version": write_result.graph_version,
-                    "error_type": type(exc).__name__,
-                },
-                event_repo,
-                session=session,
-            )
-            events_emitted.append("DIAGNOSTICS_CACHE_REFRESH_FAILED")
+        # Diagnostics are intentionally deferred here.  Recomputing D/H/lambda
+        # requires loading every node and edge in the graph, so doing it for
+        # every document turns a batch ingest into an O(N^2) operation.  The
+        # versioned cache is already invalidated by the graph-version bump;
+        # query/evolution paths refresh it on demand and persist the resulting
+        # snapshot.  This keeps canonical writes bounded without weakening the
+        # diagnostics contract.
+        _emit_event(
+            "DIAGNOSTICS_CACHE_DEFERRED",
+            graph_id,
+            {
+                "graph_version": write_result.graph_version,
+                "reason": "graph-wide diagnostics refresh deferred until read/evolution",
+            },
+            event_repo,
+            session=session,
+        )
+        events_emitted.append("DIAGNOSTICS_CACHE_DEFERRED")
 
         # =====================================================================
         # STEP 5b: Secondary durability path (index acceleration)

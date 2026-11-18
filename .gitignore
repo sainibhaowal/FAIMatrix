@@ -83,6 +83,12 @@ deploy/ssl/
 .mypy_cache/
 .pytest_cache/
 
+# Benchmark evidence policy: keep only the canonical completed report in Git.
+/results/
+/faim-benchmarks/results/*
+!/faim-benchmarks/results/public-scifact-full-guarded-v9/
+!/faim-benchmarks/results/public-scifact-full-guarded-v9/*
+
 # Development
 /frontend/Docs/
 /docs/

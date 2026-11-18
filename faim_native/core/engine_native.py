@@ -149,6 +149,16 @@ class FAIMNativeEngine:
             tenant_id=self.node_repo.tenant_id,
         )
 
+        # Snapshot the existing graph once.  The previous implementation
+        # queried all vectors and then the first 100 nodes for every atom,
+        # making ingest progressively slower as the graph grew.  The snapshot
+        # preserves the repository's deterministic created_at/node_id order;
+        # newly inserted nodes are appended as the current write advances.
+        candidate_records = self.node_repo.get_all_vectors_with_level_and_hash(
+            graph_id
+        )
+        candidate_ids = {record[0] for record in candidate_records}
+
         # Import cognitive typing for neural constellation classification
         try:
             from faim.Faim_Native.core.cognitive.cognitive_typing import (
@@ -208,13 +218,17 @@ class FAIMNativeEngine:
             result.events_emitted += 1
 
             # 2. Compute inheritance
-            candidates_with_level = self._get_parent_candidates(graph_id, node_id)
+            candidates_with_level = [
+                (candidate_id, candidate_vector, candidate_level)
+                for candidate_id, candidate_vector, candidate_level, _ in candidate_records
+                if candidate_id != node_id
+            ]
 
             if candidates_with_level:
                 # Extract (UUID, vector) for compute_inheritance_plan
                 candidates_for_plan = [(nid, v) for nid, v, _ in candidates_with_level]
 
-                plan = compute_inheritance_plan(
+                plan = self._compute_inheritance_plan_fast(
                     child_vector=list(vector.v_native),
                     candidates=candidates_for_plan,
                     k=self.parent_top_k,
@@ -267,11 +281,10 @@ class FAIMNativeEngine:
 
             # 3. Antisym scan
             if node_id not in merged_ids:
-                merge_candidates = self._get_merge_candidates(
-                    graph_id=graph_id,
+                merge_candidates = self._get_merge_candidates_from_snapshot(
+                    candidate_records=candidate_records,
                     target_id=node_id,
                     target_vector=list(vector.v_native),
-                    target_hash=vector.vector_hash,
                     exclude_ids=merged_ids,
                 )
 
@@ -313,6 +326,12 @@ class FAIMNativeEngine:
                         # Only one merge per target
                         break
 
+            if node_id not in candidate_ids:
+                candidate_records.append(
+                    (node_id, list(vector.v_native), int(vector.level or 0), vector.vector_hash)
+                )
+                candidate_ids.add(node_id)
+
         # 5. Bump graph version
         new_version = self.graph_version_repo.bump(
             self.node_repo.session,
@@ -353,6 +372,70 @@ class FAIMNativeEngine:
         all_vectors = self.node_repo.get_all_vectors_with_level(graph_id)
         return [(nid, v, lvl) for nid, v, lvl in all_vectors if nid != exclude_id]
 
+    @staticmethod
+    def _compute_inheritance_plan_fast(
+        *,
+        child_vector: List[float],
+        candidates: List[Tuple[UUID, List[float]]],
+        k: int,
+    ):
+        """Select exact parents with a vectorized similarity pass.
+
+        Parent selection is mathematically the same cosine ranking as
+        ``compute_inheritance_plan``.  NumPy performs the dense dot products
+        in native code, avoiding a Python loop over every existing node for
+        every newly ingested atom.  The canonical operator remains the
+        fallback for environments without NumPy and for the final fraction /
+        residual calculation on the bounded top-k set.
+        """
+        if not candidates:
+            return compute_inheritance_plan(
+                child_vector=child_vector,
+                candidates=candidates,
+                k=k,
+            )
+        try:
+            import numpy as np
+
+            node_ids = [node_id for node_id, _vector in candidates]
+            matrix = np.asarray([vector for _node_id, vector in candidates], dtype=float)
+            child = np.asarray(child_vector, dtype=float)
+            child_norm = float(np.linalg.norm(child))
+            norms = np.linalg.norm(matrix, axis=1)
+            if child_norm == 0.0:
+                return compute_inheritance_plan(
+                    child_vector=child_vector,
+                    candidates=candidates,
+                    k=k,
+                )
+            denominators = norms * child_norm
+            similarities = np.divide(
+                matrix @ child,
+                denominators,
+                out=np.zeros(len(candidates), dtype=float),
+                where=denominators != 0,
+            )
+            ranked = sorted(
+                range(len(node_ids)),
+                key=lambda index: (-float(similarities[index]), str(node_ids[index])),
+            )
+            selected = [
+                (node_ids[index], candidates[index][1])
+                for index in ranked[:k]
+                if float(similarities[index]) > 0.0
+            ]
+            return compute_inheritance_plan(
+                child_vector=child_vector,
+                candidates=selected,
+                k=k,
+            )
+        except (ImportError, ValueError, TypeError):
+            return compute_inheritance_plan(
+                child_vector=child_vector,
+                candidates=candidates,
+                k=k,
+            )
+
     def _get_merge_candidates(
         self,
         graph_id: str,
@@ -381,6 +464,30 @@ class FAIMNativeEngine:
         # Sort by score desc, hash asc
         candidates.sort(key=lambda x: (-x[2], x[1]))
 
+        return candidates[:5]
+
+    def _get_merge_candidates_from_snapshot(
+        self,
+        *,
+        candidate_records: List[Tuple[UUID, List[float], int, str]],
+        target_id: UUID,
+        target_vector: List[float],
+        exclude_ids: set,
+    ) -> List[Tuple[UUID, str, float]]:
+        """Return merge candidates from the ordered ingest snapshot.
+
+        ``_get_merge_candidates`` remains available for callers outside the
+        batched write path.  This variant has the same first-100 deterministic
+        candidate window without issuing a database query per atom.
+        """
+        candidates = []
+        for node_id, node_vector, _level, vector_hash in candidate_records[:100]:
+            if node_id == target_id or node_id in exclude_ids:
+                continue
+            score = opposition_score(target_vector, node_vector)
+            if score >= self.antisym_threshold:
+                candidates.append((node_id, vector_hash, score))
+        candidates.sort(key=lambda item: (-item[2], item[1]))
         return candidates[:5]
 
     def _build_semantic_parents_data(
