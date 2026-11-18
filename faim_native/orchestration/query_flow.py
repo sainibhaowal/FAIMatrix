@@ -614,6 +614,13 @@ def run_query(
     """
     start_time = time.perf_counter()
     degraded_features: List[str] = []
+    stage_timings_ms: Dict[str, float] = {}
+
+    def _stage_start() -> float:
+        return time.perf_counter()
+
+    def _stage_end(name: str, started: float) -> None:
+        stage_timings_ms[name] = round((time.perf_counter() - started) * 1000.0, 3)
 
     def _degraded(feature: str, exc: Exception) -> None:
         """Expose non-fatal retrieval degradation without leaking internals."""
@@ -891,6 +898,7 @@ def run_query(
     graph_version = gv_repo.get_version(session, graph_id)
 
     # 4. Recall candidates (cache -> index/brute-force fallback)
+    recall_started = _stage_start()
     cache_hit = False
     profile_name_cache = (
         profile.value if isinstance(profile, FAIMProfile) else str(profile).lower()
@@ -1035,6 +1043,7 @@ def run_query(
                 pass
 
     candidate_ids = [c[0] for c in candidates]
+    _stage_end("candidate_recall_ms", recall_started)
 
     if _repr_v2_enabled():
         try:
@@ -1069,6 +1078,7 @@ def run_query(
         candidate_ids = _stable_union_ids(candidate_ids, domain_candidate_ids)
 
     # Phase 3: bounded multi-hop graph semantics and diffusion
+    graph_started = _stage_start()
     try:
         from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
         from core.query.graph_semantics import build_graph_semantic_scores
@@ -1118,8 +1128,10 @@ def run_query(
         _degraded("graph_semantic_expansion", exc)
         graph_scores = {}
         graph_paths = {}
+    _stage_end("graph_expansion_ms", graph_started)
 
     # Optional dense semantic embedding (e.g., Granite 97M R2) for hybrid recall + rerank
+    embedding_started = _stage_start()
     query_embedding: Optional[List[float]] = None
     try:
         from encoding import get_active_embedding_provider
@@ -1147,8 +1159,10 @@ def run_query(
                 )
         except Exception as exc:
             _degraded("semantic_embedding_recall", exc)
+    _stage_end("embedding_ms", embedding_started)
 
     # 5. Re-rank with FAIM scoring
+    rerank_started = _stage_start()
     weights = STRICT_WEIGHTS if profile == FAIMProfile.STRICT else DEFAULT_WEIGHTS
     ranked = rerank_faim(
         session=session,
@@ -1169,6 +1183,7 @@ def run_query(
         as_of=as_of,
         query_embedding=query_embedding,
     )
+    _stage_end("rerank_ms", rerank_started)
     query_fusion_summary = _build_query_fusion_summary(
         candidate_ids=candidate_ids,
         lexical_scores=lexical_scores,
@@ -1274,6 +1289,7 @@ def run_query(
 
         results.append(result_item)
 
+    answer_started = _stage_start()
     answer = None
     try:
         from core.query.answer_synthesis import synthesize_answer
@@ -1287,6 +1303,7 @@ def run_query(
     except Exception as exc:
         _degraded("answer_synthesis", exc)
         answer = None
+    _stage_end("answer_synthesis_ms", answer_started)
 
     metrics["cache_hit"] = 1.0 if cache_hit else 0.0
     metrics["degraded_feature_count"] = float(len(degraded_features))
@@ -1294,6 +1311,8 @@ def run_query(
     metrics["phaseb_expansion_sources"] = float(
         len(phaseb_expansion_info.get("source_counts", {}))
     )
+    stage_timings_ms["total_ms"] = round((time.perf_counter() - start_time) * 1000.0, 3)
+    metrics["stage_timings_ms"] = stage_timings_ms
     if phase5_sparse_candidates or phase5_dense_candidates:
         metrics["phase5_sparse_candidates"] = float(len(phase5_sparse_candidates))
         metrics["phase5_dense_candidates"] = float(len(phase5_dense_candidates))

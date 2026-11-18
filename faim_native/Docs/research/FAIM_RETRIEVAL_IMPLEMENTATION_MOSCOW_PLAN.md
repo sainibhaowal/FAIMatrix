@@ -142,6 +142,7 @@ Current branch implementation:
 - retain query traces as IDs, relevance IDs, metrics, latency, and safe adapter diagnostics;
 - record model/provider/revision environment metadata;
 - make publication gating stricter for retrieval artifacts;
+- expose additive query-stage timings for candidate recall, graph expansion, embedding, reranking, answer synthesis, and total duration;
 - preserve API requests, auth headers, tenant headers, and response mapping;
 - add regression tests proving traces do not contain query or document text.
 
