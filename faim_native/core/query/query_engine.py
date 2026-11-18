@@ -76,6 +76,21 @@ STRICT_WEIGHTS = ScoringWeights(
     w_lvl=0.05,
 )
 
+# FAST with Representation V2 uses a relevance-first profile.  The default
+# FAIM profile remains unchanged; this profile is selected only by the query
+# flow for the explicitly low-latency FAST path.  Mutable usage/recency signals
+# remain available in the existing profiles but do not outrank query evidence
+# here.
+RELEVANCE_FIRST_WEIGHTS = ScoringWeights(
+    w_sim=0.30,
+    w_novel=0.02,
+    w_opp=0.04,
+    w_red=0.02,
+    w_rec=0.0,
+    w_use=0.0,
+    w_lvl=0.02,
+)
+
 FUSION_LAYER_WEIGHTS = {
     "lexical_fusion": 0.15,
     "graph_semantics": 0.12,
@@ -84,6 +99,16 @@ FUSION_LAYER_WEIGHTS = {
     "reranker_v2": 0.18,
     "late_interaction": 0.11,
     "semantic_embedding": 0.20,
+}
+
+RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS = {
+    "lexical_fusion": 0.55,
+    "graph_semantics": 0.04,
+    "modality": 0.04,
+    "domain_memory": 0.05,
+    "reranker_v2": 0.12,
+    "late_interaction": 0.05,
+    "semantic_embedding": 0.25,
 }
 
 
@@ -839,6 +864,7 @@ def rerank_faim(
     include_historical: bool = True,
     as_of: Optional[datetime] = None,
     query_embedding: Optional[Sequence[float]] = None,
+    fusion_weights: Optional[Dict[str, float]] = None,
 ) -> List[Dict[str, Any]]:
     """Re-rank candidates using FAIM physics scoring.
 
@@ -849,6 +875,8 @@ def rerank_faim(
     from store.pg.models_faim import NodeModel
     from store.pg.repos.modality_repo import ModalityRepo
     from store.pg.repos.representation_repo import RepresentationRepo
+
+    active_fusion_weights = fusion_weights or FUSION_LAYER_WEIGHTS
 
     # Load candidate nodes
     node_query = session.query(NodeModel).filter(
@@ -917,7 +945,7 @@ def rerank_faim(
         if query_embedding and isinstance(node.v_embedding, list):
             sem_emb_score = _cosine_similarity_lists(query_embedding, node.v_embedding)
             if sem_emb_score > 0.0:
-                sem_emb_bonus = FUSION_LAYER_WEIGHTS["semantic_embedding"] * sem_emb_score
+                sem_emb_bonus = active_fusion_weights["semantic_embedding"] * sem_emb_score
                 score = round(score + sem_emb_bonus, 6)
                 fusion_debug["contributions"]["semantic_embedding"] = round(sem_emb_bonus, 6)
                 fusion_debug["active_layers"].append("semantic_embedding")
@@ -927,7 +955,7 @@ def rerank_faim(
         lex_components: Dict[str, float] = {}
         if lexical_scores and node.node_id in lexical_scores:
             lex_score, lex_components = lexical_scores[node.node_id]
-            lex_bonus = FUSION_LAYER_WEIGHTS["lexical_fusion"] * lex_score
+            lex_bonus = active_fusion_weights["lexical_fusion"] * lex_score
             score = round(score + lex_bonus, 6)
             fusion_debug["contributions"]["lexical_fusion"] = round(lex_bonus, 6)
             fusion_debug["active_layers"].append("lexical_fusion")
@@ -940,7 +968,7 @@ def rerank_faim(
         if graph_scores and node.node_id in graph_scores:
             graph_components = graph_scores[node.node_id]
             graph_total = graph_components.get("total", 0.0)
-            graph_bonus = FUSION_LAYER_WEIGHTS["graph_semantics"] * graph_total
+            graph_bonus = active_fusion_weights["graph_semantics"] * graph_total
             score = round(score + graph_bonus, 6)
             fusion_debug["contributions"]["graph_semantics"] = round(graph_bonus, 6)
             fusion_debug["active_layers"].append("graph_semantics")
@@ -963,7 +991,7 @@ def rerank_faim(
                 overlap += len(query_terms & table_terms) / len(query_terms)
                 overlap += len(query_terms & filename_terms) / len(query_terms)
             modality_score = min(1.0, overlap / 3.0)
-            modality_bonus = FUSION_LAYER_WEIGHTS["modality"] * modality_score
+            modality_bonus = active_fusion_weights["modality"] * modality_score
             score = round(score + modality_bonus, 6)
             fusion_debug["contributions"]["modality"] = round(modality_bonus, 6)
             fusion_debug["active_layers"].append("modality")
@@ -977,7 +1005,7 @@ def rerank_faim(
             domain_total = min(
                 1.0, 0.45 * entity_link + 0.40 * fact_support + 0.15 * domain_term
             )
-            domain_bonus = FUSION_LAYER_WEIGHTS["domain_memory"] * domain_total
+            domain_bonus = active_fusion_weights["domain_memory"] * domain_total
             score = round(score + domain_bonus, 6)
             fusion_debug["contributions"]["domain_memory"] = round(domain_bonus, 6)
             fusion_debug["active_layers"].append("domain_memory")
@@ -1042,7 +1070,7 @@ def rerank_faim(
         )
         for item in scored:
             phase4_total = phase4_totals.get(item["node_id"], 0.0)
-            phase4_bonus = FUSION_LAYER_WEIGHTS["reranker_v2"] * phase4_total
+            phase4_bonus = active_fusion_weights["reranker_v2"] * phase4_total
             item["score"] = round(item["score"] + phase4_bonus, 6)
             item["score_components"]["phase4"] = round(phase4_total, 6)
             item["fusion_debug"]["contributions"]["reranker_v2"] = round(
@@ -1085,7 +1113,7 @@ def rerank_faim(
                 doc_repr=repr_v2,
             )
             phasec_total = float(late_interaction.total)
-            phasec_bonus = FUSION_LAYER_WEIGHTS["late_interaction"] * phasec_total
+            phasec_bonus = active_fusion_weights["late_interaction"] * phasec_total
             item["score"] = round(item["score"] + phasec_bonus, 6)
             item["score_components"]["phasec"] = round(phasec_total, 6)
             item["fusion_debug"]["contributions"]["late_interaction"] = round(

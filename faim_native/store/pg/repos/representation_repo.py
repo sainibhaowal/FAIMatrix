@@ -152,6 +152,13 @@ class RepresentationRepo:
 
     def _lock_graph_stats(self, graph_id: str) -> None:
         """Acquire a transaction-scoped lock for this graph's stats sidecar."""
+        # SQLite-backed unit/acceptance tests do not provide PostgreSQL's
+        # advisory-lock functions.  SQLite's transaction already serializes
+        # these in-process test writes; production PostgreSQL keeps the
+        # graph-scoped advisory lock below.
+        bind = self.session.get_bind()
+        if getattr(getattr(bind, "dialect", None), "name", "") != "postgresql":
+            return
         self.session.execute(
             text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
             {"lock_key": f"representation-v2:{self.tenant_id}:{graph_id}"},

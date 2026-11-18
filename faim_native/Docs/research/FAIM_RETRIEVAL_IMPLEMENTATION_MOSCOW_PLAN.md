@@ -147,6 +147,14 @@ Current branch implementation:
 - preserve API requests, auth headers, tenant headers, and response mapping;
 - add regression tests proving traces do not contain query or document text.
 
+The FAST path now has a guarded relevance-first boundary. With Representation
+V2 and Phase 5 enabled, Docker defaults to lexical-first fusion, skips the
+graph-wide IDF scan, and skips broad graph expansion for FAST. This protects
+query evidence and the latency budget; it is not a quality claim until a clean
+matched benchmark confirms it. The switches are
+`FAIM_FAST_RELEVANCE_FIRST`, `FAIM_FAST_GRAPH_EXPANSION`, and `FAIM_FAST_IDF`.
+STRICT and BALANCED retain their existing graph and IDF behavior.
+
 ### Phase 1 — baseline ladder
 
 Implement each retrieval strategy behind an explicit strategy name. Do not replace the existing default query path yet.

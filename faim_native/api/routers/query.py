@@ -143,6 +143,10 @@ class QueryMetrics(BaseModel):
     diagnostics_graph_version: int = 0
     diagnostics_computed_at: Optional[str] = None
     diagnostics_cached: float = 0.0
+    # Additive FAST strategy diagnostics; these are numeric and non-sensitive.
+    fast_relevance_first: float = 0.0
+    fast_graph_expansion: float = 0.0
+    fast_idf: float = 0.0
     # Additive, non-sensitive stage timings for benchmark and SLO diagnostics.
     stage_timings_ms: Dict[str, float] = Field(default_factory=dict)
 
