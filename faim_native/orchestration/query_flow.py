@@ -31,6 +31,8 @@ from core.contracts.types import EventRecord  # noqa: E402
 from core.query.idf_cache import apply_idf, compute_idf_weights  # noqa: E402
 from core.query.query_engine import (  # noqa: E402
     DEFAULT_WEIGHTS,
+    RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS,
+    RELEVANCE_FIRST_WEIGHTS,
     STRICT_WEIGHTS,
     build_explain_payload,
     compute_query_hash,
@@ -441,6 +443,40 @@ def _phase4_stopwords_enabled() -> bool:
     return raw in {"1", "true", "yes", "on"}
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    """Read a boolean feature flag without raising on malformed deployment input."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _fast_relevance_first_enabled(profile: FAIMProfile) -> bool:
+    """Use query-relevance-first scoring for the bounded FAST path.
+
+    FAST is the public low-latency profile. Its default must not let mutable
+    usage/recency signals or broad graph diffusion displace lexical evidence.
+    An explicit environment value remains available for controlled rollback.
+    """
+    if profile != FAIMProfile.FAST or not _repr_v2_enabled():
+        return False
+    return _env_bool("FAIM_FAST_RELEVANCE_FIRST", True)
+
+
+def _fast_graph_expansion_enabled(profile: FAIMProfile) -> bool:
+    """Keep graph expansion out of FAST unless explicitly enabled."""
+    if profile != FAIMProfile.FAST:
+        return True
+    return _env_bool("FAIM_FAST_GRAPH_EXPANSION", False)
+
+
+def _fast_idf_enabled(profile: FAIMProfile) -> bool:
+    """Avoid a graph-wide IDF scan in FAST unless explicitly enabled."""
+    if profile != FAIMProfile.FAST:
+        return True
+    return _env_bool("FAIM_FAST_IDF", False)
+
+
 def _stable_union_ids(primary_ids: List[UUID], extra_ids: List[UUID]) -> List[UUID]:
     """Stable deterministic union preserving primary ordering."""
     seen = set()
@@ -838,55 +874,60 @@ def run_query(
     effective_graph_decay = float(graph_decay if graph_decay is not None else 0.6)
     effective_graph_alpha = float(graph_alpha if graph_alpha is not None else 0.2)
     effective_graph_diffusion_steps = max(1, int(graph_diffusion_steps or 3))
+    fast_relevance_first = _fast_relevance_first_enabled(profile)
+    fast_graph_expansion = _fast_graph_expansion_enabled(profile)
+    fast_idf = _fast_idf_enabled(profile)
 
     # 2b. Apply IDF weighting (Phase 3C)
-    try:
-        _idf = compute_idf_weights(session, tenant_id, graph_id)
-        q_vec = apply_idf(tuple(q_vec), _idf)
-    except Exception as exc:
-        _degraded("inheritance_query_expansion", exc)
-        # If IDF computation fails (e.g., empty graph), continue with unweighted q_vec
-        pass
+    if fast_idf:
+        try:
+            _idf = compute_idf_weights(session, tenant_id, graph_id)
+            q_vec = apply_idf(tuple(q_vec), _idf)
+        except Exception as exc:
+            _degraded("inheritance_query_expansion", exc)
+            # If IDF computation fails (e.g., empty graph), continue with unweighted q_vec
+            pass
 
     # 2c. Inheritance-weighted query expansion (Phase 7)
-    try:
-        if index is not None and profile != FAIMProfile.STRICT:
-            _seeds = recall_candidates_index(
-                index=index,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=20,
-            )
-        else:
-            _seeds = recall_candidates_brute_force(
-                session=session,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=20,
-            )
-        if not _seeds and index is not None and profile != FAIMProfile.STRICT:
-            _seeds = recall_candidates_brute_force(
-                session=session,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=20,
-            )
-        if _seeds:
-            _seed_ids = [node_id for node_id, _ in _seeds]
-            q_vec = inheritance_weighted_expansion(
-                session=session,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                seed_node_ids=_seed_ids,
-                alpha=0.2,
-            )
-    except Exception:
-        # Graceful fallback — continue with non-expanded q_vec
-        pass
+    if fast_graph_expansion:
+        try:
+            if index is not None and profile != FAIMProfile.STRICT:
+                _seeds = recall_candidates_index(
+                    index=index,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=20,
+                )
+            else:
+                _seeds = recall_candidates_brute_force(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=20,
+                )
+            if not _seeds and index is not None and profile != FAIMProfile.STRICT:
+                _seeds = recall_candidates_brute_force(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=20,
+                )
+            if _seeds:
+                _seed_ids = [node_id for node_id, _ in _seeds]
+                q_vec = inheritance_weighted_expansion(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    seed_node_ids=_seed_ids,
+                    alpha=0.2,
+                )
+        except Exception:
+            # Graceful fallback — continue with non-expanded q_vec
+            pass
 
     # 3. Get graph metrics
     metrics = get_graph_metrics(session, tenant_id, graph_id)
@@ -1077,57 +1118,60 @@ def run_query(
     if domain_candidate_ids:
         candidate_ids = _stable_union_ids(candidate_ids, domain_candidate_ids)
 
-    # Phase 3: bounded multi-hop graph semantics and diffusion
+    # Phase 3: bounded multi-hop graph semantics and diffusion.  FAST keeps
+    # this optional so broad graph expansion cannot displace a strong first
+    # stage or consume the latency budget before ranking.
     graph_started = _stage_start()
-    try:
-        from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
-        from core.query.graph_semantics import build_graph_semantic_scores
-        from store.pg.repos.edge_repo import EdgeRepo
-        from store.pg.repos.node_repo import NodeRepo
+    if fast_graph_expansion:
+        try:
+            from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
+            from core.query.graph_semantics import build_graph_semantic_scores
+            from store.pg.repos.edge_repo import EdgeRepo
+            from store.pg.repos.node_repo import NodeRepo
 
-        if index is not None and profile != FAIMProfile.STRICT:
-            seed_pairs = recall_candidates_index(
-                index=index,
-                tenant_id=tenant_id,
+            if index is not None and profile != FAIMProfile.STRICT:
+                seed_pairs = recall_candidates_index(
+                    index=index,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=30,
+                )
+            else:
+                seed_pairs = recall_candidates_brute_force(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=30,
+                )
+            if not seed_pairs and index is not None and profile != FAIMProfile.STRICT:
+                seed_pairs = recall_candidates_brute_force(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=30,
+                )
+            seed_score_map = {node_id: max(0.0, score) for node_id, score in seed_pairs}
+            graph_candidate_ids, graph_scores, graph_paths = build_graph_semantic_scores(
+                edge_repo=EdgeRepo(session=session, tenant_id=tenant_id),
+                node_repo=NodeRepo(session=session, tenant_id=tenant_id),
                 graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=30,
+                seed_scores=seed_score_map,
+                base_candidate_ids=candidate_ids,
+                allowed_kinds={"inheritance"} | KNOWN_SEMANTIC_KINDS | {"opposition"},
+                max_hops=effective_graph_max_hops,
+                max_neighbors=effective_graph_max_neighbors,
+                decay=effective_graph_decay,
+                alpha=effective_graph_alpha,
+                steps=effective_graph_diffusion_steps,
             )
-        else:
-            seed_pairs = recall_candidates_brute_force(
-                session=session,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=30,
-            )
-        if not seed_pairs and index is not None and profile != FAIMProfile.STRICT:
-            seed_pairs = recall_candidates_brute_force(
-                session=session,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=30,
-            )
-        seed_score_map = {node_id: max(0.0, score) for node_id, score in seed_pairs}
-        graph_candidate_ids, graph_scores, graph_paths = build_graph_semantic_scores(
-            edge_repo=EdgeRepo(session=session, tenant_id=tenant_id),
-            node_repo=NodeRepo(session=session, tenant_id=tenant_id),
-            graph_id=graph_id,
-            seed_scores=seed_score_map,
-            base_candidate_ids=candidate_ids,
-            allowed_kinds={"inheritance"} | KNOWN_SEMANTIC_KINDS | {"opposition"},
-            max_hops=effective_graph_max_hops,
-            max_neighbors=effective_graph_max_neighbors,
-            decay=effective_graph_decay,
-            alpha=effective_graph_alpha,
-            steps=effective_graph_diffusion_steps,
-        )
-        candidate_ids = _stable_union_ids(candidate_ids, graph_candidate_ids)
-    except Exception as exc:
-        _degraded("graph_semantic_expansion", exc)
-        graph_scores = {}
-        graph_paths = {}
+            candidate_ids = _stable_union_ids(candidate_ids, graph_candidate_ids)
+        except Exception as exc:
+            _degraded("graph_semantic_expansion", exc)
+            graph_scores = {}
+            graph_paths = {}
     _stage_end("graph_expansion_ms", graph_started)
 
     # Optional dense semantic embedding (e.g., Granite 97M R2) for hybrid recall + rerank
@@ -1163,7 +1207,11 @@ def run_query(
 
     # 5. Re-rank with FAIM scoring
     rerank_started = _stage_start()
-    weights = STRICT_WEIGHTS if profile == FAIMProfile.STRICT else DEFAULT_WEIGHTS
+    weights = (
+        RELEVANCE_FIRST_WEIGHTS
+        if fast_relevance_first
+        else (STRICT_WEIGHTS if profile == FAIMProfile.STRICT else DEFAULT_WEIGHTS)
+    )
     ranked = rerank_faim(
         session=session,
         tenant_id=tenant_id,
@@ -1182,6 +1230,11 @@ def run_query(
         include_historical=include_historical,
         as_of=as_of,
         query_embedding=query_embedding,
+        fusion_weights=(
+            RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS
+            if fast_relevance_first
+            else None
+        ),
     )
     _stage_end("rerank_ms", rerank_started)
     query_fusion_summary = _build_query_fusion_summary(
@@ -1306,6 +1359,9 @@ def run_query(
     _stage_end("answer_synthesis_ms", answer_started)
 
     metrics["cache_hit"] = 1.0 if cache_hit else 0.0
+    metrics["fast_relevance_first"] = 1.0 if fast_relevance_first else 0.0
+    metrics["fast_graph_expansion"] = 1.0 if fast_graph_expansion else 0.0
+    metrics["fast_idf"] = 1.0 if fast_idf else 0.0
     metrics["degraded_feature_count"] = float(len(degraded_features))
     metrics["phaseb_expansion_terms"] = float(len(phaseb_expansions))
     metrics["phaseb_expansion_sources"] = float(

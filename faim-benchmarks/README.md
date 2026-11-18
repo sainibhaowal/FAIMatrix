@@ -30,6 +30,25 @@ README as external, non-comparable references. They are not inserted into this
 run's system table unless the same public dataset, scorer, model, and protocol
 are actually executed.
 
+## FAST retrieval strategy
+
+The Docker production defaults make the `FAST` profile relevance-first when
+Representation V2 and Phase 5 are enabled. FAST skips the graph-wide IDF scan
+and broad graph expansion by default, then gives the bounded lexical shortlist
+the largest fusion weight. The guarded switches are:
+
+```text
+FAIM_FAST_RELEVANCE_FIRST=true
+FAIM_FAST_GRAPH_EXPANSION=false
+FAIM_FAST_IDF=false
+```
+
+Enable graph expansion or IDF only for a measured ablation; they are not
+assumed to improve retrieval quality. The API still updates usage, journal,
+and touch events, while STRICT and BALANCED retain their existing graph and
+IDF behavior. A clean benchmark must report the per-stage timings and compare
+this strategy with BM25 on the identical retained split.
+
 ## Setup
 ```bash
 cd faim-benchmarks
