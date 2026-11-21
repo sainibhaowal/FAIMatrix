@@ -67,17 +67,20 @@ class RepresentationRepo:
         graph_id: str,
         node_id: UUID,
         representation: RepresentationV2,
+        *,
+        defer_stats: bool = False,
     ) -> str:
         """Upsert Representation V2 data for a node.
 
         Returns:
             "inserted", "updated", or "unchanged"
         """
-        # Representation statistics are graph-scoped and rebuilt/incremented
-        # in the same transaction as the node sidecar write.  Serialize only
-        # this graph's representation updates so concurrent API writers cannot
-        # race while creating the composite-key stats rows.
-        self._lock_graph_stats(graph_id)
+        if not defer_stats:
+            # Representation statistics are graph-scoped and rebuilt/incremented
+            # in the same transaction as the node sidecar write.  Serialize only
+            # this graph's representation updates so concurrent API writers cannot
+            # race while creating the composite-key stats rows.
+            self._lock_graph_stats(graph_id)
         existing = (
             self.session.query(NodeRepresentationV2Model)
             .filter(
@@ -117,7 +120,8 @@ class RepresentationRepo:
             existing.channel_lengths = dict(representation.channel_lengths)
             existing.updated_at = now
             self.session.flush()
-            self.rebuild_graph_stats(graph_id)
+            if not defer_stats:
+                self.rebuild_graph_stats(graph_id)
             return "updated"
 
         row = NodeRepresentationV2Model(
@@ -147,7 +151,8 @@ class RepresentationRepo:
         )
         self.session.add(row)
         self.session.flush()
-        self._incremental_update_graph_stats(graph_id, representation)
+        if not defer_stats:
+            self._incremental_update_graph_stats(graph_id, representation)
         return "inserted"
 
     def _lock_graph_stats(self, graph_id: str) -> None:
