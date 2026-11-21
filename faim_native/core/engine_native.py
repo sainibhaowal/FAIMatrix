@@ -144,6 +144,7 @@ class FAIMNativeEngine:
         embedding_vectors: Optional[List[Optional[List[float]]]] = None,
         valid_from: Optional[Any] = None,
         valid_to: Optional[Any] = None,
+        defer_repr_stats: bool = False,
     ) -> WriteResult:
         """Write atom vectors to graph.
 
@@ -247,6 +248,7 @@ class FAIMNativeEngine:
                     graph_id=graph_id,
                     node_id=node_id,
                     representation=reprs_v2[idx],
+                    defer_stats=defer_repr_stats,
                 )
 
             # Emit NODE_UPSERT event

@@ -703,6 +703,7 @@ def run_ingest(
             embedding_vectors=embedding_vectors,
             valid_from=valid_from,
             valid_to=valid_to,
+            defer_repr_stats=(effective_profile == FAIMProfile.FAST),
         )
         _finish_phase("write", phase_started)
 
