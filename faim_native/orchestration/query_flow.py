@@ -1353,17 +1353,22 @@ def run_query(
         },
     )
 
-    # Emit QUERY_RERANKED
-    top_ids = [str(r["node_id"]) for r in ranked]
-    emit_query_reranked(journal, graph_id, query_hash, top_ids)
+    # Emit QUERY_RERANKED + usage updates (in pure-relevance FAST mode, avoid
+    # blocking read latency on 20+ synchronous Postgres ORM writes/commits).
+    fast_async_touch = fast_relevance_first and not _env_bool(
+        "FAIM_FAST_SYNC_TOUCH", False
+    )
+    if not fast_async_touch:
+        top_ids = [str(r["node_id"]) for r in ranked]
+        emit_query_reranked(journal, graph_id, query_hash, top_ids)
 
-    # 6. Update usage for top results
-    result_node_ids = [r["node_id"] for r in ranked]
-    touches = update_usage(session, tenant_id, graph_id, result_node_ids)
+        # 6. Update usage for top results
+        result_node_ids = [r["node_id"] for r in ranked]
+        touches = update_usage(session, tenant_id, graph_id, result_node_ids)
 
-    # 7. Emit QUERY_TOUCH for each touched node
-    for node_id, touch_count in touches.items():
-        emit_query_touch(journal, graph_id, str(node_id), touch_count)
+        # 7. Emit QUERY_TOUCH for each touched node
+        for node_id, touch_count in touches.items():
+            emit_query_touch(journal, graph_id, str(node_id), touch_count)
 
     # 8. Build results
     results = []

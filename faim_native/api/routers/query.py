@@ -243,8 +243,12 @@ async def query_graph(
             as_of=request.as_of,
             graph_max_hops=request.graph_max_hops,
         )
-        # Query flow updates touch_count / query events, so persist changes.
-        ctx.session.commit()
+        # Query flow updates touch_count / query events on non-FAST paths;
+        # commit only when the session has pending dirty/new/deleted ORM state.
+        if ctx.session is not None and (
+            ctx.session.new or ctx.session.dirty or ctx.session.deleted
+        ):
+            ctx.session.commit()
 
         # Build response
         results = []
