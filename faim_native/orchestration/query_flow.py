@@ -1483,10 +1483,11 @@ def run_query(
     # Compute result
     duration_ms = (time.perf_counter() - start_time) * 1000
 
-    # 9. Emit QUERY_COMPLETE
-    emit_query_complete(
-        journal, graph_id, query_hash, len(results), duration_ms, query_hash
-    )
+    # 9. Emit QUERY_COMPLETE (skipped on read-only FAST path to avoid DB write latency)
+    if not fast_async_touch:
+        emit_query_complete(
+            journal, graph_id, query_hash, len(results), duration_ms, query_hash
+        )
 
     return QueryResult(
         tenant_id=tenant_id,

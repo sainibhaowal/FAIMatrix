@@ -1137,7 +1137,7 @@ def rerank_faim(
         # Contradiction suppression is pairwise.  Keep it bounded to the
         # strongest deterministic candidates; the full candidate set still
         # participates in base scoring and final top-k ordering.
-        phase4_limit = max(50, k * 2)
+        phase4_limit = max(20, k) if fast_skip_graph_opp else max(50, k * 2)
         phase4_scored = sorted(
             scored,
             key=lambda item: (-float(item.get("score", 0.0)), str(item["node_id"])),
@@ -1189,10 +1189,13 @@ def rerank_faim(
 
     # --- PHASE C: FAIM-native late interaction ---
     if query_repr_v2 is not None and scored:
+        from core.query.late_interaction_native import _build_query_units
+
         # Late interaction is materially more expensive than the base score.
         # Apply it only to the strongest deterministic shortlist; the full
         # candidate set still participates in base scoring and final ordering.
-        phasec_limit = max(50, k * 2)
+        phasec_limit = max(20, k) if fast_skip_graph_opp else max(50, k * 2)
+        precomputed_q_units = _build_query_units(query_repr_v2)
         phasec_ids = {
             item["node_id"]
             for item in sorted(
@@ -1207,6 +1210,7 @@ def rerank_faim(
             late_interaction = score_late_interaction_native(
                 query_repr=query_repr_v2,
                 doc_repr=repr_v2,
+                precomputed_query_units=precomputed_q_units,
             )
             phasec_total = float(late_interaction.total)
             phasec_bonus = active_fusion_weights["late_interaction"] * phasec_total

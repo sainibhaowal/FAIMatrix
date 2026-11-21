@@ -373,6 +373,7 @@ def score_late_interaction_native(
     *,
     query_repr: RepresentationV2,
     doc_repr: RepresentationV2 | None,
+    precomputed_query_units: Dict[str, Tuple[LateInteractionUnit, ...]] | None = None,
 ) -> LateInteractionScore:
     """Compute FAIM-native symbolic late interaction score."""
     if doc_repr is None:
@@ -394,7 +395,11 @@ def score_late_interaction_native(
             explain={"matched_units": {}},
         )
 
-    query_units = _build_query_units(query_repr)
+    query_units = (
+        precomputed_query_units
+        if precomputed_query_units is not None
+        else _build_query_units(query_repr)
+    )
     _doc_units, doc_lookups = _get_cached_doc_units(doc_repr)
 
     token_score, token_matches = _maxsim_units_preindexed(
