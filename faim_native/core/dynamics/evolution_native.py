@@ -86,12 +86,12 @@ def _vectorized_cosine_matrix(vectors: List[List[float]]) -> Optional[np.ndarray
     Returns:
         Float64 array of shape (n, n) or None.
     """
-    if len(vectors) < 2:
+    if len(vectors) < 2 or len(vectors) > 2048:
         return None
     dim = len(vectors[0])
     if any(len(v) != dim for v in vectors):
         return None
-    V = np.asarray(vectors, dtype=np.float64)
+    V = np.asarray(vectors, dtype=np.float32)
     norms = np.sqrt((V * V).sum(axis=1))
     # Zero-norm rows produce cosine 0.0 against everything (Python parity).
     norms[norms == 0.0] = 1.0

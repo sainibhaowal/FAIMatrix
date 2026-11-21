@@ -85,13 +85,13 @@ STRICT_WEIGHTS = ScoringWeights(
 # remain available in the existing profiles but do not outrank query evidence
 # here.
 RELEVANCE_FIRST_WEIGHTS = ScoringWeights(
-    w_sim=0.30,
-    w_novel=0.02,
-    w_opp=0.04,
-    w_red=0.02,
+    w_sim=0.08,
+    w_novel=0.01,
+    w_opp=0.02,
+    w_red=0.01,
     w_rec=0.0,
     w_use=0.0,
-    w_lvl=0.02,
+    w_lvl=0.01,
 )
 
 FUSION_LAYER_WEIGHTS = {
@@ -105,12 +105,12 @@ FUSION_LAYER_WEIGHTS = {
 }
 
 RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS = {
-    "lexical_fusion": 0.55,
-    "graph_semantics": 0.04,
-    "modality": 0.04,
-    "domain_memory": 0.05,
+    "lexical_fusion": 0.75,
+    "graph_semantics": 0.02,
+    "modality": 0.03,
+    "domain_memory": 0.03,
     "reranker_v2": 0.12,
-    "late_interaction": 0.05,
+    "late_interaction": 0.10,
     "semantic_embedding": 0.25,
 }
 
@@ -266,13 +266,14 @@ def compute_node_score(
     graph_avg_touch: float,
     q_opp: Optional[Dict[str, float]] = None,
     weights: ScoringWeights = DEFAULT_WEIGHTS,
+    precomputed_sim: Optional[float] = None,
 ) -> Tuple[float, Dict[str, float]]:
     """Compute FAIM score for a node.
 
     Returns:
         (total_score, score_components dict)
     """
-    sim = cosine_similarity(q_vec, n_vec)
+    sim = precomputed_sim if precomputed_sim is not None else cosine_similarity(q_vec, n_vec)
     novel = _clamp(n_residual, 0.0, 1.0)
     opp = opposition_penalty(q_opp, n_opp)
     red = redundancy_penalty(n_touch, graph_avg_touch)
@@ -885,6 +886,9 @@ def rerank_faim(
     as_of: Optional[datetime] = None,
     query_embedding: Optional[Sequence[float]] = None,
     fusion_weights: Optional[Dict[str, float]] = None,
+    preloaded_reprs: Optional[Dict[UUID, Any]] = None,
+    preloaded_nodes: Optional[Dict[UUID, Any]] = None,
+    fast_skip_graph_opp: bool = False,
 ) -> List[Dict[str, Any]]:
     """Re-rank candidates using FAIM physics scoring.
 
@@ -898,36 +902,89 @@ def rerank_faim(
 
     active_fusion_weights = fusion_weights or FUSION_LAYER_WEIGHTS
 
-    # Load candidate nodes
-    node_query = session.query(NodeModel).filter(
-        NodeModel.tenant_id == tenant_id,
-        NodeModel.graph_id == graph_id,
-        NodeModel.node_id.in_(candidate_ids),
-    )
-    if as_of is not None:
-        if as_of.tzinfo is None:
-            as_of = as_of.replace(tzinfo=timezone.utc)
-        node_query = node_query.filter(
-            (NodeModel.valid_from.is_(None)) | (NodeModel.valid_from <= as_of),
-            (NodeModel.valid_to.is_(None)) | (NodeModel.valid_to > as_of),
+    # Load candidate nodes (from RAM cache when provided, else Postgres)
+    if as_of is not None and as_of.tzinfo is None:
+        as_of = as_of.replace(tzinfo=timezone.utc)
+    if preloaded_nodes is not None:
+        nodes = []
+        for cid in candidate_ids:
+            n = preloaded_nodes.get(cid)
+            if n is None:
+                continue
+            if as_of is not None:
+                vf = getattr(n, "valid_from", None)
+                vt = getattr(n, "valid_to", None)
+                if vf is not None and vf > as_of:
+                    continue
+                if vt is not None and vt <= as_of:
+                    continue
+            nodes.append(n)
+    else:
+        node_query = session.query(NodeModel).filter(
+            NodeModel.tenant_id == tenant_id,
+            NodeModel.graph_id == graph_id,
+            NodeModel.node_id.in_(candidate_ids),
         )
-    nodes = node_query.all()
+        if as_of is not None:
+            node_query = node_query.filter(
+                (NodeModel.valid_from.is_(None)) | (NodeModel.valid_from <= as_of),
+                (NodeModel.valid_to.is_(None)) | (NodeModel.valid_to > as_of),
+            )
+        nodes = node_query.all()
 
     # Score each node
     scored = []
-    repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
-    repr_rows = {
-        row.node_id: row
-        for row in repr_repo.list_by_node_ids(graph_id=graph_id, node_ids=candidate_ids)
-    }
-    modality_repo = ModalityRepo(session=session, tenant_id=tenant_id)
-    modality_rows = {
-        row.node_id: row
-        for row in modality_repo.list_by_node_ids(
-            graph_id=graph_id, node_ids=candidate_ids
-        )
-    }
-    for node in nodes:
+    repr_repo = None
+    if preloaded_reprs is not None:
+        repr_rows = {}
+    else:
+        repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
+        repr_rows = {
+            row.node_id: row
+            for row in repr_repo.list_by_node_ids(graph_id=graph_id, node_ids=candidate_ids)
+        }
+    if fast_skip_graph_opp:
+        modality_rows = {}
+    else:
+        modality_repo = ModalityRepo(session=session, tenant_id=tenant_id)
+        modality_rows = {
+            row.node_id: row
+            for row in modality_repo.list_by_node_ids(
+                graph_id=graph_id, node_ids=candidate_ids
+            )
+        }
+    # Precompute all v_native cosine similarities in one BLAS float32 pass
+    precomputed_sims: Optional[List[float]] = None
+    if nodes and q_vec:
+        try:
+            import numpy as np
+
+            q_arr = np.asarray(q_vec, dtype=np.float32)
+            q_norm = float(np.linalg.norm(q_arr))
+            if q_norm > 0.0:
+                q_unit = q_arr / q_norm
+                mat = np.asarray(
+                    [
+                        node.v_native
+                        if isinstance(node.v_native, (list, tuple))
+                        else tuple(node.v_native)
+                        for node in nodes
+                    ],
+                    dtype=np.float32,
+                )
+                norms = np.linalg.norm(mat, axis=1)
+                raw_dots = mat @ q_unit
+                sims_arr = np.divide(
+                    raw_dots,
+                    norms,
+                    out=np.zeros(len(nodes), dtype=np.float32),
+                    where=norms > 0.0,
+                )
+                precomputed_sims = [float(x) for x in sims_arr]
+        except Exception:
+            precomputed_sims = None
+
+    for node_idx, node in enumerate(nodes):
         n_vec = (
             tuple(node.v_native)
             if isinstance(node.v_native, list)
@@ -945,6 +1002,9 @@ def rerank_faim(
             n_level=node.level or 0,
             graph_avg_touch=graph_avg_touch,
             weights=weights,
+            precomputed_sim=(
+                precomputed_sims[node_idx] if precomputed_sims is not None else None
+            ),
         )
         fusion_debug: Dict[str, Any] = {
             "core_score": round(score, 6),
@@ -1038,9 +1098,12 @@ def rerank_faim(
             components["domain_term"] = round(domain_term, 6)
         components["domain"] = round(domain_total, 6)
 
+        preloaded_repr = preloaded_reprs.get(node.node_id) if preloaded_reprs is not None else None
         repr_row = repr_rows.get(node.node_id)
         answer_text = ""
-        if repr_row is not None and getattr(repr_row, "normalized_text", None):
+        if preloaded_repr is not None and getattr(preloaded_repr, "normalized_text", None):
+            answer_text = str(preloaded_repr.normalized_text)
+        elif repr_row is not None and getattr(repr_row, "normalized_text", None):
             answer_text = str(repr_row.normalized_text)
         elif modality_row is not None:
             answer_text = str(modality_row.ocr_text or "") or str(
@@ -1059,7 +1122,11 @@ def rerank_faim(
                 "anchor": node.anchor_json,
                 "created_at": node.created_at,
                 "graph_paths": (graph_paths or {}).get(node.node_id, []),
-                "repr_v2": repr_repo._row_to_repr(repr_row) if repr_row else None,
+                "repr_v2": (
+                    preloaded_repr
+                    if preloaded_repr is not None
+                    else (repr_repo._row_to_repr(repr_row) if (repr_row and repr_repo is not None) else None)
+                ),
                 "answer_text": answer_text,
                 "fusion_debug": fusion_debug,
             }
@@ -1109,10 +1176,16 @@ def rerank_faim(
                 "explain": phase4_explain.get(item["node_id"], {}),
                 **phase4_explain.get(item["node_id"], {}),
             }
-        if phase4_suppressed:
+        if phase4_suppressed and not include_historical:
             scored = [
                 item for item in scored if item["node_id"] not in phase4_suppressed
             ]
+
+    # Grounded source evidence (level == 0 or raw_id present) must not be
+    # displaced in top-k by un-grounded macro/synthesis nodes (level > 0, raw_id is None).
+    for item in scored:
+        if (item.get("level") or 0) > 0 and not item.get("raw_id"):
+            item["score"] = round(float(item["score"]) - 0.25, 6)
 
     # --- PHASE C: FAIM-native late interaction ---
     if query_repr_v2 is not None and scored:
@@ -1166,7 +1239,7 @@ def rerank_faim(
     superseded_by_map: Dict[UUID, UUID] = {}  # node_id → newer_node_id
     supersedes_map: Dict[UUID, List[UUID]] = {}  # node_id → list of older_node_ids
 
-    if len(candidate_ids) > 1:
+    if len(candidate_ids) > 1 and not fast_skip_graph_opp:
         from collections import defaultdict
 
         from store.pg.models_faim import EdgeModel, NodeModel

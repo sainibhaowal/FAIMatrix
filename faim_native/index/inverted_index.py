@@ -7,19 +7,44 @@ scans. Posting order is stable by node_id to preserve deterministic behavior.
 
 from __future__ import annotations
 
+import math
+import re
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 from uuid import UUID
 
 try:
     from faim.Faim_Native.core.query.lexical_scorer import compute_lexical_score
+    from faim.Faim_Native.encoding.porter_stemmer import stem as _porter_stem
     from faim.Faim_Native.encoding.representation_v2 import RepresentationV2
 except (ImportError, RuntimeError):
     from core.query.lexical_scorer import compute_lexical_score
+    from encoding.porter_stemmer import stem as _porter_stem
     from encoding.representation_v2 import RepresentationV2
 
 
 CHANNELS: Tuple[str, ...] = ("word", "phrase", "skip", "entity", "time", "layout")
+
+_STOPWORDS = frozenset(
+    {
+        "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for",
+        "of", "with", "by", "from", "as", "is", "was", "are", "were", "be",
+        "been", "being", "have", "has", "had", "do", "does", "did", "will",
+        "would", "could", "should", "may", "might", "can", "that", "this",
+        "these", "those", "it", "its", "they", "their", "them", "we", "our",
+        "he", "she", "his", "her", "not", "no", "nor", "so", "than", "too",
+        "very", "if", "into", "about", "over", "after", "before", "between",
+        "through", "during", "above", "below", "up", "down", "out", "off",
+        "such", "only", "also", "more", "most", "other", "some", "any", "all",
+        "each", "both", "few", "many", "much", "own", "same",
+    }
+)
+_EXACT_TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+
+def _tokenize_exact(text: str) -> List[str]:
+    return [w for w in _EXACT_TOKEN_RE.findall((text or "").lower()) if w not in _STOPWORDS]
 
 
 @dataclass(frozen=True)
@@ -54,6 +79,122 @@ class InvertedIndex:
             }
             for channel, channel_postings in dict(postings).items()
         }
+        self._build_exact_bm25_index()
+
+    def _build_exact_bm25_index(self) -> None:
+        """Build collision-free stemmed + raw + bigram BM25+ postings in RAM."""
+        self._stem_postings: Dict[str, List[Tuple[UUID, int]]] = defaultdict(list)
+        self._raw_postings: Dict[str, List[Tuple[UUID, int]]] = defaultdict(list)
+        self._bi_postings: Dict[str, List[Tuple[UUID, int]]] = defaultdict(list)
+        self._stem_dl: Dict[UUID, int] = {}
+        self._raw_dl: Dict[UUID, int] = {}
+        self._bi_dl: Dict[UUID, int] = {}
+
+        for node_id, repr_data in self._documents.items():
+            text = (repr_data.normalized_text or "").strip()
+            if not text:
+                continue
+            raw_toks = _tokenize_exact(text)
+            if not raw_toks:
+                continue
+            stem_toks = [_porter_stem(w) for w in raw_toks]
+            bi_toks = [
+                f"{stem_toks[i]}_{stem_toks[i + 1]}" for i in range(len(stem_toks) - 1)
+            ]
+            self._raw_dl[node_id] = len(raw_toks)
+            self._stem_dl[node_id] = len(stem_toks)
+            self._bi_dl[node_id] = len(bi_toks)
+            for term, tf in Counter(stem_toks).items():
+                self._stem_postings[term].append((node_id, tf))
+            for term, tf in Counter(raw_toks).items():
+                self._raw_postings[term].append((node_id, tf))
+            for term, tf in Counter(bi_toks).items():
+                self._bi_postings[term].append((node_id, tf))
+
+        n_docs = len(self._stem_dl)
+        self._exact_doc_count = n_docs
+        self._avg_stem_dl = sum(self._stem_dl.values()) / n_docs if n_docs else 1.0
+        self._avg_raw_dl = sum(self._raw_dl.values()) / n_docs if n_docs else 1.0
+        self._avg_bi_dl = sum(self._bi_dl.values()) / n_docs if n_docs else 1.0
+
+    def has_exact_bm25(self) -> bool:
+        return self._exact_doc_count > 0
+
+    def _score_bm25_channel(
+        self,
+        q_tokens: Sequence[str],
+        postings_map: Mapping[str, List[Tuple[UUID, int]]],
+        doc_lens: Mapping[UUID, int],
+        avg_dl: float,
+        *,
+        k1: float = 1.2,
+        b: float = 0.75,
+        delta: float = 0.5,
+    ) -> Dict[UUID, float]:
+        n_docs = self._exact_doc_count
+        if not q_tokens or n_docs <= 0:
+            return {}
+        avg_len = max(avg_dl, 1.0)
+        scores: Dict[UUID, float] = defaultdict(float)
+        for term, q_tf in Counter(q_tokens).items():
+            postings = postings_map.get(term)
+            if not postings:
+                continue
+            df = len(postings)
+            idf = math.log((n_docs - df + 0.5) / (df + 0.5) + 1.0)
+            q_w = 1.0 + math.log(q_tf)
+            for node_id, tf in postings:
+                dl = doc_lens[node_id]
+                denom = tf + k1 * (1.0 - b + b * (dl / avg_len))
+                tf_norm = ((tf * (k1 + 1.0)) / max(denom, 1e-9)) + delta
+                scores[node_id] += idf * tf_norm * q_w
+        return scores
+
+    def score_bm25_fast(self, query_text: str) -> Dict[UUID, float]:
+        """Score matching documents using collision-free stemmed+raw+bigram BM25+."""
+        if self._exact_doc_count <= 0:
+            return {}
+        q_raw = _tokenize_exact(query_text)
+        if not q_raw:
+            return {}
+        q_stem = [_porter_stem(w) for w in q_raw]
+        q_bi = [f"{q_stem[i]}_{q_stem[i + 1]}" for i in range(len(q_stem) - 1)]
+
+        s_stem = self._score_bm25_channel(
+            q_stem, self._stem_postings, self._stem_dl, self._avg_stem_dl, delta=0.5
+        )
+        if not s_stem:
+            return {}
+        s_raw = self._score_bm25_channel(
+            q_raw, self._raw_postings, self._raw_dl, self._avg_raw_dl, delta=0.0
+        )
+        s_bi = self._score_bm25_channel(
+            q_bi, self._bi_postings, self._bi_dl, self._avg_bi_dl, delta=0.0
+        )
+
+        raw_scores: Dict[UUID, float] = {}
+        max_raw = 0.0
+        for node_id, base in s_stem.items():
+            raw_val = base + 0.35 * s_raw.get(node_id, 0.0) + 0.25 * s_bi.get(node_id, 0.0)
+            raw_scores[node_id] = raw_val
+            if raw_val > max_raw:
+                max_raw = raw_val
+        if max_raw <= 0.0:
+            return {}
+        return {
+            node_id: round(val / max_raw, 6)
+            for node_id, val in raw_scores.items()
+        }
+
+    def score_bm25_shortlist(
+        self, query_text: str, *, k: int = 200
+    ) -> Sequence[Tuple[UUID, float]]:
+        """Return deterministic top-k candidates from collision-free BM25+."""
+        scores = self.score_bm25_fast(query_text)
+        if not scores:
+            return ()
+        ranked = sorted(scores.items(), key=lambda item: (-item[1], str(item[0])))
+        return tuple(ranked[:k])
 
     @classmethod
     def build(

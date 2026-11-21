@@ -199,9 +199,15 @@ class LocalEmbeddingProvider(EmbeddingProvider):
             logger.info(
                 f"Loading local model from {self._model_path} on device={self._device}"
             )
-            self._model = SentenceTransformer(
-                str(self._model_path), device=self._device
-            )
+            kwargs: Dict[str, Any] = {"device": self._device}
+            if str(self._device).lower() == "cpu":
+                try:
+                    import torch
+
+                    kwargs["model_kwargs"] = {"dtype": torch.float32}
+                except ImportError:
+                    pass
+            self._model = SentenceTransformer(str(self._model_path), **kwargs)
             self._model_loaded = True
             logger.info(f"Local model {self._model_path.name} loaded successfully")
         except Exception as e:

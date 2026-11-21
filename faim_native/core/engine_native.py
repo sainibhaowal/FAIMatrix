@@ -12,6 +12,7 @@ import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from threading import RLock
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 
@@ -59,6 +60,24 @@ except (ImportError, RuntimeError):
     from store.pg.repos.graph_version_repo import GraphVersionRepo
     from store.pg.repos.node_repo import NodeRepo
     from store.pg.repos.representation_repo import RepresentationRepo
+
+
+_WRITE_SNAPSHOT_CACHE: Dict[
+    Tuple[str, str],
+    Tuple[int, List[Tuple[UUID, List[float], int, str]], Any],
+] = {}
+_WRITE_SNAPSHOT_LOCK = RLock()
+
+
+def _build_norm_matrix(records: List[Tuple[UUID, List[float], int, str]]):
+    import numpy as np
+
+    if not records:
+        return None
+    mat = np.asarray([r[1] for r in records], dtype=np.float32)
+    norms = np.linalg.norm(mat, axis=1, keepdims=True)
+    norms[norms == 0.0] = 1.0
+    return mat / norms
 
 
 @dataclass
@@ -154,7 +173,30 @@ class FAIMNativeEngine:
         # making ingest progressively slower as the graph grew.  The snapshot
         # preserves the repository's deterministic created_at/node_id order;
         # newly inserted nodes are appended as the current write advances.
-        candidate_records = self.node_repo.get_all_vectors_with_level_and_hash(graph_id)
+        tenant_key = str(getattr(self.node_repo, "tenant_id", "") or "")
+        cache_key = (tenant_key, graph_id)
+        get_ver_fn = getattr(self.graph_version_repo, "get_version", None)
+        cur_ver: Optional[int] = None
+        if callable(get_ver_fn):
+            try:
+                cur_ver = int(get_ver_fn(self.node_repo.session, graph_id))
+            except Exception:
+                cur_ver = None
+
+        candidate_records = None
+        cached_matrix = None
+        if cur_ver is not None:
+            with _WRITE_SNAPSHOT_LOCK:
+                cached = _WRITE_SNAPSHOT_CACHE.get(cache_key)
+                if cached is not None and cached[0] == cur_ver:
+                    candidate_records = list(cached[1])
+                    cached_matrix = cached[2]
+        if candidate_records is None:
+            candidate_records = self.node_repo.get_all_vectors_with_level_and_hash(graph_id)
+            try:
+                cached_matrix = _build_norm_matrix(candidate_records)
+            except Exception:
+                cached_matrix = None
         candidate_ids = {record[0] for record in candidate_records}
 
         # Import cognitive typing for neural constellation classification
@@ -234,6 +276,9 @@ class FAIMNativeEngine:
                     child_vector=list(vector.v_native),
                     candidates=candidates_for_plan,
                     k=self.parent_top_k,
+                    precomputed_norm_matrix=cached_matrix,
+                    skip_id=node_id,
+                    record_ids=[r[0] for r in candidate_records],
                 )
 
                 if plan.parents:
@@ -338,6 +383,17 @@ class FAIMNativeEngine:
                     )
                 )
                 candidate_ids.add(node_id)
+                if cached_matrix is not None:
+                    try:
+                        import numpy as np
+
+                        row = np.asarray(vector.v_native, dtype=np.float32)
+                        rn = float(np.linalg.norm(row))
+                        if rn > 0.0:
+                            row = row / rn
+                        cached_matrix = np.vstack([cached_matrix, row.reshape(1, -1)])
+                    except Exception:
+                        cached_matrix = None
 
         # 5. Bump graph version
         new_version = self.graph_version_repo.bump(
@@ -346,6 +402,15 @@ class FAIMNativeEngine:
             reason=f"write_atoms: {result.nodes_written} nodes",
         )
         result.graph_version = new_version
+        if isinstance(new_version, int):
+            with _WRITE_SNAPSHOT_LOCK:
+                if len(_WRITE_SNAPSHOT_CACHE) >= 32 and cache_key not in _WRITE_SNAPSHOT_CACHE:
+                    _WRITE_SNAPSHOT_CACHE.pop(next(iter(_WRITE_SNAPSHOT_CACHE)))
+                _WRITE_SNAPSHOT_CACHE[cache_key] = (
+                    int(new_version),
+                    list(candidate_records),
+                    cached_matrix,
+                )
 
         # Emit GRAPH_VERSION_BUMP event
         self._emit_event(
@@ -385,6 +450,9 @@ class FAIMNativeEngine:
         child_vector: List[float],
         candidates: List[Tuple[UUID, List[float]]],
         k: int,
+        precomputed_norm_matrix: Any = None,
+        skip_id: Optional[UUID] = None,
+        record_ids: Optional[List[UUID]] = None,
     ):
         """Select exact parents with a vectorized similarity pass.
 
@@ -404,30 +472,79 @@ class FAIMNativeEngine:
         try:
             import numpy as np
 
-            node_ids = [node_id for node_id, _vector in candidates]
-            matrix = np.asarray(
-                [vector for _node_id, vector in candidates], dtype=float
-            )
-            child = np.asarray(child_vector, dtype=float)
+            child = np.asarray(child_vector, dtype=np.float32)
             child_norm = float(np.linalg.norm(child))
-            norms = np.linalg.norm(matrix, axis=1)
             if child_norm == 0.0:
                 return compute_inheritance_plan(
                     child_vector=child_vector,
                     candidates=candidates,
                     k=k,
                 )
-            denominators = norms * child_norm
+            child_unit = child / child_norm
+            if (
+                precomputed_norm_matrix is not None
+                and record_ids is not None
+                and precomputed_norm_matrix.shape[0] == len(record_ids)
+            ):
+                similarities = precomputed_norm_matrix @ child_unit
+                if skip_id is not None:
+                    mask_idx = [i for i, nid in enumerate(record_ids) if nid == skip_id]
+                    if mask_idx:
+                        similarities = similarities.copy()
+                        for i in mask_idx:
+                            similarities[i] = -1.0
+                if len(record_ids) > k:
+                    top_idx = np.argpartition(-similarities, k)[: max(k * 2, k + 8)]
+                    ranked = sorted(
+                        (int(i) for i in top_idx),
+                        key=lambda index: (
+                            -float(similarities[index]),
+                            str(record_ids[index]),
+                        ),
+                    )
+                else:
+                    ranked = sorted(
+                        range(len(record_ids)),
+                        key=lambda index: (
+                            -float(similarities[index]),
+                            str(record_ids[index]),
+                        ),
+                    )
+                cand_vec_map = {nid: vec for nid, vec in candidates}
+                selected = [
+                    (record_ids[index], cand_vec_map[record_ids[index]])
+                    for index in ranked[:k]
+                    if float(similarities[index]) > 0.0
+                    and record_ids[index] in cand_vec_map
+                ]
+                return compute_inheritance_plan(
+                    child_vector=child_vector,
+                    candidates=selected,
+                    k=k,
+                )
+
+            node_ids = [node_id for node_id, _vector in candidates]
+            matrix = np.asarray(
+                [vector for _node_id, vector in candidates], dtype=np.float32
+            )
+            norms = np.linalg.norm(matrix, axis=1)
             similarities = np.divide(
-                matrix @ child,
-                denominators,
-                out=np.zeros(len(candidates), dtype=float),
-                where=denominators != 0,
+                matrix @ child_unit,
+                norms,
+                out=np.zeros(len(candidates), dtype=np.float32),
+                where=norms != 0,
             )
-            ranked = sorted(
-                range(len(node_ids)),
-                key=lambda index: (-float(similarities[index]), str(node_ids[index])),
-            )
+            if len(node_ids) > k:
+                top_idx = np.argpartition(-similarities, k)[: max(k * 2, k + 8)]
+                ranked = sorted(
+                    (int(i) for i in top_idx),
+                    key=lambda index: (-float(similarities[index]), str(node_ids[index])),
+                )
+            else:
+                ranked = sorted(
+                    range(len(node_ids)),
+                    key=lambda index: (-float(similarities[index]), str(node_ids[index])),
+                )
             selected = [
                 (node_ids[index], candidates[index][1])
                 for index in ranked[:k]
