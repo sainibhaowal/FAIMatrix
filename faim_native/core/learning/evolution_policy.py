@@ -90,10 +90,7 @@ def _context_features(context: Optional[Dict[str, float]]) -> List[float]:
 
 
 def _mat_mul_vec(matrix: List[List[float]], vec: List[float]) -> List[float]:
-    return [
-        sum(row[i] * vec[i] for i in range(len(vec)))
-        for row in matrix
-    ]
+    return [sum(row[i] * vec[i] for i in range(len(vec))) for row in matrix]
 
 
 def _mat_inverse(matrix: List[List[float]]) -> List[List[float]]:
@@ -106,9 +103,7 @@ def _mat_inverse(matrix: List[List[float]]) -> List[List[float]]:
     if n == 0:
         return []
     aug = [
-        list(matrix[i])
-        + [1.0 if i == j else 0.0 for j in range(n)]
-        for i in range(n)
+        list(matrix[i]) + [1.0 if i == j else 0.0 for j in range(n)] for i in range(n)
     ]
     for col in range(n):
         pivot_row = max(range(col, n), key=lambda r: abs(aug[r][col]))
@@ -194,7 +189,8 @@ class ArmState:
         theta = _mat_mul_vec(a_inv, self.b[key])
         mu = sum(x * t for x, t in zip(features, theta, strict=False))
         sigma2 = sum(
-            x * cov for x, cov in zip(features, _mat_mul_vec(a_inv, features), strict=False)
+            x * cov
+            for x, cov in zip(features, _mat_mul_vec(a_inv, features), strict=False)
         )
         return mu + self.alpha * math.sqrt(max(0.0, sigma2))
 
@@ -202,9 +198,7 @@ class ArmState:
         """Online ridge update: A += x x^T, b += r x."""
         key = self.key(value)
         self.visits[key] = self.visits.get(key, 0) + 1
-        self.rewards[key] = self.rewards.get(key, 0.0) + _clamp(
-            reward, -1.0, 1.0
-        )
+        self.rewards[key] = self.rewards.get(key, 0.0) + _clamp(reward, -1.0, 1.0)
         self._ensure(key)
         for i in range(self.n_features):
             for j in range(self.n_features):
@@ -495,18 +489,14 @@ class EvolutionPolicy:
         features = _context_features(context)
         # Only learn when the cycle actually acted (noise-free signal).
         if merges + prunes > 0:
-            self.arms["merge_threshold"].record(
-                knobs.merge_threshold, features, reward
-            )
+            self.arms["merge_threshold"].record(knobs.merge_threshold, features, reward)
             self.arms["prune_similarity_threshold"].record(
                 knobs.prune_similarity_threshold, features, reward
             )
             self.arms["prune_min_age_days"].record(
                 knobs.prune_min_age_days, features, reward
             )
-        self.arms["lambda_threshold"].record(
-            knobs.lambda_threshold, features, reward
-        )
+        self.arms["lambda_threshold"].record(knobs.lambda_threshold, features, reward)
         self.lambda_calibration.record(lambda_after)
         self.version += 1
         return reward
@@ -531,18 +521,12 @@ def compute_reward(
            + 0.2 * novelty retention
     When a retrieval probe delta is available it replaces half the weight.
     """
-    r_red = _clamp01(
-        (float(r_before) - float(r_after)) / max(0.05, float(r_before))
-    )
-    e_gain = _clamp01(
-        (float(e_before) - float(e_after)) / max(0.05, float(e_before))
-    )
+    r_red = _clamp01((float(r_before) - float(r_after)) / max(0.05, float(r_before)))
+    e_gain = _clamp01((float(e_before) - float(e_after)) / max(0.05, float(e_before)))
     n_ret = _clamp01((float(n_after) - float(n_before)) / 2.0 + 0.5)
 
     base = (
-        REWARD_W_REDUCTION * r_red
-        + REWARD_W_ENERGY * e_gain
-        + REWARD_W_NOVELTY * n_ret
+        REWARD_W_REDUCTION * r_red + REWARD_W_ENERGY * e_gain + REWARD_W_NOVELTY * n_ret
     )
 
     if retrieval_delta is not None:

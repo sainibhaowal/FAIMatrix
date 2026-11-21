@@ -13,17 +13,58 @@ The harness is a measurement tool, not a leaderboard publisher. A public result
 must include the dataset version/source, full command, seed, model/provider
 configuration, completed-system statuses, and the signed JSON artifact.
 
+## Clean FAIM run controls
+
+For release evidence, configure the ignored `.env` file with a real scoped
+`FAIM_API_KEY` and `FAIM_TENANT_ID`, then run the API and worker with benchmark
+isolation enabled. Self-evolution and domain-autonomy work stays outside the
+ingest workload and remains durable for normal workers later:
+
+```bash
+FAIM_BENCHMARK_MODE=true \
+FAIM_SELF_EVOLVE_ENABLED=false \
+FAIM_CHUNKING_ENABLED=true \
+docker compose up -d api worker
+
+set -a; . faim-benchmarks/.env; set +a
+export FAIM_BENCHMARK_MODE=true
+export FAIM_BENCH_FAIM_BATCH_SIZE=20
+faim-bench beir --dataset custom \
+  --local-dir /path/to/pinned/scifact \
+  --top-k 20 --seed 42 --retain-query-traces \
+  --systems faim,bm25 --ingest-workers 1 \
+  --out-dir results/public-scifact-release
+```
+
+The bounded one-worker/20-document setting is intentional for the public
+upload surface: larger concurrent multipart batches can exhaust API request
+workers before the durable job layer starts. It does not change the retrieval
+corpus, scorer, model, Qdrant index, or 300-query evaluation protocol.
+
+The API accepts `benchmark_mode` on JSON and multipart ingest as an explicit
+side-effect isolation signal. Worker transactions rollback before a transient
+retry, and Qdrant/native vector writes are batch operations; PostgreSQL remains
+canonical truth. Do not publish a run while Git is dirty or while the artifact
+reports ingest errors, failed health checks, or non-comparable competitors.
+
 ## Canonical completed run
 
-The repository retains one canonical full run under
-`results/public-scifact-full-guarded-v9/`. It evaluates the official SciFact
+The repository retains the latest canonical full run under
+`results/public-scifact-full-guarded-v17/`. It evaluates the official SciFact
 split (5,183 documents and 300 queries) with FAIM-Native and BM25. Both systems
 completed all queries with zero ingest errors. The report records FAIM nDCG@10
-`0.0517`, BM25 nDCG@10 `0.6644`, FAIM query p50 `17,373 ms`, and BM25 query p50
-`35 ms`. The report is an honest evidence artifact, but its publication gate is
-`NOT READY`: the worktree was dirty and FAIM did not yet match the BM25 quality
-or latency baseline. Older exploratory runs are archived outside the repository
-and are not part of the publishable evidence set.
+`0.4184`, BM25 nDCG@10 `0.6644`, FAIM query p50 `7,195.68 ms`, and BM25 query
+p50 `48.42 ms`. The report is an honest evidence artifact, but its publication
+gate is `NOT READY`: the worktree was dirty and model provenance was incomplete.
+The earlier v9 artifact remains available as historical evidence; it is not the
+current release benchmark.
+
+The latest completed guarded rerun is under
+`results/public-scifact-full-guarded-v17/`. It completed the full pinned split
+with zero ingestion errors, but it is not a production-claim result: FAIM-Native
+scored nDCG@10 `0.4184` with query p50 `7,195.68 ms`, while BM25 scored
+`0.6644` with query p50 `48.42 ms`. Its publication gate remains `NOT READY`
+because the worktree was dirty and model provenance was incomplete.
 
 Published Mem0, Zep, Supermemory, and Letta numbers are documented in the root
 README as external, non-comparable references. They are not inserted into this

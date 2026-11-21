@@ -79,18 +79,34 @@ export const GraphHealthChart: React.FC<GraphHealthChartProps> = ({ data }) => {
             ● Spectral (Λ)
           </button>
         </div>
-        <span className="text-[10px] text-slate-500 font-mono">Realtime Scorecard</span>
+        <span className="text-[10px] text-slate-500 font-mono">
+          Realtime Scorecard
+        </span>
       </div>
 
       <div className="h-[300px] w-full relative">
         <div className="flex flex-col items-center justify-center h-full w-full gap-3 bg-slate-950/60 rounded border border-slate-800/50">
           <span className="w-12 h-12 rounded-full border-2 border-cyan-500/30 flex items-center justify-center">
-            <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            <svg
+              className="w-6 h-6 text-slate-500"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
             </svg>
           </span>
-          <p className="text-xs font-mono text-slate-400">No scorecard history yet</p>
-          <p className="text-[10px] text-slate-600">Graph health metrics appear after activity</p>
+          <p className="text-xs font-mono text-slate-400">
+            No scorecard history yet
+          </p>
+          <p className="text-[10px] text-slate-600">
+            Graph health metrics appear after activity
+          </p>
         </div>
       </div>
     </div>
@@ -144,11 +160,18 @@ export const GraphHealthChart: React.FC<GraphHealthChartProps> = ({ data }) => {
             ● Spectral (Λ)
           </button>
         </div>
-        <span className="text-[10px] text-slate-500 font-mono">Realtime Scorecard</span>
+        <span className="text-[10px] text-slate-500 font-mono">
+          Realtime Scorecard
+        </span>
       </div>
 
       <div className="h-[300px] w-full relative">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={300}>
+        <ResponsiveContainer
+          width="100%"
+          height="100%"
+          minWidth={0}
+          minHeight={300}
+        >
           <AreaChart
             data={chartData}
             margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
@@ -168,7 +191,11 @@ export const GraphHealthChart: React.FC<GraphHealthChartProps> = ({ data }) => {
               </linearGradient>
             </defs>
 
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" opacity={0.6} />
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="#1e293b"
+              opacity={0.6}
+            />
             <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 10 }} />
             <YAxis stroke="#64748b" tick={{ fontSize: 10 }} domain={[0, 1]} />
 

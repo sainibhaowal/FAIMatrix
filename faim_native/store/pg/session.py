@@ -171,9 +171,7 @@ def get_engine(
         def set_postgres_timeouts(dbapi_connection, _connection_record):
             cursor = dbapi_connection.cursor()
             try:
-                cursor.execute(
-                    f"SET idle_in_transaction_session_timeout = {idle_ms}"
-                )
+                cursor.execute(f"SET idle_in_transaction_session_timeout = {idle_ms}")
                 cursor.execute(f"SET lock_timeout = {lock_ms}")
             finally:
                 cursor.close()

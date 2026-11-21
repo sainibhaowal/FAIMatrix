@@ -64,7 +64,7 @@ type DeckGroup = {
 function BenchmarksShowcase() {
   return (
     <section className="py-20 px-4 bg-gradient-to-b from-slate-950 to-slate-900/50">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
           <h2 className="text-4xl font-bold text-white mb-4">
             Engine Benchmarks - Prove Your Performance
@@ -186,7 +186,7 @@ function FutureMassiveScaling() {
       <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-cyan-500/10 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-1/4 left-1/3 w-[600px] h-[600px] bg-purple-500/5 blur-[150px] rounded-full pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto relative z-10">
+      <div className="max-w-6xl mx-auto relative z-10">
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-cyan-500/30 bg-cyan-500/5 text-cyan-300 text-xs font-semibold uppercase tracking-wider mb-4 animate-pulse">
             Future Architecture Roadmap
@@ -300,7 +300,8 @@ const GROUPS: DeckGroup[] = [
       {
         key: "comparison",
         label: "Systems Comparison",
-        summary: "Source-backed capability matrix across memory and retrieval systems.",
+        summary:
+          "Source-backed capability matrix across memory and retrieval systems.",
         node: <RAGComparison />,
       },
       {
@@ -477,81 +478,30 @@ const GROUPS: DeckGroup[] = [
 ];
 
 export default function LandingSectionDeck() {
-  const [activeGroupId, setActiveGroupId] = useState(GROUPS[0].id);
-  const [activeTabs, setActiveTabs] = useState<Record<string, string>>(() =>
-    Object.fromEntries(GROUPS.map((group) => [group.id, group.tabs[0].key])),
-  );
-
-  useEffect(() => {
-    const syncFromHash = () => {
-      const [requested, requestedTab] = window.location.hash.slice(1).split("/");
-      if (GROUPS.some((group) => group.id === requested)) {
-        setActiveGroupId(requested);
-        const group = GROUPS.find((candidate) => candidate.id === requested);
-        if (group && requestedTab && group.tabs.some((tab) => tab.key === requestedTab)) {
-          setActiveTabs((current) => ({ ...current, [requested]: requestedTab }));
-        }
-      }
-    };
-
-    syncFromHash();
-    window.addEventListener("hashchange", syncFromHash);
-    return () => window.removeEventListener("hashchange", syncFromHash);
-  }, []);
-
-  const activeGroup = useMemo(
-    () => GROUPS.find((group) => group.id === activeGroupId) ?? GROUPS[0],
-    [activeGroupId],
-  );
-  const activeTab = useMemo(() => {
-    const key = activeTabs[activeGroup.id];
-    return (
-      activeGroup.tabs.find((tab) => tab.key === key) ?? activeGroup.tabs[0]
-    );
-  }, [activeGroup, activeTabs]);
-
-  const selectGroup = (groupId: string) => {
-    setActiveGroupId(groupId);
-    window.history.replaceState(null, "", `#${groupId}`);
-    window.dispatchEvent(new HashChangeEvent("hashchange"));
-  };
-
   return (
-    <section
-      id="atlas"
-      className="faim-atlas-deck relative flex h-[calc(100svh-2rem)] min-h-[620px] scroll-mt-6 flex-col overflow-hidden px-2 pb-2 pt-3 sm:px-3 sm:pb-3 sm:pt-3"
-    >
-      {GROUPS.map((group) => (
-        <span
-          key={group.id}
-          id={group.id}
-          className="pointer-events-none absolute left-0 top-0 scroll-mt-20"
-          aria-hidden="true"
-        />
-      ))}
-
-      <div className="relative mx-auto flex min-h-0 w-full max-w-[1440px] flex-1 flex-col">
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <div className="h-full min-h-0 flex flex-col">
-            <div className="flex h-full min-h-0 min-w-0 flex-col">
-                  <div className="faim-atlas-preview-scroll relative min-h-0 flex-1 overflow-y-auto overscroll-contain">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={`${activeGroup.id}-${activeTab.key}`}
-                    initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
-                    animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                    exit={{ opacity: 0, y: -8, filter: "blur(3px)" }}
-                    transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-                    className="faim-atlas-preview overflow-hidden"
-                  >
-                    {activeTab.node}
-                  </motion.div>
-                </AnimatePresence>
+    <div id="atlas" className="faim-atlas-deck relative px-2 pb-8 pt-6 sm:px-4">
+      <div className="mx-auto w-full max-w-[1440px] space-y-20">
+        {GROUPS.map((group) => (
+          <section
+            key={group.id}
+            id={group.id}
+            data-faim-section={group.id}
+            className="scroll-mt-8 space-y-12"
+          >
+            {group.tabs.map((tab) => (
+              <div
+                key={`${group.id}-${tab.key}`}
+                id={`${group.id}-${tab.key}`}
+                data-faim-section={group.id}
+                data-faim-tab={tab.key}
+                className="faim-atlas-preview scroll-mt-8 overflow-x-clip"
+              >
+                {tab.node}
               </div>
-            </div>
-          </div>
-        </div>
+            ))}
+          </section>
+        ))}
       </div>
-    </section>
+    </div>
   );
 }

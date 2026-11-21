@@ -22,6 +22,23 @@ except (ImportError, RuntimeError):
     from store.pg.models_faim import GraphDomainLexiconModel, GraphKBSourceModel
 
 
+def _as_int(value: object) -> int:
+    """Convert untyped JSON-like metadata to an integer safely."""
+    if isinstance(value, (int, float)):
+        return int(value)
+    if not isinstance(value, str):
+        return 0
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _as_meta(value: object) -> Dict[str, object]:
+    """Return only mapping metadata from untyped JSON-like input."""
+    return dict(value) if isinstance(value, Mapping) else {}
+
+
 class DomainKnowledgeRepo:
     """Repository for graph-scoped domain lexicon and KB sources."""
 
@@ -49,23 +66,23 @@ class DomainKnowledgeRepo:
                     "domain_pack": (
                         str(row["domain_pack"]) if row.get("domain_pack") else None
                     ),
-                    "support_count": int(row.get("support_count", 0)),
+                    "support_count": _as_int(row.get("support_count", 0)),
                     "score": float(row.get("score", 0.0)),
-                    "meta": dict(row.get("meta", {})),
+                    "meta": _as_meta(row.get("meta", {})),
                 }
                 continue
             if row.get("domain_pack") and not existing.get("domain_pack"):
                 existing["domain_pack"] = str(row["domain_pack"])
             existing["support_count"] = max(
-                int(existing.get("support_count", 0)),
-                int(row.get("support_count", 0)),
+                _as_int(existing.get("support_count", 0)),
+                _as_int(row.get("support_count", 0)),
             )
             existing["score"] = max(
                 float(existing.get("score", 0.0)),
                 float(row.get("score", 0.0)),
             )
-            meta = dict(existing.get("meta", {}))
-            meta.update(dict(row.get("meta", {})))
+            meta = _as_meta(existing.get("meta", {}))
+            meta.update(_as_meta(row.get("meta", {})))
             existing["meta"] = meta
         return [merged[key] for key in sorted(merged)]
 
@@ -92,9 +109,9 @@ class DomainKnowledgeRepo:
                     domain_pack=(
                         str(row["domain_pack"]) if row.get("domain_pack") else None
                     ),
-                    support_count=int(row.get("support_count", 0)),  # type: ignore[call-overload]
+                    support_count=_as_int(row.get("support_count", 0)),
                     score=float(row.get("score", 0.0)),
-                    meta=dict(row.get("meta", {})),  # type: ignore[call-overload]
+                    meta=_as_meta(row.get("meta", {})),
                     updated_at=now,
                 )
             )
@@ -110,7 +127,8 @@ class DomainKnowledgeRepo:
         now = datetime.now(timezone.utc)
         existing_rows = self.list_lexicon_entries(graph_id)
         existing = {
-            (row.surface_form, row.canonical_form, row.kind): row for row in existing_rows
+            (row.surface_form, row.canonical_form, row.kind): row
+            for row in existing_rows
         }
         touched = 0
         for row in deduped_rows:
@@ -131,22 +149,27 @@ class DomainKnowledgeRepo:
                         domain_pack=(
                             str(row["domain_pack"]) if row.get("domain_pack") else None
                         ),
-                        support_count=int(row.get("support_count", 0)),
+                        support_count=_as_int(row.get("support_count", 0)),
                         score=float(row.get("score", 0.0)),
-                        meta=dict(row.get("meta", {})),
+                        meta=_as_meta(row.get("meta", {})),
                         updated_at=now,
                     )
                 )
             else:
                 model.domain_pack = (
-                    str(row["domain_pack"]) if row.get("domain_pack") else model.domain_pack
+                    str(row["domain_pack"])
+                    if row.get("domain_pack")
+                    else model.domain_pack
                 )
                 model.support_count = max(
-                    int(model.support_count or 0), int(row.get("support_count", 0))
+                    _as_int(model.support_count or 0),
+                    _as_int(row.get("support_count", 0)),
                 )
-                model.score = max(float(model.score or 0.0), float(row.get("score", 0.0)))
+                model.score = max(
+                    float(model.score or 0.0), float(row.get("score", 0.0))
+                )
                 merged_meta = dict(model.meta or {})
-                merged_meta.update(dict(row.get("meta", {})))
+                merged_meta.update(_as_meta(row.get("meta", {})))
                 model.meta = merged_meta
                 model.updated_at = now
             touched += 1
@@ -172,7 +195,7 @@ class DomainKnowledgeRepo:
                     source_id=str(row["source_id"]),
                     source_kind=str(row["source_kind"]),
                     source_hash=str(row["source_hash"]),
-                    meta=dict(row.get("meta", {})),  # type: ignore[call-overload]
+                    meta=_as_meta(row.get("meta", {})),
                     updated_at=now,
                 )
             )
@@ -204,7 +227,7 @@ class DomainKnowledgeRepo:
                         source_id=source_id,
                         source_kind=str(row["source_kind"]),
                         source_hash=str(row["source_hash"]),
-                        meta=dict(row.get("meta", {})),
+                        meta=_as_meta(row.get("meta", {})),
                         updated_at=now,
                     )
                 )
@@ -212,7 +235,7 @@ class DomainKnowledgeRepo:
                 model.source_kind = str(row["source_kind"])
                 model.source_hash = str(row["source_hash"])
                 merged_meta = dict(model.meta or {})
-                merged_meta.update(dict(row.get("meta", {})))
+                merged_meta.update(_as_meta(row.get("meta", {})))
                 model.meta = merged_meta
                 model.updated_at = now
             touched += 1

@@ -46,7 +46,7 @@ Most retrieval systems stop at “embed, search, return chunks.” FAIM-Native k
 - graph writes emit events and advance a graph version;
 - retrieval returns scores, evidence, graph metrics, and optional explanations;
 - evolution can diagnose redundancy, invent macro nodes, learn from outcomes, and restore from backups;
-- the UI can observe the same graph, event stream, metrics, and Cortex workflow exposed by the API.
+- the UI can observe the same graph, event stream, metrics, storage, provider, and evolution surfaces exposed by the API.
 
 The result is a memory substrate designed for systems that need continuity, auditability, tenant isolation, and controlled evolution—not only a similarity endpoint.
 
@@ -72,7 +72,6 @@ flowchart TB
         ENCODE["Native encoding<br/>canonical semantics + 256-d vector"]
         GRAPH["FAIM graph engine<br/>nodes, edges, inheritance, merges"]
         QUERY["Query and rerank<br/>scores, explanations, provenance"]
-        CORTEX["Cortex runtime<br/>sessions, turns, approvals"]
         WORKER["Durable worker<br/>claim and execute jobs"]
         MIGRATE["One-shot migration<br/>schema before traffic"]
     end
@@ -230,8 +229,8 @@ Manual `POST /api/v1/evolve` runs a guarded cycle directly in the API process. S
 ```mermaid
 sequenceDiagram
     autonumber
-    participant O as Operator, Cortex, or scheduler
-    participant A as API / approval route
+    participant O as Operator or scheduler
+    participant A as API route
     participant P as PostgreSQL
     participant W as Worker
     participant B as Backup records
@@ -291,7 +290,7 @@ flowchart LR
 
 The public edge is intentionally deployment-neutral. The repository does not require a particular DNS name, TLS provider, reverse proxy, host address, or gateway layout. Keep credentials, host-specific compose overrides, and operator runbooks outside public architecture diagrams.
 
-For the component inventory, failure behavior, local-versus-hosted differences, and known boundaries, see [`docs/END_TO_END_ARCHITECTURE.md`](docs/END_TO_END_ARCHITECTURE.md).
+For the component inventory, failure behavior, local-versus-hosted differences, and known boundaries, see [the canonical architecture guide](faim_native/Docs/01-architecture/01-end-to-end-architecture.md).
 
 ## Capabilities
 
@@ -317,7 +316,6 @@ For the component inventory, failure behavior, local-versus-hosted differences, 
 - manual and guarded automated evolution controls;
 - self-invention and macro-node proposals from coactivation evidence;
 - evolution metrics, learning state, outcomes, theories, backups, and restore operations;
-- FAIM Cortex turns, persisted sessions, WebSocket chat, tool-approval proposals, and explicit approve/reject controls;
 - domain overview, graph surface, neighborhood, path explanation, and semantic graph inspection APIs.
 
 ### Operations and security
@@ -335,7 +333,7 @@ For the component inventory, failure behavior, local-versus-hosted differences, 
 | Path | Responsibility |
 | --- | --- |
 | [`faim_native/api`](faim_native/api) | FastAPI application, routers, contracts, middleware, services, and validators |
-| [`faim_native/core`](faim_native/core) | Graph engine, query scoring, reasoning, Cortex, operators, learning, and metrics |
+| [`faim_native/core`](faim_native/core) | Graph engine, query scoring, reasoning, operators, learning, and metrics |
 | [`faim_native/perception`](faim_native/perception) | File extraction, OCR, packetization, and evidence validation |
 | [`faim_native/encoding`](faim_native/encoding) | Native vectors, semantic signatures, layout, modality, and embedding-provider adapters |
 | [`faim_native/lexical`](faim_native/lexical) | Unicode normalization, canonicalization, multilingual lexicons, aliases, and phrase patterns |
@@ -345,7 +343,7 @@ For the component inventory, failure behavior, local-versus-hosted differences, 
 | [`faim-benchmarks`](faim-benchmarks) | Standalone public black-box benchmarks for FAIM, BM25, and configured external memory systems |
 | [`frontend`](frontend) | Next.js dashboard, marketing/docs surfaces, authentication, graph views, and tests |
 | [`scripts`](scripts) | Local demos, verification, smoke tests, backup/restore, deployment, and security automation |
-| [`docs`](docs) | API, architecture, operations, security, benchmark, and implementation documentation |
+| [`faim_native/Docs`](faim_native/Docs) | Canonical API, architecture, operations, security, benchmark, and implementation documentation |
 
 ## Public benchmarking
 
@@ -540,10 +538,9 @@ The FastAPI app mounts the current versioned API under `/api/v1`.
 | Events | `/api/v1/events`, `/api/v1/events/latest`, `/api/v1/events/stream` |
 | Evolution | `/api/v1/evolve`, status, control, invention, backups, learning, and metrics |
 | Storage | uploads, files, provenance, maintenance, retention, crypto rotation, and backend health |
-| Cortex | turns, sessions, WebSocket chat, storage tools, and tool approvals |
 | Benchmarks | benchmark runs, stress tests, alerts, golden signals, export, and publication suite |
 
-For request and response contracts, start with [`FAIM_API_DOCUMENTATION.md`](<docs/2) BackEnd/API_Reference/FAIM_API_DOCUMENTATION.md>) and [`api_reference.md`](<docs/2) BackEnd/API_Reference/api_reference.md>). The generated OpenAPI document at `/openapi.json` is the runtime source of truth.
+For request and response contracts, start with the [canonical API documentation](faim_native/Docs/02-api/01-api-documentation.md). The generated OpenAPI document at `/openapi.json` is the runtime source of truth.
 
 ## Native design principles
 
@@ -556,7 +553,7 @@ For request and response contracts, start with [`FAIM_API_DOCUMENTATION.md`](<do
 | Evolution is controlled | Guardrails, intervals, action limits, diagnostics, backups, and restore APIs bound automated change |
 | Tenant scope is explicit | Auth context, repositories, graph reads, event streams, and storage paths carry tenant scope; deployments must verify isolation |
 | Acceleration is secondary | Redis and Qdrant improve speed or coordination; the durable graph remains authoritative |
-| Mutations are observable | Ingest, query, evolution, storage, approval, and diagnostics flows emit structured events or audit records where the selected path supports them |
+| Mutations are observable | Ingest, query, evolution, storage, and diagnostics flows emit structured events or audit records where the selected path supports them |
 
 ## Configuration highlights
 
@@ -612,7 +609,7 @@ python scripts/faim_write_demo.py ./sample.txt
 python scripts/faim_diagnostics_demo.py
 ```
 
-The acceptance suite covers tenant isolation, strict determinism, idempotent ingest, graph writes and merges, multihop recall, cross-lingual retrieval, multimodal reranking, storage lifecycle, Cortex, evolution, benchmarks, and security surfaces. Treat the output from the current checkout as the authoritative result; older reports in `docs/` describe historical stages and may contain superseded counts or commands.
+The acceptance suite covers the implemented tenant, ingest, graph, storage, evolution, benchmark, and security surfaces. Treat the output from the current checkout as the authoritative result; historical reports are archived and may contain superseded counts or commands.
 
 ## Deployment and operations
 
@@ -620,7 +617,7 @@ The acceptance suite covers tenant isolation, strict determinism, idempotent ing
 
 The repository includes a hardened multi-service Compose stack and environment-specific deployment helpers. Use the operator runbook for the target environment, keep credentials and host-specific overrides outside source control, and validate `/health`, `/ready`, `/version`, logs, backups, and rollback procedures before exposing traffic.
 
-Read [`CI_CD.md`](CI_CD.md), [`DEPLOYMENT.md`](<docs/2) BackEnd/Deployment_Ops/DEPLOYMENT.md>), and [`RUNBOOK.md`](<docs/2) BackEnd/Deployment_Ops/RUNBOOK.md>) before using a remote environment.
+Read [`CI_CD.md`](CI_CD.md), the [Docker deployment guide](faim_native/Docs/10-operations/01-deployment.md), and the [operational runbook](faim_native/Docs/10-operations/03-runbook.md) before using a remote environment.
 
 ### Operational checks
 
@@ -640,30 +637,20 @@ Readiness is stronger than liveness: it checks database connectivity, required t
 - [Research positioning](RESEARCH_POSITIONING.md)
 - [Roadmap and release gates](ROADMAP.md)
 - [CI, semantic releases, and deployment](CI_CD.md)
-- [End-to-end architecture and runtime boundaries](docs/END_TO_END_ARCHITECTURE.md)
+- [Canonical documentation index](faim_native/Docs/00-readme.md)
+- [End-to-end architecture and runtime boundaries](faim_native/Docs/01-architecture/01-end-to-end-architecture.md)
 - [Security reporting policy](SECURITY.md)
 - [Support guide](SUPPORT.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Governance](GOVERNANCE.md)
 - [Code of conduct](CODE_OF_CONDUCT.md)
 - [Changelog](CHANGELOG.md)
-- [Backend overview](<docs/2) BackEnd/README.md>)
-- [Architecture overview](docs/architecture_overview.md)
-- [API documentation](<docs/2) BackEnd/API_Reference/FAIM_API_DOCUMENTATION.md>)
-- [Core layer guide](<docs/2) BackEnd/API_Reference/core_layer_guide.md>)
-- [Perception layer guide](<docs/2) BackEnd/API_Reference/perception_layer_guide.md>)
-- [Encoding layer guide](<docs/2) BackEnd/API_Reference/encoding_layer_guide.md>)
-- [Store layer guide](<docs/2) BackEnd/API_Reference/store_layer_guide.md>)
-- [Full-stack workflow](<docs/2) BackEnd/Architecture/FULL_STACK_WORKFLOW.md>)
-- [Request lifecycle](<docs/2) BackEnd/Architecture/REQUEST_LIFECYCLE.md>)
-- [System wiring](<docs/2) BackEnd/Architecture/SYSTEM_WIRING.md>)
-- [Security guide](<docs/2) BackEnd/Security/SECURITY_GUIDE.md>)
-- [Threat model](<docs/2) BackEnd/Security/THREAT_MODEL.md>)
-- [Multi-tenant isolation](<docs/2) BackEnd/Security/MULTI_TENANT_ISOLATION_GUARANTEE.md>)
-- [Operations and deployment](docs/Operations/deployment.md)
-- [Benchmark specification](docs/Benchmarks_Publication/BENCHMARK_SPEC.md)
-- [Reproducibility kit](docs/Benchmarks_Publication/REPRODUCIBILITY_KIT.md)
-- [Implementation report](docs/IMPLEMENTATION_REPORT.md)
+- [API documentation](faim_native/Docs/02-api/01-api-documentation.md)
+- [Current code map](faim_native/Docs/09-implementation/01-current-code-map.md)
+- [Security guide](faim_native/Docs/11-security/03-security-guide.md)
+- [Threat model](faim_native/Docs/11-security/04-threat-model.md)
+- [Operations and deployment](faim_native/Docs/10-operations/01-deployment.md)
+- [Benchmark evidence](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md)
 
 ## Contributing
 

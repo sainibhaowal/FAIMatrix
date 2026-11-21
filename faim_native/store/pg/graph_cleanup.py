@@ -33,7 +33,11 @@ def _expanding(session: Any, sql: str, **params: Any):
     """
     stmt = text(sql)
     stmt = stmt.bindparams(
-        *(bindparam(key, expanding=True) for key, val in params.items() if isinstance(val, (list, tuple)))
+        *(
+            bindparam(key, expanding=True)
+            for key, val in params.items()
+            if isinstance(val, (list, tuple))
+        )
     )
     return session.execute(stmt, params)
 

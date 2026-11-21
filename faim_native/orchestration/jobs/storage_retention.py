@@ -157,7 +157,9 @@ def run_storage_retention_cleanup(
                     raw_ids=[raw_uuid],
                 )
             except Exception as exc:  # nosec B110
-                logger.warning("Graph artifact purge failed for %s: %s", raw_id_text, exc)
+                logger.warning(
+                    "Graph artifact purge failed for %s: %s", raw_id_text, exc
+                )
 
             if event_repo is not None:
                 try:

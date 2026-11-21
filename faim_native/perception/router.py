@@ -154,9 +154,13 @@ def route_extraction(
     if doc_type == "pdf":
         return extract_pdf_blocks(file_bytes, raw_id, settings=settings)
     elif doc_type == "docx":
-        return extract_docx_blocks(file_bytes, raw_id, settings=settings)
+        return extract_docx_blocks(
+            file_bytes, raw_id, filename=filename, settings=settings
+        )
     elif doc_type == "pptx":
-        return extract_pptx_blocks(file_bytes, raw_id, settings=settings)
+        return extract_pptx_blocks(
+            file_bytes, raw_id, filename=filename, settings=settings
+        )
     elif doc_type == "xlsx":
         return extract_xlsx_blocks(
             file_bytes, raw_id, filename=filename, settings=settings

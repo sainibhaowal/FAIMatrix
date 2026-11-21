@@ -3,6 +3,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { getSession } from "next-auth/react";
+import {
+  clampDraggedNode,
+  createElasticGravityForce,
+} from "@/lib/figViewLayout";
 
 const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
   ssr: false,
@@ -96,14 +100,22 @@ export const MiniFigCanvas: React.FC<MiniFigCanvasProps> = ({
             return {
               id: n.node_id,
               name: n.display?.title || n.node_id.slice(0, 10),
-              val: Math.max(3, Math.min(10, (n.metrics?.touch_count ?? 1) * 1.5)),
+              val: Math.max(
+                3,
+                Math.min(10, (n.metrics?.touch_count ?? 1) * 1.5),
+              ),
               color,
               kind,
             };
           });
 
           const links: LinkData[] = rawEdges
-            .filter((e: any) => idSet.has(e.src_node_id) && idSet.has(e.dst_node_id))
+            .filter(
+              (e: any) =>
+                e.src_node_id !== e.dst_node_id &&
+                idSet.has(e.src_node_id) &&
+                idSet.has(e.dst_node_id),
+            )
             .map((e: any) => ({
               source: e.src_node_id,
               target: e.dst_node_id,
@@ -128,12 +140,22 @@ export const MiniFigCanvas: React.FC<MiniFigCanvasProps> = ({
     };
   }, [graphId, nodeCount]);
 
-  // Set up auto-rotation
+  // Set up auto-rotation and bounded elastic forces
   useEffect(() => {
-    if (fgRef.current) {
-      fgRef.current.controls().autoRotate = true;
-      fgRef.current.controls().autoRotateSpeed = 1.2;
+    const fg = fgRef.current;
+    if (!fg) return;
+    const controls = fg.controls?.();
+    if (controls) {
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 1.2;
     }
+    const charge = fg.d3Force?.("charge");
+    if (charge && typeof charge.distanceMax === "function") {
+      charge.distanceMax(140);
+    }
+    fg.d3Force?.("center", null);
+    fg.d3Force?.("gravity", createElasticGravityForce(0.5, 140));
+    fg.d3ReheatSimulation?.();
   }, [mounted, realNodes.length]);
 
   // Measure container dimensions
@@ -174,11 +196,23 @@ export const MiniFigCanvas: React.FC<MiniFigCanvasProps> = ({
         </div>
         <div className="flex flex-col items-center justify-center gap-2.5 max-w-[260px]">
           <div className="w-10 h-10 rounded-xl bg-cyan-950/40 border border-cyan-800/40 flex items-center justify-center text-cyan-400">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
             </svg>
           </div>
-          <p className="text-xs font-semibold text-slate-300">Graph is currently empty</p>
+          <p className="text-xs font-semibold text-slate-300">
+            Graph is currently empty
+          </p>
           <p className="text-[10px] text-slate-500 font-mono leading-relaxed">
             Ingest files to generate real nodes and mirror spatial 3D clusters.
           </p>
@@ -210,6 +244,19 @@ export const MiniFigCanvas: React.FC<MiniFigCanvasProps> = ({
         linkDirectionalParticles={2}
         linkDirectionalParticleWidth={2}
         linkDirectionalParticleSpeed={0.005}
+        cooldownTicks={250}
+        onNodeDrag={(node: any) => clampDraggedNode(node, 140)}
+        onNodeDragEnd={(node: any) => {
+          if (node) {
+            node.fx = undefined;
+            node.fy = undefined;
+            node.fz = undefined;
+            node.vx = 0;
+            node.vy = 0;
+            node.vz = 0;
+          }
+          fgRef.current?.d3ReheatSimulation?.();
+        }}
         showNavInfo={false}
         width={dimensions.width}
         height={dimensions.height}

@@ -45,14 +45,38 @@ class ConversationalBenchmarkSplit:
 
 
 BEIR_HF_DATASETS: Dict[str, Dict[str, str]] = {
-    "scifact": {"corpus": "BeIR/scifact", "queries": "BeIR/scifact", "qrels": "BeIR/scifact-qrels"},
-    "nfcorpus": {"corpus": "BeIR/nfcorpus", "queries": "BeIR/nfcorpus", "qrels": "BeIR/nfcorpus-qrels"},
+    "scifact": {
+        "corpus": "BeIR/scifact",
+        "queries": "BeIR/scifact",
+        "qrels": "BeIR/scifact-qrels",
+    },
+    "nfcorpus": {
+        "corpus": "BeIR/nfcorpus",
+        "queries": "BeIR/nfcorpus",
+        "qrels": "BeIR/nfcorpus-qrels",
+    },
     "fiqa": {"corpus": "BeIR/fiqa", "queries": "BeIR/fiqa", "qrels": "BeIR/fiqa-qrels"},
-    "scidocs": {"corpus": "BeIR/scidocs", "queries": "BeIR/scidocs", "qrels": "BeIR/scidocs-qrels"},
-    "hotpotqa": {"corpus": "BeIR/hotpotqa", "queries": "BeIR/hotpotqa", "qrels": "BeIR/hotpotqa-qrels"},
-    "fever": {"corpus": "BeIR/fever", "queries": "BeIR/fever", "qrels": "BeIR/fever-qrels"},
+    "scidocs": {
+        "corpus": "BeIR/scidocs",
+        "queries": "BeIR/scidocs",
+        "qrels": "BeIR/scidocs-qrels",
+    },
+    "hotpotqa": {
+        "corpus": "BeIR/hotpotqa",
+        "queries": "BeIR/hotpotqa",
+        "qrels": "BeIR/hotpotqa-qrels",
+    },
+    "fever": {
+        "corpus": "BeIR/fever",
+        "queries": "BeIR/fever",
+        "qrels": "BeIR/fever-qrels",
+    },
     "nq": {"corpus": "BeIR/nq", "queries": "BeIR/nq", "qrels": "BeIR/nq-qrels"},
-    "msmarco": {"corpus": "BeIR/msmarco", "queries": "BeIR/msmarco", "qrels": "BeIR/msmarco-qrels"},
+    "msmarco": {
+        "corpus": "BeIR/msmarco",
+        "queries": "BeIR/msmarco",
+        "qrels": "BeIR/msmarco-qrels",
+    },
 }
 
 
@@ -68,11 +92,17 @@ def load_beir_split(
     or from HuggingFace `BeIR/*` via `datasets`."""
     if local_dir:
         return _load_beir_local(
-            dataset_name, Path(local_dir), max_corpus=max_corpus, max_queries=max_queries, seed=seed
+            dataset_name,
+            Path(local_dir),
+            max_corpus=max_corpus,
+            max_queries=max_queries,
+            seed=seed,
         )
 
     if dataset_name not in BEIR_HF_DATASETS:
-        raise ValueError(f"Unsupported BEIR dataset '{dataset_name}'. Supported: {sorted(BEIR_HF_DATASETS)}")
+        raise ValueError(
+            f"Unsupported BEIR dataset '{dataset_name}'. Supported: {sorted(BEIR_HF_DATASETS)}"
+        )
 
     try:
         from datasets import load_dataset
@@ -82,7 +112,9 @@ def load_beir_split(
         ) from exc
 
     spec = BEIR_HF_DATASETS[dataset_name]
-    cache_dir = os.path.expanduser(os.getenv("FAIM_BENCH_DATA_DIR", "~/.faim/bench_datasets"))
+    cache_dir = os.path.expanduser(
+        os.getenv("FAIM_BENCH_DATA_DIR", "~/.faim/bench_datasets")
+    )
     corpus_revision = (
         os.getenv("FAIM_BEIR_CORPUS_REVISION", "").strip()
         or os.getenv("FAIM_BEIR_REVISION", "").strip()
@@ -98,21 +130,30 @@ def load_beir_split(
         or os.getenv("FAIM_BEIR_REVISION", "").strip()
         or None
     )
-    corpus_kwargs = {"revision": corpus_revision} if corpus_revision else {}
-    queries_kwargs = {"revision": queries_revision} if queries_revision else {}
-    qrels_kwargs = {"revision": qrels_revision} if qrels_revision else {}
-    corpus_ds = load_dataset(
+    if not corpus_revision or not queries_revision or not qrels_revision:
+        raise RuntimeError(
+            "Pinned Hugging Face revisions are required for reproducible BEIR loads; "
+            "set FAIM_BEIR_REVISION or all three FAIM_BEIR_*_REVISION variables."
+        )
+    corpus_kwargs = {"revision": corpus_revision}
+    queries_kwargs = {"revision": queries_revision}
+    qrels_kwargs = {"revision": qrels_revision}
+    corpus_ds = load_dataset(  # nosec B615 - revision is required above
         spec["corpus"], "corpus", split="corpus", cache_dir=cache_dir, **corpus_kwargs
     )
-    queries_ds = load_dataset(
-        spec["queries"], "queries", split="queries", cache_dir=cache_dir, **queries_kwargs
+    queries_ds = load_dataset(  # nosec B615 - revision is required above
+        spec["queries"],
+        "queries",
+        split="queries",
+        cache_dir=cache_dir,
+        **queries_kwargs,
     )
 
     qrels_ds = None
     qrels_split = None
     for split_name in ("test", "dev", "validation", "train"):
         try:
-            qrels_ds = load_dataset(
+            qrels_ds = load_dataset(  # nosec B615 - revision is required above
                 spec["qrels"], split=split_name, cache_dir=cache_dir, **qrels_kwargs
             )
             qrels_split = split_name
@@ -125,9 +166,14 @@ def load_beir_split(
     corpus: Dict[str, Dict[str, str]] = {}
     for row in corpus_ds:
         doc_id = str(row["_id"])
-        corpus[doc_id] = {"title": str(row.get("title") or ""), "text": str(row.get("text") or "")}
+        corpus[doc_id] = {
+            "title": str(row.get("title") or ""),
+            "text": str(row.get("text") or ""),
+        }
 
-    queries_all: Dict[str, str] = {str(row["_id"]): str(row["text"]) for row in queries_ds}
+    queries_all: Dict[str, str] = {
+        str(row["_id"]): str(row["text"]) for row in queries_ds
+    }
     qrels: Dict[str, Dict[str, float]] = {}
     for row in qrels_ds:
         qid = str(row["query-id"])
@@ -174,7 +220,10 @@ def _load_beir_local(
             if not line.strip():
                 continue
             row = json.loads(line)
-            corpus[str(row["_id"])] = {"title": str(row.get("title") or ""), "text": str(row.get("text") or "")}
+            corpus[str(row["_id"])] = {
+                "title": str(row.get("title") or ""),
+                "text": str(row.get("text") or ""),
+            }
 
     queries_all: Dict[str, str] = {}
     with (root / "queries.jsonl").open("r", encoding="utf-8") as fh:
@@ -212,6 +261,10 @@ def _load_beir_local(
             "source_type": "local_beir_folder",
             "source_path": str(root.resolve()),
             "qrels_file": str(qrels_path.resolve()),
+            # Local benchmark folders are commonly downloaded outside the
+            # repository.  Operators can provide the archive/content digest so
+            # the signed report remains reproducible and publication-gated.
+            "revision": os.getenv("FAIM_BEIR_LOCAL_REVISION", "unspecified"),
         },
     )
 
@@ -237,7 +290,9 @@ def _subsample_retrieval(
         required_docs = {did for qr in sel_qrels.values() for did in qr.keys()}
         remaining = [did for did in sorted(corpus.keys()) if did not in required_docs]
         extra_needed = max(0, max_corpus - len(required_docs))
-        picked = set(required_docs) | set(rng.sample(remaining, min(extra_needed, len(remaining))))
+        picked = set(required_docs) | set(
+            rng.sample(remaining, min(extra_needed, len(remaining)))
+        )
         sel_corpus = {did: corpus[did] for did in sorted(picked)}
     else:
         sel_corpus = corpus
@@ -260,7 +315,9 @@ def _subsample_retrieval(
     )
 
 
-def load_locomo_split(path: str, *, max_cases: Optional[int] = None) -> ConversationalBenchmarkSplit:
+def load_locomo_split(
+    path: str, *, max_cases: Optional[int] = None
+) -> ConversationalBenchmarkSplit:
     """Load LoCoMo JSON conversation + QA file."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     records = data if isinstance(data, list) else [data]
@@ -297,11 +354,16 @@ def load_locomo_split(path: str, *, max_cases: Optional[int] = None) -> Conversa
         name="locomo",
         turns=turns,
         qa_cases=qa_cases,
-        metadata={"source_type": "local_json", "source_path": str(Path(path).resolve())},
+        metadata={
+            "source_type": "local_json",
+            "source_path": str(Path(path).resolve()),
+        },
     )
 
 
-def load_longmemeval_split(path: str, *, max_cases: Optional[int] = None) -> ConversationalBenchmarkSplit:
+def load_longmemeval_split(
+    path: str, *, max_cases: Optional[int] = None
+) -> ConversationalBenchmarkSplit:
     """Load LongMemEval JSON file."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     records = data if isinstance(data, list) else data.get("items", [])
@@ -337,5 +399,8 @@ def load_longmemeval_split(path: str, *, max_cases: Optional[int] = None) -> Con
         name="longmemeval",
         turns=turns,
         qa_cases=qa_cases,
-        metadata={"source_type": "local_json", "source_path": str(Path(path).resolve())},
+        metadata={
+            "source_type": "local_json",
+            "source_path": str(Path(path).resolve()),
+        },
     )

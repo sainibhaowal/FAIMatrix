@@ -109,7 +109,9 @@ def run_tenant_crypto_rotation_backfill(
                 continue
 
             if row.dek_wrapped:
-                dek, source_index = unwrap_dek_with_ring(bytes(row.dek_wrapped), master_keys)
+                dek, source_index = unwrap_dek_with_ring(
+                    bytes(row.dek_wrapped), master_keys
+                )
                 source_fp = master_key_fingerprint(master_keys[source_index])
             else:
                 dek = generate_dek()

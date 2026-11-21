@@ -93,9 +93,24 @@ export const WorkerPoolStatus: React.FC<WorkerPoolStatusProps> = ({
           }
 
           const colors = {
-            running: { border: "border-emerald-400/40", bg: "bg-emerald-400/10", dot: "bg-emerald-400", text: "text-emerald-300" },
-            idle: { border: "border-slate-600/40", bg: "bg-slate-600/10", dot: "bg-slate-500", text: "text-slate-400" },
-            offline: { border: "border-rose-400/40", bg: "bg-rose-400/10", dot: "bg-rose-400", text: "text-rose-400" },
+            running: {
+              border: "border-emerald-400/40",
+              bg: "bg-emerald-400/10",
+              dot: "bg-emerald-400",
+              text: "text-emerald-300",
+            },
+            idle: {
+              border: "border-slate-600/40",
+              bg: "bg-slate-600/10",
+              dot: "bg-slate-500",
+              text: "text-slate-400",
+            },
+            offline: {
+              border: "border-rose-400/40",
+              bg: "bg-rose-400/10",
+              dot: "bg-rose-400",
+              text: "text-rose-400",
+            },
           }[status];
 
           return (
@@ -104,17 +119,29 @@ export const WorkerPoolStatus: React.FC<WorkerPoolStatusProps> = ({
               className={`relative rounded-[12px] border p-2.5 flex flex-col items-start justify-between min-h-[72px] transition-colors ${colors.border} ${colors.bg}`}
             >
               <div className="flex items-center gap-2 w-full min-w-0">
-                <span className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center ${s.bg}`}>
+                <span
+                  className={`w-6 h-6 shrink-0 rounded-lg flex items-center justify-center ${s.bg}`}
+                >
                   <s.icon size={12} className={s.color} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold text-white truncate leading-tight">{s.label}</p>
-                  <p className={`text-[8px] font-mono uppercase tracking-wider ${colors.text} leading-tight`}>{status.toUpperCase()}</p>
+                  <p className="text-[10px] font-semibold text-white truncate leading-tight">
+                    {s.label}
+                  </p>
+                  <p
+                    className={`text-[8px] font-mono uppercase tracking-wider ${colors.text} leading-tight`}
+                  >
+                    {status.toUpperCase()}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center justify-between w-full mt-1.5 min-w-0 pr-2">
-                <p className="text-[9px] text-slate-500 truncate leading-none">{detail}</p>
-                <span className={`w-1.5 h-1.5 shrink-0 rounded-full ${colors.dot}`} />
+                <p className="text-[9px] text-slate-500 truncate leading-none">
+                  {detail}
+                </p>
+                <span
+                  className={`w-1.5 h-1.5 shrink-0 rounded-full ${colors.dot}`}
+                />
               </div>
             </div>
           );

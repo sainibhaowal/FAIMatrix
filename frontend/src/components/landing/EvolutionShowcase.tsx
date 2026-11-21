@@ -182,11 +182,11 @@ export default function EvolutionShowcase() {
             </span>
           </h2>
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
-            FAIM monitors graph diagnostics, and when autonomy is enabled it
-            can run evolve cycles through the approved scheduler or worker
-            path. That means thresholds can adapt, redundancy can merge, dead
-            weight can be pruned, and macro concepts can be proposed without
-            pretending the system is self-driving by default.
+            FAIM monitors graph diagnostics, and when autonomy is enabled it can
+            run evolve cycles through the approved scheduler or worker path.
+            That means thresholds can adapt, redundancy can merge, dead weight
+            can be pruned, and macro concepts can be proposed without pretending
+            the system is self-driving by default.
           </p>
         </motion.div>
 

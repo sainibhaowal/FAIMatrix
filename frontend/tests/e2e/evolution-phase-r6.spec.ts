@@ -254,16 +254,14 @@ test.describe("Evolution Phase R6 Validation", () => {
     await expect(
       page.getByRole("heading", { name: "Evolution Control Plane" }),
     ).toBeVisible();
-    await expect(
-      page.locator("text=Requested mode: strict/relaxed"),
-    ).toBeVisible();
+    await expect(page.locator("text=Policy: strict/relaxed")).toBeVisible();
     await expect(
       page.locator(
         "text=Backend will return effective mode and durability for each run.",
       ),
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Run evolve now" }).click();
+    await page.getByRole("button", { name: "Run Evolution" }).click();
 
     await expect(
       page.locator(
@@ -277,7 +275,7 @@ test.describe("Evolution Phase R6 Validation", () => {
     ).toBeVisible();
     await expect(
       page.locator(
-        "text=Completed: merges=2, prunes=1, inventions=1 | mode strict/relaxed -> fast/strict (sync_strict)",
+        "text=Completed: merges=3, prunes=1, inventions=2 | mode strict/relaxed -> fast/strict (sync_strict)",
       ),
     ).toBeVisible();
   });

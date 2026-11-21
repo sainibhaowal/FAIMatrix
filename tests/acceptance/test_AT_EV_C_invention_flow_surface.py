@@ -85,15 +85,9 @@ def _seed_graph(session, tenant_id: str, graph_id: str) -> dict:
         vectors = vectorize_blocks(blocks)
         engine_repo.write_atoms(graph_id=graph_id, vectors=vectors)
 
-    _write(
-        "NGINX reverse proxy load balancing across backend replicas", "raw-a"
-    )
-    _write(
-        "PgBouncer connection pooling keeps database session count bounded", "raw-b"
-    )
-    _write(
-        "Redis session cache TTL expires idle memory entries", "raw-c"
-    )
+    _write("NGINX reverse proxy load balancing across backend replicas", "raw-a")
+    _write("PgBouncer connection pooling keeps database session count bounded", "raw-b")
+    _write("Redis session cache TTL expires idle memory entries", "raw-c")
 
     atoms = node_repo.list_atoms(graph_id=graph_id, limit=10)
     assert len(atoms) >= 2
@@ -238,7 +232,6 @@ def test_phase_ev_c_invention_flow_returns_real_stages(monkeypatch, tmp_path):
 
 
 def test_phase_ev_c_invention_flow_empty_graph(monkeypatch, tmp_path):
-    from runtime.context import close_session
 
     tenant_a = f"tenant_evc_empty_{uuid4().hex[:6]}"
     key_a = "key_evc_empty"

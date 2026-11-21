@@ -1,33 +1,21 @@
 "use client";
 
 import {
+  AlertTriangle,
   BookOpen,
-  ChevronDown,
+  Check,
   Copy,
-  Eye,
-  EyeOff,
   KeyRound,
+  Plus,
   RefreshCw,
-  RotateCcw,
-  Shield,
   ShieldCheck,
-  ShieldOff,
   Trash2,
+  X,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { getSession, useSession } from "next-auth/react";
+import { getSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  Input,
-  Select,
-  useToast,
-} from "@/components/ui";
+import { Badge, Button, Input, useToast } from "@/components/ui";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { ApiKeysManual } from "@/components/manuals/ApiKeysManual";
 
@@ -35,13 +23,11 @@ type ApiKeyItem = {
   tenant_id: string;
   key_id: string;
   key_prefix: string;
+  label?: string | null;
   scopes: string[];
   created_at?: string | null;
   created_by?: string | null;
   expires_at?: string | null;
-  revoked_at?: string | null;
-  revoked_reason?: string | null;
-  rotated_from_key_id?: string | null;
   last_used_at?: string | null;
   is_active: boolean;
 };
@@ -49,7 +35,6 @@ type ApiKeyItem = {
 type ApiKeyListResponse = {
   items: ApiKeyItem[];
   total: number;
-  include_revoked: boolean;
 };
 
 type ApiKeyCreateResponse = {
@@ -57,198 +42,27 @@ type ApiKeyCreateResponse = {
   plaintext_key: string;
 };
 
-type ApiKeyRotateResponse = {
-  old_key: ApiKeyItem;
-  new_key: ApiKeyItem;
-  plaintext_key: string;
-};
-
-type ApiKeyRevokeResponse = {
-  key: ApiKeyItem;
-};
-
-type ApiKeyAuditItem = {
-  id: string;
-  tenant_id: string;
-  key_id: string;
-  action: string;
-  actor?: string | null;
-  request_id?: string | null;
-  meta: Record<string, unknown>;
-  created_at?: string | null;
-};
-
-type ApiKeyAuditResponse = {
-  items: ApiKeyAuditItem[];
-  total: number;
-  limit: number;
-};
-
-// --- Custom Themed Select Component (Storage Parity) ---
-function ThemedSelect<T extends string>({
-  value,
-  onChange,
-  options,
-  className = "",
-  placeholder = "Select...",
-  label = "",
-}: {
-  value: T;
-  onChange: (val: T) => void;
-  options: { value: T; label: string }[];
-  className?: string;
-  placeholder?: string;
-  label?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const current = options.find((o) => o.value === value);
-
-  return (
-    <div className={`relative ${className}`}>
-      {label && (
-        <p
-          className="mb-1.5 text-[10px] font-medium uppercase tracking-wider"
-          style={{ color: "var(--text-tertiary)" }}
-        >
-          {label}
-        </p>
-      )}
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex h-8 w-full items-center justify-between gap-2 rounded-lg border px-2.5 text-xs outline-none transition-all hover:bg-white/5 active:scale-[0.98]"
-        style={{
-          background: "var(--os-surface-2)",
-          borderColor: "var(--os-stroke)",
-          color: "var(--text-primary)",
-        }}
-      >
-        <span className="truncate">{current?.label || placeholder}</span>
-        <ChevronDown
-          size={14}
-          className={`shrink-0 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
-          style={{ color: "var(--text-tertiary)" }}
-        />
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <>
-            <div
-              className="fixed inset-0 z-[var(--z-modal)]"
-              onClick={() => setOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              className="absolute left-0 top-full z-[var(--z-dropdown)] w-full min-w-[120px] mt-1 overflow-hidden rounded-xl border p-1 shadow-2xl backdrop-blur-xl"
-              style={{
-                background: "rgba(10, 15, 25, 0.95)",
-                borderColor: "var(--os-stroke)",
-                boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
-              }}
-            >
-              {options.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt.value);
-                    setOpen(false);
-                  }}
-                  className={`flex h-8 w-full items-center rounded-lg px-2.5 text-xs transition-colors ${
-                    opt.value === value
-                      ? "bg-indigo-500/10 font-medium text-indigo-400"
-                      : "text-[var(--text-secondary)] hover:bg-white/5"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-class ApiError extends Error {
-  status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-
-type RevealState = {
-  keyId: string;
-  plaintext: string;
-  mode: "created" | "rotated";
-};
-
-const AVAILABLE_SCOPES = [
-  "keys.read",
-  "keys.write",
+const ALL_SCOPES = [
   "memory.read",
   "memory.write",
+  "keys.read",
+  "keys.write",
   "memory.admin",
-];
+] as const;
 
 const EXPIRY_OPTIONS = [
-  { value: "never", label: "Never expires" },
-  { value: "7d", label: "7 days" },
   { value: "30d", label: "30 days" },
   { value: "90d", label: "90 days" },
-];
-
-function statusForKey(item: ApiKeyItem): "active" | "revoked" | "expired" {
-  if (item.revoked_at) return "revoked";
-  if (item.expires_at && new Date(item.expires_at).getTime() <= Date.now()) {
-    return "expired";
-  }
-  return "active";
-}
-
-function shortId(value?: string | null): string {
-  if (!value) return "-";
-  if (value.length <= 14) return value;
-  return `${value.slice(0, 8)}...${value.slice(-4)}`;
-}
-
-function formatTs(value?: string | null): string {
-  if (!value) return "-";
-  const ts = new Date(value);
-  if (Number.isNaN(ts.getTime())) return value;
-  return ts.toLocaleString();
-}
-
-function maskSecret(value: string): string {
-  const len = Math.max(24, Math.min(96, value.length));
-  return "•".repeat(len);
-}
+  { value: "365d", label: "1 year" },
+  { value: "never", label: "Never expires" },
+] as const;
 
 async function authHeaders(extra?: HeadersInit): Promise<HeadersInit> {
   const session = await getSession();
   const token = (session as { accessToken?: string } | null)?.accessToken;
   const base: Record<string, string> = {};
-  if (token) {
-    base.Authorization = `Bearer ${token}`;
-  }
-
+  if (token) base.Authorization = `Bearer ${token}`;
   if (!extra) return base;
-  if (extra instanceof Headers) {
-    const merged = new Headers(base);
-    extra.forEach((v, k) => merged.set(k, v));
-    return merged;
-  }
-  if (Array.isArray(extra)) {
-    const merged = new Headers(base);
-    for (const [k, v] of extra) merged.set(k, v);
-    return merged;
-  }
   return { ...base, ...(extra as Record<string, string>) };
 }
 
@@ -259,7 +73,6 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
     headers,
     cache: "no-store",
   });
-
   if (!resp.ok) {
     let message = `Request failed (${resp.status})`;
     try {
@@ -271,7 +84,7 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // ignore parse errors
     }
-    throw new ApiError(resp.status, message);
+    throw new Error(message);
   }
   return (await resp.json()) as T;
 }
@@ -280,748 +93,575 @@ function computeExpiryIso(selection: string): string | undefined {
   if (selection === "never") return undefined;
   const days = Number.parseInt(selection.replace("d", ""), 10);
   if (!Number.isFinite(days) || days <= 0) return undefined;
-  const target = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-  return target.toISOString();
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function formatDate(value?: string | null): string {
+  if (!value) return "—";
+  const dt = new Date(value);
+  if (Number.isNaN(dt.getTime())) return "—";
+  return dt.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 }
 
 export default function ApiKeysPage() {
-  const { data: session } = useSession();
   const { toast } = useToast();
 
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
-  const [auditItems, setAuditItems] = useState<ApiKeyAuditItem[]>([]);
-  const [loadingKeys, setLoadingKeys] = useState(false);
-  const [loadingAudit, setLoadingAudit] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
 
-  const [includeRevoked, setIncludeRevoked] = useState(true);
-  const [auditKeyFilter, setAuditKeyFilter] = useState("all");
-
+  // Create & One-Time Reveal Modal
+  const [createOpen, setCreateOpen] = useState(false);
+  const [label, setLabel] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<string[]>([
-    "keys.read",
-    "keys.write",
     "memory.read",
     "memory.write",
+    "keys.read",
+    "keys.write",
   ]);
   const [expiryPreset, setExpiryPreset] = useState("90d");
-  const [label, setLabel] = useState("");
   const [creating, setCreating] = useState(false);
-  const [busyKeyId, setBusyKeyId] = useState<string | null>(null);
-  const [reveal, setReveal] = useState<RevealState | null>(null);
-  const [isRevealVisible, setIsRevealVisible] = useState(false);
+  const [revealedKey, setRevealedKey] = useState<{
+    plaintext: string;
+    label: string;
+    prefix: string;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const userName = useMemo(() => {
-    const typed = session as {
-      user?: { email?: string; name?: string };
-    } | null;
-    return typed?.user?.name || typed?.user?.email || "Current user";
-  }, [session]);
+  // Permanent Delete Confirmation
+  const [deleteTarget, setDeleteTarget] = useState<ApiKeyItem | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const loadKeys = useCallback(async () => {
-    setLoadingKeys(true);
+    setLoading(true);
     try {
       const data = await apiRequest<ApiKeyListResponse>(
-        `/api/v1/api-keys?include_revoked=${includeRevoked ? "true" : "false"}`,
+        "/api/v1/api-keys?include_revoked=false",
       );
-      setKeys(data.items || []);
+      setKeys((data.items || []).filter((k) => k.is_active));
     } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to load API keys";
-      toast.error(msg);
-    } finally {
-      setLoadingKeys(false);
-    }
-  }, [includeRevoked, toast]);
-
-  const loadAudit = useCallback(async () => {
-    setLoadingAudit(true);
-    try {
-      const params = new URLSearchParams();
-      params.set("limit", "80");
-      if (auditKeyFilter !== "all") {
-        params.set("key_id", auditKeyFilter);
-      }
-      const data = await apiRequest<ApiKeyAuditResponse>(
-        `/api/v1/api-keys/audit?${params.toString()}`,
+      toast.error(
+        "Failed to load API keys",
+        err instanceof Error ? err.message : undefined,
       );
-      setAuditItems(data.items || []);
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Failed to load API key audit";
-      toast.error(msg);
     } finally {
-      setLoadingAudit(false);
+      setLoading(false);
     }
-  }, [auditKeyFilter, toast]);
+  }, [toast]);
 
   useEffect(() => {
     void loadKeys();
   }, [loadKeys]);
 
-  useEffect(() => {
-    void loadAudit();
-  }, [loadAudit]);
-
-  const summary = useMemo(() => {
-    let active = 0;
-    let revoked = 0;
-    let expired = 0;
-    for (const item of keys) {
-      const status = statusForKey(item);
-      if (status === "active") active += 1;
-      if (status === "revoked") revoked += 1;
-      if (status === "expired") expired += 1;
-    }
-    return { total: keys.length, active, revoked, expired };
+  const stats = useMemo(() => {
+    const now = Date.now();
+    const fourteenDays = 14 * 24 * 60 * 60 * 1000;
+    const expiringSoon = keys.filter((k) => {
+      if (!k.expires_at) return false;
+      const ms = new Date(k.expires_at).getTime() - now;
+      return ms > 0 && ms <= fourteenDays;
+    }).length;
+    const neverExpires = keys.filter((k) => !k.expires_at).length;
+    return { active: keys.length, expiringSoon, neverExpires };
   }, [keys]);
 
-  const toggleScope = (scope: string) => {
-    setSelectedScopes((prev) => {
-      if (prev.includes(scope)) {
-        return prev.filter((item) => item !== scope);
-      }
-      return [...prev, scope];
-    });
-  };
+  function toggleScope(scope: string) {
+    setSelectedScopes((prev) =>
+      prev.includes(scope) ? prev.filter((s) => s !== scope) : [...prev, scope],
+    );
+  }
 
-  const createKey = async () => {
+  function openCreateModal() {
+    setLabel("");
+    setSelectedScopes([
+      "memory.read",
+      "memory.write",
+      "keys.read",
+      "keys.write",
+    ]);
+    setExpiryPreset("90d");
+    setRevealedKey(null);
+    setCopied(false);
+    setCreateOpen(true);
+  }
+
+  function closeCreateModal() {
+    setCreateOpen(false);
+    setRevealedKey(null);
+    setCopied(false);
+  }
+
+  async function handleCreate() {
     if (selectedScopes.length === 0) {
-      toast.info("Select at least one scope before creating a key.");
+      toast.error("Select at least one permission scope");
       return;
     }
-
     setCreating(true);
     try {
-      const payload = {
-        label: label.trim() || undefined,
-        scopes: selectedScopes,
-        expires_at: computeExpiryIso(expiryPreset),
-      };
-
-      const response = await apiRequest<ApiKeyCreateResponse>(
-        "/api/v1/api-keys",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        },
-      );
-
-      setReveal({
-        keyId: response.key.key_id,
-        plaintext: response.plaintext_key,
-        mode: "created",
+      const res = await apiRequest<ApiKeyCreateResponse>("/api/v1/api-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: label.trim() || null,
+          scopes: selectedScopes,
+          expires_at: computeExpiryIso(expiryPreset),
+        }),
       });
-      setIsRevealVisible(false);
-      setLabel("");
-
-      toast.success("API key created. Copy it now; it is shown only once.");
-      await Promise.all([loadKeys(), loadAudit()]);
+      setRevealedKey({
+        plaintext: res.plaintext_key,
+        label: res.key.label || label.trim() || "API Key",
+        prefix: res.key.key_prefix,
+      });
+      setKeys((prev) => [res.key, ...prev]);
+      toast.success("Secret key created");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to create key";
-      toast.error(msg);
+      toast.error(
+        "Failed to create API key",
+        err instanceof Error ? err.message : undefined,
+      );
     } finally {
       setCreating(false);
     }
-  };
+  }
 
-  const rotateKey = async (keyId: string) => {
-    const ok = window.confirm(
-      `Rotate key ${keyId}? The old key will be revoked.`,
-    );
-    if (!ok) return;
-
-    setBusyKeyId(keyId);
+  async function handleCopy(value: string) {
     try {
-      const response = await apiRequest<ApiKeyRotateResponse>(
-        `/api/v1/api-keys/${encodeURIComponent(keyId)}/rotate`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reason: "rotated from dashboard",
-          }),
-        },
-      );
-
-      setReveal({
-        keyId: response.new_key.key_id,
-        plaintext: response.plaintext_key,
-        mode: "rotated",
-      });
-      setIsRevealVisible(false);
-      toast.success("API key rotated. Copy the new key now.");
-      await Promise.all([loadKeys(), loadAudit()]);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to rotate key";
-      toast.error(msg);
-    } finally {
-      setBusyKeyId(null);
-    }
-  };
-
-  const revokeKey = async (keyId: string) => {
-    const ok = window.confirm(
-      `Revoke key ${keyId}? This action cannot be undone.`,
-    );
-    if (!ok) return;
-
-    setBusyKeyId(keyId);
-    try {
-      await apiRequest<ApiKeyRevokeResponse>(
-        `/api/v1/api-keys/${encodeURIComponent(keyId)}/revoke`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reason: "revoked from dashboard",
-          }),
-        },
-      );
-      toast.success("API key revoked.");
-      await Promise.all([loadKeys(), loadAudit()]);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to revoke key";
-      toast.error(msg);
-    } finally {
-      setBusyKeyId(null);
-    }
-  };
-
-  const copyReveal = async () => {
-    if (!reveal?.plaintext) return;
-    try {
-      await navigator.clipboard.writeText(reveal.plaintext);
-      toast.success("API key copied to clipboard.");
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      toast.success("Copied secret key to clipboard");
+      setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Clipboard access failed. Copy manually.");
+      toast.error("Failed to copy to clipboard");
     }
-  };
+  }
+
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await apiRequest(
+        `/api/v1/api-keys/${encodeURIComponent(deleteTarget.key_id)}`,
+        {
+          method: "DELETE",
+        },
+      );
+      setKeys((prev) => prev.filter((k) => k.key_id !== deleteTarget.key_id));
+      toast.success("API key permanently deleted");
+      setDeleteTarget(null);
+    } catch (err) {
+      toast.error(
+        "Failed to delete API key",
+        err instanceof Error ? err.message : undefined,
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
-    <>
-      <div className="relative min-h-screen space-y-4 pb-8 text-slate-100 px-1">
-        <div className="faim-grid" />
-
-        <GlassHeader
+    <div className="relative space-y-4 pb-8 text-slate-100 px-1">
+      <div className="faim-grid" />
+      <GlassHeader
         title="API Keys"
-        subtitle="Manage Secure Access Matrix and Tenant-Scoped Lifecycle"
+        subtitle="Create and manage secret keys for SDK, CLI, and external agent access"
         icon={KeyRound}
         titleTestId="api-keys-page-title"
         actions={
-          <>
+          <div className="flex items-center gap-2">
             <Button
-              variant="outline"
-              leftIcon={<BookOpen size={13} />}
-              onClick={() => setManualOpen(true)}
-              className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 backdrop-blur-md h-10 px-5 text-[11px] font-bold uppercase tracking-[0.2em]"
+              variant="secondary"
+              size="sm"
+              onClick={() => void loadKeys()}
+              disabled={loading}
+              className="gap-1.5"
             >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setManualOpen(true)}
+              className="gap-1.5"
+            >
+              <BookOpen className="h-3.5 w-3.5" />
               User Manual
             </Button>
             <Button
-              variant="outline"
-              leftIcon={<RefreshCw size={14} />}
-              onClick={() => {
-                void loadKeys();
-                void loadAudit();
-              }}
-              className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 backdrop-blur-md h-10 px-5 text-[11px] font-bold uppercase tracking-[0.2em]"
-              disabled={loadingKeys || loadingAudit}
+              variant="primary"
+              size="sm"
+              onClick={openCreateModal}
+              className="gap-1.5"
             >
-              Refresh Matrix
+              <Plus className="h-3.5 w-3.5" />
+              Create new secret key
             </Button>
-          </>
+          </div>
         }
       />
 
-      {/* --- Metrics Scorecard (Domain Studio MetricTile style) --- */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          {
-            label: "TOTAL KEYS",
-            value: summary.total,
-            icon: KeyRound,
-            accent: "#06b6d4",
-            textColor: "text-cyan-400",
-          },
-          {
-            label: "ACTIVE KEYS",
-            value: summary.active,
-            icon: ShieldCheck,
-            accent: "#10b981",
-            textColor: "text-emerald-400",
-          },
-          {
-            label: "REVOKED",
-            value: summary.revoked,
-            icon: ShieldOff,
-            accent: "#f43f5e",
-            textColor: "text-rose-400",
-          },
-          {
-            label: "EXPIRED",
-            value: summary.expired,
-            icon: RotateCcw,
-            accent: "#f59e0b",
-            textColor: "text-amber-400",
-          },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="relative overflow-hidden rounded-[16px] border p-4 backdrop-blur-xl transition-all duration-300"
-            style={{
-              borderColor: `${stat.accent}33`,
-              backgroundColor: "rgba(10, 16, 28, 0.75)",
-              boxShadow: `0 8px 32px 0 rgba(0,0,0,0.37), inset 0 1px 0 0 ${stat.accent}33`,
-            }}
-          >
-            <div className="flex items-center justify-between mb-2">
-              <p
-                className="font-mono text-[10px] font-bold uppercase tracking-[0.22em]"
-                style={{ color: stat.accent }}
-              >
-                {stat.label}
-              </p>
-              <stat.icon size={16} style={{ color: stat.accent }} className="opacity-80" />
-            </div>
-            <p className={`text-2xl font-bold tracking-tight ${stat.textColor} tabular-nums`}>
-              {stat.value}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <div
-        className="overflow-hidden rounded-xl border transition-all duration-500"
-        style={{
-          borderColor: reveal ? "var(--faim-warning)" : "var(--os-stroke)",
-          background: reveal
-            ? "var(--faim-warning-muted)"
-            : "var(--os-surface-1)",
-        }}
-      >
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
-          style={{ borderColor: "var(--os-stroke)" }}
-        >
-          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-            One-time key reveal
-          </p>
-          <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-            {reveal
-              ? `${reveal.mode === "created" ? "New" : "Rotated"} key: ${reveal.keyId}`
-              : "Awaiting key generation"}
-          </p>
-        </div>
-        <div
-          className={
-            reveal ? "pt-5" : "pt-0 pb-6 opacity-40 transition-all duration-500"
-          }
-        >
-          <AnimatePresence mode="wait">
-            {reveal ? (
-              <motion.div
-                key="revealed"
-                initial={{ opacity: 0, height: 0, y: -10, filter: "blur(4px)" }}
-                animate={{
-                  opacity: 1,
-                  height: "auto",
-                  y: 0,
-                  filter: "blur(0px)",
-                }}
-                exit={{ opacity: 0, height: 0, y: -10, filter: "blur(4px)" }}
-                transition={{ duration: 0.4, ease: "easeOut" }}
-                className="space-y-4 overflow-hidden"
-              >
-                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--faim-warning-text)]">
-                  Save this key now. It will not be shown again.
+      <div className="w-full space-y-4">
+        {/* Compact Summary */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+            <div className="pointer-events-none absolute top-0 left-6 right-6 h-[2px] rounded-full bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent" />
+            <div className="pointer-events-none absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
+            <div className="flex items-center justify-between p-4">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                  Active Keys
                 </p>
-                <div
-                  className="rounded-xl border p-4 font-mono text-xs break-all text-white shadow-inner"
-                  style={{
-                    background: "var(--os-surface-2)",
-                    borderColor: "var(--os-stroke)",
-                  }}
+                <p className="mt-1 text-2xl font-semibold text-cyan-300">
+                  {stats.active}
+                </p>
+              </div>
+              <KeyRound className="h-5 w-5 text-cyan-400/70" />
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+            <div className="pointer-events-none absolute top-0 left-6 right-6 h-[2px] rounded-full bg-gradient-to-r from-amber-500/80 via-amber-400/40 to-transparent" />
+            <div className="pointer-events-none absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-amber-400/80 via-amber-400/30 to-transparent" />
+            <div className="flex items-center justify-between p-4">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                  Expiring (&lt; 14 days)
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-amber-300">
+                  {stats.expiringSoon}
+                </p>
+              </div>
+              <AlertTriangle className="h-5 w-5 text-amber-400/70" />
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+            <div className="pointer-events-none absolute top-0 left-6 right-6 h-[2px] rounded-full bg-gradient-to-r from-emerald-500/80 via-emerald-400/40 to-transparent" />
+            <div className="pointer-events-none absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-emerald-400/80 via-emerald-400/30 to-transparent" />
+            <div className="flex items-center justify-between p-4">
+              <div>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                  Non-Expiring
+                </p>
+                <p className="mt-1 text-2xl font-semibold text-emerald-300">
+                  {stats.neverExpires}
+                </p>
+              </div>
+              <ShieldCheck className="h-5 w-5 text-emerald-400/70" />
+            </div>
+          </div>
+        </div>
+
+        {/* Production Key Table */}
+        <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+          <div className="pointer-events-none absolute top-0 left-6 right-6 h-[2px] rounded-full bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent" />
+          <div className="pointer-events-none absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/70 via-cyan-400/25 to-transparent" />
+          <div className="p-0">
+            <div className="flex items-center justify-between border-b border-white/8 px-5 py-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-100">
+                  Secret Keys
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-400">
+                  Secret keys are shown only once at creation. Deleted keys are
+                  permanently removed with no history kept.
+                </p>
+              </div>
+            </div>
+
+            {loading && keys.length === 0 ? (
+              <div className="px-6 py-12 text-center text-sm text-slate-400">
+                Loading API keys...
+              </div>
+            ) : keys.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 px-6 py-14 text-center">
+                <div className="rounded-full border border-cyan-500/20 bg-cyan-500/10 p-3">
+                  <KeyRound className="h-5 w-5 text-cyan-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-200">
+                    No API keys yet
+                  </p>
+                  <p className="mt-1 text-xs text-slate-400">
+                    Create a secret key to connect external agents, scripts, or
+                    the FAIM Python SDK.
+                  </p>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={openCreateModal}
+                  className="mt-1 gap-1.5"
                 >
-                  {isRevealVisible
-                    ? reveal.plaintext
-                    : maskSecret(reveal.plaintext)}
-                </div>
-                <div className="flex gap-3 pb-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    leftIcon={
-                      isRevealVisible ? <EyeOff size={14} /> : <Eye size={14} />
-                    }
-                    onClick={() => setIsRevealVisible((prev) => !prev)}
-                    className="bg-black/20 border-white/10"
-                  >
-                    {isRevealVisible ? "Hide key" : "Show key"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    leftIcon={<Copy size={14} />}
-                    onClick={copyReveal}
-                    className="shadow-sm"
-                  >
-                    Copy key
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setReveal(null)}
-                    className="text-slate-400"
-                  >
-                    Dismiss
-                  </Button>
-                </div>
-              </motion.div>
+                  <Plus className="h-3.5 w-3.5" />
+                  Create new secret key
+                </Button>
+              </div>
             ) : (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="flex flex-col items-center justify-center gap-2 overflow-hidden"
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-white/10 text-[11px] uppercase tracking-wider text-slate-400">
+                      <th className="px-5 py-3 font-medium">Name</th>
+                      <th className="px-5 py-3 font-medium">Secret Key</th>
+                      <th className="px-5 py-3 font-medium">Permissions</th>
+                      <th className="px-5 py-3 font-medium">Created</th>
+                      <th className="px-5 py-3 font-medium">Last Used</th>
+                      <th className="px-5 py-3 font-medium">Expires</th>
+                      <th className="px-5 py-3 text-right font-medium">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {keys.map((item) => (
+                      <tr
+                        key={item.key_id}
+                        className="transition-colors hover:bg-white/[0.02]"
+                      >
+                        <td className="px-5 py-3.5 font-medium text-slate-100">
+                          {item.label || "Untitled key"}
+                        </td>
+                        <td className="px-5 py-3.5 font-mono text-slate-300">
+                          {item.key_prefix}••••••••••••
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex flex-wrap gap-1">
+                            {(item.scopes || []).map((scope) => (
+                              <Badge key={scope} variant="default">
+                                {scope}
+                              </Badge>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-400">
+                          {formatDate(item.created_at)}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-400">
+                          {formatDate(item.last_used_at)}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-400">
+                          {item.expires_at
+                            ? formatDate(item.expires_at)
+                            : "Never"}
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(item)}
+                            title="Delete key permanently"
+                            className="inline-flex items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1 text-xs font-medium text-rose-300 transition hover:bg-rose-500/20"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Create & One-Time Secret Reveal Modal */}
+      {createOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-white/15 bg-[#0d1424] p-6 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-slate-100">
+                {revealedKey ? "Save your secret key" : "Create new secret key"}
+              </h3>
+              <button
+                type="button"
+                onClick={closeCreateModal}
+                className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-slate-200"
               >
-                <KeyRound size={24} className="text-slate-500" />
-                <p className="text-[10px] font-bold tracking-widest uppercase text-slate-400">
-                  No unrevealed keys
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:items-start">
-        <div
-          className="overflow-hidden rounded-xl border flex flex-col h-[520px]"
-          style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-1)",
-          }}
-        >
-          <div
-            className="border-b px-5 py-1.5"
-            style={{ borderColor: "var(--os-stroke)" }}
-          >
-            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-              Create API key
-            </p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-              Actor: {userName}
-            </p>
-          </div>
-          <div className="space-y-5 pt-5 px-5 flex-1">
-            <Input
-              label="Label (optional)"
-              placeholder="billing-bot / retrieval-agent"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              style={{
-                background: "var(--os-surface-2)",
-                borderColor: "var(--os-stroke)",
-              }}
-            />
-
-            <div className="space-y-3">
-              <p className="text-[10px] uppercase font-bold tracking-[0.15em] text-slate-500">
-                Scopes
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {AVAILABLE_SCOPES.map((scope) => {
-                  const selected = selectedScopes.includes(scope);
-                  return (
-                    <button
-                      key={scope}
-                      type="button"
-                      className={[
-                        "rounded-xl border px-3 py-1.5 text-[11px] font-bold transition-all duration-300",
-                        selected
-                          ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300 shadow-[0_0_10px_rgba(34,211,238,0.15)]"
-                          : "border-white/5 bg-white/5 text-slate-400 hover:border-white/20 hover:bg-white/10",
-                      ].join(" ")}
-                      onClick={() => toggleScope(scope)}
-                    >
-                      {scope}
-                    </button>
-                  );
-                })}
-              </div>
+                <X className="h-4 w-4" />
+              </button>
             </div>
 
-            <ThemedSelect
-              label="Expiry"
-              options={EXPIRY_OPTIONS}
-              value={expiryPreset}
-              onChange={setExpiryPreset}
-            />
+            {revealedKey ? (
+              <div className="mt-4 space-y-4">
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+                  Please save this secret key somewhere safe. For security
+                  reasons,{" "}
+                  <strong>you will not be able to view it again</strong> after
+                  closing this window.
+                </div>
 
-            <Button
-              leftIcon={<KeyRound size={15} />}
-              onClick={createKey}
-              loading={creating}
-              fullWidth
-              className="mt-2"
-            >
-              Create key
-            </Button>
-          </div>
-        </div>
+                <div>
+                  <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                    Key Name
+                  </p>
+                  <p className="text-sm font-medium text-slate-200">
+                    {revealedKey.label}
+                  </p>
+                </div>
 
-        <div
-          className="lg:col-span-2 overflow-hidden rounded-xl border flex flex-col h-[520px]"
-          style={{
-            borderColor: "var(--os-stroke)",
-            background: "var(--os-surface-1)",
-          }}
-        >
-          <div
-            className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
-            style={{ borderColor: "var(--os-stroke)" }}
-          >
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                Key Inventory
-              </p>
-              <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                Displaying {summary.total} persistent access identifiers
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant={includeRevoked ? "secondary" : "outline"}
-              onClick={() => setIncludeRevoked((prev) => !prev)}
-              className="rounded-xl border-white/5 h-8 px-3 text-[11px]"
-            >
-              {includeRevoked ? "Hide revoked" : "Show revoked"}
-            </Button>
-          </div>
-          <div className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
-            {loadingKeys && (
-              <p className="text-sm text-slate-500 animate-pulse px-5">
-                Loading secure keys...
-              </p>
-            )}
-            {!loadingKeys && keys.length === 0 && (
-              <p className="py-8 text-center text-sm text-slate-500 italic px-5">
-                No API keys found for this tenant.
-              </p>
-            )}
-
-            {!loadingKeys && keys.length > 0 && (
-              <div className="flex-1 overflow-y-auto custom-scrollbar">
-                {keys.map((item) => {
-                  const status = statusForKey(item);
-                  const isBusy = busyKeyId === item.key_id;
-                  return (
-                    <div
-                      key={item.key_id}
-                      className="group px-5 py-4 transition-all duration-300 hover:bg-white/[0.02]"
-                      style={{ borderBottom: "1px solid var(--os-stroke)" }}
+                <div>
+                  <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-slate-400">
+                    Secret Key
+                  </p>
+                  <div className="flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-[#070b14] p-2.5">
+                    <code className="flex-1 break-all font-mono text-xs text-cyan-300">
+                      {revealedKey.plaintext}
+                    </code>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => void handleCopy(revealedKey.plaintext)}
+                      className="shrink-0 gap-1"
                     >
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="space-y-1.5 flex-1 min-w-[200px]">
-                          <p className="font-mono text-sm font-bold text-white tracking-tight">
-                            {item.key_prefix}
-                          </p>
-                          <div className="space-y-0.5">
-                            <p className="text-[10px] text-slate-500 font-mono break-all leading-relaxed">
-                              KEY_ID:{" "}
-                              <span className="text-slate-400">
-                                {item.key_id}
-                              </span>
-                            </p>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                              CREATED:{" "}
-                              <span className="text-slate-400">
-                                {formatTs(item.created_at)}
-                              </span>
-                            </p>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                              EXPIRES:{" "}
-                              <span className="text-slate-400">
-                                {formatTs(item.expires_at)}
-                              </span>{" "}
-                              | USED:{" "}
-                              <span className="text-slate-400">
-                                {formatTs(item.last_used_at)}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {status === "active" && (
-                            <Badge
-                              variant="success"
-                              className="h-5 px-3 uppercase text-[9px] font-black tracking-widest shadow-[0_0_10px_rgba(16,185,129,0.15)]"
-                            >
-                              active
-                            </Badge>
-                          )}
-                          {status === "revoked" && (
-                            <Badge
-                              variant="error"
-                              className="h-5 px-3 uppercase text-[9px] font-black tracking-widest opacity-60"
-                            >
-                              revoked
-                            </Badge>
-                          )}
-                          {status === "expired" && (
-                            <Badge
-                              variant="warning"
-                              className="h-5 px-3 uppercase text-[9px] font-black tracking-widest opacity-70"
-                            >
-                              expired
-                            </Badge>
-                          )}
-                          <div className="flex items-center gap-1.5 ml-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              size="xs"
-                              variant="outline"
-                              leftIcon={<RotateCcw size={12} />}
-                              onClick={() => rotateKey(item.key_id)}
-                              disabled={Boolean(item.revoked_at) || isBusy}
-                              loading={isBusy}
-                              className="h-7 rounded-lg"
-                            >
-                              Rotate
-                            </Button>
-                            <Button
-                              size="xs"
-                              variant="danger"
-                              leftIcon={<Trash2 size={12} />}
-                              onClick={() => revokeKey(item.key_id)}
-                              disabled={Boolean(item.revoked_at) || isBusy}
-                              loading={isBusy}
-                              className="h-7 rounded-lg"
-                            >
-                              Revoke
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {item.scopes.length === 0 ? (
-                          <Badge variant="default" className="text-[8px] h-4">
-                            no scopes
-                          </Badge>
-                        ) : (
-                          item.scopes.map((scope) => (
-                            <Badge
-                              key={`${item.key_id}:${scope}`}
-                              variant="secondary"
-                              className="text-[10px] px-2 py-0 h-5 border-white/5 bg-white/5 text-slate-300"
-                            >
-                              {scope}
-                            </Badge>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="overflow-hidden rounded-xl border flex flex-col h-[400px]"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-3"
-          style={{ borderColor: "var(--os-stroke)" }}
-        >
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-              Key audit timeline
-            </p>
-            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-              Lifecycle events and security signals
-            </p>
-          </div>
-          <div className="w-64">
-            <ThemedSelect
-              options={[
-                { value: "all", label: "All keys" },
-                ...keys.map((key) => ({
-                  value: key.key_id,
-                  label: `${key.key_prefix} (${key.key_id.slice(0, 8)})`,
-                })),
-              ]}
-              value={auditKeyFilter}
-              onChange={setAuditKeyFilter}
-            />
-          </div>
-        </div>
-        <div className="pt-0 px-0 flex-1 min-h-0 flex flex-col">
-          {loadingAudit && (
-            <p className="text-sm text-slate-500 animate-pulse px-5">
-              Synchronizing audit signals...
-            </p>
-          )}
-          {!loadingAudit && auditItems.length === 0 && (
-            <p className="py-8 text-center text-sm text-slate-500 italic px-5">
-              No security signals recorded.
-            </p>
-          )}
-          {!loadingAudit && auditItems.length > 0 && (
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
-              {auditItems.map((event) => (
-                <div
-                  key={event.id}
-                  className="group px-5 py-4 flex flex-wrap items-center justify-between gap-4 transition-all hover:bg-[var(--glass-hover)]"
-                  style={{ borderBottom: "1px solid var(--os-stroke)" }}
-                >
-                  <div className="flex items-center gap-4">
-                    <Badge
-                      variant="outline"
-                      className="uppercase text-[9px] font-black tracking-widest px-2.5 h-5 text-slate-300"
-                      style={{
-                        background: "var(--os-surface-2)",
-                        borderColor: "var(--os-stroke)",
-                      }}
-                    >
-                      {event.action}
-                    </Badge>
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-mono text-xs font-bold text-white tracking-tight">
-                        {shortId(event.key_id)}
-                      </span>
-                      <span className="text-[10px] text-slate-500 tracking-widest font-black uppercase">
-                        ACTOR:{" "}
-                        <span className="text-slate-400">
-                          {event.actor || "system-node"}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-500 font-mono block mb-0.5">
-                      {formatTs(event.created_at)}
-                    </span>
-                    <span className="text-[9px] text-slate-600 font-bold uppercase tracking-tighter">
-                      REQ_ID: {shortId(event.request_id) || "direct_op"}
-                    </span>
+                      {copied ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      {copied ? "Copied" : "Copy"}
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+
+                <div className="flex justify-end pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={closeCreateModal}
+                  >
+                    Done
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-300">
+                    Name
+                  </label>
+                  <Input
+                    value={label}
+                    onChange={(e) => setLabel(e.target.value)}
+                    placeholder="e.g. cursor-local, production-agent"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-300">
+                    Permissions
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {ALL_SCOPES.map((scope) => {
+                      const active = selectedScopes.includes(scope);
+                      return (
+                        <button
+                          key={scope}
+                          type="button"
+                          onClick={() => toggleScope(scope)}
+                          className={`rounded-lg border px-2.5 py-1 text-xs font-mono transition ${
+                            active
+                              ? "border-cyan-400/50 bg-cyan-500/15 text-cyan-200"
+                              : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10"
+                          }`}
+                        >
+                          {scope}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-slate-300">
+                    Expiration
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {EXPIRY_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setExpiryPreset(opt.value)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                          expiryPreset === opt.value
+                            ? "border-cyan-400/50 bg-cyan-500/15 text-cyan-200"
+                            : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={closeCreateModal}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => void handleCreate()}
+                    disabled={creating}
+                  >
+                    {creating ? "Creating..." : "Create secret key"}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Permanent Delete Modal */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl border border-white/15 bg-[#0d1424] p-6 shadow-2xl space-y-4">
+            <h3 className="text-base font-semibold text-slate-100">
+              Delete API key?
+            </h3>
+            <p className="text-xs leading-relaxed text-slate-400">
+              <strong className="text-slate-200">
+                {deleteTarget.label || deleteTarget.key_prefix}
+              </strong>{" "}
+              ({deleteTarget.key_prefix}••••) will be permanently deleted with
+              no history kept. Any application using it will immediately lose
+              access.
+            </p>
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmDelete()}
+                disabled={deleting}
+                className="rounded-lg bg-rose-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
+              >
+                {deleting ? "Deleting..." : "Delete forever"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <ApiKeysManual open={manualOpen} onClose={() => setManualOpen(false)} />
     </div>
-    <ApiKeysManual open={manualOpen} onClose={() => setManualOpen(false)} />
-  </>
   );
 }

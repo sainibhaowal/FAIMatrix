@@ -2,10 +2,11 @@
 
 from api.validators.input_limits import (
     ALLOWED_CONTENT_TYPES,
+    MAX_BATCH_TOTAL_SIZE,
     MAX_FIELD_SIZE,
     MAX_JSON_BODY_SIZE,
-    MAX_BATCH_TOTAL_SIZE,
     sanitize_filename,
+    validate_batch_total_size,
     validate_content_type,
     validate_file_extension,
     validate_json_size,
@@ -13,7 +14,6 @@ from api.validators.input_limits import (
     validate_nested_depth,
     validate_text_field,
     validate_upload_file,
-    validate_batch_total_size,
 )
 
 __all__ = [

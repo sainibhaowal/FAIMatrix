@@ -3,7 +3,8 @@
 
 This command is intentionally manual and dry-run by default.  It accepts only
 ``FAIM_TENANT_KEY_BOOTSTRAP_JSON`` and never falls back to ``TENANT_KEYS_JSON``.
-See ``docs/PRODUCTION_HARDENING.md`` for the one-time operational procedure.
+See ``faim_native/Docs/11-security/02-production-hardening.md`` for the
+one-time operational procedure.
 """
 
 from __future__ import annotations

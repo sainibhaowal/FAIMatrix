@@ -167,9 +167,9 @@ test.describe("Evolution R6", () => {
                 kind: "EVOLUTION_COMPLETE",
                 ts: "2026-02-20T10:00:00Z",
                 payload: {
-                  merges: 2,
+                  merges: 3,
                   prunes: 1,
-                  inventions: 1,
+                  inventions: 2,
                   requested_profile: "strict",
                   requested_persist_mode: "relaxed",
                   effective_profile: "fast",
@@ -270,11 +270,9 @@ test.describe("Evolution R6", () => {
 
     await page.goto("/dashboard/evolution");
     await expect(page.getByTestId("evolution-page-title")).toBeVisible();
-    await expect(
-      page.locator("text=Requested mode: strict/relaxed"),
-    ).toBeVisible();
+    await expect(page.locator("text=Policy: strict/relaxed")).toBeVisible();
 
-    await page.getByRole("button", { name: "Run evolve now" }).click();
+    await page.getByRole("button", { name: "Run Evolution" }).click();
 
     await expect(
       page
@@ -283,10 +281,13 @@ test.describe("Evolution R6", () => {
         )
         .first(),
     ).toBeVisible();
+    await page
+      .getByRole("button", { name: "EVENT HISTORY Timeline & Logs" })
+      .click();
     await expect(
       page
         .locator(
-          "text=Completed: merges=2, prunes=1, inventions=1 | mode strict/relaxed -> fast/strict (sync_strict)",
+          "text=Completed: merges=3, prunes=1, inventions=2 | mode strict/relaxed -> fast/strict (sync_strict)",
         )
         .first(),
     ).toBeVisible();

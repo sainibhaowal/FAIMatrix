@@ -187,6 +187,7 @@ test.describe("Real backend — neighborhood expansion", () => {
     });
 
     await page.goto("/dashboard/graph");
+    await expect.poll(() => seedNodeId, { timeout: 15000 }).not.toBe("");
 
     // Open inspector (no node selected yet — shows placeholder)
     await page.getByTitle("Inspector").click();

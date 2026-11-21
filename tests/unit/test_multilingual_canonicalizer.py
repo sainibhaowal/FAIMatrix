@@ -27,14 +27,18 @@ def test_multilingual_canonicalizer_adds_concept_and_translation():
 def test_multilingual_canonicalizer_emits_cross_language_bridge_terms():
     item = canonicalize_multilingual_text("ingresos trimestre")
     assert item.language == "es"
-    assert any("multilingual_translation" in exp.sources for exp in item.weighted_expansions)
+    assert any(
+        "multilingual_translation" in exp.sources for exp in item.weighted_expansions
+    )
     assert any("multilingual_bridge" in exp.sources for exp in item.weighted_expansions)
 
 
 def test_multilingual_resources_cover_enterprise_languages_and_are_deterministic():
     _by_language, _surfaces, supported_languages = load_multilingual_resources()
 
-    assert supported_languages == tuple(sorted({"en", "de", "es", "fr", "it", "pt", "nl"}))
+    assert supported_languages == tuple(
+        sorted({"en", "de", "es", "fr", "it", "pt", "nl"})
+    )
 
     first = canonicalize_multilingual_text("revenus trimestre")
     second = canonicalize_multilingual_text("revenus trimestre")

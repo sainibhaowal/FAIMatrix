@@ -52,8 +52,8 @@ def test_pipeline_stats_returns_live_queue_depth(monkeypatch):
     client, headers, db_url = _mk_client(monkeypatch)
 
     # Seed two pending jobs so queue depth reflects real DB state.
-    from uuid import UUID as _UUID
     from datetime import datetime, timezone
+    from uuid import UUID as _UUID
 
     from sqlalchemy import create_engine, text
     from sqlalchemy.orm import sessionmaker

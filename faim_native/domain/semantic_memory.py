@@ -95,10 +95,14 @@ def _hash_payload(payload: Mapping[str, object]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _top_context_terms(counter: Counter[str], *, limit: int = MAX_CONTEXT_TERMS) -> Tuple[str, ...]:
+def _top_context_terms(
+    counter: Counter[str], *, limit: int = MAX_CONTEXT_TERMS
+) -> Tuple[str, ...]:
     return tuple(
         term
-        for term, _ in sorted(counter.items(), key=lambda item: (-item[1], item[0]))[:limit]
+        for term, _ in sorted(counter.items(), key=lambda item: (-item[1], item[0]))[
+            :limit
+        ]
     )
 
 
@@ -142,7 +146,9 @@ def _term_state_for_surface(
     )
 
 
-def _bundle_similarity(left_term: str, left: _TermState, right_term: str, right: _TermState) -> float:
+def _bundle_similarity(
+    left_term: str, left: _TermState, right_term: str, right: _TermState
+) -> float:
     left_tokens = set(left_term.split())
     right_tokens = set(right_term.split())
     token_overlap = _overlap_ratio(left_tokens, right_tokens)
@@ -173,11 +179,17 @@ def _bundle_similarity(left_term: str, left: _TermState, right_term: str, right:
     shared_context_count = len(context_left & context_right)
     if shared_context_count >= MIN_CONTEXT_OVERLAP:
         score += 0.08
-    if left_tokens and right_tokens and (
-        left_tokens <= right_tokens or right_tokens <= left_tokens
+    if (
+        left_tokens
+        and right_tokens
+        and (left_tokens <= right_tokens or right_tokens <= left_tokens)
     ):
         score += 0.08
-    if left.lemma_tokens and right.lemma_tokens and left.lemma_tokens == right.lemma_tokens:
+    if (
+        left.lemma_tokens
+        and right.lemma_tokens
+        and left.lemma_tokens == right.lemma_tokens
+    ):
         score += 0.12
     return min(0.98, score)
 
@@ -187,7 +199,9 @@ def _bundle_key(pack: str, members: Sequence[str]) -> str:
     return f"bundle:{pack}:{digest}"
 
 
-def _representative_term(members: Sequence[str], term_states: Mapping[str, _TermState]) -> str:
+def _representative_term(
+    members: Sequence[str], term_states: Mapping[str, _TermState]
+) -> str:
     return sorted(
         members,
         key=lambda item: (
@@ -217,7 +231,7 @@ def learn_semantic_memory_bundles(
     term_node_ids: Dict[str, Set[UUID]] = defaultdict(set)
 
     for doc in docs:
-        phrase_terms = sorted(set(extract_phrase_terms(doc.canonical_text)))[: max_terms]
+        phrase_terms = sorted(set(extract_phrase_terms(doc.canonical_text)))[:max_terms]
         for term in phrase_terms:
             normalized = _normalize(term)
             if not normalized:
@@ -246,7 +260,9 @@ def learn_semantic_memory_bundles(
 
     ranked_terms = [
         term
-        for term, _ in sorted(term_support.items(), key=lambda item: (-item[1], item[0]))[:max_terms]
+        for term, _ in sorted(
+            term_support.items(), key=lambda item: (-item[1], item[0])
+        )[:max_terms]
         if term_support[term] > 0
     ]
     if len(ranked_terms) < 2:
@@ -268,8 +284,12 @@ def learn_semantic_memory_bundles(
         surface = _normalize(candidate.surface_form)
         canonical = _normalize(candidate.canonical_form)
         if surface in term_states and canonical in term_states and surface != canonical:
-            pair = tuple(sorted((surface, canonical)))
-            alias_pairs[pair] = max(alias_pairs.get(pair, 0.0), float(candidate.score or 0.9))
+            pair = (
+                (surface, canonical) if surface <= canonical else (canonical, surface)
+            )
+            alias_pairs[pair] = max(
+                alias_pairs.get(pair, 0.0), float(candidate.score or 0.9)
+            )
 
     uf = _UnionFind(ranked_terms)
     pair_scores: Dict[Tuple[str, str], float] = {}
@@ -282,7 +302,9 @@ def learn_semantic_memory_bundles(
             if alias_score is not None:
                 score = max(0.9, alias_score)
             else:
-                score = _bundle_similarity(left_term, left_state, right_term, right_state)
+                score = _bundle_similarity(
+                    left_term, left_state, right_term, right_state
+                )
             if score < SIMILARITY_THRESHOLD:
                 continue
             pair_scores[pair] = score
@@ -315,7 +337,9 @@ def learn_semantic_memory_bundles(
 
         for term in trimmed_members:
             bundle_contexts.update(term_states[term].contexts)
-            bundle_nodes.extend(sorted(term_states[term].node_ids, key=lambda item: str(item))[:2])
+            bundle_nodes.extend(
+                sorted(term_states[term].node_ids, key=lambda item: str(item))[:2]
+            )
 
         for left_index, left_term in enumerate(trimmed_members):
             for right_term in trimmed_members[left_index + 1 :]:
@@ -324,7 +348,9 @@ def learn_semantic_memory_bundles(
                     bundle_pair_scores.append(pair_scores[pair])
 
         average_similarity = (
-            sum(bundle_pair_scores) / len(bundle_pair_scores) if bundle_pair_scores else 0.8
+            sum(bundle_pair_scores) / len(bundle_pair_scores)
+            if bundle_pair_scores
+            else 0.8
         )
         shared_context_terms = list(_top_context_terms(bundle_contexts))
         bundle_score = min(
@@ -350,7 +376,9 @@ def learn_semantic_memory_bundles(
                 "canonical_form": representative,
                 "kind": "concept_bundle",
                 "domain_pack": pack,
-                "support_count": sum(term_states[item].support_count for item in trimmed_members),
+                "support_count": sum(
+                    term_states[item].support_count for item in trimmed_members
+                ),
                 "score": bundle_score,
                 "meta": dict(bundle_meta),
             }

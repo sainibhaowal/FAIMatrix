@@ -69,8 +69,8 @@ def test_phase_ev_d_learning_routes_present():
 def _seed_learning(session, tenant_id: str, graph_id: str) -> None:
     """Seed one outcome + one meta-metric + one policy state row."""
     from core.learning.evolution_policy import (
-        EvolutionPolicy,
         KNOB_GRIDS,
+        EvolutionPolicy,
     )
     from store.pg.repos.evolution_learning_repo import (
         EvolutionLearningRepo,
@@ -116,7 +116,6 @@ def _seed_learning(session, tenant_id: str, graph_id: str) -> None:
         ),
     )
     policy = EvolutionPolicy(graph_id=graph_id, seed=1)
-    arms = {knob: arm.to_dict() for knob, arm in policy.arms.items()}
     for value in KNOB_GRIDS["merge_threshold"]:
         policy.update_from_outcome(
             _Outcome(merge_threshold=value),
@@ -153,7 +152,6 @@ class _Outcome:
 
 
 def test_phase_ev_d_learning_defaults_read_only(monkeypatch, tmp_path):
-    from runtime.context import close_session, get_repos
 
     tenant = f"tenant_evd_dflt_{uuid4().hex[:6]}"
     key = "key_evd_dflt"

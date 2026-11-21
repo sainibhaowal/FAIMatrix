@@ -93,9 +93,11 @@ def canonicalize_text(
                         term=str(value),
                         weight=0.96 if value == canonical else 0.92,
                         sources=(
-                            "canonical_phrase"
-                            if value == canonical
-                            else "canonical_phrase_lexicon",
+                            (
+                                "canonical_phrase"
+                                if value == canonical
+                                else "canonical_phrase_lexicon"
+                            ),
                         ),
                         origins=(surface,),
                     )

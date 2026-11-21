@@ -3,30 +3,33 @@
 import React, {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
-  AlertTriangle,
+  Activity,
+  ArrowRight,
+  BookOpen,
   CheckCircle2,
-  ChevronRight,
-  FileText,
+  Cpu,
   GitCompare,
+  GitMerge,
   Layers,
-  Loader2,
+  Play,
+  Radio,
   RotateCcw,
+  Scissors,
   Search,
   Sparkles,
-  Zap,
+  X,
   ZoomIn,
   ZoomOut,
-  X,
 } from "lucide-react";
-import { Badge, Button } from "@/components/ui";
+import { Badge } from "@/components/ui";
 
-export interface FlowChildDetail {
+export interface ChildDetail {
   id: string;
   label: string;
   type: string;
@@ -34,11 +37,10 @@ export interface FlowChildDetail {
 }
 
 export interface MergeDecision {
-  selector: string;
-  score_winner: number;
-  score_loser: number;
-  tie_break?: string | null;
-  components_winner?: Record<string, number>;
+  winner: string;
+  action: string;
+  similarity: number;
+  reason: string;
 }
 
 export interface FlowNodeData {
@@ -46,28 +48,74 @@ export interface FlowNodeData {
   stage: "atom" | "macro" | "merge";
   title: string;
   subtitle: string;
-  cognitiveType: "fact" | "procedure" | "event" | "contradiction" | "work";
-  pressureLambda?: number;
-  childCount?: number;
-  status?: "active" | "synthesized" | "pruned" | "winner";
-  childrenDetails?: FlowChildDetail[];
-  decision?: MergeDecision;
-  recent?: boolean;
+  cognitiveType: string;
+  pressureLambda?: number | null;
+  childCount?: number | null;
+  status?: string | null;
+  childrenDetails?: ChildDetail[] | null;
+  decision?: MergeDecision | null;
+  recent: boolean;
+  summary?: string | null;
+  synthesisOrigin?: string | null;
+  residual?: number | null;
+  level?: number | null;
+  weights?: Record<string, number>;
+  pairId?: string | null;
 }
 
-export interface InventionFlowStages {
-  atoms: FlowNodeData[];
-  macros: FlowNodeData[];
-  merges: FlowNodeData[];
+export interface InventionFlowEdgeItem {
+  edge_id: string;
+  src_id: string;
+  dst_id: string;
+  kind: "atom_to_macro" | "atom_to_theory" | "atom_to_merge" | "macro_to_merge";
+  weight: number;
+  label: string;
+}
+
+export interface InventionFlowTheoryItem {
+  theory_id: string;
+  theory_type: string;
+  title: string;
+  description: string;
+  confidence: number;
+  graph_version: number;
+  evidence_node_ids: string[];
+}
+
+export interface InventionFlowEvalMetrics {
+  d_hat: number;
+  h_hat: number;
+  lambda_hat: number;
+  redundancy_r: number;
+  novelty_n: number;
+  energy_e: number;
+  compression_ratio_cr: number;
+  macro_absorption_rate: number;
+  merge_consensus_score: number;
+  theory_confidence_mean: number;
+  total_nodes: number;
+  total_macros: number;
+  total_merges: number;
+  total_theories: number;
+  graph_version?: number;
 }
 
 export interface InventionFlowData {
-  graph_id: string;
-  node_count: number;
-  macro_count: number;
-  merge_count: number;
-  stages: InventionFlowStages;
-  computed_at: string;
+  graphId: string;
+  tenantId: string;
+  nodeCount: number;
+  macroCount: number;
+  mergeCount: number;
+  theoryCount?: number;
+  computedAt?: string;
+  stages: {
+    atoms: FlowNodeData[];
+    macros: FlowNodeData[];
+    merges: FlowNodeData[];
+  };
+  edges?: InventionFlowEdgeItem[];
+  theories?: InventionFlowTheoryItem[];
+  evalMetrics?: InventionFlowEvalMetrics | null;
 }
 
 interface InventionFlowCanvasProps {
@@ -75,13 +123,34 @@ interface InventionFlowCanvasProps {
   data?: InventionFlowData | null;
   loading?: boolean;
   error?: string | null;
+  sseConnected?: boolean;
+  isSynthesizing?: boolean;
   onRetry?: () => void;
+  onTriggerSynthesize?: () => void;
 }
 
-type StageFilter = "all" | "macro" | "atom" | "merge";
-type CognitiveType = FlowNodeData["cognitiveType"];
+type StageFilter = "all" | "atom" | "macro" | "theory" | "merge";
+type CognitiveFilter =
+  | "all"
+  | "fact"
+  | "procedure"
+  | "event"
+  | "contradiction"
+  | "work";
 
-const COGNITIVE_TYPES: CognitiveType[] = [
+type InspectorTarget =
+  | { kind: "node"; node: FlowNodeData }
+  | { kind: "theory"; theory: InventionFlowTheoryItem }
+  | null;
+
+interface MeasuredPath {
+  edge: InventionFlowEdgeItem;
+  d: string;
+  mx: number;
+  my: number;
+}
+
+const COGNITIVE_TYPES: Array<Exclude<CognitiveFilter, "all">> = [
   "fact",
   "procedure",
   "event",
@@ -89,20 +158,36 @@ const COGNITIVE_TYPES: CognitiveType[] = [
   "work",
 ];
 
-const DECISION_COMPONENT_LABELS: Record<string, string> = {
-  evidence: "Evidence",
-  usage: "Usage",
-  recency: "Recency",
-  source: "Source",
-  residual: "Residual",
-};
+function cogBadgeStyle(cogType: string): string {
+  switch ((cogType || "").toLowerCase()) {
+    case "fact":
+      return "border-sky-500/35 bg-sky-500/15 text-sky-300";
+    case "procedure":
+      return "border-cyan-500/35 bg-cyan-500/15 text-cyan-300";
+    case "event":
+      return "border-amber-500/35 bg-amber-500/15 text-amber-300";
+    case "contradiction":
+      return "border-rose-500/40 bg-rose-500/15 text-rose-300";
+    case "work":
+      return "border-emerald-500/35 bg-emerald-500/15 text-emerald-300";
+    case "macro":
+      return "border-purple-500/40 bg-purple-500/20 text-purple-200";
+    default:
+      return "border-slate-500/35 bg-slate-500/15 text-slate-300";
+  }
+}
 
-const MAX_VISIBLE_ATOMS = 12;
-const MAX_VISIBLE_MACROS = 6;
-const MAX_VISIBLE_MERGES = 6;
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
+function edgeStroke(kind: InventionFlowEdgeItem["kind"]): string {
+  switch (kind) {
+    case "atom_to_macro":
+      return "#c084fc";
+    case "atom_to_theory":
+      return "#34d399";
+    case "macro_to_merge":
+      return "#38bdf8";
+    case "atom_to_merge":
+      return "#f472b6";
+  }
 }
 
 export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
@@ -110,92 +195,84 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
   data,
   loading = false,
   error = null,
+  sseConnected = false,
+  isSynthesizing = false,
   onRetry,
+  onTriggerSynthesize,
 }) => {
   const [activeStageFilter, setActiveStageFilter] =
     useState<StageFilter>("all");
-  const [selectedNode, setSelectedNode] = useState<FlowNodeData | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [cognitiveType, setCognitiveType] = useState<CognitiveType | "all">(
-    "all",
-  );
+  const [cognitiveType, setCognitiveType] = useState<CognitiveFilter>("all");
   const [diffMode, setDiffMode] = useState(false);
+  const [showAllAtoms, setShowAllAtoms] = useState(false);
 
-  // Infinite Canvas Pan & Zoom Transform State
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const [inspector, setInspector] = useState<InspectorTarget>(null);
+
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
-  const transformRef = useRef(transform);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0, tx: 0, ty: 0 });
+
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const worldRef = useRef<HTMLDivElement | null>(null);
+  const cardRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const [svgSize, setSvgSize] = useState({ w: 1200, h: 640 });
+  const [paths, setPaths] = useState<MeasuredPath[]>([]);
 
-  useEffect(() => {
-    transformRef.current = transform;
-  }, [transform]);
-
-  // Handle Mouse Pan (Drag Canvas)
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      if ((e.target as HTMLElement).closest(".flow-node-card")) return;
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - transformRef.current.x, y: e.clientY - transformRef.current.y });
+  const registerCardRef = useCallback(
+    (domKey: string) => (el: HTMLElement | null) => {
+      if (el) {
+        cardRefs.current.set(domKey, el);
+      } else {
+        cardRefs.current.delete(domKey);
+      }
     },
     [],
   );
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isDragging) return;
-      setTransform((prev) => ({
-        ...prev,
-        x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y,
-      }));
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if ((e.target as HTMLElement).closest("button, a, input, [data-card]")) {
+        return;
+      }
+      isDraggingRef.current = true;
+      dragStartRef.current = {
+        x: e.clientX,
+        y: e.clientY,
+        tx: transform.x,
+        ty: transform.y,
+      };
     },
-    [isDragging, dragStart],
+    [transform.x, transform.y],
   );
 
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    setTransform((prev) => ({
+      ...prev,
+      x: dragStartRef.current.tx + dx,
+      y: dragStartRef.current.ty + dy,
+    }));
+  }, []);
+
   const handleMouseUp = useCallback(() => {
-    setIsDragging(false);
+    isDraggingRef.current = false;
   }, []);
 
-  // Native wheel listener with { passive: false } so preventDefault works
-  // and zoom is anchored to the cursor position (production-safe).
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      const rect = viewport.getBoundingClientRect();
-      const t = transformRef.current;
-      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-      const nextScale = clamp(t.scale * zoomFactor, 0.5, 2.5);
-      const k = nextScale / t.scale;
-      const cursorX = e.clientX - rect.left;
-      const cursorY = e.clientY - rect.top;
-      setTransform({
-        x: cursorX - (cursorX - t.x) * k,
-        y: cursorY - (cursorY - t.y) * k,
-        scale: nextScale,
-      });
-    };
-
-    viewport.addEventListener("wheel", handleWheel, { passive: false });
-    return () => viewport.removeEventListener("wheel", handleWheel);
-  }, []);
-
-  // Zoom Controls
   const zoomIn = useCallback(() => {
     setTransform((prev) => ({
       ...prev,
-      scale: clamp(prev.scale * 1.15, 0.5, 2.5),
+      scale: Math.min(1.6, Number((prev.scale + 0.1).toFixed(2))),
     }));
   }, []);
 
   const zoomOut = useCallback(() => {
     setTransform((prev) => ({
       ...prev,
-      scale: clamp(prev.scale * 0.85, 0.5, 2.5),
+      scale: Math.max(0.55, Number((prev.scale - 0.1).toFixed(2))),
     }));
   }, []);
 
@@ -207,6 +284,29 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
     () => data?.stages ?? { atoms: [], macros: [], merges: [] },
     [data?.stages],
   );
+  const theories = useMemo(() => data?.theories ?? [], [data?.theories]);
+  const rawEdges = useMemo(() => data?.edges ?? [], [data?.edges]);
+  const evalMetrics = data?.evalMetrics ?? null;
+
+  // Compute incoming/outgoing edges per node DOM id for prioritization & lineage highlight
+  const edgeIndex = useMemo(() => {
+    const connectedIds = new Set<string>();
+    const adjacency = new Map<string, Set<string>>();
+
+    const link = (a: string, b: string) => {
+      connectedIds.add(a);
+      connectedIds.add(b);
+      if (!adjacency.has(a)) adjacency.set(a, new Set());
+      if (!adjacency.has(b)) adjacency.set(b, new Set());
+      adjacency.get(a)!.add(b);
+      adjacency.get(b)!.add(a);
+    };
+
+    for (const edge of rawEdges) {
+      link(edge.src_id, edge.dst_id);
+    }
+    return { connectedIds, adjacency };
+  }, [rawEdges]);
 
   const applyFilters = useCallback(
     (nodes: FlowNodeData[]): FlowNodeData[] => {
@@ -218,7 +318,7 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
         }
         if (
           query &&
-          !`${node.title} ${node.subtitle} ${node.id}`
+          !`${node.title} ${node.subtitle} ${node.summary || ""} ${node.id}`
             .toLowerCase()
             .includes(query)
         ) {
@@ -230,20 +330,52 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
     [searchQuery, cognitiveType, diffMode],
   );
 
-  const atoms = useMemo(
-    () => applyFilters(stages.atoms).slice(0, MAX_VISIBLE_ATOMS),
-    [stages, applyFilters],
+  // Put connected atoms first so bezier topology links visibly across stages!
+  const filteredAtomsAll = useMemo(() => {
+    const list = applyFilters(stages.atoms);
+    return [...list].sort((a, b) => {
+      const aConn = edgeIndex.connectedIds.has(a.id) ? 1 : 0;
+      const bConn = edgeIndex.connectedIds.has(b.id) ? 1 : 0;
+      if (aConn !== bConn) return bConn - aConn;
+      return (b.pressureLambda ?? 0) - (a.pressureLambda ?? 0);
+    });
+  }, [stages.atoms, applyFilters, edgeIndex.connectedIds]);
+
+  const visibleAtoms = useMemo(
+    () =>
+      showAllAtoms
+        ? filteredAtomsAll.slice(0, 48)
+        : filteredAtomsAll.slice(0, 12),
+    [filteredAtomsAll, showAllAtoms],
   );
-  const macros = useMemo(
-    () => applyFilters(stages.macros).slice(0, MAX_VISIBLE_MACROS),
-    [stages, applyFilters],
+
+  const visibleMacros = useMemo(
+    () => applyFilters(stages.macros).slice(0, 18),
+    [stages.macros, applyFilters],
   );
-  const merges = useMemo(
-    () => applyFilters(stages.merges).slice(0, MAX_VISIBLE_MERGES),
-    [stages, applyFilters],
+
+  const visibleTheories = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return theories
+      .filter((t) => {
+        if (!query) return true;
+        return `${t.title} ${t.description} ${t.theory_type}`
+          .toLowerCase()
+          .includes(query);
+      })
+      .slice(0, 8);
+  }, [theories, searchQuery]);
+
+  const visibleMerges = useMemo(
+    () => applyFilters(stages.merges).slice(0, 16),
+    [stages.merges, applyFilters],
   );
+
   const recentCount = useMemo(
-    () => [...stages.atoms, ...stages.macros, ...stages.merges].filter((n) => n.recent).length,
+    () =>
+      [...stages.atoms, ...stages.macros, ...stages.merges].filter(
+        (n) => n.recent,
+      ).length,
     [stages],
   );
 
@@ -253,67 +385,253 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
     data != null &&
     stages.atoms.length === 0 &&
     stages.macros.length === 0 &&
-    stages.merges.length === 0;
+    stages.merges.length === 0 &&
+    theories.length === 0;
 
   const hasData = !loading && !error && data != null && !isEmpty;
 
   const hasFilteredData =
-    hasData && (atoms.length > 0 || macros.length > 0 || merges.length > 0);
+    hasData &&
+    (visibleAtoms.length > 0 ||
+      visibleMacros.length > 0 ||
+      visibleTheories.length > 0 ||
+      visibleMerges.length > 0);
 
-  const hasActiveFilters =
-    searchQuery.trim() !== "" ||
-    cognitiveType !== "all" ||
-    diffMode;
+  const activeFocusKey = useMemo(() => {
+    if (hoveredKey) return hoveredKey;
+    if (!inspector) return null;
+    if (inspector.kind === "theory")
+      return `theory:${inspector.theory.theory_id}`;
+    return inspector.node.stage === "merge"
+      ? `merge:${inspector.node.id}`
+      : inspector.node.id;
+  }, [hoveredKey, inspector]);
+
+  const highlightedKeys = useMemo(() => {
+    if (!activeFocusKey) return null;
+    const set = new Set<string>([activeFocusKey]);
+    const neighbors = edgeIndex.adjacency.get(activeFocusKey);
+    if (neighbors) {
+      neighbors.forEach((n) => set.add(n));
+    }
+    return set;
+  }, [activeFocusKey, edgeIndex.adjacency]);
+
+  // Measure DOM card anchors in unscaled world coordinates to draw true Bezier edges
+  const recomputePaths = useCallback(() => {
+    const world = worldRef.current;
+    if (!world) return;
+    const worldRect = world.getBoundingClientRect();
+    const scale = transform.scale || 1;
+    setSvgSize({
+      w: Math.max(world.offsetWidth, Math.round(worldRect.width / scale)),
+      h: Math.max(world.offsetHeight, Math.round(worldRect.height / scale)),
+    });
+
+    const nextPaths: MeasuredPath[] = [];
+    for (const edge of rawEdges) {
+      const srcEl = cardRefs.current.get(edge.src_id);
+      const dstEl = cardRefs.current.get(edge.dst_id);
+      if (!srcEl || !dstEl) continue;
+
+      const sRect = srcEl.getBoundingClientRect();
+      const dRect = dstEl.getBoundingClientRect();
+
+      const x1 = (sRect.right - worldRect.left) / scale;
+      const y1 = (sRect.top + sRect.height / 2 - worldRect.top) / scale;
+      const x2 = (dRect.left - worldRect.left) / scale;
+      const y2 = (dRect.top + dRect.height / 2 - worldRect.top) / scale;
+
+      const dx = Math.max(40, Math.abs(x2 - x1) * 0.48);
+      const d = `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${(x1 + dx).toFixed(
+        1,
+      )} ${y1.toFixed(1)}, ${(x2 - dx).toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(
+        1,
+      )} ${y2.toFixed(1)}`;
+      nextPaths.push({
+        edge,
+        d,
+        mx: (x1 + x2) / 2,
+        my: (y1 + y2) / 2,
+      });
+    }
+    setPaths(nextPaths);
+  }, [rawEdges, transform.scale]);
+
+  useLayoutEffect(() => {
+    const raf = requestAnimationFrame(recomputePaths);
+    return () => cancelAnimationFrame(raf);
+  }, [
+    recomputePaths,
+    visibleAtoms,
+    visibleMacros,
+    visibleTheories,
+    visibleMerges,
+    activeStageFilter,
+    hasData,
+  ]);
+
+  useEffect(() => {
+    const world = worldRef.current;
+    if (!world || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      requestAnimationFrame(recomputePaths);
+    });
+    ro.observe(world);
+    return () => ro.disconnect();
+  }, [recomputePaths]);
+
+  const showAtomsCol =
+    activeStageFilter === "all" || activeStageFilter === "atom";
+  const showSynthesisCol =
+    activeStageFilter === "all" ||
+    activeStageFilter === "macro" ||
+    activeStageFilter === "theory";
+  const showMergesCol =
+    activeStageFilter === "all" || activeStageFilter === "merge";
+
+  const enabledColCount =
+    (showAtomsCol ? 1 : 0) +
+    (showSynthesisCol ? 1 : 0) +
+    (showMergesCol ? 1 : 0);
 
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-[#050810] shadow-2xl">
+    <div className="relative w-full overflow-hidden rounded-2xl border border-white/10 bg-[#040711] shadow-[0_0_50px_rgba(15,23,42,0.7)]">
+      {/* Live Evaluation Telemetry Ribbon */}
+      {hasData && evalMetrics && (
+        <div className="relative z-20 flex flex-wrap items-center justify-between gap-2 border-b border-white/10 bg-gradient-to-r from-purple-950/35 via-[#070c18] to-cyan-950/30 px-4 py-2 font-mono text-[11px]">
+          <div className="flex flex-wrap items-center gap-3">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] ${
+                sseConnected
+                  ? "border-emerald-500/40 bg-emerald-500/15 text-emerald-300"
+                  : "border-amber-500/40 bg-amber-500/15 text-amber-300"
+              }`}
+            >
+              <Radio
+                size={10}
+                className={sseConnected ? "animate-pulse text-emerald-400" : ""}
+              />
+              {sseConnected ? "SSE LIVE" : "SYNC"}
+            </span>
+            <span className="text-sky-300">
+              D̂ <b>{evalMetrics.d_hat.toFixed(3)}</b>
+            </span>
+            <span className="text-cyan-300">
+              Ĥ <b>{evalMetrics.h_hat.toFixed(3)}</b>
+            </span>
+            <span className="text-amber-300">
+              λ̂ <b>{evalMetrics.lambda_hat.toFixed(3)}</b>
+            </span>
+            <span className="text-rose-300">
+              R <b>{evalMetrics.redundancy_r.toFixed(3)}</b>
+            </span>
+            <span className="text-emerald-300">
+              N <b>{evalMetrics.novelty_n.toFixed(3)}</b>
+            </span>
+            <span className="text-fuchsia-300">
+              CR <b>{evalMetrics.compression_ratio_cr.toFixed(3)}</b>
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-300">
+            <span>
+              Macro Absorption:{" "}
+              <b className="text-purple-300">
+                {(evalMetrics.macro_absorption_rate * 100).toFixed(1)}%
+              </b>
+            </span>
+            <span>
+              Merge Consensus:{" "}
+              <b className="text-cyan-300">
+                {(evalMetrics.merge_consensus_score * 100).toFixed(1)}%
+              </b>
+            </span>
+            <span>
+              Theory Conf:{" "}
+              <b className="text-emerald-300">
+                {(evalMetrics.theory_confidence_mean * 100).toFixed(1)}%
+              </b>
+            </span>
+            {evalMetrics.graph_version != null && (
+              <span className="text-slate-400">
+                v{evalMetrics.graph_version}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Top Header Controls */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-white/6 bg-black/40 backdrop-blur-xl z-20 relative">
-        <div className="flex items-center gap-2">
+      <div className="relative z-20 flex flex-wrap items-center justify-between gap-3 border-b border-white/8 bg-black/50 p-3.5 backdrop-blur-xl">
+        <div className="flex flex-wrap items-center gap-2">
           <Sparkles size={16} className="text-purple-400 animate-pulse" />
-          <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-200">
-            Real Invention Pipeline — {graphId}
+          <span className="font-mono text-xs font-bold uppercase tracking-wider text-slate-100">
+            Self-Invention Topology — {graphId}
           </span>
           <Badge variant="secondary" size="xs">
-            Pan & Zoom Active
+            CFP DAG · {paths.length} Links
           </Badge>
         </div>
 
-        {/* Stage Filter Switches */}
-        <div className="flex items-center gap-1 rounded-xl border border-white/8 bg-white/[0.03] p-1">
-          {[
-            ["all", "All Stages"],
-            ["atom", `Atoms ${stages.atoms.length}`],
-            ["macro", `Macros ${stages.macros.length}`],
-            ["merge", `Merges ${stages.merges.length}`],
-          ].map(([key, label]) => (
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Stage Filter Switches */}
+          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-white/[0.03] p-1">
+            {(
+              [
+                ["all", "All Stages"],
+                ["atom", `Atoms ${data?.nodeCount ?? stages.atoms.length}`],
+                ["macro", `Macros ${data?.macroCount ?? stages.macros.length}`],
+                ["theory", `Theories ${data?.theoryCount ?? theories.length}`],
+                ["merge", `Merges ${data?.mergeCount ?? stages.merges.length}`],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveStageFilter(key)}
+                className={`rounded-lg px-2.5 py-1 font-mono text-[11px] transition-all ${
+                  activeStageFilter === key
+                    ? "border border-purple-500/45 bg-purple-500/20 text-purple-200 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {onTriggerSynthesize && (
             <button
-              key={key}
               type="button"
-              onClick={() => setActiveStageFilter(key as StageFilter)}
-              className={`rounded-lg px-2.5 py-1 text-xs font-mono transition-all ${
-                activeStageFilter === key
-                  ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
+              disabled={isSynthesizing}
+              onClick={onTriggerSynthesize}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-purple-400/45 bg-gradient-to-r from-purple-600/30 to-cyan-600/25 px-3 py-1.5 font-mono text-[11px] font-semibold text-purple-100 hover:from-purple-600/45 hover:to-cyan-600/40 disabled:opacity-50 transition-all shadow-[0_0_16px_rgba(168,85,247,0.2)]"
             >
-              {label}
+              <Play
+                size={12}
+                className={isSynthesizing ? "animate-spin" : ""}
+              />
+              {isSynthesizing ? "Synthesizing..." : "Synthesize & Evolve"}
             </button>
-          ))}
+          )}
         </div>
       </div>
 
       {/* Search, Cognitive Type + Cycle Diff Toolbar */}
       {hasData && (
-        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 border-b border-white/6 bg-black/20 backdrop-blur-xl z-20 relative">
+        <div className="relative z-20 flex flex-wrap items-center gap-2 border-b border-white/8 bg-black/30 px-4 py-2.5 backdrop-blur-xl">
           <div className="relative min-w-[180px] flex-1 max-w-xs">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+            <Search
+              size={13}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500"
+            />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search nodes…"
-              className="w-full rounded-lg border border-white/8 bg-white/[0.03] py-1.5 pl-8 pr-8 text-xs font-mono text-slate-200 placeholder:text-slate-500 outline-none focus:border-purple-500/50"
+              placeholder="Search atoms, macros, theories…"
+              className="w-full rounded-lg border border-white/10 bg-white/[0.03] py-1.5 pl-8 pr-8 font-mono text-xs text-slate-200 placeholder:text-slate-500 outline-none focus:border-purple-500/50"
             />
             {searchQuery && (
               <button
@@ -326,13 +644,13 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-1 flex-wrap">
+          <div className="flex flex-wrap items-center gap-1">
             <button
               type="button"
               onClick={() => setCognitiveType("all")}
-              className={`rounded-lg px-2 py-1 text-[11px] font-mono transition-all ${
+              className={`rounded-lg px-2 py-1 font-mono text-[11px] transition-all ${
                 cognitiveType === "all"
-                  ? "bg-slate-500/20 text-slate-200 border border-slate-500/40"
+                  ? "border border-slate-500/40 bg-slate-500/20 text-slate-200"
                   : "text-slate-500 hover:text-slate-300"
               }`}
             >
@@ -345,9 +663,9 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
                 onClick={() =>
                   setCognitiveType(cognitiveType === type ? "all" : type)
                 }
-                className={`rounded-lg px-2 py-1 text-[11px] font-mono transition-all ${
+                className={`rounded-lg px-2 py-1 font-mono text-[11px] transition-all ${
                   cognitiveType === type
-                    ? "bg-purple-500/20 text-purple-300 border border-purple-500/40"
+                    ? "border border-purple-500/40 bg-purple-500/20 text-purple-300"
                     : "text-slate-500 hover:text-slate-300"
                 }`}
               >
@@ -356,34 +674,48 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
             ))}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setDiffMode((v) => !v)}
-            className={`ml-auto flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] font-mono transition-all ${
-              diffMode
-                ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
-                : "text-slate-400 border border-white/8 hover:text-amber-200"
-            }`}
-            title="Only nodes touched by the latest completed evolution cycle"
-          >
-            <GitCompare size={13} />
-            Cycle diff
-            {diffMode && recentCount > 0 && (
-              <span className="rounded bg-amber-500/30 px-1.5 text-[10px]">
-                {recentCount}
-              </span>
+          <div className="ml-auto flex items-center gap-2">
+            {filteredAtomsAll.length > 12 && (
+              <button
+                type="button"
+                onClick={() => setShowAllAtoms((v) => !v)}
+                className="rounded-lg border border-white/10 px-2.5 py-1 font-mono text-[11px] text-slate-300 hover:border-cyan-500/40 hover:text-cyan-200 transition-all"
+              >
+                {showAllAtoms
+                  ? "Compact Atoms (12)"
+                  : `Expand Atoms (${Math.min(48, filteredAtomsAll.length)})`}
+              </button>
             )}
-          </button>
+
+            <button
+              type="button"
+              onClick={() => setDiffMode((v) => !v)}
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 font-mono text-[11px] transition-all ${
+                diffMode
+                  ? "border border-amber-500/40 bg-amber-500/20 text-amber-300"
+                  : "border border-white/10 text-slate-400 hover:text-amber-200"
+              }`}
+              title="Only nodes touched by the latest completed evolution cycle"
+            >
+              <GitCompare size={13} />
+              Cycle diff
+              {diffMode && recentCount > 0 && (
+                <span className="rounded bg-amber-500/30 px-1.5 text-[10px]">
+                  {recentCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Floating Infinite Canvas Zoom Control Deck */}
-      <div className="absolute bottom-4 left-4 z-20 flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/70 p-1.5 backdrop-blur-xl shadow-2xl text-xs">
+      {/* Floating Zoom & Center Controls */}
+      <div className="absolute bottom-4 left-4 z-20 flex items-center gap-1.5 rounded-xl border border-white/10 bg-black/80 p-1.5 font-mono text-xs backdrop-blur-xl shadow-2xl">
         <button
           type="button"
           onClick={zoomIn}
           className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10 hover:text-white transition-all"
-          title="Zoom In (+)"
+          title="Zoom In"
         >
           <ZoomIn size={14} />
         </button>
@@ -391,7 +723,7 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
           type="button"
           onClick={zoomOut}
           className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10 hover:text-white transition-all"
-          title="Zoom Out (-)"
+          title="Zoom Out"
         >
           <ZoomOut size={14} />
         </button>
@@ -399,68 +731,69 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
           type="button"
           onClick={resetView}
           className="rounded-lg p-1.5 text-slate-300 hover:bg-white/10 hover:text-white transition-all"
-          title="Center View"
+          title="Reset Pan & Zoom"
         >
           <RotateCcw size={14} />
         </button>
-        <span className="border-l border-white/10 pl-2 font-mono text-[11px] text-purple-300">
+        <span className="border-l border-white/10 pl-2 text-[11px] text-purple-300">
           {(transform.scale * 100).toFixed(0)}%
         </span>
       </div>
 
-      {/* 2.5D Infinite Mind-Map Viewport Container */}
+      {/* Main 2.5D Sci-Fi Topology Viewport */}
       <div
         ref={viewportRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        className="relative h-[calc(100vh-285px)] min-h-[400px] max-h-[620px] w-full cursor-grab overflow-hidden active:cursor-grabbing bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:24px_24px]"
+        className="relative min-h-[540px] max-h-[760px] w-full overflow-auto cursor-grab active:cursor-grabbing bg-[#03060f] bg-[radial-gradient(rgba(148,163,184,0.14)_1px,transparent_1px)] [background-size:24px_24px]"
       >
         {loading && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#050810]/80 backdrop-blur-sm">
-            <Loader2 size={28} className="animate-spin text-purple-400" />
-            <p className="font-mono text-xs uppercase tracking-widest text-slate-400">
-              Loading live invention topology…
-            </p>
+          <div className="flex h-[480px] flex-col items-center justify-center gap-3 font-mono text-xs text-slate-400">
+            <Cpu size={28} className="text-purple-400 animate-pulse" />
+            <span>Mapping topological manifold & CFP macro synthesis…</span>
           </div>
         )}
 
         {!loading && error && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#050810]/80 px-6 text-center">
-            <AlertTriangle size={28} className="text-rose-400" />
-            <p className="font-mono text-xs uppercase tracking-widest text-rose-300">
-              Invention flow unavailable
-            </p>
-            <p className="max-w-md text-xs text-slate-400">{error}</p>
+          <div className="flex h-[480px] flex-col items-center justify-center gap-3 px-6 text-center font-mono text-xs text-rose-300">
+            <span>{error}</span>
             {onRetry && (
-              <Button size="sm" variant="secondary" onClick={onRetry}>
-                Retry
-              </Button>
+              <button
+                type="button"
+                onClick={onRetry}
+                className="rounded-lg border border-rose-500/40 bg-rose-500/15 px-3 py-1.5 text-rose-200 hover:bg-rose-500/25"
+              >
+                Retry Topology Load
+              </button>
             )}
           </div>
         )}
 
-        {!loading && !error && isEmpty && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#050810]/80 px-6 text-center">
-            <Layers size={28} className="text-slate-600" />
-            <p className="font-mono text-xs uppercase tracking-widest text-slate-400">
-              No invention pipeline yet
-            </p>
-            <p className="max-w-md text-xs text-slate-500">
-              Ingest documents into this graph and run an evolution cycle —
-              atoms, synthesized macros and opposition merges will appear here
-              in real time.
-            </p>
+        {isEmpty && (
+          <div className="flex h-[480px] flex-col items-center justify-center gap-3 px-6 text-center font-mono text-xs text-slate-400">
+            <Layers size={28} className="text-cyan-400" />
+            <span>
+              No nodes, macros, theories, or merges found for {graphId}.
+            </span>
+            {onTriggerSynthesize && (
+              <button
+                type="button"
+                onClick={onTriggerSynthesize}
+                className="rounded-lg border border-purple-500/40 bg-purple-500/15 px-3 py-1.5 text-purple-200 hover:bg-purple-500/25"
+              >
+                Run Synthesis Cycle
+              </button>
+            )}
           </div>
         )}
 
-        {!loading && !error && hasData && !hasFilteredData && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#050810]/80 px-6 text-center">
-            <Search size={28} className="text-slate-600" />
-            <p className="font-mono text-xs uppercase tracking-widest text-slate-400">
-              No nodes match current filters
-            </p>
+        {hasData && !hasFilteredData && (
+          <div className="flex h-[440px] flex-col items-center justify-center gap-2 font-mono text-xs text-slate-400">
+            <span>
+              No topology items match current search / filter criteria.
+            </span>
             <button
               type="button"
               onClick={() => {
@@ -468,288 +801,452 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
                 setCognitiveType("all");
                 setDiffMode(false);
               }}
-              className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-mono text-slate-300 hover:bg-white/5"
+              className="rounded-lg border border-white/15 px-3 py-1 text-slate-200 hover:bg-white/10"
             >
-              Clear filters
+              Clear Filters
             </button>
           </div>
         )}
 
-        {/* Transform Scale & Translation Wrapper */}
-        {hasData && (
+        {hasFilteredData && (
           <div
+            ref={worldRef}
             style={{
               transform: `translate(${transform.x}px, ${transform.y}px) scale(${transform.scale})`,
-              transformOrigin: "center center",
-              transition: isDragging ? "none" : "transform 0.1s ease-out",
+              transformOrigin: "top left",
             }}
-            className="relative min-h-[460px] w-full p-6 select-none"
+            className="relative min-w-[1060px] p-6 transition-transform duration-75"
           >
-            {/* Responsive Flex Layout with Inline SVG Bridges */}
-            <div className="flex flex-col lg:flex-row items-stretch justify-between gap-4 w-full relative z-10">
-              {/* --- STAGE 1: RAW ATOM CHUNKS (LEFT) --- */}
-              {(activeStageFilter === "all" || activeStageFilter === "atom") && (
-                <div className="flex-1 space-y-4">
-                  <div className="flex items-center justify-between pb-2 border-b border-white/6">
-                    <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <FileText size={13} className="text-cyan-400" />
-                      Stage 1: Document Atoms
+            {/* True Measured SVG Bezier Connections Layer */}
+            <svg
+              width={svgSize.w}
+              height={svgSize.h}
+              viewBox={`0 0 ${svgSize.w} ${svgSize.h}`}
+              className="pointer-events-none absolute inset-0 z-10 overflow-visible"
+            >
+              <defs>
+                <filter
+                  id="neonGlow"
+                  x="-20%"
+                  y="-20%"
+                  width="140%"
+                  height="140%"
+                >
+                  <feGaussianBlur stdDeviation="2.5" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
+              {paths.map(({ edge, d, mx, my }) => {
+                const isActive =
+                  highlightedKeys !== null
+                    ? highlightedKeys.has(edge.src_id) &&
+                      highlightedKeys.has(edge.dst_id)
+                    : false;
+                const dimmed = highlightedKeys !== null && !isActive;
+                const color = edgeStroke(edge.kind);
+                return (
+                  <g key={edge.edge_id}>
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth={isActive ? 2.4 : 1.35}
+                      strokeOpacity={dimmed ? 0.08 : isActive ? 0.95 : 0.48}
+                      strokeDasharray={
+                        edge.kind === "atom_to_theory" ? "5 4" : undefined
+                      }
+                      filter={isActive ? "url(#neonGlow)" : undefined}
+                    />
+                    {isActive && edge.label && (
+                      <g transform={`translate(${mx}, ${my})`}>
+                        <rect
+                          x={-22}
+                          y={-9}
+                          width={44}
+                          height={18}
+                          rx={5}
+                          fill="#050914"
+                          stroke={color}
+                          strokeOpacity={0.65}
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={0}
+                          y={3}
+                          textAnchor="middle"
+                          fill="#e2e8f0"
+                          fontSize={9}
+                          fontFamily="monospace"
+                        >
+                          {edge.label}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
+
+            {/* 3-Stage Coordinated DAG Columns */}
+            <div
+              className={`relative z-20 grid gap-14 ${
+                enabledColCount === 1
+                  ? "grid-cols-1 max-w-2xl"
+                  : enabledColCount === 2
+                    ? "grid-cols-2"
+                    : "grid-cols-3"
+              }`}
+            >
+              {/* STAGE 1: DOCUMENT ATOMS */}
+              {showAtomsCol && (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between rounded-xl border border-sky-500/25 bg-sky-950/20 px-3 py-2 font-mono text-xs">
+                    <span className="inline-flex items-center gap-2 font-semibold text-sky-200">
+                      <span className="h-2 w-2 rounded-full bg-sky-400 shadow-[0_0_8px_#38bdf8]" />
+                      STAGE 1 · ATOMS
                     </span>
-                    <Badge variant="outline" size="xs">
-                      {stages.atoms.length} chunks
-                    </Badge>
+                    <span className="text-[10px] text-sky-300/80">
+                      {visibleAtoms.length}/{filteredAtomsAll.length} shown
+                    </span>
                   </div>
 
-                  {atoms.length === 0 && (
-                    <p className="text-xs text-slate-500 italic">
-                      No atom nodes in this graph yet.
-                    </p>
-                  )}
-
-                  {atoms.map((node) => (
-                    <motion.div
-                      key={node.id}
-                      whileHover={{ scale: 1.03, x: 4 }}
-                      onClick={() => setSelectedNode(node)}
-                      className={`flow-node-card cursor-pointer relative -skew-x-12 rounded-xl border border-white/10 bg-slate-900/90 p-3.5 shadow-lg transition-all hover:border-cyan-400/60 hover:bg-slate-800/90 hover:shadow-[0_0_20px_rgba(56,189,248,0.3)] ${
-                        node.recent
-                          ? "ring-2 ring-amber-400/70 shadow-[0_0_18px_rgba(251,191,36,0.2)]"
-                          : ""
-                      }`}
-                    >
-                      {node.recent && (
-                        <span className="skew-x-12 absolute -top-1.5 right-2 rounded-full border border-amber-400/50 bg-amber-500/20 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-amber-300">
-                          changed
-                        </span>
-                      )}
-                      <div className="skew-x-12 flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="font-bold text-xs text-slate-100 truncate">
-                            {node.title}
-                          </p>
-                          <p className="font-mono text-[10px] text-slate-400 truncate mt-0.5">
-                            {node.subtitle}
-                          </p>
-                        </div>
-                        <Badge variant="info" size="xs">
-                          {node.cognitiveType}
-                        </Badge>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-
-              {/* Stage 1 ➔ Stage 2 SVG Connecting Arrow Bridge */}
-              {activeStageFilter === "all" && (
-                <div className="hidden lg:flex flex-col justify-center items-center w-12 self-center">
-                  <svg width="48" height="260" viewBox="0 0 48 260" fill="none">
-                    <defs>
-                      <linearGradient id="purpleGlow" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#c084fc" stopOpacity="0.9" />
-                        <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.9" />
-                      </linearGradient>
-                      <marker
-                        id="arrowPurple"
-                        markerWidth="8"
-                        markerHeight="8"
-                        refX="6"
-                        refY="4"
-                        orient="auto"
+                  {visibleAtoms.map((atom) => {
+                    const isDimmed =
+                      highlightedKeys !== null && !highlightedKeys.has(atom.id);
+                    const isSelected =
+                      inspector?.kind === "node" &&
+                      inspector.node.id === atom.id;
+                    const connected = edgeIndex.connectedIds.has(atom.id);
+                    return (
+                      <div
+                        key={atom.id}
+                        ref={registerCardRef(atom.id)}
+                        data-card
+                        onMouseEnter={() => setHoveredKey(atom.id)}
+                        onMouseLeave={() => setHoveredKey(null)}
+                        onClick={() =>
+                          setInspector({ kind: "node", node: atom })
+                        }
+                        className={`group relative cursor-pointer rounded-xl border p-3 backdrop-blur-md transition-all ${
+                          isSelected
+                            ? "border-sky-400 bg-sky-950/40 shadow-[0_0_20px_rgba(56,189,248,0.22)]"
+                            : connected
+                              ? "border-white/15 bg-[#090f1d]/90 hover:border-sky-400/50"
+                              : "border-white/8 bg-[#070b15]/80 hover:border-white/25"
+                        } ${isDimmed ? "opacity-30" : "opacity-100"}`}
                       >
-                        <path d="M0,1 L7,4 L0,7 Z" fill="#c084fc" />
-                      </marker>
-                    </defs>
-                    {[
-                      "M 0 35 C 24 35, 24 85, 48 85",
-                      "M 0 100 C 24 100, 24 85, 48 85",
-                      "M 0 165 C 24 165, 24 85, 48 85",
-                      "M 0 230 C 24 230, 24 200, 48 200",
-                    ].map((d) => (
-                      <path
-                        key={d}
-                        d={d}
-                        stroke="url(#purpleGlow)"
-                        strokeWidth="2"
-                        markerEnd="url(#arrowPurple)"
-                      />
-                    ))}
-                  </svg>
-                </div>
-              )}
-
-              {/* --- STAGE 2: INVENTED MACRO CONCEPTS (CENTER) --- */}
-              {(activeStageFilter === "all" || activeStageFilter === "macro") && (
-                <div className="flex-1 space-y-6">
-                  <div className="flex items-center justify-between pb-2 border-b border-white/6">
-                    <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
-                      <Zap size={13} className="text-purple-400 animate-pulse" />
-                      Stage 2: Self-Inventions
-                    </span>
-                    <Badge variant="secondary" size="xs">
-                      {stages.macros.length} macros
-                    </Badge>
-                  </div>
-
-                  {macros.length === 0 && (
-                    <p className="text-xs text-slate-500 italic">
-                      No synthesized macros yet — they appear when co-activation
-                      patterns repeat under pressure.
-                    </p>
-                  )}
-
-                  {macros.map((node) => (
-                    <motion.div
-                      key={node.id}
-                      whileHover={{ scale: 1.04, y: -2 }}
-                      onClick={() => setSelectedNode(node)}
-                      className={`flow-node-card cursor-pointer relative -skew-x-12 rounded-2xl border-2 border-purple-500/60 bg-[linear-gradient(135deg,rgba(147,51,234,0.25),rgba(15,23,42,0.95))] p-4 shadow-[0_0_25px_rgba(168,85,247,0.25)] transition-all hover:border-purple-400 hover:shadow-[0_0_35px_rgba(168,85,247,0.5)] ${
-                        node.recent
-                          ? "ring-2 ring-amber-400/70"
-                          : ""
-                      }`}
-                    >
-                      {node.recent && (
-                        <span className="skew-x-12 absolute -top-1.5 right-2 rounded-full border border-amber-400/50 bg-amber-500/20 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-amber-300">
-                          changed
-                        </span>
-                      )}
-                      <div className="skew-x-12">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className="h-2 w-2 rounded-full bg-purple-400 animate-ping" />
-                            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-purple-300">
-                              Synthesis Macro
-                            </span>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="line-clamp-2 text-xs font-medium text-slate-100">
+                            {atom.title}
                           </div>
-                          {node.pressureLambda != null && (
-                            <Badge variant="secondary" size="xs">
-                              λ = {node.pressureLambda.toFixed(2)}
-                            </Badge>
+                          <span
+                            className={`shrink-0 rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase ${cogBadgeStyle(
+                              atom.cognitiveType,
+                            )}`}
+                          >
+                            {atom.cognitiveType}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-2 font-mono text-[10px] text-slate-400">
+                          <span className="truncate">{atom.subtitle}</span>
+                          {atom.pressureLambda != null && (
+                            <span className="shrink-0 text-amber-300">
+                              λ {atom.pressureLambda.toFixed(3)}
+                            </span>
                           )}
                         </div>
-
-                        <p className="mt-2 font-bold text-sm text-slate-100">
-                          {node.title}
-                        </p>
-                        <p className="mt-0.5 font-mono text-[11px] text-slate-400">
-                          {node.subtitle}
-                        </p>
-
-                        <div className="mt-3 flex items-center justify-between border-t border-purple-500/20 pt-2 font-mono text-[10px]">
-                          <span className="text-purple-200">
-                            Constituents: {node.childCount ?? 0}
-                          </span>
-                          <span className="flex items-center gap-1 text-cyan-300 font-bold">
-                            Inspect Concept <ChevronRight size={12} />
-                          </span>
-                        </div>
+                        {connected && (
+                          <span className="absolute -right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-[#03060f] bg-purple-400 shadow-[0_0_8px_#c084fc]" />
+                        )}
                       </div>
-                    </motion.div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Stage 2 ➔ Stage 3 SVG Connecting Arrow Bridge */}
-              {activeStageFilter === "all" && (
-                <div className="hidden lg:flex flex-col justify-center items-center w-12 self-center">
-                  <svg width="48" height="260" viewBox="0 0 48 260" fill="none">
-                    <defs>
-                      <marker
-                        id="arrowSky"
-                        markerWidth="8"
-                        markerHeight="8"
-                        refX="6"
-                        refY="4"
-                        orient="auto"
-                      >
-                        <path d="M0,1 L7,4 L0,7 Z" fill="#38bdf8" />
-                      </marker>
-                      <marker
-                        id="arrowRose"
-                        markerWidth="8"
-                        markerHeight="8"
-                        refX="6"
-                        refY="4"
-                        orient="auto"
-                      >
-                        <path d="M0,1 L7,4 L0,7 Z" fill="#f43f5e" />
-                      </marker>
-                    </defs>
-                    <path
-                      d="M 0 85 C 24 85, 24 60, 48 60"
-                      stroke="#38bdf8"
-                      strokeWidth="2"
-                      markerEnd="url(#arrowSky)"
-                    />
-                    <path
-                      d="M 0 85 C 24 85, 24 180, 48 180"
-                      stroke="#f43f5e"
-                      strokeWidth="2"
-                      strokeDasharray="4 4"
-                      markerEnd="url(#arrowRose)"
-                    />
-                  </svg>
-                </div>
-              )}
+              {/* STAGE 2: SYNTHESIZED MACROS + GRAPH THEORIES */}
+              {showSynthesisCol && (
+                <div className="flex flex-col gap-4">
+                  {(activeStageFilter === "all" ||
+                    activeStageFilter === "macro") && (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between rounded-xl border border-purple-500/35 bg-purple-950/25 px-3 py-2 font-mono text-xs">
+                        <span className="inline-flex items-center gap-2 font-semibold text-purple-200">
+                          <span className="h-2 w-2 rounded-full bg-purple-400 shadow-[0_0_8px_#c084fc]" />
+                          STAGE 2A · SELF-INVENTED MACROS
+                        </span>
+                        <span className="text-[10px] text-purple-300">
+                          {visibleMacros.length} macros
+                        </span>
+                      </div>
 
-              {/* --- STAGE 3: MERGES & PRUNING (RIGHT) --- */}
-              {(activeStageFilter === "all" || activeStageFilter === "merge") && (
-                <div className="flex-1 space-y-6">
-                  <div className="flex items-center justify-between pb-2 border-b border-white/6">
-                    <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                      <CheckCircle2 size={13} className="text-emerald-400" />
-                      Stage 3: Merges & Prunes
-                    </span>
-                    <Badge variant="outline" size="xs">
-                      {stages.merges.length} actions
-                    </Badge>
-                  </div>
+                      {visibleMacros.length === 0 ? (
+                        <div className="rounded-xl border border-dashed border-purple-500/30 bg-purple-950/10 p-4 font-mono text-[11px] text-slate-400">
+                          <div className="font-semibold text-purple-300">
+                            No L1+ Macros Synthesized Yet
+                          </div>
+                          <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+                            Macros crystallize when co-activation patterns or
+                            grounded theories compress constituent atoms via CFP
+                            weights.
+                          </p>
+                          {onTriggerSynthesize && (
+                            <button
+                              type="button"
+                              onClick={onTriggerSynthesize}
+                              disabled={isSynthesizing}
+                              className="mt-2.5 inline-flex items-center gap-1 rounded-lg border border-purple-500/40 bg-purple-500/20 px-2.5 py-1 text-[10px] text-purple-200 hover:bg-purple-500/30"
+                            >
+                              <Sparkles size={11} />
+                              Synthesize Macros Now
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        visibleMacros.map((macro) => {
+                          const isDimmed =
+                            highlightedKeys !== null &&
+                            !highlightedKeys.has(macro.id);
+                          const isSelected =
+                            inspector?.kind === "node" &&
+                            inspector.node.id === macro.id;
+                          const weightEntries = Object.entries(
+                            macro.weights || {},
+                          ).slice(0, 3);
+                          return (
+                            <div
+                              key={macro.id}
+                              ref={registerCardRef(macro.id)}
+                              data-card
+                              onMouseEnter={() => setHoveredKey(macro.id)}
+                              onMouseLeave={() => setHoveredKey(null)}
+                              onClick={() =>
+                                setInspector({ kind: "node", node: macro })
+                              }
+                              className={`relative cursor-pointer rounded-xl border p-3.5 backdrop-blur-md transition-all ${
+                                isSelected
+                                  ? "border-purple-400 bg-purple-950/45 shadow-[0_0_24px_rgba(192,132,252,0.28)]"
+                                  : "border-purple-500/35 bg-[#100a22]/90 hover:border-purple-400/70"
+                              } ${isDimmed ? "opacity-30" : "opacity-100"}`}
+                            >
+                              <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-[#03060f] bg-purple-400 shadow-[0_0_8px_#c084fc]" />
+                              <span className="absolute -right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-[#03060f] bg-cyan-400 shadow-[0_0_8px_#38bdf8]" />
 
-                  {merges.length === 0 && (
-                    <p className="text-xs text-slate-500 italic">
-                      No opposition merges recorded yet.
-                    </p>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="line-clamp-2 text-xs font-semibold text-purple-100">
+                                  {macro.title}
+                                </div>
+                                <span className="shrink-0 rounded border border-purple-400/40 bg-purple-500/20 px-1.5 py-0.5 font-mono text-[9px] text-purple-200">
+                                  L{macro.level ?? 1} · {macro.childCount ?? 0}{" "}
+                                  atoms
+                                </span>
+                              </div>
+
+                              {macro.summary && (
+                                <p className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-slate-300">
+                                  {macro.summary}
+                                </p>
+                              )}
+
+                              {weightEntries.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1 font-mono text-[9px]">
+                                  {weightEntries.map(([label, w]) => (
+                                    <span
+                                      key={label}
+                                      className="rounded border border-purple-400/25 bg-purple-500/10 px-1.5 py-0.5 text-purple-200"
+                                    >
+                                      {Number(w).toFixed(2)}·
+                                      {label.slice(0, 14)}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+
+                              <div className="mt-2 flex items-center justify-between font-mono text-[10px] text-slate-400">
+                                <span className="truncate">
+                                  {macro.synthesisOrigin || "macro_synthesis"}
+                                </span>
+                                <span className="text-amber-300">
+                                  λ {(macro.pressureLambda ?? 0).toFixed(3)} · ρ{" "}
+                                  {(macro.residual ?? 0).toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   )}
 
-                  {merges.map((node) => (
-                    <motion.div
-                      key={node.id}
-                      whileHover={{ scale: 1.03, x: -4 }}
-                      onClick={() => setSelectedNode(node)}
-                      className={`flow-node-card cursor-pointer relative -skew-x-12 rounded-xl border p-3.5 shadow-lg transition-all ${
-                        node.status === "winner"
-                          ? "border-sky-500/50 bg-sky-950/70 hover:border-sky-400 hover:shadow-[0_0_20px_rgba(56,189,248,0.3)]"
-                          : "border-rose-500/50 bg-rose-950/70 hover:border-rose-400 hover:shadow-[0_0_20px_rgba(244,63,94,0.3)]"
-                      } ${
-                        node.recent
-                          ? "ring-2 ring-amber-400/70 shadow-[0_0_18px_rgba(251,191,36,0.2)]"
-                          : ""
-                      }`}
-                    >
-                      {node.recent && (
-                        <span className="skew-x-12 absolute -top-1.5 right-2 rounded-full border border-amber-400/50 bg-amber-500/20 px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider text-amber-300">
-                          changed
+                  {/* Subsection B: Symbolic Graph Theories */}
+                  {(activeStageFilter === "all" ||
+                    activeStageFilter === "theory") && (
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-950/20 px-3 py-2 font-mono text-xs">
+                        <span className="inline-flex items-center gap-2 font-semibold text-emerald-200">
+                          <BookOpen size={13} className="text-emerald-400" />
+                          STAGE 2B · SYMBOLIC THEORIES
                         </span>
-                      )}
-                      <div className="skew-x-12 flex items-center justify-between gap-2">
-                        <div>
-                          <p className="font-bold text-xs text-slate-100">
-                            {node.title}
-                          </p>
-                          <p className="font-mono text-[10px] text-slate-400 mt-0.5">
-                            {node.subtitle}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={node.status === "winner" ? "info" : "error"}
-                          size="xs"
-                        >
-                          {node.status === "winner" ? "Consensus" : "Pruned"}
-                        </Badge>
+                        <span className="text-[10px] text-emerald-300">
+                          {visibleTheories.length} active
+                        </span>
                       </div>
-                    </motion.div>
-                  ))}
+
+                      {visibleTheories.map((t) => {
+                        const domKey = `theory:${t.theory_id}`;
+                        const isDimmed =
+                          highlightedKeys !== null &&
+                          !highlightedKeys.has(domKey);
+                        const isSelected =
+                          inspector?.kind === "theory" &&
+                          inspector.theory.theory_id === t.theory_id;
+                        return (
+                          <div
+                            key={t.theory_id}
+                            ref={registerCardRef(domKey)}
+                            data-card
+                            onMouseEnter={() => setHoveredKey(domKey)}
+                            onMouseLeave={() => setHoveredKey(null)}
+                            onClick={() =>
+                              setInspector({ kind: "theory", theory: t })
+                            }
+                            className={`relative cursor-pointer rounded-xl border p-3 backdrop-blur-md transition-all ${
+                              isSelected
+                                ? "border-emerald-400 bg-emerald-950/40 shadow-[0_0_20px_rgba(52,211,153,0.22)]"
+                                : "border-emerald-500/30 bg-[#061813]/85 hover:border-emerald-400/65"
+                            } ${isDimmed ? "opacity-30" : "opacity-100"}`}
+                          >
+                            <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-[#03060f] bg-emerald-400 shadow-[0_0_8px_#34d399]" />
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="line-clamp-2 text-xs font-semibold text-emerald-100">
+                                {t.title}
+                              </div>
+                              <span className="shrink-0 rounded border border-emerald-400/40 bg-emerald-500/20 px-1.5 py-0.5 font-mono text-[9px] uppercase text-emerald-200">
+                                {t.theory_type} ·{" "}
+                                {(t.confidence * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                            <p className="mt-1 line-clamp-2 text-[11px] text-slate-300">
+                              {t.description}
+                            </p>
+                            <div className="mt-2 flex items-center justify-between font-mono text-[10px] text-emerald-300/80">
+                              <span>
+                                {t.evidence_node_ids.length} evidence atoms
+                              </span>
+                              <span>v{t.graph_version}</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* STAGE 3: ANTISYMMETRIC MERGES & CONSENSUS */}
+              {showMergesCol && (
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between rounded-xl border border-cyan-500/30 bg-cyan-950/20 px-3 py-2 font-mono text-xs">
+                    <span className="inline-flex items-center gap-2 font-semibold text-cyan-200">
+                      <GitMerge size={13} className="text-cyan-400" />
+                      STAGE 3 · ANTISYMMETRIC MERGES
+                    </span>
+                    <span className="text-[10px] text-cyan-300">
+                      {visibleMerges.length} /{" "}
+                      {data?.mergeCount ?? visibleMerges.length}
+                    </span>
+                  </div>
+
+                  {visibleMerges.length === 0 ? (
+                    <div className="rounded-xl border border-dashed border-cyan-500/25 bg-cyan-950/10 p-4 font-mono text-[11px] text-slate-400">
+                      No antisymmetric merges recorded yet.
+                    </div>
+                  ) : (
+                    visibleMerges.map((merge) => {
+                      const domKey = `merge:${merge.id}`;
+                      const isDimmed =
+                        highlightedKeys !== null &&
+                        !highlightedKeys.has(domKey);
+                      const isSelected =
+                        inspector?.kind === "node" &&
+                        inspector.node.id === merge.id;
+                      const simPct = Math.round(
+                        (merge.decision?.similarity ?? 0) * 100,
+                      );
+                      const isPruned = merge.status === "pruned";
+                      return (
+                        <div
+                          key={merge.id}
+                          ref={registerCardRef(domKey)}
+                          data-card
+                          onMouseEnter={() => setHoveredKey(domKey)}
+                          onMouseLeave={() => setHoveredKey(null)}
+                          onClick={() =>
+                            setInspector({ kind: "node", node: merge })
+                          }
+                          className={`relative cursor-pointer rounded-xl border p-3 backdrop-blur-md transition-all ${
+                            isSelected
+                              ? "border-cyan-400 bg-cyan-950/40 shadow-[0_0_20px_rgba(56,189,248,0.22)]"
+                              : isPruned
+                                ? "border-rose-500/30 bg-[#140a14]/85 hover:border-rose-400/60"
+                                : "border-cyan-500/25 bg-[#07111d]/85 hover:border-cyan-400/60"
+                          } ${isDimmed ? "opacity-30" : "opacity-100"}`}
+                        >
+                          <span className="absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full border border-[#03060f] bg-cyan-400 shadow-[0_0_8px_#38bdf8]" />
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="line-clamp-2 text-xs font-medium text-slate-100">
+                              {merge.title}
+                            </div>
+                            <span
+                              className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[9px] uppercase ${
+                                isPruned
+                                  ? "border-rose-500/40 bg-rose-500/15 text-rose-300"
+                                  : "border-cyan-500/40 bg-cyan-500/15 text-cyan-200"
+                              }`}
+                            >
+                              {isPruned ? (
+                                <Scissors size={9} />
+                              ) : (
+                                <CheckCircle2 size={9} />
+                              )}
+                              {merge.status || "winner"}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 font-mono text-[10px] text-slate-400">
+                            {merge.subtitle}
+                          </div>
+
+                          {merge.decision && (
+                            <div className="mt-2">
+                              <div className="flex items-center justify-between font-mono text-[10px]">
+                                <span className="truncate text-cyan-300">
+                                  {merge.decision.reason}
+                                </span>
+                                <span className="shrink-0 text-slate-200">
+                                  {simPct}%
+                                </span>
+                              </div>
+                              <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-white/10">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    isPruned ? "bg-rose-400" : "bg-cyan-400"
+                                  }`}
+                                  style={{
+                                    width: `${Math.min(100, Math.max(4, simPct))}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>
@@ -757,180 +1254,136 @@ export const InventionFlowCanvas: React.FC<InventionFlowCanvasProps> = ({
         )}
       </div>
 
-      {/* Slide-Over Node Detail Inspector Modal */}
-      <AnimatePresence>
-        {selectedNode && (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            className="absolute top-4 right-4 z-30 w-80 rounded-2xl border border-purple-500/40 bg-[#0b1220]/98 p-4 shadow-2xl backdrop-blur-2xl text-xs text-slate-100"
-          >
-            <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-              <div className="flex items-center gap-2">
-                <Zap size={14} className="text-purple-400 animate-pulse" />
-                <span className="font-bold text-purple-200 uppercase tracking-wider text-[11px]">
-                  Invention Flow Inspector
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedNode(null)}
-                className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white"
-              >
-                <X size={14} />
-              </button>
-            </div>
-
-            <div className="mt-3 space-y-2">
-              <p className="font-bold text-sm text-slate-100">
-                {selectedNode.title}
-              </p>
-              <p className="font-mono text-[11px] text-slate-400">
-                Stage:{" "}
-                <span className="text-purple-300 uppercase">
-                  {selectedNode.stage}
-                </span>
-                {selectedNode.status && (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <span
-                      className={
-                        selectedNode.status === "pruned"
-                          ? "text-rose-300"
-                          : selectedNode.status === "winner"
-                            ? "text-sky-300"
-                            : "text-emerald-300"
-                      }
-                    >
-                      {selectedNode.status}
+      {/* Interactive Inspector Drawer */}
+      {inspector && (
+        <div className="border-t border-white/10 bg-[#050915]/95 p-4 backdrop-blur-xl">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              {inspector.kind === "node" ? (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase">
+                    <span className="rounded border border-purple-400/40 bg-purple-500/20 px-2 py-0.5 text-purple-200">
+                      {inspector.node.stage}
                     </span>
-                  </>
-                )}
-              </p>
-
-              {selectedNode.pressureLambda != null && (
-                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px]">
-                  <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2">
-                    <span className="text-slate-400">Pressure λ</span>
-                    <p className="font-bold text-cyan-300 mt-0.5">
-                      {selectedNode.pressureLambda.toFixed(4)}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2">
-                    <span className="text-slate-400">Children</span>
-                    <p className="font-bold text-purple-300 mt-0.5">
-                      {selectedNode.childCount ?? 0} Chunks
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {selectedNode.decision && (
-                <div className="mt-3 pt-2 border-t border-white/10">
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-cyan-300 mb-2">
-                    Why this node won
-                  </p>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-slate-400">Selector</span>
-                      <span
-                        className={`font-mono ${
-                          selectedNode.decision.selector === "semantic"
-                            ? "text-emerald-300"
-                            : "text-slate-300"
-                        }`}
-                      >
-                        {selectedNode.decision.selector}
-                        {selectedNode.decision.tie_break === "legacy_hash" &&
-                          selectedNode.decision.selector === "semantic" && (
-                            <span className="text-slate-500">
-                              {" "}
-                              · tie: hash
-                            </span>
-                          )}
+                    <span
+                      className={`rounded border px-2 py-0.5 ${cogBadgeStyle(
+                        inspector.node.cognitiveType,
+                      )}`}
+                    >
+                      {inspector.node.cognitiveType}
+                    </span>
+                    <span className="text-slate-400">{inspector.node.id}</span>
+                    {inspector.node.pressureLambda != null && (
+                      <span className="text-amber-300">
+                        λ={inspector.node.pressureLambda.toFixed(4)}
                       </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2">
-                        <span className="text-slate-400">Winner</span>
-                        <p className="font-bold text-emerald-300 mt-0.5">
-                          {selectedNode.decision.score_winner.toFixed(4)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-2">
-                        <span className="text-slate-400">Loser</span>
-                        <p className="font-bold text-rose-300 mt-0.5">
-                          {selectedNode.decision.score_loser.toFixed(4)}
-                        </p>
-                      </div>
-                    </div>
-                    {Object.keys(selectedNode.decision.components_winner ?? {})
-                      .length > 0 && (
-                      <div className="space-y-1.5 pt-1">
-                        {Object.entries(
-                          selectedNode.decision.components_winner ?? {},
-                        ).map(([key, value]) => (
-                          <div key={key} className="flex items-center gap-2">
-                            <span className="w-16 shrink-0 font-mono text-[10px] text-slate-400">
-                              {DECISION_COMPONENT_LABELS[key] ?? key}
-                            </span>
-                            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/8">
-                              <div
-                                className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-purple-400"
-                                style={{
-                                  width: `${Math.min(100, Math.max(0, value * 100))}%`,
-                                }}
-                              />
-                            </div>
-                            <span className="w-12 shrink-0 text-right font-mono text-[10px] text-slate-300">
-                              {value.toFixed(3)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                    )}
+                    {inspector.node.residual != null && (
+                      <span className="text-cyan-300">
+                        residual={inspector.node.residual.toFixed(4)}
+                      </span>
                     )}
                   </div>
-                </div>
-              )}
+                  <h4 className="mt-1.5 text-sm font-semibold text-white">
+                    {inspector.node.title}
+                  </h4>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {inspector.node.summary || inspector.node.subtitle}
+                  </p>
 
-              {selectedNode.childrenDetails &&
-                selectedNode.childrenDetails.length > 0 && (
-                  <div className="mt-3 pt-2 border-t border-white/10">
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-purple-300 mb-2">
-                      Constituent Child Vector Chunks
-                    </p>
-                    <div className="max-h-44 overflow-y-auto custom-scrollbar space-y-1.5 pr-1">
-                      {selectedNode.childrenDetails.map((child) => (
-                        <div
-                          key={child.id}
-                          className="rounded-lg border border-white/8 bg-white/[0.02] p-2 flex items-center justify-between gap-2"
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-slate-200 text-[11px] font-medium">
-                              {child.label}
-                            </p>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              {child.type}
-                            </span>
-                          </div>
-                          <Badge variant="info" size="xs">
-                            {(child.similarity * 100).toFixed(0)}%
-                          </Badge>
+                  {inspector.node.childrenDetails &&
+                    inspector.node.childrenDetails.length > 0 && (
+                      <div className="mt-3">
+                        <div className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-purple-300">
+                          CFP Constituent Lineage (
+                          {inspector.node.childrenDetails.length})
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {inspector.node.childrenDetails.map((child) => (
+                            <div
+                              key={child.id}
+                              className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs"
+                            >
+                              <div className="min-w-0">
+                                <div className="truncate text-slate-200">
+                                  {child.label}
+                                </div>
+                                <div className="font-mono text-[9px] text-slate-500">
+                                  {child.type} · {child.id.slice(0, 10)}
+                                </div>
+                              </div>
+                              <span className="shrink-0 font-mono text-[10px] text-purple-300">
+                                {(child.similarity * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                  {inspector.node.decision && (
+                    <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-cyan-500/25 bg-cyan-950/20 px-3 py-2 font-mono text-[11px] text-cyan-200">
+                      <Activity size={13} className="text-cyan-400" />
+                      <span>Winner: {inspector.node.decision.winner}</span>
+                      <ArrowRight size={12} className="text-slate-500" />
+                      <span>Action: {inspector.node.decision.action}</span>
+                      <span>
+                        Similarity:{" "}
+                        {(inspector.node.decision.similarity * 100).toFixed(1)}%
+                      </span>
+                      <span className="text-slate-300">
+                        ({inspector.node.decision.reason})
+                      </span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase">
+                    <span className="rounded border border-emerald-400/40 bg-emerald-500/20 px-2 py-0.5 text-emerald-200">
+                      theory · {inspector.theory.theory_type}
+                    </span>
+                    <span className="text-emerald-300">
+                      confidence{" "}
+                      {(inspector.theory.confidence * 100).toFixed(1)}%
+                    </span>
+                    <span className="text-slate-400">
+                      graph v{inspector.theory.graph_version}
+                    </span>
+                  </div>
+                  <h4 className="mt-1.5 text-sm font-semibold text-white">
+                    {inspector.theory.title}
+                  </h4>
+                  <p className="mt-1 text-xs text-slate-300">
+                    {inspector.theory.description}
+                  </p>
+                  {inspector.theory.evidence_node_ids.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5 font-mono text-[10px]">
+                      {inspector.theory.evidence_node_ids.map((eid) => (
+                        <span
+                          key={eid}
+                          className="rounded border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-emerald-200"
+                        >
+                          evidence: {eid.slice(0, 12)}
+                        </span>
                       ))}
                     </div>
-                  </div>
-                )}
-
-              <p className="pt-2 border-t border-white/10 font-mono text-[10px] text-slate-500">
-                node {selectedNode.id}
-              </p>
+                  )}
+                </>
+              )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+            <button
+              type="button"
+              onClick={() => setInspector(null)}
+              className="rounded-lg border border-white/10 p-1.5 text-slate-400 hover:bg-white/10 hover:text-white"
+              title="Close Inspector"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

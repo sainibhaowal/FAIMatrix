@@ -22,7 +22,7 @@ import sys
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict
+from typing import Any, AsyncGenerator, Dict, Optional
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import StreamingResponse
@@ -90,6 +90,12 @@ async def list_events(
     graph_id: str,
     after_seq: int = Query(0, ge=0),
     limit: int = Query(DEFAULT_PAGE_SIZE, ge=1),
+    tail: bool = Query(
+        False, description="Return latest N events chronologically when after_seq == 0"
+    ),
+    kinds: Optional[str] = Query(
+        None, description="Optional comma-separated event kinds"
+    ),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> Dict[str, Any]:
     """List events for a graph with pagination.
@@ -98,6 +104,8 @@ async def list_events(
         graph_id: Graph identifier.
         after_seq: Return events with seq > after_seq.
         limit: Maximum events to return (bounded to MAX_PAGE_SIZE).
+        tail: When true and after_seq == 0, fetch the newest events in chronological order.
+        kinds: Optional comma-separated event kinds filter.
 
     Returns:
         {"events": [...], "has_more": bool, "next_seq": int}
@@ -106,17 +114,34 @@ async def list_events(
     # This keeps API behavior backward-compatible for older UIs that may send
     # larger limits (for example 120) while preserving server-side cap.
     limit = min(limit, MAX_PAGE_SIZE)
-
-    events = ctx.event_repo.get_by_seq(
-        ctx.session,
-        graph_id=graph_id,
-        after_seq=after_seq,
-        limit=limit + 1,  # Fetch one extra to check has_more
+    kind_list = (
+        [k.strip() for k in kinds.split(",") if k.strip()]
+        if isinstance(kinds, str) and kinds.strip()
+        else None
     )
+    use_tail = tail is True
 
-    has_more = len(events) > limit
-    if has_more:
-        events = events[:limit]
+    query_kwargs: Dict[str, Any] = {
+        "graph_id": graph_id,
+        "limit": limit + 1,
+    }
+    if kind_list is not None:
+        query_kwargs["kinds"] = kind_list
+
+    if use_tail and after_seq == 0:
+        events = ctx.event_repo.list_tail(ctx.session, **query_kwargs)
+        has_more = len(events) > limit
+        if has_more:
+            events = events[-limit:]
+    else:
+        events = ctx.event_repo.get_by_seq(
+            ctx.session,
+            after_seq=after_seq,
+            **query_kwargs,
+        )
+        has_more = len(events) > limit
+        if has_more:
+            events = events[:limit]
 
     next_seq = events[-1].seq if events else after_seq
 
@@ -254,11 +279,12 @@ async def _event_generator(
     - Sleep on empty to reduce load
     - Heartbeat every 15s
     - Clean exit after extended inactivity
+    - Proper tenant scoping & negative after_seq tail initialization
 
     Args:
         tenant_id: Tenant for session scoping.
         graph_id: Graph to stream.
-        after_seq: Resume point.
+        after_seq: Resume point (<0 initializes at current max_seq).
     """
     from store.pg.repos.event_repo import EventRepo
 
@@ -267,11 +293,19 @@ async def _event_generator(
     empty_poll_count = 0
 
     try:
+        if current_seq < 0:
+            with _get_fresh_session() as session:
+                event_repo = EventRepo(tenant_id=tenant_id)
+                current_seq = int(event_repo.get_max_seq(session, graph_id) or 0)
+
+        yield "event: ready\n"
+        yield f"data: {json.dumps({'graph_id': graph_id, 'tenant_id': tenant_id, 'last_seq': current_seq, 'ts': datetime.now(timezone.utc).isoformat()})}\n\n"
+
         while True:
             try:
-                # Use short-lived session per fetch
+                # Use short-lived session per fetch with explicit tenant_id
                 with _get_fresh_session() as session:
-                    event_repo = EventRepo()
+                    event_repo = EventRepo(tenant_id=tenant_id)
                     events = event_repo.get_by_seq(
                         session,
                         graph_id=graph_id,
@@ -340,7 +374,7 @@ async def _event_generator(
 async def stream_events(
     request: Request,
     graph_id: str,
-    after_seq: int = Query(0, ge=0),
+    after_seq: int = Query(0, ge=-1),
     tenant_id: str = Depends(get_tenant_id),
 ):
     """SSE event stream for real-time UI updates.

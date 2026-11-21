@@ -26,7 +26,9 @@ def _post(url: str, body: bytes, headers: dict[str, str]) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("files", nargs="+", type=Path)
-    parser.add_argument("--base-url", default=os.getenv("FAIM_BASE_URL", "http://localhost:8000"))
+    parser.add_argument(
+        "--base-url", default=os.getenv("FAIM_BASE_URL", "http://localhost:8000")
+    )
     parser.add_argument("--tenant", default=os.getenv("FAIM_TENANT_ID", "default"))
     parser.add_argument("--api-key", default=os.getenv("FAIM_API_KEY", ""))
     parser.add_argument("--graph-id", default=f"load-{int(time.time())}")
@@ -34,7 +36,9 @@ def main() -> int:
     args = parser.parse_args()
 
     if not args.api_key:
-        raise SystemExit("FAIM_API_KEY is required; this probe never uses a bypass key implicitly")
+        raise SystemExit(
+            "FAIM_API_KEY is required; this probe never uses a bypass key implicitly"
+        )
     documents = []
     for path in args.files:
         payload = path.read_bytes()
@@ -47,7 +51,9 @@ def main() -> int:
             {
                 "graph_id": args.graph_id,
                 "filename": path.name,
-                "content_type": "application/pdf" if path.suffix.lower() == ".pdf" else "text/plain",
+                "content_type": (
+                    "application/pdf" if path.suffix.lower() == ".pdf" else "text/plain"
+                ),
                 "profile": "strict",
                 "persist_mode": "strict",
                 "bytes_base64": __import__("base64").b64encode(payload).decode("ascii"),
@@ -71,7 +77,9 @@ def main() -> int:
             "error": result.get("error"),
         }
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.workers)) as pool:
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=max(1, args.workers)
+    ) as pool:
         results = list(pool.map(upload, documents))
     latencies = sorted(float(row["latency_ms"]) for row in results)
     p95_index = min(len(latencies) - 1, max(0, int(round(len(latencies) * 0.95)) - 1))
@@ -84,7 +92,9 @@ def main() -> int:
         "results": results,
     }
     print(json.dumps(summary, indent=2, sort_keys=True))
-    return 0 if all(row["status"] in {"completed", "dedup_hit"} for row in results) else 1
+    return (
+        0 if all(row["status"] in {"completed", "dedup_hit"} for row in results) else 1
+    )
 
 
 if __name__ == "__main__":

@@ -373,8 +373,8 @@ def validate_tenant_key(tenant_id: str, api_key: str) -> bool:
 # Tenant ID Validation
 # =============================================================================
 
-# Valid tenant pattern: alphanumeric, hyphens, underscores
-TENANT_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+# Valid tenant pattern: alphanumeric, colons (e.g. user:<uuid>), hyphens, underscores
+TENANT_PATTERN = re.compile(r"^[a-zA-Z0-9_:-]{1,96}$")
 
 
 def normalize_tenant_id(tenant_id: str) -> str:
@@ -419,6 +419,11 @@ EXEMPT_PATHS = {
     "/api/v1/reranker/test",
     "/api/v1/reranker/activate",
     "/api/v1/reranker/deactivate",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-protected-resource/mcp",
+    "/.well-known/oauth-authorization-server",
+    "/oauth/register",
+    "/oauth/token",
 }
 
 # Auth paths that should be exempt from tenant auth
@@ -471,12 +476,35 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Get headers
-        raw_tenant_id = request.headers.get("X-Tenant-Id", "") or request.headers.get(
-            "X-Tenant-ID", "default"
-        )
+        explicit_tenant_id = request.headers.get(
+            "X-Tenant-Id", ""
+        ) or request.headers.get("X-Tenant-ID", "")
         api_key = request.headers.get("X-Api-Key", "") or request.headers.get(
             "X-FAIM-KEY", ""
         )
+        if not api_key:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.lower().startswith("bearer "):
+                candidate = auth_header[7:].strip()
+                if candidate.startswith("faim_"):
+                    api_key = candidate
+
+        raw_tenant_id = explicit_tenant_id or "default"
+        if not explicit_tenant_id and api_key:
+            try:
+                from runtime.context import close_session, get_session
+                from store.pg.repos.auth_repo import AuthRepo
+
+                _s = get_session()
+                try:
+                    found = AuthRepo(_s).find_tenant_key_by_any_key(api_key)
+                    if found is not None:
+                        raw_tenant_id = found[0]
+                        _s.commit()
+                finally:
+                    close_session(_s)
+            except Exception:
+                pass
 
         # Normalize and validate tenant ID
         tenant_id = normalize_tenant_id(raw_tenant_id)
@@ -490,9 +518,18 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
 
         # Check API key present
         if not api_key:
+            headers = None
+            if request.url.path.startswith("/mcp"):
+                origin = (os.getenv("FAIM_PUBLIC_ORIGIN") or "").strip().rstrip(
+                    "/"
+                ) or str(request.base_url).rstrip("/")
+                headers = {
+                    "WWW-Authenticate": f'Bearer resource_metadata="{origin}/.well-known/oauth-protected-resource", scope="mcp:read mcp:write"'
+                }
             return JSONResponse(
                 status_code=401,
                 content={"error": "Missing X-Api-Key header"},
+                headers=headers,
             )
 
         # Authenticate key

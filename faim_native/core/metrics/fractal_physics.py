@@ -209,6 +209,40 @@ def _cosine_distance(a: List[float], b: List[float]) -> float:
     return 1.0 - _cosine_similarity(a, b)
 
 
+def _pairwise_cosine_similarities_fast(
+    vectors: List[List[float]],
+) -> Optional[List[float]]:
+    """Vectorized pairwise cosine similarities in i < j order via NumPy.
+
+    Returns None if NumPy is unavailable or vector dimensions are non-uniform,
+    allowing callers to fall back to the pure-Python loop.
+    """
+    n = len(vectors)
+    if n < 2:
+        return []
+    try:
+        import numpy as np
+
+        dim = len(vectors[0])
+        if dim == 0 or any(len(v) != dim for v in vectors):
+            return None
+
+        mat = np.asarray(vectors, dtype=np.float64)
+        norms = np.linalg.norm(mat, axis=1, keepdims=True)
+        safe_norms = np.where(norms == 0.0, 1.0, norms)
+        normed = mat / safe_norms
+        zero_mask = norms[:, 0] == 0.0
+        if np.any(zero_mask):
+            normed[zero_mask] = 0.0
+
+        sim_matrix = normed @ normed.T
+        np.clip(sim_matrix, -1.0, 1.0, out=sim_matrix)
+        iu = np.triu_indices(n, k=1)
+        return sim_matrix[iu].tolist()
+    except Exception:
+        return None
+
+
 # =============================================================================
 # Core Estimators
 # =============================================================================
@@ -261,11 +295,15 @@ def estimate_D_fractal(
 
     # Compute pairwise distances (stable iteration order: i < j)
     if distances is None:
-        distances = []
-        for i in range(n):
-            for j in range(i + 1, n):
-                dist = _cosine_distance(vectors[i], vectors[j])
-                distances.append(dist)
+        fast_sims = _pairwise_cosine_similarities_fast(vectors)
+        if fast_sims is not None:
+            distances = [1.0 - s for s in fast_sims]
+        else:
+            distances = []
+            for i in range(n):
+                for j in range(i + 1, n):
+                    dist = _cosine_distance(vectors[i], vectors[j])
+                    distances.append(dist)
 
     if not distances:
         return 0.0
@@ -545,11 +583,15 @@ def compute_diagnostics(
     n = len(vectors)
 
     if similarities is None:
-        similarities = []
-        for i in range(n):
-            for j in range(i + 1, n):
-                sim = _cosine_similarity(vectors[i], vectors[j])
-                similarities.append(sim)
+        fast_sims = _pairwise_cosine_similarities_fast(vectors)
+        if fast_sims is not None:
+            similarities = fast_sims
+        else:
+            similarities = []
+            for i in range(n):
+                for j in range(i + 1, n):
+                    sim = _cosine_similarity(vectors[i], vectors[j])
+                    similarities.append(sim)
 
     if distances is None:
         distances = [1.0 - s for s in similarities]
@@ -558,9 +600,7 @@ def compute_diagnostics(
     s = compute_scaling_s(config)
 
     # Compute D
-    D_hat = estimate_D_fractal(
-        vectors, config.epsilons, config, distances=distances
-    )
+    D_hat = estimate_D_fractal(vectors, config.epsilons, config, distances=distances)
 
     # Compute H
     H_hat = estimate_H_entropy(similarities, config.bins, config)

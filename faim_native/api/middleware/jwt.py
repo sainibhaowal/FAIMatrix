@@ -122,6 +122,11 @@ JWT_EXEMPT_PATHS = {
     "/api/v1/auth/otp/verify",
     "/v1/auth/otp/request",
     "/v1/auth/otp/verify",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-protected-resource/mcp",
+    "/.well-known/oauth-authorization-server",
+    "/oauth/register",
+    "/oauth/token",
 }
 
 JWT_EXEMPT_PREFIXES = []
@@ -167,9 +172,18 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
             logger.warning(
                 f"[JWT] Rejecting request to {request.url.path} (Invalid/Expired token)"
             )
+            headers = None
+            if request.url.path.startswith("/mcp"):
+                origin = (os.getenv("FAIM_PUBLIC_ORIGIN") or "").strip().rstrip(
+                    "/"
+                ) or str(request.base_url).rstrip("/")
+                headers = {
+                    "WWW-Authenticate": f'Bearer resource_metadata="{origin}/.well-known/oauth-protected-resource", scope="mcp:read mcp:write"'
+                }
             return JSONResponse(
                 status_code=401,
                 content={"error": "Invalid or expired token"},
+                headers=headers,
             )
 
         # Extract user info from claims
@@ -193,6 +207,8 @@ class JWTAuthMiddleware(BaseHTTPMiddleware):
         request.state.email = email
         request.state.graph_id = graph_id
         request.state.auth_method = "jwt"
+        request.state.oauth_scope = claims.get("scope")
+        request.state.oauth_grant_id = claims.get("grant_id")
 
         # Consistent user object for routers
         request.state.user = {

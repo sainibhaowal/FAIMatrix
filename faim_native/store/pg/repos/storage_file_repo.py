@@ -62,10 +62,9 @@ class StorageFileRepo:
         )
         if graph_id is not None:
             query = query.filter(StorageFileModel.graph_id == graph_id)
-        return (
-            query.order_by(asc(StorageFileModel.updated_at), asc(StorageFileModel.id))
-            .all()
-        )
+        return query.order_by(
+            asc(StorageFileModel.updated_at), asc(StorageFileModel.id)
+        ).all()
 
     def list_by_job_id(
         self,
@@ -82,10 +81,9 @@ class StorageFileRepo:
         )
         if graph_id is not None:
             query = query.filter(StorageFileModel.graph_id == graph_id)
-        return (
-            query.order_by(asc(StorageFileModel.updated_at), asc(StorageFileModel.id))
-            .all()
-        )
+        return query.order_by(
+            asc(StorageFileModel.updated_at), asc(StorageFileModel.id)
+        ).all()
 
     def upsert_upload(
         self,
@@ -309,6 +307,7 @@ class StorageFileRepo:
         limit: int,
         offset: int,
         include_delete_requested: bool,
+        exclude_failed: bool = False,
     ) -> Tuple[List[StorageFileModel], int]:
         q = session.query(StorageFileModel).filter(
             StorageFileModel.tenant_id == self.tenant_id
@@ -319,6 +318,9 @@ class StorageFileRepo:
 
         if status:
             q = q.filter(StorageFileModel.ingest_status == status)
+
+        if exclude_failed:
+            q = q.filter(StorageFileModel.ingest_status != "failed")
 
         if query:
             like = f"%{query}%"
@@ -374,7 +376,12 @@ class StorageFileRepo:
         )
         by_type = {mime or "application/octet-stream": int(c) for mime, c in type_rows}
 
-        from store.pg.models_faim import NodeModel, EdgeModel, NodeRepresentationV2Model, EventModel
+        from store.pg.models_faim import (
+            EdgeModel,
+            EventModel,
+            NodeModel,
+            NodeRepresentationV2Model,
+        )
 
         if total_files == 0:
             graph_memory_bytes = 0
@@ -383,8 +390,12 @@ class StorageFileRepo:
         else:
             nq = session.query(NodeModel).filter(NodeModel.tenant_id == self.tenant_id)
             eq = session.query(EdgeModel).filter(EdgeModel.tenant_id == self.tenant_id)
-            rq = session.query(NodeRepresentationV2Model).filter(NodeRepresentationV2Model.tenant_id == self.tenant_id)
-            evq = session.query(EventModel).filter(EventModel.tenant_id == self.tenant_id)
+            rq = session.query(NodeRepresentationV2Model).filter(
+                NodeRepresentationV2Model.tenant_id == self.tenant_id
+            )
+            evq = session.query(EventModel).filter(
+                EventModel.tenant_id == self.tenant_id
+            )
 
             if graph_id:
                 nq = nq.filter(NodeModel.graph_id == graph_id)
@@ -398,9 +409,13 @@ class StorageFileRepo:
             event_count = evq.count()
 
             raw_bytes = int(total_bytes)
-            graph_memory_bytes = (node_count * 2048) + (edge_count * 512) + (rep_count * 1536)
+            graph_memory_bytes = (
+                (node_count * 2048) + (edge_count * 512) + (rep_count * 1536)
+            )
             event_log_bytes = event_count * 768
-            total_user_footprint_bytes = raw_bytes + graph_memory_bytes + event_log_bytes
+            total_user_footprint_bytes = (
+                raw_bytes + graph_memory_bytes + event_log_bytes
+            )
 
         return {
             "total_files": int(total_files),

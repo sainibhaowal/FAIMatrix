@@ -81,7 +81,9 @@ def _ingest_payload(
 
 
 def test_query_explain_exposes_semantic_registry_runtime(monkeypatch, tmp_path):
-    from orchestration.canonical_semantics_rebuild import run_canonical_semantics_rebuild
+    from orchestration.canonical_semantics_rebuild import (
+        run_canonical_semantics_rebuild,
+    )
     from orchestration.ingest_flow import FAIMProfile
     from orchestration.query_flow import run_query
     from runtime.context import close_session, get_repos

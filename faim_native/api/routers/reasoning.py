@@ -7,16 +7,14 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, Field
-
 # Auth and session imports
-from api.deps import FAIMContext, get_faim_context, get_tenant_id
-from core.cortex.planner_enhanced import plan_turn_enhanced
+from api.deps import FAIMContext, get_faim_context
 from core.learning.feedback_store import FeedbackStore
 from core.reasoning.cross_galaxy import CrossGalaxySynthesizer
+from core.reasoning.planner_enhanced import plan_turn_enhanced
 from core.reasoning.traversal import MultiHopTraverser
-
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/reasoning", tags=["reasoning"])
 
@@ -249,9 +247,7 @@ async def submit_feedback(
 
             learner = ReinforcementLearner(
                 store,
-                learning_repo=ReinforcementLearningRepo(
-                    ctx.session, ctx.tenant_id
-                ),
+                learning_repo=ReinforcementLearningRepo(ctx.session, ctx.tenant_id),
             )
             learned = learner.learn_from_feedback(ctx.tenant_id)
             ctx.session.commit()
@@ -399,9 +395,7 @@ def _load_turn_context(session, tenant_id: str, turn_id: str):
         .all()
     )
 
-    reasoning_path = [
-        f"{node.title} :: {node.summary}" for node in reasoning_nodes
-    ]
+    reasoning_path = [f"{node.title} :: {node.summary}" for node in reasoning_nodes]
     if not reasoning_path:
         reasoning_path = [turn.task_type]
 

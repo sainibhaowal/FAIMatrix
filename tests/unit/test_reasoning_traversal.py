@@ -59,7 +59,10 @@ def test_traverser_supports_more_than_three_hops_with_exact_goal_match():
         tenant_id = "tenant-hop"
         graph_id = "graph-hop"
         labels = ["start", "hop-1", "hop-2", "hop-3", "hop-4", "target-service"]
-        nodes = [_node(tenant_id=tenant_id, graph_id=graph_id, raw_id=label) for label in labels]
+        nodes = [
+            _node(tenant_id=tenant_id, graph_id=graph_id, raw_id=label)
+            for label in labels
+        ]
         session.add_all(nodes)
         session.add_all(
             [
@@ -101,7 +104,10 @@ def test_traverser_returns_partial_path_when_goal_not_exactly_matched():
         tenant_id = "tenant-partial"
         graph_id = "graph-partial"
         labels = ["seed", "bridge", "candidate"]
-        nodes = [_node(tenant_id=tenant_id, graph_id=graph_id, raw_id=label) for label in labels]
+        nodes = [
+            _node(tenant_id=tenant_id, graph_id=graph_id, raw_id=label)
+            for label in labels
+        ]
         session.add_all(nodes)
         session.add_all(
             [

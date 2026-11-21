@@ -8,7 +8,8 @@ function backendBase(): string {
   const apiHost = process.env.API_HOST;
   if (apiHost) return `http://${apiHost}`.replace(/\/+$/, "");
 
-  const b = process.env.FAIM_BACKEND_URL || process.env.NEXT_PUBLIC_FAIM_API_BASE;
+  const b =
+    process.env.FAIM_BACKEND_URL || process.env.NEXT_PUBLIC_FAIM_API_BASE;
   if (b) return b.replace(/\/+$/, "");
 
   return "http://127.0.0.1:8000";
@@ -19,7 +20,8 @@ async function resolveAuth(req: NextRequest): Promise<{
   xKey: string;
   auth: string;
 }> {
-  const xUser = req.headers.get("x-faim-user") || req.headers.get("x-user-id") || "";
+  const xUser =
+    req.headers.get("x-faim-user") || req.headers.get("x-user-id") || "";
   const xKey = req.headers.get("x-faim-key") || "";
   const auth = req.headers.get("authorization") || "";
 

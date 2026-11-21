@@ -98,16 +98,24 @@ def _counts(session, tenant_id: str, graph_id: str) -> dict:
         NodeModel,
     )
 
-    node_count = session.query(NodeModel).filter(
-        NodeModel.tenant_id == tenant_id, NodeModel.graph_id == graph_id
-    ).count()
-    edge_count = session.query(EdgeModel).filter(
-        EdgeModel.tenant_id == tenant_id, EdgeModel.graph_id == graph_id
-    ).count()
-    coact_count = session.query(CoactivationModel).filter(
-        CoactivationModel.tenant_id == tenant_id,
-        CoactivationModel.graph_id == graph_id,
-    ).count()
+    node_count = (
+        session.query(NodeModel)
+        .filter(NodeModel.tenant_id == tenant_id, NodeModel.graph_id == graph_id)
+        .count()
+    )
+    edge_count = (
+        session.query(EdgeModel)
+        .filter(EdgeModel.tenant_id == tenant_id, EdgeModel.graph_id == graph_id)
+        .count()
+    )
+    coact_count = (
+        session.query(CoactivationModel)
+        .filter(
+            CoactivationModel.tenant_id == tenant_id,
+            CoactivationModel.graph_id == graph_id,
+        )
+        .count()
+    )
     return {"nodes": node_count, "edges": edge_count, "coactivations": coact_count}
 
 

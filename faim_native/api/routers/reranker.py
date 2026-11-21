@@ -12,7 +12,7 @@ import sys
 import time
 from pathlib import Path
 from typing import List, Optional
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
@@ -115,9 +115,7 @@ def _persist_reranker_state(session, tenant_id: str, active: bool) -> None:
             .first()
         )
         if row is None:
-            row = ServiceSettingModel(
-                tenant_id=tenant_id, key=_RERANKER_SETTING_KEY
-            )
+            row = ServiceSettingModel(tenant_id=tenant_id, key=_RERANKER_SETTING_KEY)
             session.add(row)
         row.value_json = {"active": active}
         session.commit()
@@ -136,7 +134,7 @@ def _persist_reranker_state(session, tenant_id: str, active: bool) -> None:
 
 @router.get("/status", response_model=RerankerStatusResponse)
 async def reranker_status(
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Report the FAIM-native reranker availability."""
     tenant_id = getattr(ctx, "tenant_id", "default") or "default"
@@ -159,30 +157,38 @@ async def reranker_status(
 
 @router.post("/activate")
 async def activate_reranker(
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Activate the FAIM-native reranker."""
     tenant_id = getattr(ctx, "tenant_id", "default") or "default"
     set_reranker_active(True, tenant_id)
     _persist_reranker_state(ctx.session, tenant_id, True)
-    return {"success": True, "message": "ReRanker activated successfully.", "active": True}
+    return {
+        "success": True,
+        "message": "ReRanker activated successfully.",
+        "active": True,
+    }
 
 
 @router.post("/deactivate")
 async def deactivate_reranker(
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Deactivate/terminate the FAIM-native reranker."""
     tenant_id = getattr(ctx, "tenant_id", "default") or "default"
     set_reranker_active(False, tenant_id)
     _persist_reranker_state(ctx.session, tenant_id, False)
-    return {"success": True, "message": "ReRanker terminated successfully.", "active": False}
+    return {
+        "success": True,
+        "message": "ReRanker terminated successfully.",
+        "active": False,
+    }
 
 
 @router.post("/test", response_model=RerankerTestResponse)
 async def reranker_test(
     req: RerankerTestRequest,
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Score a query against candidates using the real RerankerV2 pipeline."""
     start = time.perf_counter()
@@ -197,7 +203,9 @@ async def reranker_test(
         )
 
     try:
-        query_text = (req.query or "").strip() or "How does FAIM rank evidence relevance?"
+        query_text = (
+            req.query or ""
+        ).strip() or "How does FAIM rank evidence relevance?"
         query_repr = build_representation_v2(query_text)
 
         if req.candidates:

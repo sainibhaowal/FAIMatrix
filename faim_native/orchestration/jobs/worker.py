@@ -7,6 +7,7 @@ Supports 'evolve' and potentially 'backup/restore' jobs.
 from __future__ import annotations
 
 import logging
+import os
 import signal
 import time
 from datetime import datetime, timezone
@@ -39,6 +40,23 @@ class Worker:
             "storage_retention",
             "raw_reencryption",
         )
+        self.benchmark_mode = os.getenv(
+            "FAIM_BENCHMARK_MODE", "false"
+        ).strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        if self.benchmark_mode:
+            # Benchmark runs must not consume or create autonomous evolution
+            # work.  Leaving those jobs pending is safer than deleting them;
+            # a normal worker can process them after the benchmark window.
+            self.executable_job_kinds = tuple(
+                kind
+                for kind in self.executable_job_kinds
+                if kind not in {"evolve", "domain_autonomy"}
+            )
         flags = get_feature_flags()
         default_scan_interval = max(
             30,
@@ -170,25 +188,55 @@ class Worker:
 
             except Exception as e:
                 logger.error(f"Job {job_id} failed: {e}")
-                JobStore.mark_failed(session, job_id, str(e))
-                self._emit_journal_event(
-                    session,
-                    tenant_id,
-                    graph_id,
-                    "JOB_FAILED",
-                    {
-                        "job_id": str(job_id),
-                        "error": str(e),
-                    },
-                )
-
-            session.commit()
+                # A database/ORM exception leaves the transaction unusable
+                # until rollback.  Always clear it before writing the terminal
+                # job state; otherwise one failed job poisons the worker and
+                # prevents every subsequent job from being acknowledged.
+                try:
+                    session.rollback()
+                except Exception as rollback_error:
+                    logger.error(
+                        "Failed to rollback job %s transaction: %s",
+                        job_id,
+                        rollback_error,
+                    )
+                try:
+                    retry_scheduled = JobStore.retry_or_fail(session, job_id, e)
+                    terminal_kind = (
+                        "JOB_RETRY_SCHEDULED" if retry_scheduled else "JOB_FAILED"
+                    )
+                    self._emit_journal_event(
+                        session,
+                        tenant_id,
+                        graph_id,
+                        terminal_kind,
+                        {
+                            "job_id": str(job_id),
+                            "error": str(e),
+                            "transaction_recovered": True,
+                            "retry_scheduled": retry_scheduled,
+                        },
+                    )
+                    if not retry_scheduled:
+                        JobStore.mark_failed(session, job_id, str(e))
+                except Exception as terminal_error:
+                    logger.error(
+                        "Failed to persist terminal failure for job %s: %s",
+                        job_id,
+                        terminal_error,
+                    )
+                    try:
+                        session.rollback()
+                    except Exception:
+                        pass
 
         finally:
             session.close()
 
     def _maybe_run_self_evolve_scan(self):
         """Run periodic autonomous self-evolve scan (tenant-scoped)."""
+        if self.benchmark_mode:
+            return
         now_mono = time.monotonic()
         if (
             now_mono - self._last_self_evolve_scan_monotonic
@@ -356,7 +404,6 @@ class Worker:
 
     def _run_raw_reencryption_job(self, session, tenant_id, graph_id, payload, job_id):
         """Execute legacy raw-blob re-encryption job."""
-        from datetime import datetime
 
         from orchestration.jobs.raw_reencryption import run_raw_reencryption_backfill
         from runtime.context import _get_raw_store
@@ -513,11 +560,12 @@ class Worker:
 
     def _run_storage_upload_job(self, session, tenant_id, graph_id, payload, job_id):
         """Execute durable upload ingest work after the HTTP request returns."""
-        from datetime import datetime
         from uuid import UUID
 
         from orchestration.ingest_flow import FAIMProfile, PersistMode, run_ingest
         from runtime.context import _get_raw_store
+        from store.pg.graph_cleanup import purge_graph_artifacts_for_raw_ids
+        from store.pg.models_faim import JobModel, StorageFileModel
         from store.pg.repos.edge_repo import EdgeRepo
         from store.pg.repos.event_repo import EventRepo
         from store.pg.repos.graph_version_repo import GraphVersionRepo
@@ -546,6 +594,12 @@ class Worker:
             payload.get("effective_extractor_mode") or requested_extractor_mode
         )
         durability_path = str(payload.get("durability_path") or "")
+        # A payload may request benchmark isolation only while this worker is
+        # explicitly running in benchmark mode; ordinary clients cannot use a
+        # public form field to suppress production autonomy.
+        benchmark_mode = self.benchmark_mode and bool(
+            payload.get("benchmark_mode", False)
+        )
 
         files = payload.get("files") or []
         if not isinstance(files, list):
@@ -574,6 +628,7 @@ class Worker:
                 "effective_persist_mode": effective_persist_mode,
                 "effective_extractor_mode": effective_extractor_mode,
                 "durability_path": durability_path,
+                "benchmark_mode": benchmark_mode,
             },
         )
 
@@ -584,6 +639,7 @@ class Worker:
         cancelled = 0
 
         for index, file_item in enumerate(files):
+            session.query(JobModel).populate_existing().filter_by(job_id=job_id).first()
             if JobStore.is_cancel_requested(session, job_id):
                 cancelled += self._cancel_remaining_storage_upload_files(
                     session=session,
@@ -636,7 +692,34 @@ class Worker:
                 continue
 
             filename = str(file_item.get("filename") or raw_uuid)
-            mime_type = str(file_item.get("mime_type") or "application/octet-stream")
+            file_row_before = (
+                session.query(StorageFileModel)
+                .populate_existing()
+                .filter(
+                    StorageFileModel.tenant_id == tenant_id,
+                    StorageFileModel.graph_id == graph_id,
+                    StorageFileModel.raw_id == raw_uuid,
+                )
+                .first()
+            )
+            if file_row_before is None or file_row_before.ingest_status in {
+                "cancelled",
+                "delete_requested",
+            }:
+                cancelled += 1
+                JobStore.append_event(
+                    session,
+                    job_id,
+                    "step_progress",
+                    {
+                        "index": index,
+                        "filename": filename,
+                        "raw_id": str(raw_uuid),
+                        "status": "cancelled",
+                        "message": "File was deleted or cancelled before worker ingest",
+                    },
+                )
+                continue
 
             storage_repo.mark_ingesting(
                 session,
@@ -670,9 +753,7 @@ class Worker:
                     file_bytes=file_bytes,
                     profile=profile_enum,
                     persist_mode=persist_mode_enum,
-                    extraction_settings={
-                        "extractor_mode": requested_extractor_mode
-                    },
+                    extraction_settings={"extractor_mode": requested_extractor_mode},
                     tenant_id=tenant_id,
                     session=session,
                     node_repo=node_repo,
@@ -682,6 +763,17 @@ class Worker:
                 )
             except Exception as exc:
                 failed += 1
+                # run_ingest may have failed after a database statement.  The
+                # current session must be rolled back before the storage row,
+                # progress event, or next file can be touched.
+                try:
+                    session.rollback()
+                except Exception as rollback_error:
+                    logger.error(
+                        "Failed to rollback ingest item %s: %s",
+                        raw_uuid,
+                        rollback_error,
+                    )
                 storage_repo.mark_ingest_result(
                     session,
                     raw_id=raw_uuid,
@@ -705,6 +797,82 @@ class Worker:
                         "error": str(exc),
                     },
                 )
+                # A storage upload is a batch of independent files.  Commit
+                # the terminal state for this file before the next file so a
+                # slow/contended graph write cannot hold the whole batch's
+                # transaction and graph-version lock.
+                session.commit()
+                continue
+
+            # Re-read job cancel flag and storage_files row fresh from DB to avoid
+            # committing artifacts for files that were deleted or cancelled mid-ingest.
+            session.query(JobModel).populate_existing().filter_by(job_id=job_id).first()
+            job_cancel_requested = JobStore.is_cancel_requested(session, job_id)
+            file_row_after = (
+                session.query(StorageFileModel)
+                .populate_existing()
+                .filter(
+                    StorageFileModel.tenant_id == tenant_id,
+                    StorageFileModel.graph_id == graph_id,
+                    StorageFileModel.raw_id == raw_uuid,
+                )
+                .first()
+            )
+            if (
+                job_cancel_requested
+                or file_row_after is None
+                or file_row_after.ingest_status in {"cancelled", "delete_requested"}
+            ):
+                purge_graph_artifacts_for_raw_ids(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    raw_ids=[raw_uuid],
+                )
+                if file_row_after is not None and file_row_after.ingest_status not in {
+                    "cancelled",
+                    "delete_requested",
+                }:
+                    storage_repo.mark_cancelled(
+                        session,
+                        raw_id=raw_uuid,
+                        graph_id=graph_id,
+                        error_message="Upload cancelled during worker ingest",
+                        job_id=job_id,
+                    )
+                cancelled += 1
+                JobStore.append_event(
+                    session,
+                    job_id,
+                    "step_progress",
+                    {
+                        "index": index,
+                        "filename": filename,
+                        "raw_id": str(raw_uuid),
+                        "status": "cancelled",
+                        "message": "Upload cancelled or deleted during worker ingest",
+                    },
+                )
+                if job_cancel_requested:
+                    cancelled += self._cancel_remaining_storage_upload_files(
+                        session=session,
+                        graph_id=graph_id,
+                        job_id=job_id,
+                        files=files[index + 1 :],
+                        storage_repo=storage_repo,
+                    )
+                    JobStore.append_event(
+                        session,
+                        job_id,
+                        "step_progress",
+                        {
+                            "message": "Storage upload cancelled after worker ingest",
+                            "cancelled_files": cancelled,
+                        },
+                    )
+                    session.commit()
+                    break
+                session.commit()
                 continue
 
             storage_repo.mark_ingest_result(
@@ -747,6 +915,11 @@ class Worker:
                     "durability_path": result.durability_path,
                 },
             )
+
+            # Release per-file graph/version locks and make the storage row
+            # independently durable.  This keeps concurrent upload workers
+            # isolated without changing the job's final aggregate status.
+            session.commit()
 
             if JobStore.is_cancel_requested(session, job_id):
                 cancelled += self._cancel_remaining_storage_upload_files(
@@ -797,7 +970,7 @@ class Worker:
             },
         )
 
-        if success > 0:
+        if success > 0 and not benchmark_mode:
             try:
                 from orchestration.domain_autonomy import (
                     enqueue_domain_autonomy_if_needed,

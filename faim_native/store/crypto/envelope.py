@@ -183,9 +183,7 @@ def get_master_key_ring(
             parsed = json.loads(previous_payload)
         except json.JSONDecodeError:
             parsed = [
-                item.strip()
-                for item in previous_payload.split(",")
-                if item.strip()
+                item.strip() for item in previous_payload.split(",") if item.strip()
             ]
 
         if isinstance(parsed, str):
@@ -287,7 +285,9 @@ def unwrap_dek_with_ring(
         except Exception as exc:  # noqa: BLE001
             last_error = exc
 
-    raise ValueError("Unable to unwrap DEK with configured master key ring") from last_error
+    raise ValueError(
+        "Unable to unwrap DEK with configured master key ring"
+    ) from last_error
 
 
 # =============================================================================
@@ -511,9 +511,7 @@ class TenantDEKManager:
                 dek = generate_dek()
                 source_fingerprint = None
 
-            new_wrapped, fingerprint = wrap_dek_with_current_key(
-                dek, self._master_keys
-            )
+            new_wrapped, fingerprint = wrap_dek_with_current_key(dek, self._master_keys)
             model.dek_wrapped = new_wrapped
             model.master_key_fingerprint = fingerprint
             model.rotated_at = datetime.now(timezone.utc)

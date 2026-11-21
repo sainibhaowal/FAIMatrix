@@ -28,11 +28,17 @@ import {
 import { getSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 
-import { GraphHealthChart, GraphHealthPoint } from "@/components/dashboard/GraphHealthChart";
+import {
+  GraphHealthChart,
+  GraphHealthPoint,
+} from "@/components/dashboard/GraphHealthChart";
 import { MiniFigCanvas } from "@/components/dashboard/MiniFigCanvas";
 import { MiniMap } from "@/components/dashboard/MiniMap";
 import { StorageModalityChart } from "@/components/dashboard/StorageModalityChart";
-import { TelemetryPoint, TelemetryVelocityChart } from "@/components/dashboard/TelemetryVelocityChart";
+import {
+  TelemetryPoint,
+  TelemetryVelocityChart,
+} from "@/components/dashboard/TelemetryVelocityChart";
 import { LatencyHeatmap } from "@/components/dashboard/LatencyHeatmap";
 import { CacheHitRateRing } from "@/components/dashboard/CacheHitRateRing";
 import { WorkerPoolStatus } from "@/components/dashboard/WorkerPoolStatus";
@@ -240,7 +246,9 @@ function KpiCell({
       {accentColor && (
         <div
           className="absolute inset-x-0 top-0 h-[2px]"
-          style={{ background: `linear-gradient(90deg, ${accentColor}, transparent)` }}
+          style={{
+            background: `linear-gradient(90deg, ${accentColor}, transparent)`,
+          }}
         />
       )}
       <div className="flex items-center justify-between mb-2">
@@ -366,7 +374,10 @@ export default function DashboardPage() {
     system_health: { redis: boolean; qdrant: boolean; encryption: boolean };
   } | null>(null);
   const [pipelineLoading, setPipelineLoading] = useState(true);
-  const [cacheHitRate, setCacheHitRate] = useState<{ hitRate: number | null; total: number }>({
+  const [cacheHitRate, setCacheHitRate] = useState<{
+    hitRate: number | null;
+    total: number;
+  }>({
     hitRate: null,
     total: 0,
   });
@@ -374,7 +385,9 @@ export default function DashboardPage() {
 
   // Recharts Time Series state
   const [healthHistory, setHealthHistory] = useState<GraphHealthPoint[]>([]);
-  const [telemetryHistory, setTelemetryHistory] = useState<TelemetryPoint[]>([]);
+  const [telemetryHistory, setTelemetryHistory] = useState<TelemetryPoint[]>(
+    [],
+  );
   const [srMessage, setSrMessage] = useState("");
 
   // ── Shared event-ingest state (polling + SSE converge here) ──
@@ -397,7 +410,9 @@ export default function DashboardPage() {
 
       const current = eventsRef.current;
       const ids = new Set(current.map((e) => e.id));
-      const fresh = opts.replace ? sorted : sorted.filter((e) => !ids.has(e.id));
+      const fresh = opts.replace
+        ? sorted
+        : sorted.filter((e) => !ids.has(e.id));
 
       if (fresh.length) {
         const merged = opts.replace ? fresh : [...fresh, ...current];
@@ -703,7 +718,14 @@ export default function DashboardPage() {
       clearInterval(evtInterval);
       clearInterval(slowInterval);
     };
-  }, [graphId, fetchEvents, fetchScorecard, fetchEvolveStatus, fetchStorage, fetchPipelineStats]);
+  }, [
+    graphId,
+    fetchEvents,
+    fetchScorecard,
+    fetchEvolveStatus,
+    fetchStorage,
+    fetchPipelineStats,
+  ]);
 
   // ── Real-time SSE event stream (events/stream) ──
 
@@ -750,7 +772,7 @@ export default function DashboardPage() {
               if (seq != null) afterSeq = Math.max(afterSeq, seq);
               if (
                 eventName &&
-                !["ping", "timeout", "disconnect"].includes(eventName)
+                !["ping", "ready", "timeout", "disconnect"].includes(eventName)
               ) {
                 ingestEvents(
                   [
@@ -881,20 +903,50 @@ export default function DashboardPage() {
       {
         label: "D — Density",
         value: d,
-        hint: d != null && d >= 0.15 ? "dense" : d != null && d >= 0.05 ? "sparse" : "disconnected",
-        color: d != null && d >= 0.15 ? "#22d3ee" : d != null && d >= 0.05 ? "#fbbf24" : "#64748b",
+        hint:
+          d != null && d >= 0.15
+            ? "dense"
+            : d != null && d >= 0.05
+              ? "sparse"
+              : "disconnected",
+        color:
+          d != null && d >= 0.15
+            ? "#22d3ee"
+            : d != null && d >= 0.05
+              ? "#fbbf24"
+              : "#64748b",
       },
       {
         label: "H — Entropy",
         value: h,
-        hint: h != null && h >= 0.8 ? "diverse" : h != null && h >= 0.3 ? "moderate" : "uniform",
-        color: h != null && h >= 0.8 ? "#a78bfa" : h != null && h >= 0.3 ? "#fbbf24" : "#64748b",
+        hint:
+          h != null && h >= 0.8
+            ? "diverse"
+            : h != null && h >= 0.3
+              ? "moderate"
+              : "uniform",
+        color:
+          h != null && h >= 0.8
+            ? "#a78bfa"
+            : h != null && h >= 0.3
+              ? "#fbbf24"
+              : "#64748b",
       },
       {
         label: "λ — Spectral",
         value: l,
-        hint: l != null && l >= 2.0 ? "clustered" : l != null && l >= 0.5 ? "moderate" : "sparse",
-        color: l != null && l >= 2.0 ? "#34d399" : l != null && l >= 0.5 ? "#fbbf24" : "#64748b",
+        hint:
+          l != null && l >= 2.0
+            ? "clustered"
+            : l != null && l >= 0.5
+              ? "moderate"
+              : "sparse",
+        color:
+          l != null && l >= 2.0
+            ? "#34d399"
+            : l != null && l >= 0.5
+              ? "#fbbf24"
+              : "#64748b",
       },
     ];
   }, [scorecard]);
@@ -924,12 +976,6 @@ export default function DashboardPage() {
       keyHint: "⌘G",
     },
     {
-      label: "FAIM Cortex",
-      icon: <Brain size={14} />,
-      href: "/dashboard/memory-query",
-      keyHint: "⌘M",
-    },
-    {
       label: "View Journal",
       icon: <Activity size={14} />,
       href: "/dashboard/journal",
@@ -952,437 +998,454 @@ export default function DashboardPage() {
   return (
     <>
       <div className="relative flex flex-col gap-5 pb-8 px-1 text-slate-100">
-      <div className="faim-grid" />
+        <div className="faim-grid" />
 
-      {/* Screen Reader Live Region */}
-      <div className="sr-only" role="status" aria-live="polite">
-        {srMessage}
-      </div>
-
-      <GlassHeader
-        title="Command Center"
-        subtitle="Live graph health, activity feed, and operational controls"
-        icon={Zap}
-        actions={
-          <div className="flex items-center gap-2">
-            <Badge variant={healthOk ? "success" : "warning"} size="md">
-              {healthOk ? "System Online" : "Checking…"}
-            </Badge>
-            <Button
-              size="sm"
-              variant="outline"
-              leftIcon={<BookOpen size={13} />}
-              aria-label="Open Command Center user manual"
-              onClick={() => setManualOpen(true)}
-            >
-              User Manual
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              aria-label="Refresh dashboard metrics"
-              onClick={() => {
-                fetchScorecard();
-                fetchScorecardHistory();
-                fetchStorage();
-                fetchEvolveStatus();
-                fetchKeys();
-                fetchHealth();
-                fetchPipelineStats();
-                fetchEvents();
-              }}
-            >
-              <RefreshCw size={13} className="mr-1.5" />
-              Refresh
-            </Button>
-          </div>
-        }
-      />
-
-      {/* ── Row 1 — KPI Strip ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <KpiCell
-          icon={<Dna size={18} />}
-          label="Active Nodes"
-          value={
-            scorecardLoading
-              ? "…"
-              : (scorecard?.node_count ?? 0).toLocaleString()
-          }
-          sub={`${scorecard?.edge_count?.toLocaleString() ?? "—"} edges`}
-          color="text-cyan-300"
-          loading={scorecardLoading}
-          accentColor="#22d3ee"
-        />
-        <KpiCell
-          icon={<HardDrive size={18} />}
-          label="Storage Used"
-          value={storageLoading ? "…" : fmtBytes(storage?.total_bytes ?? 0)}
-          sub={`${storage?.total_files ?? "—"} files`}
-          color="text-emerald-400"
-          loading={storageLoading}
-          className="border-l"
-          accentColor="#34d399"
-        />
-        <KpiCell
-          icon={<Shield size={18} />}
-          label="API Keys"
-          value={keysLoading ? "…" : String(keyCount?.total ?? 0)}
-          sub={`${keyCount?.active ?? "—"} active`}
-          color="text-amber-400"
-          loading={keysLoading}
-          className="border-t xl:border-t-0 xl:border-l"
-          accentColor="#fbbf24"
-        />
-        <KpiCell
-          icon={<Zap size={18} />}
-          label="System Health"
-          value={health ? (healthOk ? "Online" : "Error") : "…"}
-          sub={
-            health?.latency_ms != null
-              ? `${health.latency_ms}ms latency`
-              : "checking…"
-          }
-          color={healthOk ? "text-emerald-400" : "text-rose-400"}
-          className="border-t xl:border-t-0 border-l"
-          accentColor={healthOk ? "#34d399" : "#f87171"}
-        />
-      </div>
-
-      {/* ── Row 2: Topology & Cortex 3D Visualizer Row ────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
-        {/* Left Column (8 cols): Graph Topology Spectrum + Event Ingestion Velocity */}
-        <div className="lg:col-span-8 flex flex-col gap-4">
-          {/* Graph Topology Spectrum Chart */}
-          <div className="rounded-[18px] border border-white/8 p-4 sm:p-5 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex flex-col justify-between">
-            <PanelHeader
-              title="Graph Topology Spectrum"
-              subtitle="Real-time spectral radius (λ), density (D), and entropy (H) dynamics"
-              action={
-                scorecard?.graph_version != null && (
-                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded">
-                    Graph v{scorecard.graph_version}
-                  </span>
-                )
-              }
-            />
-            <div className="mt-3 flex-1 min-h-[260px]">
-              <GraphHealthChart data={healthHistory} />
-            </div>
-          </div>
-
-          {/* Event Ingestion & Velocity Trend Card */}
-          <div className="rounded-[18px] border border-white/8 p-4 sm:p-5 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex flex-col justify-between">
-            <PanelHeader
-              title="Event Ingestion & Velocity Trend"
-              subtitle="Real-time event throughput telemetry (events / min)"
-              action={
-                latestInfo && (
-                  <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded">
-                    seq #{latestInfo.last_seq} · {latestInfo.event_count} total
-                  </span>
-                )
-              }
-            />
-            <div className="mt-2 flex-1 min-h-[120px]">
-              <TelemetryVelocityChart data={telemetryHistory} />
-            </div>
-          </div>
+        {/* Screen Reader Live Region */}
+        <div className="sr-only" role="status" aria-live="polite">
+          {srMessage}
         </div>
 
-        {/* Right Column (4 cols): 3D Cortex FIG Visualizer + Topology Gauges */}
-        <div className="lg:col-span-4 flex flex-col gap-4">
-          {/* Live 3D FIG Canvas Preview */}
-          <div className="rounded-[18px] border border-white/8 p-4 sm:p-5 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex flex-col justify-between flex-1">
-            <PanelHeader
-              title="Live Cortex 3D Graph"
-              subtitle="Realtime Node-Link spatial cluster preview"
-              action={
-                <button
-                  onClick={() => router.push("/dashboard/graph")}
-                  className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
-                >
-                  Inspect <ArrowRight size={10} />
-                </button>
-              }
-            />
-            <div className="mt-3 flex-1 min-h-[260px]">
-              <MiniFigCanvas
-                graphId={graphId}
-                nodeCount={scorecard?.node_count}
-                edgeCount={scorecard?.edge_count}
-              />
-            </div>
-          </div>
-
-          {/* Topology Metrics Scorecard */}
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-1">
-            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-cyan-400/60 via-cyan-400/20 to-transparent" />
-            <PanelHeader
-              title="Topology Metrics"
-              subtitle="Scorecard gauges — D / H / λ"
-            />
-            <div className="p-3 sm:p-4">
-              {scorecardLoading ? (
-                <div className="grid grid-cols-3 gap-2">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="h-16 rounded-xl animate-pulse bg-slate-700/40"
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-3 gap-2">
-                  {scorecardGauges.map((g) => (
-                    <ScorecardGauge key={g.label} {...g} />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Row 3: Balanced 3-Column Operational & Pipeline Grid ────────────────────────── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
-        {/* ── Column 1: Live Activity Stream + Quick Command Matrix ── */}
-        <div className="flex flex-col gap-4">
-          {/* Live Activity Log Feed */}
-          <div className="flex flex-col rounded-[18px] border border-white/8 overflow-hidden bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-            <PanelHeader
-              title="Live Activity Stream"
-              subtitle="Real-time graph events via SSE stream"
-            />
-            <div className="max-h-[340px] overflow-y-auto custom-scrollbar">
-              {eventsLoading ? (
-                <div className="flex flex-col gap-0">
-                  {Array.from({ length: 4 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="px-5 py-4 border-b border-white/6"
-                    >
-                      <div className="h-4 w-3/4 rounded animate-pulse bg-slate-700/40" />
-                    </div>
-                  ))}
-                </div>
-              ) : events.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 gap-3 text-slate-500">
-                  <Activity size={28} className="opacity-30" />
-                  <p className="text-xs font-mono">
-                    No events yet — ingest data to see activity
-                  </p>
-                </div>
-              ) : (
-                events.map((ev) => {
-                  const meta = eventMeta(ev.kind);
-                  return (
-                    <div
-                      key={ev.id}
-                      className="group px-4 py-3 border-b border-white/6 last:border-0 transition-all hover:bg-white/[0.02]"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span
-                            className={`text-[9px] font-black uppercase tracking-[0.12em] w-14 shrink-0 ${meta.color}`}
-                          >
-                            {meta.label}
-                          </span>
-                          <p className="text-xs text-slate-200 font-medium truncate font-mono">
-                            {eventSummary(ev)}
-                          </p>
-                        </div>
-                        <span className="text-[9px] text-slate-500 font-mono shrink-0">
-                          {relTime(ev.ts)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* Quick Command Matrix */}
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-violet-400/60 via-violet-400/20 to-transparent" />
-            <PanelHeader title="Quick Command Matrix" />
-            <div className="p-3 space-y-1.5">
-              {QUICK_ACTIONS.map((qa) => (
-                <button
-                  key={qa.href}
-                  onClick={() => router.push(qa.href)}
-                  aria-label={qa.label}
-                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-white/8 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all"
-                >
-                  <span className="flex items-center gap-2">
-                    <span className="text-cyan-400">{qa.icon}</span>
-                    {qa.label}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-mono text-slate-500 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
-                      {qa.keyHint}
-                    </span>
-                    <ArrowRight size={12} className="text-slate-600" />
-                  </div>
-                </button>
-              ))}
-
-              {/* Upload button */}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                aria-label="Upload document to FAIM"
-                className="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-cyan-950/40 border-cyan-800/40 hover:border-cyan-500/50 focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all disabled:opacity-50"
+        <GlassHeader
+          title="Command Center"
+          subtitle="Live graph health, activity feed, and operational controls"
+          icon={Zap}
+          actions={
+            <div className="flex items-center gap-2">
+              <Badge variant={healthOk ? "success" : "warning"} size="md">
+                {healthOk ? "System Online" : "Checking…"}
+              </Badge>
+              <Button
+                size="sm"
+                variant="outline"
+                leftIcon={<BookOpen size={13} />}
+                aria-label="Open Command Center user manual"
+                onClick={() => setManualOpen(true)}
               >
-                <span className="flex items-center gap-2">
-                  <Upload size={13} className="text-cyan-400" />
-                  {uploading ? "Uploading…" : "Upload to FAIM"}
-                </span>
-                <Sparkles size={12} className="text-cyan-400" />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    handleFileUpload(file);
-                    e.target.value = "";
-                  }
+                User Manual
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label="Refresh dashboard metrics"
+                onClick={() => {
+                  fetchScorecard();
+                  fetchScorecardHistory();
+                  fetchStorage();
+                  fetchEvolveStatus();
+                  fetchKeys();
+                  fetchHealth();
+                  fetchPipelineStats();
+                  fetchEvents();
                 }}
-              />
+              >
+                <RefreshCw size={13} className="mr-1.5" />
+                Refresh
+              </Button>
             </div>
-          </div>
+          }
+        />
+
+        {/* ── Row 1 — KPI Strip ────────────────────────────────────────────── */}
+        <div className="grid grid-cols-2 xl:grid-cols-4 overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+          <KpiCell
+            icon={<Dna size={18} />}
+            label="Active Nodes"
+            value={
+              scorecardLoading
+                ? "…"
+                : (scorecard?.node_count ?? 0).toLocaleString()
+            }
+            sub={`${scorecard?.edge_count?.toLocaleString() ?? "—"} edges`}
+            color="text-cyan-300"
+            loading={scorecardLoading}
+            accentColor="#22d3ee"
+          />
+          <KpiCell
+            icon={<HardDrive size={18} />}
+            label="Storage Used"
+            value={storageLoading ? "…" : fmtBytes(storage?.total_bytes ?? 0)}
+            sub={`${storage?.total_files ?? "—"} files`}
+            color="text-emerald-400"
+            loading={storageLoading}
+            className="border-l"
+            accentColor="#34d399"
+          />
+          <KpiCell
+            icon={<Shield size={18} />}
+            label="API Keys"
+            value={keysLoading ? "…" : String(keyCount?.total ?? 0)}
+            sub={`${keyCount?.active ?? "—"} active`}
+            color="text-amber-400"
+            loading={keysLoading}
+            className="border-t xl:border-t-0 xl:border-l"
+            accentColor="#fbbf24"
+          />
+          <KpiCell
+            icon={<Zap size={18} />}
+            label="System Health"
+            value={health ? (healthOk ? "Online" : "Error") : "…"}
+            sub={
+              health?.latency_ms != null
+                ? `${health.latency_ms}ms latency`
+                : "checking…"
+            }
+            color={healthOk ? "text-emerald-400" : "text-rose-400"}
+            className="border-t xl:border-t-0 border-l"
+            accentColor={healthOk ? "#34d399" : "#f87171"}
+          />
         </div>
 
-        {/* ── Column 2: Compute Engine, Workers & GPU ── */}
-        <div className="flex flex-col gap-4">
-          {/* Evolution Engine Panel */}
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-emerald-400/60 via-emerald-400/20 to-transparent" />
-            <PanelHeader
-              title="Evolution Engine"
-              subtitle="FAIM graph self-organization"
-            />
-            <div className="p-3.5 space-y-3">
-              <div className="flex items-center justify-between px-4 py-3 rounded-[14px] border border-white/8 bg-white/[0.03]">
-                <div>
-                  <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">
-                    Status
-                  </p>
-                  <p className={`text-xs font-semibold ${evolveHealthColor}`}>
-                    {evolveLoading
-                      ? "checking…"
-                      : evolveIsRunning
-                        ? "running"
-                        : evolveJobStatus}
-                  </p>
-                </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={runEvolve}
-                  loading={evolving}
-                  disabled={evolveIsRunning}
-                >
-                  <PlayCircle size={13} className="mr-1" />
-                  {evolveIsRunning ? "Running…" : "Run Evolution"}
-                </Button>
+        {/* ── Row 2: Topology & Cortex 3D Visualizer Row ────────────────────────────── */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          {/* Left Column (8 cols): Graph Topology Spectrum + Event Ingestion Velocity */}
+          <div className="lg:col-span-8 flex flex-col gap-4">
+            {/* Graph Topology Spectrum Chart */}
+            <div className="rounded-[18px] border border-white/8 p-4 sm:p-5 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex flex-col justify-between">
+              <PanelHeader
+                title="Graph Topology Spectrum"
+                subtitle="Real-time spectral radius (λ), density (D), and entropy (H) dynamics"
+                action={
+                  scorecard?.graph_version != null && (
+                    <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded">
+                      Graph v{scorecard.graph_version}
+                    </span>
+                  )
+                }
+              />
+              <div className="mt-3 flex-1 min-h-[260px]">
+                <GraphHealthChart data={healthHistory} />
+              </div>
+            </div>
+
+            {/* Event Ingestion & Velocity Trend Card */}
+            <div className="rounded-[18px] border border-white/8 p-4 sm:p-5 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex flex-col justify-between">
+              <PanelHeader
+                title="Event Ingestion & Velocity Trend"
+                subtitle="Real-time event throughput telemetry (events / min)"
+                action={
+                  latestInfo && (
+                    <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded">
+                      seq #{latestInfo.last_seq} · {latestInfo.event_count}{" "}
+                      total
+                    </span>
+                  )
+                }
+              />
+              <div className="mt-2 flex-1 min-h-[120px]">
+                <TelemetryVelocityChart data={telemetryHistory} />
               </div>
             </div>
           </div>
 
-          {/* Worker Pool Status */}
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
-            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-emerald-400/60 via-emerald-400/20 to-transparent" />
-            <WorkerPoolStatus
-              evolution={evolveStatus ? { is_running: evolveStatus.runtime?.is_running ?? false, worker_count: evolveStatus.runtime?.worker_count } : null}
-              pipeline={pipelineStats ? { queue_depth: pipelineStats.queue_depth, throughput: pipelineStats.throughput, gpu_active: pipelineStats.gpu_active, system_health: pipelineStats.system_health } : null}
-            />
-          </div>
+          {/* Right Column (4 cols): 3D Cortex FIG Visualizer + Topology Gauges */}
+          <div className="lg:col-span-4 flex flex-col gap-4">
+            {/* Live 3D FIG Canvas Preview */}
+            <div className="rounded-[18px] border border-white/8 p-4 sm:p-5 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex flex-col justify-between flex-1">
+              <PanelHeader
+                title="Live Cortex 3D Graph"
+                subtitle="Realtime Node-Link spatial cluster preview"
+                action={
+                  <button
+                    onClick={() => router.push("/dashboard/graph")}
+                    className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
+                  >
+                    Inspect <ArrowRight size={10} />
+                  </button>
+                }
+              />
+              <div className="mt-3 flex-1 min-h-[260px]">
+                <MiniFigCanvas
+                  graphId={graphId}
+                  nodeCount={scorecard?.node_count}
+                  edgeCount={scorecard?.edge_count}
+                />
+              </div>
+            </div>
 
-          {/* GPU Utilization */}
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
-            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-amber-400/60 via-amber-400/20 to-transparent" />
-            <GPUUtilization
-              gpuAvailable={pipelineStats?.gpu_available ?? false}
-              gpuActive={pipelineStats?.gpu_active ?? false}
-              throughput={pipelineStats?.throughput ?? 0}
-            />
+            {/* Topology Metrics Scorecard */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-1">
+              <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-cyan-400/60 via-cyan-400/20 to-transparent" />
+              <PanelHeader
+                title="Topology Metrics"
+                subtitle="Scorecard gauges — D / H / λ"
+              />
+              <div className="p-3 sm:p-4">
+                {scorecardLoading ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className="h-16 rounded-xl animate-pulse bg-slate-700/40"
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {scorecardGauges.map((g) => (
+                      <ScorecardGauge key={g.label} {...g} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
+        </div>
 
-          {/* Security & Auth Keys */}
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-amber-400/60 via-amber-400/20 to-transparent" />
-            <PanelHeader
-              title="Security & Auth Keys"
-              action={
+        {/* ── Row 3: Balanced 3-Column Operational & Pipeline Grid ────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+          {/* ── Column 1: Live Activity Stream + Quick Command Matrix ── */}
+          <div className="flex flex-col gap-4">
+            {/* Live Activity Log Feed */}
+            <div className="flex flex-col rounded-[18px] border border-white/8 overflow-hidden bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+              <PanelHeader
+                title="Live Activity Stream"
+                subtitle="Real-time graph events via SSE stream"
+              />
+              <div className="max-h-[340px] overflow-y-auto custom-scrollbar">
+                {eventsLoading ? (
+                  <div className="flex flex-col gap-0">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="px-5 py-4 border-b border-white/6"
+                      >
+                        <div className="h-4 w-3/4 rounded animate-pulse bg-slate-700/40" />
+                      </div>
+                    ))}
+                  </div>
+                ) : events.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center p-8 gap-3 text-slate-500">
+                    <Activity size={28} className="opacity-30" />
+                    <p className="text-xs font-mono">
+                      No events yet — ingest data to see activity
+                    </p>
+                  </div>
+                ) : (
+                  events.map((ev) => {
+                    const meta = eventMeta(ev.kind);
+                    return (
+                      <div
+                        key={ev.id}
+                        className="group px-4 py-3 border-b border-white/6 last:border-0 transition-all hover:bg-white/[0.02]"
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span
+                              className={`text-[9px] font-black uppercase tracking-[0.12em] w-14 shrink-0 ${meta.color}`}
+                            >
+                              {meta.label}
+                            </span>
+                            <p className="text-xs text-slate-200 font-medium truncate font-mono">
+                              {eventSummary(ev)}
+                            </p>
+                          </div>
+                          <span className="text-[9px] text-slate-500 font-mono shrink-0">
+                            {relTime(ev.ts)}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Quick Command Matrix */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+              <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-violet-400/60 via-violet-400/20 to-transparent" />
+              <PanelHeader title="Quick Command Matrix" />
+              <div className="p-3 space-y-1.5">
+                {QUICK_ACTIONS.map((qa) => (
+                  <button
+                    key={qa.href}
+                    onClick={() => router.push(qa.href)}
+                    aria-label={qa.label}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-white/8 text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-white/[0.03] focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-cyan-400">{qa.icon}</span>
+                      {qa.label}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-mono text-slate-500 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                        {qa.keyHint}
+                      </span>
+                      <ArrowRight size={12} className="text-slate-600" />
+                    </div>
+                  </button>
+                ))}
+
+                {/* Upload button */}
                 <button
-                  onClick={() => router.push("/dashboard/api-keys")}
-                  className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  aria-label="Upload document to FAIM"
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-lg border text-xs font-medium text-slate-300 hover:text-slate-100 hover:bg-cyan-950/40 border-cyan-800/40 hover:border-cyan-500/50 focus-visible:ring-2 focus-visible:ring-cyan-500 transition-all disabled:opacity-50"
                 >
-                  Manage <ArrowRight size={10} />
-                </button>
-              }
-            />
-            <div className="p-3.5">
-              <div className="flex items-center justify-between px-3 py-2 rounded-[14px] border border-white/8 bg-white/[0.03]">
-                <div className="flex items-center gap-2.5">
-                  <KeyRound size={14} className="text-amber-400" />
-                  <span className="text-xs font-semibold text-slate-200">
-                    {keyCount?.active ?? 0} active keys
+                  <span className="flex items-center gap-2">
+                    <Upload size={13} className="text-cyan-400" />
+                    {uploading ? "Uploading…" : "Upload to FAIM"}
                   </span>
-                </div>
-                <div
-                  className={`h-2 w-2 rounded-full ${(keyCount?.active ?? 0) > 0 ? "bg-emerald-400" : "bg-slate-600"}`}
+                  <Sparkles size={12} className="text-cyan-400" />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleFileUpload(file);
+                      e.target.value = "";
+                    }
+                  }}
                 />
               </div>
             </div>
           </div>
-        </div>
 
-        {/* ── Column 3: Storage, MiniMap, Pipeline Latency & Cache ── */}
-        <div className="flex flex-col gap-4">
-          {/* Storage Modality Breakdown */}
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
-            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-emerald-400/60 via-emerald-400/20 to-transparent" />
-            <StorageModalityChart
-              byType={storage?.by_type ?? {}}
-              totalBytes={storage?.total_bytes ?? 0}
-            />
+          {/* ── Column 2: Compute Engine, Workers & GPU ── */}
+          <div className="flex flex-col gap-4">
+            {/* Evolution Engine Panel */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+              <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-emerald-400/60 via-emerald-400/20 to-transparent" />
+              <PanelHeader
+                title="Evolution Engine"
+                subtitle="FAIM graph self-organization"
+              />
+              <div className="p-3.5 space-y-3">
+                <div className="flex items-center justify-between px-4 py-3 rounded-[14px] border border-white/8 bg-white/[0.03]">
+                  <div>
+                    <p className="text-[9px] uppercase tracking-widest text-slate-400 font-bold">
+                      Status
+                    </p>
+                    <p className={`text-xs font-semibold ${evolveHealthColor}`}>
+                      {evolveLoading
+                        ? "checking…"
+                        : evolveIsRunning
+                          ? "running"
+                          : evolveJobStatus}
+                    </p>
+                  </div>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={runEvolve}
+                    loading={evolving}
+                    disabled={evolveIsRunning}
+                  >
+                    <PlayCircle size={13} className="mr-1" />
+                    {evolveIsRunning ? "Running…" : "Run Evolution"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Worker Pool Status */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
+              <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-emerald-400/60 via-emerald-400/20 to-transparent" />
+              <WorkerPoolStatus
+                evolution={
+                  evolveStatus
+                    ? {
+                        is_running: evolveStatus.runtime?.is_running ?? false,
+                        worker_count: evolveStatus.runtime?.worker_count,
+                      }
+                    : null
+                }
+                pipeline={
+                  pipelineStats
+                    ? {
+                        queue_depth: pipelineStats.queue_depth,
+                        throughput: pipelineStats.throughput,
+                        gpu_active: pipelineStats.gpu_active,
+                        system_health: pipelineStats.system_health,
+                      }
+                    : null
+                }
+              />
+            </div>
+
+            {/* GPU Utilization */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
+              <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-amber-400/60 via-amber-400/20 to-transparent" />
+              <GPUUtilization
+                gpuAvailable={pipelineStats?.gpu_available ?? false}
+                gpuActive={pipelineStats?.gpu_active ?? false}
+                throughput={pipelineStats?.throughput ?? 0}
+              />
+            </div>
+
+            {/* Security & Auth Keys */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+              <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-amber-400/60 via-amber-400/20 to-transparent" />
+              <PanelHeader
+                title="Security & Auth Keys"
+                action={
+                  <button
+                    onClick={() => router.push("/dashboard/api-keys")}
+                    className="text-[10px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
+                  >
+                    Manage <ArrowRight size={10} />
+                  </button>
+                }
+              />
+              <div className="p-3.5">
+                <div className="flex items-center justify-between px-3 py-2 rounded-[14px] border border-white/8 bg-white/[0.03]">
+                  <div className="flex items-center gap-2.5">
+                    <KeyRound size={14} className="text-amber-400" />
+                    <span className="text-xs font-semibold text-slate-200">
+                      {keyCount?.active ?? 0} active keys
+                    </span>
+                  </div>
+                  <div
+                    className={`h-2 w-2 rounded-full ${(keyCount?.active ?? 0) > 0 ? "bg-emerald-400" : "bg-slate-600"}`}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Mini-Map Bird's Eye */}
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
-            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-emerald-400/60 via-emerald-400/20 to-transparent" />
-            <MiniMap graphId={graphId} />
-          </div>
+          {/* ── Column 3: Storage, MiniMap, Pipeline Latency & Cache ── */}
+          <div className="flex flex-col gap-4">
+            {/* Storage Modality Breakdown */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
+              <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-emerald-400/60 via-emerald-400/20 to-transparent" />
+              <StorageModalityChart
+                byType={storage?.by_type ?? {}}
+                totalBytes={storage?.total_bytes ?? 0}
+              />
+            </div>
 
-          {/* Pipeline Latency / Health Heatmap */}
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
-            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-cyan-400/60 via-cyan-400/20 to-transparent" />
-            <LatencyHeatmap data={pipelineStats} />
-          </div>
+            {/* Mini-Map Bird's Eye */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
+              <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-emerald-400/60 via-emerald-400/20 to-transparent" />
+              <MiniMap graphId={graphId} />
+            </div>
 
-          {/* Cache Hit Rate */}
-          <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
-            <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-violet-400/60 via-violet-400/20 to-transparent" />
-            <CacheHitRateRing
-              hitRate={cacheHitRate.hitRate}
-              totalRequests={cacheHitRate.total}
-              label="Cache Hit Rate"
-            />
+            {/* Pipeline Latency / Health Heatmap */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
+              <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-cyan-400/60 via-cyan-400/20 to-transparent" />
+              <LatencyHeatmap data={pipelineStats} />
+            </div>
+
+            {/* Cache Hit Rate */}
+            <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] p-4">
+              <span className="pointer-events-none absolute left-0 top-0 h-full w-[2px] bg-gradient-to-b from-violet-400/60 via-violet-400/20 to-transparent" />
+              <CacheHitRateRing
+                hitRate={cacheHitRate.hitRate}
+                totalRequests={cacheHitRate.total}
+                label="Cache Hit Rate"
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <CommandCenterManual
-      open={manualOpen}
-      onClose={() => setManualOpen(false)}
-    />
-  </>
-);
+      <CommandCenterManual
+        open={manualOpen}
+        onClose={() => setManualOpen(false)}
+      />
+    </>
+  );
 }

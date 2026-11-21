@@ -157,7 +157,14 @@ def test_s5_evolve_event_payloads_carry_full_invariant_metrics():
         events = event_repo.get_all(session, graph_id=graph_id, limit=300)
         for kind in ("DIAGNOSTICS_SNAPSHOT", "EVOLUTION_SKIPPED"):
             payload = [e.payload for e in events if e.kind == kind][-1]
-            for key in ("D_hat", "H_hat", "lambda_hat", "redundancy_R", "novelty_N", "energy_E"):
+            for key in (
+                "D_hat",
+                "H_hat",
+                "lambda_hat",
+                "redundancy_R",
+                "novelty_N",
+                "energy_E",
+            ):
                 assert key in payload, f"{kind} missing {key}"
     finally:
         session.close()

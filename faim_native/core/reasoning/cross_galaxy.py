@@ -196,8 +196,7 @@ class CrossGalaxySynthesizer:
                         .all()
                     )
                     repr_by_id = {
-                        str(r.node_id): r.normalized_text or ""
-                        for r in repr_rows
+                        str(r.node_id): r.normalized_text or "" for r in repr_rows
                     }
                 except Exception:
                     repr_by_id = {}

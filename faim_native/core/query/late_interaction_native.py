@@ -107,7 +107,9 @@ def _maxsim_units(
                     overlap = len(set(unit_parts) & set(candidate_parts))
                     if overlap <= 0:
                         continue
-                    candidate_score = overlap / max(len(unit_parts), len(candidate_parts))
+                    candidate_score = overlap / max(
+                        len(unit_parts), len(candidate_parts)
+                    )
                     if candidate_score > score:
                         score = candidate_score
                         matched_value = candidate
@@ -167,7 +169,9 @@ def _translit_bridge_values(repr_row: RepresentationV2) -> Tuple[str, ...]:
     return tuple(sorted(values))
 
 
-def _build_query_units(repr_row: RepresentationV2) -> Dict[str, Tuple[LateInteractionUnit, ...]]:
+def _build_query_units(
+    repr_row: RepresentationV2,
+) -> Dict[str, Tuple[LateInteractionUnit, ...]]:
     tokens = _tokenize(repr_row.normalized_text)
     phrases = _phrases(tokens)
     return {
@@ -176,7 +180,11 @@ def _build_query_units(repr_row: RepresentationV2) -> Dict[str, Tuple[LateIntera
             for value in tokens
         ),
         "phrase": tuple(
-            LateInteractionUnit(value=value, weight=1.15 if len(value.split()) == 3 else 1.0, channel="phrase")
+            LateInteractionUnit(
+                value=value,
+                weight=1.15 if len(value.split()) == 3 else 1.0,
+                channel="phrase",
+            )
             for value in phrases
         ),
         "alias": tuple(

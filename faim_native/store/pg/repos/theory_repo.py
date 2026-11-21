@@ -66,9 +66,7 @@ class TheoryRepo:
                 theory.get("evidence_node_ids", []) or row.evidence_node_ids or []
             )
             row.metadata_json = theory.get("metadata", {}) or row.metadata_json or {}
-            row.graph_version = int(
-                theory.get("graph_version", row.graph_version or 0)
-            )
+            row.graph_version = int(theory.get("graph_version", row.graph_version or 0))
 
         self.session.flush()
         return row.to_dict()
@@ -111,7 +109,5 @@ class TheoryRepo:
             GraphTheoryModel.graph_id == graph_id,
         )
         if since_version is not None:
-            query = query.filter(
-                GraphTheoryModel.graph_version >= since_version
-            )
+            query = query.filter(GraphTheoryModel.graph_version >= since_version)
         return int(query.count())

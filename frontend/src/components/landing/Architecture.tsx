@@ -45,16 +45,16 @@ const LAYERS = [
         desc: "256-d vectors, inheritance, dedup, evolution, and 8 invariant checks",
       },
       {
-        name: "Deterministic Semantic Router",
-        desc: "Seeded alias mapping for intent routing (zero ML)",
+        name: "Multilingual Embeddings + Lexicons",
+        desc: "Local multilingual semantic embeddings + ConceptNet lexical broadening",
       },
       {
         name: "Graph + Knowledge Layers",
-        desc: "bounded multi-hop diffusion, semantic edges, domain knowledge, and pulse-v2 graph proof",
+        desc: "Caller-controlled graph_max_hops (1–24), semantic edges, domain memory, and pulse-v2 proof",
       },
       {
-        name: "Answer-Ready Retrieval",
-        desc: "Deterministic reranking, multimodal evidence, and extractive answer synthesis",
+        name: "REST + Remote MCP Delivery",
+        desc: "Deterministic reranking, provenance citations, OAuth 2.1 / PKCE, and offline faim-mcp",
       },
     ],
   },

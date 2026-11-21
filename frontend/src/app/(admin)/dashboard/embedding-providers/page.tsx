@@ -20,7 +20,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { Button } from "@/components/ui/Button";
 import { useEmbeddingProviders } from "@/contexts/EmbeddingProviderContext";
-import { discoverEmbeddingModels, testEmbeddingProvider } from "@/lib/embeddingProviderDiscovery";
+import {
+  discoverEmbeddingModels,
+  testEmbeddingProvider,
+} from "@/lib/embeddingProviderDiscovery";
 
 function ModelDropdown({
   models,
@@ -226,7 +229,14 @@ export default function EmbeddingProvidersPage() {
       );
 
       if (id) {
-        setFormData({ name: "", type: "local", baseUrl: "", apiKey: "", model: "", dimension: 1024 });
+        setFormData({
+          name: "",
+          type: "local",
+          baseUrl: "",
+          apiKey: "",
+          model: "",
+          dimension: 1024,
+        });
         setDiscoveredModels([]);
         setSelectedModel("");
         setFormStep("config");
@@ -255,7 +265,14 @@ export default function EmbeddingProvidersPage() {
   const closeForm = () => {
     setShowAddForm(false);
     setFormStep("config");
-    setFormData({ name: "", type: "local", baseUrl: "", apiKey: "", model: "", dimension: 1024 });
+    setFormData({
+      name: "",
+      type: "local",
+      baseUrl: "",
+      apiKey: "",
+      model: "",
+      dimension: 1024,
+    });
     setDiscoveredModels([]);
     setSelectedModel("");
     setFormError(null);
@@ -264,13 +281,33 @@ export default function EmbeddingProvidersPage() {
   const getTypeInfo = (type: string) => {
     switch (type) {
       case "local":
-        return { label: "Local (bge-m3)", icon: <Cpu size={16} />, accent: "#10b981", free: true };
+        return {
+          label: "Local (bge-m3)",
+          icon: <Cpu size={16} />,
+          accent: "#10b981",
+          free: true,
+        };
       case "openai":
-        return { label: "OpenAI", icon: <Zap size={16} />, accent: "#f59e0b", free: false };
+        return {
+          label: "OpenAI",
+          icon: <Zap size={16} />,
+          accent: "#f59e0b",
+          free: false,
+        };
       case "custom":
-        return { label: "Custom Endpoint", icon: <Shield size={16} />, accent: "#8b5cf6", free: true };
+        return {
+          label: "Custom Endpoint",
+          icon: <Shield size={16} />,
+          accent: "#8b5cf6",
+          free: true,
+        };
       default:
-        return { label: "Unknown", icon: <AlertCircle size={16} />, accent: "#64748b", free: false };
+        return {
+          label: "Unknown",
+          icon: <AlertCircle size={16} />,
+          accent: "#64748b",
+          free: false,
+        };
     }
   };
 
@@ -321,8 +358,8 @@ export default function EmbeddingProvidersPage() {
               activeProvider?.status === "online"
                 ? "Online"
                 : activeProvider
-                ? "Checking..."
-                : "Offline",
+                  ? "Checking..."
+                  : "Offline",
             icon: <AlertCircle size={16} />,
             accent: activeProvider?.status === "online" ? "#10b981" : "#8b5cf6",
           },
@@ -394,8 +431,9 @@ export default function EmbeddingProvidersPage() {
                 No embedding providers configured
               </h3>
               <p className="text-xs text-slate-500 max-w-md mb-4 leading-relaxed">
-                Add your first embedding provider (BAAI/bge-m3 local, OpenAI, or custom
-                endpoint) to enable semantic evolution, retrieval, and invention.
+                Add your first embedding provider (BAAI/bge-m3 local, OpenAI, or
+                custom endpoint) to enable semantic evolution, retrieval, and
+                invention.
               </p>
               <Button
                 size="sm"
@@ -431,7 +469,9 @@ export default function EmbeddingProvidersPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 mb-2">
-                        {React.cloneElement(typeInfo.icon, { style: { color: typeInfo.accent } })}
+                        {React.cloneElement(typeInfo.icon, {
+                          style: { color: typeInfo.accent },
+                        })}
                         <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2">
                           {typeInfo.label}
                         </p>
@@ -661,16 +701,17 @@ export default function EmbeddingProvidersPage() {
                           formData.type === "local"
                             ? "http://localhost:8000 (or leave empty for built-in)"
                             : formData.type === "openai"
-                            ? "https://api.openai.com/v1"
-                            : "https://your-endpoint.com/v1"
+                              ? "https://api.openai.com/v1"
+                              : "https://your-endpoint.com/v1"
                         }
                         className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"
                         disabled={formLoading}
                       />
                       {formData.type === "local" && (
                         <p className="text-[9px] text-slate-500 mt-1.5">
-                          Built-in BAAI/bge-m3 runs locally. Use your local inference server URL,
-                          or leave empty to use the in-process model (coming soon).
+                          Built-in BAAI/bge-m3 runs locally. Use your local
+                          inference server URL, or leave empty to use the
+                          in-process model (coming soon).
                         </p>
                       )}
                       {formData.type === "local" && (
@@ -729,7 +770,10 @@ export default function EmbeddingProvidersPage() {
                           type="number"
                           value={formData.dimension}
                           onChange={(e) =>
-                            setFormData({ ...formData, dimension: parseInt(e.target.value) || 1024 })
+                            setFormData({
+                              ...formData,
+                              dimension: parseInt(e.target.value) || 1024,
+                            })
                           }
                           placeholder="1024"
                           className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-primary-500/50"

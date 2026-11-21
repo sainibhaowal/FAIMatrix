@@ -10,7 +10,9 @@ from typing import Any, Dict, Tuple
 
 def compute_payload_sha256(payload: Dict[str, Any]) -> str:
     clean = {k: v for k, v in payload.items() if k != "integrity_sha256"}
-    canonical = json.dumps(clean, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    canonical = json.dumps(
+        clean, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    )
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
@@ -27,21 +29,33 @@ def evaluate_publication_gate(result: Dict[str, Any]) -> Dict[str, Any]:
 
     dataset_metadata = result.get("dataset_metadata", {})
     sampling = dataset_metadata.get("sampling", {})
-    if sampling.get("max_corpus") is not None or sampling.get("max_queries") is not None:
+    if (
+        sampling.get("max_corpus") is not None
+        or sampling.get("max_queries") is not None
+    ):
         reasons.append("sampled dataset; full declared split was not evaluated")
     if dataset_metadata.get("source_type") == "huggingface_datasets":
         revisions = dataset_metadata.get("revisions") or {}
         if revisions:
-            unpinned = [name for name in ("corpus", "queries", "qrels") if revisions.get(name) in {None, "", "unspecified"}]
+            unpinned = [
+                name
+                for name in ("corpus", "queries", "qrels")
+                if revisions.get(name) in {None, "", "unspecified"}
+            ]
             if unpinned:
-                reasons.append(f"dataset revisions are not pinned: {', '.join(unpinned)}")
+                reasons.append(
+                    f"dataset revisions are not pinned: {', '.join(unpinned)}"
+                )
         elif dataset_metadata.get("revision") in {None, "", "unspecified"}:
             reasons.append("dataset revision is not pinned")
 
     run_metadata = result.get("run_metadata", {})
     if run_metadata.get("git_worktree_dirty") is True:
         reasons.append("git worktree was dirty")
-    if not run_metadata.get("git_commit") or run_metadata.get("git_commit") == "unavailable":
+    if (
+        not run_metadata.get("git_commit")
+        or run_metadata.get("git_commit") == "unavailable"
+    ):
         reasons.append("git commit is unavailable")
 
     if result.get("suite_type") == "retrieval_beir":
@@ -67,7 +81,9 @@ def evaluate_publication_gate(result: Dict[str, Any]) -> Dict[str, Any]:
         max_p95 = quality_gates.get("max_query_p95_ms")
         require_beats_bm25 = quality_gates.get("require_faim_beats_bm25") is True
         if min_ndcg is not None and not 0.0 <= float(min_ndcg) <= 1.0:
-            reasons.append("invalid quality gate: min_ndcg_at_10 must be between 0 and 1")
+            reasons.append(
+                "invalid quality gate: min_ndcg_at_10 must be between 0 and 1"
+            )
         if max_p95 is not None and float(max_p95) <= 0.0:
             reasons.append("invalid quality gate: max_query_p95_ms must be positive")
 
@@ -101,7 +117,9 @@ def evaluate_publication_gate(result: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "ready": not reasons,
         "reasons": reasons,
-        "completed_systems": [row["system"] for row in systems if row.get("status") == "completed"],
+        "completed_systems": [
+            row["system"] for row in systems if row.get("status") == "completed"
+        ],
         "skipped_systems": skipped,
         "failed_systems": failed,
     }
@@ -134,7 +152,9 @@ def render_markdown_report(result: Dict[str, Any]) -> str:
         )
         for row in result["systems"]:
             if row["status"] != "completed":
-                lines.append(f"| {row['system']} | {row['status']} ({row.get('reason', '')}) | — | — | — | — | — | — |")
+                lines.append(
+                    f"| {row['system']} | {row['status']} ({row.get('reason', '')}) | — | — | — | — | — | — |"
+                )
                 continue
             m = row["metrics"]
             lat = row["latency_ms"]
@@ -151,7 +171,9 @@ def render_markdown_report(result: Dict[str, Any]) -> str:
         )
         for row in result["systems"]:
             if row["status"] != "completed":
-                lines.append(f"| {row['system']} | {row['status']} ({row.get('reason', '')}) | — | — | — | — | — |")
+                lines.append(
+                    f"| {row['system']} | {row['status']} ({row.get('reason', '')}) | — | — | — | — | — |"
+                )
                 continue
             m = row["metrics"]
             lat = row["latency_ms"]
@@ -162,22 +184,32 @@ def render_markdown_report(result: Dict[str, Any]) -> str:
 
     lines.append("")
     quality_gates = result.get("run_metadata", {}).get("quality_gates") or {}
-    if any(value is not None and value is not False for value in quality_gates.values()):
-        lines.append(f"- **Quality gates:** `{json.dumps(quality_gates, sort_keys=True)}`")
+    if any(
+        value is not None and value is not False for value in quality_gates.values()
+    ):
+        lines.append(
+            f"- **Quality gates:** `{json.dumps(quality_gates, sort_keys=True)}`"
+        )
         lines.append("")
     if result.get("run_metadata", {}).get("query_traces_retained") is True:
-        lines.append("Per-query retrieval traces are retained in the signed JSON artifact without query or document text.")
+        lines.append(
+            "Per-query retrieval traces are retained in the signed JSON artifact without query or document text."
+        )
         lines.append("")
     gate = result.get("publication_gate", {})
     if not gate.get("ready", False):
         lines.append("**Publication blockers:** " + "; ".join(gate.get("reasons", [])))
         lines.append("")
-    lines.append("95% bootstrap confidence intervals are retained in the signed JSON artifact under `confidence_intervals`; non-completed systems are not scored.")
+    lines.append(
+        "95% bootstrap confidence intervals are retained in the signed JSON artifact under `confidence_intervals`; non-completed systems are not scored."
+    )
     lines.append("")
     return "\n".join(lines)
 
 
-def write_signed_artifacts(result: Dict[str, Any], out_dir: str | Path) -> Tuple[Path, Path]:
+def write_signed_artifacts(
+    result: Dict[str, Any], out_dir: str | Path
+) -> Tuple[Path, Path]:
     target = Path(out_dir)
     target.mkdir(parents=True, exist_ok=True)
     signed = dict(result)

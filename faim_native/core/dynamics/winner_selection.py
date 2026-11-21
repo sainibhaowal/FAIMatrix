@@ -83,9 +83,7 @@ def _recency_decay(last_access: Any, now: datetime) -> float:
         return 0.5  # unknown recency is neutral
     if isinstance(last_access, str):
         try:
-            last_access = datetime.fromisoformat(
-                last_access.replace("Z", "+00:00")
-            )
+            last_access = datetime.fromisoformat(last_access.replace("Z", "+00:00"))
         except ValueError:
             return 0.5
     if last_access.tzinfo is None:
@@ -206,9 +204,7 @@ def select_winner_semantic(
         loser_score=round(min(score_a, score_b), 6),
         meta={
             "selector": "semantic",
-            "tie_break": "legacy_hash"
-            if abs(score_a - score_b) < 1e-9
-            else "score",
+            "tie_break": "legacy_hash" if abs(score_a - score_b) < 1e-9 else "score",
             "components_winner": {
                 "evidence": round(W_EVIDENCE * _evidence_norm(winner_node), 6),
                 "usage": round(
@@ -224,7 +220,10 @@ def select_winner_semantic(
                     6,
                 ),
                 "source": round(W_SOURCE * _source_quality(winner_node), 6),
-                "residual": round(W_RESIDUAL * _residual_norm(getattr(winner_node, "residual", None)), 6),
+                "residual": round(
+                    W_RESIDUAL * _residual_norm(getattr(winner_node, "residual", None)),
+                    6,
+                ),
             },
         },
     )

@@ -89,11 +89,7 @@ def _extract_concepts(text: str) -> List[str]:
         return []
     # Capitalized terms (entities) and bare multi-word tokens.
     capitalized = re.findall(r"\b[A-Z][a-zA-Z]+\b", text)
-    return list(
-        dict.fromkeys(
-            c for c in capitalized if len(c) >= MIN_CONCEPT_LENGTH
-        )
-    )
+    return list(dict.fromkeys(c for c in capitalized if len(c) >= MIN_CONCEPT_LENGTH))
 
 
 def _node_text(node: Any) -> str:
@@ -137,9 +133,7 @@ def _load_node_texts(
             .all()
         )
         return {
-            str(r.node_id): (r.normalized_text or "")
-            for r in rows
-            if r.normalized_text
+            str(r.node_id): (r.normalized_text or "") for r in rows if r.normalized_text
         }
     except Exception as exc:
         if errors is not None:
@@ -174,11 +168,7 @@ def _cross_galaxy_correlations(
         if len(galaxies) < MIN_CROSS_GALAXY_GALAXIES:
             continue
         galaxy_ids = sorted(galaxies.keys())
-        evidence = sorted(
-            str(nid)
-            for gids in galaxies.values()
-            for nid in gids
-        )
+        evidence = sorted(str(nid) for gids in galaxies.values() for nid in gids)
         confidence = min(
             0.95,
             0.5 + 0.15 * (len(galaxies) - MIN_CROSS_GALAXY_GALAXIES),
@@ -260,9 +250,7 @@ def _hierarchy_composition_theory(
 
     total = sum(levels.values())
     leaf_fraction = levels.get(0, 0) / total if total else 0.0
-    macro_count = sum(
-        count for level, count in levels.items() if level >= 1
-    )
+    macro_count = sum(count for level, count in levels.items() if level >= 1)
     return [
         Theory(
             theory_id=_theory_id(graph_id, "hierarchy", f"depth-{max_level}"),
@@ -280,9 +268,7 @@ def _hierarchy_composition_theory(
                 "max_level": max_level,
                 "macro_count": macro_count,
                 "leaf_fraction": round(leaf_fraction, 4),
-                "level_distribution": {
-                    str(k): v for k, v in sorted(levels.items())
-                },
+                "level_distribution": {str(k): v for k, v in sorted(levels.items())},
             },
         )
     ]
@@ -324,9 +310,7 @@ def _cognitive_composition_theory(
                 "dominant_type": dominant,
                 "share": round(share, 4),
                 "total_nodes": total,
-                "type_distribution": {
-                    str(k): v for k, v in types.most_common(8)
-                },
+                "type_distribution": {str(k): v for k, v in types.most_common(8)},
             },
         )
     ]

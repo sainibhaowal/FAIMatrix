@@ -12,12 +12,12 @@ const FAQS: FAQItem[] = [
   {
     question: "How deep does reasoning go?",
     answer:
-      "FAIM uses planner-driven bounded graph reasoning: simple questions can stay shallow, while deeper investigative turns can expand through the configured Cortex runtime. Provenance and citation metadata are emitted where the selected path supports them; model-generated explanations may vary.",
+      "FAIM supports agent-controlled bounded multi-hop graph traversal via graph_max_hops (1–24, defaulting to 2). Simple lookups stay shallow, while external AI agents can request deeper hop walks with full provenance and citation metadata.",
   },
   {
     question: "How does the semantic router work?",
     answer:
-      "FAIM uses a deterministic alias map and pattern overrides to route queries to its configured cognitive tasks without requiring an LLM classifier. The routing decision is repeatable with fixed configuration; latency and end-to-end answer quality are deployment-dependent.",
+      "FAIM prepares and scores queries deterministically without an LLM classifier, combining native vectors, built-in multilingual semantic embeddings, ConceptNet lexical broadening, and bounded multi-hop graph traversal. With fixed inputs and configuration, core retrieval scoring is repeatable.",
   },
   {
     question: "Is FAIMATRIX a vector database?",
@@ -27,7 +27,7 @@ const FAQS: FAQItem[] = [
   {
     question: "Do I need a GPU to run FAIM?",
     answer:
-      "No. The STRICT profile runs on 2 CPU cores and 1GB RAM with no GPU. This is verified in production via Docker resource limits. The core engine uses pure Python math \u2014 no PyTorch, no TensorFlow, no CUDA. GPU is optional for FAST/SCALE profiles but never required.",
+      "No GPU is required. The deterministic core runs on CPU, and built-in multilingual semantic embeddings also run locally on CPU. GPU acceleration is optional for higher-throughput workloads, never required.",
   },
   {
     question: "How is this different from using OpenAI embeddings + Pinecone?",
@@ -42,7 +42,7 @@ const FAQS: FAQItem[] = [
   {
     question: "Can I use FAIM with my existing LLM (GPT-4, Claude, etc.)?",
     answer:
-      "Yes. The application layer connects to any LLM for natural language queries and explanations. Generate API keys from the dashboard, connect from any framework (LangChain, LlamaIndex, or raw HTTP). The LLM translates between human language and FAIM\u2019s mathematical engine. But the engine itself runs independently \u2014 if the LLM goes down, FAIM keeps storing and retrieving.",
+      "Yes. FAIM is a Zero-LLM memory engine designed to plug directly into external AI agents and LLM apps. Connect Cursor, Claude, or VS Code in 1 click via Remote MCP (/mcp + OAuth 2.1 / PKCE), run offline with the faim-mcp CLI or Python SDK, or call REST endpoints with one-time scoped API keys from Dashboard → API Keys.",
   },
   {
     question: "What is the golden ratio doing in a memory engine?",
@@ -66,7 +66,7 @@ export default function FAQ() {
 
   return (
     <section id="faq" className="py-28 px-4 bg-slate-950">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Section Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}

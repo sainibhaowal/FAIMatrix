@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 
 def _make_dummy_provider():
     from types import SimpleNamespace

@@ -108,6 +108,7 @@ class EventRepo:
         graph_id: str,
         after_seq: int = 0,
         limit: int = 100,
+        kinds: Optional[List[str]] = None,
     ) -> List[EventRecord]:
         """Get events after a sequence number.
 
@@ -119,24 +120,52 @@ class EventRepo:
             graph_id: Graph to filter by.
             after_seq: Return events with seq greater than this.
             limit: Maximum events to return.
+            kinds: Optional list of event kinds to filter by.
 
         Returns:
             List of EventRecords ordered by seq.
         """
+        filters = [
+            EventModel.tenant_id == self.tenant_id,
+            EventModel.graph_id == graph_id,
+            EventModel.seq > after_seq,
+        ]
+        if kinds:
+            filters.append(EventModel.kind.in_(kinds))
+
         query = (
             session.query(EventModel)
-            .filter(
-                and_(
-                    EventModel.tenant_id == self.tenant_id,
-                    EventModel.graph_id == graph_id,
-                    EventModel.seq > after_seq,
-                )
-            )
+            .filter(and_(*filters))
             .order_by(asc(EventModel.seq))
             .limit(limit)
         )
 
         return [model.to_domain() for model in query.all()]
+
+    def list_tail(
+        self,
+        session: Session,
+        graph_id: str,
+        limit: int = 100,
+        kinds: Optional[List[str]] = None,
+    ) -> List[EventRecord]:
+        """Get the most recent events for a graph in chronological (seq ASC) order."""
+        filters = [
+            EventModel.tenant_id == self.tenant_id,
+            EventModel.graph_id == graph_id,
+        ]
+        if kinds:
+            filters.append(EventModel.kind.in_(kinds))
+
+        rows = (
+            session.query(EventModel)
+            .filter(and_(*filters))
+            .order_by(EventModel.seq.desc())
+            .limit(limit)
+            .all()
+        )
+        rows.reverse()
+        return [model.to_domain() for model in rows]
 
     def get_latest(self, session: Session, graph_id: str) -> Optional[EventRecord]:
         """Get the most recent event for a graph.

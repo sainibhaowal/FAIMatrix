@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import tempfile
 from pathlib import Path
 from uuid import UUID
 
@@ -33,7 +34,7 @@ def main():
     parser.add_argument(
         "--blob-dir",
         type=Path,
-        default=Path("/tmp/faim_blobs"),
+        default=Path(tempfile.gettempdir()) / "faim_blobs",
         help="Directory for blob storage",
     )
     parser.add_argument("--db-url", type=str, default=None, help="Database URL")

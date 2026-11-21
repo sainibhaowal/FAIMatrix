@@ -16,10 +16,8 @@ This suite verifies:
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 
 
@@ -51,7 +49,7 @@ def _seed_graph(session, tenant_id: str, graph_id: str) -> None:
     """Seed nodes with cross-galaxy structure and cognitive types."""
     import hashlib
 
-    from encoding.vector_schema import FAIMVector, VECTOR_DIMENSION
+    from encoding.vector_schema import VECTOR_DIMENSION, FAIMVector
     from store.pg.repos.node_repo import NodeRepo
     from store.pg.repos.representation_repo import RepresentationRepo
 
@@ -88,19 +86,13 @@ def _seed_graph(session, tenant_id: str, graph_id: str) -> None:
         repr_repo.upsert_node_representation(
             graph_id=graph_id,
             node_id=node_id,
-            representation=build_representation_v2(
-                text, display_text=text
-            ),
+            representation=build_representation_v2(text, display_text=text),
         )
         return str(node_id)
 
     # Two galaxies share the concept "Atlas" → correlation theory.
-    _write(
-        "Atlas leads the European mission control", "galaxy-alpha", "fact", 1
-    )
-    _write(
-        "Atlas coordinates rescue across the border", "galaxy-beta", "fact", 2
-    )
+    _write("Atlas leads the European mission control", "galaxy-alpha", "fact", 1)
+    _write("Atlas coordinates rescue across the border", "galaxy-beta", "fact", 2)
     # Same cognitive type dominance → composition theory.
     _write("Atlas tracks orbital debris", "galaxy-alpha", "fact", 3)
     _write("Solar panels degrade slowly in orbit", "galaxy-alpha", "fact", 4)
@@ -134,10 +126,9 @@ def test_phase_ev_f_theories_route_present():
 
 def test_run_theory_cycle_bounded_idempotent(monkeypatch, tmp_path):
     """Theories are bounded, stable ids, and persist durably."""
+    from core.dynamics.theory_native import run_theory_cycle
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-
-    from core.dynamics.theory_native import run_theory_cycle
     from store.pg.models_faim import Base
     from store.pg.repos.node_repo import NodeRepo
     from store.pg.repos.theory_repo import TheoryRepo
@@ -231,10 +222,9 @@ def test_run_theory_cycle_bounded_idempotent(monkeypatch, tmp_path):
 
 def test_run_theory_cycle_lambda_gate(monkeypatch, tmp_path):
     """Low λ gates theory generation entirely."""
+    from core.dynamics.theory_native import run_theory_cycle
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-
-    from core.dynamics.theory_native import run_theory_cycle
     from store.pg.models_faim import Base
     from store.pg.repos.node_repo import NodeRepo
     from store.pg.repos.theory_repo import TheoryRepo
@@ -268,10 +258,9 @@ def test_run_theory_cycle_lambda_gate(monkeypatch, tmp_path):
 
 def test_run_theory_cycle_empty_graph_no_theories(monkeypatch, tmp_path):
     """An empty graph produces no theories (never fabricates)."""
+    from core.dynamics.theory_native import run_theory_cycle
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-
-    from core.dynamics.theory_native import run_theory_cycle
     from store.pg.models_faim import Base
     from store.pg.repos.node_repo import NodeRepo
     from store.pg.repos.theory_repo import TheoryRepo

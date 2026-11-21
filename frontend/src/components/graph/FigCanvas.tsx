@@ -21,6 +21,7 @@ import type {
 
 import {
   applyLayout,
+  clampDraggedNode,
   edgeColorByKind,
   getLayoutConfig,
   nodeColorByCausality,
@@ -199,6 +200,7 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
     const cursorPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const [dimensions, setDimensions] = useState({ width: 800, height: 500 });
     const prevLayoutRef = useRef<LayoutMode>(layoutMode);
+    const hasInitializedLayoutRef = useRef(false);
     const [canvasReady, setCanvasReady] = useState(false);
     // Set to true when leaving a DAG mode (Lineage) so handleEngineStop can
     // re-fit the camera once the scattered nodes have settled.
@@ -251,9 +253,12 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
     // Graph transformation: filter by hidden kinds, apply layout
     // -------------------------------------------------------------------------
 
+    const config = getLayoutConfig(layoutMode);
+    const isDagMode = topMode === "lineage" || config.dagMode !== null;
+
     const graphData = useMemo(() => {
       const historyMs = historyTs ? new Date(historyTs).getTime() : null;
-      let visibleNodes = historyMs
+      const visibleNodes = historyMs
         ? data.nodes.filter(
             (n) =>
               !n.created_at || new Date(n.created_at).getTime() <= historyMs,
@@ -271,14 +276,25 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
           (e) => !e.created_at || new Date(e.created_at).getTime() <= historyMs,
         );
       }
-      // Also filter out edges whose source or target nodes are hidden
+      // Exclude self-loops and edges whose source or target nodes are hidden
       filteredEdges = filteredEdges.filter(
-        (e) => nodeIds.has(e.src_node_id) && nodeIds.has(e.dst_node_id),
+        (e) =>
+          e.src_node_id !== e.dst_node_id &&
+          nodeIds.has(e.src_node_id) &&
+          nodeIds.has(e.dst_node_id),
       );
+      if (isDagMode) {
+        filteredEdges = filterAcyclicEdges(filteredEdges);
+      }
       return toGraphData(filteredNodes, filteredEdges);
-    }, [data.nodes, data.edges, hiddenNodeKinds, hiddenEdgeKinds, historyTs]);
-
-    const config = getLayoutConfig(layoutMode);
+    }, [
+      data.nodes,
+      data.edges,
+      hiddenNodeKinds,
+      hiddenEdgeKinds,
+      historyTs,
+      isDagMode,
+    ]);
 
     // -------------------------------------------------------------------------
     // Overlay normalization — computed once per overlay mode change or node list
@@ -323,7 +339,7 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
       if (!ledger?.node_id) return strengthMap;
       const eventStrength = Math.max(
         ledger.confidence ?? 0,
-        ...((ledger.events ?? []).map((event) => event.strength ?? 0)),
+        ...(ledger.events ?? []).map((event) => event.strength ?? 0),
       );
       strengthMap.set(ledger.node_id, eventStrength || 0.35);
       return strengthMap;
@@ -370,11 +386,16 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
     // -------------------------------------------------------------------------
 
     useEffect(() => {
-      if (
-        layoutMode !== prevLayoutRef.current &&
-        fgRef.current &&
-        canvasReady
-      ) {
+      if (!fgRef.current || !canvasReady) return;
+
+      if (!hasInitializedLayoutRef.current) {
+        hasInitializedLayoutRef.current = true;
+        prevLayoutRef.current = layoutMode;
+        applyLayout(fgRef, getLayoutConfig(layoutMode), undefined, false);
+        return;
+      }
+
+      if (layoutMode !== prevLayoutRef.current) {
         const layoutConfig = getLayoutConfig(layoutMode);
         const prevConfig = prevLayoutRef.current
           ? getLayoutConfig(prevLayoutRef.current)
@@ -394,10 +415,10 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
           // Wait one rAF frame so React has committed dagMode=undefined to
           // ForceGraph3D before we touch node positions.
           requestAnimationFrame(() => {
-            applyLayout(fgRef, layoutConfig, prevConfig);
+            applyLayout(fgRef, layoutConfig, prevConfig, true);
           });
         } else {
-          applyLayout(fgRef, layoutConfig, prevConfig);
+          applyLayout(fgRef, layoutConfig, prevConfig, true);
         }
       }
     }, [layoutMode, canvasReady]);
@@ -551,11 +572,30 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
       onNodeSelect(null);
     }, [onNodeSelect]);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleNodeDrag = useCallback((node: any) => {
+      clampDraggedNode(node, 160);
+    }, []);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleNodeDragEnd = useCallback((node: any) => {
+      if (node) {
+        node.fx = undefined;
+        node.fy = undefined;
+        node.fz = undefined;
+        node.vx = 0;
+        node.vy = 0;
+        node.vz = 0;
+      }
+      fgRef.current?.d3ReheatSimulation?.();
+    }, []);
+
     const engineStopTimerRef = useRef<NodeJS.Timeout | null>(null);
     const handleEngineStop = useCallback(() => {
       setCanvasReady(true);
       if (needsCameraFitRef.current) {
-        if (engineStopTimerRef.current) clearTimeout(engineStopTimerRef.current);
+        if (engineStopTimerRef.current)
+          clearTimeout(engineStopTimerRef.current);
         engineStopTimerRef.current = setTimeout(() => {
           fitGraph();
           needsCameraFitRef.current = false;
@@ -566,7 +606,8 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
 
     useEffect(() => {
       return () => {
-        if (engineStopTimerRef.current) clearTimeout(engineStopTimerRef.current);
+        if (engineStopTimerRef.current)
+          clearTimeout(engineStopTimerRef.current);
       };
     }, []);
 
@@ -582,7 +623,8 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
             ledgerStrength ??
             interactionStrength ??
             0.5;
-          const size = nodeSizeByLevel(node.level) * (1.2 + pulseStrength * 0.9);
+          const size =
+            nodeSizeByLevel(node.level) * (1.2 + pulseStrength * 0.9);
           const glowMat = GLOW_MAT.clone();
           glowMat.setValues({
             color: pulseStrength > 0.7 ? "#fde68a" : "#fbbf24",
@@ -591,15 +633,20 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
           const glow = new THREE.Mesh(GLOW_GEOM, glowMat);
           glow.scale.set(size, size, size);
           // -----------------------------------------------------------------
-          // OPTIMIZATION: Disable raycasting on the glow so it doesn't 
+          // OPTIMIZATION: Disable raycasting on the glow so it doesn't
           // interfere with the native elastic dragging of the atom.
           // -----------------------------------------------------------------
-          glow.raycast = () => {}; 
+          glow.raycast = () => {};
           return glow;
         }
         return EMPTY_GROUP;
       },
-      [explainPath, pulseStrengthByNodeId, ledgerStrengthByNodeId, interactionStrengthByNodeId],
+      [
+        explainPath,
+        pulseStrengthByNodeId,
+        ledgerStrengthByNodeId,
+        interactionStrengthByNodeId,
+      ],
     );
 
     // -------------------------------------------------------------------------
@@ -783,7 +830,8 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
         const graphLink = link as GraphLink;
         // Explain path edges — amber, overrides all other coloring.
         if (explainPath?.edgeIdSet.has(graphLink.edge_id)) {
-          const pulseStrength = pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
+          const pulseStrength =
+            pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
           if (pulseStrength > 0.8) return "#fde68a";
           if (pulseStrength > 0.55) return "#fbbf24";
           return "#d97706";
@@ -807,7 +855,13 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
         }
         return edgeColorByKind(graphLink.kind);
       },
-      [topMode, lineageDepths, selectedNodeId, explainPath, pulseStrengthByEdgeId],
+      [
+        topMode,
+        lineageDepths,
+        selectedNodeId,
+        explainPath,
+        pulseStrengthByEdgeId,
+      ],
     );
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -815,7 +869,8 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
       (link: any) => {
         const graphLink = link as GraphLink;
         if (!explainPath?.edgeIdSet.has(graphLink.edge_id)) return 0;
-        const pulseStrength = pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
+        const pulseStrength =
+          pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
         return Math.max(1, Math.round(2 + pulseStrength * 6));
       },
       [explainPath, pulseStrengthByEdgeId],
@@ -826,7 +881,8 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
       (link: any) => {
         const graphLink = link as GraphLink;
         if (!explainPath?.edgeIdSet.has(graphLink.edge_id)) return "#94a3b8";
-        const pulseStrength = pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
+        const pulseStrength =
+          pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
         return pulseStrength > 0.7 ? "#fde68a" : "#fbbf24";
       },
       [explainPath, pulseStrengthByEdgeId],
@@ -889,20 +945,24 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
           linkDirectionalParticleSpeed={(link: any) => {
             const graphLink = link as GraphLink;
             if (!explainPath?.edgeIdSet.has(graphLink.edge_id)) return 0.004;
-            const pulseStrength = pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
+            const pulseStrength =
+              pulseStrengthByEdgeId.get(graphLink.edge_id) ?? 0.5;
             return 0.003 + pulseStrength * 0.006;
           }}
           linkDirectionalParticleColor={linkParticleColor}
           dagMode={topMode === "lineage" ? "td" : (config.dagMode ?? undefined)}
+          onDagError={() => false}
           d3AlphaDecay={config.d3AlphaDecay}
           d3VelocityDecay={config.d3VelocityDecay}
           warmupTicks={50}
-          cooldownTicks={100}
+          cooldownTicks={300}
           enableNodeDrag={!locked}
           enableNavigationControls={true}
           showNavInfo={false}
           onNodeClick={handleNodeClick}
           onNodeHover={handleNodeHover}
+          onNodeDrag={handleNodeDrag}
+          onNodeDragEnd={handleNodeDragEnd}
           onBackgroundClick={handleBackgroundClick}
           onEngineStop={handleEngineStop}
           nodeThreeObject={nodeThreeObject}
@@ -916,6 +976,68 @@ const FigCanvas = forwardRef<FigCanvasHandle, FigCanvasProps>(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+function isNodeReachable(
+  adj: Map<string, Set<string>>,
+  start: string,
+  target: string,
+): boolean {
+  const visited = new Set<string>([start]);
+  const stack: string[] = [start];
+  while (stack.length > 0) {
+    const curr = stack.pop()!;
+    if (curr === target) return true;
+    const neighbors = adj.get(curr);
+    if (!neighbors) continue;
+    neighbors.forEach((next) => {
+      if (!visited.has(next)) {
+        visited.add(next);
+        stack.push(next);
+      }
+    });
+  }
+  return false;
+}
+
+/**
+ * Filter edges to guarantee a strict DAG (acyclic) for hierarchical/lineage layout.
+ * Prioritizes inheritance and hypernym edges, drops self-loops, duplicate pairs,
+ * and back-edges that would introduce a cycle.
+ */
+function filterAcyclicEdges(edges: FigEdge[]): FigEdge[] {
+  const edgePriority = (kind: string) =>
+    kind === "inheritance" ? 0 : kind === "hypernym" ? 1 : 2;
+
+  const sorted = [...edges].sort((a, b) => {
+    const rankDiff = edgePriority(a.kind) - edgePriority(b.kind);
+    if (rankDiff !== 0) return rankDiff;
+    const weightDiff = (b.weight ?? 0) - (a.weight ?? 0);
+    if (weightDiff !== 0) return weightDiff;
+    return a.edge_id.localeCompare(b.edge_id);
+  });
+
+  const adj = new Map<string, Set<string>>();
+  const seenPairs = new Set<string>();
+  const kept: FigEdge[] = [];
+
+  for (const e of sorted) {
+    if (e.src_node_id === e.dst_node_id) continue;
+    const pairKey = `${e.src_node_id}\0${e.dst_node_id}`;
+    if (seenPairs.has(pairKey)) continue;
+    if (isNodeReachable(adj, e.dst_node_id, e.src_node_id)) continue;
+
+    seenPairs.add(pairKey);
+    let outgoing = adj.get(e.src_node_id);
+    if (!outgoing) {
+      outgoing = new Set<string>();
+      adj.set(e.src_node_id, outgoing);
+    }
+    outgoing.add(e.dst_node_id);
+    kept.push(e);
+  }
+
+  return kept;
+}
 
 function toGraphData(nodes: FigNode[], edges: FigEdge[]): GraphData {
   return {

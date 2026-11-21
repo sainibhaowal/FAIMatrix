@@ -72,6 +72,30 @@ const nextConfig = {
         source: "/api/ops/:path*",
         destination: `${apiUrl}/api/ops/:path*`,
       },
+      {
+        source: "/mcp",
+        destination: `${apiUrl}/mcp`,
+      },
+      {
+        source: "/.well-known/oauth-protected-resource",
+        destination: `${apiUrl}/.well-known/oauth-protected-resource`,
+      },
+      {
+        source: "/.well-known/oauth-protected-resource/mcp",
+        destination: `${apiUrl}/.well-known/oauth-protected-resource/mcp`,
+      },
+      {
+        source: "/.well-known/oauth-authorization-server",
+        destination: `${apiUrl}/.well-known/oauth-authorization-server`,
+      },
+      {
+        source: "/oauth/register",
+        destination: `${apiUrl}/oauth/register`,
+      },
+      {
+        source: "/oauth/token",
+        destination: `${apiUrl}/oauth/token`,
+      },
     ];
   },
 };

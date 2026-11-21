@@ -202,6 +202,7 @@ def _incident_edges_query(
                 EdgeModel.tenant_id == tenant_id,
                 EdgeModel.graph_id == graph_id,
                 EdgeModel.kind.in_(sorted(allowed_kinds)),
+                EdgeModel.src_node_id != EdgeModel.dst_node_id,
                 or_(
                     EdgeModel.src_node_id.in_(node_ids),
                     EdgeModel.dst_node_id.in_(node_ids),

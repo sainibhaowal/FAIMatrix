@@ -1154,21 +1154,21 @@ export default function FigInspector({
                                   ? safeNodeTitle(n).slice(0, 10)
                                   : id.slice(0, 8);
                               })
-                            .join(" → ")}
+                              .join(" → ")}
                           </div>
                         ))}
                         <div className="pt-2">
-                        <FigPulseTrace
-                          pulseTrace={explainResult.pulse_trace}
-                          nodeIndex={nodeIndex}
-                          queryExplain={queryExplain}
-                          livePulse={livePulse}
-                          focusNodeId={node.node_id}
-                          emptyText="This path does not currently expose a pulse trace."
-                        />
-                      </div>
-                    </>
-                  )}
+                          <FigPulseTrace
+                            pulseTrace={explainResult.pulse_trace}
+                            nodeIndex={nodeIndex}
+                            queryExplain={queryExplain}
+                            livePulse={livePulse}
+                            focusNodeId={node.node_id}
+                            emptyText="This path does not currently expose a pulse trace."
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>

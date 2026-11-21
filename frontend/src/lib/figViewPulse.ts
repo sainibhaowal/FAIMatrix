@@ -18,7 +18,9 @@ type BuildInteractionPulseParams = {
   pulseTrace?: FigPulseTrace | null;
 };
 
-function stablePulseId(parts: Array<string | number | boolean | null | undefined>) {
+function stablePulseId(
+  parts: Array<string | number | boolean | null | undefined>,
+) {
   const input = parts.map((part) => String(part ?? "")).join("||");
   let hash = 2166136261;
   for (let idx = 0; idx < input.length; idx += 1) {
@@ -132,7 +134,11 @@ export function buildFigInteractionPulse({
       protocol: "pulse-v2",
       graph_id: graphId,
       query_hash: queryExplain?.vector_hash ?? null,
-      node_id: selectedNodeId ?? hoveredNodeId ?? backendLedger?.node_id ?? `${graphId}:overlay`,
+      node_id:
+        selectedNodeId ??
+        hoveredNodeId ??
+        backendLedger?.node_id ??
+        `${graphId}:overlay`,
       hop: null,
       stage: "ui_overlay",
       source: `fig:overlay:${overlayMode}`,
@@ -147,11 +153,21 @@ export function buildFigInteractionPulse({
 
   if (topMode && topMode !== "explore") {
     uiEvents.push({
-      event_id: stablePulseId([graphId, "top-mode", topMode, selectedNodeId, hoveredNodeId]),
+      event_id: stablePulseId([
+        graphId,
+        "top-mode",
+        topMode,
+        selectedNodeId,
+        hoveredNodeId,
+      ]),
       protocol: "pulse-v2",
       graph_id: graphId,
       query_hash: queryExplain?.vector_hash ?? null,
-      node_id: selectedNodeId ?? hoveredNodeId ?? backendLedger?.node_id ?? `${graphId}:mode`,
+      node_id:
+        selectedNodeId ??
+        hoveredNodeId ??
+        backendLedger?.node_id ??
+        `${graphId}:mode`,
       hop: null,
       stage: "ui_mode",
       source: `fig:top:${topMode}`,
@@ -175,7 +191,11 @@ export function buildFigInteractionPulse({
       protocol: "pulse-v2",
       graph_id: graphId,
       query_hash: queryExplain?.vector_hash ?? null,
-      node_id: selectedNodeId ?? hoveredNodeId ?? backendLedger?.node_id ?? `${graphId}:drawer`,
+      node_id:
+        selectedNodeId ??
+        hoveredNodeId ??
+        backendLedger?.node_id ??
+        `${graphId}:drawer`,
       hop: null,
       stage: "ui_drawer",
       source: `fig:drawer:${activeDrawer}`,
@@ -200,7 +220,10 @@ export function buildFigInteractionPulse({
       graph_id: graphId,
       query_hash: queryExplain?.vector_hash ?? null,
       node_id:
-        selectedNodeId ?? hoveredNodeId ?? backendLedger?.node_id ?? `${graphId}:timeline`,
+        selectedNodeId ??
+        hoveredNodeId ??
+        backendLedger?.node_id ??
+        `${graphId}:timeline`,
       hop: timelineStepIdx,
       stage: "ui_timeline",
       source: "fig:timeline",
@@ -228,25 +251,28 @@ export function buildFigInteractionPulse({
   const strongestLayers = [
     ...(backendLedger?.strongest_layers ?? []),
     ...(pulseTrace?.layer_summary
-      ? Object.entries(pulseTrace.layer_summary).map(([layer, contribution]) => ({
-          layer,
-          contribution,
-        }))
+      ? Object.entries(pulseTrace.layer_summary).map(
+          ([layer, contribution]) => ({
+            layer,
+            contribution,
+          }),
+        )
       : []),
-    ...(selectedNodeId
-      ? [{ layer: "ui_selection", contribution: 1 }]
-      : []),
+    ...(selectedNodeId ? [{ layer: "ui_selection", contribution: 1 }] : []),
   ]
     .sort((left, right) => {
       const leftValue = Number(left.contribution ?? 0);
       const rightValue = Number(right.contribution ?? 0);
-      return rightValue - leftValue || String(left.layer ?? "").localeCompare(String(right.layer ?? ""));
+      return (
+        rightValue - leftValue ||
+        String(left.layer ?? "").localeCompare(String(right.layer ?? ""))
+      );
     })
     .slice(0, 8);
 
   const uiConfidence = clamp01(
     Math.max(
-      ...(uiEvents.map((event) => event.strength ?? 0)),
+      ...uiEvents.map((event) => event.strength ?? 0),
       backendLedger?.confidence ?? 0,
       pulseTrace ? 0.5 : 0,
     ),
@@ -262,9 +288,16 @@ export function buildFigInteractionPulse({
       topMode ?? "explore",
       activeDrawer ?? "none",
       timelineStepIdx ?? "timeline-none",
-      queryExplain?.vector_hash ?? backendLedger?.trace_id ?? pulseTrace?.trace_id ?? "none",
+      queryExplain?.vector_hash ??
+        backendLedger?.trace_id ??
+        pulseTrace?.trace_id ??
+        "none",
     ]),
-    node_id: selectedNodeId ?? hoveredNodeId ?? backendLedger?.node_id ?? `${graphId}:live`,
+    node_id:
+      selectedNodeId ??
+      hoveredNodeId ??
+      backendLedger?.node_id ??
+      `${graphId}:live`,
     confidence: uiConfidence,
     event_count: allEvents.length,
     active_layers: Array.from(activeLayers).sort(),

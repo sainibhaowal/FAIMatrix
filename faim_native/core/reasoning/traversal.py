@@ -397,7 +397,9 @@ class MultiHopTraverser:
                 self._node_cache[node_id] = {
                     "node_id": str(node.node_id),
                     "label": str(label)[:100],
-                    "text": json.dumps(anchor, sort_keys=True) if anchor else str(label),
+                    "text": (
+                        json.dumps(anchor, sort_keys=True) if anchor else str(label)
+                    ),
                     "cognitive_type": getattr(node, "cognitive_type", None),
                     "galaxy_id": getattr(node, "galaxy_id", None),
                 }

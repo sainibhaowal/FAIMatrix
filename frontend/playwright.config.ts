@@ -57,7 +57,7 @@ export default defineConfig({
             process.env.NEXTAUTH_SECRET ?? "playwright-e2e-secret",
           NEXTAUTH_URL: process.env.NEXTAUTH_URL ?? "http://localhost:8011",
           API_HOST:
-            process.env.PLAYWRIGHT_API_HOST ?? "localhost:8001",
+            process.env.PLAYWRIGHT_API_HOST ?? new URL(E2E_BACKEND_URL).host,
           PLAYWRIGHT_BYPASS_AUTH: "true",
           PLAYWRIGHT_E2E_JWT: E2E_JWT,
         },

@@ -10,7 +10,10 @@ type DiscoverError = {
   message?: string;
 };
 
-function extractModels(payload: DiscoverSuccess | unknown): { models: string[]; dimension?: number } {
+function extractModels(payload: DiscoverSuccess | unknown): {
+  models: string[];
+  dimension?: number;
+} {
   if (!payload || typeof payload !== "object") return { models: [] };
   const data = payload as DiscoverSuccess;
   const models = data.models;
@@ -47,9 +50,12 @@ export async function discoverEmbeddingModels(
   return { models, dimension };
 }
 
-export async function testEmbeddingProvider(
-  provider: { baseUrl: string; apiKey?: string; model?: string; dimension?: number },
-): Promise<boolean> {
+export async function testEmbeddingProvider(provider: {
+  baseUrl: string;
+  apiKey?: string;
+  model?: string;
+  dimension?: number;
+}): Promise<boolean> {
   try {
     const res = await fetch("/api/embedding-provider/test", {
       method: "POST",

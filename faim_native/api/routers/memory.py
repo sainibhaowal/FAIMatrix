@@ -30,10 +30,10 @@ from api.services.memory_service import (  # noqa: E402
 )
 from api.validators import (  # noqa: E402
     sanitize_filename,
+    validate_batch_total_size,
     validate_content_type,
     validate_file_extension,
     validate_mime_extension_match,
-    validate_batch_total_size,
 )
 from orchestration.ingest_flow import FAIMProfile, PersistMode, run_ingest  # noqa: E402
 from store.pg.models_faim import IngestDedupModel, NodeModel  # noqa: E402
@@ -437,7 +437,12 @@ def _maybe_trigger_domain_autonomy(
         if domain_enabled in {"0", "false", "no", "off"}:
             return None
 
-        if os.getenv("FAIM_ENABLE_JOBS", "").strip().lower() in {"1", "true", "yes", "on"}:
+        if os.getenv("FAIM_ENABLE_JOBS", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
             result = enqueue_domain_autonomy_if_needed(
                 session=ctx.session,
                 tenant_id=ctx.tenant_id,

@@ -1,6 +1,6 @@
 # Support
 
-Start with the [README](README.md), [API documentation](<docs/2) BackEnd/API_Reference/FAIM_API_DOCUMENTATION.md>), [architecture overview](docs/architecture_overview.md), and [operations documentation](docs/Operations/deployment.md).
+Start with the [README](README.md), [API documentation](faim_native/Docs/02-api/01-api-documentation.md), [architecture overview](faim_native/Docs/01-architecture/01-end-to-end-architecture.md), and [operations documentation](faim_native/Docs/10-operations/01-deployment.md).
 
 ## Before opening an issue
 

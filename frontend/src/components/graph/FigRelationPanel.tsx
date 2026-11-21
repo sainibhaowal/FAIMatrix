@@ -380,14 +380,14 @@ export default function FigRelationPanel({
 
       {/* Results */}
       {explainResult && !explainLoading && (
-      <PathDisplay
-        result={explainResult}
-        nodeIndex={nodeIndex}
-        onNavigate={onNavigateToNode}
-        queryExplain={queryExplain}
-        livePulse={livePulse}
-        focusNodeId={toId}
-      />
+        <PathDisplay
+          result={explainResult}
+          nodeIndex={nodeIndex}
+          onNavigate={onNavigateToNode}
+          queryExplain={queryExplain}
+          livePulse={livePulse}
+          focusNodeId={toId}
+        />
       )}
 
       {/* Empty state hint */}
