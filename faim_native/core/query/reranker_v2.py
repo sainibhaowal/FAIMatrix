@@ -62,6 +62,33 @@ def _jaccard(left: Sequence[str], right: Sequence[str]) -> float:
     return len(left_set & right_set) / len(union)
 
 
+def _query_coverage_proximity(
+    query_tokens: Sequence[str],
+    doc_text: str,
+) -> float:
+    """Compute bounded [0, 1] query-term coverage and span-proximity score."""
+    if not query_tokens or not doc_text:
+        return 0.0
+    q_unique = tuple(dict.fromkeys(t for t in query_tokens if t))
+    if not q_unique:
+        return 0.0
+    lowered = doc_text.lower()
+    positions: list[int] = []
+    hits = 0
+    for tok in q_unique:
+        pos = lowered.find(tok)
+        if pos >= 0:
+            hits += 1
+            positions.append(pos)
+    coverage = hits / len(q_unique)
+    if len(positions) <= 1:
+        return coverage * 0.75
+    span = max(positions) - min(positions)
+    # Tight span (< 160 chars) gets full proximity bonus
+    proximity = 1.0 / (1.0 + (span / 160.0))
+    return min(1.0, 0.70 * coverage + 0.30 * proximity)
+
+
 def score_reranker_v2(
     *,
     query_text: str,
@@ -108,21 +135,36 @@ def score_reranker_v2(
             query_analysis,
             doc_analysis,
         )
+        proximity_score = _query_coverage_proximity(
+            query_analysis.content_tokens, doc_text
+        )
         contradiction = 0.0
 
-        total = min(
-            1.0,
-            0.25 * entity_score
-            + 0.15 * time_score
-            + 0.35 * proposition_score
-            + 0.25 * evidence_score,
-        )
+        # Dynamically redistribute time weight when the query has no temporal constraints
+        if query_analysis.times:
+            total = min(
+                1.0,
+                0.20 * entity_score
+                + 0.15 * time_score
+                + 0.25 * proposition_score
+                + 0.20 * evidence_score
+                + 0.20 * proximity_score,
+            )
+        else:
+            total = min(
+                1.0,
+                0.22 * entity_score
+                + 0.28 * proposition_score
+                + 0.25 * evidence_score
+                + 0.25 * proximity_score,
+            )
         totals[candidate.node_id] = round(total, 6)
         components[candidate.node_id] = {
             "entity": round(entity_score, 6),
             "time": round(time_score, 6),
             "proposition": round(proposition_score, 6),
             "evidence_span": round(evidence_score, 6),
+            "proximity": round(proximity_score, 6),
             "contradiction": contradiction,
         }
         explain[candidate.node_id] = {
@@ -179,10 +221,19 @@ def score_reranker_v2(
             if value_conflict or time_conflict:
                 left_ts = _utc(left.created_at)
                 right_ts = _utc(right.created_at)
-                if left_ts and right_ts and right_ts > left_ts:
+                # Only let recency override a stronger base_score when the
+                # relevance gap is small; prevents bulk-ingested docs with a
+                # slightly newer timestamp from suppressing the top result.
+                score_gap = float(left.base_score) - float(right.base_score)
+                if (
+                    left_ts
+                    and right_ts
+                    and right_ts > left_ts
+                    and score_gap <= 0.25
+                ):
                     winner = right
                     loser = left
-                elif totals.get(right.node_id, 0.0) > totals.get(left.node_id, 0.0):
+                elif totals.get(right.node_id, 0.0) > totals.get(left.node_id, 0.0) and score_gap <= 0.15:
                     winner = right
                     loser = left
 
