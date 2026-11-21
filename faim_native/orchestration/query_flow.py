@@ -432,24 +432,24 @@ def update_usage(
     """
     from store.pg.models_faim import NodeModel
 
+    if not node_ids:
+        return {}
+
     now = datetime.now(timezone.utc)
     touches = {}
-
-    for node_id in node_ids:
-        node = (
-            session.query(NodeModel)
-            .filter(
-                NodeModel.tenant_id == tenant_id,
-                NodeModel.graph_id == graph_id,
-                NodeModel.node_id == node_id,
-            )
-            .first()
+    nodes = (
+        session.query(NodeModel)
+        .filter(
+            NodeModel.tenant_id == tenant_id,
+            NodeModel.graph_id == graph_id,
+            NodeModel.node_id.in_(node_ids),
         )
-
-        if node:
-            node.touch_count = (node.touch_count or 0) + 1
-            node.last_access = now
-            touches[node_id] = node.touch_count
+        .all()
+    )
+    for node in nodes:
+        node.touch_count = (node.touch_count or 0) + 1
+        node.last_access = now
+        touches[node.node_id] = node.touch_count
 
     session.flush()
     return touches
@@ -983,6 +983,9 @@ def run_query(
     candidates: List[Any] = []
     phase5_sparse_candidates: List[Any] = []
     phase5_dense_candidates: List[Any] = []
+    phase5_exact_scores: Dict[UUID, float] = {}
+    artifacts_sparse_docs: Optional[Dict[UUID, Any]] = None
+    artifacts_node_meta: Optional[Dict[UUID, Any]] = None
 
     if cache is not None:
         try:
@@ -1036,19 +1039,42 @@ def run_query(
                     # every SQL vector in the request transaction.
                     include_dense=graph_node_count <= dense_sql_limit,
                 )
-                repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
-                stats_by_channel = repr_repo.get_graph_stats(graph_id)
-                phase5_sparse_candidates = list(
-                    block_max_wand_shortlist(
-                        artifacts.sparse_index,
-                        query_repr_v2,
-                        stats_by_channel,
-                        k=max(200, k * 20),
-                        max_candidates=max(400, k * 40),
-                    )
+                artifacts_sparse_docs = dict(artifacts.sparse_index.documents)
+                artifacts_node_meta = (
+                    dict(artifacts.node_meta)
+                    if getattr(artifacts, "node_meta", None) is not None
+                    else None
                 )
+                shortlist_k = max(80, k * 4) if fast_relevance_first else max(200, k * 20)
+                if (
+                    canonical_query_text
+                    and hasattr(artifacts.sparse_index, "has_exact_bm25")
+                    and artifacts.sparse_index.has_exact_bm25()
+                ):
+                    phase5_exact_scores = artifacts.sparse_index.score_bm25_fast(
+                        canonical_query_text
+                    )
+                    if phase5_exact_scores:
+                        phase5_sparse_candidates = sorted(
+                            phase5_exact_scores.items(),
+                            key=lambda item: (-item[1], str(item[0])),
+                        )[:shortlist_k]
+                if not phase5_sparse_candidates:
+                    repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
+                    stats_by_channel = repr_repo.get_graph_stats(graph_id)
+                    phase5_sparse_candidates = list(
+                        block_max_wand_shortlist(
+                            artifacts.sparse_index,
+                            query_repr_v2,
+                            stats_by_channel,
+                            k=shortlist_k,
+                            max_candidates=max(400, k * 40),
+                        )
+                    )
                 phase5_dense_candidates = []
-                if artifacts.ann_root is not None:
+                if artifacts.ann_root is not None and not (
+                    fast_relevance_first and len(phase5_sparse_candidates) >= k
+                ):
                     phase5_dense_candidates = list(
                         search_vptree(
                             artifacts.ann_root,
@@ -1057,30 +1083,35 @@ def run_query(
                         )
                     )
                 candidates = phase5_sparse_candidates or []
-                candidate_ids = [node_id for node_id, _score in candidates]
-                dense_ids = [node_id for node_id, _score in phase5_dense_candidates]
-                merged_ids = _stable_union_ids(candidate_ids, dense_ids)
-                dense_score_map = {
-                    node_id: float(score) for node_id, score in phase5_dense_candidates
-                }
-                sparse_score_map = {
-                    node_id: float(score) for node_id, score in phase5_sparse_candidates
-                }
-                merged_candidates = []
-                for node_id in merged_ids:
-                    merged_candidates.append(
-                        (
-                            node_id,
-                            max(
-                                sparse_score_map.get(node_id, 0.0),
-                                dense_score_map.get(node_id, 0.0),
-                            ),
+                if phase5_dense_candidates:
+                    candidate_ids = [node_id for node_id, _score in candidates]
+                    dense_ids = [
+                        node_id for node_id, _score in phase5_dense_candidates
+                    ]
+                    merged_ids = _stable_union_ids(candidate_ids, dense_ids)
+                    dense_score_map = {
+                        node_id: float(score)
+                        for node_id, score in phase5_dense_candidates
+                    }
+                    sparse_score_map = {
+                        node_id: float(score)
+                        for node_id, score in phase5_sparse_candidates
+                    }
+                    merged_candidates = []
+                    for node_id in merged_ids:
+                        merged_candidates.append(
+                            (
+                                node_id,
+                                max(
+                                    sparse_score_map.get(node_id, 0.0),
+                                    dense_score_map.get(node_id, 0.0),
+                                ),
+                            )
                         )
-                    )
-                candidates = sorted(
-                    merged_candidates,
-                    key=lambda item: (-item[1], str(item[0])),
-                )[: max(200, k * 20)]
+                    candidates = sorted(
+                        merged_candidates,
+                        key=lambda item: (-item[1], str(item[0])),
+                    )[: max(200, k * 20)]
             except Exception as exc:
                 _degraded("phase5_hybrid_recall", exc)
                 phase5_sparse_candidates = []
@@ -1138,33 +1169,43 @@ def run_query(
     _stage_end("candidate_recall_ms", recall_started)
 
     if _repr_v2_enabled():
-        try:
-            from store.pg.repos.representation_repo import RepresentationRepo
+        if phase5_exact_scores:
+            lexical_scores = {
+                nid: (
+                    float(phase5_exact_scores[nid]),
+                    {"word": float(phase5_exact_scores[nid])},
+                )
+                for nid in candidate_ids
+                if nid in phase5_exact_scores
+            }
+        else:
+            try:
+                from store.pg.repos.representation_repo import RepresentationRepo
 
-            repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
-            # Phase 5 already produced a deterministic sparse lexical
-            # shortlist.  Rescanning every representation here defeats the
-            # bounded-recall path on large graphs and can make one query
-            # exceed the API request budget.  Keep the legacy full lexical
-            # scan only when the Phase 5 shortlist is unavailable.
-            if not phase5_sparse_candidates:
-                lexical_candidates = repr_repo.top_k_lexical(
+                repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
+                # Phase 5 already produced a deterministic sparse lexical
+                # shortlist.  Rescanning every representation here defeats the
+                # bounded-recall path on large graphs and can make one query
+                # exceed the API request budget.  Keep the legacy full lexical
+                # scan only when the Phase 5 shortlist is unavailable.
+                if not phase5_sparse_candidates:
+                    lexical_candidates = repr_repo.top_k_lexical(
+                        graph_id=graph_id,
+                        query_repr=query_repr_v2,
+                        k=max(200, k * 20),
+                    )
+                    lexical_candidate_ids = [
+                        node_id for node_id, _score in lexical_candidates
+                    ]
+                    candidate_ids = _stable_union_ids(candidate_ids, lexical_candidate_ids)
+                lexical_scores = repr_repo.score_node_ids(
                     graph_id=graph_id,
                     query_repr=query_repr_v2,
-                    k=max(200, k * 20),
+                    node_ids=candidate_ids,
                 )
-                lexical_candidate_ids = [
-                    node_id for node_id, _score in lexical_candidates
-                ]
-                candidate_ids = _stable_union_ids(candidate_ids, lexical_candidate_ids)
-            lexical_scores = repr_repo.score_node_ids(
-                graph_id=graph_id,
-                query_repr=query_repr_v2,
-                node_ids=candidate_ids,
-            )
-        except Exception as exc:
-            _degraded("lexical_scoring", exc)
-            lexical_scores = {}
+            except Exception as exc:
+                _degraded("lexical_scoring", exc)
+                lexical_scores = {}
 
     if domain_candidate_ids:
         candidate_ids = _stable_union_ids(candidate_ids, domain_candidate_ids)
@@ -1229,20 +1270,21 @@ def run_query(
             graph_paths = {}
     _stage_end("graph_expansion_ms", graph_started)
 
-    # Optional dense semantic embedding (e.g., Granite 97M R2) for hybrid recall + rerank
+    # Optional dense semantic embedding (skipped in pure-native FAST unless FAIM_FAST_ML_EMBEDDING=true)
     embedding_started = _stage_start()
     query_embedding: Optional[List[float]] = None
-    try:
-        from encoding import get_active_embedding_provider
+    if not fast_relevance_first or _env_bool("FAIM_FAST_ML_EMBEDDING", False):
+        try:
+            from encoding import get_active_embedding_provider
 
-        emb_provider = get_active_embedding_provider()
-        if emb_provider and emb_provider.is_available():
-            query_embedding = emb_provider.encode_single(
-                expanded_query_text or query_text
-            )
-    except Exception as exc:
-        _degraded("semantic_embedding_encode", exc)
-        query_embedding = None
+            emb_provider = get_active_embedding_provider()
+            if emb_provider and emb_provider.is_available():
+                query_embedding = emb_provider.encode_single(
+                    expanded_query_text or query_text
+                )
+        except Exception as exc:
+            _degraded("semantic_embedding_encode", exc)
+            query_embedding = None
 
     if query_embedding:
         try:
@@ -1290,6 +1332,9 @@ def run_query(
         fusion_weights=(
             RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS if fast_relevance_first else None
         ),
+        preloaded_reprs=artifacts_sparse_docs,
+        preloaded_nodes=artifacts_node_meta,
+        fast_skip_graph_opp=(fast_relevance_first and include_historical),
     )
     _stage_end("rerank_ms", rerank_started)
     query_fusion_summary = _build_query_fusion_summary(

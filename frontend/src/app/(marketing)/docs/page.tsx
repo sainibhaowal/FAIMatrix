@@ -1113,8 +1113,18 @@ function SectionRetrieval() {
             A result is publishable only when the dataset and commit are pinned,
             the run uses API-key authentication, health checks pass, errors are
             zero, and the report includes configuration and variance evidence.
-            Current SciFact evidence remains a baseline rather than a claim of
-            market leadership.
+            In pure zero-ML CPU-first mode (collision-free BM25+,{" "}
+            <code className="text-cyan-300">GraphIndexArtifacts</code> RAM
+            caching, vectorized <code className="text-cyan-300">float32</code>{" "}
+            BLAS scoring, and <code className="text-cyan-300">RerankerV2</code>{" "}
+            soft-suppression), FAIM-Native achieved{" "}
+            <code className="text-emerald-300">nDCG@10 = 0.8616</code> and{" "}
+            <code className="text-emerald-300">Recall@5 = 0.9060</code> on a
+            300-doc / 50-query sampled SciFact split vs.{" "}
+            <code className="text-slate-300">BM25-Baseline</code> (
+            <code className="text-slate-300">0.8024</code> /{" "}
+            <code className="text-slate-300">0.8160</code>), while full
+            5,183-doc clean-tree validation remains gated before publication.
           </p>
         </div>
       </Card>

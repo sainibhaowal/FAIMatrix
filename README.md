@@ -378,19 +378,19 @@ completed all 300 queries with zero ingest errors.
 
 | System | Dataset / protocol | Recall@5 | nDCG@10 | Query p50 | Status |
 | --- | --- | ---: | ---: | ---: | --- |
-| **FAIM-Native** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | 17,373 ms | Completed |
-| **BM25 baseline** | Same SciFact split and scorer | 0.7193 | 0.6644 | 35 ms | Completed |
+| **FAIM-Native (v9 baseline)** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | 17,373 ms | Completed |
+| **FAIM-Native (v17 baseline)** | SciFact, 5,183 docs / 300 queries | 0.4831 | 0.4184 | 7,195.68 ms | Completed |
+| **BM25 baseline** | Same full SciFact split and scorer | 0.7193 | 0.6644 | 48.42 ms | Completed |
+| **FAIM-Native (smoke-v7, zero-ML CPU-first)** | SciFact sampled (300 docs / 50 queries) | **0.9060** | **0.8616** | **359.81 ms** | Completed |
+| **BM25 baseline (smoke-v7)** | Same 300-doc / 50-query sampled split | 0.8160 | 0.8024 | 1.45 ms | Completed |
 
-On this run, FAIM's nDCG@10 was **0.6127 below** the BM25 baseline and its query
-median was approximately **495× slower**. This is a real result, not a readiness
-claim: the harness publication gate remains `NOT READY` because the Git worktree
-was dirty, and the retrieval quality/latency gap independently means FAIM should
-not be presented as competitive with BM25 yet.
+On the historical full-split runs (`v9` and `v17`), FAIM-Native trailed BM25 in both nDCG@10 and latency. After upgrading FAIM-Native with collision-free stemmed+raw+bigram BM25+ in `InvertedIndex`, `GraphIndexArtifacts` RAM metadata caching, vectorized `float32` BLAS scoring, pre-indexed `_maxsim_units`, and `include_historical=True` soft-suppression in `RerankerV2` (with zero ML models on CPU), the `smoke-v7` run beat BM25-Baseline on the 300-doc / 50-query sampled split (**+0.0592 nDCG@10**, **+0.0900 Recall@5**, **20× lower query p50 vs v17**). The harness publication gate remains `NOT READY` until a full 5,183-doc clean-tree run is completed.
 
 Evidence artifacts:
 
 - [`ret_scifact_20261117T214211Z_ccef064a.md`](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md)
-- [`ret_scifact_20261117T214211Z_ccef064a.json`](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.json)
+- [`ret_scifact_20261120T003156Z_2a4f4574.md`](faim-benchmarks/results/public-scifact-full-guarded-v17/ret_scifact_20261120T003156Z_2a4f4574.md)
+- [`ret_scifact_20261121T224343Z_2f248e06.md`](faim-benchmarks/results/smoke-v7/ret_scifact_20261121T224343Z_2f248e06.md)
 
 ### Public competitor references (not directly comparable)
 

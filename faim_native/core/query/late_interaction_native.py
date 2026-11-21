@@ -87,6 +87,17 @@ def _maxsim_units(
     weight_norm = 0.0
     matched: List[Dict[str, object]] = []
 
+    word_to_cands: Dict[str, List[Tuple[int, str, frozenset[str]]]] | None = None
+    if partial_word_match:
+        word_to_cands = {}
+        for idx, candidate in enumerate(sorted(doc_set)):
+            cand_parts = frozenset(part for part in candidate.split() if part)
+            if not cand_parts:
+                continue
+            entry = (idx, candidate, cand_parts)
+            for part in cand_parts:
+                word_to_cands.setdefault(part, []).append(entry)
+
     for unit in query_units:
         if not unit.value:
             continue
@@ -97,22 +108,27 @@ def _maxsim_units(
         if unit.value in doc_set:
             score = 1.0
             matched_value = unit.value
-        elif partial_word_match:
-            unit_parts = tuple(part for part in unit.value.split() if part)
+        elif partial_word_match and word_to_cands is not None:
+            unit_parts = frozenset(part for part in unit.value.split() if part)
             if unit_parts:
-                for candidate in sorted(doc_set):
-                    candidate_parts = tuple(part for part in candidate.split() if part)
-                    if not candidate_parts:
-                        continue
-                    overlap = len(set(unit_parts) & set(candidate_parts))
-                    if overlap <= 0:
-                        continue
-                    candidate_score = overlap / max(
-                        len(unit_parts), len(candidate_parts)
-                    )
-                    if candidate_score > score:
-                        score = candidate_score
-                        matched_value = candidate
+                seen_idx = set()
+                best_idx = -1
+                n_unit = len(unit_parts)
+                for part in unit_parts:
+                    for idx, candidate, cand_parts in word_to_cands.get(part, ()):
+                        if idx in seen_idx:
+                            continue
+                        seen_idx.add(idx)
+                        overlap = len(unit_parts & cand_parts)
+                        if overlap <= 0:
+                            continue
+                        candidate_score = overlap / max(n_unit, len(cand_parts))
+                        if candidate_score > score or (
+                            candidate_score == score and (best_idx < 0 or idx < best_idx)
+                        ):
+                            score = candidate_score
+                            matched_value = candidate
+                            best_idx = idx
 
         weighted_total += unit.weight * score
         if score > 0.0:
