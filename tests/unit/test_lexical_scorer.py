@@ -35,7 +35,14 @@ def _stats_for(*reprs):
             "temporal",
         )
     }
-    for channel in ("word", "phrase", "skip", "semantic_phrase", "concept", "morphology"):
+    for channel in (
+        "word",
+        "phrase",
+        "skip",
+        "semantic_phrase",
+        "concept",
+        "morphology",
+    ):
         total_len = 0
         df_map = {}
         for repr_v2 in reprs:
@@ -75,7 +82,9 @@ class TestLexicalScorer:
         assert first == second
 
     def test_semantic_channels_help_alias_and_relation_similarity(self):
-        query = build_representation_v2("AI platform acquired Berlin startup before 2026")
+        query = build_representation_v2(
+            "AI platform acquired Berlin startup before 2026"
+        )
         doc_match = build_representation_v2(
             "artificial intelligence platform acquired Berlin startup in 2025"
         )

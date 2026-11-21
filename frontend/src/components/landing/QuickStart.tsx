@@ -5,19 +5,31 @@ import { useState } from "react";
 
 const STEPS = [
   {
-    title: "1. Prepare Local Prod",
-    code: "cp .env.localprod.example .env.localprod",
-    desc: "One local-prod env file powers API, worker, frontend, Postgres, Redis, and Qdrant.",
+    title: "1. Connect Your AI Agent (MCP)",
+    code: `{
+  "mcpServers": {
+    "faim": {
+      "url": "https://api.faimatrix.com/mcp"
+    }
+  }
+}`,
+    desc: "Add the Remote MCP endpoint in Cursor, Claude, or VS Code and authorize once via OAuth 2.1 + PKCE — or run offline with faim-mcp.",
   },
   {
-    title: "2. Start the Stack",
-    code: "npm run faim:localprod:up",
-    desc: "Starts the local production mirror with the repo's production compose flow.",
+    title: "2. Ingest Knowledge & Memory",
+    code: `curl -X POST https://api.faimatrix.com/api/v1/memory/write \\
+  -H "Authorization: Bearer $FAIM_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"content": "Q3 retention targets...", "tags": ["strategy"]}'`,
+    desc: "Upload PDFs, DOCX, code, and notes in the Dashboard or write structured memories via REST, Python SDK, or MCP.",
   },
   {
-    title: "3. Smoke Check + Cortex",
-    code: "npm run faim:localprod:smoke",
-    desc: "Verify health endpoints first, then open Dashboard → FAIM Cortex for grounded memory queries.",
+    title: "3. Query Across 1–24 Graph Hops",
+    code: `curl -X POST https://api.faimatrix.com/api/v1/query \\
+  -H "Authorization: Bearer $FAIM_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"query": "What changed in Q3 retention?", "graph_max_hops": 4}'`,
+    desc: "Retrieve provenance-backed evidence across bounded graph hops, inspect paths in 3D FIG View, and manage sessions in Dashboard → MCP.",
   },
 ];
 
@@ -100,7 +112,7 @@ export default function QuickStart() {
                 </span>
               </div>
               <div className="p-6 font-mono text-sm">
-                <pre className="text-purple-400">
+                <pre className="overflow-x-auto leading-relaxed text-purple-400">
                   <code>{STEPS[activeStep].code}</code>
                 </pre>
               </div>

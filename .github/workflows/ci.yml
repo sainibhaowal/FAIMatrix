@@ -94,6 +94,33 @@ jobs:
       - name: Unit tests
         run: pnpm run test:unit
 
+  public-benchmark-harness:
+    name: Public benchmark harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: faim-benchmarks
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: faim-benchmarks/pyproject.toml
+
+      - name: Install benchmark harness
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+
+      - name: Run benchmark harness tests
+        run: python -m pytest -q
+
+      - name: Compile benchmark harness
+        run: python -m compileall -q faim_benchmarks
+
   compose-validation:
     name: Compose configuration
     runs-on: ubuntu-latest

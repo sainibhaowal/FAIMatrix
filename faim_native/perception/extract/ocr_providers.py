@@ -14,12 +14,9 @@ import json
 import logging
 import os
 import re
-import sys
-import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +131,9 @@ class OCRProvider(ABC):
     def warm_up(self, languages: Optional[str] = None) -> None:
         """Load local model resources before serving traffic."""
         if not self.is_available():
-            raise OCRUnavailableError(f"OCR provider {self.model_info.id} is unavailable")
+            raise OCRUnavailableError(
+                f"OCR provider {self.model_info.id} is unavailable"
+            )
 
     @abstractmethod
     def extract_image_bytes(
@@ -234,14 +233,18 @@ class PaddleOCRv6Provider(OCRProvider):
         try:
             import numpy  # noqa: F401
             import paddleocr  # noqa: F401
+
             return True
         except Exception:
             return False
 
     def _get_engine(self, lang_code: str) -> Any:
-        target_lang = "en" if (not lang_code or lang_code.startswith("eng")) else lang_code
+        target_lang = (
+            "en" if (not lang_code or lang_code.startswith("eng")) else lang_code
+        )
         if target_lang not in self._instances:
             import os
+
             # Avoid slow remote connectivity checks on startup
             os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
             from paddleocr import PaddleOCR
@@ -295,16 +298,20 @@ class PaddleOCRv6Provider(OCRProvider):
         **kwargs: Any,
     ) -> Optional[OCRResult]:
         if not self.is_available():
-            raise OCRUnavailableError("PaddleOCR dependencies (paddleocr, numpy) are not installed")
+            raise OCRUnavailableError(
+                "PaddleOCR dependencies (paddleocr, numpy) are not installed"
+            )
 
         if not image_bytes:
             raise OCRProcessingError("Empty image payload")
 
         try:
-            from PIL import Image
             import numpy as np
+            from PIL import Image
         except Exception as exc:
-            raise OCRUnavailableError(f"Required imaging packages missing: {exc}") from exc
+            raise OCRUnavailableError(
+                f"Required imaging packages missing: {exc}"
+            ) from exc
 
         try:
             with Image.open(io.BytesIO(image_bytes)) as raw:
@@ -317,7 +324,9 @@ class PaddleOCRv6Provider(OCRProvider):
             raise OCRProcessingError("Invalid image dimensions")
 
         # Native resolution processing (no forced 2000px upscaling for modern deep nets)
-        prepared = _preprocess_image(image, max_image_pixels=max_image_pixels, min_target_width=0)
+        prepared = _preprocess_image(
+            image, max_image_pixels=max_image_pixels, min_target_width=0
+        )
         pw, ph = prepared.size
         if pw * ph > max_image_pixels:
             raise OCRProcessingError(f"Image exceeds pixel limit ({pw}x{ph})")
@@ -330,7 +339,7 @@ class PaddleOCRv6Provider(OCRProvider):
         try:
             engine = self._get_engine(lang)
             img_np = np.array(prepared_rgb)
-            
+
             # Support both predict() (PaddleOCR 3.x) and ocr() (PaddleOCR 2.x)
             if hasattr(engine, "predict"):
                 res = engine.predict(img_np)
@@ -369,7 +378,11 @@ class PaddleOCRv6Provider(OCRProvider):
                     elif isinstance(item, list):
                         # PaddleOCR 2.x list of lines
                         for line in item:
-                            if line and len(line) >= 2 and isinstance(line[1], (tuple, list)):
+                            if (
+                                line
+                                and len(line) >= 2
+                                and isinstance(line[1], (tuple, list))
+                            ):
                                 txt, score = line[1]
                                 if txt and str(txt).strip():
                                     texts.append(str(txt).strip())
@@ -378,8 +391,12 @@ class PaddleOCRv6Provider(OCRProvider):
                                     except (TypeError, ValueError):
                                         pass
                             elif isinstance(line, dict):
-                                txt = line.get("text") or line.get("transcription") or ""
-                                score = line.get("score") or line.get("confidence") or 0.8
+                                txt = (
+                                    line.get("text") or line.get("transcription") or ""
+                                )
+                                score = (
+                                    line.get("score") or line.get("confidence") or 0.8
+                                )
                                 if txt and str(txt).strip():
                                     texts.append(str(txt).strip())
                                     scores.append(float(score))
@@ -388,8 +405,6 @@ class PaddleOCRv6Provider(OCRProvider):
             confidence = (sum(scores) / len(scores)) if scores else 0.55
         except Exception as exc:
             raise OCRProcessingError(f"PaddleOCR execution failed: {exc}") from exc
-
-
 
         text = _normalize_text(raw_text)
         if len(text) < min_text_chars:
@@ -446,6 +461,7 @@ class TesseractOCRProvider(OCRProvider):
     def is_available(self) -> bool:
         try:
             import pytesseract  # noqa: F401
+
             return True
         except Exception:
             return False
@@ -464,7 +480,9 @@ class TesseractOCRProvider(OCRProvider):
         **kwargs: Any,
     ) -> Optional[OCRResult]:
         if not self.is_available():
-            raise OCRUnavailableError("Tesseract dependency (pytesseract) is not installed")
+            raise OCRUnavailableError(
+                "Tesseract dependency (pytesseract) is not installed"
+            )
 
         if not image_bytes:
             raise OCRProcessingError("Empty image payload")
@@ -473,7 +491,9 @@ class TesseractOCRProvider(OCRProvider):
             import pytesseract
             from PIL import Image
         except Exception as exc:
-            raise OCRUnavailableError(f"Required imaging packages missing: {exc}") from exc
+            raise OCRUnavailableError(
+                f"Required imaging packages missing: {exc}"
+            ) from exc
 
         try:
             with Image.open(io.BytesIO(image_bytes)) as raw:
@@ -576,6 +596,7 @@ class EasyOCRProvider(OCRProvider):
     def is_available(self) -> bool:
         try:
             import easyocr  # noqa: F401
+
             return True
         except Exception:
             return False
@@ -607,7 +628,9 @@ class EasyOCRProvider(OCRProvider):
             reader = self._get_reader()
             results = reader.readtext(image_bytes)
             texts = [r[1] for r in results if r and len(r) >= 2 and r[1]]
-            confidences = [float(r[2]) for r in results if r and len(r) >= 3 and r[2] is not None]
+            confidences = [
+                float(r[2]) for r in results if r and len(r) >= 3 and r[2] is not None
+            ]
 
             raw_text = "\n".join(texts)
             confidence = (sum(confidences) / len(confidences)) if confidences else 0.55
@@ -648,6 +671,11 @@ class CustomOCRProvider(OCRProvider):
         display_name: Optional[str] = None,
         description: Optional[str] = None,
     ):
+        from urllib.parse import urlparse
+
+        parsed_url = urlparse(base_url)
+        if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+            raise ValueError("Custom OCR endpoint must be an http(s) URL")
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._name = name
@@ -689,7 +717,9 @@ class CustomOCRProvider(OCRProvider):
         import urllib.request
 
         if not self.is_available():
-            raise OCRUnavailableError(f"Custom endpoint URL not configured for {self._name}")
+            raise OCRUnavailableError(
+                f"Custom endpoint URL not configured for {self._name}"
+            )
 
         b64_data = base64.b64encode(image_bytes).decode("ascii")
         payload = {
@@ -705,12 +735,19 @@ class CustomOCRProvider(OCRProvider):
             data=json.dumps(payload).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
-                **({"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}),
+                **(
+                    {"Authorization": f"Bearer {self._api_key}"}
+                    if self._api_key
+                    else {}
+                ),
             },
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=timeout_seconds) as resp:
+            # The endpoint scheme and host are validated in __init__.
+            with urllib.request.urlopen(
+                req, timeout=timeout_seconds
+            ) as resp:  # nosec B310
                 data = json.loads(resp.read().decode("utf-8"))
                 raw_text = data.get("text", "")
                 confidence = float(data.get("confidence", 0.9))
@@ -771,7 +808,9 @@ class OCRProviderRegistry:
     def register(self, provider_id: str, provider: OCRProvider) -> None:
         """Register a new OCR engine provider."""
         self._providers[provider_id] = provider
-        logger.info(f"Registered OCR provider: {provider_id} ({provider.model_info.display_name})")
+        logger.info(
+            f"Registered OCR provider: {provider_id} ({provider.model_info.display_name})"
+        )
 
     def unregister(self, provider_id: str) -> bool:
         """Remove a registered OCR provider."""
@@ -808,7 +847,8 @@ class OCRProviderRegistry:
                     "description": info.description,
                     "version": info.version,
                     "is_local": info.is_local,
-                    "is_active": pid == self._active_provider_id or info.id == self._active_provider_id,
+                    "is_active": pid == self._active_provider_id
+                    or info.id == self._active_provider_id,
                     "is_available": available,
                     "status": "online" if available else "offline",
                     "config": info.config,

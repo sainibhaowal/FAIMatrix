@@ -78,11 +78,17 @@ export async function POST(req: Request): Promise<Response> {
     const resolvedUrl = resolveLocalhostUrl(normalizedUrl);
     const modelsUrl = `${resolvedUrl}/models`;
 
-    console.log(`[Embedding Provider Discovery] Normalized URL: ${normalizedUrl}`);
+    console.log(
+      `[Embedding Provider Discovery] Normalized URL: ${normalizedUrl}`,
+    );
     if (resolvedUrl !== normalizedUrl) {
-      console.log(`[Embedding Provider Discovery] Docker resolved to: ${resolvedUrl}`);
+      console.log(
+        `[Embedding Provider Discovery] Docker resolved to: ${resolvedUrl}`,
+      );
     }
-    console.log(`[Embedding Provider Discovery] Fetching models from: ${modelsUrl}`);
+    console.log(
+      `[Embedding Provider Discovery] Fetching models from: ${modelsUrl}`,
+    );
 
     // Fetch models with 8-second timeout
     const controller = new AbortController();
@@ -208,7 +214,10 @@ export async function POST(req: Request): Promise<Response> {
             .filter(Boolean)
         : [];
 
-    console.log(`[Embedding Provider Discovery] Found ${models.length} models:`, models);
+    console.log(
+      `[Embedding Provider Discovery] Found ${models.length} models:`,
+      models,
+    );
 
     if (models.length === 0) {
       return Response.json(
@@ -230,7 +239,9 @@ export async function POST(req: Request): Promise<Response> {
       else if (modelName.includes("text-embedding-ada-002")) dimension = 1536;
     }
 
-    return Response.json({ models, dimension } as DiscoverSuccess, { status: 200 });
+    return Response.json({ models, dimension } as DiscoverSuccess, {
+      status: 200,
+    });
   } catch (error: any) {
     console.error(`[Embedding Provider Discovery] Unexpected error:`, error);
     return Response.json(

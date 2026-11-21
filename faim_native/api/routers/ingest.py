@@ -10,8 +10,8 @@ import binascii
 import logging
 import os
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
 
@@ -25,7 +25,6 @@ if str(_parent) not in sys.path:
 
 from api.deps import FAIMContext, get_faim_context  # noqa: E402
 from api.validators import (  # noqa: E402
-    MAX_BATCH_TOTAL_SIZE,
     sanitize_filename,
     validate_batch_total_size,
     validate_content_type,
@@ -54,6 +53,7 @@ class IngestRequest(BaseModel):
     content_type: Optional[str] = None
     profile: str = "strict"  # strict, fast, relaxed
     persist_mode: str = "relaxed"  # strict, relaxed
+    benchmark_mode: bool = False  # isolate benchmark ingestion from autonomy
     valid_from: Optional[datetime] = None
     valid_to: Optional[datetime] = None
 
@@ -113,6 +113,15 @@ def _encryption_enabled() -> bool:
         return True
     raw = os.getenv("FAIM_ENCRYPTION_AT_REST", "").strip().lower()
     return raw in {"1", "true", "yes", "on"}
+
+
+def _benchmark_mode_enabled(request_value: bool = False) -> bool:
+    """Return whether this ingest must avoid autonomous side effects."""
+    raw = os.getenv("FAIM_BENCHMARK_MODE", "").strip().lower()
+    enabled = raw in {"1", "true", "yes", "on"}
+    # The request flag is intentionally subordinate to the deployment flag;
+    # ordinary tenants cannot disable autonomy by setting a public field.
+    return enabled and (request_value or enabled)
 
 
 def _emit_storage_audit_event(
@@ -207,12 +216,17 @@ def _trigger_domain_rebuild_after_ingest(*, ctx: FAIMContext, graph_id: str) -> 
     except Exception:
         # Canonical ingest has already succeeded; expose the secondary failure
         # in logs/events without turning a durable upload into a false failure.
-        logger.exception("Domain rebuild failed after ordinary ingest graph=%s", graph_id)
+        logger.exception(
+            "Domain rebuild failed after ordinary ingest graph=%s", graph_id
+        )
         if ctx.session:
             try:
                 ctx.session.rollback()
             except Exception:
-                logger.debug("Could not rollback failed domain rebuild transaction", exc_info=True)
+                logger.debug(
+                    "Could not rollback failed domain rebuild transaction",
+                    exc_info=True,
+                )
         try:
             if ctx.event_repo and ctx.session:
                 ctx.event_repo.emit(
@@ -223,7 +237,9 @@ def _trigger_domain_rebuild_after_ingest(*, ctx: FAIMContext, graph_id: str) -> 
                 )
                 ctx.session.flush()
         except Exception:
-            logger.debug("Could not persist domain rebuild failure event", exc_info=True)
+            logger.debug(
+                "Could not persist domain rebuild failure event", exc_info=True
+            )
 
 
 def _ingest_lifecycle_log(
@@ -576,7 +592,9 @@ async def ingest_file(
             raw_id=raw_id,
             result=result,
         )
-        if result.status in {"completed", "dedup_hit"}:
+        if result.status in {"completed", "dedup_hit"} and not _benchmark_mode_enabled(
+            request.benchmark_mode
+        ):
             _trigger_domain_rebuild_after_ingest(ctx=ctx, graph_id=request.graph_id)
             _maybe_enqueue_self_evolve(
                 ctx=ctx,
@@ -659,8 +677,9 @@ async def ingest_upload(
     graph_id: str = Form(...),
     profile: str = Form("strict"),
     persist_mode: str = Form("relaxed"),
-    valid_from: Optional[datetime] = Form(None),
-    valid_to: Optional[datetime] = Form(None),
+    benchmark_mode: bool = Form(False),
+    valid_from: Optional[datetime] = Form(None),  # noqa: B008
+    valid_to: Optional[datetime] = Form(None),  # noqa: B008
     file: UploadFile = File(...),  # noqa: B008
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> IngestResponse:
@@ -735,7 +754,9 @@ async def ingest_upload(
             raw_id=raw_id,
             result=result,
         )
-        if result.status in {"completed", "dedup_hit"}:
+        if result.status in {"completed", "dedup_hit"} and not _benchmark_mode_enabled(
+            benchmark_mode
+        ):
             _trigger_domain_rebuild_after_ingest(ctx=ctx, graph_id=graph_id)
             _maybe_enqueue_self_evolve(
                 ctx=ctx,

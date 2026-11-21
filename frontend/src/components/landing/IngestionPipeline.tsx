@@ -223,7 +223,8 @@ export default function IngestionPipeline() {
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
             Five inspectable stages. Every step produces a verifiable hash.
             Re-uploading the same content produces the same packet hash; the
-            idempotent write path determines whether it is new or already stored.
+            idempotent write path determines whether it is new or already
+            stored.
           </p>
         </motion.div>
 

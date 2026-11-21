@@ -147,9 +147,11 @@ class SelfEvolutionStateRepo:
             getattr(flags, "self_invent_after_upload", False) if flags else False
         )
 
-        trigger_mode = str(
-            getattr(row, "control_self_evolve_trigger_mode", "") or ""
-        ).strip().lower()
+        trigger_mode = (
+            str(getattr(row, "control_self_evolve_trigger_mode", "") or "")
+            .strip()
+            .lower()
+        )
         if trigger_mode not in {"manual", "post_upload", "periodic", "hybrid"}:
             trigger_mode = default_trigger_mode
 
@@ -171,21 +173,22 @@ class SelfEvolutionStateRepo:
                 getattr(row, "control_self_invent_after_upload", None),
                 default_self_invent_after_upload,
             ),
-            source="db_override" if any(
-                value is not None
-                for value in (
-                    getattr(row, "control_self_evolve_enabled", None),
-                    getattr(row, "control_self_evolve_trigger_mode", None),
-                    getattr(row, "control_self_invent_enabled", None),
-                    getattr(row, "control_self_invent_on_evolve", None),
-                    getattr(row, "control_self_invent_after_upload", None),
+            source=(
+                "db_override"
+                if any(
+                    value is not None
+                    for value in (
+                        getattr(row, "control_self_evolve_enabled", None),
+                        getattr(row, "control_self_evolve_trigger_mode", None),
+                        getattr(row, "control_self_invent_enabled", None),
+                        getattr(row, "control_self_invent_on_evolve", None),
+                        getattr(row, "control_self_invent_after_upload", None),
+                    )
                 )
-            )
-            else "runtime_default",
-            updated_at=self._normalize_dt(getattr(row, "control_updated_at", None)),
-            updated_by=(
-                str(getattr(row, "control_updated_by", "")).strip() or None
+                else "runtime_default"
             ),
+            updated_at=self._normalize_dt(getattr(row, "control_updated_at", None)),
+            updated_by=(str(getattr(row, "control_updated_by", "")).strip() or None),
             override_self_evolve_enabled=getattr(
                 row, "control_self_evolve_enabled", None
             ),

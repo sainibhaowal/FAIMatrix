@@ -84,7 +84,7 @@ const values = [
     ),
     title: "Performance",
     description:
-      "Sub-millisecond retrieval at any scale. Speed without compromise.",
+      "Bounded-hop hybrid retrieval with Redis caching and Qdrant acceleration.",
   },
 ];
 

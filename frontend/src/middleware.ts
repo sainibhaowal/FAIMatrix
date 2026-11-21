@@ -21,7 +21,6 @@ function isApiCall(pathname: string): boolean {
     pathname.startsWith("/api/v1/") ||
     pathname.startsWith("/api/ops/") ||
     pathname.startsWith("/api/billing/")
-    || pathname.startsWith("/api/provider/")
   );
 }
 
@@ -123,14 +122,11 @@ export default withAuth(
       return NextResponse.next();
     }
 
-
-
     // 2. If it's a protected API route and we have NO token (cookie), then return 401 JSON
     if (
       !token &&
       (req.nextUrl.pathname.startsWith("/api/v1/auth/me") ||
-          ((req.nextUrl.pathname.startsWith("/api/v1/") ||
-            req.nextUrl.pathname.startsWith("/api/provider/")) &&
+        (req.nextUrl.pathname.startsWith("/api/v1/") &&
           !req.nextUrl.pathname.startsWith("/api/v1/auth/")))
     ) {
       return new NextResponse(
@@ -185,6 +181,5 @@ export const config = {
     "/api/v1/((?!auth/).*)", // Protect all other v1 except auth endpoints
     "/api/ops/:path*",
     "/api/billing/:path*",
-    "/api/provider/:path*",
   ],
 };

@@ -14,20 +14,42 @@ Thank you for improving FAIM-Native. The project is experimental and spans a mem
 For Python changes:
 
 ```bash
-python -m pytest -q
+python -m pip install -r requirements-quality.txt
+FAIM_LOCAL_SQLITE=1 python -m pytest -q
+FAIM_LOCAL_SQLITE=1 python -m pytest --cov=faim_native --cov-report=term-missing -q
 ruff check faim_native tests
 mypy faim_native
+black --check .
+bandit -r faim_native faim-benchmarks/faim_benchmarks scripts debug_csv.py -ll
 ```
+
+`FAIM_LOCAL_SQLITE=1` forces isolated, file-backed SQLite databases for local
+tests even when a developer shell has a PostgreSQL `DATABASE_URL` configured.
+It clears only the test database selectors and never changes production
+credentials. The PostgreSQL backup/restore drill remains a separate production
+validation because SQLite cannot execute `pg_dump` or restore PostgreSQL
+extensions.
+
+The Bandit command is the production-code gate: `-ll` requires zero medium- or
+high-severity findings. Test assertions and generated/runtime data are not
+production attack surfaces and are validated by the test suite and repository
+ignore rules separately.
 
 For frontend changes:
 
 ```bash
 cd frontend
-npm ci
-npm run typecheck
-npm run test:unit
-npm run format:check
+corepack pnpm install --frozen-lockfile
+corepack pnpm run typecheck
+corepack pnpm run test:unit
+corepack pnpm run test:unit:coverage
+corepack pnpm run format:check
 ```
+
+`test:unit:coverage` uses the pinned V8 provider and reports all TypeScript
+and TSX application code under `frontend/src`. Browser journeys remain a
+separate Playwright gate; neither unit coverage nor E2E success is a substitute
+for the other.
 
 Run the applicable end-to-end, acceptance, Docker, and security checks before merging. If a check cannot run locally, explain why and include the closest available evidence.
 

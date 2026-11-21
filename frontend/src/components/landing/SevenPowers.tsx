@@ -254,7 +254,7 @@ export default function SevenPowers() {
       id="powers"
       className="py-28 px-4 bg-gradient-to-b from-slate-950 to-[#070a18]"
     >
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}

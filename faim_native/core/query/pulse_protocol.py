@@ -9,7 +9,6 @@ from __future__ import annotations
 import hashlib
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
-
 PULSE_PROTOCOL_VERSION = "pulse-v2"
 
 
@@ -116,9 +115,13 @@ def build_node_reason_ledger(
     )
 
     source_counts = dict(phase_b.get("source_counts") or {})
-    expansion_count = int(phase_b.get("expansion_count") or len(phase_b.get("expansions") or []))
+    expansion_count = int(
+        phase_b.get("expansion_count") or len(phase_b.get("expansions") or [])
+    )
     if source_counts or expansion_count:
-        for source, count in sorted(source_counts.items(), key=lambda item: str(item[0])):
+        for source, count in sorted(
+            source_counts.items(), key=lambda item: str(item[0])
+        ):
             events.append(
                 make_pulse_event(
                     graph_id=graph_id,
@@ -208,7 +211,9 @@ def build_node_reason_ledger(
 
     reranker_components = dict(reranker.get("components") or {})
     if reranker_components:
-        for key, value in sorted(reranker_components.items(), key=lambda item: str(item[0])):
+        for key, value in sorted(
+            reranker_components.items(), key=lambda item: str(item[0])
+        ):
             if not isinstance(value, (int, float)) or float(value) == 0.0:
                 continue
             events.append(
@@ -226,7 +231,9 @@ def build_node_reason_ledger(
 
     late_components = dict(late.get("components") or {})
     if late_components:
-        for key, value in sorted(late_components.items(), key=lambda item: str(item[0])):
+        for key, value in sorted(
+            late_components.items(), key=lambda item: str(item[0])
+        ):
             if not isinstance(value, (int, float)) or float(value) == 0.0:
                 continue
             events.append(
@@ -247,14 +254,20 @@ def build_node_reason_ledger(
 
     signature_counts = {
         "alias_families": len(semantic_signature.get("alias_families") or []),
-        "transliterated_tokens": len(semantic_signature.get("transliterated_tokens") or []),
+        "transliterated_tokens": len(
+            semantic_signature.get("transliterated_tokens") or []
+        ),
         "stem_families": len(semantic_signature.get("stem_families") or []),
         "relation_cues": len(semantic_signature.get("relation_cues") or []),
         "value_cues": len(semantic_signature.get("value_cues") or []),
         "temporal_cues": len(semantic_signature.get("temporal_cues") or []),
-        "semantic_phrase_buckets": int(semantic_signature.get("semantic_phrase_bucket_count") or 0),
+        "semantic_phrase_buckets": int(
+            semantic_signature.get("semantic_phrase_bucket_count") or 0
+        ),
         "concept_buckets": int(semantic_signature.get("concept_bucket_count") or 0),
-        "morphology_buckets": int(semantic_signature.get("morphology_bucket_count") or 0),
+        "morphology_buckets": int(
+            semantic_signature.get("morphology_bucket_count") or 0
+        ),
     }
     for source, count in signature_counts.items():
         if count <= 0:
@@ -279,7 +292,9 @@ def build_node_reason_ledger(
     )
     return {
         "protocol": PULSE_PROTOCOL_VERSION,
-        "trace_id": _stable_hash([PULSE_PROTOCOL_VERSION, graph_id, query_hash or "", node_id]),
+        "trace_id": _stable_hash(
+            [PULSE_PROTOCOL_VERSION, graph_id, query_hash or "", node_id]
+        ),
         "node_id": node_id,
         "confidence": round(confidence, 6),
         "event_count": len(events),
@@ -342,7 +357,9 @@ def build_pulse_trace_from_path(
         "trace_id": trace_id,
         "path_length": max(len(path_nodes) - 1, 0),
         "source": source,
-        "layer_summary": dict(sorted(combined_summary.items(), key=lambda item: item[0])),
+        "layer_summary": dict(
+            sorted(combined_summary.items(), key=lambda item: item[0])
+        ),
         "events": events,
         "steps": list(steps),
     }

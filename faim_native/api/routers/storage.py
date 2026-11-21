@@ -29,7 +29,7 @@ from fastapi import (
 )
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, asc, desc, text
+from sqlalchemy import and_, asc, desc, literal_column, or_, text
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -219,7 +219,6 @@ class StorageSupportedTypesResponse(BaseModel):
     embedding_enabled: bool = True
     embedding_provider: Optional[str] = None
     embedding_model: Optional[str] = None
-
 
 
 class StorageDomainMemoryTerm(BaseModel):
@@ -1125,6 +1124,7 @@ async def create_upload_batch(
     profile: str = Form("strict"),
     persist_mode: str = Form("relaxed"),
     extractor_mode: str = Form("auto"),
+    benchmark_mode: bool = Form(False),
     files: List[UploadFile] = File(...),  # noqa: B008
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ) -> StorageUploadBatchResponse:
@@ -1161,6 +1161,7 @@ async def create_upload_batch(
         tenant_id=ctx.tenant_id,
         graph_id=graph_id,
         kind="storage_upload",
+        status="staging",
         payload={
             "requested_files": requested_files,
             "profile": profile,
@@ -1173,6 +1174,7 @@ async def create_upload_batch(
             "effective_persist_mode": policy.effective_persist_mode,
             "effective_extractor_mode": requested_extractor_mode,
             "durability_path": policy.durability_path,
+            "benchmark_mode": bool(benchmark_mode),
         },
     )
 
@@ -1379,9 +1381,7 @@ async def create_upload_batch(
                     result_entry.requested_persist_mode = requested_persist_mode
                     result_entry.requested_extractor_mode = requested_extractor_mode
                     result_entry.effective_profile = policy.effective_profile
-                    result_entry.effective_persist_mode = (
-                        policy.effective_persist_mode
-                    )
+                    result_entry.effective_persist_mode = policy.effective_persist_mode
                     result_entry.effective_extractor_mode = requested_extractor_mode
                     result_entry.durability_path = policy.durability_path
                     queued_files.append(
@@ -1398,6 +1398,7 @@ async def create_upload_batch(
                             "effective_persist_mode": policy.effective_persist_mode,
                             "effective_extractor_mode": requested_extractor_mode,
                             "durability_path": policy.durability_path,
+                            "benchmark_mode": bool(benchmark_mode),
                         }
                     )
                     JobStore.append_event(
@@ -1603,7 +1604,9 @@ async def create_upload_batch(
                     )
                     ctx.session.commit()
                 except Exception as log_err:
-                    logger.warning("Failed to record upload step failure event: %s", log_err)
+                    logger.warning(
+                        "Failed to record upload step failure event: %s", log_err
+                    )
                     try:
                         ctx.session.rollback()
                     except Exception:
@@ -1649,7 +1652,9 @@ async def create_upload_batch(
                     )
                     ctx.session.commit()
                 except Exception as log_err:
-                    logger.warning("Failed to record upload step failure event: %s", log_err)
+                    logger.warning(
+                        "Failed to record upload step failure event: %s", log_err
+                    )
                     try:
                         ctx.session.rollback()
                     except Exception:
@@ -1699,7 +1704,11 @@ async def create_upload_batch(
             job_id,
             "step_progress",
             {
-                "message": "Batch finished",
+                "message": (
+                    "Queued for worker ingestion"
+                    if workerized_upload and queued_files
+                    else "Batch finished"
+                ),
                 "status": final_status,
                 "processed": processed,
                 "success": success,
@@ -1749,7 +1758,11 @@ async def create_upload_batch(
                 job.completed_at = datetime.now(timezone.utc)
                 ctx.session.commit()
 
-        if not workerized_upload and final_status in {"completed", "partial_failed"} and success > 0:
+        if (
+            not workerized_upload
+            and final_status in {"completed", "partial_failed"}
+            and success > 0
+        ):
             try:
                 domain_job_id = _trigger_autonomous_domain_adaptation(
                     ctx=ctx,
@@ -2026,6 +2039,9 @@ async def cancel_upload_job(
         raise HTTPException(status_code=404, detail="Upload job not found")
 
     if job.kind == "storage_upload":
+        from store.pg.graph_cleanup import purge_graph_artifacts_for_raw_ids
+
+        cancelled_raw_ids: List[UUID] = []
         for row in ctx.storage_file_repo.list_by_job_id(
             ctx.session,
             job_uuid,
@@ -2039,6 +2055,21 @@ async def cancel_upload_job(
                     error_message=(reason or "Upload cancelled")[:1024],
                     job_id=job_uuid,
                 )
+                if row.raw_id is not None:
+                    cancelled_raw_ids.append(row.raw_id)
+
+        if cancelled_raw_ids:
+            purge_graph_artifacts_for_raw_ids(
+                session=ctx.session,
+                tenant_id=ctx.tenant_id,
+                graph_id=job.graph_id,
+                raw_ids=cancelled_raw_ids,
+            )
+            _reconcile_graph_after_file_cleanup(
+                ctx.session,
+                ctx.tenant_id,
+                job.graph_id,
+            )
 
     JobStore.append_event(
         ctx.session,
@@ -2060,6 +2091,10 @@ async def cancel_upload_job(
         failure_reason="cancel_requested",
         detail="cancellation requested for upload job",
     )
+    try:
+        ctx.session.commit()
+    except Exception:
+        ctx.session.rollback()
     return StorageUploadCancelResponse(
         job_id=str(job_uuid),
         status=updated.status,
@@ -2079,6 +2114,7 @@ async def list_storage_files(
     status: Optional[str] = Query(None),
     q: Optional[str] = Query(None),
     include_delete_requested: bool = Query(False),
+    exclude_failed: bool = Query(False),
     limit: int = Query(25, ge=1, le=100),
     offset: int = Query(0, ge=0),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
@@ -2094,6 +2130,7 @@ async def list_storage_files(
         limit=limit,
         offset=offset,
         include_delete_requested=include_delete_requested,
+        exclude_failed=exclude_failed,
     )
 
     return StorageFileListResponse(
@@ -2172,7 +2209,7 @@ async def get_storage_file_provenance(
     """Inspect provenance linkage from raw source to nodes/events."""
     _require_storage_repos(ctx)
 
-    from store.pg.models_faim import IngestDedupModel, NodeModel
+    from store.pg.models_faim import EventModel, IngestDedupModel, NodeModel
 
     raw_uuid = _parse_uuid(raw_id, "raw_id")
     row = ctx.storage_file_repo.get_by_raw_id(ctx.session, raw_uuid, graph_id)
@@ -2222,31 +2259,74 @@ async def get_storage_file_provenance(
     node_count = int(nodes_q.count())
 
     event_items: List[StorageProvenanceEvent] = []
-    if ctx.event_repo:
-        try:
-            all_events = ctx.event_repo.get_by_seq(
-                ctx.session,
-                graph_id=row.graph_id,
-                after_seq=0,
-                limit=max(limit_events * 4, 100),
+    try:
+        provenance_job_id = (
+            str(row.last_job_id) if getattr(row, "last_job_id", None) else ""
+        )
+        provenance_packet_hash = str(row.packet_hash).strip() if row.packet_hash else ""
+
+        ev_q = ctx.session.query(EventModel).filter(
+            and_(
+                EventModel.tenant_id == ctx.tenant_id,
+                EventModel.graph_id == row.graph_id,
             )
-            for event in reversed(all_events):
-                payload = event.payload or {}
-                payload_raw_id = str(payload.get("raw_id", "")).strip()
-                if payload_raw_id and payload_raw_id in provenance_raw_ids:
-                    event_items.append(
-                        StorageProvenanceEvent(
-                            seq=int(event.seq),
-                            kind=event.kind,
-                            ts=event.ts.isoformat() if event.ts else None,
-                            payload_keys=sorted([str(k) for k in payload.keys()]),
-                            payload={str(k): v for k, v in payload.items()},
-                        )
-                    )
-                if len(event_items) >= limit_events:
-                    break
-        except Exception as exc:  # nosec B110
-            logger.warning("Failed to load provenance events: %s", exc)
+        )
+
+        bind = ctx.session.get_bind()
+        dialect_name = getattr(getattr(bind, "dialect", None), "name", "")
+        if dialect_name == "postgresql":
+            or_clauses = [
+                literal_column("events.payload->>'raw_id'").in_(
+                    list(provenance_raw_ids)
+                )
+            ]
+            if provenance_packet_hash:
+                or_clauses.append(
+                    literal_column("events.payload->>'packet_hash'")
+                    == provenance_packet_hash
+                )
+            if provenance_job_id:
+                or_clauses.append(
+                    literal_column("events.payload->>'job_id'") == provenance_job_id
+                )
+            ev_q = ev_q.filter(or_(*or_clauses))
+            matched_events = (
+                ev_q.order_by(desc(EventModel.seq)).limit(limit_events).all()
+            )
+        else:
+            candidates = (
+                ev_q.order_by(desc(EventModel.seq))
+                .limit(max(limit_events * 20, 1000))
+                .all()
+            )
+            matched_events = []
+            for ev in candidates:
+                payload = ev.payload or {}
+                p_raw = str(payload.get("raw_id", "")).strip()
+                p_hash = str(payload.get("packet_hash", "")).strip()
+                p_job = str(payload.get("job_id", "")).strip()
+                if (
+                    (p_raw and p_raw in provenance_raw_ids)
+                    or (provenance_packet_hash and p_hash == provenance_packet_hash)
+                    or (provenance_job_id and p_job == provenance_job_id)
+                ):
+                    matched_events.append(ev)
+                    if len(matched_events) >= limit_events:
+                        break
+
+        for event in matched_events:
+            payload = event.payload or {}
+            event_items.append(
+                StorageProvenanceEvent(
+                    seq=int(event.seq),
+                    kind=event.kind,
+                    ts=event.ts.isoformat() if event.ts else None,
+                    payload_keys=sorted([str(k) for k in payload.keys()]),
+                    payload={str(k): v for k, v in payload.items()},
+                )
+            )
+    except Exception as exc:  # nosec B110
+        logger.warning("Failed to load provenance events: %s", exc)
 
     return StorageProvenanceResponse(
         file=_row_to_file_item(row),
@@ -2278,6 +2358,143 @@ async def get_storage_file_provenance(
     )
 
 
+def _reconcile_graph_after_file_cleanup(
+    session: Any,
+    tenant_id: str,
+    graph_id: str,
+) -> None:
+    """Purge orphaned graph artifacts, clear domain memory when empty, and sync diagnostics."""
+    try:
+        from orchestration.query_flow import refresh_graph_diagnostics
+        from store.pg.graph_cleanup import purge_graph_artifacts_for_raw_ids
+        from store.pg.models_faim import (
+            CoactivationModel,
+            EdgeModel,
+            GraphDiagnosticsCacheModel,
+            GraphDomainLexiconModel,
+            GraphKBSourceModel,
+            NodeModel,
+            NodeRepresentationV2Model,
+            StorageFileModel,
+        )
+
+        # 1. Sweep nodes whose raw_id no longer belongs to any StorageFileModel row.
+        known_raw_ids = {
+            r[0]
+            for r in session.query(StorageFileModel.raw_id)
+            .filter(
+                and_(
+                    StorageFileModel.tenant_id == tenant_id,
+                    StorageFileModel.graph_id == graph_id,
+                    StorageFileModel.raw_id.isnot(None),
+                )
+            )
+            .all()
+        }
+        node_raw_ids = {
+            r[0]
+            for r in session.query(NodeModel.raw_id)
+            .filter(
+                and_(
+                    NodeModel.tenant_id == tenant_id,
+                    NodeModel.graph_id == graph_id,
+                    NodeModel.raw_id.isnot(None),
+                )
+            )
+            .distinct()
+            .all()
+        }
+        orphan_raw_ids = list(node_raw_ids - known_raw_ids)
+        if orphan_raw_ids:
+            purge_graph_artifacts_for_raw_ids(
+                session=session,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                raw_ids=orphan_raw_ids,
+            )
+            session.flush()
+
+        remaining_files = (
+            session.query(StorageFileModel)
+            .filter(
+                and_(
+                    StorageFileModel.tenant_id == tenant_id,
+                    StorageFileModel.graph_id == graph_id,
+                    StorageFileModel.ingest_status != "cancelled",
+                )
+            )
+            .count()
+        )
+        remaining_nodes = (
+            session.query(NodeModel)
+            .filter(
+                and_(
+                    NodeModel.tenant_id == tenant_id,
+                    NodeModel.graph_id == graph_id,
+                )
+            )
+            .count()
+        )
+
+        if remaining_files == 0 or remaining_nodes == 0:
+            if remaining_files == 0 and remaining_nodes > 0:
+                session.query(EdgeModel).filter(
+                    and_(
+                        EdgeModel.tenant_id == tenant_id,
+                        EdgeModel.graph_id == graph_id,
+                    )
+                ).delete(synchronize_session=False)
+                session.query(CoactivationModel).filter(
+                    and_(
+                        CoactivationModel.tenant_id == tenant_id,
+                        CoactivationModel.graph_id == graph_id,
+                    )
+                ).delete(synchronize_session=False)
+                session.query(NodeRepresentationV2Model).filter(
+                    and_(
+                        NodeRepresentationV2Model.tenant_id == tenant_id,
+                        NodeRepresentationV2Model.graph_id == graph_id,
+                    )
+                ).delete(synchronize_session=False)
+                session.query(NodeModel).filter(
+                    and_(
+                        NodeModel.tenant_id == tenant_id,
+                        NodeModel.graph_id == graph_id,
+                    )
+                ).delete(synchronize_session=False)
+                remaining_nodes = 0
+
+            session.query(GraphDomainLexiconModel).filter(
+                and_(
+                    GraphDomainLexiconModel.tenant_id == tenant_id,
+                    GraphDomainLexiconModel.graph_id == graph_id,
+                )
+            ).delete(synchronize_session=False)
+            session.query(GraphKBSourceModel).filter(
+                and_(
+                    GraphKBSourceModel.tenant_id == tenant_id,
+                    GraphKBSourceModel.graph_id == graph_id,
+                )
+            ).delete(synchronize_session=False)
+
+        if remaining_nodes <= 500:
+            refresh_graph_diagnostics(session, tenant_id, graph_id)
+        else:
+            # Avoid blocking HTTP DELETE with O(N+E) diagnostics recomputation on large graphs.
+            session.query(GraphDiagnosticsCacheModel).filter(
+                and_(
+                    GraphDiagnosticsCacheModel.tenant_id == tenant_id,
+                    GraphDiagnosticsCacheModel.graph_id == graph_id,
+                )
+            ).delete(synchronize_session=False)
+    except Exception as diag_exc:
+        logger.warning(
+            "Post-delete diagnostics/domain-memory cleanup skipped for %s: %s",
+            graph_id,
+            diag_exc,
+        )
+
+
 @router.delete("/files/{raw_id}", response_model=StorageFileItem)
 async def request_delete_storage_file(
     raw_id: str,
@@ -2297,8 +2514,16 @@ async def request_delete_storage_file(
     item_before = _row_to_file_item(row)
 
     if hard_delete:
+        from orchestration.jobs.job_store import JobStore
         from store.pg.graph_cleanup import purge_graph_artifacts_for_raw_ids
         from store.pg.models_faim import StorageFileModel
+
+        if row.last_job_id is not None:
+            JobStore.request_cancel(
+                ctx.session,
+                row.last_job_id,
+                reason=reason or "File deleted",
+            )
 
         try:
             # 1. Delete physical raw blob from disk
@@ -2344,6 +2569,8 @@ async def request_delete_storage_file(
                     StorageFileModel.raw_id == raw_uuid,
                 )
             ).delete(synchronize_session=False)
+
+            _reconcile_graph_after_file_cleanup(ctx.session, ctx.tenant_id, graph_id)
 
             ctx.session.commit()
         except Exception as e:
@@ -2391,6 +2618,196 @@ async def request_delete_storage_file(
     return _row_to_file_item(row)
 
 
+class StorageBulkDeleteRequest(BaseModel):
+    """Bulk delete request for storage files."""
+
+    graph_id: str
+    raw_ids: List[str] = Field(..., min_length=1, max_length=500)
+    reason: Optional[str] = None
+    hard_delete: bool = True
+
+
+class StorageBulkDeleteResponse(BaseModel):
+    """Bulk delete response summary."""
+
+    requested: int
+    deleted: int
+    failed: int
+    deleted_raw_ids: List[str] = Field(default_factory=list)
+    errors: List[str] = Field(default_factory=list)
+
+
+@router.post("/files/bulk-delete", response_model=StorageBulkDeleteResponse)
+async def bulk_delete_storage_files(
+    body: StorageBulkDeleteRequest,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> StorageBulkDeleteResponse:
+    """Delete multiple files in a single atomic batch."""
+    _require_storage_repos(ctx)
+
+    graph_id = body.graph_id
+    parsed_uuids: List[UUID] = []
+    errors: List[str] = []
+    for raw_id in body.raw_ids:
+        try:
+            parsed_uuids.append(_parse_uuid(raw_id, "raw_id"))
+        except HTTPException as exc:
+            errors.append(f"{raw_id}: {exc.detail}")
+
+    if not parsed_uuids:
+        return StorageBulkDeleteResponse(
+            requested=len(body.raw_ids),
+            deleted=0,
+            failed=len(errors),
+            deleted_raw_ids=[],
+            errors=errors,
+        )
+
+    from store.pg.models_faim import StorageFileModel
+
+    rows = (
+        ctx.session.query(StorageFileModel)
+        .filter(
+            and_(
+                StorageFileModel.tenant_id == ctx.tenant_id,
+                StorageFileModel.graph_id == graph_id,
+                StorageFileModel.raw_id.in_(parsed_uuids),
+            )
+        )
+        .all()
+    )
+    found_uuids = [row.raw_id for row in rows if row.raw_id is not None]
+    missing_count = len(parsed_uuids) - len(found_uuids)
+    if missing_count > 0:
+        found_set = {str(u) for u in found_uuids}
+        for u in parsed_uuids:
+            if str(u) not in found_set:
+                errors.append(f"{u}: Storage file not found")
+
+    if not found_uuids:
+        return StorageBulkDeleteResponse(
+            requested=len(body.raw_ids),
+            deleted=0,
+            failed=len(errors),
+            deleted_raw_ids=[],
+            errors=errors,
+        )
+
+    if body.hard_delete:
+        from orchestration.jobs.job_store import JobStore
+        from store.pg.graph_cleanup import purge_graph_artifacts_for_raw_ids
+
+        seen_job_ids = set()
+        for row in rows:
+            if row.last_job_id is not None and row.last_job_id not in seen_job_ids:
+                seen_job_ids.add(row.last_job_id)
+                JobStore.request_cancel(
+                    ctx.session,
+                    row.last_job_id,
+                    reason=body.reason or "File deleted",
+                )
+
+        try:
+            store = _resolve_raw_store(ctx)
+            delete_fn = getattr(store, "delete", None)
+            for raw_uuid in found_uuids:
+                raw_ref = ctx.raw_repo.get_by_id(ctx.session, raw_uuid)
+                if raw_ref is not None:
+                    try:
+                        if callable(delete_fn):
+                            delete_fn(raw_ref)
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to delete raw blob for %s: %s", raw_uuid, e
+                        )
+                    try:
+                        ctx.raw_repo.delete_by_id(ctx.session, raw_uuid)
+                    except Exception as e:
+                        logger.warning(
+                            "Failed to delete raw ref for %s: %s", raw_uuid, e
+                        )
+
+            purge_summary = purge_graph_artifacts_for_raw_ids(
+                session=ctx.session,
+                tenant_id=ctx.tenant_id,
+                graph_id=graph_id,
+                raw_ids=found_uuids,
+            )
+            logger.info(
+                "bulk hard delete graph artifact purge",
+                extra={
+                    "tenant_id": ctx.tenant_id,
+                    "graph_id": graph_id,
+                    "count": len(found_uuids),
+                    "op": "storage_bulk_hard_delete",
+                    "deleted": purge_summary,
+                },
+            )
+
+            ctx.session.query(StorageFileModel).filter(
+                and_(
+                    StorageFileModel.tenant_id == ctx.tenant_id,
+                    StorageFileModel.graph_id == graph_id,
+                    StorageFileModel.raw_id.in_(found_uuids),
+                )
+            ).delete(synchronize_session=False)
+
+            _reconcile_graph_after_file_cleanup(ctx.session, ctx.tenant_id, graph_id)
+
+            ctx.session.commit()
+        except Exception as e:
+            logger.error("Failed to execute bulk hard delete: %s", e)
+            try:
+                ctx.session.rollback()
+            except Exception:
+                pass
+            raise HTTPException(
+                status_code=500, detail=f"Failed to execute bulk physical delete: {e}"
+            ) from e
+
+        _emit_storage_audit_event(
+            ctx=ctx,
+            graph_id=graph_id,
+            kind="STORAGE_BULK_DELETE_EXECUTED",
+            payload={
+                "raw_ids": [str(u) for u in found_uuids],
+                "count": len(found_uuids),
+                "reason": body.reason or "Bulk hard delete requested",
+            },
+        )
+        try:
+            ctx.session.commit()
+        except Exception:
+            ctx.session.rollback()
+    else:
+        for raw_uuid in found_uuids:
+            ctx.storage_file_repo.mark_delete_requested(
+                ctx.session,
+                raw_id=raw_uuid,
+                graph_id=graph_id,
+                reason=body.reason,
+            )
+        _emit_storage_audit_event(
+            ctx=ctx,
+            graph_id=graph_id,
+            kind="STORAGE_BULK_DELETE_REQUESTED",
+            payload={
+                "raw_ids": [str(u) for u in found_uuids],
+                "count": len(found_uuids),
+                "reason": body.reason,
+            },
+        )
+        ctx.session.commit()
+
+    return StorageBulkDeleteResponse(
+        requested=len(body.raw_ids),
+        deleted=len(found_uuids),
+        failed=len(errors),
+        deleted_raw_ids=[str(u) for u in found_uuids],
+        errors=errors,
+    )
+
+
 # =============================================================================
 # Ingestion / Retry
 # =============================================================================
@@ -2413,6 +2830,9 @@ async def reingest_storage_file(
     if row is None:
         raise HTTPException(status_code=404, detail="Storage file not found")
 
+    target_graph_id = str(row.graph_id)
+    target_filename = str(row.filename)
+
     raw_ref = ctx.raw_repo.get_by_id(ctx.session, raw_uuid)
     if raw_ref is None:
         raise HTTPException(status_code=404, detail="Raw reference not found")
@@ -2428,16 +2848,16 @@ async def reingest_storage_file(
     ctx.storage_file_repo.mark_ingesting(
         ctx.session,
         raw_id=raw_uuid,
-        graph_id=row.graph_id,
+        graph_id=target_graph_id,
         job_id=None,
     )
     ctx.session.commit()
 
     ingest_result = _run_ingest_existing_raw(
         ctx=ctx,
-        graph_id=row.graph_id,
+        graph_id=target_graph_id,
         raw_id=raw_uuid,
-        filename=row.filename,
+        filename=target_filename,
         file_bytes=file_bytes,
         profile=profile,
         persist_mode=persist_mode,
@@ -2447,7 +2867,7 @@ async def reingest_storage_file(
     row = ctx.storage_file_repo.mark_ingest_result(
         ctx.session,
         raw_id=raw_uuid,
-        graph_id=row.graph_id,
+        graph_id=target_graph_id,
         status=ingest_result.status,
         packet_hash=ingest_result.packet_hash or None,
         node_count=ingest_result.nodes_written,
@@ -2455,14 +2875,22 @@ async def reingest_storage_file(
         error_message=ingest_result.error,
         job_id=None,
     )
+    if row is None:
+        row = ctx.storage_file_repo.get_by_raw_id(
+            ctx.session, raw_uuid, target_graph_id
+        )
+    if row is None:
+        raise HTTPException(
+            status_code=404, detail="Storage file was deleted during ingest"
+        )
     if ingest_result.status == "dedup_hit":
         _emit_storage_audit_event(
             ctx=ctx,
-            graph_id=row.graph_id,
+            graph_id=target_graph_id,
             kind="STORAGE_DEDUP_HIT",
             payload={
                 "raw_id": str(raw_uuid),
-                "filename": row.filename,
+                "filename": target_filename,
                 "packet_hash": ingest_result.packet_hash,
                 "requested_profile": ingest_result.requested_profile,
                 "requested_persist_mode": ingest_result.requested_persist_mode,
@@ -2476,11 +2904,11 @@ async def reingest_storage_file(
     elif ingest_result.status == "error":
         _emit_storage_audit_event(
             ctx=ctx,
-            graph_id=row.graph_id,
+            graph_id=target_graph_id,
             kind="STORAGE_EXTRACT_FAILED",
             payload={
                 "raw_id": str(raw_uuid),
-                "filename": row.filename,
+                "filename": target_filename,
                 "error": ingest_result.error,
                 "requested_profile": ingest_result.requested_profile,
                 "requested_persist_mode": ingest_result.requested_persist_mode,
@@ -2496,7 +2924,7 @@ async def reingest_storage_file(
         ctx=ctx,
         op="reingest",
         status=ingest_result.status,
-        graph_id=row.graph_id,
+        graph_id=target_graph_id,
         raw_id=str(raw_uuid),
         failure_reason=(
             _normalize_failure_reason(ingest_result.error)
@@ -2926,9 +3354,14 @@ async def get_storage_supported_types(
         ocr_engine = "unavailable"
         ocr_fail_closed = False
 
-    ocr_model_name = "PaddleOCR v6 (CPU Ultra / MKLDNN)" if ocr_engine.startswith("paddle") else ocr_engine
+    ocr_model_name = (
+        "PaddleOCR v6 (CPU Ultra / MKLDNN)"
+        if ocr_engine.startswith("paddle")
+        else ocr_engine
+    )
     try:
         from perception.extract.ocr_providers import get_ocr_registry
+
         reg = get_ocr_registry()
         active_p = reg.get_active()
         if active_p:
@@ -2940,10 +3373,11 @@ async def get_storage_supported_types(
         pass
 
     embedding_provider = "Managed Local Runtime"
-    embedding_model = "bge-small-en-v1.5"
+    embedding_model = "ibm-granite/granite-embedding-97m-multilingual-r2"
     embedding_enabled = True
     try:
         from encoding.embedding_providers import get_embedding_registry
+
         emb_reg = get_embedding_registry()
         active_emb = emb_reg.get_active()
         if active_emb:
@@ -3037,7 +3471,6 @@ async def get_storage_supported_types(
     )
 
 
-
 @router.get("/maintenance/history", response_model=StorageMaintenanceHistoryResponse)
 async def get_storage_maintenance_history(
     graph_id: str = Query(...),
@@ -3107,7 +3540,9 @@ class StorageOrphanSweepResponse(BaseModel):
     status: str = "ok"
 
 
-@router.post("/graphs/{graph_id}/sweep-orphans", response_model=StorageOrphanSweepResponse)
+@router.post(
+    "/graphs/{graph_id}/sweep-orphans", response_model=StorageOrphanSweepResponse
+)
 async def sweep_orphan_graph_artifacts(
     graph_id: str,
     limit: int = Query(10000, ge=1, le=100000),
@@ -3176,7 +3611,6 @@ async def list_storage_graphs(
     _require_storage_repos(ctx)
 
     from sqlalchemy import func
-
     from store.pg.models_faim import (
         EdgeModel,
         GraphVersionModel,
@@ -3184,17 +3618,13 @@ async def list_storage_graphs(
     )
 
     node_counts = dict(
-        ctx.session.query(
-            NodeModel.graph_id, func.count(NodeModel.node_id)
-        )
+        ctx.session.query(NodeModel.graph_id, func.count(NodeModel.node_id))
         .filter(NodeModel.tenant_id == ctx.tenant_id)
         .group_by(NodeModel.graph_id)
         .all()
     )
     edge_counts = dict(
-        ctx.session.query(
-            EdgeModel.graph_id, func.count(EdgeModel.edge_id)
-        )
+        ctx.session.query(EdgeModel.graph_id, func.count(EdgeModel.edge_id))
         .filter(EdgeModel.tenant_id == ctx.tenant_id)
         .group_by(EdgeModel.graph_id)
         .all()
@@ -3256,8 +3686,61 @@ async def get_storage_domain_memory(
     domain_autonomy_enabled = domain_autonomy_raw not in {"0", "false", "no", "off"}
 
     from sqlalchemy import func
-    from store.pg.models_faim import GraphDomainLexiconModel, GraphKBSourceModel
+    from store.pg.models_faim import (
+        GraphDomainLexiconModel,
+        GraphKBSourceModel,
+        NodeModel,
+        StorageFileModel,
+    )
     from store.pg.repos.graph_version_repo import GraphVersionRepo
+
+    active_file_count = (
+        ctx.session.query(StorageFileModel)
+        .filter(
+            and_(
+                StorageFileModel.tenant_id == ctx.tenant_id,
+                StorageFileModel.graph_id == graph_id,
+                StorageFileModel.ingest_status != "cancelled",
+            )
+        )
+        .count()
+    )
+    if active_file_count == 0:
+        has_leftover = (
+            ctx.session.query(GraphDomainLexiconModel)
+            .filter(
+                and_(
+                    GraphDomainLexiconModel.tenant_id == ctx.tenant_id,
+                    GraphDomainLexiconModel.graph_id == graph_id,
+                )
+            )
+            .limit(1)
+            .count()
+            or ctx.session.query(GraphKBSourceModel)
+            .filter(
+                and_(
+                    GraphKBSourceModel.tenant_id == ctx.tenant_id,
+                    GraphKBSourceModel.graph_id == graph_id,
+                )
+            )
+            .limit(1)
+            .count()
+            or ctx.session.query(NodeModel)
+            .filter(
+                and_(
+                    NodeModel.tenant_id == ctx.tenant_id,
+                    NodeModel.graph_id == graph_id,
+                )
+            )
+            .limit(1)
+            .count()
+        )
+        if has_leftover:
+            _reconcile_graph_after_file_cleanup(ctx.session, ctx.tenant_id, graph_id)
+            try:
+                ctx.session.commit()
+            except Exception:
+                ctx.session.rollback()
 
     lexicon_rows = (
         ctx.session.query(GraphDomainLexiconModel)
@@ -3284,7 +3767,9 @@ async def get_storage_domain_memory(
                 GraphKBSourceModel.graph_id == graph_id,
             )
         )
-        .order_by(desc(GraphKBSourceModel.updated_at), asc(GraphKBSourceModel.source_id))
+        .order_by(
+            desc(GraphKBSourceModel.updated_at), asc(GraphKBSourceModel.source_id)
+        )
         .limit(limit)
         .all()
     )
@@ -3343,9 +3828,11 @@ async def get_storage_domain_memory(
             domain_pack=row.domain_pack,
             support_count=int(row.support_count or 0),
             score=float(row.score or 0.0),
-            node_id=str((row.meta or {}).get("node_id"))
-            if (row.meta or {}).get("node_id")
-            else None,
+            node_id=(
+                str((row.meta or {}).get("node_id"))
+                if (row.meta or {}).get("node_id")
+                else None
+            ),
             has_node=bool((row.meta or {}).get("node_id")),
             meta=dict(row.meta or {}),
         )

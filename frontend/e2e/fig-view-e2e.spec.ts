@@ -349,13 +349,15 @@ test.describe("FIG View — page load states", () => {
 
     await page.goto("/dashboard/graph");
     await expect(figViewTitle(page)).toBeVisible();
-    
-    // The initial load fails, wait for the ErrorState retry button and click it
-    await page.getByRole("button", { name: /try again|retry/i }).click();
 
-    // Wait for the node to appear after retry
-    await expect(page.getByText("Alpha Node")).toBeVisible({ timeout: 10000 });
-    expect(callCount).toBeGreaterThanOrEqual(2);
+    // The graph identity resolves after the session loads, so the page
+    // automatically reissues the surface request and recovers.
+    await expect
+      .poll(() => callCount, { timeout: 30000 })
+      .toBeGreaterThanOrEqual(2);
+    await expect(
+      page.getByRole("button", { name: "Full Graph ↕" }),
+    ).toBeVisible({ timeout: 10000 });
   });
 });
 

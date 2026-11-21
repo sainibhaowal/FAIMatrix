@@ -13,7 +13,7 @@ const plans = [
       "1,000 Nodes",
       "1-Hop Reasoning",
       "Standard 3D Globe",
-      "Basic Semantic Search"
+      "Basic Semantic Search",
     ],
     cta: "Start Explorer",
     popular: false,
@@ -29,7 +29,7 @@ const plans = [
       "4-Hop Reasoning",
       "Semantic Alias Engine",
       "Graph Snapshots",
-      "API Access"
+      "API Access",
     ],
     cta: "Start Architect",
     popular: true,
@@ -45,7 +45,7 @@ const plans = [
       "Bounded Multi-Hop Reasoning",
       "Cross-Graph Synthesis",
       "Real-time Evolution",
-      "Priority Workers"
+      "Priority Workers",
     ],
     cta: "Go Neural",
     popular: false,
@@ -61,7 +61,7 @@ const plans = [
       "Private Memory Shards",
       "Dedicated GPU Workers",
       "SSO & 24/7 Support",
-      "On-premise Option"
+      "On-premise Option",
     ],
     cta: "Contact Sales",
     popular: false,

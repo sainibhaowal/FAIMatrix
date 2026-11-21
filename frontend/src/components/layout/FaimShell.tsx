@@ -246,18 +246,16 @@ export function FaimShell({ children }: { children: React.ReactNode }) {
         <main
           className={[
             "flex-1",
-            pathname === "/dashboard/graph" ||
-            pathname === "/dashboard/memory-query"
+            pathname === "/dashboard/graph"
               ? "overflow-hidden p-0"
-              : "overflow-y-auto px-4 py-6 md:px-6",
+              : "faim-dashboard-surface overflow-y-auto px-4 py-6 sm:px-6 md:px-10 lg:px-14 xl:px-16",
           ].join(" ")}
         >
           <div
             className={
-              pathname === "/dashboard/graph" ||
-              pathname === "/dashboard/memory-query"
+              pathname === "/dashboard/graph"
                 ? "h-full"
-                : "w-full"
+                : "mx-auto w-full max-w-[1440px]"
             }
           >
             {children}

@@ -18,6 +18,7 @@ from sqlalchemy import (
     String,
     Text,
 )
+
 from store.pg.models_faim import Base, JSONBType
 
 

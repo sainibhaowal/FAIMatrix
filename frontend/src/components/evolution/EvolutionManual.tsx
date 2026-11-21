@@ -4,12 +4,7 @@
    Table cell JSX lives in row arrays passed to <DTable/>, which assigns
    stable keys to every row and cell at render time. */
 
-import React, {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Activity,
@@ -261,9 +256,18 @@ function SectionHeading({
   );
 }
 
-function SubHeading({ id, children }: { id: string; children: React.ReactNode }) {
+function SubHeading({
+  id,
+  children,
+}: {
+  id: string;
+  children: React.ReactNode;
+}) {
   return (
-    <h3 id={id} className="scroll-mt-24 pt-5 text-sm font-semibold text-cyan-200">
+    <h3
+      id={id}
+      className="scroll-mt-24 pt-5 text-sm font-semibold text-cyan-200"
+    >
       {children}
     </h3>
   );
@@ -279,9 +283,24 @@ function Callout({
   children: React.ReactNode;
 }) {
   const tones = {
-    info: { border: "border-sky-400/30", bg: "bg-sky-400/[0.06]", text: "text-sky-300", Icon: FlaskConical },
-    success: { border: "border-emerald-400/30", bg: "bg-emerald-400/[0.06]", text: "text-emerald-300", Icon: CheckCircle2 },
-    warn: { border: "border-amber-400/30", bg: "bg-amber-400/[0.06]", text: "text-amber-300", Icon: AlertTriangle },
+    info: {
+      border: "border-sky-400/30",
+      bg: "bg-sky-400/[0.06]",
+      text: "text-sky-300",
+      Icon: FlaskConical,
+    },
+    success: {
+      border: "border-emerald-400/30",
+      bg: "bg-emerald-400/[0.06]",
+      text: "text-emerald-300",
+      Icon: CheckCircle2,
+    },
+    warn: {
+      border: "border-amber-400/30",
+      bg: "bg-amber-400/[0.06]",
+      text: "text-amber-300",
+      Icon: AlertTriangle,
+    },
   } as const;
   const t = tones[tone];
   const Icon = t.Icon;
@@ -290,7 +309,9 @@ function Callout({
       <Icon size={16} className={`mt-0.5 shrink-0 ${t.text}`} />
       <div>
         <p className={`text-xs font-semibold ${t.text}`}>{title}</p>
-        <div className="mt-1 text-xs leading-relaxed text-slate-300">{children}</div>
+        <div className="mt-1 text-xs leading-relaxed text-slate-300">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -328,7 +349,13 @@ function DTable({ head, rows }: { head: string[]; rows: React.ReactNode[][] }) {
   );
 }
 
-function ChartFrame({ caption, children }: { caption: string; children: React.ReactNode }) {
+function ChartFrame({
+  caption,
+  children,
+}: {
+  caption: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className={`${K.card} !p-0 overflow-hidden`}>
       <div className="border-b border-white/6 px-4 py-2">
@@ -341,7 +368,11 @@ function ChartFrame({ caption, children }: { caption: string; children: React.Re
   );
 }
 
-const AXIS_TICK = { fill: "#64748b", fontSize: 10, fontFamily: "monospace" } as const;
+const AXIS_TICK = {
+  fill: "#64748b",
+  fontSize: 10,
+  fontFamily: "monospace",
+} as const;
 
 /* ------------------------------ SVG diagrams ------------------------------- */
 
@@ -350,36 +381,69 @@ function ArchitectureDiagram() {
     {
       title: "Presentation — React / Next.js",
       accent: "#38bdf8",
-      items: ["Evolution Control Plane", "Learning & Self-Optimization Panel", "Invention Flow Canvas", "Physics Stream"],
+      items: [
+        "Evolution Control Plane",
+        "Learning & Self-Optimization Panel",
+        "Invention Flow Canvas",
+        "Physics Stream",
+      ],
     },
     {
       title: "API — FastAPI Routers",
       accent: "#c084fc",
-      items: ["/evolve (POST)", "/evolve/status · /evolve/control", "/evolve/invention/flow", "/evolve/learning/{state|outcomes|meta}"],
+      items: [
+        "/evolve (POST)",
+        "/evolve/status · /evolve/control",
+        "/evolve/invention/flow",
+        "/evolve/learning/{state|outcomes|meta}",
+      ],
     },
     {
       title: "Orchestration — evolve_flow.py",
       accent: "#f472b6",
-      items: ["Context build (R,N,D,H,λ,node_count)", "LinUCB resolve_knobs(context)", "Retrieval probe (before · after)", "Learning outcome + meta-metrics"],
+      items: [
+        "Context build (R,N,D,H,λ,node_count)",
+        "LinUCB resolve_knobs(context)",
+        "Retrieval probe (before · after)",
+        "Learning outcome + meta-metrics",
+      ],
     },
     {
       title: "Core Dynamics — evolution_native.py",
       accent: "#34d399",
-      items: ["evolve_once (merge · prune · invent)", "Semantic winner selection", "D/H/λ diagnostics"],
+      items: [
+        "evolve_once (merge · prune · invent)",
+        "Semantic winner selection",
+        "D/H/λ diagnostics",
+      ],
     },
     {
       title: "Storage — PostgreSQL",
       accent: "#fbbf24",
-      items: ["evolution_outcomes", "evolution_policy_state", "evolution_meta_metrics", "nodes · edges · events"],
+      items: [
+        "evolution_outcomes",
+        "evolution_policy_state",
+        "evolution_meta_metrics",
+        "nodes · edges · events",
+      ],
     },
   ];
   return (
     <div className="space-y-2">
       {layers.map((layer, i) => (
         <div key={layer.title}>
-          <div className="relative rounded-[14px] border bg-white/[0.02] p-3" style={{ borderColor: `${layer.accent}33` }}>
+          <div
+            className="relative rounded-[14px] border bg-white/[0.02] p-3"
+            style={{ borderColor: `${layer.accent}33` }}
+          >
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-md px-2 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.14em]" style={{ backgroundColor: `${layer.accent}1E`, color: layer.accent }}>
+              <span
+                className="rounded-md px-2 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.14em]"
+                style={{
+                  backgroundColor: `${layer.accent}1E`,
+                  color: layer.accent,
+                }}
+              >
                 Layer {i + 1} · {layer.title}
               </span>
               {layer.items.map((item) => (
@@ -402,25 +466,68 @@ function ArchitectureDiagram() {
 
 function CycleDiagram() {
   const steps = [
-    { accent: "#38bdf8", title: "BEFORE", desc: "Diagnostics snapshot: R, N, D, H, λ, node_count", note: "probe retrieval quality" },
-    { accent: "#c084fc", title: "RESOLVE", desc: "LinUCB picks merge/prune/invent knobs for this context", note: "epsilon-greedy 10%" },
-    { accent: "#f472b6", title: "EXECUTE", desc: "evolve_once: merges (semantic winner), prunes, inventions", note: "hard-bounded knobs" },
-    { accent: "#34d399", title: "MEASURE", desc: "After diagnostics + retrieval probe again", note: "delta = (after − before)/before" },
-    { accent: "#fbbf24", title: "REWARD", desc: "composite reward in [−1,1] feeds ridge regression", note: "blends retrieval 40%" },
-    { accent: "#fb7185", title: "PERSIST", desc: "outcome row + meta-metrics + policy state v+1", note: "best effort, fail-open" },
+    {
+      accent: "#38bdf8",
+      title: "BEFORE",
+      desc: "Diagnostics snapshot: R, N, D, H, λ, node_count",
+      note: "probe retrieval quality",
+    },
+    {
+      accent: "#c084fc",
+      title: "RESOLVE",
+      desc: "LinUCB picks merge/prune/invent knobs for this context",
+      note: "epsilon-greedy 10%",
+    },
+    {
+      accent: "#f472b6",
+      title: "EXECUTE",
+      desc: "evolve_once: merges (semantic winner), prunes, inventions",
+      note: "hard-bounded knobs",
+    },
+    {
+      accent: "#34d399",
+      title: "MEASURE",
+      desc: "After diagnostics + retrieval probe again",
+      note: "delta = (after − before)/before",
+    },
+    {
+      accent: "#fbbf24",
+      title: "REWARD",
+      desc: "composite reward in [−1,1] feeds ridge regression",
+      note: "blends retrieval 40%",
+    },
+    {
+      accent: "#fb7185",
+      title: "PERSIST",
+      desc: "outcome row + meta-metrics + policy state v+1",
+      note: "best effort, fail-open",
+    },
   ];
   return (
     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
       {steps.map((step, i) => (
-        <div key={step.title} className="relative rounded-[14px] border bg-white/[0.02] p-3" style={{ borderColor: `${step.accent}33` }}>
+        <div
+          key={step.title}
+          className="relative rounded-[14px] border bg-white/[0.02] p-3"
+          style={{ borderColor: `${step.accent}33` }}
+        >
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em]" style={{ color: step.accent }}>
+            <span
+              className="font-mono text-[9px] font-semibold uppercase tracking-[0.16em]"
+              style={{ color: step.accent }}
+            >
               {String(i + 1).padStart(2, "0")} · {step.title}
             </span>
-            {i < steps.length - 1 && <ArrowRight size={12} className="text-slate-600" />}
+            {i < steps.length - 1 && (
+              <ArrowRight size={12} className="text-slate-600" />
+            )}
           </div>
-          <p className="mt-2 text-[11px] leading-relaxed text-slate-300">{step.desc}</p>
-          <p className="mt-1 font-mono text-[10px] text-slate-500">{step.note}</p>
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-300">
+            {step.desc}
+          </p>
+          <p className="mt-1 font-mono text-[10px] text-slate-500">
+            {step.note}
+          </p>
         </div>
       ))}
     </div>
@@ -429,29 +536,92 @@ function CycleDiagram() {
 
 function WinnerFlowDiagram() {
   const boxes = [
-    { x: 30, y: 12, w: 300, h: 40, label: "Candidate pair (node_a, node_b)", accent: "#38bdf8" },
-    { x: 30, y: 80, w: 300, h: 40, label: "score_a vs score_b (5-term semantic)", accent: "#c084fc" },
-    { x: 30, y: 148, w: 300, h: 40, label: "Tie? → legacy vector_hash rule", accent: "#f472b6" },
-    { x: 30, y: 216, w: 300, h: 40, label: "Winner keeps info → loser merged away", accent: "#34d399" },
+    {
+      x: 30,
+      y: 12,
+      w: 300,
+      h: 40,
+      label: "Candidate pair (node_a, node_b)",
+      accent: "#38bdf8",
+    },
+    {
+      x: 30,
+      y: 80,
+      w: 300,
+      h: 40,
+      label: "score_a vs score_b (5-term semantic)",
+      accent: "#c084fc",
+    },
+    {
+      x: 30,
+      y: 148,
+      w: 300,
+      h: 40,
+      label: "Tie? → legacy vector_hash rule",
+      accent: "#f472b6",
+    },
+    {
+      x: 30,
+      y: 216,
+      w: 300,
+      h: 40,
+      label: "Winner keeps info → loser merged away",
+      accent: "#34d399",
+    },
   ];
   return (
     <div className="overflow-x-auto">
       <svg viewBox="0 0 360 280" className="w-full max-w-[460px]">
         {boxes.map((b, i) => (
           <g key={i}>
-            <rect x={b.x} y={b.y} width={b.w} height={b.h} rx={10} fill={`${b.accent}14`} stroke={`${b.accent}55`} />
-            <text x={b.x + b.w / 2} y={b.y + 25} textAnchor="middle" fill={b.accent} fontSize="11" fontFamily="monospace">
+            <rect
+              x={b.x}
+              y={b.y}
+              width={b.w}
+              height={b.h}
+              rx={10}
+              fill={`${b.accent}14`}
+              stroke={`${b.accent}55`}
+            />
+            <text
+              x={b.x + b.w / 2}
+              y={b.y + 25}
+              textAnchor="middle"
+              fill={b.accent}
+              fontSize="11"
+              fontFamily="monospace"
+            >
               {String(i + 1).padStart(2, "0")}
             </text>
-            <text x={b.x + b.w / 2} y={b.y + 25 + 12} textAnchor="middle" fill="#cbd5e1" fontSize="11">
+            <text
+              x={b.x + b.w / 2}
+              y={b.y + 25 + 12}
+              textAnchor="middle"
+              fill="#cbd5e1"
+              fontSize="11"
+            >
               {b.label}
             </text>
             {i < boxes.length - 1 && (
-              <line x1={180} y1={b.y + b.h} x2={180} y2={b.y + b.h + 16} stroke="#475569" strokeWidth="1.5" />
+              <line
+                x1={180}
+                y1={b.y + b.h}
+                x2={180}
+                y2={b.y + b.h + 16}
+                stroke="#475569"
+                strokeWidth="1.5"
+              />
             )}
           </g>
         ))}
-        <text x={180} y={272} textAnchor="middle" fill="#64748b" fontSize="9" fontFamily="monospace">
+        <text
+          x={180}
+          y={272}
+          textAnchor="middle"
+          fill="#64748b"
+          fontSize="9"
+          fontFamily="monospace"
+        >
           deterministic · auditable · fallback on any error
         </text>
       </svg>
@@ -481,10 +651,19 @@ const RETRIEVAL_BLEND = [
 ];
 
 const GRID_DATA = [
-  { name: "merge_threshold", values: "0.90 · 0.92 · 0.94 · 0.95 · 0.96 · 0.97 · 0.98" },
-  { name: "prune_similarity_threshold", values: "0.93 · 0.95 · 0.96 · 0.97 · 0.98 · 0.99" },
+  {
+    name: "merge_threshold",
+    values: "0.90 · 0.92 · 0.94 · 0.95 · 0.96 · 0.97 · 0.98",
+  },
+  {
+    name: "prune_similarity_threshold",
+    values: "0.93 · 0.95 · 0.96 · 0.97 · 0.98 · 0.99",
+  },
   { name: "prune_min_age_days", values: "3 · 5 · 7 · 10 · 14 · 21" },
-  { name: "lambda_threshold", values: "0.15 · 0.20 · 0.25 · 0.30 · 0.35 · 0.40 · 0.50" },
+  {
+    name: "lambda_threshold",
+    values: "0.15 · 0.20 · 0.25 · 0.30 · 0.35 · 0.40 · 0.50",
+  },
 ];
 
 const GRID_SPREAD = [
@@ -620,7 +799,9 @@ export function EvolutionManual({
             <nav className="mt-3 space-y-1">
               {TOC.map((item) => {
                 const active = activeId === item.id;
-                const childActive = item.children?.some((c) => c.id === activeId);
+                const childActive = item.children?.some(
+                  (c) => c.id === activeId,
+                );
                 return (
                   <div key={item.id}>
                     <button
@@ -632,7 +813,9 @@ export function EvolutionManual({
                           : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
                       }`}
                     >
-                      <span className={active || childActive ? "font-semibold" : ""}>
+                      <span
+                        className={active || childActive ? "font-semibold" : ""}
+                      >
                         {item.label}
                       </span>
                       {childActive && !active && (
@@ -691,75 +874,101 @@ export function EvolutionManual({
         >
           <div className="mx-auto max-w-4xl space-y-10 px-5 py-8 sm:px-8">
             {/* ============ 1. INTRODUCTION ============ */}
-            <SectionHeading id="overview" kicker="Chapter 01" title="Introduction">
+            <SectionHeading
+              id="overview"
+              kicker="Chapter 01"
+              title="Introduction"
+            >
               <p>
                 FAIM's Evolution system is the autonomous maintenance engine of
-                your knowledge graph. Each cycle it scans for redundancy,
-                merges near-duplicate atoms, prunes stale or contradictory
-                structure, and invents higher-order abstractions (macros) —
-                all while preserving novel information.
+                your knowledge graph. Each cycle it scans for redundancy, merges
+                near-duplicate atoms, prunes stale or contradictory structure,
+                and invents higher-order abstractions (macros) — all while
+                preserving novel information.
               </p>
               <SubHeading id="overview-what">What is Self-Evolution</SubHeading>
               <p>
                 A single evolution cycle (POST /api/v1/evolve) runs four
                 operations against the active graph:{" "}
                 <span className="font-mono text-cyan-300">merge</span> (collapse
-                redundant atoms), <span className="font-mono text-cyan-300">prune</span>{" "}
-                (remove stale/contradictory structure),{" "}
+                redundant atoms),{" "}
+                <span className="font-mono text-cyan-300">prune</span> (remove
+                stale/contradictory structure),{" "}
                 <span className="font-mono text-cyan-300">invent</span> (form
                 macros from recurring evidence), and{" "}
-                <span className="font-mono text-cyan-300">theorize</span> (derive
-                explanations). Before and after every cycle the system measures
-                five invariants: redundancy (R), novelty (N), dimension (D),
-                entropy (H), and pressure (λ).
+                <span className="font-mono text-cyan-300">theorize</span>{" "}
+                (derive explanations). Before and after every cycle the system
+                measures five invariants: redundancy (R), novelty (N), dimension
+                (D), entropy (H), and pressure (λ).
               </p>
               <SubHeading id="overview-new">What's New — Phase 0032</SubHeading>
-              <p>This manual covers the Phase 0032 "self-optimizing" release:</p>
+              <p>
+                This manual covers the Phase 0032 "self-optimizing" release:
+              </p>
               <DTable
                 head={["Capability", "Before", "Now"]}
                 rows={[
                   [
                     "Evolution constants",
                     "Fixed (merge 0.95, prune 0.98 …)",
-                    <span className="text-emerald-300">Learned per graph via LinUCB</span>,
+                    <span className="text-emerald-300">
+                      Learned per graph via LinUCB
+                    </span>,
                   ],
                   [
                     "Merge winner",
                     "Lexicographic vector hash",
-                    <span className="text-emerald-300">Semantic 5-term information score</span>,
+                    <span className="text-emerald-300">
+                      Semantic 5-term information score
+                    </span>,
                   ],
                   [
                     "λ threshold",
                     "Fixed 0.30",
-                    <span className="text-emerald-300">Welford-calibrated from graph history</span>,
+                    <span className="text-emerald-300">
+                      Welford-calibrated from graph history
+                    </span>,
                   ],
                   [
                     "Retrieval quality",
                     "Not measured",
-                    <span className="text-emerald-300">Probed before/after, feeds reward</span>,
+                    <span className="text-emerald-300">
+                      Probed before/after, feeds reward
+                    </span>,
                   ],
                   [
                     "Maturity proof",
                     "None",
-                    <span className="text-emerald-300">Meta-metrics per cycle (5 metrics + alerts)</span>,
+                    <span className="text-emerald-300">
+                      Meta-metrics per cycle (5 metrics + alerts)
+                    </span>,
                   ],
                   [
                     "Observability",
                     "None",
-                    <span className="text-emerald-300">3 read-only API endpoints + UI panel</span>,
+                    <span className="text-emerald-300">
+                      3 read-only API endpoints + UI panel
+                    </span>,
                   ],
                 ]}
               />
               <SubHeading id="overview-quickstart">Quick Start</SubHeading>
               <div className="space-y-2 font-mono text-xs text-slate-300">
                 <p className="rounded-lg border border-white/8 bg-black/40 px-3 py-2">
-                  <span className="text-fuchsia-300">$</span> export FAIM_EVOLUTION_LEARNING_ENABLED=true
+                  <span className="text-fuchsia-300">$</span> export
+                  FAIM_EVOLUTION_LEARNING_ENABLED=true
                 </p>
                 <p className="rounded-lg border border-white/8 bg-black/40 px-3 py-2">
-                  <span className="text-fuchsia-300">$</span> python -m store.pg.migrate up&nbsp;&nbsp;<span className="text-slate-500"># applies migration 0032 (3 tables)</span>
+                  <span className="text-fuchsia-300">$</span> python -m
+                  store.pg.migrate up&nbsp;&nbsp;
+                  <span className="text-slate-500">
+                    # applies migration 0032 (3 tables)
+                  </span>
                 </p>
                 <p className="rounded-lg border border-white/8 bg-black/40 px-3 py-2">
-                  <span className="text-fuchsia-300">$</span> Open <span className="text-cyan-300">Dashboard → Evolution</span>, run a cycle, then watch the Learning panel fill with outcomes.
+                  <span className="text-fuchsia-300">$</span> Open{" "}
+                  <span className="text-cyan-300">Dashboard → Evolution</span>,
+                  run a cycle, then watch the Learning panel fill with outcomes.
                 </p>
               </div>
               <Callout tone="info" title="Opt-in by design">
@@ -770,22 +979,28 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 2. HOW EVOLUTION WORKS ============ */}
-            <SectionHeading id="journey" kicker="Chapter 02" title="How Evolution Works — End to End">
+            <SectionHeading
+              id="journey"
+              kicker="Chapter 02"
+              title="How Evolution Works — End to End"
+            >
               <p>
                 If you read only one chapter, read this one. It tells the whole
                 story in plain words — from pressing Run to the graph getting
-                smarter on its own. Every later chapter goes deep into one
-                piece of this journey.
+                smarter on its own. Every later chapter goes deep into one piece
+                of this journey.
               </p>
               <SubHeading id="journey-what">What Evolution Is</SubHeading>
               <p>
-                Your knowledge graph is a growing collection of facts, stored
-                as connected nodes. Over time it gets messy: duplicate facts,
-                stale facts, forgotten connections. <strong>Evolution is the
-                automatic cleanup-and-organize crew</strong>. It merges
-                near-duplicates into one, removes what's old and unused, and
-                creates higher-level summary facts ("macros") out of patterns
-                it spots. Left alone, the graph keeps itself tidy.
+                Your knowledge graph is a growing collection of facts, stored as
+                connected nodes. Over time it gets messy: duplicate facts, stale
+                facts, forgotten connections.{" "}
+                <strong>
+                  Evolution is the automatic cleanup-and-organize crew
+                </strong>
+                . It merges near-duplicates into one, removes what's old and
+                unused, and creates higher-level summary facts ("macros") out of
+                patterns it spots. Left alone, the graph keeps itself tidy.
               </p>
               <SubHeading id="journey-page">What the Page Shows</SubHeading>
               <p>The Evolution page is the control room for this crew:</p>
@@ -810,7 +1025,9 @@ export function EvolutionManual({
                   ],
                 ]}
               />
-              <SubHeading id="journey-run">What Happens When You Press Run</SubHeading>
+              <SubHeading id="journey-run">
+                What Happens When You Press Run
+              </SubHeading>
               <p>The full journey, step by step:</p>
               <DTable
                 head={["Step", "What happens", "Where you see it"]}
@@ -857,7 +1074,9 @@ export function EvolutionManual({
                   ],
                 ]}
               />
-              <SubHeading id="journey-learn">How It Gets Smarter Over Time</SubHeading>
+              <SubHeading id="journey-learn">
+                How It Gets Smarter Over Time
+              </SubHeading>
               <p>
                 This is the heart of "self-improving". Every run, the system
                 remembers what worked and what didn't, in the situation it was
@@ -882,7 +1101,9 @@ export function EvolutionManual({
                 Click Run → it cleans → it measures → it learns → next run is
                 smarter. Each cycle feeds the next, forever.
               </Callout>
-              <SubHeading id="journey-self">The Three Self Capabilities</SubHeading>
+              <SubHeading id="journey-self">
+                The Three Self Capabilities
+              </SubHeading>
               <DTable
                 head={["Capability", "What it does", "Switch"]}
                 rows={[
@@ -894,12 +1115,16 @@ export function EvolutionManual({
                   [
                     <span className="text-purple-300">Self-invent</span>,
                     "Creates the summary macros automatically",
-                    <span className="font-mono">Self-invent mode (Off / On evolve / After upload / Both)</span>,
+                    <span className="font-mono">
+                      Self-invent mode (Off / On evolve / After upload / Both)
+                    </span>,
                   ],
                   [
                     <span className="text-fuchsia-300">Self-improve</span>,
                     "Adjusts its own settings based on what worked before",
-                    <span className="font-mono">FAIM_EVOLUTION_LEARNING_ENABLED</span>,
+                    <span className="font-mono">
+                      FAIM_EVOLUTION_LEARNING_ENABLED
+                    </span>,
                   ],
                 ]}
               />
@@ -911,7 +1136,11 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 3. ARCHITECTURE ============ */}
-            <SectionHeading id="architecture" kicker="Chapter 03" title="Architecture">
+            <SectionHeading
+              id="architecture"
+              kicker="Chapter 03"
+              title="Architecture"
+            >
               <SubHeading id="arch-system">System Overview</SubHeading>
               <ArchitectureDiagram />
               <SubHeading id="arch-map">Component Map</SubHeading>
@@ -920,27 +1149,37 @@ export function EvolutionManual({
                 rows={[
                   [
                     "Winner selection",
-                    <span className="font-mono">core/dynamics/winner_selection.py</span>,
+                    <span className="font-mono">
+                      core/dynamics/winner_selection.py
+                    </span>,
                     "5-term semantic score; picks merge winners; tie-breaks on legacy hash",
                   ],
                   [
                     "Policy learner",
-                    <span className="font-mono">core/learning/evolution_policy.py</span>,
+                    <span className="font-mono">
+                      core/learning/evolution_policy.py
+                    </span>,
                     "LinUCB arms per knob, Welford λ calibration, reward math, schema v2",
                   ],
                   [
                     "Evolution core",
-                    <span className="font-mono">core/dynamics/evolution_native.py</span>,
+                    <span className="font-mono">
+                      core/dynamics/evolution_native.py
+                    </span>,
                     "evolve_once — merge/prune/invent engine with injectable winner selector",
                   ],
                   [
                     "Orchestration",
-                    <span className="font-mono">orchestration/evolve_flow.py</span>,
+                    <span className="font-mono">
+                      orchestration/evolve_flow.py
+                    </span>,
                     "Context build, knob resolution, retrieval probes, outcome + meta-metrics recording",
                   ],
                   [
                     "Persistence",
-                    <span className="font-mono">store/pg/repos/evolution_learning_repo.py</span>,
+                    <span className="font-mono">
+                      store/pg/repos/evolution_learning_repo.py
+                    </span>,
                     "Fail-closed reads, fail-open writes for the 3 new tables",
                   ],
                   [
@@ -954,9 +1193,9 @@ export function EvolutionManual({
               <p>
                 One cycle, end to end: the frontend posts an evolve request →
                 the flow builds pre-cycle diagnostics → the policy resolves
-                learned knobs for that exact context → evolve_once executes
-                with the semantic winner selector → post-cycle diagnostics and
-                a second retrieval probe are taken → the reward updates the
+                learned knobs for that exact context → evolve_once executes with
+                the semantic winner selector → post-cycle diagnostics and a
+                second retrieval probe are taken → the reward updates the
                 bandits → outcome, meta-metrics, and policy state are persisted
                 → the learning summary returns to the UI.
               </p>
@@ -967,39 +1206,52 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 3. EVOLUTION CYCLE ============ */}
-            <SectionHeading id="cycle" kicker="Chapter 04" title="Evolution Cycle">
+            <SectionHeading
+              id="cycle"
+              kicker="Chapter 04"
+              title="Evolution Cycle"
+            >
               <CycleDiagram />
-              <SubHeading id="cycle-before">Before: Diagnostics & Context</SubHeading>
+              <SubHeading id="cycle-before">
+                Before: Diagnostics & Context
+              </SubHeading>
               <p>
-                The flow snapshots the graph state into a feature vector used
-                by the bandits:{" "}
-                <span className="font-mono text-cyan-300">[1, R, N, D, H, node_count/1000]</span>.
-                Missing fields default to 0; R, N, D, H are clamped to [0,1].
+                The flow snapshots the graph state into a feature vector used by
+                the bandits:{" "}
+                <span className="font-mono text-cyan-300">
+                  [1, R, N, D, H, node_count/1000]
+                </span>
+                . Missing fields default to 0; R, N, D, H are clamped to [0,1].
               </p>
-              <SubHeading id="cycle-during">During: Merge / Prune / Invent</SubHeading>
+              <SubHeading id="cycle-during">
+                During: Merge / Prune / Invent
+              </SubHeading>
               <p>
                 With learning enabled, the resolved knobs override the fixed
                 constants: merge threshold, prune similarity threshold, prune
                 minimum age, and the invention λ threshold. Each merge uses the
-                semantic winner selector (Chapter 6). The core never exceeds
-                its action budget and never leaves the knob safety ranges.
+                semantic winner selector (Chapter 6). The core never exceeds its
+                action budget and never leaves the knob safety ranges.
               </p>
-              <SubHeading id="cycle-after">After: Reward & Persistence</SubHeading>
+              <SubHeading id="cycle-after">
+                After: Reward & Persistence
+              </SubHeading>
               <p>
-                Post-cycle diagnostics are compared with the before snapshot.
-                A composite reward in [−1, 1] (Chapter 8) is computed and fed
-                to every bandit arm that acted, the Welford calibration ingests
-                the new λ, and three rows are persisted: an outcome, a
-                meta-metric snapshot, and the updated policy state (version
-                incremented).
+                Post-cycle diagnostics are compared with the before snapshot. A
+                composite reward in [−1, 1] (Chapter 8) is computed and fed to
+                every bandit arm that acted, the Welford calibration ingests the
+                new λ, and three rows are persisted: an outcome, a meta-metric
+                snapshot, and the updated policy state (version incremented).
               </p>
               <SubHeading id="cycle-probe">The Retrieval Probe</SubHeading>
               <p>
-                The probe answers: <em>"did evolution make the graph more
-                retrievable?"</em> It deterministically samples the 3 most-used
-                nodes, runs local cosine top-3 retrieval per sample, and scores
-                each hit set as{" "}
-                <span className="font-mono">0.5·mean_similarity + 0.5·(1 − mean_pairwise_sim)</span>{" "}
+                The probe answers:{" "}
+                <em>"did evolution make the graph more retrievable?"</em> It
+                deterministically samples the 3 most-used nodes, runs local
+                cosine top-3 retrieval per sample, and scores each hit set as{" "}
+                <span className="font-mono">
+                  0.5·mean_similarity + 0.5·(1 − mean_pairwise_sim)
+                </span>{" "}
                 — rewarding results that are relevant <em>and</em> diverse. The
                 relative delta between before/after probes (clamped to ±1) feeds
                 40% of the reward and is stored on every outcome row.
@@ -1012,28 +1264,40 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 4. LEARNABLE KNOBS ============ */}
-            <SectionHeading id="knobs" kicker="Chapter 05" title="Learnable Knobs">
+            <SectionHeading
+              id="knobs"
+              kicker="Chapter 05"
+              title="Learnable Knobs"
+            >
               <SubHeading id="knobs-four">The Four Knobs</SubHeading>
               <DTable
                 head={["Knob", "Meaning", "Default"]}
                 rows={[
                   [
-                    <span className="font-mono text-cyan-300">merge_threshold</span>,
+                    <span className="font-mono text-cyan-300">
+                      merge_threshold
+                    </span>,
                     "Cosine similarity at which atoms are merged",
                     "0.95",
                   ],
                   [
-                    <span className="font-mono text-cyan-300">prune_similarity_threshold</span>,
+                    <span className="font-mono text-cyan-300">
+                      prune_similarity_threshold
+                    </span>,
                     "Similarity above which pruning treats atoms as redundant",
                     "0.98",
                   ],
                   [
-                    <span className="font-mono text-cyan-300">prune_min_age_days</span>,
+                    <span className="font-mono text-cyan-300">
+                      prune_min_age_days
+                    </span>,
                     "Minimum age before a node is eligible for pruning",
                     "7 days",
                   ],
                   [
-                    <span className="font-mono text-cyan-300">lambda_threshold</span>,
+                    <span className="font-mono text-cyan-300">
+                      lambda_threshold
+                    </span>,
                     "Invention pressure threshold (overridden by calibration)",
                     "0.30",
                   ],
@@ -1047,22 +1311,50 @@ export function EvolutionManual({
               <DTable
                 head={["Knob", "Allowed values", "Actions"]}
                 rows={GRID_DATA.map((g) => [
-                  <span key={g.name} className="font-mono">{g.name}</span>,
-                  <span key={g.values} className="font-mono text-slate-400">{g.values}</span>,
-                  <span key={g.values + "n"} className="text-slate-400">{g.values.split("·").length}</span>,
+                  <span key={g.name} className="font-mono">
+                    {g.name}
+                  </span>,
+                  <span key={g.values} className="font-mono text-slate-400">
+                    {g.values}
+                  </span>,
+                  <span key={g.values + "n"} className="text-slate-400">
+                    {g.values.split("·").length}
+                  </span>,
                 ])}
               />
               <ChartFrame caption="Fig 4.1 — Action count per knob (discrete grid size)">
                 <div className="h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={GRID_SPREAD} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                      <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                    <BarChart
+                      data={GRID_SPREAD}
+                      margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        stroke="#1e293b"
+                        strokeDasharray="3 3"
+                        vertical={false}
+                      />
                       <XAxis dataKey="name" tick={AXIS_TICK} />
                       <YAxis tick={AXIS_TICK} allowDecimals={false} />
-                      <Tooltip contentStyle={{ background: "#0b1120", border: "1px solid #1e293b", fontSize: 12 }} />
+                      <Tooltip
+                        contentStyle={{
+                          background: "#0b1120",
+                          border: "1px solid #1e293b",
+                          fontSize: 12,
+                        }}
+                      />
                       <Bar dataKey="spread" radius={[6, 6, 0, 0]}>
                         {GRID_SPREAD.map((d) => (
-                          <Cell key={d.name} fill={d.name === "merge" ? "#38bdf8" : d.name === "lambda" ? "#fbbf24" : "#c084fc"} />
+                          <Cell
+                            key={d.name}
+                            fill={
+                              d.name === "merge"
+                                ? "#38bdf8"
+                                : d.name === "lambda"
+                                  ? "#fbbf24"
+                                  : "#c084fc"
+                            }
+                          />
                         ))}
                       </Bar>
                     </BarChart>
@@ -1075,19 +1367,46 @@ export function EvolutionManual({
                 so pre-learning behavior is preserved bit-for-bit). An arm is
                 trusted only after 5 visits; until then the default stands. The
                 chart below shows an illustrative learning trajectory — the
-                policy migrating from conservative defaults to context-appropriate
-                values as cycles accrue.
+                policy migrating from conservative defaults to
+                context-appropriate values as cycles accrue.
               </p>
               <ChartFrame caption="Fig 4.2 — Knob evolution across policy versions (illustrative)">
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={LEARNED_TRACK} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                      <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                    <LineChart
+                      data={LEARNED_TRACK}
+                      margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        stroke="#1e293b"
+                        strokeDasharray="3 3"
+                        vertical={false}
+                      />
                       <XAxis dataKey="cycle" tick={AXIS_TICK} />
                       <YAxis tick={AXIS_TICK} domain={[0, 1]} />
-                      <Tooltip contentStyle={{ background: "#0b1120", border: "1px solid #1e293b", fontSize: 12 }} />
-                      <Line type="monotone" dataKey="merge" stroke="#38bdf8" strokeWidth={2} dot={{ r: 3 }} name="merge_threshold" />
-                      <Line type="monotone" dataKey="prune" stroke="#c084fc" strokeWidth={2} dot={{ r: 3 }} name="prune_similarity_threshold" />
+                      <Tooltip
+                        contentStyle={{
+                          background: "#0b1120",
+                          border: "1px solid #1e293b",
+                          fontSize: 12,
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="merge"
+                        stroke="#38bdf8"
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        name="merge_threshold"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="prune"
+                        stroke="#c084fc"
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                        name="prune_similarity_threshold"
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -1095,7 +1414,11 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 5. SEMANTIC WINNER SELECTION ============ */}
-            <SectionHeading id="winner" kicker="Chapter 06" title="Semantic Winner Selection">
+            <SectionHeading
+              id="winner"
+              kicker="Chapter 06"
+              title="Semantic Winner Selection"
+            >
               <SubHeading id="winner-problem">Why Hash Order Failed</SubHeading>
               <p>
                 Legacy behavior picked the merge winner by which vector_hash
@@ -1113,27 +1436,32 @@ export function EvolutionManual({
                 head={["Term", "Weight", "Signal", "Saturation"]}
                 rows={[
                   [
-                    <span className="text-sky-300">Evidence</span>, "25%",
+                    <span className="text-sky-300">Evidence</span>,
+                    "25%",
                     "Member count (opp_signature) or evidence list length",
                     "10 members",
                   ],
                   [
-                    <span className="text-purple-300">Usage</span>, "20%",
+                    <span className="text-purple-300">Usage</span>,
+                    "20%",
                     "touch_count — how often the node was retrieved",
                     "50 touches",
                   ],
                   [
-                    <span className="text-pink-300">Recency</span>, "15%",
+                    <span className="text-pink-300">Recency</span>,
+                    "15%",
                     "Exponential decay of last_access, half-life 14 days",
                     "unknown = neutral 0.5",
                   ],
                   [
-                    <span className="text-emerald-300">Source</span>, "20%",
+                    <span className="text-emerald-300">Source</span>,
+                    "20%",
                     "Macro kind +0.6 · long_term +0.2 · provenance +0.15 · anchor +0.1 · level",
                     "level/8",
                   ],
                   [
-                    <span className="text-amber-300">Residual</span>, "20%",
+                    <span className="text-amber-300">Residual</span>,
+                    "20%",
                     "Novel information content (auto-detects int×1e9 storage)",
                     "1.0",
                   ],
@@ -1143,19 +1471,40 @@ export function EvolutionManual({
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={SCORE_WEIGHTS} dataKey="weight" nameKey="name" cx="50%" cy="50%" innerRadius={45} outerRadius={75} paddingAngle={3}>
+                      <Pie
+                        data={SCORE_WEIGHTS}
+                        dataKey="weight"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={45}
+                        outerRadius={75}
+                        paddingAngle={3}
+                      >
                         {SCORE_WEIGHTS.map((s) => (
                           <Cell key={s.name} fill={s.fill} />
                         ))}
                       </Pie>
-                      <Tooltip contentStyle={{ background: "#0b1120", border: "1px solid #1e293b", fontSize: 12 }} />
+                      <Tooltip
+                        contentStyle={{
+                          background: "#0b1120",
+                          border: "1px solid #1e293b",
+                          fontSize: 12,
+                        }}
+                      />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1 px-2 pb-2">
                   {SCORE_WEIGHTS.map((s) => (
-                    <span key={s.name} className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400">
-                      <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: s.fill }} />
+                    <span
+                      key={s.name}
+                      className="flex items-center gap-1.5 font-mono text-[10px] text-slate-400"
+                    >
+                      <span
+                        className="h-2 w-2 rounded-sm"
+                        style={{ backgroundColor: s.fill }}
+                      />
                       {s.name} {s.weight}%
                     </span>
                   ))}
@@ -1171,14 +1520,21 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 6. LINUCB ============ */}
-            <SectionHeading id="bandit" kicker="Chapter 07" title="LinUCB Contextual Bandit">
+            <SectionHeading
+              id="bandit"
+              kicker="Chapter 07"
+              title="LinUCB Contextual Bandit"
+            >
               <SubHeading id="bandit-how">How It Works</SubHeading>
               <p>
                 Each knob is a <em>contextual bandit</em> with one ridge
                 regression per grid value. On every cycle the policy looks at
                 the graph's context vector and scores each candidate value as
-                <span className="font-mono text-cyan-300"> μ(x) + α·σ(x)</span> —
-                the learned expected reward plus an uncertainty bonus. Higher
+                <span className="font-mono text-cyan-300">
+                  {" "}
+                  μ(x) + α·σ(x)
+                </span>{" "}
+                — the learned expected reward plus an uncertainty bonus. Higher
                 bonus for poorly-explored values = natural exploration; higher
                 mean for well-explored values = exploitation. The best score
                 wins, with an additional 10% ε-greedy random pick.
@@ -1188,28 +1544,37 @@ export function EvolutionManual({
                 head={["Step", "Formula", "Meaning"]}
                 rows={[
                   [
-                    "Features", <span className="font-mono">x = [1, R, N, D, H, count/1000]</span>,
+                    "Features",
+                    <span className="font-mono">
+                      x = [1, R, N, D, H, count/1000]
+                    </span>,
                     "Context fingerprint of the graph pre-cycle",
                   ],
                   [
-                    "Online update", <span className="font-mono">A += xxᵀ, b += r·x</span>,
+                    "Online update",
+                    <span className="font-mono">A += xxᵀ, b += r·x</span>,
                     "A is a 6×6 design matrix with ridge prior λ=1; b accumulates rewards",
                   ],
                   [
-                    "Mean estimate", <span className="font-mono">θ = A⁻¹b, μ = θ·x</span>,
+                    "Mean estimate",
+                    <span className="font-mono">θ = A⁻¹b, μ = θ·x</span>,
                     "Ridge regression via Gauss–Jordan inversion (singular → prior inverse)",
                   ],
                   [
-                    "Uncertainty", <span className="font-mono">σ² = xᵀA⁻¹x</span>,
+                    "Uncertainty",
+                    <span className="font-mono">σ² = xᵀA⁻¹x</span>,
                     "Confidence shrinks as the arm accumulates visits",
                   ],
                   [
-                    "Selection", <span className="font-mono">argmax (μ + α√σ²)</span>,
+                    "Selection",
+                    <span className="font-mono">argmax (μ + α√σ²)</span>,
                     "α = 0.6 default (policy-level, per-arm); untried values = +∞",
                   ],
                 ]}
               />
-              <SubHeading id="bandit-explore">Exploration vs Exploitation</SubHeading>
+              <SubHeading id="bandit-explore">
+                Exploration vs Exploitation
+              </SubHeading>
               <p>
                 The chart shows how the uncertainty bonus decays as an arm is
                 visited — the bandit starts exploratory and becomes greedy as
@@ -1218,12 +1583,42 @@ export function EvolutionManual({
               <ChartFrame caption="Fig 6.1 — Uncertainty bonus vs visits (α = 0.6)">
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={EXPLORE_CURVE} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                      <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                      <XAxis dataKey="n" tick={AXIS_TICK} label={{ value: "visits", position: "insideBottom", offset: -2, fill: "#64748b", fontSize: 10 }} />
+                    <LineChart
+                      data={EXPLORE_CURVE}
+                      margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        stroke="#1e293b"
+                        strokeDasharray="3 3"
+                        vertical={false}
+                      />
+                      <XAxis
+                        dataKey="n"
+                        tick={AXIS_TICK}
+                        label={{
+                          value: "visits",
+                          position: "insideBottom",
+                          offset: -2,
+                          fill: "#64748b",
+                          fontSize: 10,
+                        }}
+                      />
                       <YAxis tick={AXIS_TICK} />
-                      <Tooltip contentStyle={{ background: "#0b1120", border: "1px solid #1e293b", fontSize: 12 }} />
-                      <Line type="monotone" dataKey="bonus" stroke="#f472b6" strokeWidth={2.5} dot={{ r: 3 }} name="α·√σ²" />
+                      <Tooltip
+                        contentStyle={{
+                          background: "#0b1120",
+                          border: "1px solid #1e293b",
+                          fontSize: 12,
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="bonus"
+                        stroke="#f472b6"
+                        strokeWidth={2.5}
+                        dot={{ r: 3 }}
+                        name="α·√σ²"
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -1236,7 +1631,11 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 7. REWARD & CALIBRATION ============ */}
-            <SectionHeading id="reward" kicker="Chapter 08" title="Reward & Lambda Calibration">
+            <SectionHeading
+              id="reward"
+              kicker="Chapter 08"
+              title="Reward & Lambda Calibration"
+            >
               <SubHeading id="reward-formula">Reward Formula</SubHeading>
               <p>
                 The reward in [−1, 1] blends three invariants, then optionally
@@ -1247,12 +1646,27 @@ export function EvolutionManual({
                   <div className="h-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={REWARD_BLEND} dataKey="pct" nameKey="name" cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={3}>
+                        <Pie
+                          data={REWARD_BLEND}
+                          dataKey="pct"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={38}
+                          outerRadius={62}
+                          paddingAngle={3}
+                        >
                           {REWARD_BLEND.map((s) => (
                             <Cell key={s.name} fill={s.fill} />
                           ))}
                         </Pie>
-                        <Tooltip contentStyle={{ background: "#0b1120", border: "1px solid #1e293b", fontSize: 12 }} />
+                        <Tooltip
+                          contentStyle={{
+                            background: "#0b1120",
+                            border: "1px solid #1e293b",
+                            fontSize: 12,
+                          }}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -1261,12 +1675,27 @@ export function EvolutionManual({
                   <div className="h-[180px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
-                        <Pie data={RETRIEVAL_BLEND} dataKey="pct" nameKey="name" cx="50%" cy="50%" innerRadius={38} outerRadius={62} paddingAngle={3}>
+                        <Pie
+                          data={RETRIEVAL_BLEND}
+                          dataKey="pct"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={38}
+                          outerRadius={62}
+                          paddingAngle={3}
+                        >
                           {RETRIEVAL_BLEND.map((s) => (
                             <Cell key={s.name} fill={s.fill} />
                           ))}
                         </Pie>
-                        <Tooltip contentStyle={{ background: "#0b1120", border: "1px solid #1e293b", fontSize: 12 }} />
+                        <Tooltip
+                          contentStyle={{
+                            background: "#0b1120",
+                            border: "1px solid #1e293b",
+                            fontSize: 12,
+                          }}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -1277,53 +1706,81 @@ export function EvolutionManual({
                 rows={[
                   [
                     "Redundancy reduction",
-                    <span className="font-mono">(R_before − R_after) / R_before</span>,
+                    <span className="font-mono">
+                      (R_before − R_after) / R_before
+                    </span>,
                     "[0,1]",
                   ],
                   [
                     "Boundedness gain",
-                    <span className="font-mono">(E_before − E_after) / E_before</span>,
+                    <span className="font-mono">
+                      (E_before − E_after) / E_before
+                    </span>,
                     "[0,1]",
                   ],
                   [
                     "Novelty retention",
-                    <span className="font-mono">(N_after − N_before)/2 + 0.5</span>,
+                    <span className="font-mono">
+                      (N_after − N_before)/2 + 0.5
+                    </span>,
                     "[0,1]",
                   ],
                   [
                     "Retrieval component",
-                    <span className="font-mono">(probe_after − probe_before)/probe_before</span>,
+                    <span className="font-mono">
+                      (probe_after − probe_before)/probe_before
+                    </span>,
                     "[−1,1] → [0,1]",
                   ],
                   [
                     "No-improvement penalty",
-                    <span className="font-mono">−0.05 if acted but R didn't fall</span>,
+                    <span className="font-mono">
+                      −0.05 if acted but R didn't fall
+                    </span>,
                     "—",
                   ],
                 ]}
               />
-              <SubHeading id="reward-lambda">Lambda Calibration (Welford)</SubHeading>
+              <SubHeading id="reward-lambda">
+                Lambda Calibration (Welford)
+              </SubHeading>
               <p>
                 λ is the graph's own "pressure" invariant. Instead of a fixed
                 0.30 threshold, the system tracks a rolling mean and variance
                 (Welford's online algorithm — one pass, constant memory). After
                 at least 10 samples the threshold becomes{" "}
-                <span className="font-mono text-cyan-300">mean + 0.5·std</span>, so
-                "high pressure" is relative to this graph's baseline, and the
+                <span className="font-mono text-cyan-300">mean + 0.5·std</span>,
+                so "high pressure" is relative to this graph's baseline, and the
                 result is clamped to the lambda grid bounds.
               </p>
               <DTable
                 head={["State", "Field", "Meaning"]}
                 rows={[
-                  ["n", <span className="font-mono">lambda_calibration.n</span>, "Sample count"],
-                  ["mean", <span className="font-mono">lambda_calibration.mean</span>, "Rolling mean of λ"],
-                  ["m2", <span className="font-mono">lambda_calibration.m2</span>, "Sum of squared deviations (std = √(m2/(n−1)))"],
+                  [
+                    "n",
+                    <span className="font-mono">lambda_calibration.n</span>,
+                    "Sample count",
+                  ],
+                  [
+                    "mean",
+                    <span className="font-mono">lambda_calibration.mean</span>,
+                    "Rolling mean of λ",
+                  ],
+                  [
+                    "m2",
+                    <span className="font-mono">lambda_calibration.m2</span>,
+                    "Sum of squared deviations (std = √(m2/(n−1)))",
+                  ],
                 ]}
               />
             </SectionHeading>
 
             {/* ============ 8. META-METRICS ============ */}
-            <SectionHeading id="meta" kicker="Chapter 09" title="Meta-Metrics & Maturity">
+            <SectionHeading
+              id="meta"
+              kicker="Chapter 09"
+              title="Meta-Metrics & Maturity"
+            >
               <SubHeading id="meta-five">The Five Metrics</SubHeading>
               <p>
                 Meta-metrics prove that evolution is actually improving the
@@ -1333,17 +1790,23 @@ export function EvolutionManual({
                 head={["Metric", "Definition", "Healthy sign"]}
                 rows={[
                   [
-                    <span className="font-mono text-emerald-300">merge_usefulness</span>,
+                    <span className="font-mono text-emerald-300">
+                      merge_usefulness
+                    </span>,
                     "Fraction of redundancy actually removed by merges (0.5 when no merges)",
                     "→ 1.0",
                   ],
                   [
-                    <span className="font-mono text-emerald-300">invention_utilization</span>,
+                    <span className="font-mono text-emerald-300">
+                      invention_utilization
+                    </span>,
                     "Fraction of macros with touch_count > 0 — do invented abstractions get used?",
                     "→ 1.0",
                   ],
                   [
-                    <span className="font-mono text-emerald-300">prune_regret</span>,
+                    <span className="font-mono text-emerald-300">
+                      prune_regret
+                    </span>,
                     "Pruning that failed to relieve redundancy (wasted work)",
                     "→ 0.0",
                   ],
@@ -1362,14 +1825,48 @@ export function EvolutionManual({
               <ChartFrame caption="Fig 8.1 — Illustrative maturity trajectory across cycles">
                 <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={META_TREND} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
-                      <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                    <LineChart
+                      data={META_TREND}
+                      margin={{ top: 8, right: 8, left: -18, bottom: 0 }}
+                    >
+                      <CartesianGrid
+                        stroke="#1e293b"
+                        strokeDasharray="3 3"
+                        vertical={false}
+                      />
                       <XAxis dataKey="cycle" tick={AXIS_TICK} />
                       <YAxis tick={AXIS_TICK} domain={[0, 1]} />
-                      <Tooltip contentStyle={{ background: "#0b1120", border: "1px solid #1e293b", fontSize: 12 }} />
-                      <Line type="monotone" dataKey="usefulness" stroke="#34d399" strokeWidth={2.5} dot={{ r: 3 }} name="merge_usefulness" />
-                      <Line type="monotone" dataKey="utilization" stroke="#38bdf8" strokeWidth={2.5} dot={{ r: 3 }} name="invention_utilization" />
-                      <Line type="monotone" dataKey="regret" stroke="#fb7185" strokeWidth={2.5} dot={{ r: 3 }} name="prune_regret" />
+                      <Tooltip
+                        contentStyle={{
+                          background: "#0b1120",
+                          border: "1px solid #1e293b",
+                          fontSize: 12,
+                        }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="usefulness"
+                        stroke="#34d399"
+                        strokeWidth={2.5}
+                        dot={{ r: 3 }}
+                        name="merge_usefulness"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="utilization"
+                        stroke="#38bdf8"
+                        strokeWidth={2.5}
+                        dot={{ r: 3 }}
+                        name="invention_utilization"
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="regret"
+                        stroke="#fb7185"
+                        strokeWidth={2.5}
+                        dot={{ r: 3 }}
+                        name="prune_regret"
+                      />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -1379,17 +1876,23 @@ export function EvolutionManual({
                 head={["Alert", "Trigger", "Meaning"]}
                 rows={[
                   [
-                    <span className="font-mono text-amber-300">over_merge_risk</span>,
+                    <span className="font-mono text-amber-300">
+                      over_merge_risk
+                    </span>,
                     "merges > 0 and R_after > R_before + 0.01",
                     "Merging made redundancy worse",
                   ],
                   [
-                    <span className="font-mono text-amber-300">d_collapse</span>,
+                    <span className="font-mono text-amber-300">
+                      d_collapse
+                    </span>,
                     "D_after < D_before − 0.05",
                     "Dimension collapse = over-merging",
                   ],
                   [
-                    <span className="font-mono text-amber-300">prune_regret_high</span>,
+                    <span className="font-mono text-amber-300">
+                      prune_regret_high
+                    </span>,
                     "prunes > 0 and prune_regret > 0.5",
                     "Pruning wasted effort",
                   ],
@@ -1398,10 +1901,15 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 9. STORAGE ============ */}
-            <SectionHeading id="storage" kicker="Chapter 10" title="Storage & Persistence">
+            <SectionHeading
+              id="storage"
+              kicker="Chapter 10"
+              title="Storage & Persistence"
+            >
               <SubHeading id="storage-tables">Database Tables</SubHeading>
               <p>
-                Migration <span className="font-mono">0032_evolution_learning.sql</span>{" "}
+                Migration{" "}
+                <span className="font-mono">0032_evolution_learning.sql</span>{" "}
                 adds three tables (auto-applied by the glob-based migration
                 runner):
               </p>
@@ -1409,19 +1917,34 @@ export function EvolutionManual({
                 head={["Table", "Purpose", "Key columns"]}
                 rows={[
                   [
-                    <span className="font-mono text-cyan-300">evolution_outcomes</span>,
+                    <span className="font-mono text-cyan-300">
+                      evolution_outcomes
+                    </span>,
                     "One row per cycle: before/after diagnostics + reward",
-                    <span className="font-mono">graph_version · r/n/d/h/e before+after · retrieval_delta · reward · policy_snapshot</span>,
+                    <span className="font-mono">
+                      graph_version · r/n/d/h/e before+after · retrieval_delta ·
+                      reward · policy_snapshot
+                    </span>,
                   ],
                   [
-                    <span className="font-mono text-cyan-300">evolution_policy_state</span>,
+                    <span className="font-mono text-cyan-300">
+                      evolution_policy_state
+                    </span>,
                     "One row per (tenant, graph): the learned policy",
-                    <span className="font-mono">policy_version · arms (JSONB) · lambda_calibration (JSONB) · meta</span>,
+                    <span className="font-mono">
+                      policy_version · arms (JSONB) · lambda_calibration (JSONB)
+                      · meta
+                    </span>,
                   ],
                   [
-                    <span className="font-mono text-cyan-300">evolution_meta_metrics</span>,
+                    <span className="font-mono text-cyan-300">
+                      evolution_meta_metrics
+                    </span>,
                     "Rolling maturity metrics",
-                    <span className="font-mono">merge_usefulness · invention_utilization · prune_regret · d_drift · h_drift · alerts</span>,
+                    <span className="font-mono">
+                      merge_usefulness · invention_utilization · prune_regret ·
+                      d_drift · h_drift · alerts
+                    </span>,
                   ],
                 ]}
               />
@@ -1456,13 +1979,24 @@ export function EvolutionManual({
                 head={["Schema", "Arms", "Lambda calibration", "Version"]}
                 rows={[
                   [
-                    <span className="font-mono">v1</span>, "Reset on load", <span className="text-emerald-300">Preserved</span>, "Reset to 0",
+                    <span className="font-mono">v1</span>,
+                    "Reset on load",
+                    <span className="text-emerald-300">Preserved</span>,
+                    "Reset to 0",
                   ],
                   [
-                    <span className="font-mono">v2</span>, <span className="text-emerald-300">Fully restored (A, b, visits, rewards)</span>, <span className="text-emerald-300">Preserved</span>, <span className="text-emerald-300">Restored</span>,
+                    <span className="font-mono">v2</span>,
+                    <span className="text-emerald-300">
+                      Fully restored (A, b, visits, rewards)
+                    </span>,
+                    <span className="text-emerald-300">Preserved</span>,
+                    <span className="text-emerald-300">Restored</span>,
                   ],
                   [
-                    <span className="font-mono">unknown</span>, "Fresh defaults", "Fresh defaults", "0",
+                    <span className="font-mono">unknown</span>,
+                    "Fresh defaults",
+                    "Fresh defaults",
+                    "0",
                   ],
                 ]}
               />
@@ -1475,37 +2009,51 @@ export function EvolutionManual({
                 head={["Method · Path", "Purpose", "Auth"]}
                 rows={[
                   [
-                    <span className="font-mono text-cyan-300">POST /api/v1/evolve</span>,
+                    <span className="font-mono text-cyan-300">
+                      POST /api/v1/evolve
+                    </span>,
                     "Run one evolution cycle (merge/prune/invent/theorize)",
                     "JWT + tenant key",
                   ],
                   [
-                    <span className="font-mono text-cyan-300">GET /api/v1/evolve/status</span>,
+                    <span className="font-mono text-cyan-300">
+                      GET /api/v1/evolve/status
+                    </span>,
                     "Scheduler, control, guardrails, due-state",
                     "JWT + tenant key",
                   ],
                   [
-                    <span className="font-mono text-cyan-300">PATCH /api/v1/evolve/control</span>,
+                    <span className="font-mono text-cyan-300">
+                      PATCH /api/v1/evolve/control
+                    </span>,
                     "Toggle self-evolve / self-invent autonomy",
                     "JWT + tenant key",
                   ],
                   [
-                    <span className="font-mono text-cyan-300">GET /api/v1/evolve/invention/flow</span>,
+                    <span className="font-mono text-cyan-300">
+                      GET /api/v1/evolve/invention/flow
+                    </span>,
                     "2.5D invention-flow topology (atoms → macros → merges)",
                     "JWT + tenant key",
                   ],
                   [
-                    <span className="font-mono text-cyan-300">GET /api/v1/evolve/learning/state</span>,
+                    <span className="font-mono text-cyan-300">
+                      GET /api/v1/evolve/learning/state
+                    </span>,
                     "Learned policy: knobs, source, schema, version, λ calibration, per-arm samples, defaults",
                     "JWT + tenant key",
                   ],
                   [
-                    <span className="font-mono text-cyan-300">GET /api/v1/evolve/learning/outcomes</span>,
+                    <span className="font-mono text-cyan-300">
+                      GET /api/v1/evolve/learning/outcomes
+                    </span>,
                     "Recent outcome rows (newest first, limit 1–200)",
                     "JWT + tenant key",
                   ],
                   [
-                    <span className="font-mono text-cyan-300">GET /api/v1/evolve/learning/meta</span>,
+                    <span className="font-mono text-cyan-300">
+                      GET /api/v1/evolve/learning/meta
+                    </span>,
                     "Recent meta-metric rows",
                     "JWT + tenant key",
                   ],
@@ -1521,7 +2069,7 @@ export function EvolutionManual({
                   GET /evolve/learning/state — excerpt
                 </p>
                 <pre className="overflow-x-auto rounded-[14px] border border-white/8 bg-black/50 p-4 text-[11px] leading-relaxed text-slate-300">
-{`{
+                  {`{
   "graph_id": "my_graph",
   "enabled": true,
   "schema_tag": "v2",
@@ -1540,7 +2088,7 @@ export function EvolutionManual({
                   GET /evolve/learning/outcomes — one row
                 </p>
                 <pre className="overflow-x-auto rounded-[14px] border border-white/8 bg-black/50 p-4 text-[11px] leading-relaxed text-slate-300">
-{`{
+                  {`{
   "graph_version": 8,
   "cycle_ts": "2026-08-09T12:00:00+00:00",
   "merges": 3, "prunes": 1, "inventions": 1,
@@ -1554,7 +2102,11 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 11. FRONTEND ============ */}
-            <SectionHeading id="frontend" kicker="Chapter 12" title="Frontend Guide">
+            <SectionHeading
+              id="frontend"
+              kicker="Chapter 12"
+              title="Frontend Guide"
+            >
               <SubHeading id="frontend-panes">Dashboard Panes</SubHeading>
               <p>
                 The Evolution Control Plane organizes everything into three
@@ -1566,17 +2118,23 @@ export function EvolutionManual({
                   [
                     <span className="text-sky-300">Overview & Controls</span>,
                     "Graph context, profile/persist modes, autonomy toggles, run-cycle button, scorecard, scheduler state, metric details, storage, learning panel",
-                    <span className="inline-flex items-center gap-1"><Dna size={12} /> Dna</span>,
+                    <span className="inline-flex items-center gap-1">
+                      <Dna size={12} /> Dna
+                    </span>,
                   ],
                   [
                     <span className="text-purple-300">Physics & Topology</span>,
                     "2.5D invention flow canvas, physics invariants stream",
-                    <span className="inline-flex items-center gap-1"><Activity size={12} /> Activity</span>,
+                    <span className="inline-flex items-center gap-1">
+                      <Activity size={12} /> Activity
+                    </span>,
                   ],
                   [
                     <span className="text-emerald-300">Timeline & Logs</span>,
                     "Evolution event stream with evolution-only filter and auto-refresh",
-                    <span className="inline-flex items-center gap-1"><Zap size={12} /> Clock3</span>,
+                    <span className="inline-flex items-center gap-1">
+                      <Zap size={12} /> Clock3
+                    </span>,
                   ],
                 ]}
               />
@@ -1594,7 +2152,9 @@ export function EvolutionManual({
                   ],
                 ]}
               />
-              <SubHeading id="frontend-learning">Learning & Self-Optimization Panel</SubHeading>
+              <SubHeading id="frontend-learning">
+                Learning & Self-Optimization Panel
+              </SubHeading>
               <p>
                 A dedicated card on the Overview pane renders the three learning
                 endpoints live:
@@ -1610,14 +2170,8 @@ export function EvolutionManual({
                     "Learned knobs",
                     "Current value per knob vs. default — learned values highlighted",
                   ],
-                  [
-                    "Lambda calibration",
-                    "Sample count and rolling mean λ",
-                  ],
-                  [
-                    "Bandit visits",
-                    "Per-value visit chips, e.g. 0.95×12",
-                  ],
+                  ["Lambda calibration", "Sample count and rolling mean λ"],
+                  ["Bandit visits", "Per-value visit chips, e.g. 0.95×12"],
                   [
                     "Recent outcomes",
                     "+merges −prunes +inventions, reward, retrieval δ",
@@ -1626,10 +2180,7 @@ export function EvolutionManual({
                     "Maturity metrics",
                     "merge_usefulness · invention_utilization · prune_regret · d-drift per cycle",
                   ],
-                  [
-                    "Refresh",
-                    "Re-fetches all three endpoints on demand",
-                  ],
+                  ["Refresh", "Re-fetches all three endpoints on demand"],
                 ]}
               />
               <Callout tone="success" title="Non-fatal by design">
@@ -1640,13 +2191,21 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 12. CONFIGURATION ============ */}
-            <SectionHeading id="config" kicker="Chapter 13" title="Configuration">
-              <SubHeading id="config-flags">Feature Flags & Env Vars</SubHeading>
+            <SectionHeading
+              id="config"
+              kicker="Chapter 13"
+              title="Configuration"
+            >
+              <SubHeading id="config-flags">
+                Feature Flags & Env Vars
+              </SubHeading>
               <DTable
                 head={["Variable", "Default", "Effect"]}
                 rows={[
                   [
-                    <span className="font-mono text-cyan-300">FAIM_EVOLUTION_LEARNING_ENABLED</span>,
+                    <span className="font-mono text-cyan-300">
+                      FAIM_EVOLUTION_LEARNING_ENABLED
+                    </span>,
                     "false",
                     "Master switch: semantic winners, learned knobs, probes, outcomes, meta-metrics",
                   ],
@@ -1656,22 +2215,30 @@ export function EvolutionManual({
                     "Scheduler autonomy (manual / post_upload / periodic / hybrid)",
                   ],
                   [
-                    <span className="font-mono">FAIM_SELF_EVOLVE_TRIGGER_MODE</span>,
+                    <span className="font-mono">
+                      FAIM_SELF_EVOLVE_TRIGGER_MODE
+                    </span>,
                     "manual",
                     "How often autonomous cycles may run",
                   ],
                   [
-                    <span className="font-mono">FAIM_SELF_EVOLVE_MAX_ACTIONS</span>,
+                    <span className="font-mono">
+                      FAIM_SELF_EVOLVE_MAX_ACTIONS
+                    </span>,
                     "25",
                     "Per-cycle action budget (core enforcement)",
                   ],
                   [
-                    <span className="font-mono">FAIM_SELF_EVOLVE_MIN_INTERVAL_SECONDS</span>,
+                    <span className="font-mono">
+                      FAIM_SELF_EVOLVE_MIN_INTERVAL_SECONDS
+                    </span>,
                     "300",
                     "Minimum seconds between autonomous cycles",
                   ],
                   [
-                    <span className="font-mono">FAIM_SELF_EVOLVE_MIN_VERSION_DELTA</span>,
+                    <span className="font-mono">
+                      FAIM_SELF_EVOLVE_MIN_VERSION_DELTA
+                    </span>,
                     "1",
                     "Minimum graph versions between cycles",
                   ],
@@ -1702,14 +2269,18 @@ export function EvolutionManual({
             </div>
 
             {/* ============ 13. INVENTION ENGINE ============ */}
-            <SectionHeading id="invention" kicker="Chapter 14" title="The Invention Engine">
+            <SectionHeading
+              id="invention"
+              kicker="Chapter 14"
+              title="The Invention Engine"
+            >
               <p>
                 Invention is what separates FAIM from a mere deduplicator: the
                 engine distills recurring evidence into{" "}
                 <span className="font-mono text-cyan-300">macros</span> —
                 higher-order abstractions that summarize many atoms. When
-                learning is enabled, the policy's λ threshold directly
-                regulates how much invention happens each cycle.
+                learning is enabled, the policy's λ threshold directly regulates
+                how much invention happens each cycle.
               </p>
               <SubHeading id="invention-modes">Self-Invent Modes</SubHeading>
               <DTable
@@ -1733,22 +2304,36 @@ export function EvolutionManual({
                   ],
                 ]}
               />
-              <SubHeading id="invention-overrides">Invention Overrides</SubHeading>
+              <SubHeading id="invention-overrides">
+                Invention Overrides
+              </SubHeading>
               <p>
                 Each cycle resolves invention parameters; with learning active,
                 the bandit's{" "}
-                <span className="font-mono text-cyan-300">lambda_threshold</span>{" "}
+                <span className="font-mono text-cyan-300">
+                  lambda_threshold
+                </span>{" "}
                 replaces the runtime default so invention pressure follows the
                 graph's own history:
               </p>
               <DTable
-                head={["Parameter", "Base", "Conservative", "Aggressive", "Meaning"]}
+                head={[
+                  "Parameter",
+                  "Base",
+                  "Conservative",
+                  "Aggressive",
+                  "Meaning",
+                ]}
                 rows={[
                   [
                     <span className="font-mono">lambda_threshold</span>,
                     "0.30",
-                    <span className="text-slate-400">+0.10 (harder to invent)</span>,
-                    <span className="text-slate-400">−0.05 (easier to invent)</span>,
+                    <span className="text-slate-400">
+                      +0.10 (harder to invent)
+                    </span>,
+                    <span className="text-slate-400">
+                      −0.05 (easier to invent)
+                    </span>,
                     "Pressure needed to form a macro",
                   ],
                   [
@@ -1775,11 +2360,26 @@ export function EvolutionManual({
               <DTable
                 head={["Type", "Meaning"]}
                 rows={[
-                  [<span className="font-mono">fact</span>, "Asserted factual statement"],
-                  [<span className="font-mono">procedure</span>, "How-to / process knowledge"],
-                  [<span className="font-mono">event</span>, "Occurrence anchored in time"],
-                  [<span className="font-mono">contradiction</span>, "Conflicting evidence pair"],
-                  [<span className="font-mono">work</span>, "Artifact or deliverable"],
+                  [
+                    <span className="font-mono">fact</span>,
+                    "Asserted factual statement",
+                  ],
+                  [
+                    <span className="font-mono">procedure</span>,
+                    "How-to / process knowledge",
+                  ],
+                  [
+                    <span className="font-mono">event</span>,
+                    "Occurrence anchored in time",
+                  ],
+                  [
+                    <span className="font-mono">contradiction</span>,
+                    "Conflicting evidence pair",
+                  ],
+                  [
+                    <span className="font-mono">work</span>,
+                    "Artifact or deliverable",
+                  ],
                 ]}
               />
               <Callout tone="success" title="Measured, not assumed">
@@ -1791,7 +2391,11 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 14. PRUNE POLICY ============ */}
-            <SectionHeading id="prune" kicker="Chapter 15" title="Prune Policy & Protection">
+            <SectionHeading
+              id="prune"
+              kicker="Chapter 15"
+              title="Prune Policy & Protection"
+            >
               <SubHeading id="prune-rules">Prune Rules</SubHeading>
               <p>
                 The prune pass removes stale or redundant structure using a
@@ -1803,7 +2407,9 @@ export function EvolutionManual({
                   [
                     <span className="font-mono">min_age_days</span>,
                     "Nodes younger than this are never pruned",
-                    <span className="text-emerald-300">Yes — bandit arm (3–21 days)</span>,
+                    <span className="text-emerald-300">
+                      Yes — bandit arm (3–21 days)
+                    </span>,
                   ],
                   [
                     <span className="font-mono">max_touch_count</span>,
@@ -1811,9 +2417,13 @@ export function EvolutionManual({
                     "Runtime policy",
                   ],
                   [
-                    <span className="font-mono">min_similarity_for_redundancy</span>,
+                    <span className="font-mono">
+                      min_similarity_for_redundancy
+                    </span>,
                     "Similarity above which another node counts as redundant",
-                    <span className="text-emerald-300">Yes — bandit arm (0.93–0.99)</span>,
+                    <span className="text-emerald-300">
+                      Yes — bandit arm (0.93–0.99)
+                    </span>,
                   ],
                 ]}
               />
@@ -1832,7 +2442,11 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 15. INVARIANTS ============ */}
-            <SectionHeading id="invariants" kicker="Chapter 16" title="Invariants & Diagnostics">
+            <SectionHeading
+              id="invariants"
+              kicker="Chapter 16"
+              title="Invariants & Diagnostics"
+            >
               <SubHeading id="invariants-seven">The Seven Metrics</SubHeading>
               <p>
                 Every cycle snapshots the graph into a stable, ordered set of
@@ -1842,22 +2456,54 @@ export function EvolutionManual({
               <DTable
                 head={["Key", "Invariant", "Meaning"]}
                 rows={[
-                  [<span className="font-mono">CR</span>, "Compression ratio", "How compactly the graph encodes its content"],
-                  [<span className="font-mono">R</span>, "Redundancy", "Fraction of duplicated information (target: ↓)"],
-                  [<span className="font-mono">D_hat</span>, "Fractal dimension", "Structural depth / self-similarity estimate"],
-                  [<span className="font-mono">H_hat</span>, "Entropy", "Disorder / information spread (target: ↓)"],
-                  [<span className="font-mono">lambda_hat</span>, "Pressure", "Readiness to evolve / invent"],
-                  [<span className="font-mono">novelty</span>, "Novelty", "Amount of new information (target: hold or ↑)"],
-                  [<span className="font-mono">energy</span>, "Energy / boundedness", "Structural boundedness (target: ↓)"],
+                  [
+                    <span className="font-mono">CR</span>,
+                    "Compression ratio",
+                    "How compactly the graph encodes its content",
+                  ],
+                  [
+                    <span className="font-mono">R</span>,
+                    "Redundancy",
+                    "Fraction of duplicated information (target: ↓)",
+                  ],
+                  [
+                    <span className="font-mono">D_hat</span>,
+                    "Fractal dimension",
+                    "Structural depth / self-similarity estimate",
+                  ],
+                  [
+                    <span className="font-mono">H_hat</span>,
+                    "Entropy",
+                    "Disorder / information spread (target: ↓)",
+                  ],
+                  [
+                    <span className="font-mono">lambda_hat</span>,
+                    "Pressure",
+                    "Readiness to evolve / invent",
+                  ],
+                  [
+                    <span className="font-mono">novelty</span>,
+                    "Novelty",
+                    "Amount of new information (target: hold or ↑)",
+                  ],
+                  [
+                    <span className="font-mono">energy</span>,
+                    "Energy / boundedness",
+                    "Structural boundedness (target: ↓)",
+                  ],
                 ]}
               />
-              <SubHeading id="invariants-context">How Context Uses Them</SubHeading>
+              <SubHeading id="invariants-context">
+                How Context Uses Them
+              </SubHeading>
               <DTable
                 head={["Consumer", "Uses"]}
                 rows={[
                   [
                     <span className="text-sky-300">LinUCB features</span>,
-                    <span className="font-mono">[1, R, N, D, H, node_count/1000]</span>,
+                    <span className="font-mono">
+                      [1, R, N, D, H, node_count/1000]
+                    </span>,
                   ],
                   [
                     <span className="text-emerald-300">Reward</span>,
@@ -1880,7 +2526,11 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 16. EVENTS ============ */}
-            <SectionHeading id="events" kicker="Chapter 17" title="Events & Timeline">
+            <SectionHeading
+              id="events"
+              kicker="Chapter 17"
+              title="Events & Timeline"
+            >
               <p>
                 Every evolution action emits an event into the graph's durable
                 event stream — the same stream the Timeline pane renders. Event
@@ -1890,15 +2540,60 @@ export function EvolutionManual({
               <DTable
                 head={["Event", "Meaning"]}
                 rows={[
-                  [<span className="font-mono text-sky-300">DIAGNOSTICS_SNAPSHOT</span>, "Pre/post-cycle invariants (D_hat, H_hat, lambda_hat, R, N, E)"],
-                  [<span className="font-mono text-sky-300">EVOLUTION_START</span>, "Cycle begins"],
-                  [<span className="font-mono text-sky-300">EVOLUTION_MERGE</span>, "One merge executed (winner kept, loser absorbed)"],
-                  [<span className="font-mono text-sky-300">EVOLUTION_INVENTION_SUMMARY</span>, "Macros formed this cycle"],
-                  [<span className="font-mono text-sky-300">EVOLUTION_INVENTION_ERROR</span>, "Invention step failed (non-fatal)"],
-                  [<span className="font-mono text-sky-300">EVOLUTION_PERSISTENCE_APPLIED</span>, "State persisted to graph version"],
-                  [<span className="font-mono text-sky-300">EVOLUTION_COMPLETE</span>, "Cycle finished with actions"],
-                  [<span className="font-mono text-sky-300">EVOLUTION_SKIPPED</span>, "Cycle ran but nothing qualified"],
-                  [<span className="font-mono text-sky-300">EVOLUTION_ERROR</span>, "Cycle failed (fatal for the run)"],
+                  [
+                    <span className="font-mono text-sky-300">
+                      DIAGNOSTICS_SNAPSHOT
+                    </span>,
+                    "Pre/post-cycle invariants (D_hat, H_hat, lambda_hat, R, N, E)",
+                  ],
+                  [
+                    <span className="font-mono text-sky-300">
+                      EVOLUTION_START
+                    </span>,
+                    "Cycle begins",
+                  ],
+                  [
+                    <span className="font-mono text-sky-300">
+                      EVOLUTION_MERGE
+                    </span>,
+                    "One merge executed (winner kept, loser absorbed)",
+                  ],
+                  [
+                    <span className="font-mono text-sky-300">
+                      EVOLUTION_INVENTION_SUMMARY
+                    </span>,
+                    "Macros formed this cycle",
+                  ],
+                  [
+                    <span className="font-mono text-sky-300">
+                      EVOLUTION_INVENTION_ERROR
+                    </span>,
+                    "Invention step failed (non-fatal)",
+                  ],
+                  [
+                    <span className="font-mono text-sky-300">
+                      EVOLUTION_PERSISTENCE_APPLIED
+                    </span>,
+                    "State persisted to graph version",
+                  ],
+                  [
+                    <span className="font-mono text-sky-300">
+                      EVOLUTION_COMPLETE
+                    </span>,
+                    "Cycle finished with actions",
+                  ],
+                  [
+                    <span className="font-mono text-sky-300">
+                      EVOLUTION_SKIPPED
+                    </span>,
+                    "Cycle ran but nothing qualified",
+                  ],
+                  [
+                    <span className="font-mono text-sky-300">
+                      EVOLUTION_ERROR
+                    </span>,
+                    "Cycle failed (fatal for the run)",
+                  ],
                 ]}
               />
               <Callout tone="info" title="Timeline tips">
@@ -1909,7 +2604,11 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 17. PROFILES & PERSIST ============ */}
-            <SectionHeading id="modes" kicker="Chapter 18" title="Profiles & Persist Modes">
+            <SectionHeading
+              id="modes"
+              kicker="Chapter 18"
+              title="Profiles & Persist Modes"
+            >
               <SubHeading id="modes-profile">Profiles</SubHeading>
               <p>
                 The profile shapes how aggressively the cycle evolves. It is
@@ -1919,12 +2618,23 @@ export function EvolutionManual({
               <DTable
                 head={["Profile", "Character"]}
                 rows={[
-                  [<span className="font-mono">Strict</span>, "Conservative, maximal evidence before structural change"],
-                  [<span className="font-mono">Fast</span>, "Balanced — quick gains with moderate risk"],
-                  [<span className="font-mono">Relaxed</span>, "Progressive — more aggressive merging and invention"],
+                  [
+                    <span className="font-mono">Strict</span>,
+                    "Conservative, maximal evidence before structural change",
+                  ],
+                  [
+                    <span className="font-mono">Fast</span>,
+                    "Balanced — quick gains with moderate risk",
+                  ],
+                  [
+                    <span className="font-mono">Relaxed</span>,
+                    "Progressive — more aggressive merging and invention",
+                  ],
                 ]}
               />
-              <SubHeading id="modes-persist">Persist Modes & Durability</SubHeading>
+              <SubHeading id="modes-persist">
+                Persist Modes & Durability
+              </SubHeading>
               <DTable
                 head={["Persist mode", "Completion mode", "Durability path"]}
                 rows={[
@@ -1935,7 +2645,9 @@ export function EvolutionManual({
                   ],
                   [
                     <span className="font-mono">Relaxed</span>,
-                    <span className="font-mono">core_sync_state_best_effort</span>,
+                    <span className="font-mono">
+                      core_sync_state_best_effort
+                    </span>,
                     "State update is best-effort; failures are non-fatal and reported via state_update_status / state_update_error",
                   ],
                 ]}
@@ -1948,7 +2660,11 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 18. RESPONSE ============ */}
-            <SectionHeading id="response" kicker="Chapter 19" title="Evolve Response Reference">
+            <SectionHeading
+              id="response"
+              kicker="Chapter 19"
+              title="Evolve Response Reference"
+            >
               <SubHeading id="response-fields">Response Fields</SubHeading>
               <p>
                 POST /api/v1/evolve returns the full cycle report, including a
@@ -1957,20 +2673,58 @@ export function EvolutionManual({
               <DTable
                 head={["Field", "Meaning"]}
                 rows={[
-                  [<span className="font-mono">status</span>, "completed / error"],
-                  [<span className="font-mono">graph_version</span>, "New graph version after the cycle"],
-                  [<span className="font-mono">merges / prunes / inventions</span>, "Action counts"],
-                  [<span className="font-mono">diagnostics</span>, "Post-cycle invariants snapshot"],
-                  [<span className="font-mono">events_emitted</span>, "Event kinds emitted this run"],
-                  [<span className="font-mono">latency_ms</span>, "Cycle wall time"],
-                  [<span className="font-mono">effective_profile / effective_persist_mode</span>, "What was actually honored"],
-                  [<span className="font-mono">completion_mode / durability_path</span>, "Persistence contract used"],
-                  [<span className="font-mono">state_update_status / state_update_error</span>, "Relaxed-persistence outcome"],
-                  [<span className="font-mono">learning</span>, "Reward, retrieval_delta, meta-metrics, policy_version, knobs used (only when learning enabled)"],
+                  [
+                    <span className="font-mono">status</span>,
+                    "completed / error",
+                  ],
+                  [
+                    <span className="font-mono">graph_version</span>,
+                    "New graph version after the cycle",
+                  ],
+                  [
+                    <span className="font-mono">
+                      merges / prunes / inventions
+                    </span>,
+                    "Action counts",
+                  ],
+                  [
+                    <span className="font-mono">diagnostics</span>,
+                    "Post-cycle invariants snapshot",
+                  ],
+                  [
+                    <span className="font-mono">events_emitted</span>,
+                    "Event kinds emitted this run",
+                  ],
+                  [
+                    <span className="font-mono">latency_ms</span>,
+                    "Cycle wall time",
+                  ],
+                  [
+                    <span className="font-mono">
+                      effective_profile / effective_persist_mode
+                    </span>,
+                    "What was actually honored",
+                  ],
+                  [
+                    <span className="font-mono">
+                      completion_mode / durability_path
+                    </span>,
+                    "Persistence contract used",
+                  ],
+                  [
+                    <span className="font-mono">
+                      state_update_status / state_update_error
+                    </span>,
+                    "Relaxed-persistence outcome",
+                  ],
+                  [
+                    <span className="font-mono">learning</span>,
+                    "Reward, retrieval_delta, meta-metrics, policy_version, knobs used (only when learning enabled)",
+                  ],
                 ]}
               />
               <pre className="overflow-x-auto rounded-[14px] border border-white/8 bg-black/50 p-4 text-[11px] leading-relaxed text-slate-300">
-{`{
+                {`{
   "status": "completed",
   "graph_version": 8,
   "merges": 3, "prunes": 1, "inventions": 1,
@@ -1990,7 +2744,11 @@ export function EvolutionManual({
             </SectionHeading>
 
             {/* ============ 19. FAQ ============ */}
-            <SectionHeading id="faq" kicker="Chapter 20" title="Troubleshooting & FAQ">
+            <SectionHeading
+              id="faq"
+              kicker="Chapter 20"
+              title="Troubleshooting & FAQ"
+            >
               <DTable
                 head={["Question", "Answer"]}
                 rows={[

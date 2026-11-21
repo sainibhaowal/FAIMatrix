@@ -77,7 +77,15 @@ DOMAIN_PROFILE_PACKS: Dict[str, Tuple[Tuple[str, str, str], ...]] = {
 }
 
 DOMAIN_PACK_KEYWORDS: Dict[str, Tuple[str, ...]] = {
-    "general": ("document", "project", "policy", "process", "issue", "status", "update"),
+    "general": (
+        "document",
+        "project",
+        "policy",
+        "process",
+        "issue",
+        "status",
+        "update",
+    ),
     "finance": ("revenue", "ebitda", "margin", "cash flow", "forecast", "invoice"),
     "medical": ("patient", "diagnosis", "symptom", "treatment", "hba1c", "dosage"),
     "legal": ("agreement", "contract", "clause", "indemnify", "governing law", "party"),
@@ -270,7 +278,12 @@ def derive_kb_rows_from_documents(
                 },
             )
             if aliases:
-                merged = list(dict.fromkeys(list(row.get("aliases", [])) + aliases))
+                prior_aliases = row.get("aliases", [])
+                if not isinstance(prior_aliases, list):
+                    prior_aliases = []
+                merged = list(
+                    dict.fromkeys([str(alias) for alias in prior_aliases] + aliases)
+                )
                 row["aliases"] = merged[:8]
     return [rows[key] for key in sorted(rows)]
 

@@ -76,7 +76,9 @@ function formatScore(value: number): string {
   return value.toFixed(4);
 }
 
-export const EvolutionVersionHistory: React.FC<EvolutionVersionHistoryProps> = ({
+export const EvolutionVersionHistory: React.FC<
+  EvolutionVersionHistoryProps
+> = ({
   data,
   loading = false,
   error = null,
@@ -153,9 +155,7 @@ export const EvolutionVersionHistory: React.FC<EvolutionVersionHistoryProps> = (
                 >
                   <button
                     type="button"
-                    onClick={() =>
-                      setExpanded(isExpanded ? null : row.version)
-                    }
+                    onClick={() => setExpanded(isExpanded ? null : row.version)}
                     className="flex w-full items-center gap-2 px-3 py-2.5 text-left"
                   >
                     <GitCommit
@@ -185,14 +185,10 @@ export const EvolutionVersionHistory: React.FC<EvolutionVersionHistoryProps> = (
                     </span>
                     <span className="ml-auto flex items-center gap-1.5 text-[10px] font-mono">
                       {row.merges > 0 && (
-                        <span className="text-sky-300">
-                          +{row.merges}m
-                        </span>
+                        <span className="text-sky-300">+{row.merges}m</span>
                       )}
                       {row.prunes > 0 && (
-                        <span className="text-rose-300">
-                          −{row.prunes}p
-                        </span>
+                        <span className="text-rose-300">−{row.prunes}p</span>
                       )}
                       {row.inventions > 0 && (
                         <span className="text-purple-300">

@@ -8,7 +8,11 @@ const SPEC_GROUPS = [
     color: "cyan",
     borderColor: "border-cyan-500/20",
     specs: [
-      { label: "Semantic Routing", value: "Seeded aliases", unit: "deterministic" },
+      {
+        label: "Semantic Routing",
+        value: "Seeded aliases",
+        unit: "deterministic",
+      },
       { label: "Vector Dimension", value: "256", unit: "fixed" },
       { label: "Encoding", value: "Deterministic", unit: "native" },
       { label: "Idempotency", value: "SHA-256 dedup", unit: "per write" },
@@ -31,7 +35,11 @@ const SPEC_GROUPS = [
     color: "blue",
     borderColor: "border-blue-500/20",
     specs: [
-      { label: "Memory Writes", value: "Proposals Only", unit: "human-in-the-loop" },
+      {
+        label: "Memory Writes",
+        value: "Proposals Only",
+        unit: "human-in-the-loop",
+      },
       {
         label: "Extraction",
         value: "PDF · DOCX · PPTX · XLSX · Images",

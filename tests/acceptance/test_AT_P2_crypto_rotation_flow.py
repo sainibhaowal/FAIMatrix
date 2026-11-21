@@ -7,6 +7,9 @@ from uuid import UUID, uuid4
 
 
 def _mk_client(monkeypatch, tenant_id: str, api_key: str, raw_store_path: str):
+    import tempfile
+    from uuid import uuid4
+
     from api.app import create_app
     from api.middleware.auth import reload_tenant_keys
     from fastapi.testclient import TestClient
@@ -15,8 +18,6 @@ def _mk_client(monkeypatch, tenant_id: str, api_key: str, raw_store_path: str):
     from sqlalchemy import create_engine
     from store.pg import session as pg_session
     from store.pg.models_faim import Base
-    import tempfile
-    from uuid import uuid4
 
     db_path = tempfile.gettempdir() + f"/faim_crypto_test_{uuid4().hex}.db"
     db_url = f"sqlite:///{db_path}"

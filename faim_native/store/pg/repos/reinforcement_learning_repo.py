@@ -94,9 +94,15 @@ class ReinforcementLearningRepo:
             row.successful_uses = int(stats.get("successful_uses", row.successful_uses))
             row.failed_uses = int(stats.get("failed_uses", row.failed_uses))
             row.average_rating = float(stats.get("average_rating", row.average_rating))
-            row.correction_rate = float(stats.get("correction_rate", row.correction_rate))
-            row.reliability_score = float(stats.get("reliability_score", row.reliability_score))
-            row.threshold_adjustment = float(stats.get("threshold_adjustment", row.threshold_adjustment))
+            row.correction_rate = float(
+                stats.get("correction_rate", row.correction_rate)
+            )
+            row.reliability_score = float(
+                stats.get("reliability_score", row.reliability_score)
+            )
+            row.threshold_adjustment = float(
+                stats.get("threshold_adjustment", row.threshold_adjustment)
+            )
             row.first_seen = stats.get("first_seen") or row.first_seen
             row.last_used = stats.get("last_used") or row.last_used
             row.updated_at = now

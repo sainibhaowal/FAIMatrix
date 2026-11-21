@@ -53,7 +53,9 @@ def _legacy_passes(vectors):
     estimate_H_entropy(sims, DEFAULT_CONFIG.bins, DEFAULT_CONFIG)
     compute_redundancy_R(sims, threshold=0.9, config=DEFAULT_CONFIG)
     distances = [1.0 - s for s in sims]
-    estimate_D_fractal(vectors, DEFAULT_CONFIG.epsilons, DEFAULT_CONFIG, distances=distances)
+    estimate_D_fractal(
+        vectors, DEFAULT_CONFIG.epsilons, DEFAULT_CONFIG, distances=distances
+    )
 
     # 2. Prune max-similarity matrix.
     nodes = [_StubNode(i, v) for i, v in enumerate(vectors)]
@@ -64,9 +66,13 @@ def _vectorized_passes(vectors):
     S = _vectorized_cosine_matrix(vectors)
     flat = _upper_triangle_floats(S)
     distances = [1.0 - s for s in flat]
-    estimate_H_entropy(np.asarray(flat, dtype=np.float64).tolist(), DEFAULT_CONFIG.bins, DEFAULT_CONFIG)
+    estimate_H_entropy(
+        np.asarray(flat, dtype=np.float64).tolist(), DEFAULT_CONFIG.bins, DEFAULT_CONFIG
+    )
     compute_redundancy_R(list(flat), threshold=0.9, config=DEFAULT_CONFIG)
-    estimate_D_fractal(vectors, DEFAULT_CONFIG.epsilons, DEFAULT_CONFIG, distances=distances)
+    estimate_D_fractal(
+        vectors, DEFAULT_CONFIG.epsilons, DEFAULT_CONFIG, distances=distances
+    )
     _node_max_similarities(S)
 
 

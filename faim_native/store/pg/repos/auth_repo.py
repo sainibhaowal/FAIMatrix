@@ -385,6 +385,55 @@ class AuthRepo:
 
         return record
 
+    def get_key_labels(self, tenant_id: str, key_ids: List[str]) -> Dict[str, str]:
+        """Return latest label per key_id from audit metadata."""
+        if not key_ids:
+            return {}
+        rows = (
+            self.session.query(AuthKeyAuditLog)
+            .filter(
+                and_(
+                    AuthKeyAuditLog.tenant_id == tenant_id,
+                    AuthKeyAuditLog.key_id.in_(key_ids),
+                    AuthKeyAuditLog.action == "labeled",
+                )
+            )
+            .order_by(AuthKeyAuditLog.created_at.asc())
+            .all()
+        )
+        labels: Dict[str, str] = {}
+        for row in rows:
+            meta = getattr(row, "meta", None) or {}
+            lbl = meta.get("label") if isinstance(meta, dict) else None
+            if isinstance(lbl, str) and lbl.strip():
+                labels[str(row.key_id)] = lbl.strip()
+        return labels
+
+    def delete_tenant_key(self, tenant_id: str, key_id: str) -> bool:
+        """Permanently delete an API key and all its audit history."""
+        record = (
+            self.session.query(TenantApiKey)
+            .filter(
+                and_(
+                    TenantApiKey.tenant_id == tenant_id,
+                    TenantApiKey.key_id == key_id,
+                )
+            )
+            .first()
+        )
+        if record is None:
+            return False
+
+        self.session.query(AuthKeyAuditLog).filter(
+            and_(
+                AuthKeyAuditLog.tenant_id == tenant_id,
+                AuthKeyAuditLog.key_id == key_id,
+            )
+        ).delete(synchronize_session=False)
+        self.session.delete(record)
+        self.session.flush()
+        return True
+
     def rotate_tenant_key(
         self,
         tenant_id: str,

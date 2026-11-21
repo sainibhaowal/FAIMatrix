@@ -82,7 +82,7 @@ image bootstrap after migrations, stores only Argon2id hashes, and removes only
 that temporary line after success. Treat the temporary value as an
 operator-supplied secret: do not place it in GitHub workflow logs, source
 control, or a long-running API/worker environment.
-See [`docs/PRODUCTION_HARDENING.md`](docs/PRODUCTION_HARDENING.md) for the
+See [`faim_native/Docs/11-security/02-production-hardening.md`](faim_native/Docs/11-security/02-production-hardening.md) for the
 manual dry-run and rotation procedure.
 
 Before an actual update, validate the installed VPS configuration without changing services:

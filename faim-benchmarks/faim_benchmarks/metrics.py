@@ -37,7 +37,10 @@ def ndcg_at_k(retrieved: Sequence[str], qrels: Dict[str, float], k: int) -> floa
             dcg += (2.0**rel - 1.0) / math.log2(idx + 1)
 
     ideal_rels = sorted((float(v) for v in qrels.values() if v > 0), reverse=True)[:k]
-    idcg = sum((2.0**rel - 1.0) / math.log2(idx + 1) for idx, rel in enumerate(ideal_rels, start=1))
+    idcg = sum(
+        (2.0**rel - 1.0) / math.log2(idx + 1)
+        for idx, rel in enumerate(ideal_rels, start=1)
+    )
     return (dcg / idcg) if idcg > 0 else 0.0
 
 
@@ -124,7 +127,12 @@ def bootstrap_ci(
         return {"mean": 0.0, "ci_low": 0.0, "ci_high": 0.0, "n": 0}
     mean = sum(vals) / n
     if n == 1:
-        return {"mean": round(mean, 4), "ci_low": round(mean, 4), "ci_high": round(mean, 4), "n": 1}
+        return {
+            "mean": round(mean, 4),
+            "ci_low": round(mean, 4),
+            "ci_high": round(mean, 4),
+            "n": 1,
+        }
     rng = random.Random(seed)
     means: List[float] = []
     for _ in range(iterations):

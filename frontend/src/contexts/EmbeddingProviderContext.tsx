@@ -23,7 +23,10 @@ import {
   setActiveEmbeddingProvider as setActiveEmbeddingProviderLib,
   normalizeBaseUrl,
 } from "@/lib/embeddingProviders";
-import { testEmbeddingProvider, discoverEmbeddingModels } from "@/lib/embeddingProviderDiscovery";
+import {
+  testEmbeddingProvider,
+  discoverEmbeddingModels,
+} from "@/lib/embeddingProviderDiscovery";
 
 interface EmbeddingProviderContextType {
   providers: EmbeddingProvider[];
@@ -46,15 +49,18 @@ interface EmbeddingProviderContextType {
   refreshAllProvidersStatus: () => Promise<void>;
 }
 
-const EmbeddingProviderContext = createContext<EmbeddingProviderContextType | undefined>(
-  undefined,
-);
+const EmbeddingProviderContext = createContext<
+  EmbeddingProviderContextType | undefined
+>(undefined);
 
-export function EmbeddingProviderProvider({ children }: { children: React.ReactNode }) {
+export function EmbeddingProviderProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [providers, setProviders] = useState<EmbeddingProvider[]>([]);
-  const [activeProvider, setActiveProviderState] = useState<EmbeddingProvider | null>(
-    null,
-  );
+  const [activeProvider, setActiveProviderState] =
+    useState<EmbeddingProvider | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -199,7 +205,9 @@ export function EmbeddingProviderProvider({ children }: { children: React.ReactN
 export function useEmbeddingProviders(): EmbeddingProviderContextType {
   const context = useContext(EmbeddingProviderContext);
   if (!context) {
-    throw new Error("useEmbeddingProviders must be used within an EmbeddingProviderProvider");
+    throw new Error(
+      "useEmbeddingProviders must be used within an EmbeddingProviderProvider",
+    );
   }
   return context;
 }

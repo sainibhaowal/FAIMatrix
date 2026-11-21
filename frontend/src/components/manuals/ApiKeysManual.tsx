@@ -12,15 +12,41 @@ import {
 
 const TOC: TocItem[] = [
   { id: "overview", label: "1. Introduction" },
-  { id: "auth", label: "2. Authentication Headers", children: [{ id: "auth-headers", label: "Header Format" }] },
-  { id: "lifecycle", label: "3. Key Lifecycle", children: [{ id: "lc-create", label: "Create" }, { id: "lc-use", label: "Use" }, { id: "lc-rotate", label: "Rotate" }, { id: "lc-revoke", label: "Revoke" }] },
+  {
+    id: "auth",
+    label: "2. Authentication Headers",
+    children: [{ id: "auth-headers", label: "Header Format" }],
+  },
+  {
+    id: "lifecycle",
+    label: "3. Key Lifecycle",
+    children: [
+      { id: "lc-create", label: "Create" },
+      { id: "lc-use", label: "Use" },
+      { id: "lc-rotate", label: "Rotate" },
+      { id: "lc-revoke", label: "Revoke" },
+    ],
+  },
   { id: "scopes", label: "4. Scopes & Permissions" },
-  { id: "ui", label: "5. UI Guide", children: [{ id: "ui-matrix", label: "Key Matrix" }, { id: "ui-audit", label: "Audit Trail" }] },
+  {
+    id: "ui",
+    label: "5. UI Guide",
+    children: [
+      { id: "ui-matrix", label: "Key Matrix" },
+      { id: "ui-audit", label: "Audit Trail" },
+    ],
+  },
   { id: "security", label: "6. Security & Tenant Isolation" },
   { id: "troubleshoot", label: "7. Troubleshooting" },
 ];
 
-export function ApiKeysManual({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ApiKeysManual({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
   return (
     <ManualShell
       open={open}
@@ -42,15 +68,35 @@ export function ApiKeysManual({ open, onClose }: { open: boolean; onClose: () =>
         </Callout>
       </SectionHeading>
 
-      <SectionHeading id="auth" kicker="Chapter 02" title="Authentication Headers">
+      <SectionHeading
+        id="auth"
+        kicker="Chapter 02"
+        title="Authentication Headers"
+      >
         <SubHeading id="auth-headers">Header Format</SubHeading>
         <p>Every API request carries two headers:</p>
-{/* eslint-disable-next-line react/jsx-key */}
+        {/* eslint-disable-next-line react/jsx-key */}
         <DTable
           head={["Header", "Value", "Purpose"]}
           rows={[
-            { cells: [<span key="api-key" className="font-mono text-cyan-300">X-Api-Key</span>, "the plaintext key", "Proves possession of the credential"] },
-            { cells: [<span key="tenant-id" className="font-mono text-cyan-300">X-Tenant-Id</span>, "tenant id (e.g. default)", "Selects the tenant namespace"] },
+            {
+              cells: [
+                <span key="api-key" className="font-mono text-cyan-300">
+                  X-Api-Key
+                </span>,
+                "the plaintext key",
+                "Proves possession of the credential",
+              ],
+            },
+            {
+              cells: [
+                <span key="tenant-id" className="font-mono text-cyan-300">
+                  X-Tenant-Id
+                </span>,
+                "tenant id (e.g. default)",
+                "Selects the tenant namespace",
+              ],
+            },
           ]}
         />
         <Callout tone="warn" title="Tenant isolation">
@@ -63,15 +109,15 @@ export function ApiKeysManual({ open, onClose }: { open: boolean; onClose: () =>
         <SubHeading id="lc-create">Create</SubHeading>
         <p>
           Click <span className="font-mono text-cyan-300">Create Key</span>,
-          pick the tenant, and select scopes. The system mints a key id
-          (shown as a short prefix in the matrix) plus a plaintext secret
-          shown once.
+          pick the tenant, and select scopes. The system mints a key id (shown
+          as a short prefix in the matrix) plus a plaintext secret shown once.
         </p>
         <SubHeading id="lc-use">Use</SubHeading>
         <p>
-          Send the secret in <span className="font-mono text-cyan-300">X-Api-Key</span>{" "}
-          on every request. The matrix records the last-used timestamp so you
-          can see which keys are actively in production.
+          Send the secret in{" "}
+          <span className="font-mono text-cyan-300">X-Api-Key</span> on every
+          request. The matrix records the last-used timestamp so you can see
+          which keys are actively in production.
         </p>
         <SubHeading id="lc-rotate">Rotate</SubHeading>
         <p>
@@ -87,18 +133,71 @@ export function ApiKeysManual({ open, onClose }: { open: boolean; onClose: () =>
         </p>
       </SectionHeading>
 
-      <SectionHeading id="scopes" kicker="Chapter 04" title="Scopes & Permissions">
-{/* eslint-disable-next-line react/jsx-key */}
+      <SectionHeading
+        id="scopes"
+        kicker="Chapter 04"
+        title="Scopes & Permissions"
+      >
+        {/* eslint-disable-next-line react/jsx-key */}
         <DTable
           head={["Scope", "Allows"]}
           rows={[
-            { cells: [<span key="storage-read" className="font-mono">storage.read</span>, "List and inspect stored files and provenance"] },
-            { cells: [<span key="storage-write" className="font-mono">storage.write</span>, "Upload and ingest new files"] },
-            { cells: [<span key="storage-approve" className="font-mono">storage.approve</span>, "Approve or reject pending storage actions"] },
-            { cells: [<span key="graph-read" className="font-mono">graph.read</span>, "Read knowledge graph state"] },
-            { cells: [<span key="graph-write" className="font-mono">graph.write</span>, "Mutate the knowledge graph"] },
-            { cells: [<span key="keys-manage" className="font-mono">keys.manage</span>, "Create, rotate and revoke API keys"] },
-            { cells: [<span key="cortex-chat" className="font-mono">cortex.chat</span>, "Use the Cortex reasoning/chat engine"] },
+            {
+              cells: [
+                <span key="storage-read" className="font-mono">
+                  storage.read
+                </span>,
+                "List and inspect stored files and provenance",
+              ],
+            },
+            {
+              cells: [
+                <span key="storage-write" className="font-mono">
+                  storage.write
+                </span>,
+                "Upload and ingest new files",
+              ],
+            },
+            {
+              cells: [
+                <span key="storage-approve" className="font-mono">
+                  storage.approve
+                </span>,
+                "Approve or reject pending storage actions",
+              ],
+            },
+            {
+              cells: [
+                <span key="graph-read" className="font-mono">
+                  graph.read
+                </span>,
+                "Read knowledge graph state",
+              ],
+            },
+            {
+              cells: [
+                <span key="graph-write" className="font-mono">
+                  graph.write
+                </span>,
+                "Mutate the knowledge graph",
+              ],
+            },
+            {
+              cells: [
+                <span key="keys-manage" className="font-mono">
+                  keys.manage
+                </span>,
+                "Create, rotate and revoke API keys",
+              ],
+            },
+            {
+              cells: [
+                <span key="cortex-chat" className="font-mono">
+                  cortex.chat
+                </span>,
+                "Use the Cortex reasoning/chat engine",
+              ],
+            },
           ]}
         />
       </SectionHeading>
@@ -118,9 +217,16 @@ export function ApiKeysManual({ open, onClose }: { open: boolean; onClose: () =>
         </p>
       </SectionHeading>
 
-      <SectionHeading id="security" kicker="Chapter 06" title="Security & Tenant Isolation">
+      <SectionHeading
+        id="security"
+        kicker="Chapter 06"
+        title="Security & Tenant Isolation"
+      >
         <ul className="list-disc space-y-1 pl-5">
-          <li>Secrets are stored hashed server-side; only the prefix is ever returned.</li>
+          <li>
+            Secrets are stored hashed server-side; only the prefix is ever
+            returned.
+          </li>
           <li>Keys are bound to a single tenant and cannot cross tenants.</li>
           <li>Revoked keys are rejected immediately.</li>
           <li>Rotation preserves continuity while tightening exposure.</li>
@@ -128,15 +234,43 @@ export function ApiKeysManual({ open, onClose }: { open: boolean; onClose: () =>
         </ul>
       </SectionHeading>
 
-      <SectionHeading id="troubleshoot" kicker="Chapter 07" title="Troubleshooting">
-{/* eslint-disable-next-line react/jsx-key */}
+      <SectionHeading
+        id="troubleshoot"
+        kicker="Chapter 07"
+        title="Troubleshooting"
+      >
+        {/* eslint-disable-next-line react/jsx-key */}
         <DTable
           head={["Problem", "Cause", "Fix"]}
           rows={[
-            { cells: ["401 Unauthorized", "Wrong or revoked key", "Re-check header, rotate or recreate"] },
-            { cells: ["403 Forbidden", "Scope missing", "Issue a key with the required scope"] },
-            { cells: ["Key not visible", "Filtered by include_revoked", "Toggle revoked visibility"] },
-            { cells: ["Can't create key", "No keys.manage scope on your key", "Ask a key manager"] },
+            {
+              cells: [
+                "401 Unauthorized",
+                "Wrong or revoked key",
+                "Re-check header, rotate or recreate",
+              ],
+            },
+            {
+              cells: [
+                "403 Forbidden",
+                "Scope missing",
+                "Issue a key with the required scope",
+              ],
+            },
+            {
+              cells: [
+                "Key not visible",
+                "Filtered by include_revoked",
+                "Toggle revoked visibility",
+              ],
+            },
+            {
+              cells: [
+                "Can't create key",
+                "No keys.manage scope on your key",
+                "Ask a key manager",
+              ],
+            },
           ]}
         />
       </SectionHeading>

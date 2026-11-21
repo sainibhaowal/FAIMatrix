@@ -590,7 +590,10 @@ export default function JournalPage() {
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-4 h-full" style={{ minHeight: 0 }}>
+    <div
+      className="relative flex flex-col gap-4 h-full pb-8 text-slate-100 px-1"
+      style={{ minHeight: 0 }}
+    >
       <div className="faim-grid" />
 
       {/* ── Header ── */}
@@ -780,7 +783,6 @@ export default function JournalPage() {
 
           {/* ── Main feed panel (Clean SectionShell Style) ── */}
           <section className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] flex-1 flex flex-col min-h-[380px]">
-
             {/* Panel header + filter chips */}
             <div className="relative border-b border-white/6 px-5 py-3.5 shrink-0">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -911,14 +913,19 @@ function MetricTile({
 }) {
   return (
     <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
-      <div className="absolute inset-x-0 top-0 h-[2px]" style={{ background: accent }} />
+      <div
+        className="absolute inset-x-0 top-0 h-[2px]"
+        style={{ background: accent }}
+      />
       <p className="font-mono text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500">
         {label}
       </p>
       <p className="mt-1.5 text-[18px] font-semibold leading-none tracking-tight text-white">
         {value}
       </p>
-      <p className="mt-1.5 text-[10px] leading-[1.125rem] text-slate-400 truncate">{hint}</p>
+      <p className="mt-1.5 text-[10px] leading-[1.125rem] text-slate-400 truncate">
+        {hint}
+      </p>
     </div>
   );
 }

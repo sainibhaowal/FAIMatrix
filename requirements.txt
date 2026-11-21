@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 sqlalchemy>=2.0.0
 pydantic
+psycopg[binary]
 psycopg2-binary
 redis
 qdrant-client
@@ -13,12 +14,14 @@ argon2-cffi
 cryptography
 email-validator
 Pillow
+defusedxml
 pytesseract
 pymupdf
 pdfplumber
 pypdf>=6.9.1
 python-docx
 openpyxl
+xlrd>=2.0.1
 python-pptx
 psutil
 datasets
@@ -32,4 +35,3 @@ pytest-xdist
 pytest-asyncio>=0.26.0
 paddlepaddle
 paddleocr
-

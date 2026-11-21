@@ -12,7 +12,11 @@ from pathlib import Path
 from typing import List, Optional
 
 from faim_benchmarks.adapters import build_all_adapters
-from faim_benchmarks.datasets import load_beir_split, load_locomo_split, load_longmemeval_split
+from faim_benchmarks.datasets import (
+    load_beir_split,
+    load_locomo_split,
+    load_longmemeval_split,
+)
 from faim_benchmarks.report import write_signed_artifacts
 from faim_benchmarks.runner import run_conversational_benchmark, run_retrieval_benchmark
 
@@ -73,18 +77,22 @@ def _run_metadata(argv: List[str]) -> dict:
         "faim_phase5_enabled": os.getenv("FAIM_PHASE5_ENABLED", "unspecified"),
         "faim_enable_index": os.getenv("FAIM_ENABLE_INDEX", "unspecified"),
         "model_provenance": {
-            "embedding_provider_id": os.getenv("FAIM_EMBEDDING_PROVIDER_ID", "unspecified"),
+            "embedding_provider_id": os.getenv(
+                "FAIM_EMBEDDING_PROVIDER_ID", "unspecified"
+            ),
             "embedding_model_id": os.getenv("FAIM_EMBEDDING_MODEL_ID", "unspecified"),
-            "embedding_model_revision": os.getenv("FAIM_EMBEDDING_MODEL_REVISION", "unspecified"),
+            "embedding_model_revision": os.getenv(
+                "FAIM_EMBEDDING_MODEL_REVISION", "unspecified"
+            ),
             "reranker_model_id": os.getenv("FAIM_RERANKER_MODEL_ID", "unspecified"),
-            "reranker_model_revision": os.getenv("FAIM_RERANKER_MODEL_REVISION", "unspecified"),
+            "reranker_model_revision": os.getenv(
+                "FAIM_RERANKER_MODEL_REVISION", "unspecified"
+            ),
         },
         "faim_db_idle_in_transaction_timeout_ms": os.getenv(
             "FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "unspecified"
         ),
-        "faim_db_lock_timeout_ms": os.getenv(
-            "FAIM_DB_LOCK_TIMEOUT_MS", "unspecified"
-        ),
+        "faim_db_lock_timeout_ms": os.getenv("FAIM_DB_LOCK_TIMEOUT_MS", "unspecified"),
     }
 
 
@@ -109,9 +117,7 @@ def _select_adapters(adapters, systems: Optional[str]):
     }
     unknown = sorted(item for item in requested if item not in aliases)
     if unknown:
-        raise ValueError(
-            "Unknown --systems value(s): " + ", ".join(unknown)
-        )
+        raise ValueError("Unknown --systems value(s): " + ", ".join(unknown))
     canonical = {aliases[item] for item in requested}
     selected = [adapter for adapter in adapters if adapter.name.lower() in canonical]
     missing = sorted(canonical - {adapter.name.lower() for adapter in selected})
@@ -123,12 +129,23 @@ def _select_adapters(adapters, systems: Optional[str]):
 def main(argv: Optional[List[str]] = None) -> int:
     _load_dotenv_if_present()
     effective_argv = list(sys.argv[1:] if argv is None else argv)
-    parser = argparse.ArgumentParser(prog="faim-bench", description="External benchmark runner for FAIM vs competitors")
+    parser = argparse.ArgumentParser(
+        prog="faim-bench",
+        description="External benchmark runner for FAIM vs competitors",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     beir = sub.add_parser("beir", help="Run a BEIR retrieval benchmark")
-    beir.add_argument("--dataset", default="scifact", help="BEIR dataset name (scifact, nfcorpus, fiqa, hotpotqa, fever, nq, msmarco)")
-    beir.add_argument("--local-dir", default=None, help="Optional local BEIR directory instead of HuggingFace download")
+    beir.add_argument(
+        "--dataset",
+        default="scifact",
+        help="BEIR dataset name (scifact, nfcorpus, fiqa, hotpotqa, fever, nq, msmarco)",
+    )
+    beir.add_argument(
+        "--local-dir",
+        default=None,
+        help="Optional local BEIR directory instead of HuggingFace download",
+    )
     beir.add_argument("--max-corpus", type=int, default=None)
     beir.add_argument("--max-queries", type=int, default=None)
     beir.add_argument("--top-k", type=int, default=20)
@@ -169,9 +186,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     beir.add_argument("--out-dir", default="results")
 
-    conv = sub.add_parser("memory", help="Run LoCoMo or LongMemEval conversational memory benchmark")
+    conv = sub.add_parser(
+        "memory", help="Run LoCoMo or LongMemEval conversational memory benchmark"
+    )
     conv.add_argument("--suite", choices=["locomo", "longmemeval"], required=True)
-    conv.add_argument("--data-path", required=True, help="Path to LoCoMo or LongMemEval JSON file")
+    conv.add_argument(
+        "--data-path", required=True, help="Path to LoCoMo or LongMemEval JSON file"
+    )
     conv.add_argument("--max-cases", type=int, default=None)
     conv.add_argument("--top-k", type=int, default=20)
     conv.add_argument("--seed", type=int, default=42)

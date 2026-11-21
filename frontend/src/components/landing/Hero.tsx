@@ -3,7 +3,14 @@
 import { motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowDown, ArrowUpRight, Check, LockKeyhole, Network, ScanSearch } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUpRight,
+  Check,
+  LockKeyhole,
+  Network,
+  ScanSearch,
+} from "lucide-react";
 
 const HERO_STATS = [
   { value: "Seeded", unit: "", label: "Semantic routing" },
@@ -13,9 +20,21 @@ const HERO_STATS = [
 ];
 
 const SPINE = [
-  { label: "Deterministic semantic router", detail: "Seeded aliases and pattern overrides", icon: ScanSearch },
-  { label: "Graph-native retrieval", detail: "Diffusion, reranking, and bounded hops", icon: Network },
-  { label: "Guarded writeback safety", detail: "Durable, idempotent structural updates", icon: LockKeyhole },
+  {
+    label: "Multilingual + native vectors",
+    detail: "Multilingual semantic + deterministic recall",
+    icon: ScanSearch,
+  },
+  {
+    label: "Graph-native retrieval",
+    detail: "Agent-controlled graph_max_hops (1–24)",
+    icon: Network,
+  },
+  {
+    label: "Remote MCP + OAuth 2.1",
+    detail: "Idempotent memory writes & 1-click revoke",
+    icon: LockKeyhole,
+  },
 ];
 
 export default function Hero() {
@@ -30,13 +49,26 @@ export default function Hero() {
       <div className="relative mx-auto flex min-h-[100svh] w-full max-w-[1480px] flex-col justify-center px-5 pb-14 pt-28 sm:px-8 lg:px-12 lg:py-16">
         <div className="faim-hero-brand mb-10 flex items-center justify-between gap-4 lg:mb-14">
           <div className="flex items-center gap-3">
-            <Image src="/logo-coded.svg" alt="FAIMATRIX" width={42} height={42} className="h-10 w-10 rounded-xl border border-cyan-300/30 bg-cyan-300/[0.04] p-1" priority />
+            <Image
+              src="/logo-coded.svg"
+              alt="FAIMATRIX"
+              width={42}
+              height={42}
+              className="h-10 w-10 rounded-xl border border-cyan-300/30 bg-cyan-300/[0.04] p-1"
+              priority
+            />
             <div>
-              <p className="text-sm font-semibold tracking-[0.18em] text-white">FAIMATRIX</p>
-              <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">Public system atlas</p>
+              <p className="text-sm font-semibold tracking-[0.18em] text-white">
+                FAIMATRIX
+              </p>
+              <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.22em] text-slate-500">
+                Public system atlas
+              </p>
             </div>
           </div>
-          <span className="hidden rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.18em] text-emerald-200 sm:inline-flex">Deterministic core online</span>
+          <span className="hidden rounded-lg border border-emerald-300/20 bg-emerald-300/[0.07] px-3 py-2 font-mono text-[9px] uppercase tracking-[0.18em] text-emerald-200 sm:inline-flex">
+            Deterministic core online
+          </span>
         </div>
 
         <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.08fr)_minmax(320px,0.72fr)] lg:gap-14">
@@ -59,11 +91,11 @@ export default function Hero() {
             </h1>
 
             <p className="mt-6 max-w-2xl text-[clamp(1rem,1.35vw,1.2rem)] leading-7 text-slate-400">
-              FAIMATRIX is a structured knowledge engine powered by a
-              deterministic semantic router. It combines 256-dim deterministic
-              vectors with guarded memory writebacks, graph diffusion, and
-              evidence-linked Cortex synthesis; optional model output remains
-              an explicit application-layer dependency.
+              FAIMATRIX is a deterministic memory and multi-hop graph retrieval
+              engine for AI agents. It combines built-in multilingual
+              embeddings, lexical-graph diffusion, and agent-controlled{" "}
+              <code className="text-cyan-200">graph_max_hops</code> (1–24) with
+              native MCP + OAuth 2.1/PKCE—zero LLM required.
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
@@ -91,14 +123,21 @@ export default function Hero() {
           <motion.aside
             initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.45, delay: reduceMotion ? 0 : 0.08 }}
+            transition={{
+              duration: reduceMotion ? 0 : 0.45,
+              delay: reduceMotion ? 0 : 0.08,
+            }}
             aria-label="FAIM runtime spine"
             className="rounded-2xl border border-white/[0.1] bg-white/[0.035] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.28)] backdrop-blur-sm sm:p-5"
           >
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
               <div>
-                <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-slate-500">Runtime spine</p>
-                <p className="mt-1 text-sm font-medium text-slate-100">Inspect every layer</p>
+                <p className="font-mono text-[9px] uppercase tracking-[0.25em] text-slate-500">
+                  Runtime spine
+                </p>
+                <p className="mt-1 text-sm font-medium text-slate-100">
+                  Inspect every layer
+                </p>
               </div>
               <span className="rounded-md border border-emerald-300/20 bg-emerald-300/[0.08] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-emerald-200">
                 live
@@ -109,13 +148,20 @@ export default function Hero() {
               {SPINE.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <div key={item.label} className="flex gap-3 py-4 first:pt-5 last:pb-2">
+                  <div
+                    key={item.label}
+                    className="flex gap-3 py-4 first:pt-5 last:pb-2"
+                  >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-cyan-300/15 bg-cyan-300/[0.06] text-cyan-200">
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-5 w-5" strokeWidth={1.85} />
                     </span>
                     <div>
-                      <p className="text-sm font-medium text-slate-100">{item.label}</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">{item.detail}</p>
+                      <p className="text-sm font-medium text-slate-100">
+                        {item.label}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        {item.detail}
+                      </p>
                     </div>
                   </div>
                 );
@@ -127,28 +173,52 @@ export default function Hero() {
         <motion.div
           initial={{ opacity: 0, y: reduceMotion ? 0 : 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: reduceMotion ? 0 : 0.4, delay: reduceMotion ? 0 : 0.16 }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.4,
+            delay: reduceMotion ? 0 : 0.16,
+          }}
           className="mt-10 grid overflow-hidden rounded-2xl border border-white/[0.1] bg-white/[0.025] sm:grid-cols-2 lg:grid-cols-4"
         >
           {HERO_STATS.map((stat) => (
-            <div key={stat.label} className="border-b border-white/[0.08] px-4 py-4 last:border-b-0 sm:px-5 lg:border-b-0 lg:border-r lg:last:border-r-0">
+            <div
+              key={stat.label}
+              className="border-b border-white/[0.08] px-4 py-4 last:border-b-0 sm:px-5 lg:border-b-0 lg:border-r lg:last:border-r-0"
+            >
               <p className="text-xl font-semibold tracking-[-0.04em] text-slate-100 sm:text-2xl">
                 {stat.value}
-                {stat.unit && <span className="ml-1 text-xs font-normal text-cyan-300">{stat.unit}</span>}
+                {stat.unit && (
+                  <span className="ml-1 text-xs font-normal text-cyan-300">
+                    {stat.unit}
+                  </span>
+                )}
               </p>
-              <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">{stat.label}</p>
+              <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                {stat.label}
+              </p>
             </div>
           ))}
         </motion.div>
 
         <div className="mt-4 grid gap-3 text-sm leading-6 text-slate-400 sm:grid-cols-2">
           <div className="rounded-xl border border-cyan-300/10 bg-cyan-300/[0.025] px-4 py-3">
-            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-200/80">Deterministic semantic router</p>
-            <p className="mt-1">Seeded alias and pattern classification with no LLM required for this path. Latency depends on deployment and is reported in the benchmark surface.</p>
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-cyan-200/80">
+              Deterministic semantic router
+            </p>
+            <p className="mt-1">
+              Seeded alias and pattern classification with no LLM required for
+              this path. Latency depends on deployment and is reported in the
+              benchmark surface.
+            </p>
           </div>
           <div className="rounded-xl border border-indigo-300/10 bg-indigo-300/[0.025] px-4 py-3">
-            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-indigo-200/80">Guarded writeback safety</p>
-            <p className="mt-1">Cortex still requires approval for structural updates, but approved writebacks now execute through a durable, idempotent backend path and appear with receipts in the FIG View.</p>
+            <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-indigo-200/80">
+              Remote MCP &amp; OAuth 2.1 + PKCE
+            </p>
+            <p className="mt-1">
+              Connect Cursor, Claude, VS Code, or offline CLI agents directly
+              via <code className="text-indigo-200">/mcp</code> with per-user
+              OAuth 2.1 grants, one-time API keys, and full FIG View receipts.
+            </p>
           </div>
         </div>
 
@@ -157,7 +227,15 @@ export default function Hero() {
           Deterministic, inspectable, graph-native
         </div>
 
-        <button type="button" onClick={() => { window.history.replaceState(null, "", "#core"); window.dispatchEvent(new HashChangeEvent("hashchange")); }} className="mx-auto mt-10 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/[0.1] px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-cyan-300/30 hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300">
+        <button
+          type="button"
+          onClick={() => {
+            document
+              .getElementById("core")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          className="mx-auto mt-10 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/[0.1] px-4 py-2.5 font-mono text-[9px] uppercase tracking-[0.2em] text-slate-500 transition-colors hover:border-cyan-300/30 hover:text-cyan-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300"
+        >
           Explore the atlas <ArrowDown className="h-3.5 w-3.5" />
         </button>
       </div>

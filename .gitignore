@@ -36,6 +36,7 @@ frontend/build/
 frontend/playwright-report/
 frontend/test-results/
 frontend/tsconfig.tsbuildinfo
+*.tsbuildinfo
 native-ui/dist/
 native-ui/node_modules/
 .npm
@@ -55,6 +56,10 @@ docs/simulation_run*.txt
 
 # OS / IDE
 .DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
 .vscode/
 .idea/
 .claude/
@@ -82,16 +87,23 @@ deploy/ssl/
 .ruff_cache/
 .mypy_cache/
 .pytest_cache/
+.coverage
+.coverage.*
+coverage/
+**/coverage/
+htmlcov/
 
 # Benchmark evidence policy: keep only the canonical completed report in Git.
 /results/
 /faim-benchmarks/results/*
 !/faim-benchmarks/results/public-scifact-full-guarded-v9/
 !/faim-benchmarks/results/public-scifact-full-guarded-v9/*
+/faim-benchmarks/raw_data/
 
 # Development
 /frontend/Docs/
 /docs/
+/resources/
 faim_native/store/raw/blobs/
 scratch_*.py
 *.scratch.*

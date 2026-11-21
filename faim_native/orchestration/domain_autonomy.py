@@ -9,9 +9,8 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import and_
-
 from orchestration.jobs.job_store import JobStore
+from sqlalchemy import and_
 from store.pg.models_faim import JobModel
 
 logger = logging.getLogger(__name__)

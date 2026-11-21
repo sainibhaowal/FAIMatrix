@@ -290,8 +290,8 @@ export default function FigLegend({
                 </span>
               </div>
               <p className="mt-1 text-slate-400">
-                Trace is backed by graph path, semantic signature, node
-                metrics, and provenance evidence.
+                Trace is backed by graph path, semantic signature, node metrics,
+                and provenance evidence.
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {Object.entries(pulseTrace.layer_summary || {})
@@ -317,9 +317,11 @@ export default function FigLegend({
                   Overlay evidence
                 </span>
                 <span className="font-mono text-slate-500">
-                  {queryExplain.query_fusion_summary?.top_result?.active_layers?.length ??
+                  {queryExplain.query_fusion_summary?.top_result?.active_layers
+                    ?.length ??
                     queryExplain.fusion_summary?.active_layers?.length ??
-                    0} layers
+                    0}{" "}
+                  layers
                 </span>
               </div>
               <p className="mt-1 text-slate-400">
@@ -328,11 +330,13 @@ export default function FigLegend({
                 when present.
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                {(queryExplain.fusion_summary?.active_layers ?? []).slice(0, 6).map((layer) => (
-                  <Badge key={layer} size="sm" variant="outline">
-                    {layer}
-                  </Badge>
-                ))}
+                {(queryExplain.fusion_summary?.active_layers ?? [])
+                  .slice(0, 6)
+                  .map((layer) => (
+                    <Badge key={layer} size="sm" variant="outline">
+                      {layer}
+                    </Badge>
+                  ))}
               </div>
             </div>
           </LegendSection>
@@ -367,7 +371,8 @@ export default function FigLegend({
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {livePulse.ui_context?.selected_node_id && (
                   <Badge size="sm" variant="secondary">
-                    selected: {livePulse.ui_context.selected_node_id.slice(0, 12)}
+                    selected:{" "}
+                    {livePulse.ui_context.selected_node_id.slice(0, 12)}
                   </Badge>
                 )}
                 {livePulse.ui_context?.hovered_node_id && (

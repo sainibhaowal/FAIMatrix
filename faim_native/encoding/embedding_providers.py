@@ -22,13 +22,14 @@ if _user_site and _user_site not in sys.path and Path(_user_site).exists():
 logger = logging.getLogger(__name__)
 
 # Directory where pre-downloaded local embedding models live.
-# e.g. models/embeddings/BAAI-bge-small-en-v1.5, models/embeddings/bge-m3, ...
+# e.g. models/embeddings/ibm-granite-granite-embedding-97m-multilingual-r2
 LOCAL_MODELS_DIR = Path(__file__).parent.parent / "models" / "embeddings"
 
 
 @dataclass(frozen=True)
 class EmbeddingModelInfo:
     """Metadata about an embedding model."""
+
     name: str
     display_name: str
     provider_type: str
@@ -43,6 +44,7 @@ class EmbeddingModelInfo:
 @dataclass(frozen=True)
 class EmbeddingResult:
     """Result of embedding generation."""
+
     vectors: List[List[float]]
     dimension: int
     model_name: str
@@ -81,6 +83,7 @@ def _read_model_dimension(model_path: Path) -> Optional[int]:
         if not config_file.exists():
             return None
         import json
+
         with open(config_file, "r", encoding="utf-8") as fh:
             cfg = json.load(fh)
         return int(cfg.get("hidden_size") or 0) or None
@@ -92,6 +95,30 @@ def _read_model_dimension(model_path: Path) -> Optional[int]:
 def _read_model_name(model_path: Path) -> str:
     """Derive a clean model id from a model directory name."""
     return model_path.name
+
+
+def _read_model_max_tokens(model_path: Path) -> int:
+    """Read max context length from local model config files."""
+    import json
+
+    for filename, keys in (
+        ("sentence_bert_config.json", ("max_seq_length",)),
+        ("config.json", ("max_position_embeddings",)),
+        ("tokenizer_config.json", ("model_max_length",)),
+    ):
+        cfg_path = model_path / filename
+        if not cfg_path.exists():
+            continue
+        try:
+            with open(cfg_path, "r", encoding="utf-8") as fh:
+                cfg = json.load(fh)
+            for key in keys:
+                val = int(cfg.get(key) or 0)
+                if 0 < val <= 131072:
+                    return val
+        except Exception:
+            continue
+    return 8192
 
 
 def discover_local_models(models_dir: Optional[Path] = None) -> List[Path]:
@@ -129,10 +156,16 @@ class LocalEmbeddingProvider(EmbeddingProvider):
     used directly with no API key or server required.
     """
 
-    def __init__(self, model_dir: str, display_name: Optional[str] = None, device: Optional[str] = None):
+    def __init__(
+        self,
+        model_dir: str,
+        display_name: Optional[str] = None,
+        device: Optional[str] = None,
+    ):
         self._model_path = Path(model_dir)
         self._display_name = display_name or self._model_path.name
         self._dimension = _read_model_dimension(self._model_path) or 384
+        self._max_tokens = _read_model_max_tokens(self._model_path)
         self._device = device or os.environ.get("FAIM_EMBEDDING_DEVICE", "cpu")
         self._model = None
         self._model_loaded = False
@@ -144,7 +177,7 @@ class LocalEmbeddingProvider(EmbeddingProvider):
             display_name=self._display_name,
             provider_type="local",
             dimension=self._dimension,
-            max_tokens=8192,
+            max_tokens=self._max_tokens,
             is_free=True,
             description=f"Local model from {self._model_path}",
             languages=["100+ languages"],
@@ -162,8 +195,13 @@ class LocalEmbeddingProvider(EmbeddingProvider):
             return
         try:
             from sentence_transformers import SentenceTransformer
-            logger.info(f"Loading local model from {self._model_path} on device={self._device}")
-            self._model = SentenceTransformer(str(self._model_path), device=self._device)
+
+            logger.info(
+                f"Loading local model from {self._model_path} on device={self._device}"
+            )
+            self._model = SentenceTransformer(
+                str(self._model_path), device=self._device
+            )
             self._model_loaded = True
             logger.info(f"Local model {self._model_path.name} loaded successfully")
         except Exception as e:
@@ -213,8 +251,7 @@ class BgeM3LocalProvider(EmbeddingProvider):
 
     def __init__(self, model_dir: Optional[str] = None, device: Optional[str] = None):
         self._model_dir = model_dir or os.environ.get(
-            "FAIM_EMBEDDING_MODEL_DIR",
-            str(Path(__file__).parent.parent / "models")
+            "FAIM_EMBEDDING_MODEL_DIR", str(Path(__file__).parent.parent / "models")
         )
         self._device = device or os.environ.get("FAIM_EMBEDDING_DEVICE", "cpu")
         candidates = [
@@ -245,7 +282,11 @@ class BgeM3LocalProvider(EmbeddingProvider):
             is_free=True,
             description=f"BAAI/bge-m3 1024-dim local embedding model ({self._model_name_or_path})",
             languages=["100+ languages"],
-            model_path=self._model_name_or_path if Path(self._model_name_or_path).exists() else None,
+            model_path=(
+                self._model_name_or_path
+                if Path(self._model_name_or_path).exists()
+                else None
+            ),
         )
 
     def is_available(self) -> bool:
@@ -257,8 +298,13 @@ class BgeM3LocalProvider(EmbeddingProvider):
             return
         try:
             from sentence_transformers import SentenceTransformer
-            logger.info(f"Loading BAAI/bge-m3 from {self._model_name_or_path} on device={self._device}")
-            self._model = SentenceTransformer(self._model_name_or_path, device=self._device)
+
+            logger.info(
+                f"Loading BAAI/bge-m3 from {self._model_name_or_path} on device={self._device}"
+            )
+            self._model = SentenceTransformer(
+                self._model_name_or_path, device=self._device
+            )
             self._model_loaded = True
             logger.info("BAAI/bge-m3 loaded successfully")
         except Exception as e:
@@ -277,7 +323,9 @@ class BgeM3LocalProvider(EmbeddingProvider):
         if not self._model_loaded:
             self._load_model()
         if self._model is None:
-            raise RuntimeError(f"BAAI/bge-m3 model failed to load from {self._model_name_or_path}.")
+            raise RuntimeError(
+                f"BAAI/bge-m3 model failed to load from {self._model_name_or_path}."
+            )
 
         embeddings = self._model.encode(
             texts,
@@ -287,7 +335,11 @@ class BgeM3LocalProvider(EmbeddingProvider):
         )
         return EmbeddingResult(
             vectors=embeddings.tolist(),
-            dimension=embeddings.shape[1] if hasattr(embeddings, "shape") and len(embeddings.shape) > 1 else 1024,
+            dimension=(
+                embeddings.shape[1]
+                if hasattr(embeddings, "shape") and len(embeddings.shape) > 1
+                else 1024
+            ),
             model_name="bge-m3",
             token_count=sum(len(t.split()) for t in texts),
         )
@@ -300,7 +352,9 @@ class BgeM3LocalProvider(EmbeddingProvider):
 class OpenAIEmbeddingProvider(EmbeddingProvider):
     """OpenAI embedding provider (text-embedding-3-small/large)."""
 
-    def __init__(self, api_key: Optional[str] = None, model: str = "text-embedding-3-small"):
+    def __init__(
+        self, api_key: Optional[str] = None, model: str = "text-embedding-3-small"
+    ):
         self._api_key = api_key or os.environ.get("FAIM_OPENAI_EMBEDDING_KEY")
         self._model = model
         self._dimension = 1536 if "large" in model else 1536
@@ -326,6 +380,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         if self._client is None:
             try:
                 import openai
+
                 self._client = openai.OpenAI(api_key=self._api_key)
             except Exception as e:
                 logger.error(f"Failed to init OpenAI client: {e}")
@@ -334,7 +389,12 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 
     def encode(self, texts: List[str]) -> EmbeddingResult:
         if not texts:
-            return EmbeddingResult(vectors=[], dimension=self._dimension, model_name=self._model, token_count=0)
+            return EmbeddingResult(
+                vectors=[],
+                dimension=self._dimension,
+                model_name=self._model,
+                token_count=0,
+            )
         if not self.is_available():
             raise RuntimeError("OpenAI API key not configured")
 
@@ -363,6 +423,11 @@ class CustomEmbeddingProvider(EmbeddingProvider):
         model: str = "custom",
         dimension: int = 1024,
     ):
+        from urllib.parse import urlparse
+
+        parsed_url = urlparse(base_url)
+        if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+            raise ValueError("Custom embedding endpoint must be an http(s) URL")
         self._base_url = base_url.rstrip("/")
         if not self._base_url.endswith("/v1"):
             self._base_url += "/v1"
@@ -387,8 +452,8 @@ class CustomEmbeddingProvider(EmbeddingProvider):
         return True
 
     def _make_request(self, texts: List[str]) -> List[List[float]]:
-        import urllib.request
         import json
+        import urllib.request
 
         url = f"{self._base_url}/embeddings"
         data = {"model": self._model, "input": texts}
@@ -397,16 +462,26 @@ class CustomEmbeddingProvider(EmbeddingProvider):
             data=json.dumps(data).encode(),
             headers={
                 "Content-Type": "application/json",
-                **({"Authorization": f"Bearer {self._api_key}"} if self._api_key else {}),
+                **(
+                    {"Authorization": f"Bearer {self._api_key}"}
+                    if self._api_key
+                    else {}
+                ),
             },
         )
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        # The endpoint scheme and host are validated in __init__.
+        with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
             result = json.loads(resp.read())
             return [d["embedding"] for d in result["data"]]
 
     def encode(self, texts: List[str]) -> EmbeddingResult:
         if not texts:
-            return EmbeddingResult(vectors=[], dimension=self._dimension, model_name=self._model, token_count=0)
+            return EmbeddingResult(
+                vectors=[],
+                dimension=self._dimension,
+                model_name=self._model,
+                token_count=0,
+            )
         embeddings = self._make_request(texts)
         return EmbeddingResult(
             vectors=embeddings,
@@ -445,8 +520,15 @@ class EmbeddingProviderRegistry:
                 display = f"BAAI/{name.replace('BAAI-', '')}"
             elif name.startswith("intfloat-"):
                 display = name.replace("intfloat-", "intfloat/")
-            logger.info(f"Pre-registered local embedding model: {provider_id} ({display})")
-            self.register(provider_id, LocalEmbeddingProvider(str(model_path), display_name=display))
+            elif name.startswith("ibm-granite-"):
+                display = name.replace("ibm-granite-", "ibm-granite/", 1)
+            logger.info(
+                f"Pre-registered local embedding model: {provider_id} ({display})"
+            )
+            self.register(
+                provider_id,
+                LocalEmbeddingProvider(str(model_path), display_name=display),
+            )
             if first_local is None:
                 first_local = provider_id
 
@@ -471,23 +553,25 @@ class EmbeddingProviderRegistry:
         result = []
         for pid, provider in self._providers.items():
             info = provider.model_info
-            result.append({
-                "id": pid,
-                "provider_id": pid,
-                "tenant_id": "default",
-                "name": info.name,
-                "display_name": info.display_name,
-                "provider_type": info.provider_type,
-                "dimension": info.dimension,
-                "max_tokens": info.max_tokens,
-                "is_free": info.is_free,
-                "description": info.description,
-                "languages": info.languages,
-                "is_active": pid == self._active_provider_id,
-                "is_available": provider.is_available(),
-                "model_path": info.model_path,
-                "status": "online" if provider.is_available() else "offline",
-            })
+            result.append(
+                {
+                    "id": pid,
+                    "provider_id": pid,
+                    "tenant_id": "default",
+                    "name": info.name,
+                    "display_name": info.display_name,
+                    "provider_type": info.provider_type,
+                    "dimension": info.dimension,
+                    "max_tokens": info.max_tokens,
+                    "is_free": info.is_free,
+                    "description": info.description,
+                    "languages": info.languages,
+                    "is_active": pid == self._active_provider_id,
+                    "is_available": provider.is_available(),
+                    "model_path": info.model_path,
+                    "status": "online" if provider.is_available() else "offline",
+                }
+            )
         return result
 
     def set_active(self, provider_id: str) -> bool:
@@ -538,7 +622,7 @@ def reset_embedding_registry() -> None:
 #   - the active provider id
 #   - provider availability overrides
 
-_TENANT_REGISTRIES: Dict[str, EmbeddingProviderRegistry] = {}
+_TENANT_REGISTRIES: Dict[str, TenantEmbeddingRegistry] = {}
 
 
 class TenantEmbeddingRegistry:

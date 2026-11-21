@@ -82,7 +82,9 @@ def _get_client() -> Any:
 
             api_key = _get_qdrant_api_key()
             if api_key:
-                _qdrant_client = QdrantClient(url=_get_qdrant_url(), api_key=api_key, timeout=120.0)
+                _qdrant_client = QdrantClient(
+                    url=_get_qdrant_url(), api_key=api_key, timeout=120.0
+                )
             else:
                 _qdrant_client = QdrantClient(url=_get_qdrant_url(), timeout=120.0)
 
@@ -382,8 +384,35 @@ class FAIMIndex:
             graph_id: Graph identifier.
             items: List of (node_id, vector, level, kind) tuples.
         """
+        if not items:
+            return
+
+        # Keep the in-memory fallback correct even when Qdrant is unavailable.
         for node_id, vector, level, kind in items:
-            self.add(graph_id, node_id, vector, level, kind)
+            payload = create_payload(graph_id, node_id, level, kind)
+            self._fallback.add(graph_id, node_id, vector, payload)
+
+        client = _get_client()
+        if client is None:
+            return
+
+        try:
+            from qdrant_client.models import PointStruct
+
+            client.upsert(
+                collection_name=self._collection,
+                points=[
+                    PointStruct(
+                        id=point_id_from_node_id(node_id),
+                        vector=list(vector),
+                        payload=create_payload(graph_id, node_id, level, kind),
+                    )
+                    for node_id, vector, level, kind in items
+                ],
+                wait=True,
+            )
+        except Exception as exc:
+            logger.warning("Qdrant batch upsert failed: %s", exc)
 
     def remove(self, graph_id: GraphId, node_id: NodeId) -> None:
         """Remove a vector from the index."""

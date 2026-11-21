@@ -29,7 +29,9 @@ def test_late_interaction_prefers_phrase_and_semantic_alignment():
 
 
 def test_late_interaction_explain_surfaces_matching_units():
-    query_repr = build_representation_v2("artificial intelligence margin 15% after 2025")
+    query_repr = build_representation_v2(
+        "artificial intelligence margin 15% after 2025"
+    )
     doc_repr = build_representation_v2(
         "AI margin improved by 15% after 2025 according to the report."
     )
@@ -44,8 +46,12 @@ def test_late_interaction_explain_surfaces_matching_units():
 
 
 def test_late_interaction_is_deterministic_and_safe_for_missing_doc_repr():
-    query_repr = build_representation_v2("cross lingual revenue translation for the quarter")
-    doc_repr = build_representation_v2("translation revenue for the quarter across languages")
+    query_repr = build_representation_v2(
+        "cross lingual revenue translation for the quarter"
+    )
+    doc_repr = build_representation_v2(
+        "translation revenue for the quarter across languages"
+    )
 
     first = score_late_interaction_native(query_repr=query_repr, doc_repr=doc_repr)
     second = score_late_interaction_native(query_repr=query_repr, doc_repr=doc_repr)

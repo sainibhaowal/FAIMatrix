@@ -7,7 +7,6 @@ import uuid
 from pathlib import Path
 
 import httpx
-
 from faim_benchmarks.adapters import (
     BM25BaselineAdapter,
     FaimHttpAdapter,
@@ -17,9 +16,22 @@ from faim_benchmarks.adapters import (
     ZepAdapter,
 )
 from faim_benchmarks.adapters.base import IngestOutcome
-from faim_benchmarks.datasets import load_beir_split, load_locomo_split, load_longmemeval_split
-from faim_benchmarks.metrics import bootstrap_ci, compute_ir_metrics, exact_match, token_f1
-from faim_benchmarks.report import compute_payload_sha256, evaluate_publication_gate, write_signed_artifacts
+from faim_benchmarks.datasets import (
+    load_beir_split,
+    load_locomo_split,
+    load_longmemeval_split,
+)
+from faim_benchmarks.metrics import (
+    bootstrap_ci,
+    compute_ir_metrics,
+    exact_match,
+    token_f1,
+)
+from faim_benchmarks.report import (
+    compute_payload_sha256,
+    evaluate_publication_gate,
+    write_signed_artifacts,
+)
 from faim_benchmarks.runner import run_conversational_benchmark, run_retrieval_benchmark
 
 
@@ -44,8 +56,20 @@ def test_local_beir_runner_and_signed_reports(tmp_path: Path):
     (beir_dir / "corpus.jsonl").write_text(
         "\n".join(
             [
-                json.dumps({"_id": "d1", "title": "FAIM", "text": "Fractal antisymmetric inheritance memory uses multi-hop graph retrieval."}),
-                json.dumps({"_id": "d2", "title": "Cooking", "text": "Boil water and add pasta for ten minutes."}),
+                json.dumps(
+                    {
+                        "_id": "d1",
+                        "title": "FAIM",
+                        "text": "Fractal antisymmetric inheritance memory uses multi-hop graph retrieval.",
+                    }
+                ),
+                json.dumps(
+                    {
+                        "_id": "d2",
+                        "title": "Cooking",
+                        "text": "Boil water and add pasta for ten minutes.",
+                    }
+                ),
             ]
         ),
         encoding="utf-8",
@@ -54,25 +78,40 @@ def test_local_beir_runner_and_signed_reports(tmp_path: Path):
         json.dumps({"_id": "q1", "text": "fractal antisymmetric graph retrieval"}),
         encoding="utf-8",
     )
-    (beir_dir / "qrels" / "test.tsv").write_text("query-id\tcorpus-id\tscore\nq1\td1\t1\n", encoding="utf-8")
+    (beir_dir / "qrels" / "test.tsv").write_text(
+        "query-id\tcorpus-id\tscore\nq1\td1\t1\n", encoding="utf-8"
+    )
 
     split = load_beir_split("mini", local_dir=str(beir_dir))
 
     def faim_handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/v1/ingest":
-            return httpx.Response(200, json={"status": "completed", "packet_hash": "abc", "graph_version": 1})
+            return httpx.Response(
+                200,
+                json={"status": "completed", "packet_hash": "abc", "graph_version": 1},
+            )
         if request.url.path == "/api/v1/query":
             body = json.loads(request.content.decode("utf-8"))
-            raw_d1 = str(uuid.uuid5(uuid.NAMESPACE_URL, f"faim-bench:{body['graph_id']}:d1"))
+            raw_d1 = str(
+                uuid.uuid5(uuid.NAMESPACE_URL, f"faim-bench:{body['graph_id']}:d1")
+            )
             return httpx.Response(
                 200,
                 json={
-                    "results": [{"node_id": "n1", "score": 0.99, "evidence": {"raw_id": raw_d1}}],
-                    "answer": {"direct_answer": "Fractal antisymmetric inheritance memory", "supporting_spans": []},
+                    "results": [
+                        {"node_id": "n1", "score": 0.99, "evidence": {"raw_id": raw_d1}}
+                    ],
+                    "answer": {
+                        "direct_answer": "Fractal antisymmetric inheritance memory",
+                        "supporting_spans": [],
+                    },
                     "metrics": {
                         "phase5_sparse_candidates": 20,
                         "phase5_dense_candidates": 20,
-                        "stage_timings_ms": {"candidate_recall_ms": 1.25, "rerank_ms": 2.5},
+                        "stage_timings_ms": {
+                            "candidate_recall_ms": 1.25,
+                            "rerank_ms": 2.5,
+                        },
                     },
                     "degraded_features": [],
                 },
@@ -109,9 +148,36 @@ def test_local_beir_runner_and_signed_reports(tmp_path: Path):
     assert by_sys["FAIM-Native"]["query_trace_count"] == 1
     assert by_sys["FAIM-Native"]["query_traces"][0]["retrieved_doc_ids"] == ["d1"]
     assert "query_text" not in by_sys["FAIM-Native"]["query_traces"][0]
-    assert by_sys["FAIM-Native"]["query_traces"][0]["metadata"]["response_metrics"]["stage_timings_ms"]["rerank_ms"] == 2.5
+    assert (
+        by_sys["FAIM-Native"]["query_traces"][0]["metadata"]["response_metrics"][
+            "stage_timings_ms"
+        ]["rerank_ms"]
+        == 2.5
+    )
     assert by_sys["BM25-Baseline"]["metrics"]["recall@5"] == 1.0
     assert by_sys["Mem0"]["status"] == "skipped"
+
+
+def test_faim_batch_query_does_not_scan_complete_storage_catalog(monkeypatch):
+    monkeypatch.setenv("FAIM_BENCHMARK_MODE", "true")
+
+    def fail_catalog_scan(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("batch mappings should avoid a catalog scan")
+
+    adapter = FaimHttpAdapter(
+        base_url="http://faim.test",
+        api_key="k",
+        tenant_id="t",
+        transport=httpx.MockTransport(fail_catalog_scan),
+    )
+    namespace = "benchmark-graph"
+    adapter.prepare_namespace(namespace)
+    adapter._filename_to_doc[namespace] = {"bench_d1.txt": "d1"}
+    adapter._raw_to_doc[namespace] = {"raw-d1": "d1"}
+
+    adapter._sync_storage_raw_ids(namespace)
+
+    assert namespace in adapter._synced_namespaces
 
 
 def test_conversational_locomo_and_longmemeval_loaders_and_adapters(tmp_path: Path):
@@ -122,9 +188,21 @@ def test_conversational_locomo_and_longmemeval_loaders_and_adapters(tmp_path: Pa
                 {
                     "conversation": {
                         "session_1_date_time": "2026-01-01",
-                        "session_1": [{"speaker": "Alice", "text": "My project codename is Hyperion."}],
+                        "session_1": [
+                            {
+                                "speaker": "Alice",
+                                "text": "My project codename is Hyperion.",
+                            }
+                        ],
                     },
-                    "qa": [{"category": "single-hop", "question": "What is Alice's project codename?", "answer": "Hyperion", "evidence": ["D1:1"]}],
+                    "qa": [
+                        {
+                            "category": "single-hop",
+                            "question": "What is Alice's project codename?",
+                            "answer": "Hyperion",
+                            "evidence": ["D1:1"],
+                        }
+                    ],
                 }
             ]
         ),
@@ -138,7 +216,14 @@ def test_conversational_locomo_and_longmemeval_loaders_and_adapters(tmp_path: Pa
                     "question_id": "q_lme_1",
                     "question_type": "temporal",
                     "haystack_dates": ["2026-02-01"],
-                    "haystack_sessions": [[{"role": "user", "content": "Switched database from SQLite to Postgres."}]],
+                    "haystack_sessions": [
+                        [
+                            {
+                                "role": "user",
+                                "content": "Switched database from SQLite to Postgres.",
+                            }
+                        ]
+                    ],
                     "question": "Which database did the user switch to?",
                     "answer": "Postgres",
                     "answer_session_ids": ["0"],
@@ -156,11 +241,28 @@ def test_conversational_locomo_and_longmemeval_loaders_and_adapters(tmp_path: Pa
     def mock_mem0(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/v1/memories/":
             return httpx.Response(200, json={"results": [{"id": "m1"}]})
-        return httpx.Response(200, json={"results": [{"id": "m1", "memory": "Alice project codename is Hyperion", "metadata": {"doc_id": "turn_0"}}]})
+        return httpx.Response(
+            200,
+            json={
+                "results": [
+                    {
+                        "id": "m1",
+                        "memory": "Alice project codename is Hyperion",
+                        "metadata": {"doc_id": "turn_0"},
+                    }
+                ]
+            },
+        )
 
     mem0 = Mem0Adapter(api_key="test-key", transport=httpx.MockTransport(mock_mem0))
     bm25 = BM25BaselineAdapter()
-    res = run_conversational_benchmark(split=locomo_split, adapters=[bm25, mem0], top_k=5, seed=42, bootstrap_iterations=20)
+    res = run_conversational_benchmark(
+        split=locomo_split,
+        adapters=[bm25, mem0],
+        top_k=5,
+        seed=42,
+        bootstrap_iterations=20,
+    )
     by_sys = {s["system"]: s for s in res["systems"]}
     assert by_sys["BM25-Baseline"]["metrics"]["fact_recall"] == 1.0
     assert by_sys["Mem0"]["metrics"]["fact_recall"] == 1.0
@@ -175,15 +277,31 @@ def test_supermemory_v5_adapter_uses_namespaced_api():
     seen = []
 
     def mock_supermemory(request: httpx.Request) -> httpx.Response:
-        seen.append((request.method, request.url.path, json.loads(request.content.decode("utf-8"))))
+        seen.append(
+            (
+                request.method,
+                request.url.path,
+                json.loads(request.content.decode("utf-8")),
+            )
+        )
         if request.url.path.endswith("/document"):
             return httpx.Response(200, json={"id": "d1", "status": "queued"})
         return httpx.Response(
             200,
-            json={"results": [{"documentId": "d1", "metadata": {"doc_id": "d1"}, "content": "memory"}]},
+            json={
+                "results": [
+                    {
+                        "documentId": "d1",
+                        "metadata": {"doc_id": "d1"},
+                        "content": "memory",
+                    }
+                ]
+            },
         )
 
-    adapter = SuperMemoryAdapter(api_key="test-key", transport=httpx.MockTransport(mock_supermemory))
+    adapter = SuperMemoryAdapter(
+        api_key="test-key", transport=httpx.MockTransport(mock_supermemory)
+    )
     adapter.prepare_namespace("bench namespace")
     assert adapter.ingest_document("bench namespace", "d1", "Title", "body").ok
     result = adapter.query("bench namespace", "q1", "body", k=5)
@@ -198,12 +316,23 @@ def test_zep_v4_adapter_resolves_uuid_and_maps_episode_results():
     seen = []
 
     def mock_zep(request: httpx.Request) -> httpx.Response:
-        seen.append((request.method, request.url.path, json.loads(request.content.decode("utf-8"))))
+        seen.append(
+            (
+                request.method,
+                request.url.path,
+                json.loads(request.content.decode("utf-8")),
+            )
+        )
         if request.url.path == "/api/v4/users":
             return httpx.Response(201, json={"uuid": "user-uuid"})
         if request.url.path.endswith("/episodes"):
             return httpx.Response(202, json={"episode": {"uuid": "episode-uuid"}})
-        return httpx.Response(200, json={"items": [{"episode_uuids": ["episode-uuid"], "fact": "memory fact"}]})
+        return httpx.Response(
+            200,
+            json={
+                "items": [{"episode_uuids": ["episode-uuid"], "fact": "memory fact"}]
+            },
+        )
 
     adapter = ZepAdapter(api_key="test-key", transport=httpx.MockTransport(mock_zep))
     adapter.prepare_namespace("zep-bench")

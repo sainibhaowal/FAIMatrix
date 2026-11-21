@@ -12,6 +12,8 @@ describe("ProjectStatusBanner", () => {
     expect(banner).toHaveTextContent("FAIMATRIX");
     expect(banner).toHaveTextContent("Project experiment");
     expect(banner).toHaveTextContent("Alpha version");
-    expect(banner).toHaveTextContent("capabilities and performance are still being validated");
+    expect(banner).toHaveTextContent(
+      "capabilities and performance are still being validated",
+    );
   });
 });

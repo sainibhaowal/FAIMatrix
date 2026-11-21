@@ -145,7 +145,9 @@ async def test_otp_request_routes_totp_user_to_authenticator_app(monkeypatch):
     monkeypatch.setattr(auth_router, "_check_rate_limit", lambda _email: True)
     sent_emails = []
     monkeypatch.setattr(
-        auth_router, "_send_otp_email", lambda _email, _code: sent_emails.append(_email) or True
+        auth_router,
+        "_send_otp_email",
+        lambda _email, _code: sent_emails.append(_email) or True,
     )
 
     response = await auth_router.request_otp(

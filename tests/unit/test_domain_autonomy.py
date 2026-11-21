@@ -37,7 +37,9 @@ def test_domain_pack_loading_and_detection_are_real():
 
 
 def test_domain_pack_detection_defaults_to_general_for_broad_text():
-    detected = detect_domain_profile_packs(["General project update and status review."])
+    detected = detect_domain_profile_packs(
+        ["General project update and status review."]
+    )
     assert detected[0] == "general"
 
 

@@ -59,3 +59,30 @@ def test_claim_next_of_kinds_returns_none_for_empty_kinds(session_factory):
         fallback_claim = JobStore.claim_next(session=session)
         assert fallback_claim is not None
         assert fallback_claim.kind == "storage_upload"
+
+
+def test_staging_upload_is_not_claimable_until_payload_is_complete(session_factory):
+    with session_factory.session() as session:
+        staging_job_id = JobStore.enqueue(
+            session,
+            tenant_id="tenant_job_staging",
+            graph_id="graph_job_staging",
+            kind="storage_upload",
+            payload={"requested_files": 2},
+            status="staging",
+        )
+        ready_job_id = JobStore.enqueue(
+            session,
+            tenant_id="tenant_job_staging",
+            graph_id="graph_job_staging",
+            kind="storage_upload",
+            payload={"requested_files": 1},
+        )
+
+        claimed = JobStore.claim_next(session=session)
+
+        assert claimed is not None
+        assert str(claimed.job_id) == str(ready_job_id)
+        staging_job = JobStore.get_job(session, staging_job_id)
+        assert staging_job is not None
+        assert staging_job.status == "staging"

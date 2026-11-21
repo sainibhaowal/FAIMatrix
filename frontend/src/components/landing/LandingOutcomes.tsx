@@ -33,7 +33,7 @@ const OUTCOMES = [
   },
   {
     title: "Complex questions get deep answers",
-    text: "Deep reasoning follows chains of evidence to answer 'why' questions. Cortex can stay shallow for direct lookups or expand into adaptive 1-24 hop bounded traces by default, with higher bounded ceilings available when configured.",
+    text: "Deep retrieval follows chains of evidence across your knowledge graph. Agents can keep lookups shallow or set graph_max_hops (1–24, defaulting to 2) for deeper bounded multi-hop traces.",
   },
   {
     title: "Disconnected documents become unified insights",
@@ -57,12 +57,12 @@ const WORKFLOWS = [
   "Native late interaction compares query tokens, phrases, concepts, stems, aliases, values, and time cues before final reranking",
   "Inspect provenance and download originals",
   "Rebuild canonical, multilingual, multimodal, or domain memory layers when those controls are enabled",
-  "Ask FAIM Cortex and get cited answers",
+  "Query FAIM via REST or Remote MCP (/mcp) and get cited evidence",
   "Use FIG View for lineage and graph tracing",
   "Deep reasoning — ask 'why' and follow bounded causal chains across documents",
   "Knowledge synthesis — connect insights across disparate sources",
   "Intelligent planning — complex questions automatically optimized",
-  "Feedback loops — users can review answers and improve future quality",
+  "Remote MCP & API Keys — connect Cursor, Claude, or VS Code and revoke sessions in 1 click",
   "Temporal analysis — understand sequences, trends, and deadlines",
   "Quality monitoring — track satisfaction and system health in real-time",
 ];

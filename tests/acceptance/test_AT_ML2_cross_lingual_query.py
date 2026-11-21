@@ -147,7 +147,10 @@ def test_cross_lingual_query_returns_matching_doc():
         top = result.results[0]
         phase_b = top["explain"]["phaseB_query_expansion"]
         assert phase_b["source_counts"].get("multilingual_translation", 0) >= 1
-        assert "revenue" in phase_b["expanded_query_text"] or "quarter" in phase_b["expanded_query_text"]
+        assert (
+            "revenue" in phase_b["expanded_query_text"]
+            or "quarter" in phase_b["expanded_query_text"]
+        )
         assert (
             "ingresos" in phase_b["expanded_query_text"]
             or phase_b["source_counts"].get("multilingual_bridge", 0) >= 1

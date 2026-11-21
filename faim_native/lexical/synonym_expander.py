@@ -12,7 +12,7 @@ import json
 import threading
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Sequence, Set, Tuple
+from typing import Dict, Iterable, Optional, Sequence, Set, Tuple, TypedDict
 
 # Path to embedded synonym data
 _DATA_PATH = Path(__file__).parent / "data" / "conceptnet_synonyms.json.gz"
@@ -31,6 +31,12 @@ class WeightedExpansion:
     weight: float
     sources: Tuple[str, ...]
     origins: Tuple[str, ...] = ()
+
+
+class _ExpansionPayload(TypedDict):
+    weight: float
+    sources: Set[str]
+    origins: Set[str]
 
 
 def _normalize_term(term: str) -> str:
@@ -77,7 +83,7 @@ def merge_weighted_expansions(
     max_total: int | None = None,
 ) -> Tuple[WeightedExpansion, ...]:
     """Merge duplicate weighted expansions deterministically."""
-    merged: Dict[str, Dict[str, object]] = {}
+    merged: Dict[str, _ExpansionPayload] = {}
     for row in rows:
         term = _normalize_term(row.term)
         if not term:

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "faim-sdk"
+version = "0.1.0"
+description = "Thin Python SDK and MCP CLI (OAuth 2.1 + PKCE & offline API key) for FAIM"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "httpx>=0.25.0",
+]
+
+[project.scripts]
+faim-mcp = "faim_sdk.mcp_stdio:main"
+
+[tool.setuptools.packages.find]
+include = ["faim_sdk*"]

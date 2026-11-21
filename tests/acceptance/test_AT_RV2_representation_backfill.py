@@ -149,12 +149,9 @@ def test_representation_v2_rebuild_backfills_existing_graph(monkeypatch, tmp_pat
             .count()
             >= 1
         )
-        assert (
-            session_verify.query(GraphRepresentationStatsModel)
-            .filter_by(tenant_id=tenant_id, graph_id=graph_id)
-            .count()
-            == len(CHANNELS)
-        )
+        assert session_verify.query(GraphRepresentationStatsModel).filter_by(
+            tenant_id=tenant_id, graph_id=graph_id
+        ).count() == len(CHANNELS)
         latest_events = repos_verify["event_repo"].get_all(
             session_verify,
             graph_id=graph_id,

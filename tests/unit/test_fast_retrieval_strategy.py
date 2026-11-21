@@ -1,5 +1,6 @@
 """Tests for the production-safe FAST retrieval strategy gates."""
 
+from faim_native.api.routers.query import QueryMetrics
 from faim_native.core.query.query_engine import (
     FUSION_LAYER_WEIGHTS,
     RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS,
@@ -10,7 +11,6 @@ from faim_native.orchestration.query_flow import (
     _fast_idf_enabled,
     _fast_relevance_first_enabled,
 )
-from faim_native.api.routers.query import QueryMetrics
 
 
 def test_fast_defaults_to_relevance_first(monkeypatch):
@@ -42,12 +42,14 @@ def test_fast_flags_support_explicit_rollback(monkeypatch):
 
 
 def test_relevance_first_fusion_prioritizes_lexical_evidence():
-    assert RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS["lexical_fusion"] > FUSION_LAYER_WEIGHTS[
-        "lexical_fusion"
-    ]
-    assert RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS["graph_semantics"] < FUSION_LAYER_WEIGHTS[
-        "graph_semantics"
-    ]
+    assert (
+        RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS["lexical_fusion"]
+        > FUSION_LAYER_WEIGHTS["lexical_fusion"]
+    )
+    assert (
+        RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS["graph_semantics"]
+        < FUSION_LAYER_WEIGHTS["graph_semantics"]
+    )
 
 
 def test_fast_diagnostics_are_additive_api_fields():

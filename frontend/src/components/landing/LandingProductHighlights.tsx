@@ -11,7 +11,7 @@ const HIGHLIGHTS = [
   {
     title: "Deterministic Intel",
     tag: "Pure Math Core",
-    text: "No neural network black-boxes. Core retrieval and reasoning powered by 256-dim deterministic invariants.",
+    text: "Zero-LLM core retrieval powered by 256-dim deterministic vectors, built-in multilingual embeddings, and graph invariants.",
   },
   {
     title: "Bounded Graph Reasoning",
@@ -19,9 +19,9 @@ const HIGHLIGHTS = [
     text: "Trace evidence chains with bounded hop budgets. Follow path logic with confidence decay tracking.",
   },
   {
-    title: "Guarded Writebacks",
-    tag: "Safety Protocol",
-    text: "Memory writes still require approval, but approved Cortex writebacks now execute through a durable backend path and show receipts in the 3D FIG graph.",
+    title: "Remote MCP + OAuth 2.1",
+    tag: "Agent Ready",
+    text: "Connect Cursor, Claude, and VS Code to /mcp via OAuth 2.1 + PKCE, or run offline with faim-mcp and scoped API keys.",
   },
   {
     title: "Explainability",
@@ -59,19 +59,19 @@ const HIGHLIGHTS = [
     text: "Finds correlations, contradictions, and trends across multiple documents. Weaves scattered information into unified insights.",
   },
   {
-    title: "Continuous Learning",
-    tag: "Adaptive",
-    text: "Improves from user feedback and ratings. Tracks reasoning pattern success and adjusts confidence thresholds automatically.",
+    title: "Domain Memory",
+    tag: "Graph-local",
+    text: "Learns aliases, entities, terminology, and facts from your uploaded documents without mutating raw source truth.",
   },
   {
     title: "Temporal Analysis",
     tag: "Time-aware",
-    text: "Understands sequences, timelines, and temporal relationships. Analyzes 'before', 'after', and 'during' for trend and deadline insights.",
+    text: "Understands sequences, timelines, and temporal relationships. Analyzes 'before', 'after', and 'during' with as_of and historical filters.",
   },
   {
-    title: "Quality Intelligence",
-    tag: "Monitoring",
-    text: "Built-in quality dashboard tracks user satisfaction, confidence distribution, and system health. Provides actionable improvement recommendations.",
+    title: "Live Benchmarks & FIG",
+    tag: "Observability",
+    text: "Built-in benchmarks and 3D FIG View track graph invariants, query latency, pulse-v2 provenance, and system health.",
   },
 ];
 
@@ -106,8 +106,9 @@ export default function LandingProductHighlights() {
             , not just chat
           </h2>
           <p className="mt-4 sm:mt-6 text-slate-400 max-w-3xl mx-auto text-base sm:text-lg leading-relaxed">
-            FAIM Cortex, Storage, FIG View, and deterministic answers all live
-            in the product now. Every claim is backed by the core engine.
+            Storage, FIG View, Remote MCP, API Keys, and deterministic retrieval
+            all live in the product now. Every claim is backed by the core
+            engine.
           </p>
         </motion.div>
 

@@ -105,6 +105,9 @@ def test_semantic_fusion_determinism_is_stable_across_repeated_runs():
             event["event_id"]
             for event in second.results[0]["explain"]["pulse_event_stream"]
         ]
-        assert "late_interaction" in first.results[0]["explain"]["fusion_summary"]["active_layers"]
+        assert (
+            "late_interaction"
+            in first.results[0]["explain"]["fusion_summary"]["active_layers"]
+        )
     finally:
         session.close()

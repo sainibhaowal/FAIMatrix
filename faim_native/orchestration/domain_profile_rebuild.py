@@ -47,7 +47,6 @@ def run_domain_profile_rebuild(
     page_size: int = 100,
     max_errors: int = 25,
 ) -> DomainProfileRebuildResult:
-    from core.operators.domain_knowledge import load_domain_profile_pack
     from core.operators.domain_knowledge import (
         KBFact,
         build_kb_lexicon_rows,
@@ -55,6 +54,7 @@ def run_domain_profile_rebuild(
         detect_domain_profile_packs,
         entity_key,
         fact_key,
+        load_domain_profile_pack,
         relation_key,
         source_hash,
         time_key,
@@ -153,7 +153,9 @@ def run_domain_profile_rebuild(
         offset += len(rows)
 
     detected_packs = detect_domain_profile_packs([doc.text for doc in docs])
-    explicit_packs = [part.strip() for part in str(domain_pack or "").split(",") if part.strip()]
+    explicit_packs = [
+        part.strip() for part in str(domain_pack or "").split(",") if part.strip()
+    ]
     result.detected_packs = list(
         dict.fromkeys([pack.lower() for pack in explicit_packs + detected_packs])
     )[:3]
@@ -335,9 +337,9 @@ def run_domain_profile_rebuild(
             meta["node_id"] = str(relation_nodes[canonical])
             direct_node_id = relation_nodes[canonical]
         elif not meta.get("node_id"):
-            node_candidates = support_nodes.get(str(row["surface_form"])) or support_nodes.get(
-                canonical
-            )
+            node_candidates = support_nodes.get(
+                str(row["surface_form"])
+            ) or support_nodes.get(canonical)
             if node_candidates:
                 meta["node_id"] = str(node_candidates[0])
                 direct_node_id = node_candidates[0]
@@ -354,7 +356,10 @@ def run_domain_profile_rebuild(
                     dst_node_id=direct_node_id,
                     semantic_type="domain_term",
                     semantic_weight=0.60,
-                    meta={"surface_form": row["surface_form"], "source": "autonomous_domain"},
+                    meta={
+                        "surface_form": row["surface_form"],
+                        "source": "autonomous_domain",
+                    },
                 )
                 result.edges_written += 1
             except Exception as exc:

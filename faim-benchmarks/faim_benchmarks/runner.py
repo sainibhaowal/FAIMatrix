@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
 from faim_benchmarks.adapters.base import MemorySystemAdapter
-from faim_benchmarks.datasets import ConversationalBenchmarkSplit, RetrievalBenchmarkSplit
+from faim_benchmarks.datasets import (
+    ConversationalBenchmarkSplit,
+    RetrievalBenchmarkSplit,
+)
 from faim_benchmarks.metrics import (
     answer_contains_gold,
     bootstrap_ci,
@@ -90,35 +93,50 @@ def run_retrieval_benchmark(
         try:
             adapter.prepare_namespace(namespace)
         except Exception as exc:
-            systems_out.append(_failed_system(adapter, _exception_reason(exc), namespace=namespace))
+            systems_out.append(
+                _failed_system(adapter, _exception_reason(exc), namespace=namespace)
+            )
             continue
 
         ingest_latencies: List[float] = []
         ingest_errors = 0
         ingest_failures: List[str] = []
 
-        def _ingest_one(item: tuple[str, Dict[str, str]]) -> tuple[str, Any, Optional[Exception]]:
+        def _ingest_one(
+            item: tuple[str, Dict[str, str]],
+            *,
+            adapter: MemorySystemAdapter = adapter,
+            namespace: str = namespace,
+        ) -> tuple[str, Any, Optional[Exception]]:
             doc_id, doc = item
             try:
                 res = adapter.ingest_document(
                     namespace, doc_id, doc.get("title", ""), doc.get("text", "")
                 )
                 return doc_id, res, None
-            except Exception as exc:
-                return doc_id, None, exc
+            except Exception as caught:
+                return doc_id, None, caught
 
         items = list(split.corpus.items())
         worker_count = max(1, int(ingest_workers))
         batch_ingester = getattr(adapter, "ingest_documents_batch", None)
         if callable(batch_ingester) and getattr(adapter, "batch_size", 0) > 1:
-            batch_size = int(getattr(adapter, "batch_size"))
-            batches = [items[start : start + batch_size] for start in range(0, len(items), batch_size)]
+            batch_size = int(adapter.batch_size)
+            batches = [
+                items[start : start + batch_size]
+                for start in range(0, len(items), batch_size)
+            ]
 
-            def _ingest_batch(batch):
+            def _ingest_batch(
+                batch,
+                *,
+                batch_ingester=batch_ingester,
+                namespace: str = namespace,
+            ):
                 try:
                     return batch, batch_ingester(namespace, batch), None
-                except Exception as exc:
-                    return batch, None, exc
+                except Exception as caught:
+                    return batch, None, caught
 
             if worker_count == 1:
                 batch_outcomes = (_ingest_batch(batch) for batch in batches)
@@ -130,7 +148,10 @@ def run_retrieval_benchmark(
                 if batch_exc is not None:
                     outcomes.extend((doc_id, None, batch_exc) for doc_id, _ in batch)
                     continue
-                outcomes.extend((doc_id, res, None) for (doc_id, _), res in zip(batch, batch_results))
+                outcomes.extend(
+                    (doc_id, res, None)
+                    for (doc_id, _), res in zip(batch, batch_results, strict=False)
+                )
             if worker_count > 1:
                 pool.shutdown()
             outcomes = iter(outcomes)
@@ -167,7 +188,11 @@ def run_retrieval_benchmark(
                         if res.error:
                             ingest_failures.append(f"{doc_id}: {res.error}")
 
-        if ingest_errors or ingest_failures or len(ingest_latencies) != len(split.corpus):
+        if (
+            ingest_errors
+            or ingest_failures
+            or len(ingest_latencies) != len(split.corpus)
+        ):
             systems_out.append(
                 _failed_system(
                     adapter,
@@ -207,7 +232,9 @@ def run_retrieval_benchmark(
                 )
                 break
             query_latencies.append(qres.latency_ms)
-            ir = compute_ir_metrics(qres.retrieved_doc_ids, split.qrels.get(qid, {}), k_values=(1, 3, 5, 10))
+            ir = compute_ir_metrics(
+                qres.retrieved_doc_ids, split.qrels.get(qid, {}), k_values=(1, 3, 5, 10)
+            )
             for metric_name in per_query_scores:
                 per_query_scores[metric_name].append(ir[metric_name])
             if retain_query_traces:
@@ -215,9 +242,17 @@ def run_retrieval_benchmark(
                     {
                         "query_id": str(qid),
                         "latency_ms": round(float(qres.latency_ms), 3),
-                        "retrieved_doc_ids": [str(doc_id) for doc_id in qres.retrieved_doc_ids],
-                        "relevant_doc_ids": sorted(str(doc_id) for doc_id, score in split.qrels.get(qid, {}).items() if float(score) > 0),
-                        "metrics": {key: round(float(value), 6) for key, value in ir.items()},
+                        "retrieved_doc_ids": [
+                            str(doc_id) for doc_id in qres.retrieved_doc_ids
+                        ],
+                        "relevant_doc_ids": sorted(
+                            str(doc_id)
+                            for doc_id, score in split.qrels.get(qid, {}).items()
+                            if float(score) > 0
+                        ),
+                        "metrics": {
+                            key: round(float(value), 6) for key, value in ir.items()
+                        },
                         "metadata": dict(qres.metadata or {}),
                     }
                 )
@@ -306,7 +341,9 @@ def run_conversational_benchmark(
         try:
             adapter.prepare_namespace(namespace)
         except Exception as exc:
-            systems_out.append(_failed_system(adapter, _exception_reason(exc), namespace=namespace))
+            systems_out.append(
+                _failed_system(adapter, _exception_reason(exc), namespace=namespace)
+            )
             continue
 
         write_latencies: List[float] = []
@@ -315,7 +352,9 @@ def run_conversational_benchmark(
             mem_id = f"turn_{idx}"
             text = f"{turn.speaker}: {turn.text}"
             try:
-                res = adapter.write_memory(namespace, mem_id, text, timestamp=turn.timestamp)
+                res = adapter.write_memory(
+                    namespace, mem_id, text, timestamp=turn.timestamp
+                )
             except Exception as exc:
                 systems_out.append(
                     _failed_system(
@@ -345,7 +384,11 @@ def run_conversational_benchmark(
             continue
 
         query_latencies: List[float] = []
-        per_case: Dict[str, List[float]] = {"exact_match": [], "token_f1": [], "fact_recall": []}
+        per_case: Dict[str, List[float]] = {
+            "exact_match": [],
+            "token_f1": [],
+            "fact_recall": [],
+        }
 
         for case in split.qa_cases:
             try:
@@ -366,7 +409,9 @@ def run_conversational_benchmark(
             combined_ctx = qres.answer_text or "\n".join(qres.retrieved_texts)
             per_case["exact_match"].append(exact_match(qres.answer_text, case.answer))
             per_case["token_f1"].append(token_f1(qres.answer_text, case.answer))
-            per_case["fact_recall"].append(answer_contains_gold(combined_ctx, case.answer))
+            per_case["fact_recall"].append(
+                answer_contains_gold(combined_ctx, case.answer)
+            )
 
         if len(query_latencies) != len(split.qa_cases):
             continue

@@ -20,16 +20,20 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getSession, useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GlassHeader } from "@/components/layout/GlassHeader";
-import { EvolutionPhysicsChart } from "@/components/evolution/EvolutionPhysicsChart";
+import {
+  EvolutionPhysicsChart,
+  type PhysicsStreamResponse,
+} from "@/components/evolution/EvolutionPhysicsChart";
 import { EvolutionManual } from "@/components/evolution/EvolutionManual";
 import { InventionFlowCanvas } from "@/components/evolution/InventionFlowCanvas";
 import { EvolutionVersionHistory } from "@/components/evolution/EvolutionVersionHistory";
-import type {
-  InventionVersionsData,
-} from "@/components/evolution/EvolutionVersionHistory";
+import type { InventionVersionsData } from "@/components/evolution/EvolutionVersionHistory";
 import type {
   FlowNodeData,
   InventionFlowData,
+  InventionFlowEdgeItem,
+  InventionFlowEvalMetrics,
+  InventionFlowTheoryItem,
 } from "@/components/evolution/InventionFlowCanvas";
 
 import {
@@ -226,6 +230,19 @@ type RawInventionFlowNode = {
     type: string;
     similarity: number;
   }> | null;
+  decision?: {
+    winner: string;
+    action: string;
+    similarity: number;
+    reason: string;
+  } | null;
+  recent?: boolean;
+  summary?: string | null;
+  synthesis_origin?: string | null;
+  residual?: number | null;
+  level?: number | null;
+  weights?: Record<string, number> | null;
+  pair_id?: string | null;
 };
 
 type RawInventionFlowResponse = {
@@ -234,11 +251,15 @@ type RawInventionFlowResponse = {
   node_count: number;
   macro_count: number;
   merge_count: number;
+  theory_count?: number;
   stages: {
     atoms: RawInventionFlowNode[];
     macros: RawInventionFlowNode[];
     merges: RawInventionFlowNode[];
   };
+  edges?: InventionFlowEdgeItem[];
+  theories?: InventionFlowTheoryItem[];
+  eval_metrics?: InventionFlowEvalMetrics | null;
   computed_at: string;
 };
 
@@ -322,14 +343,10 @@ type LearningMetaResponse = {
   meta_metrics: LearningMetaRow[];
 };
 
-function mapInventionFlowNode(
-  node: RawInventionFlowNode,
-): FlowNodeData {
-  const cognitiveType = VALID_COGNITIVE_TYPES.has(
-    (node.cognitive_type || "fact").toLowerCase(),
-  )
-    ? ((node.cognitive_type as string).toLowerCase() as FlowNodeData["cognitiveType"])
-    : "fact";
+function mapInventionFlowNode(node: RawInventionFlowNode): FlowNodeData {
+  const cogRaw = (node.cognitive_type || "fact").toLowerCase();
+  const cognitiveType =
+    VALID_COGNITIVE_TYPES.has(cogRaw) || cogRaw === "macro" ? cogRaw : "fact";
   return {
     id: node.id,
     stage: node.stage,
@@ -337,10 +354,12 @@ function mapInventionFlowNode(
     subtitle: node.subtitle || "",
     cognitiveType,
     pressureLambda:
-      typeof node.pressure_lambda === "number" ? node.pressure_lambda : undefined,
+      typeof node.pressure_lambda === "number"
+        ? node.pressure_lambda
+        : undefined,
     childCount:
       typeof node.child_count === "number" ? node.child_count : undefined,
-    status: (node.status as FlowNodeData["status"]) || undefined,
+    status: node.status || undefined,
     childrenDetails: node.children_details
       ? node.children_details.map((child) => ({
           id: child.id,
@@ -349,6 +368,14 @@ function mapInventionFlowNode(
           similarity: child.similarity,
         }))
       : undefined,
+    decision: node.decision ?? undefined,
+    recent: Boolean(node.recent),
+    summary: node.summary ?? undefined,
+    synthesisOrigin: node.synthesis_origin ?? undefined,
+    residual: typeof node.residual === "number" ? node.residual : undefined,
+    level: typeof node.level === "number" ? node.level : undefined,
+    weights: node.weights ?? undefined,
+    pairId: node.pair_id ?? undefined,
   };
 }
 
@@ -356,16 +383,21 @@ function mapInventionFlowResponse(
   raw: RawInventionFlowResponse,
 ): InventionFlowData {
   return {
-    graph_id: raw.graph_id,
-    node_count: raw.node_count,
-    macro_count: raw.macro_count,
-    merge_count: raw.merge_count,
+    graphId: raw.graph_id,
+    tenantId: raw.tenant_id,
+    nodeCount: raw.node_count,
+    macroCount: raw.macro_count,
+    mergeCount: raw.merge_count,
+    theoryCount: raw.theory_count ?? raw.theories?.length ?? 0,
+    computedAt: raw.computed_at,
     stages: {
       atoms: raw.stages.atoms.map(mapInventionFlowNode),
       macros: raw.stages.macros.map(mapInventionFlowNode),
       merges: raw.stages.merges.map(mapInventionFlowNode),
     },
-    computed_at: raw.computed_at,
+    edges: raw.edges ?? [],
+    theories: raw.theories ?? [],
+    evalMetrics: raw.eval_metrics ?? null,
   };
 }
 
@@ -933,9 +965,38 @@ function eventSummary(event: GraphEvent): string {
   return event.kind;
 }
 
+let cachedAccessToken: string | null = null;
+let cachedTokenTs = 0;
+let inflightSession: Promise<string | null> | null = null;
+const SESSION_TOKEN_TTL_MS = 60_000;
+
+async function resolveCachedAccessToken(): Promise<string | null> {
+  const now = Date.now();
+  if (cachedAccessToken && now - cachedTokenTs < SESSION_TOKEN_TTL_MS) {
+    return cachedAccessToken;
+  }
+  if (inflightSession) {
+    return inflightSession;
+  }
+  inflightSession = (async () => {
+    try {
+      const session = await getSession();
+      const token =
+        (session as { accessToken?: string } | null)?.accessToken || null;
+      cachedAccessToken = token;
+      cachedTokenTs = Date.now();
+      return token;
+    } catch {
+      return cachedAccessToken;
+    } finally {
+      inflightSession = null;
+    }
+  })();
+  return inflightSession;
+}
+
 async function authHeaders(extra?: HeadersInit): Promise<HeadersInit> {
-  const session = await getSession();
-  const token = (session as { accessToken?: string } | null)?.accessToken;
+  const token = await resolveCachedAccessToken();
   const base: Record<string, string> = {};
   if (token) base.Authorization = `Bearer ${token}`;
 
@@ -958,11 +1019,16 @@ async function authHeaders(extra?: HeadersInit): Promise<HeadersInit> {
 
 async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = await authHeaders(init?.headers);
-  const response = await fetch(path, {
-    ...init,
-    headers,
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      ...init,
+      headers,
+      cache: "no-store",
+    });
+  } catch {
+    throw new ApiError(503, "Backend temporarily unreachable — reconnecting…");
+  }
 
   let payload: unknown = null;
   const text = await response.text();
@@ -1020,6 +1086,13 @@ export type VisualSubTab = "spatial3d" | "physics";
 
 export default function EvolutionPage() {
   const { data: session } = useSession();
+  useEffect(() => {
+    const token = (session as { accessToken?: string } | null)?.accessToken;
+    if (token) {
+      cachedAccessToken = token;
+      cachedTokenTs = Date.now();
+    }
+  }, [session]);
   const { toast } = useToast();
   const [activePane, setActivePane] = useState<EvolutionPane>("controls");
   const [visualSubTab, setVisualSubTab] = useState<VisualSubTab>("spatial3d");
@@ -1051,18 +1124,21 @@ export default function EvolutionPage() {
   const [flowData, setFlowData] = useState<InventionFlowData | null>(null);
   const [flowLoading, setFlowLoading] = useState(true);
   const [flowError, setFlowError] = useState<string | null>(null);
+  const [physicsStreamData, setPhysicsStreamData] =
+    useState<PhysicsStreamResponse | null>(null);
+  const [sseConnected, setSseConnected] = useState(false);
+  const sseConnectedRef = useRef(false);
+  const sseRefreshBusyRef = useRef(false);
   const [versionsData, setVersionsData] =
     useState<InventionVersionsData | null>(null);
   const [versionsLoading, setVersionsLoading] = useState(true);
   const [versionsError, setVersionsError] = useState<string | null>(null);
-  const [restoringVersion, setRestoringVersion] = useState<number | null>(
-    null,
-  );
+  const [restoringVersion, setRestoringVersion] = useState<number | null>(null);
   const [learningState, setLearningState] =
     useState<LearningStateResponse | null>(null);
-  const [learningOutcomes, setLearningOutcomes] = useState<LearningOutcomeRow[]>(
-    [],
-  );
+  const [learningOutcomes, setLearningOutcomes] = useState<
+    LearningOutcomeRow[]
+  >([]);
   const [learningMeta, setLearningMeta] = useState<LearningMetaRow[]>([]);
   const [learningLoading, setLearningLoading] = useState(true);
   const [learningError, setLearningError] = useState<string | null>(null);
@@ -1088,10 +1164,12 @@ export default function EvolutionPage() {
   const pollTickRef = useRef(0);
 
   const selfEvolveActive = Boolean(
-    controlDraft?.self_evolve_enabled ?? evolveStatus?.control?.self_evolve_enabled,
+    controlDraft?.self_evolve_enabled ??
+    evolveStatus?.control?.self_evolve_enabled,
   );
   const selfInventActive = Boolean(
-    controlDraft?.self_invent_enabled ?? evolveStatus?.control?.self_invent_enabled,
+    controlDraft?.self_invent_enabled ??
+    evolveStatus?.control?.self_invent_enabled,
   );
   const controlCanEdit = Boolean(
     controlDraft?.can_edit ?? evolveStatus?.control?.can_edit,
@@ -1154,6 +1232,22 @@ export default function EvolutionPage() {
         `/api/v1/evolve/invention/flow?${params.toString()}`,
       );
       return mapInventionFlowResponse(raw);
+    },
+    [],
+  );
+
+  const fetchPhysicsStream = useCallback(
+    async (
+      targetGraphId: string,
+      limit = 50,
+    ): Promise<PhysicsStreamResponse> => {
+      const params = new URLSearchParams({
+        graph_id: targetGraphId,
+        limit: String(limit),
+      });
+      return apiRequest<PhysicsStreamResponse>(
+        `/api/v1/evolve/physics/stream?${params.toString()}`,
+      );
     },
     [],
   );
@@ -1293,12 +1387,16 @@ export default function EvolutionPage() {
       targetGraphId: string,
       afterSeq: number,
       limit: number,
+      tail = false,
     ): Promise<GraphEventsResponse> => {
       const params = new URLSearchParams({
         graph_id: targetGraphId,
         after_seq: String(Math.max(0, afterSeq)),
         limit: String(limit),
       });
+      if (tail) {
+        params.set("tail", "true");
+      }
       return apiRequest<GraphEventsResponse>(
         `/api/v1/events?${params.toString()}`,
       );
@@ -1334,6 +1432,7 @@ export default function EvolutionPage() {
           targetGraphId,
           0,
           INITIAL_EVENT_LIMIT,
+          true,
         );
         const normalized = dedupeAndSortEvents(eventsData.events || []);
         const lastSeqValue =
@@ -1345,8 +1444,14 @@ export default function EvolutionPage() {
         setLiveStatus("live");
 
         try {
-          const flow = await fetchInventionFlow(targetGraphId);
+          const [flow, physStream] = await Promise.all([
+            fetchInventionFlow(targetGraphId),
+            fetchPhysicsStream(targetGraphId).catch(() => null),
+          ]);
           setFlowData(flow);
+          if (physStream) {
+            setPhysicsStreamData(physStream);
+          }
           setFlowError(null);
         } catch (flowErr) {
           const message =
@@ -1413,6 +1518,7 @@ export default function EvolutionPage() {
       fetchLearningMeta,
       fetchLearningOutcomes,
       fetchLearningState,
+      fetchPhysicsStream,
       fetchScorecard,
       fetchStorageFiles,
       fetchStorageSummary,
@@ -1510,9 +1616,7 @@ export default function EvolutionPage() {
         await refreshAll(graphId);
       } catch (restoreErr) {
         const message =
-          restoreErr instanceof Error
-            ? restoreErr.message
-            : "Restore failed";
+          restoreErr instanceof Error ? restoreErr.message : "Restore failed";
         toast.error("Restore failed", message);
       } finally {
         setRestoringVersion(null);
@@ -1568,8 +1672,14 @@ export default function EvolutionPage() {
           setStorageFiles(filesData.items || []);
 
           try {
-            const flow = await fetchInventionFlow(targetGraphId);
+            const [flow, physStream] = await Promise.all([
+              fetchInventionFlow(targetGraphId),
+              fetchPhysicsStream(targetGraphId).catch(() => null),
+            ]);
             setFlowData(flow);
+            if (physStream) {
+              setPhysicsStreamData(physStream);
+            }
             setFlowError(null);
           } catch (flowErr) {
             const message =
@@ -1596,6 +1706,7 @@ export default function EvolutionPage() {
       fetchEvolveStatus,
       fetchInventionFlow,
       fetchLatest,
+      fetchPhysicsStream,
       fetchScorecard,
       fetchStorageFiles,
       fetchStorageSummary,
@@ -1652,6 +1763,39 @@ export default function EvolutionPage() {
     }
   }, [graphId, persistMode, profile, refreshAll, selfInventOnRun, toast]);
 
+  const triggerSynthesizeEvolve = useCallback(async () => {
+    const targetGraph = graphId.trim();
+    if (!targetGraph) {
+      toast.info("Graph id is required.");
+      return;
+    }
+    setRunLoading(true);
+    try {
+      const result = await apiRequest<EvolveResponse>("/api/v1/evolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          graph_id: targetGraph,
+          profile,
+          persist_mode: persistMode,
+          self_invent_requested: true,
+        }),
+      });
+      setLastRun(result);
+      toast.success(
+        "Synthesis & evolution finished",
+        `inventions=${result.inventions}, merges=${result.merges}, prunes=${result.prunes}`,
+      );
+      await refreshAll(targetGraph);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Synthesis request failed";
+      toast.error("Synthesis failed", message);
+    } finally {
+      setRunLoading(false);
+    }
+  }, [graphId, persistMode, profile, refreshAll, toast]);
+
   const applyGraphId = useCallback(() => {
     const next = graphDraft.trim();
     if (!next) {
@@ -1681,9 +1825,168 @@ export default function EvolutionPage() {
     setFlowData(null);
     setFlowError(null);
     setFlowLoading(true);
+    setPhysicsStreamData(null);
     pollTickRef.current = 0;
     void refreshAll(targetGraph);
   }, [graphId, refreshAll]);
+
+  // Real-time SSE telemetry stream -> updates Timeline, Physics Stream, and Topology live
+  useEffect(() => {
+    if (!autoRefresh) {
+      sseConnectedRef.current = false;
+      setSseConnected(false);
+      return;
+    }
+    const targetGraph = graphId.trim();
+    if (!targetGraph) return;
+
+    const ac = new AbortController();
+    let reconnectTimer: number | null = null;
+
+    const refreshLiveTelemetry = async () => {
+      if (sseRefreshBusyRef.current) return;
+      sseRefreshBusyRef.current = true;
+      try {
+        const [scorecardData, physStream, flow, statusData] = await Promise.all(
+          [
+            fetchScorecard(targetGraph).catch(() => null),
+            fetchPhysicsStream(targetGraph).catch(() => null),
+            fetchInventionFlow(targetGraph).catch(() => null),
+            fetchEvolveStatus(targetGraph).catch(() => null),
+          ],
+        );
+        if (ac.signal.aborted) return;
+        if (scorecardData) setMetrics(scorecardData);
+        if (physStream) setPhysicsStreamData(physStream);
+        if (flow) {
+          setFlowData(flow);
+          setFlowError(null);
+        }
+        if (statusData) setEvolveStatus(statusData);
+      } finally {
+        sseRefreshBusyRef.current = false;
+      }
+    };
+
+    const connectSse = async () => {
+      while (!ac.signal.aborted) {
+        try {
+          const seqParam = lastSeqRef.current > 0 ? lastSeqRef.current : -1;
+          const headers = await authHeaders({ Accept: "text/event-stream" });
+          const res = await fetch(
+            `/api/v1/stream?graph_id=${encodeURIComponent(
+              targetGraph,
+            )}&after_seq=${seqParam}`,
+            { headers, cache: "no-store", signal: ac.signal },
+          );
+
+          if (!res.ok || !res.body) {
+            throw new Error(`SSE HTTP ${res.status}`);
+          }
+
+          sseConnectedRef.current = true;
+          setSseConnected(true);
+          setLiveStatus("live");
+
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+
+          while (!ac.signal.aborted) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const frames = buffer.split(/\r?\n\r?\n/);
+            buffer = frames.pop() ?? "";
+
+            for (const rawFrame of frames) {
+              if (!rawFrame.trim()) continue;
+              let eventName = "message";
+              const dataLines: string[] = [];
+              for (const line of rawFrame.split(/\r?\n/)) {
+                if (line.startsWith(":")) continue;
+                if (line.startsWith("event:")) {
+                  eventName = line.slice(6).trim();
+                } else if (line.startsWith("data:")) {
+                  dataLines.push(line.slice(5).trim());
+                }
+              }
+              if (eventName === "ping" || dataLines.length === 0) continue;
+
+              let parsed: Record<string, unknown> = {};
+              try {
+                parsed = JSON.parse(dataLines.join("\n")) as Record<
+                  string,
+                  unknown
+                >;
+              } catch {
+                continue;
+              }
+
+              if (eventName === "ready") {
+                const readySeq = asNumber(parsed.last_seq);
+                if (readySeq !== null && readySeq > 0) {
+                  setLastSeq((prev) => Math.max(prev, readySeq));
+                }
+                continue;
+              }
+
+              const seqVal = asNumber(parsed.seq) ?? 0;
+              const kindStr = asString(parsed.kind) || eventName;
+              const payloadObj =
+                parsed.payload && typeof parsed.payload === "object"
+                  ? (parsed.payload as Record<string, unknown>)
+                  : parsed;
+
+              if (seqVal > 0 || kindStr) {
+                const ev: GraphEvent = {
+                  seq: seqVal,
+                  id:
+                    asString(parsed.event_id) ||
+                    asString(parsed.id) ||
+                    `sse-${seqVal}-${kindStr}`,
+                  kind: kindStr,
+                  ts: asString(parsed.ts),
+                  payload: payloadObj,
+                };
+                if (seqVal > 0) {
+                  setTimelineEvents((curr) => mergeEvents(curr, [ev]));
+                  setLastSeq((prev) => Math.max(prev, seqVal));
+                }
+                if (EVOLUTION_EVENT_KINDS.has(kindStr)) {
+                  void refreshLiveTelemetry();
+                }
+              }
+            }
+          }
+        } catch {
+          if (ac.signal.aborted) break;
+          sseConnectedRef.current = false;
+          setSseConnected(false);
+        }
+
+        if (ac.signal.aborted) break;
+        await new Promise<void>((resolve) => {
+          reconnectTimer = window.setTimeout(resolve, 2500);
+        });
+      }
+    };
+
+    void connectSse();
+    return () => {
+      ac.abort();
+      if (reconnectTimer !== null) window.clearTimeout(reconnectTimer);
+      sseConnectedRef.current = false;
+      setSseConnected(false);
+    };
+  }, [
+    autoRefresh,
+    fetchEvolveStatus,
+    fetchInventionFlow,
+    fetchPhysicsStream,
+    fetchScorecard,
+    graphId,
+  ]);
 
   useEffect(() => {
     if (!autoRefresh) return;
@@ -1691,6 +1994,7 @@ export default function EvolutionPage() {
     if (!targetGraph) return;
 
     const timer = window.setInterval(() => {
+      if (sseConnectedRef.current) return;
       if (pollBusyRef.current) return;
       pollBusyRef.current = true;
       void pollOnce(targetGraph).finally(() => {
@@ -1737,9 +2041,31 @@ export default function EvolutionPage() {
   }, [evolutionEvents]);
 
   const physicsPoints = useMemo(() => {
+    if (physicsStreamData && physicsStreamData.points.length > 0) {
+      return physicsStreamData.points.map((pt) => ({
+        time: pt.label,
+        seq: pt.seq,
+        entropy: pt.entropy_H,
+        redundancy: pt.redundancy_R,
+        novelty: pt.novelty_N,
+        pressure: pt.pressure_lambda,
+        energy: pt.energy_E,
+        d_hat: pt.d_hat,
+        cr: pt.compression_ratio_cr,
+        action: pt.action,
+        cycle_version: pt.cycle_version,
+        merges_count: pt.merges_count,
+        macros_count: pt.macros_count,
+      }));
+    }
+
     if (evolutionEvents.length > 0) {
-      return evolutionEvents.slice(-10).map((ev, idx) => {
+      return evolutionEvents.slice(-24).map((ev) => {
         const payload = ev.payload || {};
+        const nested =
+          payload.metrics && typeof payload.metrics === "object"
+            ? (payload.metrics as Record<string, unknown>)
+            : payload;
         return {
           time: ev.ts
             ? new Date(ev.ts).toLocaleTimeString([], {
@@ -1750,54 +2076,57 @@ export default function EvolutionPage() {
             : `Seq ${ev.seq}`,
           seq: ev.seq,
           entropy:
-            typeof payload.H_hat === "number"
-              ? payload.H_hat
-              : typeof payload.entropy === "number"
-                ? payload.entropy
-                : metrics?.entropy_H ?? 0.45,
+            asNumber(nested.H_hat) ??
+            asNumber(nested.H) ??
+            asNumber(nested.entropy) ??
+            metrics?.entropy_H ??
+            0,
           redundancy:
-            typeof payload.redundancy_R === "number"
-              ? payload.redundancy_R
-              : typeof payload.redundancy === "number"
-                ? payload.redundancy
-                : metrics?.redundancy ?? 0.15,
+            asNumber(nested.redundancy_R) ??
+            asNumber(nested.redundancy) ??
+            metrics?.redundancy ??
+            0,
           novelty:
-            typeof payload.novelty_N === "number"
-              ? payload.novelty_N
-              : typeof payload.novelty === "number"
-                ? payload.novelty
-                : metrics?.novelty ?? 0.85,
+            asNumber(nested.novelty_N) ??
+            asNumber(nested.novelty) ??
+            metrics?.novelty ??
+            0,
           pressure:
-            typeof payload.lambda_hat === "number"
-              ? payload.lambda_hat
-              : typeof payload.pressure_lambda === "number"
-                ? payload.pressure_lambda
-                : metrics?.pressure_lambda ?? 0.2,
+            asNumber(nested.lambda_hat) ??
+            asNumber(nested.lambda) ??
+            asNumber(nested.pressure_lambda) ??
+            metrics?.pressure_lambda ??
+            0,
           energy:
-            typeof payload.energy_E === "number"
-              ? payload.energy_E
-              : typeof payload.energy === "number"
-                ? payload.energy
-                : metrics?.energy ?? 0.95,
+            asNumber(nested.energy_E) ??
+            asNumber(nested.energy) ??
+            metrics?.energy ??
+            0,
+          d_hat:
+            asNumber(nested.d_hat) ??
+            asNumber(nested.D) ??
+            metrics?.dimension_D ??
+            0,
+          cr: asNumber(nested.cr) ?? 0,
+          action: ev.kind,
         };
       });
     }
 
-    // Fallback: construct live points from active metrics scorecard
-    const H = metrics?.entropy_H ?? 0.42;
-    const R = metrics?.redundancy ?? 0.14;
-    const N = metrics?.novelty ?? 0.86;
-    const Lambda = metrics?.pressure_lambda ?? 0.18;
-    const E = metrics?.energy ?? 0.92;
-
+    if (!metrics) return [];
     return [
-      { time: "T-4", entropy: Math.max(0, H - 0.1), redundancy: Math.max(0, R + 0.08), novelty: Math.min(1, N - 0.05), pressure: Math.max(0, Lambda + 0.1), energy: Math.max(0, E - 0.05) },
-      { time: "T-3", entropy: Math.max(0, H - 0.05), redundancy: Math.max(0, R + 0.05), novelty: Math.min(1, N - 0.03), pressure: Math.max(0, Lambda + 0.05), energy: Math.max(0, E - 0.02) },
-      { time: "T-2", entropy: H, redundancy: Math.max(0, R + 0.02), novelty: N, pressure: Lambda, energy: E },
-      { time: "T-1", entropy: Math.max(0, H - 0.02), redundancy: R, novelty: Math.min(1, N + 0.02), pressure: Math.max(0, Lambda - 0.02), energy: E },
-      { time: "Now", entropy: H, redundancy: R, novelty: N, pressure: Lambda, energy: E },
+      {
+        time: "Live",
+        entropy: metrics.entropy_H ?? 0,
+        redundancy: metrics.redundancy ?? 0,
+        novelty: metrics.novelty ?? 0,
+        pressure: metrics.pressure_lambda ?? 0,
+        energy: metrics.energy ?? 0,
+        d_hat: metrics.dimension_D ?? 0,
+        action: "SCORECARD",
+      },
     ];
-  }, [evolutionEvents, metrics]);
+  }, [physicsStreamData, evolutionEvents, metrics]);
 
   const profileOptions = [
     { value: "strict", label: "Strict" },
@@ -1822,7 +2151,11 @@ export default function EvolutionPage() {
         titleTestId="evolution-page-title"
         actions={
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={() => setManualOpen(true)}>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setManualOpen(true)}
+            >
               <BookOpen size={13} className="text-fuchsia-300" />
               User Manual
             </Button>
@@ -1852,25 +2185,36 @@ export default function EvolutionPage() {
                 onClick={() => setActivePane(pane.key)}
                 className="inline-flex items-center gap-2.5 rounded-[12px] border px-3.5 py-2 text-left transition-all duration-200 shadow-[0_10px_24px_rgba(0,0,0,0.22)]"
                 style={{
-                  borderColor: active ? `${pane.accent}55` : "rgba(255,255,255,0.08)",
-                  backgroundColor: active ? `${pane.accent}1E` : "rgba(255,255,255,0.02)",
+                  borderColor: active
+                    ? `${pane.accent}55`
+                    : "rgba(255,255,255,0.08)",
+                  backgroundColor: active
+                    ? `${pane.accent}1E`
+                    : "rgba(255,255,255,0.02)",
                   boxShadow: active ? `0 0 0 1px ${pane.accent}33` : "none",
                 }}
               >
                 <span
                   className="flex h-7 w-7 items-center justify-center rounded-[10px]"
-                  style={{ backgroundColor: `${pane.accent}18`, color: pane.accent }}
+                  style={{
+                    backgroundColor: `${pane.accent}18`,
+                    color: pane.accent,
+                  }}
                 >
                   <Icon size={14} />
                 </span>
                 <span className="flex flex-col">
                   <span
                     className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em]"
-                    style={{ color: active ? pane.accent : "rgba(148,163,184,0.8)" }}
+                    style={{
+                      color: active ? pane.accent : "rgba(148,163,184,0.8)",
+                    }}
                   >
                     {pane.hint}
                   </span>
-                  <span className="text-[11px] font-medium text-white">{pane.label}</span>
+                  <span className="text-[11px] font-medium text-white">
+                    {pane.label}
+                  </span>
                 </span>
               </button>
             );
@@ -1893,10 +2237,16 @@ export default function EvolutionPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={selfEvolveActive ? "success" : "outline"} size="md">
+                <Badge
+                  variant={selfEvolveActive ? "success" : "outline"}
+                  size="md"
+                >
                   {selfEvolveActive ? "Self-Evolve Active" : "Self-Evolve Off"}
                 </Badge>
-                <Badge variant={selfInventActive ? "success" : "outline"} size="md">
+                <Badge
+                  variant={selfInventActive ? "success" : "outline"}
+                  size="md"
+                >
                   {selfInventActive ? "Self-Invent Active" : "Self-Invent Off"}
                 </Badge>
               </div>
@@ -1909,11 +2259,11 @@ export default function EvolutionPage() {
                   <p className="text-[10px] uppercase font-bold tracking-widest text-slate-500">
                     Graph Context
                   </p>
-                  <p className="mt-1 font-mono text-sm text-cyan-200">{graphId}</p>
+                  <p className="mt-1 font-mono text-sm text-cyan-200">
+                    {graphId}
+                  </p>
                 </div>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Session bound
-                </p>
+                <p className="mt-1 text-[11px] text-slate-400">Session bound</p>
               </div>
 
               {/* 2. Profile */}
@@ -1970,7 +2320,9 @@ export default function EvolutionPage() {
                     >
                       <span
                         className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                          selfEvolveActive ? "translate-x-[18px]" : "translate-x-[3px]"
+                          selfEvolveActive
+                            ? "translate-x-[18px]"
+                            : "translate-x-[3px]"
                         }`}
                       />
                     </button>
@@ -1988,7 +2340,9 @@ export default function EvolutionPage() {
                     ["periodic", "Periodic"],
                     ["hybrid", "Hybrid"],
                   ].map(([value, label]) => {
-                    const active = (controlDraft?.self_evolve_trigger_mode ?? "manual") === value;
+                    const active =
+                      (controlDraft?.self_evolve_trigger_mode ?? "manual") ===
+                      value;
                     return (
                       <Button
                         key={value}
@@ -2040,7 +2394,9 @@ export default function EvolutionPage() {
                     >
                       <span
                         className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                          selfInventActive ? "translate-x-[18px]" : "translate-x-[3px]"
+                          selfInventActive
+                            ? "translate-x-[18px]"
+                            : "translate-x-[3px]"
                         }`}
                       />
                     </button>
@@ -2062,9 +2418,12 @@ export default function EvolutionPage() {
                       value as "off" | "on_evolve" | "after_upload" | "both",
                     );
                     const active =
-                      controlDraft?.self_invent_enabled === invented.self_invent_enabled &&
-                      controlDraft?.self_invent_on_evolve === invented.self_invent_on_evolve &&
-                      controlDraft?.self_invent_after_upload === invented.self_invent_after_upload;
+                      controlDraft?.self_invent_enabled ===
+                        invented.self_invent_enabled &&
+                      controlDraft?.self_invent_on_evolve ===
+                        invented.self_invent_on_evolve &&
+                      controlDraft?.self_invent_after_upload ===
+                        invented.self_invent_after_upload;
                     return (
                       <Button
                         key={value}
@@ -2094,13 +2453,16 @@ export default function EvolutionPage() {
                   Run Evolution Cycle
                 </p>
                 <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                  Manually trigger merge / prune / self-invention on the active graph
+                  Manually trigger merge / prune / self-invention on the active
+                  graph
                 </p>
               </div>
               {lastRun && (
                 <div className="flex items-center gap-2">
                   <Badge
-                    variant={lastRun.status === "completed" ? "success" : "warning"}
+                    variant={
+                      lastRun.status === "completed" ? "success" : "warning"
+                    }
                     size="sm"
                   >
                     {lastRun.status}
@@ -2138,7 +2500,9 @@ export default function EvolutionPage() {
                 >
                   <span
                     className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                      selfInventOnRun ? "translate-x-[18px]" : "translate-x-[3px]"
+                      selfInventOnRun
+                        ? "translate-x-[18px]"
+                        : "translate-x-[3px]"
                     }`}
                   />
                 </button>
@@ -2181,7 +2545,9 @@ export default function EvolutionPage() {
               <div
                 key={stat.label}
                 className={`relative flex flex-col justify-center px-6 py-4 ${
-                  i > 0 ? "border-t sm:border-t-0 sm:border-l border-white/6" : ""
+                  i > 0
+                    ? "border-t sm:border-t-0 sm:border-l border-white/6"
+                    : ""
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
@@ -2214,7 +2580,9 @@ export default function EvolutionPage() {
               </div>
               <div className="space-y-3 pt-4 px-5 pb-5 text-sm">
                 {!evolveStatus ? (
-                  <p className="text-sm text-slate-400">Loading scheduler state...</p>
+                  <p className="text-sm text-slate-400">
+                    Loading scheduler state...
+                  </p>
                 ) : (
                   <>
                     <div className="flex items-center justify-between">
@@ -2226,23 +2594,38 @@ export default function EvolutionPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">Jobs enabled</span>
                       <Badge
-                        variant={evolveStatus.runtime.jobs_enabled ? "success" : "warning"}
+                        variant={
+                          evolveStatus.runtime.jobs_enabled
+                            ? "success"
+                            : "warning"
+                        }
                         size="xs"
                       >
-                        {evolveStatus.runtime.jobs_enabled ? "enabled" : "disabled"}
+                        {evolveStatus.runtime.jobs_enabled
+                          ? "enabled"
+                          : "disabled"}
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-slate-400">Self evolve / invent</span>
+                      <span className="text-slate-400">
+                        Self evolve / invent
+                      </span>
                       <span className="text-xs text-slate-200">
-                        {evolveStatus.runtime.self_evolve_enabled ? "on" : "off"} /{" "}
-                        {evolveStatus.runtime.self_invent_enabled ? "on" : "off"}
+                        {evolveStatus.runtime.self_evolve_enabled
+                          ? "on"
+                          : "off"}{" "}
+                        /{" "}
+                        {evolveStatus.runtime.self_invent_enabled
+                          ? "on"
+                          : "off"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">Due now</span>
                       <Badge
-                        variant={evolveStatus.due.is_due ? "success" : "outline"}
+                        variant={
+                          evolveStatus.due.is_due ? "success" : "outline"
+                        }
                         size="xs"
                       >
                         {evolveStatus.due.is_due ? "yes" : "no"}
@@ -2260,7 +2643,8 @@ export default function EvolutionPage() {
                     <div className="flex items-center justify-between">
                       <span className="text-slate-400">Version delta</span>
                       <span className="text-xs text-slate-200">
-                        {evolveStatus.due.version_delta} / {evolveStatus.due.min_version_delta}
+                        {evolveStatus.due.version_delta} /{" "}
+                        {evolveStatus.due.min_version_delta}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -2339,7 +2723,8 @@ export default function EvolutionPage() {
                   </span>
                 </p>
                 <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                  LinUCB policy state, lambda calibration, outcomes & maturity metrics
+                  LinUCB policy state, lambda calibration, outcomes & maturity
+                  metrics
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -2383,7 +2768,9 @@ export default function EvolutionPage() {
               {learningError ? (
                 <p className="text-sm text-rose-300">{learningError}</p>
               ) : !learningState ? (
-                <p className="text-sm text-slate-400">Loading learning state...</p>
+                <p className="text-sm text-slate-400">
+                  Loading learning state...
+                </p>
               ) : (
                 <div className="grid gap-4 xl:grid-cols-3">
                   {/* Learned knobs */}
@@ -2392,37 +2779,42 @@ export default function EvolutionPage() {
                       Learned knobs
                     </p>
                     <div className="mt-2 space-y-2">
-                      {Object.entries(learningState.defaults).map(([knob, dflt]) => {
-                        const value = learningState.knobs[knob];
-                        const changed = typeof value === "number" && value !== dflt;
-                        const visits = Object.keys(
-                          learningState.samples[knob]?.visits ?? {},
-                        ).length;
-                        return (
-                          <div
-                            key={knob}
-                            className="flex items-center justify-between gap-2"
-                          >
-                            <span className="font-mono text-[11px] text-slate-400">
-                              {knob}
-                            </span>
-                            <span className="flex items-center gap-2">
-                              {visits > 0 && (
-                                <span className="font-mono text-[10px] text-slate-500">
-                                  {visits} samples
-                                </span>
-                              )}
-                              <span
-                                className={`font-mono text-xs ${
-                                  changed ? "text-fuchsia-300" : "text-slate-200"
-                                }`}
-                              >
-                                {String(value)}
+                      {Object.entries(learningState.defaults).map(
+                        ([knob, dflt]) => {
+                          const value = learningState.knobs[knob];
+                          const changed =
+                            typeof value === "number" && value !== dflt;
+                          const visits = Object.keys(
+                            learningState.samples[knob]?.visits ?? {},
+                          ).length;
+                          return (
+                            <div
+                              key={knob}
+                              className="flex items-center justify-between gap-2"
+                            >
+                              <span className="font-mono text-[11px] text-slate-400">
+                                {knob}
                               </span>
-                            </span>
-                          </div>
-                        );
-                      })}
+                              <span className="flex items-center gap-2">
+                                {visits > 0 && (
+                                  <span className="font-mono text-[10px] text-slate-500">
+                                    {visits} samples
+                                  </span>
+                                )}
+                                <span
+                                  className={`font-mono text-xs ${
+                                    changed
+                                      ? "text-fuchsia-300"
+                                      : "text-slate-200"
+                                  }`}
+                                >
+                                  {String(value)}
+                                </span>
+                              </span>
+                            </div>
+                          );
+                        },
+                      )}
                     </div>
                     {learningState.meta &&
                       Object.keys(learningState.meta).length > 0 && (
@@ -2431,9 +2823,9 @@ export default function EvolutionPage() {
                             State meta
                           </p>
                           <p className="mt-1 font-mono text-[11px] text-slate-400 break-words">
-                            {Object.entries(learningState.meta).map(
-                              ([key, value]) => `${key}:${String(value)}`,
-                            ).join(" · ")}
+                            {Object.entries(learningState.meta)
+                              .map(([key, value]) => `${key}:${String(value)}`)
+                              .join(" · ")}
                           </p>
                         </div>
                       )}
@@ -2544,12 +2936,13 @@ export default function EvolutionPage() {
                         ))}
                       </div>
                     )}
-                    {learningMeta.length === 0 && learningOutcomes.length === 0 && (
-                      <p className="mt-2 text-xs text-slate-500">
-                        No outcomes recorded yet. Learning rows appear after the
-                        first evolution cycle.
-                      </p>
-                    )}
+                    {learningMeta.length === 0 &&
+                      learningOutcomes.length === 0 && (
+                        <p className="mt-2 text-xs text-slate-500">
+                          No outcomes recorded yet. Learning rows appear after
+                          the first evolution cycle.
+                        </p>
+                      )}
                   </div>
                 </div>
               )}
@@ -2577,7 +2970,9 @@ export default function EvolutionPage() {
             </div>
             <div className="p-5 space-y-4">
               {!storageSummary ? (
-                <p className="text-sm text-slate-400">Loading storage summary...</p>
+                <p className="text-sm text-slate-400">
+                  Loading storage summary...
+                </p>
               ) : (
                 <div className="grid gap-3 sm:grid-cols-4">
                   <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
@@ -2601,9 +2996,9 @@ export default function EvolutionPage() {
                       By status
                     </p>
                     <p className="mt-1 text-xs text-slate-300">
-                      {Object.entries(storageSummary.by_status || {}).map(
-                        ([status, count]) => `${status}:${count}`,
-                      ).join(" · ") || "-"}
+                      {Object.entries(storageSummary.by_status || {})
+                        .map(([status, count]) => `${status}:${count}`)
+                        .join(" · ") || "-"}
                     </p>
                   </div>
                   <div className="rounded-[14px] border border-white/8 bg-white/[0.03] p-3">
@@ -2611,9 +3006,9 @@ export default function EvolutionPage() {
                       By type
                     </p>
                     <p className="mt-1 text-xs text-slate-300">
-                      {Object.entries(storageSummary.by_type || {}).map(
-                        ([type, count]) => `${type}:${count}`,
-                      ).join(" · ") || "-"}
+                      {Object.entries(storageSummary.by_type || {})
+                        .map(([type, count]) => `${type}:${count}`)
+                        .join(" · ") || "-"}
                     </p>
                   </div>
                 </div>
@@ -2681,7 +3076,8 @@ export default function EvolutionPage() {
                 Self-Invention & Physics Pipeline
               </p>
               <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
-                2.5D Left-to-Right Flow Diagram Canvas, Invention Inspector & Physics Stream
+                2.5D Left-to-Right Flow Diagram Canvas, Invention Inspector &
+                Physics Stream
               </p>
             </div>
 
@@ -2719,13 +3115,25 @@ export default function EvolutionPage() {
                 data={flowData}
                 loading={flowLoading}
                 error={flowError}
+                sseConnected={sseConnected}
+                isSynthesizing={runLoading}
                 onRetry={() => void reloadFlow(graphId)}
+                onTriggerSynthesize={() => void triggerSynthesizeEvolve()}
               />
             )}
 
             {visualSubTab === "physics" && (
               <div className="min-h-[440px]">
-                <EvolutionPhysicsChart data={physicsPoints} />
+                <EvolutionPhysicsChart
+                  data={physicsPoints}
+                  streamData={physicsStreamData}
+                  sseConnected={sseConnected}
+                  onRefresh={() =>
+                    void fetchPhysicsStream(graphId)
+                      .then(setPhysicsStreamData)
+                      .catch(() => undefined)
+                  }
+                />
               </div>
             )}
           </div>
@@ -2761,7 +3169,9 @@ export default function EvolutionPage() {
                   >
                     <span
                       className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform ${
-                        showEvolutionOnly ? "translate-x-[14px]" : "translate-x-[2px]"
+                        showEvolutionOnly
+                          ? "translate-x-[14px]"
+                          : "translate-x-[2px]"
                       }`}
                     />
                   </button>
@@ -2805,7 +3215,10 @@ export default function EvolutionPage() {
                       className="group px-5 py-4 transition-all hover:bg-white/[0.02] border-b border-white/6"
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={eventBadgeVariant(event.kind)} size="sm">
+                        <Badge
+                          variant={eventBadgeVariant(event.kind)}
+                          size="sm"
+                        >
                           {event.kind}
                         </Badge>
                         <Badge variant="outline" size="xs">
@@ -2846,7 +3259,9 @@ export default function EvolutionPage() {
                   <>
                     <div className="flex items-center gap-2">
                       <Badge
-                        variant={lastRun.status === "completed" ? "success" : "warning"}
+                        variant={
+                          lastRun.status === "completed" ? "success" : "warning"
+                        }
                         size="sm"
                       >
                         {lastRun.status}
@@ -2859,20 +3274,28 @@ export default function EvolutionPage() {
                       <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
                         <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
                         <p className="text-slate-400 text-xs">Merges</p>
-                        <p className="font-semibold text-cyan-200">{lastRun.merges}</p>
+                        <p className="font-semibold text-cyan-200">
+                          {lastRun.merges}
+                        </p>
                       </div>
                       <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
                         <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
                         <p className="text-slate-400 text-xs">Prunes</p>
-                        <p className="font-semibold text-cyan-200">{lastRun.prunes}</p>
+                        <p className="font-semibold text-cyan-200">
+                          {lastRun.prunes}
+                        </p>
                       </div>
                       <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
                         <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
                         <p className="text-slate-400 text-xs">Inventions</p>
-                        <p className="font-semibold text-cyan-200">{lastRun.inventions}</p>
+                        <p className="font-semibold text-cyan-200">
+                          {lastRun.inventions}
+                        </p>
                       </div>
                     </div>
-                    <p className="text-xs text-slate-400">Latency: {lastRun.latency_ms} ms</p>
+                    <p className="text-xs text-slate-400">
+                      Latency: {lastRun.latency_ms} ms
+                    </p>
                   </>
                 )}
               </div>
@@ -2901,15 +3324,21 @@ export default function EvolutionPage() {
                 <div className="grid grid-cols-3 gap-2 pt-1">
                   <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
                     <p className="text-[11px] text-slate-400">Complete</p>
-                    <p className="font-semibold text-emerald-400">{eventStats.completed}</p>
+                    <p className="font-semibold text-emerald-400">
+                      {eventStats.completed}
+                    </p>
                   </div>
                   <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
                     <p className="text-[11px] text-slate-400">Skipped</p>
-                    <p className="font-semibold text-amber-400">{eventStats.skipped}</p>
+                    <p className="font-semibold text-amber-400">
+                      {eventStats.skipped}
+                    </p>
                   </div>
                   <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] p-2.5">
                     <p className="text-[11px] text-slate-400">Invention</p>
-                    <p className="font-semibold text-violet-400">{eventStats.inventionSummary}</p>
+                    <p className="font-semibold text-violet-400">
+                      {eventStats.inventionSummary}
+                    </p>
                   </div>
                 </div>
               </div>

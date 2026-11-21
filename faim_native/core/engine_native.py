@@ -154,9 +154,7 @@ class FAIMNativeEngine:
         # making ingest progressively slower as the graph grew.  The snapshot
         # preserves the repository's deterministic created_at/node_id order;
         # newly inserted nodes are appended as the current write advances.
-        candidate_records = self.node_repo.get_all_vectors_with_level_and_hash(
-            graph_id
-        )
+        candidate_records = self.node_repo.get_all_vectors_with_level_and_hash(graph_id)
         candidate_ids = {record[0] for record in candidate_records}
 
         # Import cognitive typing for neural constellation classification
@@ -185,7 +183,11 @@ class FAIMNativeEngine:
             )
 
             # 2. Upsert atom node with cognitive classification and semantic embedding
-            emb_vec = embedding_vectors[idx] if embedding_vectors and idx < len(embedding_vectors) else None
+            emb_vec = (
+                embedding_vectors[idx]
+                if embedding_vectors and idx < len(embedding_vectors)
+                else None
+            )
             node_id = self.node_repo.upsert_atom_node(
                 graph_id,
                 vector,
@@ -328,7 +330,12 @@ class FAIMNativeEngine:
 
             if node_id not in candidate_ids:
                 candidate_records.append(
-                    (node_id, list(vector.v_native), int(vector.level or 0), vector.vector_hash)
+                    (
+                        node_id,
+                        list(vector.v_native),
+                        int(vector.level or 0),
+                        vector.vector_hash,
+                    )
                 )
                 candidate_ids.add(node_id)
 
@@ -398,7 +405,9 @@ class FAIMNativeEngine:
             import numpy as np
 
             node_ids = [node_id for node_id, _vector in candidates]
-            matrix = np.asarray([vector for _node_id, vector in candidates], dtype=float)
+            matrix = np.asarray(
+                [vector for _node_id, vector in candidates], dtype=float
+            )
             child = np.asarray(child_vector, dtype=float)
             child_norm = float(np.linalg.norm(child))
             norms = np.linalg.norm(matrix, axis=1)

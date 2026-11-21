@@ -40,7 +40,8 @@ interface NativeProviderItem {
 async function authHeaders(
   req: NextRequest,
 ): Promise<{ xUser: string; xKey: string; auth: string }> {
-  const xUser = req.headers.get("x-faim-user") || req.headers.get("x-user-id") || "";
+  const xUser =
+    req.headers.get("x-faim-user") || req.headers.get("x-user-id") || "";
   const xKey = req.headers.get("x-faim-key") || "";
   const auth = req.headers.get("authorization") || "";
 
@@ -60,10 +61,25 @@ async function authHeaders(
   return { xUser, xKey, auth };
 }
 
-async function listNativeProviders(
-  ctx: { xUser: string; xKey: string; auth: string },
-): Promise<{ items: NativeProviderItem[]; status: number; raw: unknown; activeBackend: string }> {
-  const hosts = Array.from(new Set([BACKEND, "http://faim-api:8000", "http://api:8000", "http://127.0.0.1:8000", "http://localhost:8000"]));
+async function listNativeProviders(ctx: {
+  xUser: string;
+  xKey: string;
+  auth: string;
+}): Promise<{
+  items: NativeProviderItem[];
+  status: number;
+  raw: unknown;
+  activeBackend: string;
+}> {
+  const hosts = Array.from(
+    new Set([
+      BACKEND,
+      "http://faim-api:8000",
+      "http://api:8000",
+      "http://127.0.0.1:8000",
+      "http://localhost:8000",
+    ]),
+  );
   let lastErrStatus = 0;
   let lastRaw: unknown = {};
 
@@ -74,7 +90,9 @@ async function listNativeProviders(
           Accept: "application/json",
           "X-Tenant-Id": "default",
           "X-Api-Key": ctx.xKey || "default",
-          ...(ctx.xUser ? { "X-FAIM-USER": ctx.xUser, "X-User-Id": ctx.xUser } : {}),
+          ...(ctx.xUser
+            ? { "X-FAIM-USER": ctx.xUser, "X-User-Id": ctx.xUser }
+            : {}),
           ...(ctx.xKey ? { "X-FAIM-KEY": ctx.xKey } : {}),
           ...(ctx.auth ? { Authorization: ctx.auth } : {}),
         },
@@ -82,14 +100,21 @@ async function listNativeProviders(
       });
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
-        const items = Array.isArray(data?.items) ? (data.items as NativeProviderItem[]) : [];
+        const items = Array.isArray(data?.items)
+          ? (data.items as NativeProviderItem[])
+          : [];
         return { items, status: res.status, raw: data, activeBackend: host };
       }
       lastErrStatus = res.status;
       lastRaw = await res.json().catch(() => ({}));
     } catch {}
   }
-  return { items: [], status: lastErrStatus, raw: lastRaw, activeBackend: BACKEND };
+  return {
+    items: [],
+    status: lastErrStatus,
+    raw: lastRaw,
+    activeBackend: BACKEND,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -100,7 +125,12 @@ export async function POST(req: NextRequest) {
   const ctx = await authHeaders(req);
 
   try {
-    const { items: providers, status: listStatus, raw, activeBackend } = await listNativeProviders(ctx);
+    const {
+      items: providers,
+      status: listStatus,
+      raw,
+      activeBackend,
+    } = await listNativeProviders(ctx);
 
     if (listStatus === 401 || listStatus === 403) {
       return Response.json(
@@ -128,7 +158,12 @@ export async function POST(req: NextRequest) {
       const norm = requestedModel.replace(/\//g, "-").toLowerCase();
       provider = providers.find((p) => {
         const pId = (p.id || "").toLowerCase();
-        return pId === norm || pId === `local-${norm}` || (requestedModel.toLowerCase().includes("bge-m3") && pId === "bge-m3-local");
+        return (
+          pId === norm ||
+          pId === `local-${norm}` ||
+          (requestedModel.toLowerCase().includes("bge-m3") &&
+            pId === "bge-m3-local")
+        );
       });
       if (!provider) {
         provider = providers.find((p) => {
@@ -139,7 +174,10 @@ export async function POST(req: NextRequest) {
       }
     }
     if (!provider) {
-      provider = providers.find((p) => p.is_active) || providers.find((p) => p.status === "online") || providers[0];
+      provider =
+        providers.find((p) => p.is_active) ||
+        providers.find((p) => p.status === "online") ||
+        providers[0];
     }
 
     if (!provider?.id) {
@@ -162,11 +200,16 @@ export async function POST(req: NextRequest) {
           Accept: "application/json",
           "X-Tenant-Id": "default",
           "X-Api-Key": ctx.xKey || "default",
-          ...(ctx.xUser ? { "X-FAIM-USER": ctx.xUser, "X-User-Id": ctx.xUser } : {}),
+          ...(ctx.xUser
+            ? { "X-FAIM-USER": ctx.xUser, "X-User-Id": ctx.xUser }
+            : {}),
           ...(ctx.xKey ? { "X-FAIM-KEY": ctx.xKey } : {}),
           ...(ctx.auth ? { Authorization: ctx.auth } : {}),
         },
-        body: JSON.stringify({ provider_id: provider.id, test_text: "FAIM embedding test" }),
+        body: JSON.stringify({
+          provider_id: provider.id,
+          test_text: "FAIM embedding test",
+        }),
         cache: "no-store",
       },
     );
@@ -188,7 +231,10 @@ export async function POST(req: NextRequest) {
     }
     if (testRes.status === 401 || testRes.status === 403) {
       return Response.json(
-        { success: false, message: "Auth required to reach FAIM-native embedding core." },
+        {
+          success: false,
+          message: "Auth required to reach FAIM-native embedding core.",
+        },
         { status: 200 },
       );
     }
@@ -196,13 +242,22 @@ export async function POST(req: NextRequest) {
       {
         success: false,
         message: data?.message || `Ping failed for ${provider.id}`,
-        _debug: { requestedModel, selectedProviderId: provider.id, activeBackend, testResStatus: testRes.status, data },
+        _debug: {
+          requestedModel,
+          selectedProviderId: provider.id,
+          activeBackend,
+          testResStatus: testRes.status,
+          data,
+        },
       },
       { status: 200 },
     );
   } catch (e: any) {
     return Response.json(
-      { success: false, message: `FAIM-native embedding core unreachable: ${e.message}` },
+      {
+        success: false,
+        message: `FAIM-native embedding core unreachable: ${e.message}`,
+      },
       { status: 200 },
     );
   }

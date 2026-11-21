@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Dict, List, Mapping, Sequence, Tuple
 
-from lexical.multilingual_canonicalizer import load_multilingual_resources
 from lexical import synonym_expander
+from lexical.multilingual_canonicalizer import load_multilingual_resources
 from lexical.synonym_expander import (
     WeightedExpansion,
     _normalize_term,

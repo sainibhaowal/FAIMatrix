@@ -132,11 +132,17 @@ def test_diagnostics_identical_via_graph_wrapper():
     distances = [1.0 - s for s in flat]
 
     pure = compute_graph_diagnostics(
-        graph_id="g", nodes=nodes, edges=[], graph_version=1,
+        graph_id="g",
+        nodes=nodes,
+        edges=[],
+        graph_version=1,
         config=DEFAULT_CONFIG,
     )
     cached = compute_graph_diagnostics(
-        graph_id="g", nodes=nodes, edges=[], graph_version=1,
+        graph_id="g",
+        nodes=nodes,
+        edges=[],
+        graph_version=1,
         config=DEFAULT_CONFIG,
         similarities=flat,
         distances=distances,

@@ -42,11 +42,15 @@ def test_reranker_v2_suppresses_older_conflicting_candidate():
 
 
 def test_reranker_v2_prefers_stronger_proposition_alignment_when_base_scores_are_close():
-    query_repr = build_representation_v2("artificial intelligence revenue improved before 2026")
+    query_repr = build_representation_v2(
+        "artificial intelligence revenue improved before 2026"
+    )
     strong_repr = build_representation_v2(
         "AI revenue improved before 2026 after a stronger quarter."
     )
-    weak_repr = build_representation_v2("warehouse inventory changed during a rainy week")
+    weak_repr = build_representation_v2(
+        "warehouse inventory changed during a rainy week"
+    )
 
     strong_id = uuid4()
     weak_id = uuid4()

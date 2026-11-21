@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -222,6 +222,12 @@ class InventionFlowNode(BaseModel):
     children_details: Optional[List[InventionFlowChildDetail]] = None
     decision: Optional[MergeDecision] = None
     recent: bool = False  # touched by the latest completed evolution cycle
+    summary: Optional[str] = None
+    synthesis_origin: Optional[str] = None
+    residual: Optional[float] = None
+    level: Optional[int] = None
+    weights: Dict[str, float] = Field(default_factory=dict)
+    pair_id: Optional[str] = None
 
 
 class InventionFlowStage(BaseModel):
@@ -230,6 +236,29 @@ class InventionFlowStage(BaseModel):
     atoms: List[InventionFlowNode]
     macros: List[InventionFlowNode]
     merges: List[InventionFlowNode]
+
+
+class InventionFlowEdgeItem(BaseModel):
+    """Directed lineage conduit across Stage 1 -> Stage 2 -> Stage 3."""
+
+    edge_id: str
+    src_id: str
+    dst_id: str
+    kind: str  # atom_to_macro | atom_to_theory | atom_to_merge | macro_to_merge
+    weight: float = 0.0
+    label: str = ""
+
+
+class InventionFlowTheoryItem(BaseModel):
+    """Active symbolic graph theory linked to evidence atoms."""
+
+    theory_id: str
+    theory_type: str
+    title: str
+    description: str
+    confidence: float = 0.0
+    graph_version: int = 0
+    evidence_node_ids: List[str] = Field(default_factory=list)
 
 
 class InventionFlowResponse(BaseModel):
@@ -241,6 +270,46 @@ class InventionFlowResponse(BaseModel):
     macro_count: int
     merge_count: int
     stages: InventionFlowStage
+    computed_at: str
+    edges: List[InventionFlowEdgeItem] = Field(default_factory=list)
+    theories: List[InventionFlowTheoryItem] = Field(default_factory=list)
+    theory_count: int = 0
+    eval_metrics: Dict[str, Any] = Field(default_factory=dict)
+
+
+class PhysicsStreamPoint(BaseModel):
+    """Single chronological physics & invariant telemetry observation."""
+
+    seq: int
+    ts: str
+    label: str
+    cycle_version: Optional[int] = None
+    action: str = "SNAPSHOT"
+    redundancy_R: float = 0.0
+    novelty_N: float = 0.0
+    novelty_raw: float = 0.0
+    pressure_lambda: float = 0.0
+    entropy_H: float = 0.0
+    energy_E: float = 0.0
+    d_hat: float = 0.0
+    compression_ratio_cr: float = 1.0
+    merges_count: int = 0
+    macros_count: int = 0
+    nodes_count: int = 0
+    edges_count: int = 0
+
+
+class PhysicsStreamResponse(BaseModel):
+    """Chronological physics stream, deltas, thresholds, and regime evaluations."""
+
+    graph_id: str
+    tenant_id: str
+    last_seq: int
+    points: List[PhysicsStreamPoint] = Field(default_factory=list)
+    current: Dict[str, float] = Field(default_factory=dict)
+    deltas: Dict[str, float] = Field(default_factory=dict)
+    thresholds: Dict[str, float] = Field(default_factory=dict)
+    evals: Dict[str, Any] = Field(default_factory=dict)
     computed_at: str
 
 
@@ -439,18 +508,13 @@ def _build_evolve_metrics(
 
         outcomes = learning_repo.get_outcomes(graph_id, limit=50)
         learning["outcomes_count"] = len(outcomes)
-        sorted_outcomes = sorted(
-            outcomes, key=lambda row: row.get("graph_version", 0)
-        )
+        sorted_outcomes = sorted(outcomes, key=lambda row: row.get("graph_version", 0))
         if len(sorted_outcomes) >= 3:
             xs = [float(r.get("graph_version", 0)) for r in sorted_outcomes]
             ys = [float(r.get("reward", 0.0) or 0.0) for r in sorted_outcomes]
             x_mean = sum(xs) / len(xs)
             y_mean = sum(ys) / len(ys)
-            num = sum(
-                (x - x_mean) * (y - y_mean)
-                for x, y in zip(xs, ys, strict=False)
-            )
+            num = sum((x - x_mean) * (y - y_mean) for x, y in zip(xs, ys, strict=False))
             den = sum((x - x_mean) ** 2 for x in xs)
             if den > 0:
                 learning["reward_trend_slope"] = round(num / den, 6)
@@ -469,8 +533,7 @@ def _build_evolve_metrics(
             drift = sum(
                 1
                 for key, default in KNOB_DEFAULTS.items()
-                if key in knobs
-                and abs(float(knobs[key]) - float(default)) > 1e-9
+                if key in knobs and abs(float(knobs[key]) - float(default)) > 1e-9
             )
             learning["knob_drift_count"] = int(drift)
             learning["policy_version"] = int(state.get("version") or 0)
@@ -484,9 +547,7 @@ def _build_evolve_metrics(
                 )
             meta = state.get("meta") or {}
             if isinstance(meta, dict) and "merge_usefulness" in meta:
-                learning["merge_usefulness"] = round(
-                    float(meta["merge_usefulness"]), 6
-                )
+                learning["merge_usefulness"] = round(float(meta["merge_usefulness"]), 6)
 
         # Latest meta metrics (leaderboard-style) if present.
         try:
@@ -660,9 +721,36 @@ def _node_title_text(
 ) -> str:
     """Best-effort human title for a node from its representation text."""
     node_id = str(getattr(node, "node_id", "") or "")
-    if node_id in repr_by_id:
-        return _truncate(repr_by_id[node_id], 90)
+    text = (repr_by_id.get(node_id) or "").strip()
+    if text:
+        return _truncate(text, 90)
+    sig = getattr(node, "opp_signature", None) or {}
+    if isinstance(sig, dict):
+        sig_title = str(sig.get("title") or sig.get("label") or "").strip()
+        if sig_title:
+            return _truncate(sig_title, 90)
+    anchor = getattr(node, "anchor_json", None) or {}
+    if isinstance(anchor, dict):
+        anchor_text = str(anchor.get("text") or anchor.get("canonical") or "").strip()
+        if anchor_text:
+            return _truncate(anchor_text, 90)
     return default
+
+
+def _effective_novelty_n(
+    r_val: float,
+    n_raw: float,
+    h_hat: float,
+    distinct_kinds: int = 4,
+) -> float:
+    """Return effective manifold novelty N, preserving raw residual when non-zero."""
+    if n_raw > 0.005:
+        return round(max(0.0, min(1.0, float(n_raw))), 6)
+    kind_factor = min(1.0, max(1, distinct_kinds) / 6.0)
+    computed = (1.0 - max(0.0, min(1.0, float(r_val)))) * (
+        0.35 + 0.45 * max(0.0, min(1.0, float(h_hat))) + 0.20 * kind_factor
+    )
+    return round(max(0.05, min(0.98, computed)), 6)
 
 
 def _node_subtitle(node: Any, fallback: str = "") -> str:
@@ -697,10 +785,24 @@ def _load_repr_text(
     if not node_ids:
         return {}
     try:
+        from uuid import UUID
+
         from store.pg.repos.representation_repo import RepresentationRepo
 
+        parsed_ids: List[UUID] = []
+        seen = set()
+        for nid in node_ids:
+            try:
+                u = UUID(str(nid))
+            except (ValueError, TypeError, AttributeError):
+                continue
+            if u not in seen:
+                seen.add(u)
+                parsed_ids.append(u)
+        if not parsed_ids:
+            return {}
         repo = RepresentationRepo(session=session, tenant_id=tenant_id)
-        rows = repo.list_by_node_ids(graph_id=graph_id, node_ids=node_ids)
+        rows = repo.list_by_node_ids(graph_id=graph_id, node_ids=parsed_ids)
         return {
             str(row.node_id): str(getattr(row, "normalized_text", "") or "")
             for row in rows
@@ -715,10 +817,14 @@ def _build_invention_flow(
     tenant_id: str,
     graph_id: str,
 ) -> InventionFlowResponse:
-    """Derive the invention pipeline stages from the live graph."""
+    """Derive the invention pipeline stages, connected edges, theories & evals."""
+    from uuid import UUID
+
+    from store.pg.models_faim import GraphDiagnosticsCacheModel
     from store.pg.repos.edge_repo import EdgeRepo
     from store.pg.repos.event_repo import EventRepo
     from store.pg.repos.node_repo import NodeRepo
+    from store.pg.repos.theory_repo import TheoryRepo
 
     node_repo = NodeRepo(session=session, tenant_id=tenant_id)
     edge_repo = EdgeRepo(session=session, tenant_id=tenant_id)
@@ -726,7 +832,6 @@ def _build_invention_flow(
 
     # Cycle boundary: "recent" = merges that happened since the previous
     # completed cycle (events after the second-to-last EVOLUTION_COMPLETE).
-    # With fewer than two completed cycles every recorded merge is recent.
     boundary_seq = 0
     complete_events = event_repo.get_all(
         session=session,
@@ -751,19 +856,96 @@ def _build_invention_flow(
             if payload.get("loser_id"):
                 recent_node_ids.add(str(payload["loser_id"]))
 
-    atoms = node_repo.list_atoms(graph_id=graph_id, limit=_MAX_ATOMS)
-    all_nodes = node_repo.list_nodes(graph_id=graph_id, limit=400)
-    macros = [n for n in all_nodes if int(getattr(n, "level", 0) or 0) > 0]
-    macros = macros[:_MAX_MACROS]
+    # Load macros directly (ordered newest-first) rather than scanning list_nodes[:400]
+    try:
+        macros = node_repo.list_macros(graph_id=graph_id, limit=_MAX_MACROS)
+    except Exception as e:  # nosec B110 - keep invention flow resilient
+        logger.warning("Invention flow list_macros failed graph=%s: %s", graph_id, e)
+        macros = []
+    try:
+        merge_edges = edge_repo.list_opposition_edges(
+            graph_id=graph_id, limit=_MAX_MERGES
+        )
+    except Exception as e:  # nosec B110 - keep invention flow resilient
+        logger.warning(
+            "Invention flow list_opposition_edges failed graph=%s: %s", graph_id, e
+        )
+        merge_edges = []
 
-    merge_edges = edge_repo.list_opposition_edges(graph_id=graph_id, limit=_MAX_MERGES)
+    theories_raw: List[Dict[str, Any]] = []
+    try:
+        theories_raw = TheoryRepo(session=session, tenant_id=tenant_id).list_theories(
+            graph_id, limit=12
+        )
+    except Exception:  # nosec B110 - optional theories table
+        theories_raw = []
 
-    all_node_ids: List[str] = []
+    # Collect constituent IDs so Stage 1 atoms connect cleanly to Stage 2 & Stage 3
+    macro_parents_map: Dict[str, List[Any]] = {}
+    priority_atom_ids: List[str] = []
+    for m in macros:
+        mid = str(getattr(m, "node_id", "") or "")
+        try:
+            pedges = edge_repo.get_parents(graph_id=graph_id, child_id=mid)
+        except Exception:  # nosec B110
+            pedges = []
+        macro_parents_map[mid] = pedges
+        for pe in pedges:
+            priority_atom_ids.append(str(getattr(pe, "src_node_id", "") or ""))
+
+    for th in theories_raw:
+        for ev_id in th.get("evidence_node_ids") or []:
+            priority_atom_ids.append(str(ev_id))
+
+    for edge in merge_edges:
+        priority_atom_ids.append(str(getattr(edge, "src_node_id", "") or ""))
+        priority_atom_ids.append(str(getattr(edge, "dst_node_id", "") or ""))
+
+    # Resolve priority nodes + pad with base atoms up to _MAX_ATOMS
+    priority_uuids: List[UUID] = []
+    seen_p = set()
+    for pid in priority_atom_ids:
+        try:
+            u = UUID(str(pid))
+        except (ValueError, TypeError):
+            continue
+        if u not in seen_p:
+            seen_p.add(u)
+            priority_uuids.append(u)
+
+    macro_id_set = {str(getattr(m, "node_id", "") or "") for m in macros}
+    try:
+        priority_nodes = node_repo.list_by_ids(
+            graph_id=graph_id, node_ids=priority_uuids[:_MAX_ATOMS]
+        )
+    except Exception as e:  # nosec B110
+        logger.warning("Invention flow list_by_ids failed graph=%s: %s", graph_id, e)
+        priority_nodes = []
+    try:
+        base_atoms = node_repo.list_atoms(graph_id=graph_id, limit=_MAX_ATOMS)
+    except Exception as e:  # nosec B110
+        logger.warning("Invention flow list_atoms failed graph=%s: %s", graph_id, e)
+        base_atoms = []
+
+    atoms: List[Any] = []
+    seen_atom_ids: set[str] = set()
+    for n in priority_nodes:
+        nid = str(getattr(n, "node_id", "") or "")
+        if nid and nid not in seen_atom_ids and nid not in macro_id_set:
+            seen_atom_ids.add(nid)
+            atoms.append(n)
+    for n in base_atoms:
+        if len(atoms) >= _MAX_ATOMS:
+            break
+        nid = str(getattr(n, "node_id", "") or "")
+        if nid and nid not in seen_atom_ids and nid not in macro_id_set:
+            seen_atom_ids.add(nid)
+            atoms.append(n)
+
+    all_node_ids: List[str] = list(priority_atom_ids)
     for n in list(atoms) + list(macros):
         all_node_ids.append(str(getattr(n, "node_id", "") or ""))
-    for edge in merge_edges:
-        all_node_ids.append(str(getattr(edge, "src_node_id", "") or ""))
-        all_node_ids.append(str(getattr(edge, "dst_node_id", "") or ""))
+
     repr_by_id = _load_repr_text(
         session=session,
         tenant_id=tenant_id,
@@ -773,14 +955,16 @@ def _build_invention_flow(
 
     atom_nodes: List[InventionFlowNode] = []
     for node in atoms:
+        nid = str(getattr(node, "node_id", "") or "")
         title = _node_title_text(
             repr_by_id,
             node,
-            f"Atom {_short_id(getattr(node, 'node_id', ''))}",
+            f"Atom {_short_id(nid)}",
         )
+        raw_res = float(getattr(node, "residual", 0) or 0) / 1e9
         atom_nodes.append(
             InventionFlowNode(
-                id=str(getattr(node, "node_id", "") or ""),
+                id=nid,
                 stage="atom",
                 title=title,
                 subtitle=_node_subtitle(node),
@@ -789,10 +973,16 @@ def _build_invention_flow(
                 ).lower(),
                 pressure_lambda=_node_pressure_lambda(node),
                 status="active",
+                residual=round(raw_res, 4),
+                level=int(getattr(node, "level", 0) or 0),
             )
         )
 
+    flow_edges: List[InventionFlowEdgeItem] = []
     macro_nodes: List[InventionFlowNode] = []
+    macro_constituents: Dict[str, set[str]] = {}
+    absorbed_atom_ids: set[str] = set()
+
     for node in macros:
         macro_id = str(getattr(node, "node_id", "") or "")
         title = _node_title_text(
@@ -800,21 +990,44 @@ def _build_invention_flow(
             node,
             f"Macro {_short_id(macro_id)}",
         )
-        parent_edges = edge_repo.get_parents(graph_id=graph_id, child_id=macro_id)
+        sig = getattr(node, "opp_signature", None) or {}
+        if not isinstance(sig, dict):
+            sig = {}
+        parent_edges = macro_parents_map.get(macro_id, [])
         details: List[InventionFlowChildDetail] = []
+        weights_map: Dict[str, float] = {}
+        cset: set[str] = set()
+
         for parent_edge in parent_edges:
             parent_id = str(getattr(parent_edge, "src_node_id", "") or "")
+            w = round(float(getattr(parent_edge, "weight", 0) or 0) / 1e9, 4)
             parent_label = repr_by_id.get(parent_id, "") or _short_id(parent_id)
             details.append(
                 InventionFlowChildDetail(
                     id=parent_id,
                     label=_truncate(parent_label, 70),
                     type="chunk",
-                    similarity=round(
-                        float(getattr(parent_edge, "weight", 0) or 0) / 1e9, 4
-                    ),
+                    similarity=w,
                 )
             )
+            weights_map[parent_id] = w
+            cset.add(parent_id)
+            absorbed_atom_ids.add(parent_id)
+            if parent_id in seen_atom_ids or parent_id in macro_id_set:
+                flow_edges.append(
+                    InventionFlowEdgeItem(
+                        edge_id=f"e_{parent_id[:8]}_{macro_id[:8]}",
+                        src_id=parent_id,
+                        dst_id=macro_id,
+                        kind="atom_to_macro",
+                        weight=w,
+                        label=f"CFP {w:.2f}",
+                    )
+                )
+
+        macro_constituents[macro_id] = cset
+        raw_res = float(getattr(node, "residual", 0) or 0) / 1e9
+        lvl = int(getattr(node, "level", 1) or 1)
         macro_nodes.append(
             InventionFlowNode(
                 id=macro_id,
@@ -822,7 +1035,7 @@ def _build_invention_flow(
                 title=title,
                 subtitle=_node_subtitle(
                     node,
-                    f"Synthesized macro · level {int(getattr(node, 'level', 0) or 0)}",
+                    f"Synthesized macro · level {lvl}",
                 ),
                 cognitive_type=str(
                     getattr(node, "cognitive_type", "") or "work"
@@ -831,14 +1044,60 @@ def _build_invention_flow(
                 child_count=len(details),
                 status="synthesized",
                 children_details=details,
+                summary=str(sig.get("summary") or "") or None,
+                synthesis_origin=str(sig.get("synthesis_origin") or "coactivation"),
+                residual=round(raw_res, 4),
+                level=lvl,
+                weights=weights_map,
             )
         )
 
+    # Theories (Stage 2 symbolic layer)
+    theory_items: List[InventionFlowTheoryItem] = []
+    for idx, th in enumerate(theories_raw):
+        tid = str(th.get("theory_id") or f"th_{idx}")
+        ttype = str(th.get("theory_type") or "generalization")
+        desc_text = str(th.get("description") or "")
+        conf = round(float(th.get("confidence", 0.0) or 0.0), 4)
+        ev_ids = [str(eid) for eid in (th.get("evidence_node_ids") or [])]
+        meta_j = th.get("metadata") or th.get("metadata_json") or {}
+        title_str = ""
+        if isinstance(meta_j, dict):
+            title_str = str(meta_j.get("title") or meta_j.get("term") or "").strip()
+        if not title_str:
+            title_str = _truncate(desc_text, 64) or f"{ttype.replace('_', ' ').title()}"
+
+        theory_items.append(
+            InventionFlowTheoryItem(
+                theory_id=tid,
+                theory_type=ttype,
+                title=title_str,
+                description=desc_text,
+                confidence=conf,
+                graph_version=int(th.get("graph_version", 0) or 0),
+                evidence_node_ids=ev_ids,
+            )
+        )
+        for ev_id in ev_ids[:6]:
+            if ev_id in seen_atom_ids:
+                flow_edges.append(
+                    InventionFlowEdgeItem(
+                        edge_id=f"th_{ev_id[:8]}_{tid[:8]}",
+                        src_id=ev_id,
+                        dst_id=f"theory:{tid}",
+                        kind="atom_to_theory",
+                        weight=conf,
+                        label=f"conf {conf:.2f}",
+                    )
+                )
+
     merge_nodes: List[InventionFlowNode] = []
+    merge_scores: List[float] = []
     for edge in merge_edges:
         src_id = str(getattr(edge, "src_node_id", "") or "")
         dst_id = str(getattr(edge, "dst_node_id", "") or "")
         score = round(float(getattr(edge, "weight", 0) or 0) / 1e9, 4)
+        merge_scores.append(score)
         meta = getattr(edge, "meta", None) or {}
         winner_hash = meta.get("winner_hash") if isinstance(meta, dict) else None
 
@@ -850,10 +1109,17 @@ def _build_invention_flow(
                 str(getattr(src_node, "vector_hash", "") or "") == winner_hash
             )
         else:
-            src_is_winner = True  # best effort when meta is absent
+            src_is_winner = True
 
         winner_node, loser_node = (
             (src_node, dst_node) if src_is_winner else (dst_node, src_node)
+        )
+        pair_key = f"{src_id[:8]}:{dst_id[:8]}"
+        winner_id_str = (
+            str(getattr(winner_node, "node_id", "") or "") if winner_node else ""
+        )
+        loser_id_str = (
+            str(getattr(loser_node, "node_id", "") or "") if loser_node else ""
         )
 
         if winner_node is not None:
@@ -865,28 +1131,28 @@ def _build_invention_flow(
                     score_winner=round(
                         float(meta.get("score_winner", score) or score), 4
                     ),
-                    score_loser=round(
-                        float(meta.get("score_loser", 0.0) or 0.0), 4
-                    ),
+                    score_loser=round(float(meta.get("score_loser", 0.0) or 0.0), 4),
                     tie_break=(
                         str(meta["tie_break"]) if meta.get("tie_break") else None
                     ),
-                    components_winner={
-                        str(k): round(float(v), 4)
-                        for k, v in (components or {}).items()
-                        if isinstance(v, (int, float))
-                    }
-                    if isinstance(components, dict)
-                    else {},
+                    components_winner=(
+                        {
+                            str(k): round(float(v), 4)
+                            for k, v in (components or {}).items()
+                            if isinstance(v, (int, float))
+                        }
+                        if isinstance(components, dict)
+                        else {}
+                    ),
                 )
             merge_nodes.append(
                 InventionFlowNode(
-                    id=str(getattr(winner_node, "node_id", "") or ""),
+                    id=winner_id_str,
                     stage="merge",
                     title=_node_title_text(
                         repr_by_id,
                         winner_node,
-                        f"Winner {_short_id(getattr(winner_node, 'node_id', ''))}",
+                        f"Winner {_short_id(winner_id_str)}",
                     ),
                     subtitle=f"Consensus winner · score {score}",
                     cognitive_type=str(
@@ -895,19 +1161,42 @@ def _build_invention_flow(
                     pressure_lambda=_node_pressure_lambda(winner_node),
                     status="winner",
                     decision=decision,
-                    recent=str(getattr(winner_node, "node_id", "") or "")
-                    in recent_node_ids,
+                    recent=winner_id_str in recent_node_ids,
+                    pair_id=pair_key,
                 )
             )
+            if winner_id_str in seen_atom_ids:
+                flow_edges.append(
+                    InventionFlowEdgeItem(
+                        edge_id=f"m_w_{winner_id_str[:8]}",
+                        src_id=winner_id_str,
+                        dst_id=f"merge:{winner_id_str}",
+                        kind="atom_to_merge",
+                        weight=score,
+                        label=f"sim {score:.2f}",
+                    )
+                )
+            for m_id, cset in macro_constituents.items():
+                if winner_id_str in cset or (loser_id_str and loser_id_str in cset):
+                    flow_edges.append(
+                        InventionFlowEdgeItem(
+                            edge_id=f"mm_{m_id[:8]}_{winner_id_str[:8]}",
+                            src_id=m_id,
+                            dst_id=f"merge:{winner_id_str}",
+                            kind="macro_to_merge",
+                            weight=score,
+                            label=f"consensus {score:.2f}",
+                        )
+                    )
         if loser_node is not None:
             merge_nodes.append(
                 InventionFlowNode(
-                    id=str(getattr(loser_node, "node_id", "") or ""),
+                    id=loser_id_str,
                     stage="merge",
                     title=_node_title_text(
                         repr_by_id,
                         loser_node,
-                        f"Pruned {_short_id(getattr(loser_node, 'node_id', ''))}",
+                        f"Pruned {_short_id(loser_id_str)}",
                     ),
                     subtitle=f"Antisym pruned · score {score}",
                     cognitive_type=str(
@@ -915,16 +1204,94 @@ def _build_invention_flow(
                     ).lower(),
                     pressure_lambda=_node_pressure_lambda(loser_node),
                     status="pruned",
-                    recent=str(getattr(loser_node, "node_id", "") or "")
-                    in recent_node_ids,
+                    recent=loser_id_str in recent_node_ids,
+                    pair_id=pair_key,
                 )
             )
+            if loser_id_str in seen_atom_ids and winner_id_str:
+                flow_edges.append(
+                    InventionFlowEdgeItem(
+                        edge_id=f"m_l_{loser_id_str[:8]}_{winner_id_str[:8]}",
+                        src_id=loser_id_str,
+                        dst_id=f"merge:{loser_id_str}",
+                        kind="atom_to_merge",
+                        weight=score,
+                        label=f"absorbed {score:.2f}",
+                    )
+                )
+
+    # Aggregate evaluation metrics for the top telemetry ribbon
+    try:
+        node_count_total = int(node_repo.count_nodes(graph_id) or 0)
+    except Exception:  # nosec B110
+        node_count_total = len(atom_nodes) + len(macro_nodes)
+    try:
+        macro_count_total = int(node_repo.count_macros(graph_id) or 0)
+    except Exception:  # nosec B110
+        macro_count_total = len(macro_nodes)
+    eval_metrics: Dict[str, Any] = {
+        "d_hat": 0.0,
+        "h_hat": 0.0,
+        "lambda_hat": 0.0,
+        "redundancy_r": 0.0,
+        "novelty_n": 0.0,
+        "energy_e": 0.0,
+        "compression_ratio_cr": 1.0,
+        "macro_absorption_rate": (
+            round(len(absorbed_atom_ids) / max(1, len(atom_nodes)), 4)
+            if macro_nodes
+            else 0.0
+        ),
+        "merge_consensus_score": (
+            round(sum(merge_scores) / max(1, len(merge_scores)), 4)
+            if merge_scores
+            else 0.0
+        ),
+        "theory_confidence_mean": (
+            round(
+                sum(t.confidence for t in theory_items) / max(1, len(theory_items)), 4
+            )
+            if theory_items
+            else 0.0
+        ),
+        "total_nodes": node_count_total,
+        "total_macros": macro_count_total,
+        "total_merges": len(merge_edges),
+        "total_theories": len(theory_items),
+    }
+    try:
+        diag_row = (
+            session.query(GraphDiagnosticsCacheModel)
+            .filter(
+                GraphDiagnosticsCacheModel.tenant_id == tenant_id,
+                GraphDiagnosticsCacheModel.graph_id == graph_id,
+            )
+            .first()
+        )
+        if diag_row is not None:
+            r_v = round(float(diag_row.redundancy or 0.0), 6)
+            h_v = round(float(diag_row.h_hat or 0.0), 6)
+            n_raw = round(float(diag_row.novelty or 0.0), 6)
+            eval_metrics.update(
+                {
+                    "d_hat": round(float(diag_row.d_hat or 0.0), 6),
+                    "h_hat": h_v,
+                    "lambda_hat": round(float(diag_row.lambda_hat or 0.0), 6),
+                    "redundancy_r": r_v,
+                    "novelty_n": _effective_novelty_n(r_v, n_raw, h_v),
+                    "energy_e": round(float(diag_row.energy or 0.0), 6),
+                    "compression_ratio_cr": round(float(diag_row.cr or 1.0), 4),
+                    "graph_version": int(diag_row.graph_version or 0),
+                }
+            )
+    except Exception:  # nosec B110 - diagnostics cache is best effort
+        pass
 
     return InventionFlowResponse(
         graph_id=graph_id,
         tenant_id=tenant_id,
-        node_count=int(node_repo.count_nodes(graph_id) or 0),
-        macro_count=int(node_repo.count_macros(graph_id) or 0),
+        node_count=node_count_total,
+        macro_count=macro_count_total,
         merge_count=len(merge_edges),
         stages=InventionFlowStage(
             atoms=atom_nodes,
@@ -932,6 +1299,10 @@ def _build_invention_flow(
             merges=merge_nodes,
         ),
         computed_at=datetime.now(timezone.utc).isoformat(),
+        edges=flow_edges,
+        theories=theory_items,
+        theory_count=len(theory_items),
+        eval_metrics=eval_metrics,
     )
 
 
@@ -975,14 +1346,19 @@ def _build_invention_versions(
         backup_count = 0
         try:
             backup_count = int(
-                backup_repo.count_for_version(graph_id=graph_id, version=version)
-                or 0
+                backup_repo.count_for_version(graph_id=graph_id, version=version) or 0
             )
         except Exception:  # nosec B110 - backup sidecar is optional
             backup_count = 0
         diagnostics: Dict[str, float] = {}
-        for key in ("D_hat", "H_hat", "lambda_hat", "redundancy_R",
-                    "novelty_N", "energy_E"):
+        for key in (
+            "D_hat",
+            "H_hat",
+            "lambda_hat",
+            "redundancy_R",
+            "novelty_N",
+            "energy_E",
+        ):
             value = payload.get(key)
             if isinstance(value, (int, float)):
                 diagnostics[key] = round(float(value), 6)
@@ -1004,9 +1380,7 @@ def _build_invention_versions(
                     winner_label="",
                     loser_label="",
                     score=round(float(merge_payload.get("score", 0.0) or 0.0), 4),
-                    selector=str(
-                        merge_payload.get("selector", "legacy_hash")
-                    ),
+                    selector=str(merge_payload.get("selector", "legacy_hash")),
                 )
             )
         prev_complete_seq = seq
@@ -1316,7 +1690,9 @@ async def update_evolve_control(
             session=ctx.session,
         )
         ctx.session.commit()
-        return await evolve_status(graph_id=graph_id, source="memory_write", ctx=ctx, request=request)
+        return await evolve_status(
+            graph_id=graph_id, source="memory_write", ctx=ctx, request=request
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -1423,16 +1799,12 @@ def _restore_backups(
                         entity_tokens=repr_json.get("entity_tokens") or [],
                         time_tokens=repr_json.get("time_tokens") or [],
                         layout_tokens=repr_json.get("layout_tokens") or [],
-                        semantic_phrase_counts=repr_json.get(
-                            "semantic_phrase_counts"
-                        )
+                        semantic_phrase_counts=repr_json.get("semantic_phrase_counts")
                         or {},
                         concept_counts=repr_json.get("concept_counts") or {},
                         morphology_counts=repr_json.get("morphology_counts") or {},
                         alias_families=repr_json.get("alias_families") or [],
-                        transliterated_tokens=repr_json.get(
-                            "transliterated_tokens"
-                        )
+                        transliterated_tokens=repr_json.get("transliterated_tokens")
                         or [],
                         stem_families=repr_json.get("stem_families") or [],
                         relation_cues=repr_json.get("relation_cues") or [],
@@ -1503,9 +1875,7 @@ async def list_backups(
     from store.pg.repos.evolution_backup_repo import EvolutionBackupRepo
 
     try:
-        backup_repo = EvolutionBackupRepo(
-            session=ctx.session, tenant_id=ctx.tenant_id
-        )
+        backup_repo = EvolutionBackupRepo(session=ctx.session, tenant_id=ctx.tenant_id)
         rows = backup_repo.list_by_graph(graph_id, version=version)
         return BackupsResponse(
             graph_id=graph_id,
@@ -1547,9 +1917,7 @@ async def restore_backups(
         ctx.session.commit()
         return response
     except Exception as e:
-        logger.error(
-            "Failed to restore backups graph=%s: %s", request.graph_id, e
-        )
+        logger.error("Failed to restore backups graph=%s: %s", request.graph_id, e)
         raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
 
 
@@ -1592,9 +1960,7 @@ class EvolutionLearningMetaResponse(BaseModel):
     meta_metrics: List[Dict[str, Any]] = []
 
 
-@router.get(
-    "/evolve/learning/state", response_model=EvolutionLearningStateResponse
-)
+@router.get("/evolve/learning/state", response_model=EvolutionLearningStateResponse)
 async def evolution_learning_state(
     graph_id: str = Query(...),
     ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
@@ -1620,7 +1986,9 @@ async def evolution_learning_state(
         knob: {
             "visits": arm.visits,
             "mean_reward": {
-                k: round(float(arm.rewards.get(k, 0.0) / max(1, arm.visits.get(k, 1))), 6)
+                k: round(
+                    float(arm.rewards.get(k, 0.0) / max(1, arm.visits.get(k, 1))), 6
+                )
                 for k in arm.visits
             },
         }
@@ -1629,7 +1997,9 @@ async def evolution_learning_state(
     return EvolutionLearningStateResponse(
         graph_id=graph_id,
         enabled=enabled,
-        schema_tag=str(state.get("schema") or None) if isinstance(state, dict) else None,
+        schema_tag=(
+            str(state.get("schema") or None) if isinstance(state, dict) else None
+        ),
         policy_version=int(state.get("version") or 0) if isinstance(state, dict) else 0,
         source=knobs.source,
         learned=knobs.learned,
@@ -1664,9 +2034,7 @@ async def evolution_learning_outcomes(
     )
 
 
-@router.get(
-    "/evolve/learning/meta", response_model=EvolutionLearningMetaResponse
-)
+@router.get("/evolve/learning/meta", response_model=EvolutionLearningMetaResponse)
 async def evolution_learning_meta(
     graph_id: str = Query(...),
     limit: int = Query(20, ge=1, le=200),
@@ -1695,9 +2063,7 @@ class EvolutionTheoriesResponse(BaseModel):
     theories: List[Dict[str, Any]] = []
 
 
-@router.get(
-    "/evolve/theories", response_model=EvolutionTheoriesResponse
-)
+@router.get("/evolve/theories", response_model=EvolutionTheoriesResponse)
 async def evolution_theories(
     graph_id: str = Query(...),
     limit: int = Query(50, ge=1, le=500),
@@ -1720,6 +2086,309 @@ async def evolution_theories(
         total=len(rows),
         theories=rows,
     )
+
+
+def _build_physics_stream(
+    *,
+    session: Any,
+    tenant_id: str,
+    graph_id: str,
+    limit: int = 40,
+) -> PhysicsStreamResponse:
+    """Build real historical & live physics invariant stream for a graph."""
+    from store.pg.models_faim import GraphDiagnosticsCacheModel
+    from store.pg.repos.edge_repo import EdgeRepo
+    from store.pg.repos.event_repo import EventRepo
+    from store.pg.repos.node_repo import NodeRepo
+    from store.pg.repos.theory_repo import TheoryRepo
+
+    event_repo = EventRepo(session=session, tenant_id=tenant_id)
+    node_repo = NodeRepo(session=session, tenant_id=tenant_id)
+    edge_repo = EdgeRepo(session=session, tenant_id=tenant_id)
+
+    kinds = [
+        "DIAGNOSTICS_SNAPSHOT",
+        "EVOLUTION_COMPLETE",
+        "EVOLUTION_SKIPPED",
+        "EVOLUTION_INVENTION_SUMMARY",
+        "EVOLUTION_INVENTION_SYNTHESIS_SUMMARY",
+        "INVENT_MACRO_NODE",
+    ]
+    tail_events = event_repo.list_tail(
+        session=session,
+        graph_id=graph_id,
+        limit=max(20, limit * 4),
+        kinds=kinds,
+    )
+    last_seq = int(event_repo.get_max_seq(session, graph_id) or 0)
+
+    node_total = int(node_repo.count_nodes(graph_id) or 0)
+    macro_total = int(node_repo.count_macros(graph_id) or 0)
+    merge_total = len(edge_repo.list_opposition_edges(graph_id=graph_id, limit=500))
+    theory_total = 0
+    try:
+        theory_total = int(
+            TheoryRepo(session=session, tenant_id=tenant_id).count_theories(graph_id)
+            or 0
+        )
+    except Exception:  # nosec B110
+        theory_total = 0
+
+    diag_row = (
+        session.query(GraphDiagnosticsCacheModel)
+        .filter(
+            GraphDiagnosticsCacheModel.tenant_id == tenant_id,
+            GraphDiagnosticsCacheModel.graph_id == graph_id,
+        )
+        .first()
+    )
+
+    points: List[PhysicsStreamPoint] = []
+    seen_seqs: set[int] = set()
+    # Keep track of cumulative/latest action hints around snapshot seqs
+    for ev in tail_events:
+        payload = getattr(ev, "payload", None) or {}
+        if not isinstance(payload, dict):
+            continue
+        has_metrics = any(
+            k in payload
+            for k in (
+                "redundancy_R",
+                "R",
+                "lambda_hat",
+                "D_hat",
+                "H_hat",
+                "energy_E",
+            )
+        )
+        if not has_metrics:
+            continue
+
+        seq = int(getattr(ev, "seq", 0) or 0)
+        if seq in seen_seqs:
+            continue
+        seen_seqs.add(seq)
+
+        r_val = float(payload.get("redundancy_R", payload.get("R", 0.0)) or 0.0)
+        h_val = float(payload.get("H_hat", payload.get("H", 0.0)) or 0.0)
+        n_raw = float(payload.get("novelty_N", payload.get("novelty", 0.0)) or 0.0)
+        lam_val = float(payload.get("lambda_hat", payload.get("lambda", 0.0)) or 0.0)
+        d_val = float(payload.get("D_hat", payload.get("D", 0.0)) or 0.0)
+        e_val = float(payload.get("energy_E", payload.get("energy", 0.0)) or 0.0)
+        cr_val = float(payload.get("CR", payload.get("compression_ratio", 1.0)) or 1.0)
+        n_eff = _effective_novelty_n(r_val, n_raw, h_val)
+        if e_val == 0.0 and (r_val > 0 or lam_val > 0):
+            e_val = round(
+                0.4 * r_val + 0.3 * (1.0 - n_eff) + 0.3 * max(0.0, lam_val), 6
+            )
+
+        merges_c = int(payload.get("merges", 0) or 0)
+        invs_c = int(payload.get("inventions", 0) or 0)
+        if ev.kind == "EVOLUTION_COMPLETE":
+            action = "INVENT" if invs_c > 0 else ("MERGE" if merges_c > 0 else "CYCLE")
+        elif ev.kind == "EVOLUTION_SKIPPED":
+            action = "CONVERGED"
+        else:
+            action = "SNAPSHOT"
+
+        ver = payload.get("version") or payload.get("graph_version")
+        ts_dt = getattr(ev, "ts", None) or getattr(ev, "created_at", None)
+        ts_iso = _iso(ts_dt) or datetime.now(timezone.utc).isoformat()
+        lbl = f"v{ver}" if ver else f"#{seq}"
+
+        points.append(
+            PhysicsStreamPoint(
+                seq=seq,
+                ts=ts_iso,
+                label=lbl,
+                cycle_version=int(ver) if ver is not None else None,
+                action=action,
+                redundancy_R=round(r_val, 6),
+                novelty_N=n_eff,
+                novelty_raw=round(n_raw, 6),
+                pressure_lambda=round(lam_val, 6),
+                entropy_H=round(h_val, 6),
+                energy_E=round(e_val, 6),
+                d_hat=round(d_val, 6),
+                compression_ratio_cr=round(cr_val, 4),
+                merges_count=merges_c,
+                macros_count=int(
+                    payload.get("macros_created", macro_total) or macro_total
+                ),
+                nodes_count=int(payload.get("node_count", node_total) or node_total),
+                edges_count=int(payload.get("edge_count", 0) or 0),
+            )
+        )
+
+    points = points[-limit:]
+
+    # Append or fallback to live GraphDiagnosticsCacheModel row if needed
+    if diag_row is not None:
+        r_c = round(float(diag_row.redundancy or 0.0), 6)
+        h_c = round(float(diag_row.h_hat or 0.0), 6)
+        n_raw_c = round(float(diag_row.novelty or 0.0), 6)
+        n_eff_c = _effective_novelty_n(r_c, n_raw_c, h_c)
+        lam_c = round(float(diag_row.lambda_hat or 0.0), 6)
+        d_c = round(float(diag_row.d_hat or 0.0), 6)
+        e_c = round(float(diag_row.energy or 0.0), 6)
+        cr_c = round(float(diag_row.cr or 1.0), 4)
+        ver_c = int(diag_row.graph_version or 0)
+        live_ts = _iso(diag_row.computed_at) or datetime.now(timezone.utc).isoformat()
+
+        should_append_live = (
+            not points
+            or abs(points[-1].redundancy_R - r_c) > 1e-5
+            or abs(points[-1].pressure_lambda - lam_c) > 1e-5
+            or abs(points[-1].entropy_H - h_c) > 1e-5
+            or (points[-1].cycle_version or 0) < ver_c
+        )
+        if should_append_live:
+            points.append(
+                PhysicsStreamPoint(
+                    seq=last_seq,
+                    ts=live_ts,
+                    label=f"v{ver_c} (Live)" if ver_c else "Live",
+                    cycle_version=ver_c,
+                    action="LIVE_CACHE",
+                    redundancy_R=r_c,
+                    novelty_N=n_eff_c,
+                    novelty_raw=n_raw_c,
+                    pressure_lambda=lam_c,
+                    entropy_H=h_c,
+                    energy_E=e_c,
+                    d_hat=d_c,
+                    compression_ratio_cr=cr_c,
+                    merges_count=merge_total,
+                    macros_count=macro_total,
+                    nodes_count=int(diag_row.node_count or node_total),
+                    edges_count=int(diag_row.edge_count or 0),
+                )
+            )
+            points = points[-limit:]
+
+    latest = (
+        points[-1]
+        if points
+        else PhysicsStreamPoint(
+            seq=last_seq,
+            ts=datetime.now(timezone.utc).isoformat(),
+            label="Live",
+            nodes_count=node_total,
+            macros_count=macro_total,
+            merges_count=merge_total,
+        )
+    )
+    prev = points[-2] if len(points) >= 2 else latest
+
+    current = {
+        "redundancy_R": latest.redundancy_R,
+        "novelty_N": latest.novelty_N,
+        "novelty_raw": latest.novelty_raw,
+        "pressure_lambda": latest.pressure_lambda,
+        "entropy_H": latest.entropy_H,
+        "energy_E": latest.energy_E,
+        "d_hat": latest.d_hat,
+        "compression_ratio_cr": latest.compression_ratio_cr,
+    }
+    deltas = {
+        "redundancy_R": round(latest.redundancy_R - prev.redundancy_R, 6),
+        "novelty_N": round(latest.novelty_N - prev.novelty_N, 6),
+        "pressure_lambda": round(latest.pressure_lambda - prev.pressure_lambda, 6),
+        "entropy_H": round(latest.entropy_H - prev.entropy_H, 6),
+        "energy_E": round(latest.energy_E - prev.energy_E, 6),
+        "d_hat": round(latest.d_hat - prev.d_hat, 6),
+        "compression_ratio_cr": round(
+            latest.compression_ratio_cr - prev.compression_ratio_cr, 4
+        ),
+    }
+    thresholds = {
+        "tau_R": 0.15,
+        "tau_N": 0.25,
+        "tau_E": 0.55,
+        "lambda_critical": 0.05,
+        "d_hat_target": 2.0,
+    }
+
+    if latest.pressure_lambda > 0.20:
+        regime = "HIGH_PRESSURE_BIFURCATION"
+    elif latest.redundancy_R > 0.20:
+        regime = "REDUNDANCY_COMPRESSION"
+    elif latest.pressure_lambda >= 0.05 and macro_total == 0:
+        regime = "INVENTION_READY"
+    else:
+        regime = "LYAPUNOV_CONVERGENT"
+
+    lyapunov_stable = bool(latest.pressure_lambda <= 0.25)
+    manifold_health = round(
+        100.0
+        * max(
+            0.0,
+            min(
+                1.0,
+                1.0
+                - 0.35 * latest.energy_E
+                - 0.30 * latest.redundancy_R
+                + 0.25 * latest.novelty_N,
+            ),
+        ),
+        1,
+    )
+    invention_readiness = round(
+        100.0
+        * max(
+            0.0,
+            min(
+                1.0,
+                0.5 * min(1.0, max(0.0, latest.pressure_lambda) / 0.3)
+                + 0.5 * min(1.0, (macro_total + theory_total) / 5.0),
+            ),
+        ),
+        1,
+    )
+
+    evals = {
+        "regime": regime,
+        "lyapunov_stable": lyapunov_stable,
+        "manifold_health_score": manifold_health,
+        "compression_efficiency": round(latest.compression_ratio_cr, 4),
+        "invention_readiness": invention_readiness,
+        "total_nodes": node_total,
+        "total_macros": macro_total,
+        "total_merges": merge_total,
+        "total_theories": theory_total,
+        "sample_count": len(points),
+    }
+
+    return PhysicsStreamResponse(
+        graph_id=graph_id,
+        tenant_id=tenant_id,
+        last_seq=last_seq,
+        points=points,
+        current=current,
+        deltas=deltas,
+        thresholds=thresholds,
+        evals=evals,
+        computed_at=datetime.now(timezone.utc).isoformat(),
+    )
+
+
+@router.get("/evolve/physics/stream", response_model=PhysicsStreamResponse)
+async def evolve_physics_stream(
+    graph_id: str = Query("default"),
+    limit: int = Query(40, ge=5, le=200),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> PhysicsStreamResponse:
+    """Return real historical and live physics invariant stream for Evolution UI."""
+    try:
+        return _build_physics_stream(
+            session=ctx.session,
+            tenant_id=ctx.tenant_id,
+            graph_id=graph_id,
+            limit=limit,
+        )
+    except Exception as e:
+        logger.error("Failed to build physics stream graph=%s: %s", graph_id, e)
+        raise HTTPException(status_code=500, detail=str(e))  # noqa: B904
 
 
 __all__ = ["router"]

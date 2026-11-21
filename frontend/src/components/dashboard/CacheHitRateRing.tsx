@@ -34,7 +34,9 @@ export const CacheHitRateRing: React.FC<CacheHitRateRingProps> = ({
     return (
       <div className="flex-1 min-h-[140px] w-full flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/[0.01] text-slate-500">
         <span className="text-[11px] font-mono">No cache telemetry yet</span>
-        <p className="text-[9px] text-slate-600">Hit rate appears after first queries</p>
+        <p className="text-[9px] text-slate-600">
+          Hit rate appears after first queries
+        </p>
       </div>
     );
   }
@@ -65,7 +67,10 @@ export const CacheHitRateRing: React.FC<CacheHitRateRingProps> = ({
         />
       </svg>
       <div className="text-center">
-        <div className="text-[28px] font-mono font-bold text-white" style={{ color }}>
+        <div
+          className="text-[28px] font-mono font-bold text-white"
+          style={{ color }}
+        >
           {(progress * 100).toFixed(1)}%
         </div>
         <div className="text-[9px] font-mono uppercase tracking-wider text-slate-500 mt-1">

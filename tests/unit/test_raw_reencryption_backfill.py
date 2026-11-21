@@ -17,7 +17,9 @@ def _make_encrypted_store(*, inner, session_factory, tenant_id: str, monkeypatch
 
     return EncryptedRawStore(
         inner=inner,
-        cipher=EnvelopeCipher(tenant_id=tenant_id, session_factory=session_factory.create),
+        cipher=EnvelopeCipher(
+            tenant_id=tenant_id, session_factory=session_factory.create
+        ),
         graph_id=tenant_id,
     )
 
@@ -106,7 +108,10 @@ def test_raw_reencryption_dry_run_execute_and_rerun_idempotent(
         migrated = raw_repo.get_by_id(session, saved.id)
         assert migrated is not None
         assert migrated.sha256 != str(saved.sha256)
-        assert storage_repo.get_by_raw_id(session, saved.id, graph_id).sha256 == migrated.sha256
+        assert (
+            storage_repo.get_by_raw_id(session, saved.id, graph_id).sha256
+            == migrated.sha256
+        )
         assert encrypted_store.load(migrated, verify=True) == payload
         assert raw_store.exists_by_sha(str(saved.sha256)) is False
 
@@ -205,5 +210,11 @@ def test_raw_reencryption_preserves_shared_plaintext_blob_until_last_ref(
         migrated_a = raw_repo_a.get_by_id(session, saved_a.id)
         migrated_b = raw_repo_b.get_by_id(session, saved_b.id)
         assert migrated_a is not None and migrated_b is not None
-        assert storage_repo_a.get_by_raw_id(session, saved_a.id, graph_a).sha256 == migrated_a.sha256
-        assert storage_repo_b.get_by_raw_id(session, saved_b.id, graph_b).sha256 == migrated_b.sha256
+        assert (
+            storage_repo_a.get_by_raw_id(session, saved_a.id, graph_a).sha256
+            == migrated_a.sha256
+        )
+        assert (
+            storage_repo_b.get_by_raw_id(session, saved_b.id, graph_b).sha256
+            == migrated_b.sha256
+        )

@@ -9,8 +9,12 @@ from faim_native.lexical.semantic_registry import (
 
 
 def test_semantic_registry_snapshot_reports_real_loaded_sources():
-    with patch("faim_native.lexical.semantic_registry.synonym_expander._synonyms", {"revenue": ["sales"]}), patch(
-        "faim_native.lexical.semantic_registry.is_available", return_value=True
+    with (
+        patch(
+            "faim_native.lexical.semantic_registry.synonym_expander._synonyms",
+            {"revenue": ["sales"]},
+        ),
+        patch("faim_native.lexical.semantic_registry.is_available", return_value=True),
     ):
         load_semantic_registry_snapshot.cache_clear()
         snapshot = load_semantic_registry_snapshot()
@@ -22,12 +26,15 @@ def test_semantic_registry_snapshot_reports_real_loaded_sources():
 
 
 def test_semantic_registry_resolves_expansions_from_all_layers():
-    with patch(
-        "faim_native.lexical.semantic_registry.get_weighted_synonyms",
-        return_value=(),
-    ), patch(
-        "faim_native.lexical.semantic_registry.is_available",
-        return_value=False,
+    with (
+        patch(
+            "faim_native.lexical.semantic_registry.get_weighted_synonyms",
+            return_value=(),
+        ),
+        patch(
+            "faim_native.lexical.semantic_registry.is_available",
+            return_value=False,
+        ),
     ):
         expansions, info = resolve_semantic_registry_expansions(
             query_text="rcp umsatz heartbeat",

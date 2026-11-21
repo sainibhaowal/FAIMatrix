@@ -138,7 +138,10 @@ def build_graph_semantic_scores(
                     continue
                 if neighbor in suppressed_nodes:
                     continue
-                if len(visited) >= effective_max_total_nodes and neighbor not in visited:
+                if (
+                    len(visited) >= effective_max_total_nodes
+                    and neighbor not in visited
+                ):
                     continue
 
                 # Temporal contradiction suppression: if neighbor opposes an already-visited
@@ -184,7 +187,8 @@ def build_graph_semantic_scores(
         )[:effective_max_frontier]
         frontier = set(ordered_frontier)
         frontier_scores = {
-            node_id: next_frontier_scores.get(node_id, 0.0) for node_id in ordered_frontier
+            node_id: next_frontier_scores.get(node_id, 0.0)
+            for node_id in ordered_frontier
         }
 
     # Normalize deterministic adjacency ordering + fanout caps.

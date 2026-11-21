@@ -17,10 +17,13 @@ export default function ProjectStatusBanner() {
         ·
       </span>
       <span>Alpha version</span>
-      <span aria-hidden="true" className="text-cyan-400/60">·</span>
+      <span aria-hidden="true" className="text-cyan-400/60">
+        ·
+      </span>
       <span>Release v{APP_VERSION}</span>
       <span className="basis-full normal-case tracking-normal text-cyan-100/60 sm:basis-auto">
-        Research preview — capabilities and performance are still being validated.
+        Research preview — capabilities and performance are still being
+        validated.
       </span>
     </aside>
   );

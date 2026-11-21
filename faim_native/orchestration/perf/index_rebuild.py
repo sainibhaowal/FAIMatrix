@@ -7,8 +7,8 @@ source of truth.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections import OrderedDict
+from dataclasses import dataclass
 from threading import RLock
 from typing import Optional, Tuple
 
@@ -30,9 +30,9 @@ class GraphIndexArtifacts:
     ann_root: Optional[VPTreeNode]
 
 
-_INDEX_ARTIFACT_CACHE: "OrderedDict[Tuple[str, str, int], GraphIndexArtifacts]" = (
-    OrderedDict()
-)
+_INDEX_ARTIFACT_CACHE: (
+    "OrderedDict[Tuple[str, str, int, bool], GraphIndexArtifacts]"
+) = OrderedDict()
 _INDEX_ARTIFACT_CACHE_LOCK = RLock()
 _INDEX_ARTIFACT_CACHE_MAX_SIZE = 16
 
@@ -41,12 +41,20 @@ def build_graph_index_artifacts(
     session: Session,
     tenant_id: str,
     graph_id: str,
+    *,
+    include_dense: bool = True,
 ) -> GraphIndexArtifacts:
     repo = IndexRepo(session=session, tenant_id=tenant_id)
     sparse_rows = repo.load_representation_rows(graph_id)
     sparse_index = InvertedIndex.build(sparse_rows)
-    vector_points = repo.load_vector_points(graph_id)
-    ann_root = build_vptree(vector_points)
+    # Large production graphs use the persistent Qdrant ANN index for dense
+    # recall.  Keep the legacy in-process VP-tree available for small graphs
+    # and compatibility callers, but do not materialize every SQL vector in a
+    # long-lived request transaction when the caller has a persistent ANN.
+    ann_root = None
+    if include_dense:
+        vector_points = repo.load_vector_points(graph_id)
+        ann_root = build_vptree(vector_points)
     return GraphIndexArtifacts(sparse_index=sparse_index, ann_root=ann_root)
 
 
@@ -55,9 +63,11 @@ def get_graph_index_artifacts(
     tenant_id: str,
     graph_id: str,
     graph_version: int,
+    *,
+    include_dense: bool = True,
 ) -> GraphIndexArtifacts:
     """Return graph-index artifacts with graph-versioned in-process caching."""
-    cache_key = (tenant_id, graph_id, int(graph_version))
+    cache_key = (tenant_id, graph_id, int(graph_version), bool(include_dense))
     with _INDEX_ARTIFACT_CACHE_LOCK:
         cached = _INDEX_ARTIFACT_CACHE.get(cache_key)
         if cached is not None:
@@ -68,6 +78,7 @@ def get_graph_index_artifacts(
         session=session,
         tenant_id=tenant_id,
         graph_id=graph_id,
+        include_dense=include_dense,
     )
 
     with _INDEX_ARTIFACT_CACHE_LOCK:
@@ -78,4 +89,8 @@ def get_graph_index_artifacts(
     return artifacts
 
 
-__all__ = ["GraphIndexArtifacts", "build_graph_index_artifacts", "get_graph_index_artifacts"]
+__all__ = [
+    "GraphIndexArtifacts",
+    "build_graph_index_artifacts",
+    "get_graph_index_artifacts",
+]

@@ -1,0 +1,5 @@
+# Local and CI static-quality tooling. Keep separate from production runtime deps.
+ruff>=0.17,<0.18
+black>=26.10,<27
+mypy>=2.4,<3
+bandit>=1.9,<2

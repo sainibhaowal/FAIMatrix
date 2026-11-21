@@ -33,19 +33,19 @@ const USE_CASES: UseCase[] = [
       </svg>
     ),
     reason:
-      "Air-gapped operation is supported when configured. The STRICT profile is designed for 2 CPU + 1GB RAM.",
+      "Air-gapped operation is supported when self-hosted with external integrations disabled. Core engine supports lightweight STRICT profiles.",
     features: [
-      "Offline operation is available when external integrations are disabled",
-      "Deterministic results for audit compliance",
-      "Cryptographic integrity on every data point",
-      "Tamper-evident immutable audit trail",
+      "Offline operation when self-hosted without external integrations",
+      "Deterministic core scoring for auditability",
+      "Cryptographic integrity on every data point (SHA-256)",
+      "Immutable event ledger for audit trails",
     ],
     gradient: "from-slate-500 to-slate-600",
     borderHover: "hover:border-slate-500/50",
   },
   {
     id: "healthcare",
-    title: "Healthcare (HIPAA)",
+    title: "Healthcare",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -62,19 +62,19 @@ const USE_CASES: UseCase[] = [
       </svg>
     ),
     reason:
-      "No patient data leaves the device. SHA-256 integrity for every record.",
+      "Self-hostable with zero external LLM API calls. SHA-256 integrity for every stored record.",
     features: [
-      "Data never sent to external APIs",
-      "Per-tenant crypto isolation",
+      "Self-hosted deployment keeps data in your own environment",
+      "Per-tenant isolation and encrypted raw storage",
       "Verifiable data integrity (SHA-256)",
-      "Complete audit trail for compliance",
+      "Audit trail for compliance-ready workflows",
     ],
     gradient: "from-rose-500 to-pink-500",
     borderHover: "hover:border-rose-500/50",
   },
   {
     id: "finance",
-    title: "Financial Services (SOX)",
+    title: "Financial Services",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -120,19 +120,19 @@ const USE_CASES: UseCase[] = [
       </svg>
     ),
     reason:
-      "Runs on minimal hardware. No cloud connectivity needed. No GPU required.",
+      "Self-hostable architecture with no external cloud or LLM required.",
     features: [
-      "2 CPU + 1GB RAM (Docker proven)",
-      "Zero GPU requirement (STRICT mode)",
-      "No internet connection required",
-      "Self-evolving without human intervention",
+      "Runs on standard CPU servers without a GPU",
+      "Deterministic core retrieval + local multilingual embeddings",
+      "Offline-capable via self-hosted Docker & faim-mcp",
+      "Opt-in, graph-scoped evolution controls (default-off)",
     ],
     gradient: "from-amber-500 to-orange-500",
     borderHover: "hover:border-amber-500/50",
   },
   {
     id: "regulated",
-    title: "Regulated AI (EU AI Act)",
+    title: "Regulated AI",
     icon: (
       <svg
         viewBox="0 0 24 24"
@@ -149,12 +149,12 @@ const USE_CASES: UseCase[] = [
       </svg>
     ),
     reason:
-      "Inspectable scoring and no black-box ML required in the core engine.",
+      "Inspectable multi-signal scoring and Zero-LLM core architecture — no generative black-box.",
     features: [
       "Deterministic multi-signal scoring breakdown",
-      "Complete decision audit trail",
-      "No black-box neural components",
-      "Reproducible results when inputs and settings are fixed",
+      "Complete retrieval & provenance audit trail",
+      "Zero-LLM core (external agents handle generation via MCP)",
+      "Reproducible core results when inputs and settings are fixed",
     ],
     gradient: "from-blue-500 to-cyan-500",
     borderHover: "hover:border-blue-500/50",

@@ -268,7 +268,9 @@ def build_representation_v2(
         "entity": len(entity_tokens),
         "time": len(time_tokens),
         "layout": len(layout_tokens),
-        "semantic_phrase": sum((semantic_signature.semantic_phrase_counts or {}).values()),
+        "semantic_phrase": sum(
+            (semantic_signature.semantic_phrase_counts or {}).values()
+        ),
         "concept": sum((semantic_signature.concept_counts or {}).values()),
         "morphology": sum((semantic_signature.morphology_counts or {}).values()),
         "alias": len(semantic_signature.alias_families),

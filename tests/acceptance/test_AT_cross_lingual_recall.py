@@ -143,6 +143,9 @@ def test_cross_lingual_recall_uses_multilingual_bridge_and_returns_foreign_doc()
         assert phase_b["source_counts"].get("multilingual_translation", 0) >= 1
         assert phase_b["source_counts"].get("multilingual_bridge", 0) >= 1
         assert "query_fusion_summary" in top["explain"]
-        assert top["explain"]["query_fusion_summary"]["query_expansion"]["expansion_count"] >= 1
+        assert (
+            top["explain"]["query_fusion_summary"]["query_expansion"]["expansion_count"]
+            >= 1
+        )
     finally:
         session.close()

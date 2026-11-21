@@ -125,7 +125,6 @@ export function CommandPalette({
         actionId: "open_settings",
         subtitle: "Quick toggles and preferences",
       },
-
     ],
     [],
   );
