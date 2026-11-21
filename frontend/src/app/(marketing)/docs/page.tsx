@@ -1116,10 +1116,14 @@ function SectionRetrieval() {
             In pure zero-ML CPU-first mode (collision-free BM25+,{" "}
             <code className="text-cyan-300">GraphIndexArtifacts</code> RAM
             caching, vectorized <code className="text-cyan-300">float32</code>{" "}
-            BLAS scoring, and <code className="text-cyan-300">RerankerV2</code>{" "}
+            BLAS scoring, cached <code className="text-cyan-300">_maxsim_units</code>{" "}
+            &amp; propositions, and{" "}
+            <code className="text-cyan-300">RerankerV2</code>{" "}
             soft-suppression), FAIM-Native achieved{" "}
-            <code className="text-emerald-300">nDCG@10 = 0.8616</code> and{" "}
-            <code className="text-emerald-300">Recall@5 = 0.9060</code> on a
+            <code className="text-emerald-300">nDCG@10 = 0.8616</code>,{" "}
+            <code className="text-emerald-300">Recall@5 = 0.9060</code>, and{" "}
+            <code className="text-emerald-300">146.59 ms</code> server P50 ({" "}
+            <code className="text-emerald-300">264.64 ms</code> HTTP P50) on a
             300-doc / 50-query sampled SciFact split vs.{" "}
             <code className="text-slate-300">BM25-Baseline</code> (
             <code className="text-slate-300">0.8024</code> /{" "}

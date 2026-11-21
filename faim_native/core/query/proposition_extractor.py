@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from dataclasses import dataclass
+from threading import RLock
 from typing import Iterable, List, Optional, Sequence, Tuple
 
 try:
@@ -65,12 +67,28 @@ def _fallback_entities(tokens: Sequence[str]) -> Tuple[str, ...]:
     )[:3]
 
 
+_PROP_CACHE: "OrderedDict[str, PropositionAnalysis]" = OrderedDict()
+_PROP_CACHE_LOCK = RLock()
+_PROP_CACHE_MAX = 8192
+
+
 def extract_propositions(
     text: str,
     *,
     representation: Optional[RepresentationV2] = None,
 ) -> PropositionAnalysis:
     """Extract deterministic propositions from normalized lexical text."""
+    cache_key = (
+        getattr(representation, "repr_hash", "") or ""
+        if representation is not None
+        else ""
+    )
+    if cache_key:
+        with _PROP_CACHE_LOCK:
+            cached = _PROP_CACHE.get(cache_key)
+            if cached is not None:
+                _PROP_CACHE.move_to_end(cache_key)
+                return cached
     repr_v2 = representation or build_representation_v2(
         text,
         expand_synonyms=True,
@@ -136,7 +154,7 @@ def extract_propositions(
     if not propositions:
         propositions.append(Proposition("", "rel:about", "", ""))
 
-    return PropositionAnalysis(
+    analysis = PropositionAnalysis(
         propositions=tuple(propositions),
         entities=entities,
         relations=relations,
@@ -144,6 +162,13 @@ def extract_propositions(
         times=times,
         content_tokens=content_tokens,
     )
+    if cache_key:
+        with _PROP_CACHE_LOCK:
+            _PROP_CACHE[cache_key] = analysis
+            _PROP_CACHE.move_to_end(cache_key)
+            while len(_PROP_CACHE) > _PROP_CACHE_MAX:
+                _PROP_CACHE.popitem(last=False)
+    return analysis
 
 
 def proposition_overlap(
