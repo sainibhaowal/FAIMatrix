@@ -11,7 +11,7 @@ services:
       POSTGRES_DB: faim_native
     ports:
       - "8020:8020"
-    command: ["postgres", "-p", "8020"]
+    command: ["postgres", "-p", "8020", "-c", "max_connections=300"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -115,7 +115,7 @@ services:
         "gunicorn",
         "api.app:app",
         "--workers",
-        "${FAIM_API_WORKERS:-4}",
+        "${FAIM_API_WORKERS:-6}",
         "--worker-class",
         "uvicorn.workers.UvicornWorker",
         "--bind",
@@ -253,7 +253,7 @@ services:
     command: ["python", "-m", "orchestration.jobs.worker"]
     restart: unless-stopped
     deploy:
-      replicas: ${FAIM_INGEST_WORKERS:-2}
+      replicas: ${FAIM_INGEST_WORKERS:-8}
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
       REDIS_URL: ${REDIS_URL:-redis://:faim_pass@redis:8030/0}
