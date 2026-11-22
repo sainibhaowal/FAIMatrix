@@ -279,7 +279,13 @@ def run_retrieval_benchmark(
             "latency_ms": {
                 "ingest_p50": percentile(ingest_latencies, 50),
                 "ingest_p95": percentile(ingest_latencies, 95),
+                "query_p25": percentile(query_latencies, 25),
                 "query_p50": percentile(query_latencies, 50),
+                "query_p75": percentile(query_latencies, 75),
+                "query_iqr_ms": round(
+                    max(0.0, percentile(query_latencies, 75) - percentile(query_latencies, 25)),
+                    2,
+                ),
                 "query_p95": percentile(query_latencies, 95),
                 "query_p99": percentile(query_latencies, 99),
             },
@@ -384,11 +390,13 @@ def run_conversational_benchmark(
             continue
 
         query_latencies: List[float] = []
+        context_tokens_list: List[float] = []
         per_case: Dict[str, List[float]] = {
             "exact_match": [],
             "token_f1": [],
             "fact_recall": [],
         }
+        per_category: Dict[str, Dict[str, List[float]]] = {}
 
         for case in split.qa_cases:
             try:
@@ -407,11 +415,21 @@ def run_conversational_benchmark(
                 break
             query_latencies.append(qres.latency_ms)
             combined_ctx = qres.answer_text or "\n".join(qres.retrieved_texts)
-            per_case["exact_match"].append(exact_match(qres.answer_text, case.answer))
-            per_case["token_f1"].append(token_f1(qres.answer_text, case.answer))
-            per_case["fact_recall"].append(
-                answer_contains_gold(combined_ctx, case.answer)
+            ctx_tokens = float(len(combined_ctx.split())) if combined_ctx else 0.0
+            context_tokens_list.append(ctx_tokens)
+            em_val = exact_match(qres.answer_text, case.answer)
+            f1_val = token_f1(qres.answer_text, case.answer)
+            fr_val = answer_contains_gold(combined_ctx, case.answer)
+            per_case["exact_match"].append(em_val)
+            per_case["token_f1"].append(f1_val)
+            per_case["fact_recall"].append(fr_val)
+            cat_bucket = per_category.setdefault(
+                str(case.category or "general"),
+                {"exact_match": [], "token_f1": [], "fact_recall": []},
             )
+            cat_bucket["exact_match"].append(em_val)
+            cat_bucket["token_f1"].append(f1_val)
+            cat_bucket["fact_recall"].append(fr_val)
 
         if len(query_latencies) != len(split.qa_cases):
             continue
@@ -420,6 +438,17 @@ def run_conversational_benchmark(
             metric_name: bootstrap_ci(vals, iterations=bootstrap_iterations, seed=seed)
             for metric_name, vals in per_case.items()
         }
+        category_breakdown = {
+            cat: {
+                "count": len(vals["fact_recall"]),
+                "fact_recall": round(sum(vals["fact_recall"]) / max(1, len(vals["fact_recall"])), 4),
+                "token_f1": round(sum(vals["token_f1"]) / max(1, len(vals["token_f1"])), 4),
+                "exact_match": round(sum(vals["exact_match"]) / max(1, len(vals["exact_match"])), 4),
+            }
+            for cat, vals in sorted(per_category.items())
+        }
+        q_p25 = percentile(query_latencies, 25)
+        q_p75 = percentile(query_latencies, 75)
         systems_out.append(
             {
                 "system": adapter.name,
@@ -430,11 +459,20 @@ def run_conversational_benchmark(
                 "cases_evaluated": len(split.qa_cases),
                 "write_errors": write_errors,
                 "metrics": {m: ci["mean"] for m, ci in cis.items()},
+                "category_breakdown": category_breakdown,
+                "context_tokens": {
+                    "avg": round(sum(context_tokens_list) / max(1, len(context_tokens_list)), 1),
+                    "p50": percentile(context_tokens_list, 50),
+                    "p95": percentile(context_tokens_list, 95),
+                },
                 "confidence_intervals": cis,
                 "latency_ms": {
                     "write_p50": percentile(write_latencies, 50),
                     "write_p95": percentile(write_latencies, 95),
+                    "query_p25": q_p25,
                     "query_p50": percentile(query_latencies, 50),
+                    "query_p75": q_p75,
+                    "query_iqr_ms": round(max(0.0, q_p75 - q_p25), 2),
                     "query_p95": percentile(query_latencies, 95),
                 },
             }
