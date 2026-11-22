@@ -1553,6 +1553,20 @@ def run_query(
             journal, graph_id, query_hash, len(results), duration_ms, query_hash
         )
 
+    # Non-blocking Redis feedback enqueue for worker-evolve reinforcement
+    if results:
+        try:
+            from orchestration.query_reinforcement import record_query_evidence_async
+
+            record_query_evidence_async(
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                query_text=canonical_query_text,
+                top_node_ids=[r["node_id"] for r in results[:3]],
+            )
+        except Exception:  # nosec B110
+            pass
+
     return QueryResult(
         tenant_id=tenant_id,
         graph_id=graph_id,
