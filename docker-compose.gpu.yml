@@ -17,6 +17,7 @@ services:
       FAIM_EMBEDDING_DEVICE: ${FAIM_EMBEDDING_DEVICE:-auto}
       FAIM_USE_GPU_BACKEND: ${FAIM_USE_GPU_BACKEND:-auto}
       FAIM_FAST_ML_EMBEDDING: ${FAIM_FAST_ML_EMBEDDING:-false}
+      FAIM_MIN_CUDA_FREE_MIB: ${FAIM_MIN_CUDA_FREE_MIB:-1024}
     deploy:
       resources:
         limits:
@@ -40,6 +41,7 @@ services:
       FAIM_EMBEDDING_DEVICE: ${FAIM_EMBEDDING_DEVICE:-auto}
       FAIM_USE_GPU_BACKEND: ${FAIM_USE_GPU_BACKEND:-auto}
       FAIM_FAST_ML_EMBEDDING: ${FAIM_FAST_ML_EMBEDDING:-false}
+      FAIM_MIN_CUDA_FREE_MIB: ${FAIM_MIN_CUDA_FREE_MIB:-1024}
     deploy:
       resources:
         reservations:
@@ -58,6 +60,7 @@ services:
       FAIM_EMBEDDING_DEVICE: ${FAIM_EMBEDDING_DEVICE:-auto}
       FAIM_USE_GPU_BACKEND: ${FAIM_USE_GPU_BACKEND:-auto}
       FAIM_FAST_ML_EMBEDDING: ${FAIM_FAST_ML_EMBEDDING:-false}
+      FAIM_MIN_CUDA_FREE_MIB: ${FAIM_MIN_CUDA_FREE_MIB:-1024}
     deploy:
       resources:
         reservations:
