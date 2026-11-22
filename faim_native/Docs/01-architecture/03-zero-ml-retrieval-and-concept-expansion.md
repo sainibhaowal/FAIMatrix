@@ -39,13 +39,17 @@ flowchart TD
 
 ## 2. Stage 1 — Collision-Free BM25+ & RAM Index Caching
 
-### 2.1 Collision-Free `InvertedIndex` (`faim_native/index/inverted_index.py`)
-Earlier versions hashed tokens into fixed buckets, causing hash collisions on technical vocabulary. The upgraded `InvertedIndex` indexes **exact stemmed tokens, raw surface tokens, and adjacent bigrams** without hash collisions and executes `score_bm25_fast` / `score_bm25_shortlist` using BM25+ ($\delta = 0.35$):
+### 2.1 Collision-Free & Concept-Aware `InvertedIndex` (`faim_native/index/inverted_index.py`)
+Earlier versions hashed tokens into fixed buckets, causing hash collisions on technical vocabulary. The upgraded `InvertedIndex` indexes **exact stemmed tokens, raw surface tokens, and adjacent bigrams** without hash collisions, memoizes Porter stemming (`@lru_cache(maxsize=65536)` in [`porter_stemmer.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/encoding/porter_stemmer.py)), and executes `score_bm25_fast(query_text, expanded_terms=...)` using BM25+ ($\delta = 0.5$):
 
 $$\text{score}_{\text{BM25+}}(q, d) = \sum_{t \in q} \text{IDF}(t) \cdot \left( \frac{f(t, d) \cdot (k_1 + 1)}{f(t, d) + k_1 \cdot \left(1 - b + b \cdot \frac{|d|}{\text{avgdl}}\right)} + \delta \right)$$
 
+- **Concept-Aware Stage-1 Recall:** `query_flow.py` passes `phaseb_expansions` (1–2 hop relational concept + PPMI + QRL bridge terms) into `score_bm25_fast(..., expanded_terms=...)` at a capped decayed weight ($\le 0.45$). Even when literal stem overlap is zero, concept-bridged documents enter the Stage-1 shortlist before Stage-2 Concept-Expanded MaxSim, while literal matches always rank higher.
+
 ### 2.2 `GraphIndexArtifacts` RAM Metadata Cache (`faim_native/orchestration/perf/index_rebuild.py`)
 Instead of issuing 20+ per-candidate SQL queries during `rerank_faim`, `build_graph_index_artifacts` caches `CachedNodeMeta` (including `v_native`, `v_embedding`, `opp_signature`, `raw_id`, `block_id`, `level`, `touch_count`, `residual`, and temporal timestamps) in RAM keyed by `(tenant_id, graph_id, graph_version, include_dense)`.
+- **Single-Flight Coalescing (`_INFLIGHT_BUILDS`):** Concurrent requests on the same worker wait on a shared `threading.Event` instead of running duplicate Postgres + `InvertedIndex` builds on cold start.
+- **Zero-Copy Query Reads:** `query_flow.py` reads `artifacts.sparse_index.documents` and `artifacts.node_meta` directly without `O(N)` per-query `dict(...)` copies.
 
 ---
 
