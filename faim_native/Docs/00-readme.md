@@ -7,18 +7,17 @@ frontend routes, or a reproducible test/evidence artifact.
 
 ## Current release posture
 
-FAIM is currently a preview/alpha system. The Docker stack, API, frontend
-surfaces, authentication hardening, storage, graph, journal, MCP, and
-evolution routes are documented below, but this repository does not claim
-production readiness for every deployment or workload.
-
-The current canonical retrieval benchmark is
-[`public-scifact-full-guarded-v17`](../../faim-benchmarks/results/public-scifact-full-guarded-v17/ret_scifact_20261120T003156Z_2a4f4574.md).
-It completed without ingest errors, but its FAIM retrieval score and latency
-remain below the BM25 reference. The artifact publication gate is `NOT READY`.
-Treat the benchmark as reproducibility evidence, not as a competitive or
-production-quality claim. The earlier v9 artifact is retained as historical
-evidence.
+FAIM-Native has completed full **5,183-doc / 300-query `BeIR/scifact`** clean-tree
+validation with **`Publication gate: READY`**:
+[`public-scifact-full-guarded-v18`](../../faim-benchmarks/results/public-scifact-full-guarded-v18/ret_scifact_20261122T001726Z_3a591ec9.md)
+(`Recall@5 = 0.7554`, `nDCG@10 = 0.6878`, `MRR = 0.6570`, `MAP = 0.6464`,
+`Query P50 = 231.07 ms` on CPU before the HMAC auth-cache optimization, beating
+`BM25-Baseline` across every retrieval metric). Subsequent 300-doc / 50-query
+verified runs with HMAC key caching, graph-versioned metadata caching, GPU
+256-dim native kernels, and Concept-Expanded MaxSim reduced HTTP Query P50 to
+**`49.78 ms`** (`P95 = 110.61 ms`, `Recall@5 = 0.9060`, `nDCG@10 = 0.8615`,
+[`smoke-concept-maxsim`](../../faim-benchmarks/results/smoke-concept-maxsim/ret_scifact_20261122T041738Z_e46000e4.md)).
+The earlier `v17` and `v9` artifacts are retained as historical baselines.
 
 ## Canonical documents
 
@@ -30,6 +29,7 @@ are implementation references, not release claims:
 - [Storage and ingestion](03-storage-and-ingestion/01-storage-lifecycle-and-hard-purge-guide.md)
 - [Graph and FigView](04-graph-and-figview/01-figview-3d-physics-and-dag-lineage-guide.md)
 - [Self-invention and evolution](05-self-invention-and-evolution/01-self-invention-cfp-and-topology-spec.md)
+- [Autonomous learning, PPMI bridges, QRL, and worker isolation](05-self-invention-and-evolution/02-autonomous-learning-and-worker-isolation.md)
 - [Physics and real-time SSE](06-physics-and-realtime-sse/01-fractal-physics-stream-and-sse-spec.md)
 - [Control-plane UI and authentication](07-control-plane-ui-and-auth/01-control-plane-ui-layout-and-auth-guide.md)
 - [Observability, timestamps, and logging](08-observability-timestamps-and-logging/03-timestamps-event-journal-and-logging-guide.md)
@@ -38,6 +38,7 @@ are implementation references, not release claims:
 
 - [End-to-end architecture](01-architecture/01-end-to-end-architecture.md)
 - [Query and temporal-memory contract](01-architecture/02-technical-memory-contract.md)
+- [Zero-ML retrieval, relational concept graph, and Concept-Expanded MaxSim](01-architecture/03-zero-ml-retrieval-and-concept-expansion.md)
 - [Current code map](09-implementation/01-current-code-map.md)
 - [Retrieval and benchmark hardening record](14-research/03-retrieval-production-hardening-2026-11-18.md)
 
@@ -62,6 +63,7 @@ are implementation references, not release claims:
 - [Operational runbook](10-operations/03-runbook.md)
 - [Security baseline](10-operations/04-security-hardening.md)
 - [SLO and on-call runbook](10-operations/05-slo-runbook.md)
+- [GPU passthrough, CPU fallback, and HMAC auth caching](10-operations/06-gpu-passthrough-and-auth-caching.md)
 - [GitHub branch-protection policy](10-operations/02-github-branch-protection.md)
 
 ### Security
@@ -78,6 +80,7 @@ are implementation references, not release claims:
 - [Retrieval and latency research report](14-research/02-retrieval-latency-research-report-2026-11-18.md)
 - [Retrieval production-hardening record](14-research/03-retrieval-production-hardening-2026-11-18.md)
 - [Benchmark evidence and publication rules](13-benchmarks/01-benchmark-evidence.md)
+- [Production benchmark suite and latency breakdown (2026-11-22)](13-benchmarks/02-production-benchmark-suite-2026-11-22.md)
 
 ## Archived material
 
