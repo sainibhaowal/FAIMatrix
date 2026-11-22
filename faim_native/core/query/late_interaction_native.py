@@ -302,12 +302,66 @@ def _get_cached_doc_units(
     return entry
 
 
+def build_query_concept_neighbors(
+    query_units: Mapping[str, Sequence[LateInteractionUnit]],
+    *,
+    max_hops: int = 1,
+    decay: float = 0.45,
+    max_neighbors_per_unit: int = 6,
+    extra_graph: Optional[Mapping[str, Sequence[Tuple[str, str, float]]]] = None,
+    domain_map: Optional[Mapping[str, Sequence[str]]] = None,
+    canonical_map: Optional[Mapping[str, Sequence[str]]] = None,
+    use_conceptnet: bool = True,
+) -> Dict[str, Tuple[Tuple[str, float], ...]]:
+    """Build 1-hop (or k-hop) decayed concept neighbors for query units once per query."""
+    import os
+
+    if os.getenv("FAIM_MAXSIM_CONCEPT_EXPANSION", "true").strip().lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return {}
+
+    from lexical.relational_concept_graph import spread_relational_concepts
+
+    eff_decay = min(0.85, max(0.05, float(decay)))
+    neighbors_map: Dict[str, Tuple[Tuple[str, float], ...]] = {}
+    seen_values = set()
+    for channel in ("token", "phrase"):
+        for unit in query_units.get(channel, ()):
+            val = unit.value
+            if not val or val in seen_values:
+                continue
+            seen_values.add(val)
+            spread = spread_relational_concepts(
+                [val],
+                max_hops=max_hops,
+                decay=eff_decay,
+                min_score=0.05,
+                max_expansions=max_neighbors_per_unit,
+                extra_graph=extra_graph,
+                domain_map=domain_map,
+                canonical_map=canonical_map,
+                use_conceptnet=use_conceptnet,
+            )
+            if spread:
+                neighbors_map[val] = tuple(
+                    (item.term, min(eff_decay, float(item.weight)))
+                    for item in spread
+                )
+    return neighbors_map
+
+
 def _maxsim_units_preindexed(
     query_units: Sequence[LateInteractionUnit],
     doc_set: frozenset[str],
     word_to_cands: Mapping[str, List[Tuple[int, str, frozenset[str]]]],
     *,
     partial_word_match: bool = False,
+    concept_neighbors: Optional[Mapping[str, Tuple[Tuple[str, float], ...]]] = None,
+    concept_doc_set: Optional[frozenset[str]] = None,
 ) -> Tuple[float, List[Dict[str, object]]]:
     if not query_units or not doc_set:
         return 0.0, []
@@ -345,6 +399,13 @@ def _maxsim_units_preindexed(
                             score = candidate_score
                             matched_value = candidate
                             best_idx = idx
+        if score < 1.0 and concept_neighbors:
+            search_set = concept_doc_set if concept_doc_set is not None else doc_set
+            for neighbor_term, neighbor_weight in concept_neighbors.get(unit.value, ()):
+                if neighbor_term in doc_set or neighbor_term in search_set:
+                    if neighbor_weight > score:
+                        score = float(neighbor_weight)
+                        matched_value = f"concept:{neighbor_term}"
         weighted_total += unit.weight * score
         if score > 0.0:
             matched.append(
@@ -374,6 +435,7 @@ def score_late_interaction_native(
     query_repr: RepresentationV2,
     doc_repr: RepresentationV2 | None,
     precomputed_query_units: Dict[str, Tuple[LateInteractionUnit, ...]] | None = None,
+    concept_neighbors: Optional[Mapping[str, Tuple[Tuple[str, float], ...]]] = None,
 ) -> LateInteractionScore:
     """Compute FAIM-native symbolic late interaction score."""
     if doc_repr is None:
@@ -400,13 +462,27 @@ def score_late_interaction_native(
         if precomputed_query_units is not None
         else _build_query_units(query_repr)
     )
+    eff_concept_neighbors = (
+        concept_neighbors
+        if concept_neighbors is not None
+        else build_query_concept_neighbors(query_units)
+    )
     _doc_units, doc_lookups = _get_cached_doc_units(doc_repr)
+    all_doc_surfaces = doc_lookups["token"][0] | doc_lookups["phrase"][0]
 
     token_score, token_matches = _maxsim_units_preindexed(
-        query_units["token"], *doc_lookups["token"], partial_word_match=True
+        query_units["token"],
+        *doc_lookups["token"],
+        partial_word_match=True,
+        concept_neighbors=eff_concept_neighbors,
+        concept_doc_set=all_doc_surfaces,
     )
     phrase_score, phrase_matches = _maxsim_units_preindexed(
-        query_units["phrase"], *doc_lookups["phrase"], partial_word_match=True
+        query_units["phrase"],
+        *doc_lookups["phrase"],
+        partial_word_match=True,
+        concept_neighbors=eff_concept_neighbors,
+        concept_doc_set=all_doc_surfaces,
     )
     alias_score, alias_matches = _maxsim_units_preindexed(
         query_units["alias"], *doc_lookups["alias"]
