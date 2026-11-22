@@ -301,7 +301,9 @@ For the component inventory, failure behavior, local-versus-hosted differences, 
 - graph nodes, edges, inheritance fractions, opposition signatures, versions, snapshots, and replayable events;
 - strict, fast, and relaxed execution profiles where supported;
 - query explain payloads with score components, evidence, parents, and recent events;
-- representation V2, canonical semantics, multilingual semantics, modality sidecars, and domain knowledge surfaces.
+- representation V2, canonical semantics, multilingual semantics, modality sidecars, and domain knowledge surfaces;
+- multi-hop **Typed Relational Concept Graph** (`Causes`, `HasPrerequisite`, `PartOf`, `UsedFor`, `RelatedTo`), corpus-learned **PPMI / 2nd-order co-occurrence bridges** (`worker-evolve`), async Redis **Query-to-Evidence Reinforcement Learning (QRL)**, **Concept-Expanded MaxSim**, and **Concept-aware Stage-1 BM25+**;
+- GPU-first / automatic CPU-fallback (`FAIM_EMBEDDING_DEVICE=auto`, proactive `FAIM_MIN_CUDA_FREE_MIB` VRAM OOM guard), HMAC verified-key caching, and single-flight `GraphIndexArtifacts` RAM caching.
 
 ### Durable ingestion and multimodal evidence
 
@@ -366,33 +368,32 @@ adapter is recorded as `skipped`, never as a fabricated score. Do not publish a
 report until the JSON integrity hash, dataset identity, seed, and completed-system
 statuses have been reviewed.
 
-### Latest complete external run
+### Latest complete external runs (`Publication gate: READY`)
 
-The latest complete run is the full official **BeIR/SciFact** split: **5,183 corpus
-documents and 300 test queries**, pinned to corpus/query revision
-`b3b5335604bf5ee3c4447671af975ea25143d4f5` and qrels revision
-`2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029`. It used the real Docker HTTP path,
-strict persistence, four API workers, Phase 5 and Representation V2, embedding
-prewarm, and PostgreSQL idle-transaction/lock timeouts. Both selected systems
-completed all 300 queries with zero ingest errors.
+The latest complete runs cover two full official BEIR splits with pinned Hugging Face revisions, isolated `worker-ingest` / `worker-evolve` pools, GPU passthrough (`faim-native-gpu`), HMAC verified-key caching, and `graph_version`-cached metadata:
 
-| System | Dataset / protocol | Recall@5 | nDCG@10 | Query p50 | Status |
-| --- | --- | ---: | ---: | ---: | --- |
-| **FAIM-Native (v18, zero-ML CPU-first)** | SciFact, 5,183 docs / 300 queries | **0.7554** | **0.6878** | **231.07 ms** | Completed (`READY`) |
-| **BM25 baseline (v18)** | Same full SciFact split and scorer | 0.7193 | 0.6644 | 55.06 ms | Completed (`READY`) |
-| **FAIM-Native (v17 historical)** | SciFact, 5,183 docs / 300 queries | 0.4831 | 0.4184 | 7,195.68 ms | Completed |
-| **FAIM-Native (v9 historical)** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | 17,373 ms | Completed |
-| **FAIM-Native (smoke-v8, zero-ML CPU-first)** | SciFact sampled (300 docs / 50 queries) | 0.9060 | 0.8616 | 264.64 ms | Completed |
-| **BM25 baseline (smoke-v8)** | Same 300-doc / 50-query sampled split | 0.8160 | 0.8024 | 1.50 ms | Completed |
+1. **BeIR/SciFact** (**5,183 corpus documents / 300 test queries**, corpus/queries `b3b5335604bf5ee3c4447671af975ea25143d4f5`, qrels `2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029`).
+2. **BeIR/NFCorpus** (**3,633 corpus documents / 323 test queries**, corpus/queries `b5026a0e96e8a7ac4f95f482a596389289d46269`, qrels `a451b3b26d3ae1358f259c1a3a4dd61fcea35a65`).
 
-On the historical full-split runs (`v9` and `v17`), FAIM-Native trailed BM25 in both nDCG@10 and latency. After upgrading FAIM-Native with collision-free stemmed+raw+bigram BM25+ in `InvertedIndex`, `GraphIndexArtifacts` RAM metadata caching, vectorized `float32` BLAS scoring, pre-indexed & cached `_maxsim_units`, proposition caching, `defer_repr_stats` ingest batching, and `include_historical=True` soft-suppression in `RerankerV2` (with zero ML models on CPU), the **full 5,183-doc / 300-query `v18` run (`Publication gate: READY`, clean tree `c68f9c1`)** beat BM25-Baseline across every retrieval metric (**0.7554 vs 0.7193 Recall@5**, **0.6878 vs 0.6644 nDCG@10**, **0.6570 vs 0.6366 MRR**, **0.6464 vs 0.6242 MAP**) with **231.07 ms Query p50** and **284.02 ms Query p95** (**31× lower Query p50** than `v17`).
+| System | Dataset / protocol | Recall@5 | nDCG@10 | MRR | MAP | Query p50 | Status |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| **FAIM-Native (v19-ready, GPU stack)** | SciFact, 5,183 docs / 300 queries | **0.7554** | **0.6878** | **0.6570** | **0.6464** | **104.52 ms** | Completed (`READY`) |
+| **FAIM-Native (v18, zero-ML CPU-first)** | SciFact, 5,183 docs / 300 queries | **0.7554** | **0.6878** | **0.6570** | **0.6464** | 231.07 ms | Completed (`READY`) |
+| **BM25 baseline (v19-ready)** | Same full SciFact split and scorer | 0.7193 | 0.6644 | 0.6366 | 0.6242 | 38.44 ms | Completed (`READY`) |
+| **FAIM-Native (v1-ready, GPU stack)** | NFCorpus, 3,633 docs / 323 queries | **0.1267** | **0.3258** | **0.5259** | **0.1327** | **97.20 ms** | Completed (`READY`) |
+| **BM25 baseline (v1-ready)** | Same full NFCorpus split and scorer | 0.1205 | 0.3110 | 0.5211 | 0.1294 | 5.20 ms | Completed (`READY`) |
+| **FAIM-Native (v17 historical)** | SciFact, 5,183 docs / 300 queries | 0.4831 | 0.4184 | — | — | 7,195.68 ms | Completed |
+| **FAIM-Native (v9 historical)** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | — | — | 17,373 ms | Completed |
+
+On both full BEIR splits (`BeIR/SciFact` and `BeIR/NFCorpus`), FAIM-Native beat `BM25-Baseline` across **every retrieval metric** (`Recall@5`, `nDCG@10`, `MRR`, `MAP`), while HMAC auth caching + `graph_version`-keyed RAM caching cut full `SciFact` Query p50 by **2.2×** (`231.07 ms` → `104.52 ms`, Query p95 `159.15 ms`).
 
 Evidence artifacts:
 
-- [`ret_scifact_20261122T001726Z_3a591ec9.md`](faim-benchmarks/results/public-scifact-full-guarded-v18/ret_scifact_20261122T001726Z_3a591ec9.md)
+- [`ret_scifact_20261122T124757Z_df5d93fc.md`](faim-benchmarks/results/public-scifact-full-guarded-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md) (`READY`, `SHA-256: 175a5a1dfb0ac393aaf4316e7a37eaf84742a71f2b27497478d05bc0d53d7333`)
+- [`ret_nfcorpus_20261122T132435Z_6141a4e3.md`](faim-benchmarks/results/public-nfcorpus-full-guarded-v1-ready/ret_nfcorpus_20261122T132435Z_6141a4e3.md) (`READY`, `SHA-256: 1f79515b6484b6afeebec2e9d0c03561da94d5dcc13d6ddf06b4c81278b4eea6`)
+- [`ret_scifact_20261122T001726Z_3a591ec9.md`](faim-benchmarks/results/public-scifact-full-guarded-v18/ret_scifact_20261122T001726Z_3a591ec9.md) (`READY`)
 - [`ret_scifact_20261120T003156Z_2a4f4574.md`](faim-benchmarks/results/public-scifact-full-guarded-v17/ret_scifact_20261120T003156Z_2a4f4574.md)
 - [`ret_scifact_20261117T214211Z_ccef064a.md`](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md)
-- [`ret_scifact_20261121T225200Z_76c129ce.md`](faim-benchmarks/results/smoke-v8/ret_scifact_20261121T225200Z_76c129ce.md)
 
 ### Public competitor references (not directly comparable)
 
@@ -570,7 +571,8 @@ Important controls include:
 - `FAIM_SELF_EVOLVE_ENABLED`, `FAIM_SELF_EVOLVE_TRIGGER_MODE`, and action/interval limits for evolution;
 - `FAIM_SELF_INVENT_ENABLED` and invention thresholds for macro-node synthesis;
 - `FAIM_ENCRYPTION_AT_REST`, `FAIM_ENCRYPTION_FAIL_CLOSED`, `FAIM_STORAGE_CONTRACT_STRICT`, and auth fallback switches for security posture;
-- `FAIM_RATE_LIMITS_JSON`, payload limits, CORS, public origin, and CSP settings for edge behavior.
+- `FAIM_RATE_LIMITS_JSON`, payload limits, CORS, public origin, and CSP settings for edge behavior;
+- `FAIM_API_WORKERS`, `FAIM_INGEST_WORKERS`, `FAIM_EMBEDDING_DEVICE=auto`, `FAIM_MIN_CUDA_FREE_MIB`, and `FAIM_FAST_ML_EMBEDDING` for worker scaling and GPU/CPU hybrid sizing (see [GPU passthrough, fallback & worker sizing](faim_native/Docs/10-operations/06-gpu-passthrough-and-auth-caching.md)).
 
 Production deployments should begin with the restrictive values in [`.env.example`](.env.example), then make every relaxation deliberate and documented.
 
@@ -652,7 +654,11 @@ Readiness is stronger than liveness: it checks database connectivity, required t
 - [Security guide](faim_native/Docs/11-security/03-security-guide.md)
 - [Threat model](faim_native/Docs/11-security/04-threat-model.md)
 - [Operations and deployment](faim_native/Docs/10-operations/01-deployment.md)
-- [Benchmark evidence](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md)
+- [GPU passthrough, fallback & worker sizing](faim_native/Docs/10-operations/06-gpu-passthrough-and-auth-caching.md)
+- [Zero-ML retrieval, concept graph & Concept-MaxSim](faim_native/Docs/01-architecture/03-zero-ml-retrieval-and-concept-expansion.md)
+- [Production benchmark suite](faim_native/Docs/13-benchmarks/02-production-benchmark-suite-2026-11-22.md)
+- [Benchmark evidence (SciFact v19-ready)](faim-benchmarks/results/public-scifact-full-guarded-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md)
+- [Benchmark evidence (NFCorpus v1-ready)](faim-benchmarks/results/public-nfcorpus-full-guarded-v1-ready/ret_nfcorpus_20261122T132435Z_6141a4e3.md)
 
 ## Contributing
 
