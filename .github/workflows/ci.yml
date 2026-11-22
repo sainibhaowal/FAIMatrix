@@ -181,12 +181,12 @@ jobs:
         shell: bash
         run: |
           payload=$(printf 'FAIM production network index verification' | base64 -w0)
-          response=$(curl -fsS -X POST http://localhost:8001/api/v1/ingest \
+          response=$(curl -fsS --retry 3 --retry-delay 2 --retry-all-errors --max-time 120 -X POST http://localhost:8001/api/v1/ingest \
             -H 'Content-Type: application/json' \
             -H "X-Tenant-Id: $CI_TENANT_ID" -H "X-Api-Key: $CI_TENANT_KEY" \
             -d "{\"graph_id\":\"ci-qdrant-e2e\",\"filename\":\"qdrant-e2e.txt\",\"content_type\":\"text/plain\",\"profile\":\"fast\",\"persist_mode\":\"strict\",\"bytes_base64\":\"$payload\"}")
           echo "$response" | python -c 'import json,sys; d=json.load(sys.stdin); assert d["status"] in {"completed","dedup_hit"}, d; print(d)'
-          collections=$(curl -fsS http://localhost:8041/collections)
+          collections=$(curl -fsS --retry 3 --retry-delay 2 --retry-all-errors --max-time 30 http://localhost:8041/collections)
           echo "$collections" | grep -q 'faim_'
           curl -fsS http://localhost:8001/api/v1/query \
             -H 'Content-Type: application/json' \
