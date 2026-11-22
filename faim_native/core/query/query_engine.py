@@ -1216,13 +1216,19 @@ def rerank_faim(
 
     # --- PHASE C: FAIM-native late interaction ---
     if query_repr_v2 is not None and scored:
-        from core.query.late_interaction_native import _build_query_units
+        from core.query.late_interaction_native import (
+            _build_query_units,
+            build_query_concept_neighbors,
+        )
 
         # Late interaction is materially more expensive than the base score.
         # Apply it only to the strongest deterministic shortlist; the full
         # candidate set still participates in base scoring and final ordering.
         phasec_limit = max(20, k) if fast_skip_graph_opp else max(50, k * 2)
         precomputed_q_units = _build_query_units(query_repr_v2)
+        precomputed_concept_neighbors = build_query_concept_neighbors(
+            precomputed_q_units
+        )
         phasec_ids = {
             item["node_id"]
             for item in sorted(
@@ -1238,6 +1244,7 @@ def rerank_faim(
                 query_repr=query_repr_v2,
                 doc_repr=repr_v2,
                 precomputed_query_units=precomputed_q_units,
+                concept_neighbors=precomputed_concept_neighbors,
             )
             phasec_total = float(late_interaction.total)
             phasec_bonus = active_fusion_weights["late_interaction"] * phasec_total
