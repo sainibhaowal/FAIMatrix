@@ -56,6 +56,16 @@ BEIR_HF_DATASETS: Dict[str, Dict[str, str]] = {
         "qrels": "BeIR/nfcorpus-qrels",
     },
     "fiqa": {"corpus": "BeIR/fiqa", "queries": "BeIR/fiqa", "qrels": "BeIR/fiqa-qrels"},
+    "arguana": {
+        "corpus": "BeIR/arguana",
+        "queries": "BeIR/arguana",
+        "qrels": "BeIR/arguana-qrels",
+    },
+    "trec-covid": {
+        "corpus": "BeIR/trec-covid",
+        "queries": "BeIR/trec-covid",
+        "qrels": "BeIR/trec-covid-qrels",
+    },
     "scidocs": {
         "corpus": "BeIR/scidocs",
         "queries": "BeIR/scidocs",
