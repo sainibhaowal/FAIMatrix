@@ -91,7 +91,7 @@ def _vectorized_cosine_matrix(vectors: List[List[float]]) -> Optional[np.ndarray
     dim = len(vectors[0])
     if any(len(v) != dim for v in vectors):
         return None
-    V = np.asarray(vectors, dtype=np.float32)
+    V = np.asarray(vectors, dtype=np.float64)
     norms = np.sqrt((V * V).sum(axis=1))
     # Zero-norm rows produce cosine 0.0 against everything (Python parity).
     norms[norms == 0.0] = 1.0
