@@ -25,10 +25,10 @@ const STAGES: PipelineStage[] = [
       { label: "Complexity", value: "Bounded shortlist" },
       { label: "Data Path", value: "PostgreSQL inverted_index" },
       { label: "Memory Cache", value: "Redis postings shortlist" },
-      { label: "Pruning Rate", value: "Not yet measured" }
+      { label: "Pruning Rate", value: "Not yet measured" },
     ],
     accentColor: "text-cyan-400",
-    glow: "border-cyan-500/20 bg-cyan-500/[0.03]"
+    glow: "border-cyan-500/20 bg-cyan-500/[0.03]",
   },
   {
     id: "stage-2",
@@ -40,10 +40,10 @@ const STAGES: PipelineStage[] = [
       { label: "Index Type", value: "Stable-Hash Level HNSW" },
       { label: "Dimensions", value: "256-dim v_native" },
       { label: "Search Metric", value: "Cosine Distance (No-ML)" },
-      { label: "Latency p95", value: "Not yet measured" }
+      { label: "Latency p95", value: "Not yet measured" },
     ],
     accentColor: "text-purple-400",
-    glow: "border-purple-500/20 bg-purple-500/[0.03]"
+    glow: "border-purple-500/20 bg-purple-500/[0.03]",
   },
   {
     id: "stage-3",
@@ -55,10 +55,10 @@ const STAGES: PipelineStage[] = [
       { label: "Traversal Depth", value: "Bounded hops" },
       { label: "Decay Factor", value: "0.85 per hop" },
       { label: "Expansion Limit", value: "24 neighbors max" },
-      { label: "Score Synthesis", value: "Neighborhood Coherence" }
+      { label: "Score Synthesis", value: "Neighborhood Coherence" },
     ],
     accentColor: "text-indigo-400",
-    glow: "border-indigo-500/20 bg-indigo-500/[0.03]"
+    glow: "border-indigo-500/20 bg-indigo-500/[0.03]",
   },
   {
     id: "stage-4",
@@ -70,11 +70,11 @@ const STAGES: PipelineStage[] = [
       { label: "Blended Signals", value: "7 distinct channels" },
       { label: "Conflict Resolver", value: "Pairwise Dominance" },
       { label: "Chronological filter", value: "Created_at timestamp" },
-      { label: "Execution Mode", value: "Core path; providers vary" }
+      { label: "Execution Mode", value: "Core path; providers vary" },
     ],
     accentColor: "text-emerald-400",
-    glow: "border-emerald-500/20 bg-emerald-500/[0.03]"
-  }
+    glow: "border-emerald-500/20 bg-emerald-500/[0.03]",
+  },
 ];
 
 export default function AdvancedADIPipeline() {
@@ -87,7 +87,7 @@ export default function AdvancedADIPipeline() {
       <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-cyan-500/5 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-1/3 left-1/4 w-[500px] h-[500px] bg-purple-500/5 blur-[150px] rounded-full pointer-events-none" />
 
-      <div className="max-w-7xl mx-auto relative z-10">
+      <div className="max-w-6xl mx-auto relative z-10">
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/30 bg-purple-500/5 text-purple-300 text-xs font-semibold uppercase tracking-wider mb-4">
             Advanced ADI Architecture
@@ -96,7 +96,10 @@ export default function AdvancedADIPipeline() {
             The 4-Stage Progressive ADI Retrieval Pipeline
           </h2>
           <p className="text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed">
-            The pipeline composes relational algebra, sparse pruning, native vector search, bounded graph diffusion, and multi-signal reranking. Core scoring is inspectable; recall, latency, and answer quality must be established with the benchmark harness.
+            The pipeline composes relational algebra, sparse pruning, native
+            vector search, bounded graph diffusion, and multi-signal reranking.
+            Core scoring is inspectable; recall, latency, and answer quality
+            must be established with the benchmark harness.
           </p>
         </div>
 
@@ -115,14 +118,20 @@ export default function AdvancedADIPipeline() {
                 }`}
               >
                 <div>
-                  <p className={`text-[10px] font-mono font-bold uppercase tracking-wider mb-1 ${activeStage === s.id ? s.accentColor : "text-slate-600"}`}>
+                  <p
+                    className={`text-[10px] font-mono font-bold uppercase tracking-wider mb-1 ${activeStage === s.id ? s.accentColor : "text-slate-600"}`}
+                  >
                     {s.title.split(":")[0]}
                   </p>
-                  <p className={`text-base font-bold tracking-tight ${activeStage === s.id ? "text-white" : "text-slate-400"}`}>
+                  <p
+                    className={`text-base font-bold tracking-tight ${activeStage === s.id ? "text-white" : "text-slate-400"}`}
+                  >
                     {s.title.split(":")[1].trim()}
                   </p>
                 </div>
-                <div className={`w-8 h-8 rounded-xl border flex items-center justify-center font-mono text-xs ${activeStage === s.id ? `${s.accentColor} border-slate-700 bg-slate-900/40` : "border-slate-900 text-slate-700"}`}>
+                <div
+                  className={`w-8 h-8 rounded-xl border flex items-center justify-center font-mono text-xs ${activeStage === s.id ? `${s.accentColor} border-slate-700 bg-slate-900/40` : "border-slate-900 text-slate-700"}`}
+                >
                   {s.id.split("-")[1]}
                 </div>
               </button>
@@ -130,10 +139,14 @@ export default function AdvancedADIPipeline() {
           </div>
 
           {/* Active Stage Detail Panel */}
-          <div className={`lg:col-span-8 rounded-3xl border p-8 md:p-10 transition-all duration-500 ${stage.glow}`}>
+          <div
+            className={`lg:col-span-8 rounded-3xl border p-8 md:p-10 transition-all duration-500 ${stage.glow}`}
+          >
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800/80 pb-6 mb-6">
               <div>
-                <span className={`text-xs font-mono font-bold uppercase tracking-wider ${stage.accentColor}`}>
+                <span
+                  className={`text-xs font-mono font-bold uppercase tracking-wider ${stage.accentColor}`}
+                >
                   {stage.title}
                 </span>
                 <h3 className="text-2xl font-black text-white tracking-tight mt-1">
@@ -152,7 +165,10 @@ export default function AdvancedADIPipeline() {
             {/* Spec Attributes Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {stage.specs.map((spec) => (
-                <div key={spec.label} className="p-4 rounded-2xl border border-slate-900 bg-slate-950/40">
+                <div
+                  key={spec.label}
+                  className="p-4 rounded-2xl border border-slate-900 bg-slate-950/40"
+                >
                   <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-1">
                     {spec.label}
                   </p>
@@ -177,21 +193,35 @@ export default function AdvancedADIPipeline() {
                 Bilingual Concept Bridges & Layout Linearization
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                FAIM maps English and German terms onto language-agnostic conceptual nodes. During query time, unstructured tabular data is linearized into normalized grids, allowing layout coordinates and perceptual hashes to contribute without requiring transformer inference in the core path.
+                FAIM maps English and German terms onto language-agnostic
+                conceptual nodes. During query time, unstructured tabular data
+                is linearized into normalized grids, allowing layout coordinates
+                and perceptual hashes to contribute without requiring
+                transformer inference in the core path.
               </p>
             </div>
             <div className="border-t border-slate-800/80 pt-6 space-y-3">
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500 font-medium">Bilingual Mapping</span>
-                <span className="text-white font-mono">umsatz (DE) → revenue ← sales (EN)</span>
+                <span className="text-slate-500 font-medium">
+                  Bilingual Mapping
+                </span>
+                <span className="text-white font-mono">
+                  umsatz (DE) → revenue ← sales (EN)
+                </span>
               </div>
               <div className="flex justify-between text-xs">
-                <span className="text-slate-500 font-medium">Table linearizer</span>
-                <span className="text-white font-mono">| Q1 | $5M | → "Q1 ; $5M"</span>
+                <span className="text-slate-500 font-medium">
+                  Table linearizer
+                </span>
+                <span className="text-white font-mono">
+                  | Q1 | $5M | → "Q1 ; $5M"
+                </span>
               </div>
               <div className="flex justify-between text-xs">
                 <span className="text-slate-500 font-medium">Image pHash</span>
-                <span className="text-white font-mono">16-char stable proxy fingerprint</span>
+                <span className="text-white font-mono">
+                  16-char stable proxy fingerprint
+                </span>
               </div>
             </div>
           </div>
@@ -206,12 +236,16 @@ export default function AdvancedADIPipeline() {
                 Evidence Scores & Contradiction Resolution
               </h3>
               <p className="text-slate-400 text-sm leading-relaxed mb-6">
-                FAIM can select sentence spans directly from source nodes and attach contradiction notes. Its evidence score is an internal ranking signal, not a statistical confidence interval or an accuracy guarantee.
+                FAIM can select sentence spans directly from source nodes and
+                attach contradiction notes. Its evidence score is an internal
+                ranking signal, not a statistical confidence interval or an
+                accuracy guarantee.
               </p>
             </div>
             <div className="border-t border-slate-800/80 pt-6">
               <div className="rounded-2xl bg-slate-950 border border-slate-900 p-4 font-mono text-[10px] text-purple-300">
-                S_evidence = clamp( 0.45*S_avg + 0.30*S_breadth + 0.25*S_active - S_penalty )
+                S_evidence = clamp( 0.45*S_avg + 0.30*S_breadth + 0.25*S_active
+                - S_penalty )
               </div>
             </div>
           </div>

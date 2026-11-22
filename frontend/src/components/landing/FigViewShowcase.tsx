@@ -68,7 +68,8 @@ const API_ENDPOINTS = [
   {
     method: "POST",
     path: "/graph/paths/explain",
-    description: "Find shortest paths between two nodes with pulse-v2 explanation",
+    description:
+      "Find shortest paths between two nodes with pulse-v2 explanation",
     response: "paths[], pulse_trace { events[], steps[] }, explanation",
   },
 ];
@@ -77,8 +78,18 @@ const FEATURES = [
   {
     title: "Pulse-v2 Reason Ledger",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
+        />
       </svg>
     ),
     description:
@@ -87,29 +98,62 @@ const FEATURES = [
   {
     title: "GPU Stability Hardening",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"
+        />
       </svg>
     ),
-    description: "WebGL rendering uses a static asset registry and bounded client resources. Rendering behavior depends on graph size, browser, and device.",
+    description:
+      "WebGL rendering uses a static asset registry and bounded client resources. Rendering behavior depends on graph size, browser, and device.",
   },
   {
     title: "Elastic Persistence",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
+        />
       </svg>
     ),
-    description: "Native force-directed elasticity. Stretch and pull atoms while the Gravitational Anchor keeps the globe grouped; interaction speed depends on graph size and device.",
+    description:
+      "Native force-directed elasticity. Stretch and pull atoms while the Gravitational Anchor keeps the globe grouped; interaction speed depends on graph size and device.",
   },
   {
     title: "Event Timeline",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-5 h-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
       </svg>
     ),
-    description: "Scrub through the graph's history: ingests, merges, prunes, and inventions. Every mutation recorded with SHA-256 integrity.",
+    description:
+      "Scrub through the graph's history: ingests, merges, prunes, and inventions. Every mutation recorded with SHA-256 integrity.",
   },
 ];
 

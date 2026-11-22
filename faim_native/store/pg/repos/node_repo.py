@@ -11,10 +11,10 @@ import logging
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
-from sqlalchemy import and_, asc, desc, or_, select, text
+from sqlalchemy import and_, asc, desc, or_, text
 from sqlalchemy.orm import Session
 
 # Flexible imports
@@ -30,6 +30,9 @@ except (ImportError, RuntimeError):
     from encoding.vector_schema import FAIMVector
 
     from store.pg.models_faim import NodeModel
+
+
+logger = logging.getLogger(__name__)
 
 
 class NodeRepo:
@@ -101,7 +104,7 @@ class NodeRepo:
             block_id=vector.block_id,
             anchor_json=vector.anchor_dict,
             v_native=list(vector.v_native),
-            v_embedding=v_embedding or getattr(vector, 'v_embedding', None),
+            v_embedding=v_embedding or getattr(vector, "v_embedding", None),
             opp_signature=vector.opp_signature,
             residual=int(vector.residual * 1e9),
             level=vector.level,
@@ -614,16 +617,15 @@ class NodeRepo:
             )
             .all()
         )
-        return [
-            (n.node_id, n.v_native, n.level or 0, n.vector_hash)
-            for n in nodes
-        ]
+        return [(n.node_id, n.v_native, n.level or 0, n.vector_hash) for n in nodes]
 
-    def find_redundant_pairs(self, graph_id: str, threshold: float, limit: int = 1000) -> List[tuple]:
+    def find_redundant_pairs(
+        self, graph_id: str, threshold: float, limit: int = 1000
+    ) -> List[tuple]:
         """Find highly similar node pairs using pgvector HNSW index.
-        
+
         Uses a LATERAL join to force O(log N) index scans per node instead of O(N^2) Cartesian products.
-        
+
         Returns:
             List of (node_id_a, node_id_b, similarity) ordered by most similar first.
         """
@@ -645,19 +647,26 @@ class NodeRepo:
             ORDER BY sim DESC
             LIMIT :limit
         """)
-        
+
         results = self.session.execute(
-            stmt, 
-            {"tenant_id": self.tenant_id, "graph_id": graph_id, "threshold": threshold, "limit": limit}
+            stmt,
+            {
+                "tenant_id": self.tenant_id,
+                "graph_id": graph_id,
+                "threshold": threshold,
+                "limit": limit,
+            },
         ).fetchall()
-        
+
         return [(UUID(str(r[0])), UUID(str(r[1])), float(r[2])) for r in results]
 
-    def get_max_similarities(self, graph_id: str, threshold: float) -> Dict[UUID, float]:
+    def get_max_similarities(
+        self, graph_id: str, threshold: float
+    ) -> Dict[UUID, float]:
         """Find maximum similarity to any other node using pgvector.
-        
+
         Uses a LATERAL join to perform O(log N) nearest-neighbor lookups.
-        
+
         Returns:
             Dict mapping node_id to its highest similarity (only if >= threshold).
         """
@@ -677,12 +686,12 @@ class NodeRepo:
               AND a.graph_id = :graph_id
               AND 1 - (a.v_vector <=> b.v_vector) >= :threshold
         """)
-        
+
         results = self.session.execute(
-            stmt, 
-            {"tenant_id": self.tenant_id, "graph_id": graph_id, "threshold": threshold}
+            stmt,
+            {"tenant_id": self.tenant_id, "graph_id": graph_id, "threshold": threshold},
         ).fetchall()
-        
+
         return {UUID(str(r[0])): float(r[1]) for r in results}
 
     def _compute_macro_hash(self, member_ids: List[str]) -> str:
@@ -692,16 +701,16 @@ class NodeRepo:
 
     def track_coactivation(self, graph_id: str, node_ids: List[UUID]) -> None:
         """Track a synchronous coactivation of nodes for invention.
-        
+
         This executes an UPSERT on the coactivations table directly in the DB.
         """
         if len(node_ids) < 2:
             return
-            
+
         str_ids = [str(n) for n in node_ids]
         signature = self._compute_macro_hash(str_ids)
         members_json = json.dumps(sorted(str_ids))
-        
+
         # Cross-dialect UPSERT using SQLAlchemy text
         # For Postgres we use ON CONFLICT, for SQLite we use ON CONFLICT
         # since SQLite 3.24+ supports Postgres-style UPSERT!
@@ -712,7 +721,7 @@ class NodeRepo:
                 coactivation_count = coactivations.coactivation_count + 1,
                 updated_at = CURRENT_TIMESTAMP
         """)
-        
+
         try:
             self.session.execute(
                 stmt,
@@ -720,14 +729,16 @@ class NodeRepo:
                     "tenant_id": str(self.tenant_id),
                     "graph_id": graph_id,
                     "signature": signature,
-                    "members": members_json
-                }
+                    "members": members_json,
+                },
             )
             self.session.flush()
         except Exception as exc:
             logger.warning("Coactivation tracking failed (non-fatal): %s", exc)
 
-    def get_pending_inventions(self, graph_id: str, min_count: int, limit: int = 100) -> List[dict]:
+    def get_pending_inventions(
+        self, graph_id: str, min_count: int, limit: int = 100
+    ) -> List[dict]:
         """Fetch highly coactivated node sets that are pending invention."""
         stmt = text("""
             SELECT signature, members, coactivation_count
@@ -739,19 +750,26 @@ class NodeRepo:
             ORDER BY coactivation_count DESC, updated_at ASC
             LIMIT :limit
         """)
-        
+
         results = self.session.execute(
             stmt,
-            {"tenant_id": self.tenant_id, "graph_id": graph_id, "min_count": min_count, "limit": limit}
+            {
+                "tenant_id": self.tenant_id,
+                "graph_id": graph_id,
+                "min_count": min_count,
+                "limit": limit,
+            },
         ).fetchall()
-        
+
         parsed = []
         for r in results:
-            parsed.append({
-                "signature": r[0],
-                "members": json.loads(r[1]) if isinstance(r[1], str) else r[1],
-                "count": r[2]
-            })
+            parsed.append(
+                {
+                    "signature": r[0],
+                    "members": json.loads(r[1]) if isinstance(r[1], str) else r[1],
+                    "count": r[2],
+                }
+            )
         return parsed
 
     def mark_invented(self, graph_id: str, signature: str) -> None:
@@ -765,7 +783,7 @@ class NodeRepo:
         """)
         self.session.execute(
             stmt,
-            {"tenant_id": self.tenant_id, "graph_id": graph_id, "signature": signature}
+            {"tenant_id": self.tenant_id, "graph_id": graph_id, "signature": signature},
         )
         self.session.flush()
 

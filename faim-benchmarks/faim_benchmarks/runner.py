@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Sequence
 
 from faim_benchmarks.adapters.base import MemorySystemAdapter
-from faim_benchmarks.datasets import ConversationalBenchmarkSplit, RetrievalBenchmarkSplit
+from faim_benchmarks.datasets import (
+    ConversationalBenchmarkSplit,
+    RetrievalBenchmarkSplit,
+)
 from faim_benchmarks.metrics import (
     answer_contains_gold,
     bootstrap_ci,
@@ -63,8 +66,13 @@ def run_retrieval_benchmark(
     bootstrap_iterations: int = 300,
     ingest_workers: int = 1,
     run_metadata: Optional[Dict[str, Any]] = None,
+    retain_query_traces: bool = False,
 ) -> Dict[str, Any]:
-    """Run an identical BEIR retrieval split across every configured adapter."""
+    """Run an identical BEIR retrieval split across every configured adapter.
+
+    Query traces retain IDs, scores, latency, and adapter-owned diagnostics only;
+    they never include query or document text.
+    """
     if not split.queries:
         raise ValueError("Retrieval benchmark split has no queries")
 
@@ -85,35 +93,50 @@ def run_retrieval_benchmark(
         try:
             adapter.prepare_namespace(namespace)
         except Exception as exc:
-            systems_out.append(_failed_system(adapter, _exception_reason(exc), namespace=namespace))
+            systems_out.append(
+                _failed_system(adapter, _exception_reason(exc), namespace=namespace)
+            )
             continue
 
         ingest_latencies: List[float] = []
         ingest_errors = 0
         ingest_failures: List[str] = []
 
-        def _ingest_one(item: tuple[str, Dict[str, str]]) -> tuple[str, Any, Optional[Exception]]:
+        def _ingest_one(
+            item: tuple[str, Dict[str, str]],
+            *,
+            adapter: MemorySystemAdapter = adapter,
+            namespace: str = namespace,
+        ) -> tuple[str, Any, Optional[Exception]]:
             doc_id, doc = item
             try:
                 res = adapter.ingest_document(
                     namespace, doc_id, doc.get("title", ""), doc.get("text", "")
                 )
                 return doc_id, res, None
-            except Exception as exc:
-                return doc_id, None, exc
+            except Exception as caught:
+                return doc_id, None, caught
 
         items = list(split.corpus.items())
         worker_count = max(1, int(ingest_workers))
         batch_ingester = getattr(adapter, "ingest_documents_batch", None)
         if callable(batch_ingester) and getattr(adapter, "batch_size", 0) > 1:
-            batch_size = int(getattr(adapter, "batch_size"))
-            batches = [items[start : start + batch_size] for start in range(0, len(items), batch_size)]
+            batch_size = int(adapter.batch_size)
+            batches = [
+                items[start : start + batch_size]
+                for start in range(0, len(items), batch_size)
+            ]
 
-            def _ingest_batch(batch):
+            def _ingest_batch(
+                batch,
+                *,
+                batch_ingester=batch_ingester,
+                namespace: str = namespace,
+            ):
                 try:
                     return batch, batch_ingester(namespace, batch), None
-                except Exception as exc:
-                    return batch, None, exc
+                except Exception as caught:
+                    return batch, None, caught
 
             if worker_count == 1:
                 batch_outcomes = (_ingest_batch(batch) for batch in batches)
@@ -125,7 +148,10 @@ def run_retrieval_benchmark(
                 if batch_exc is not None:
                     outcomes.extend((doc_id, None, batch_exc) for doc_id, _ in batch)
                     continue
-                outcomes.extend((doc_id, res, None) for (doc_id, _), res in zip(batch, batch_results))
+                outcomes.extend(
+                    (doc_id, res, None)
+                    for (doc_id, _), res in zip(batch, batch_results, strict=False)
+                )
             if worker_count > 1:
                 pool.shutdown()
             outcomes = iter(outcomes)
@@ -162,7 +188,11 @@ def run_retrieval_benchmark(
                         if res.error:
                             ingest_failures.append(f"{doc_id}: {res.error}")
 
-        if ingest_errors or ingest_failures or len(ingest_latencies) != len(split.corpus):
+        if (
+            ingest_errors
+            or ingest_failures
+            or len(ingest_latencies) != len(split.corpus)
+        ):
             systems_out.append(
                 _failed_system(
                     adapter,
@@ -176,6 +206,7 @@ def run_retrieval_benchmark(
             continue
 
         query_latencies: List[float] = []
+        query_traces: List[Dict[str, Any]] = []
         per_query_scores: Dict[str, List[float]] = {
             "recall@5": [],
             "recall@10": [],
@@ -201,9 +232,30 @@ def run_retrieval_benchmark(
                 )
                 break
             query_latencies.append(qres.latency_ms)
-            ir = compute_ir_metrics(qres.retrieved_doc_ids, split.qrels.get(qid, {}), k_values=(1, 3, 5, 10))
+            ir = compute_ir_metrics(
+                qres.retrieved_doc_ids, split.qrels.get(qid, {}), k_values=(1, 3, 5, 10)
+            )
             for metric_name in per_query_scores:
                 per_query_scores[metric_name].append(ir[metric_name])
+            if retain_query_traces:
+                query_traces.append(
+                    {
+                        "query_id": str(qid),
+                        "latency_ms": round(float(qres.latency_ms), 3),
+                        "retrieved_doc_ids": [
+                            str(doc_id) for doc_id in qres.retrieved_doc_ids
+                        ],
+                        "relevant_doc_ids": sorted(
+                            str(doc_id)
+                            for doc_id, score in split.qrels.get(qid, {}).items()
+                            if float(score) > 0
+                        ),
+                        "metrics": {
+                            key: round(float(value), 6) for key, value in ir.items()
+                        },
+                        "metadata": dict(qres.metadata or {}),
+                    }
+                )
 
         if len(query_latencies) != len(split.queries):
             continue
@@ -214,26 +266,34 @@ def run_retrieval_benchmark(
         }
         agg_metrics = {metric_name: ci["mean"] for metric_name, ci in cis.items()}
 
-        systems_out.append(
-            {
-                "system": adapter.name,
-                "system_type": adapter.system_type,
-                "status": "completed",
-                "namespace": namespace,
-                "corpus_docs": len(split.corpus),
-                "queries_evaluated": len(split.queries),
-                "ingest_errors": ingest_errors,
-                "metrics": agg_metrics,
-                "confidence_intervals": cis,
-                "latency_ms": {
-                    "ingest_p50": percentile(ingest_latencies, 50),
-                    "ingest_p95": percentile(ingest_latencies, 95),
-                    "query_p50": percentile(query_latencies, 50),
-                    "query_p95": percentile(query_latencies, 95),
-                    "query_p99": percentile(query_latencies, 99),
-                },
-            }
-        )
+        system_result = {
+            "system": adapter.name,
+            "system_type": adapter.system_type,
+            "status": "completed",
+            "namespace": namespace,
+            "corpus_docs": len(split.corpus),
+            "queries_evaluated": len(split.queries),
+            "ingest_errors": ingest_errors,
+            "metrics": agg_metrics,
+            "confidence_intervals": cis,
+            "latency_ms": {
+                "ingest_p50": percentile(ingest_latencies, 50),
+                "ingest_p95": percentile(ingest_latencies, 95),
+                "query_p25": percentile(query_latencies, 25),
+                "query_p50": percentile(query_latencies, 50),
+                "query_p75": percentile(query_latencies, 75),
+                "query_iqr_ms": round(
+                    max(0.0, percentile(query_latencies, 75) - percentile(query_latencies, 25)),
+                    2,
+                ),
+                "query_p95": percentile(query_latencies, 95),
+                "query_p99": percentile(query_latencies, 99),
+            },
+        }
+        if retain_query_traces:
+            system_result["query_traces"] = query_traces
+            system_result["query_trace_count"] = len(query_traces)
+        systems_out.append(system_result)
 
     return {
         "run_id": run_id,
@@ -241,7 +301,10 @@ def run_retrieval_benchmark(
         "dataset": split.name,
         "dataset_metadata": getattr(split, "metadata", {}),
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "run_metadata": run_metadata or {},
+        "run_metadata": {
+            **(run_metadata or {}),
+            "query_traces_retained": bool(retain_query_traces),
+        },
         "hyperparameters": {
             "top_k": top_k,
             "seed": seed,
@@ -284,7 +347,9 @@ def run_conversational_benchmark(
         try:
             adapter.prepare_namespace(namespace)
         except Exception as exc:
-            systems_out.append(_failed_system(adapter, _exception_reason(exc), namespace=namespace))
+            systems_out.append(
+                _failed_system(adapter, _exception_reason(exc), namespace=namespace)
+            )
             continue
 
         write_latencies: List[float] = []
@@ -293,7 +358,9 @@ def run_conversational_benchmark(
             mem_id = f"turn_{idx}"
             text = f"{turn.speaker}: {turn.text}"
             try:
-                res = adapter.write_memory(namespace, mem_id, text, timestamp=turn.timestamp)
+                res = adapter.write_memory(
+                    namespace, mem_id, text, timestamp=turn.timestamp
+                )
             except Exception as exc:
                 systems_out.append(
                     _failed_system(
@@ -323,7 +390,13 @@ def run_conversational_benchmark(
             continue
 
         query_latencies: List[float] = []
-        per_case: Dict[str, List[float]] = {"exact_match": [], "token_f1": [], "fact_recall": []}
+        context_tokens_list: List[float] = []
+        per_case: Dict[str, List[float]] = {
+            "exact_match": [],
+            "token_f1": [],
+            "fact_recall": [],
+        }
+        per_category: Dict[str, Dict[str, List[float]]] = {}
 
         for case in split.qa_cases:
             try:
@@ -342,9 +415,21 @@ def run_conversational_benchmark(
                 break
             query_latencies.append(qres.latency_ms)
             combined_ctx = qres.answer_text or "\n".join(qres.retrieved_texts)
-            per_case["exact_match"].append(exact_match(qres.answer_text, case.answer))
-            per_case["token_f1"].append(token_f1(qres.answer_text, case.answer))
-            per_case["fact_recall"].append(answer_contains_gold(combined_ctx, case.answer))
+            ctx_tokens = float(len(combined_ctx.split())) if combined_ctx else 0.0
+            context_tokens_list.append(ctx_tokens)
+            em_val = exact_match(qres.answer_text, case.answer)
+            f1_val = token_f1(qres.answer_text, case.answer)
+            fr_val = answer_contains_gold(combined_ctx, case.answer)
+            per_case["exact_match"].append(em_val)
+            per_case["token_f1"].append(f1_val)
+            per_case["fact_recall"].append(fr_val)
+            cat_bucket = per_category.setdefault(
+                str(case.category or "general"),
+                {"exact_match": [], "token_f1": [], "fact_recall": []},
+            )
+            cat_bucket["exact_match"].append(em_val)
+            cat_bucket["token_f1"].append(f1_val)
+            cat_bucket["fact_recall"].append(fr_val)
 
         if len(query_latencies) != len(split.qa_cases):
             continue
@@ -353,6 +438,17 @@ def run_conversational_benchmark(
             metric_name: bootstrap_ci(vals, iterations=bootstrap_iterations, seed=seed)
             for metric_name, vals in per_case.items()
         }
+        category_breakdown = {
+            cat: {
+                "count": len(vals["fact_recall"]),
+                "fact_recall": round(sum(vals["fact_recall"]) / max(1, len(vals["fact_recall"])), 4),
+                "token_f1": round(sum(vals["token_f1"]) / max(1, len(vals["token_f1"])), 4),
+                "exact_match": round(sum(vals["exact_match"]) / max(1, len(vals["exact_match"])), 4),
+            }
+            for cat, vals in sorted(per_category.items())
+        }
+        q_p25 = percentile(query_latencies, 25)
+        q_p75 = percentile(query_latencies, 75)
         systems_out.append(
             {
                 "system": adapter.name,
@@ -363,11 +459,20 @@ def run_conversational_benchmark(
                 "cases_evaluated": len(split.qa_cases),
                 "write_errors": write_errors,
                 "metrics": {m: ci["mean"] for m, ci in cis.items()},
+                "category_breakdown": category_breakdown,
+                "context_tokens": {
+                    "avg": round(sum(context_tokens_list) / max(1, len(context_tokens_list)), 1),
+                    "p50": percentile(context_tokens_list, 50),
+                    "p95": percentile(context_tokens_list, 95),
+                },
                 "confidence_intervals": cis,
                 "latency_ms": {
                     "write_p50": percentile(write_latencies, 50),
                     "write_p95": percentile(write_latencies, 95),
+                    "query_p25": q_p25,
                     "query_p50": percentile(query_latencies, 50),
+                    "query_p75": q_p75,
+                    "query_iqr_ms": round(max(0.0, q_p75 - q_p25), 2),
                     "query_p95": percentile(query_latencies, 95),
                 },
             }

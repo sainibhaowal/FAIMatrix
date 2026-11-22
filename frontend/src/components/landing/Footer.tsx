@@ -28,20 +28,33 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <div className="flex items-center gap-3">
-              <Image src="/logo-coded.svg" alt="FAIMATRIX" width={38} height={38} className="h-9 w-9 rounded-xl border border-cyan-300/25 bg-cyan-300/[0.04] p-1" />
+              <Image
+                src="/logo-coded.svg"
+                alt="FAIMATRIX"
+                width={38}
+                height={38}
+                className="h-9 w-9 rounded-xl border border-cyan-300/25 bg-cyan-300/[0.04] p-1"
+              />
               <div>
-                <p className="text-sm font-semibold tracking-[0.18em] text-white">FAIMATRIX</p>
-                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-slate-600">Public system atlas</p>
+                <p className="text-sm font-semibold tracking-[0.18em] text-white">
+                  FAIMATRIX
+                </p>
+                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.2em] text-slate-600">
+                  Public system atlas
+                </p>
               </div>
             </div>
             <p className="mt-5 max-w-xs text-sm leading-6 text-slate-400">
-              Transform your knowledge into intelligence with graph-native, deterministic memory.
+              Transform your knowledge into intelligence with graph-native,
+              deterministic memory.
             </p>
           </div>
 
           {/* Product Links */}
           <div>
-            <h4 className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-200">Product</h4>
+            <h4 className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-200">
+              Product
+            </h4>
             <ul className="mt-4 space-y-2.5">
               {footerLinks.product.map((link) => (
                 <li key={link.label}>
@@ -58,7 +71,9 @@ export default function Footer() {
 
           {/* Company Links */}
           <div>
-            <h4 className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-200">Company</h4>
+            <h4 className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-200">
+              Company
+            </h4>
             <ul className="mt-4 space-y-2.5">
               {footerLinks.company.map((link) => (
                 <li key={link.label}>
@@ -75,7 +90,9 @@ export default function Footer() {
 
           {/* Legal Links */}
           <div>
-            <h4 className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-200">Legal</h4>
+            <h4 className="font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-200">
+              Legal
+            </h4>
             <ul className="mt-4 space-y-2.5">
               {footerLinks.legal.map((link) => (
                 <li key={link.label}>

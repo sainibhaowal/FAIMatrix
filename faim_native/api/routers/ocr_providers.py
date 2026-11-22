@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 _parent = Path(__file__).parent.parent.parent
@@ -32,7 +32,6 @@ from perception.extract.ocr_providers import (  # noqa: E402
     EasyOCRProvider,
     PaddleOCRv6Provider,
     TesseractOCRProvider,
-    get_active_ocr_provider,
     get_ocr_registry,
 )
 
@@ -74,8 +73,12 @@ class OCRProviderCreateRequest(BaseModel):
     name: str = Field(..., description="Provider name")
     display_name: Optional[str] = None
     provider_type: str = Field(default="custom", description="'local' or 'custom'")
-    base_url: Optional[str] = Field(default=None, description="HTTP endpoint for custom OCR")
-    api_key: Optional[str] = Field(default=None, description="Optional API key for custom OCR")
+    base_url: Optional[str] = Field(
+        default=None, description="HTTP endpoint for custom OCR"
+    )
+    api_key: Optional[str] = Field(
+        default=None, description="Optional API key for custom OCR"
+    )
     description: Optional[str] = None
     languages: Optional[List[str]] = Field(default_factory=lambda: ["eng"])
 
@@ -134,7 +137,7 @@ def _generate_test_image_bytes() -> bytes:
 
 @router.get("", response_model=OCRProviderListResponse)
 async def list_ocr_providers(
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """List all registered OCR providers and their real-time engine statuses."""
     registry = get_ocr_registry()
@@ -149,7 +152,7 @@ async def list_ocr_providers(
 
 @router.get("/active", response_model=Optional[OCRProviderItem])
 async def get_active_provider(
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Get the currently active OCR provider."""
     registry = get_ocr_registry()
@@ -180,14 +183,16 @@ async def get_active_provider(
 @router.post("", response_model=OCRProviderItem)
 async def create_ocr_provider(
     req: OCRProviderCreateRequest,
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Plug in a new custom or local OCR provider."""
     registry = get_ocr_registry()
 
     if req.provider_type == "custom":
         if not req.base_url:
-            raise HTTPException(status_code=400, detail="Custom OCR provider requires base_url")
+            raise HTTPException(
+                status_code=400, detail="Custom OCR provider requires base_url"
+            )
         provider = CustomOCRProvider(
             base_url=req.base_url,
             api_key=req.api_key,
@@ -203,7 +208,9 @@ async def create_ocr_provider(
         else:
             provider = PaddleOCRv6Provider()
     else:
-        raise HTTPException(status_code=400, detail=f"Unsupported provider_type: {req.provider_type}")
+        raise HTTPException(
+            status_code=400, detail=f"Unsupported provider_type: {req.provider_type}"
+        )
 
     registry.register(req.id, provider)
     info = provider.model_info
@@ -230,7 +237,7 @@ async def create_ocr_provider(
 @router.delete("/{provider_id}")
 async def delete_ocr_provider(
     provider_id: str,
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Remove a custom or pluggable OCR provider."""
     registry = get_ocr_registry()
@@ -242,21 +249,28 @@ async def delete_ocr_provider(
 
     success = registry.unregister(provider_id)
     if not success:
-        raise HTTPException(status_code=404, detail=f"OCR provider '{provider_id}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"OCR provider '{provider_id}' not found"
+        )
 
-    return {"success": True, "message": f"OCR Provider '{provider_id}' removed successfully."}
+    return {
+        "success": True,
+        "message": f"OCR Provider '{provider_id}' removed successfully.",
+    }
 
 
 @router.post("/switch", response_model=OCRProviderSwitchResponse)
 async def switch_ocr_provider(
     req: OCRProviderSwitchRequest,
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Switch the active OCR engine provider."""
     registry = get_ocr_registry()
     provider = registry.get(req.provider_id)
     if provider is None:
-        raise HTTPException(status_code=404, detail=f"OCR provider '{req.provider_id}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"OCR provider '{req.provider_id}' not found"
+        )
 
     registry.set_active(req.provider_id)
     return OCRProviderSwitchResponse(
@@ -270,13 +284,15 @@ async def switch_ocr_provider(
 async def test_ocr_provider(
     provider_id: str,
     req: OCRProviderTestRequest,
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Run a live benchmark OCR test against the selected engine."""
     registry = get_ocr_registry()
     provider = registry.get(provider_id)
     if provider is None:
-        raise HTTPException(status_code=404, detail=f"OCR provider '{provider_id}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"OCR provider '{provider_id}' not found"
+        )
 
     if not provider.is_available():
         return OCRProviderTestResponse(
@@ -294,7 +310,9 @@ async def test_ocr_provider(
         try:
             image_bytes = base64.b64decode(req.image_base64)
         except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid base64 image data: {e}")
+            raise HTTPException(
+                status_code=400, detail=f"Invalid base64 image data: {e}"
+            ) from e
     else:
         image_bytes = _generate_test_image_bytes()
 

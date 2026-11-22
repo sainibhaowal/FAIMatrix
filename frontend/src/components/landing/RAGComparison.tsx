@@ -170,7 +170,10 @@ const ROWS: Array<{
     label: "Dense vector search",
     detail: "Similarity search over embeddings",
     values: {
-      faim: cap("native", "Native shortlist + optional Qdrant"),
+      faim: cap(
+        "native",
+        "Native shortlist + multilingual dense + optional Qdrant",
+      ),
       pgvector: cap("native", "Exact, HNSW, IVFFlat"),
       qdrant: cap("native", "HNSW"),
       weaviate: cap("native", "HNSW, flat, dynamic"),
@@ -206,7 +209,7 @@ const ROWS: Array<{
     label: "Graph traversal",
     detail: "Relationships, hops, and typed connections",
     values: {
-      faim: cap("native", "Typed graph + bounded diffusion"),
+      faim: cap("native", "Typed graph + bounded hops (1–24)"),
       pgvector: cap("compose", "Use relational tables or a graph"),
       qdrant: cap("na", "Not a knowledge-graph layer"),
       weaviate: cap("partial", "References; retrieval logic is app-defined"),
@@ -269,7 +272,10 @@ const ROWS: Array<{
     label: "Memory lifecycle",
     detail: "Review, update, merge, prune, and restore",
     values: {
-      faim: cap("native", "Guarded proposals, backups, evolution controls"),
+      faim: cap(
+        "native",
+        "Idempotent writes, backups, opt-in evolution controls",
+      ),
       pgvector: cap("compose", "Transactions and application jobs"),
       qdrant: cap("partial", "CRUD, snapshots, and payload updates"),
       weaviate: cap("partial", "CRUD and data management"),
@@ -290,7 +296,10 @@ const ROWS: Array<{
     label: "Tenant isolation",
     detail: "How isolation is expressed, not a security guarantee by itself",
     values: {
-      faim: cap("native", "API-key, tenant scope, encrypted raw storage"),
+      faim: cap(
+        "native",
+        "OAuth 2.1, one-time API keys, tenant scope, encrypted raw",
+      ),
       pgvector: cap("compose", "SQL policies/roles are application-owned"),
       qdrant: cap("native", "Payload filters, tenant indexing, sharding"),
       weaviate: cap("native", "Collection/tenant primitives"),
@@ -326,7 +335,10 @@ const ROWS: Array<{
     label: "LLM dependency",
     detail: "Whether an LLM is required for the core data path",
     values: {
-      faim: cap("optional", "Optional at the application/Cortex boundary"),
+      faim: cap(
+        "na",
+        "Zero-LLM core; external agents connect via /mcp or REST",
+      ),
       pgvector: cap("na", "No LLM in the extension"),
       qdrant: cap("na", "No LLM in the database"),
       weaviate: cap("optional", "Model integrations are optional"),
@@ -462,9 +474,9 @@ export default function RAGComparison() {
           </h2>
           <p className="mx-auto mt-5 max-w-3xl text-base leading-7 text-slate-400 sm:text-lg">
             FAIM combines a deterministic, inspectable core with model-assisted
-            perception and optional Cortex integrations. The useful comparison
-            is architectural: which capabilities are built in, which are
-            partial, and which must be composed by your application.
+            perception and Remote MCP (/mcp) + API integrations. The useful
+            comparison is architectural: which capabilities are built in, which
+            are partial, and which must be composed by your application.
           </p>
         </motion.div>
 
@@ -498,7 +510,11 @@ export default function RAGComparison() {
                 <div
                   className={`mb-3 flex h-9 w-9 items-center justify-center rounded-xl border ${SIGNAL_TONE[item.tone as keyof typeof SIGNAL_TONE]}`}
                 >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
+                  <Icon
+                    className="h-5 w-5"
+                    strokeWidth={1.85}
+                    aria-hidden="true"
+                  />
                 </div>
                 <h3 className="text-sm font-semibold text-white">
                   {item.title}

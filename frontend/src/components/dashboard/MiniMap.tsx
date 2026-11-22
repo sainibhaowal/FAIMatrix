@@ -32,88 +32,103 @@ export const MiniMap: React.FC<MiniMapProps> = ({ graphId }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
-  const [nodes, setNodes] = useState<Array<{ id: string; x: number; y: number; r: number; color: string; name: string }>>([]);
-  const [links, setLinks] = useState<Array<{ source: number; target: number }>>([]);
-  const [state, setState] = useState<"loading" | "ready" | "empty" | "error">("loading");
+  const [nodes, setNodes] = useState<
+    Array<{
+      id: string;
+      x: number;
+      y: number;
+      r: number;
+      color: string;
+      name: string;
+    }>
+  >([]);
+  const [links, setLinks] = useState<Array<{ source: number; target: number }>>(
+    [],
+  );
+  const [state, setState] = useState<"loading" | "ready" | "empty" | "error">(
+    "loading",
+  );
   const [dimensions, setDimensions] = useState({ width: 300, height: 200 });
   const animationRef = useRef<number | null>(null);
 
   useEffect(() => setMounted(true), []);
 
   const load = useMemo(
-    () =>
-      async () => {
-        if (!graphId) {
+    () => async () => {
+      if (!graphId) {
+        setState("empty");
+        return;
+      }
+      setState((s) => (s === "ready" ? s : "loading"));
+      try {
+        const session = await getSession();
+        const token = (session as { accessToken?: string } | null)?.accessToken;
+        const headers: Record<string, string> = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
+
+        const params = new URLSearchParams({
+          graph_id: graphId,
+          node_limit: "100",
+          edge_limit: "200",
+          timeline_limit: "0",
+          include_topology: "false",
+        });
+        const res = await fetch(`/api/v1/graph/surface?${params.toString()}`, {
+          headers,
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`surface ${res.status}`);
+        const data = await res.json();
+
+        const rawNodes: SurfaceNode[] = Array.isArray(data?.nodes)
+          ? (data.nodes as SurfaceNode[])
+          : [];
+        const rawEdges: SurfaceEdge[] = Array.isArray(data?.edges)
+          ? (data.edges as SurfaceEdge[])
+          : [];
+
+        if (!rawNodes.length) {
+          setNodes([]);
+          setLinks([]);
           setState("empty");
           return;
         }
-        setState((s) => (s === "ready" ? s : "loading"));
-        try {
-          const session = await getSession();
-          const token = (session as { accessToken?: string } | null)?.accessToken;
-          const headers: Record<string, string> = {};
-          if (token) headers.Authorization = `Bearer ${token}`;
 
-          const params = new URLSearchParams({
-            graph_id: graphId,
-            node_limit: "100",
-            edge_limit: "200",
-            timeline_limit: "0",
-            include_topology: "false",
-          });
-          const res = await fetch(`/api/v1/graph/surface?${params.toString()}`, {
-            headers,
-            cache: "no-store",
-          });
-          if (!res.ok) throw new Error(`surface ${res.status}`);
-          const data = await res.json();
+        const idSet = new Set(rawNodes.map((n) => n.node_id));
+        const nodeIndex = new Map<string, number>();
+        rawNodes.forEach((n, i) => nodeIndex.set(n.node_id, i));
 
-          const rawNodes: SurfaceNode[] = Array.isArray(data?.nodes)
-            ? (data.nodes as SurfaceNode[])
-            : [];
-          const rawEdges: SurfaceEdge[] = Array.isArray(data?.edges)
-            ? (data.edges as SurfaceEdge[])
-            : [];
+        const layoutNodes = rawNodes.map((n, i) => {
+          const angle = (i / rawNodes.length) * 2 * Math.PI;
+          const radius = 0.35 + 0.35 * Math.random();
+          return {
+            id: n.node_id,
+            name: n.display?.title?.slice(0, 40) || n.node_id.slice(0, 8),
+            x: 0.5 + 0.4 * radius * Math.cos(angle),
+            y: 0.5 + 0.4 * radius * Math.sin(angle),
+            r: Math.min(
+              4,
+              Math.max(1.5, (n.metrics?.touch_count ?? 0) / 8 + 1.5),
+            ),
+            color: KIND_COLORS[n.kind] ?? "#64748b",
+          };
+        });
 
-          if (!rawNodes.length) {
-            setNodes([]);
-            setLinks([]);
-            setState("empty");
-            return;
-          }
+        const layoutLinks = rawEdges
+          .filter((e) => idSet.has(e.src_node_id) && idSet.has(e.dst_node_id))
+          .map((e) => ({
+            source: nodeIndex.get(e.src_node_id)!,
+            target: nodeIndex.get(e.dst_node_id)!,
+          }));
 
-          const idSet = new Set(rawNodes.map((n) => n.node_id));
-          const nodeIndex = new Map<string, number>();
-          rawNodes.forEach((n, i) => nodeIndex.set(n.node_id, i));
-
-          const layoutNodes = rawNodes.map((n, i) => {
-            const angle = (i / rawNodes.length) * 2 * Math.PI;
-            const radius = 0.35 + 0.35 * Math.random();
-            return {
-              id: n.node_id,
-              name: n.display?.title?.slice(0, 40) || n.node_id.slice(0, 8),
-              x: 0.5 + 0.4 * radius * Math.cos(angle),
-              y: 0.5 + 0.4 * radius * Math.sin(angle),
-              r: Math.min(4, Math.max(1.5, (n.metrics?.touch_count ?? 0) / 8 + 1.5)),
-              color: KIND_COLORS[n.kind] ?? "#64748b",
-            };
-          });
-
-          const layoutLinks = rawEdges
-            .filter((e) => idSet.has(e.src_node_id) && idSet.has(e.dst_node_id))
-            .map((e) => ({
-              source: nodeIndex.get(e.src_node_id)!,
-              target: nodeIndex.get(e.dst_node_id)!,
-            }));
-
-          setNodes(layoutNodes);
-          setLinks(layoutLinks);
-          setState("ready");
-        } catch {
-          setState("error");
-        }
-      },
-    [graphId]
+        setNodes(layoutNodes);
+        setLinks(layoutLinks);
+        setState("ready");
+      } catch {
+        setState("error");
+      }
+    },
+    [graphId],
   );
 
   useEffect(() => {
@@ -149,8 +164,8 @@ export const MiniMap: React.FC<MiniMapProps> = ({ graphId }) => {
     };
     animationRef.current = requestAnimationFrame(tick);
     return () => {
-        if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      };
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
   }, [nodes.length, state]);
 
   useEffect(() => {
@@ -196,7 +211,13 @@ export const MiniMap: React.FC<MiniMapProps> = ({ graphId }) => {
     // Nodes
     for (const node of nodes) {
       ctx.beginPath();
-      ctx.arc(node.x * dimensions.width, node.y * dimensions.height, node.r, 0, 2 * Math.PI);
+      ctx.arc(
+        node.x * dimensions.width,
+        node.y * dimensions.height,
+        node.r,
+        0,
+        2 * Math.PI,
+      );
       ctx.fillStyle = node.color;
       ctx.fill();
     }
@@ -249,9 +270,11 @@ export const MiniMap: React.FC<MiniMapProps> = ({ graphId }) => {
         </div>
       )}
 
-{state === "empty" && (
+      {state === "empty" && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 px-4 text-center text-slate-500">
-          <span className="text-[11px] font-mono">No graph data — ingest to populate</span>
+          <span className="text-[11px] font-mono">
+            No graph data — ingest to populate
+          </span>
         </div>
       )}
 
@@ -262,6 +285,6 @@ export const MiniMap: React.FC<MiniMapProps> = ({ graphId }) => {
         className="w-full h-full absolute inset-0"
         style={{ display: "block" }}
       />
-</div>
+    </div>
   );
-}
+};

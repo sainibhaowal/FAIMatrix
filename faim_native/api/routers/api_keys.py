@@ -50,6 +50,7 @@ class APIKeyItem(BaseModel):
     tenant_id: str
     key_id: str
     key_prefix: str
+    label: Optional[str] = None
     scopes: List[str]
     created_at: Optional[str] = None
     created_by: Optional[str] = None
@@ -178,8 +179,11 @@ def _request_id(ctx: FAIMContext, request: Request) -> str:
     )
 
 
-def _serialize_key(record) -> APIKeyItem:  # noqa: ANN001
-    return APIKeyItem(**record.to_dict())
+def _serialize_key(record, label: Optional[str] = None) -> APIKeyItem:  # noqa: ANN001
+    data = record.to_dict()
+    if label is not None:
+        data["label"] = label
+    return APIKeyItem(**data)
 
 
 def _repo_from_ctx(ctx: FAIMContext) -> AuthRepo:
@@ -233,7 +237,7 @@ async def create_api_key(
             )
         ctx.session.commit()
         return APIKeyCreateResponse(
-            key=_serialize_key(record),
+            key=_serialize_key(record, label=label),
             plaintext_key=plaintext,
         )
     except HTTPException:
@@ -260,7 +264,15 @@ async def list_api_keys(
             tenant_id=ctx.tenant_id,
             include_revoked=include_revoked,
         )
-        items = [_serialize_key(record) for record in records]
+        labels = (
+            repo.get_key_labels(ctx.tenant_id, [r.key_id for r in records])
+            if hasattr(repo, "get_key_labels")
+            else {}
+        )
+        items = [
+            _serialize_key(record, label=labels.get(record.key_id))
+            for record in records
+        ]
         return APIKeyListResponse(
             items=items,
             total=len(items),
@@ -316,6 +328,9 @@ async def rotate_api_key(
 
         old_record, new_record, plaintext = rotated
         ctx.session.commit()
+        from api.middleware.auth import invalidate_tenant_key_cache
+
+        invalidate_tenant_key_cache(tenant_id=ctx.tenant_id, key_id=target_key_id)
         return APIKeyRotateResponse(
             old_key=_serialize_key(old_record),
             new_key=_serialize_key(new_record),
@@ -368,6 +383,9 @@ async def revoke_api_key(
             raise HTTPException(status_code=404, detail="API key not found")
 
         ctx.session.commit()
+        from api.middleware.auth import invalidate_tenant_key_cache
+
+        invalidate_tenant_key_cache(tenant_id=ctx.tenant_id, key_id=target_key_id)
         return APIKeyRevokeResponse(key=_serialize_key(record))
     except HTTPException:
         raise
@@ -375,6 +393,37 @@ async def revoke_api_key(
         ctx.session.rollback()
         logger.error("API key revoke failed for tenant=%s: %s", ctx.tenant_id, exc)
         raise HTTPException(status_code=500, detail="Failed to revoke API key") from exc
+
+
+@router.delete(
+    "/{key_id}",
+    dependencies=[Depends(require_scopes(["keys.write"]))],
+)
+async def delete_api_key(
+    key_id: str,
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
+) -> Dict[str, Any]:
+    target_key_id = str(key_id or "").strip()
+    if not target_key_id:
+        raise HTTPException(status_code=422, detail="key_id is required")
+
+    repo = _repo_from_ctx(ctx)
+    try:
+        deleted = repo.delete_tenant_key(
+            tenant_id=ctx.tenant_id,
+            key_id=target_key_id,
+        )
+        if not deleted:
+            ctx.session.rollback()
+            raise HTTPException(status_code=404, detail="API key not found")
+        ctx.session.commit()
+        return {"deleted": True, "key_id": target_key_id}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        ctx.session.rollback()
+        logger.error("API key delete failed for tenant=%s: %s", ctx.tenant_id, exc)
+        raise HTTPException(status_code=500, detail="Failed to delete API key") from exc
 
 
 @router.get(

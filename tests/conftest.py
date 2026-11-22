@@ -17,6 +17,14 @@ import pytest
 
 def _configure_isolated_test_database() -> None:
     """Give each pytest process a writable SQLite database when requested."""
+    force_local_sqlite = os.environ.get("FAIM_LOCAL_SQLITE") == "1"
+    if force_local_sqlite:
+        # Local development must never reuse a configured Postgres URL.  Clear
+        # only the test/runtime database selectors; production credentials and
+        # unrelated environment remain untouched.
+        for name in ("TEST_DATABASE_URL", "FAIM_DATABASE_URL", "DATABASE_URL"):
+            os.environ.pop(name, None)
+
     worker_id = os.environ.get("PYTEST_XDIST_WORKER")
     explicit_test_database = any(
         os.environ.get(name) for name in ("TEST_DATABASE_URL", "FAIM_DATABASE_URL")
@@ -114,6 +122,7 @@ def session_factory() -> Generator[SessionFactory, None, None]:
             pass
 
     yield factory
+    factory.engine.dispose()
 
 
 @pytest.fixture

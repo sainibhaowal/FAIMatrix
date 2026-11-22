@@ -171,8 +171,7 @@ def run_raw_reencryption_backfill(
                 new_raw_ref = raw_store.store(
                     plaintext,
                     mime_type=str(
-                        getattr(raw_ref, "mime_type", "")
-                        or "application/octet-stream"
+                        getattr(raw_ref, "mime_type", "") or "application/octet-stream"
                     ),
                     graph_id=graph_text or None,
                 )
@@ -188,8 +187,7 @@ def run_raw_reencryption_backfill(
                     uri=new_uri,
                     size_bytes=new_size,
                     mime_type=str(
-                        getattr(raw_ref, "mime_type", "")
-                        or "application/octet-stream"
+                        getattr(raw_ref, "mime_type", "") or "application/octet-stream"
                     ),
                 )
                 if updated_raw_ref is None:

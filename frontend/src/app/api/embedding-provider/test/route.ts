@@ -58,7 +58,13 @@ interface TestError {
 export async function POST(req: Request): Promise<Response> {
   try {
     const body = (await req.json()) as TestRequest;
-    const { baseUrl, apiKey, model, dimension: expectedDimension, testText = "FAIM embedding test" } = body;
+    const {
+      baseUrl,
+      apiKey,
+      model,
+      dimension: expectedDimension,
+      testText = "FAIM embedding test",
+    } = body;
 
     if (!baseUrl || typeof baseUrl !== "string") {
       return Response.json(
@@ -73,9 +79,13 @@ export async function POST(req: Request): Promise<Response> {
 
     console.log(`[Embedding Provider Test] Normalized URL: ${normalizedUrl}`);
     if (resolvedUrl !== normalizedUrl) {
-      console.log(`[Embedding Provider Test] Docker resolved to: ${resolvedUrl}`);
+      console.log(
+        `[Embedding Provider Test] Docker resolved to: ${resolvedUrl}`,
+      );
     }
-    console.log(`[Embedding Provider Test] Testing embeddings at: ${embeddingsUrl}`);
+    console.log(
+      `[Embedding Provider Test] Testing embeddings at: ${embeddingsUrl}`,
+    );
 
     // Test with 10-second timeout
     const controller = new AbortController();
@@ -215,7 +225,9 @@ export async function POST(req: Request): Promise<Response> {
     const expectedDim = expectedDimension || 1024;
 
     if (actualDimension !== expectedDim) {
-      console.warn(`[Embedding Provider Test] Dimension mismatch: expected ${expectedDim}, got ${actualDimension}`);
+      console.warn(
+        `[Embedding Provider Test] Dimension mismatch: expected ${expectedDim}, got ${actualDimension}`,
+      );
     }
 
     return Response.json(

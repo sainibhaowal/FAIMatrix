@@ -6,6 +6,10 @@ embedded WordNet data (built once, shipped as part of FAIM).
 At runtime: only Python stdlib (json, gzip) — no external ML or NLP libraries.
 """
 
+from .semantic_registry import (
+    load_semantic_registry_snapshot,
+    resolve_semantic_registry_expansions,
+)
 from .synonym_expander import (
     WeightedExpansion,
     build_weighted_synonym_expansions,
@@ -15,10 +19,6 @@ from .synonym_expander import (
     is_available,
     merge_weighted_expansions,
     render_weighted_expansion_text,
-)
-from .semantic_registry import (
-    load_semantic_registry_snapshot,
-    resolve_semantic_registry_expansions,
 )
 
 __all__ = [

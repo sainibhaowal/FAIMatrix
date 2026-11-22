@@ -54,7 +54,8 @@ def _choose_form(forms: Sequence[str], language: str) -> str:
         {
             _normalize_form(form, language)
             for form in forms
-            if _normalize_form(form, language) and len(_normalize_form(form, language)) <= 80
+            if _normalize_form(form, language)
+            and len(_normalize_form(form, language)) <= 80
         },
         key=lambda value: (len(value), value),
     )
@@ -131,9 +132,7 @@ def write_pack(output_path: Path, rows: Iterable[Dict[str, str]]) -> int:
 
 
 if __name__ == "__main__":
-    out = (
-        Path(__file__).parent / "data" / "multilingual_enterprise_lexicon.tsv.gz"
-    )
+    out = Path(__file__).parent / "data" / "multilingual_enterprise_lexicon.tsv.gz"
     rows = build_omw_pack()
     total = write_pack(out, rows)
     print(f"Wrote {total} multilingual rows to {out}")

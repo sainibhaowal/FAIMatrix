@@ -8,12 +8,10 @@ Unified plug-and-play OCR integration with:
 
 from __future__ import annotations
 
-import io
 import logging
 import os
-import re
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
 
 from perception.extract.ocr_providers import (
     OCRProcessingError,
@@ -71,11 +69,16 @@ class OCRTextResult:
 def get_ocr_settings() -> OCRSettings:
     registry = get_ocr_registry()
     active_engine = registry.get_active_id() if registry else "paddleocr_v6"
-    active_available = registry.get_active().is_available() if (registry and registry.get_active()) else False
+    active_available = (
+        registry.get_active().is_available()
+        if (registry and registry.get_active())
+        else False
+    )
     default_enabled = True if active_available else False
     return OCRSettings(
         enabled=_bool_env("FAIM_OCR_ENABLED", default_enabled),
-        engine=os.getenv("FAIM_OCR_ENGINE", active_engine).strip().lower() or active_engine,
+        engine=os.getenv("FAIM_OCR_ENGINE", active_engine).strip().lower()
+        or active_engine,
         fail_closed=_bool_env("FAIM_OCR_FAIL_CLOSED", False),
         languages=os.getenv("FAIM_OCR_LANGS", "eng").strip() or "eng",
         timeout_seconds=max(1, _int_env("FAIM_OCR_TIMEOUT_SECONDS", 30)),
@@ -87,7 +90,6 @@ def get_ocr_settings() -> OCRSettings:
             or "--oem 1 --psm 3"
         ),
     )
-
 
 
 def extract_text_from_image_bytes(
@@ -107,9 +109,13 @@ def extract_text_from_image_bytes(
         return None
 
     registry = get_ocr_registry()
-    provider = registry.get(settings.engine) if settings.engine else registry.get_active()
+    provider = (
+        registry.get(settings.engine) if settings.engine else registry.get_active()
+    )
     if provider is None:
-        raise OCRUnavailableError(f"Unsupported or unregistered OCR engine: {settings.engine}")
+        raise OCRUnavailableError(
+            f"Unsupported or unregistered OCR engine: {settings.engine}"
+        )
 
     result: Optional[OCRResult] = provider.extract_image_bytes(
         image_bytes,
@@ -145,9 +151,13 @@ def extract_text_from_pdf_page(
         return None
 
     registry = get_ocr_registry()
-    provider = registry.get(settings.engine) if settings.engine else registry.get_active()
+    provider = (
+        registry.get(settings.engine) if settings.engine else registry.get_active()
+    )
     if provider is None:
-        raise OCRUnavailableError(f"Unsupported or unregistered OCR engine: {settings.engine}")
+        raise OCRUnavailableError(
+            f"Unsupported or unregistered OCR engine: {settings.engine}"
+        )
 
     result: Optional[OCRResult] = provider.extract_pdf_page(
         page,

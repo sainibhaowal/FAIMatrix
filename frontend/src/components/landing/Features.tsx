@@ -7,7 +7,13 @@ const features = [
   {
     id: "memory-engine",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg
+        viewBox="0 0 24 24"
+        className="w-8 h-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
         <circle cx="12" cy="12" r="3" />
         <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
       </svg>
@@ -21,7 +27,13 @@ const features = [
   {
     id: "knowledge-graph",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg
+        viewBox="0 0 24 24"
+        className="w-8 h-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
         <circle cx="12" cy="12" r="2" />
         <circle cx="6" cy="6" r="2" />
         <circle cx="18" cy="6" r="2" />
@@ -30,16 +42,22 @@ const features = [
         <path d="M12 10V8M8 8l2-2M14 8l2-2M12 14v2M8 16l2 2M14 16l2 2" />
       </svg>
     ),
-    title: "Bounded Graph Reasoning",
+    title: "Bounded Graph Traversal",
     description:
-      "Trace evidence chains through a real planner-driven Cortex runtime. FAIM runs adaptive 1-24 hop reasoning by default, supports higher bounded ceilings up to 128 when configured, and visualizes exact path traces in FIG View with citation integrity preserved.",
+      "Trace evidence chains with agent-controlled graph_max_hops (1–24, defaulting to 2) on /api/v1/query and /api/v1/memory/search, and visualize exact path traces in FIG View with citation integrity preserved.",
     gradient: "from-purple-500 to-pink-500",
     link: "/features/knowledge-graph",
   },
   {
     id: "cognitive-pulse-engine",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg
+        viewBox="0 0 24 24"
+        className="w-8 h-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
         <path d="M4 12h3l2-6 4 12 2-6h5" />
         <circle cx="7" cy="12" r="1.5" />
         <circle cx="15" cy="12" r="1.5" />
@@ -95,7 +113,13 @@ const features = [
   {
     id: "autonomous-domain-memory",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <svg
+        viewBox="0 0 24 24"
+        className="w-8 h-8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
         <path d="M4 6h16M4 12h10M4 18h16" />
       </svg>
     ),
@@ -103,7 +127,7 @@ const features = [
     description:
       "Uploaded data teaches FAIM its own terminology, aliases, entities, and facts. No manual domain pack selection is required for the normal path.",
     gradient: "from-amber-500 to-orange-500",
-    link: "/dashboard/domain",
+    link: "/dashboard/storage",
   },
 ];
 

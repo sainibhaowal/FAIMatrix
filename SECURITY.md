@@ -34,4 +34,4 @@ Test only against a local or explicitly authorized deployment. Do not access ano
 
 Maintainers will acknowledge reports when possible, reproduce the issue, assess impact, coordinate a fix, and publish a remediation note when disclosure is safe. Credit will be given to reporters who want attribution and who follow coordinated disclosure.
 
-The security implementation references are in [`docs/2) BackEnd/Security`](<docs/2) BackEnd/Security/), [`docs/Operations/security-hardening.md`](docs/Operations/security-hardening.md), and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+The security implementation references are in [`faim_native/Docs/11-security`](faim_native/Docs/11-security/), [`faim_native/Docs/10-operations/04-security-hardening.md`](faim_native/Docs/10-operations/04-security-hardening.md), and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

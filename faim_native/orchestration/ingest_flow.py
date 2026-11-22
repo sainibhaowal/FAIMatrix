@@ -211,7 +211,7 @@ def _upsert_index_sync(
     )
     index = FAIMIndex(project_id)
 
-    written = 0
+    items = []
     node_ids = [str(nid) for nid in (write_result.node_ids or [])]
     for idx, vector in enumerate(vectors):
         if idx < len(node_ids):
@@ -219,18 +219,43 @@ def _upsert_index_sync(
         else:
             # Defensive fallback if engine contract changes.
             node_id = str(getattr(vector, "node_id", "") or vector.vector_hash)
-        try:
-            index.add(
-                graph_id=graph_id,
-                node_id=node_id,
-                vector=vector.v_native,
-                level=0,
-                kind="atom",
-            )
-            written += 1
-        except Exception as exc:
-            logger.warning("Failed to upsert vector %s to Qdrant: %s", node_id, exc)
-    return written
+        items.append((node_id, vector.v_native, 0, "atom"))
+    try:
+        index.add_batch(graph_id=graph_id, items=items)
+        return len(items)
+    except Exception as exc:
+        logger.warning(
+            "Failed to batch upsert %d native vectors to Qdrant: %s",
+            len(items),
+            exc,
+        )
+        return 0
+
+
+def _upsert_semantic_index_sync(
+    *,
+    graph_id: str,
+    embedding_vectors: List[Optional[List[float]]],
+    write_result: Any,
+    node_repo: Optional[Any],
+) -> int:
+    """Batch-upsert optional model embeddings into a dimension-specific ANN index."""
+    rows = []
+    node_ids = [str(nid) for nid in (write_result.node_ids or [])]
+    for idx, embedding in enumerate(embedding_vectors):
+        if embedding and idx < len(node_ids):
+            rows.append((node_ids[idx], embedding))
+    if not rows:
+        return 0
+
+    from index.semantic_qdrant_index import semantic_index_for_graph
+
+    index = semantic_index_for_graph(
+        graph_id=graph_id,
+        dimension=len(rows[0][1]),
+        project_id=getattr(node_repo, "project_id", None),
+    )
+    return index.upsert_batch(graph_id=graph_id, items=rows)
 
 
 def _enqueue_async_index_upsert_job(
@@ -405,7 +430,8 @@ def run_ingest(
         events_emitted.append("INGEST_START")
 
         # =====================================================================
-        # STEP 1: Extract EvidenceBlocks (NO CHUNKING!)
+        # STEP 1: Extract EvidenceBlocks.  Chunking is opt-in so legacy
+        # packet hashes and callers remain unchanged unless explicitly enabled.
         # =====================================================================
         from perception.router import route_extraction
 
@@ -415,6 +441,29 @@ def run_ingest(
         )
         effective_extractor_mode = "faim_native"
         _finish_phase("extract", phase_started)
+
+        if os.getenv("FAIM_CHUNKING_ENABLED", "false").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
+            from perception.chunking import chunk_evidence_blocks
+
+            try:
+                max_chars = int(os.getenv("FAIM_CHUNK_MAX_CHARS", "1200"))
+                overlap = int(os.getenv("FAIM_CHUNK_OVERLAP", "120"))
+                original_count = len(blocks)
+                blocks = chunk_evidence_blocks(
+                    blocks, max_chars=max_chars, overlap=overlap
+                )
+                logger.info(
+                    "[Ingest] Chunking enabled: %d extracted blocks -> %d chunks",
+                    original_count,
+                    len(blocks),
+                )
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Invalid chunking configuration: {exc}") from exc
 
         if not blocks:
             return IngestResult(
@@ -557,36 +606,46 @@ def run_ingest(
         vectors = vectorize_blocks(blocks)
         from encoding.representation_v2 import build_representation_v2_for_block
 
-        # Generate embedding vectors if embedding provider is available
+        # Generate embedding vectors only when not in pure-native FAST mode
+        # (unless FAIM_FAST_ML_EMBEDDING=true is explicitly requested).
+        _fast_ml_emb = os.getenv("FAIM_FAST_ML_EMBEDDING", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
         embedding_vectors: List[Optional[List[float]]] = []
-        try:
-            from encoding import get_active_embedding_provider
+        if effective_profile == FAIMProfile.FAST and not _fast_ml_emb:
+            embedding_vectors = [None] * len(blocks)
+        else:
+            try:
+                from encoding import get_active_embedding_provider
 
-            provider = get_active_embedding_provider()
-            if provider and provider.is_available():
-                texts = [block.content for block in blocks if hasattr(block, "content")]
-                if texts:
-                    emb_result = provider.encode(texts)
-                    # Align embeddings with blocks (some blocks may not have content)
-                    emb_idx = 0
-                    for block in blocks:
-                        if hasattr(block, "content") and emb_idx < len(
-                            emb_result.vectors
-                        ):
-                            embedding_vectors.append(emb_result.vectors[emb_idx])
-                            emb_idx += 1
-                        else:
-                            embedding_vectors.append(None)
-                    logger.info(
-                        f"[Ingest] Generated {len([v for v in embedding_vectors if v])} embedding vectors ({emb_result.dimension} dim)"
-                    )
+                provider = get_active_embedding_provider()
+                if provider and provider.is_available():
+                    texts = [block.content for block in blocks if hasattr(block, "content")]
+                    if texts:
+                        emb_result = provider.encode(texts)
+                        # Align embeddings with blocks (some blocks may not have content)
+                        emb_idx = 0
+                        for block in blocks:
+                            if hasattr(block, "content") and emb_idx < len(
+                                emb_result.vectors
+                            ):
+                                embedding_vectors.append(emb_result.vectors[emb_idx])
+                                emb_idx += 1
+                            else:
+                                embedding_vectors.append(None)
+                        logger.info(
+                            f"[Ingest] Generated {len([v for v in embedding_vectors if v])} embedding vectors ({emb_result.dimension} dim)"
+                        )
+                    else:
+                        embedding_vectors = [None] * len(blocks)
                 else:
                     embedding_vectors = [None] * len(blocks)
-            else:
+            except Exception as e:
+                logger.warning(f"[Ingest] Embedding generation skipped: {e}")
                 embedding_vectors = [None] * len(blocks)
-        except Exception as e:
-            logger.warning(f"[Ingest] Embedding generation skipped: {e}")
-            embedding_vectors = [None] * len(blocks)
 
         reprs_v2 = []
         for block in blocks:
@@ -644,6 +703,7 @@ def run_ingest(
             embedding_vectors=embedding_vectors,
             valid_from=valid_from,
             valid_to=valid_to,
+            defer_repr_stats=(effective_profile == FAIMProfile.FAST),
         )
         _finish_phase("write", phase_started)
 
@@ -877,6 +937,33 @@ def run_ingest(
         else:
             index_write_mode = "skipped_no_vectors"
             secondary_task_status = "skipped_no_vectors"
+
+        # Model-generated embeddings are a separate acceleration index.  Keep
+        # this best-effort and non-canonical: graph writes remain authoritative.
+        if index_enabled and embedding_vectors and write_result.node_ids:
+            try:
+                semantic_indexed = _upsert_semantic_index_sync(
+                    graph_id=graph_id,
+                    embedding_vectors=embedding_vectors,
+                    write_result=write_result,
+                    node_repo=node_repo,
+                )
+                if semantic_indexed:
+                    _emit_event(
+                        "SEMANTIC_INDEX_UPSERTED",
+                        graph_id,
+                        {
+                            "vector_count": semantic_indexed,
+                            "index_type": "qdrant_ann_cosine",
+                        },
+                        event_repo,
+                        session=session,
+                    )
+                    events_emitted.append("SEMANTIC_INDEX_UPSERTED")
+            except Exception as exc:
+                logger.warning(
+                    "[Ingest] Semantic ANN upsert failed (non-fatal): %s", exc
+                )
 
         # =====================================================================
         # STEP 6: Build result

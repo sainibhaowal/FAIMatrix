@@ -13,20 +13,18 @@ from __future__ import annotations
 
 import logging
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
 if str(_parent) not in sys.path:
     sys.path.insert(0, str(_parent))
 
-from api.deps import FAIMContext, get_faim_context, require_scopes  # noqa: E402
-from store.pg.repos.auth_repo import AuthRepo  # noqa: E402
+from api.deps import FAIMContext, get_faim_context  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +113,7 @@ class EmbeddingProviderSwitchResponse(BaseModel):
 def _get_registry(ctx: FAIMContext):
     """Get tenant-scoped embedding provider registry."""
     from encoding.embedding_providers import get_tenant_embedding_registry
+
     return get_tenant_embedding_registry(ctx.tenant_id)
 
 
@@ -125,7 +124,7 @@ def _get_registry(ctx: FAIMContext):
 
 @router.get("", response_model=EmbeddingProviderListResponse)
 async def list_embedding_providers(
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """List all embedding providers for the tenant."""
     from encoding.embedding_providers import get_tenant_embedding_registry
@@ -142,17 +141,17 @@ async def list_embedding_providers(
 
 @router.get("/active", response_model=Optional[EmbeddingProviderItem])
 async def get_active_embedding_provider(
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Get the currently active embedding provider."""
     from encoding.embedding_providers import get_tenant_embedding_registry
 
     registry = get_tenant_embedding_registry(ctx.tenant_id)
     active = registry.get_active()
-    
+
     if active is None:
         return None
-    
+
     info = active.model_info
     return EmbeddingProviderItem(
         tenant_id=ctx.tenant_id,
@@ -175,7 +174,7 @@ async def get_active_embedding_provider(
 @router.post("", response_model=EmbeddingProviderCreateResponse)
 async def create_embedding_provider(
     req: EmbeddingProviderCreateRequest,
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Add a new embedding provider."""
     from encoding.embedding_providers import (
@@ -186,13 +185,14 @@ async def create_embedding_provider(
     )
 
     registry = get_tenant_embedding_registry(ctx.tenant_id)
-    
+
     if req.provider_type == "local":
         from encoding.embedding_providers import (
-            discover_local_models,
-            LocalEmbeddingProvider,
             LOCAL_MODELS_DIR,
+            LocalEmbeddingProvider,
+            discover_local_models,
         )
+
         # If a specific model is requested, resolve it to a discovered local path
         if req.model:
             for model_path in discover_local_models():
@@ -213,13 +213,17 @@ async def create_embedding_provider(
             provider_id = "bge-m3-local"
     elif req.provider_type == "openai":
         if not req.api_key:
-            raise HTTPException(status_code=400, detail="OpenAI provider requires api_key")
+            raise HTTPException(
+                status_code=400, detail="OpenAI provider requires api_key"
+            )
         model = req.model or "text-embedding-3-small"
         provider = OpenAIEmbeddingProvider(api_key=req.api_key, model=model)
         provider_id = f"openai-{model}"
     elif req.provider_type == "custom":
         if not req.base_url:
-            raise HTTPException(status_code=400, detail="Custom provider requires base_url")
+            raise HTTPException(
+                status_code=400, detail="Custom provider requires base_url"
+            )
         model = req.model or "custom"
         dimension = req.dimension or 1024
         provider = CustomEmbeddingProvider(
@@ -230,11 +234,13 @@ async def create_embedding_provider(
         )
         provider_id = f"custom-{model}"
     else:
-        raise HTTPException(status_code=400, detail=f"Unknown provider type: {req.provider_type}")
-    
+        raise HTTPException(
+            status_code=400, detail=f"Unknown provider type: {req.provider_type}"
+        )
+
     # Register with custom ID
     registry.register(provider_id, provider)
-    
+
     info = provider.model_info
     return EmbeddingProviderCreateResponse(
         provider=EmbeddingProviderItem(
@@ -259,34 +265,34 @@ async def create_embedding_provider(
 @router.delete("/{provider_id}")
 async def delete_embedding_provider(
     provider_id: str,
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Remove an embedding provider."""
     from encoding.embedding_providers import get_tenant_embedding_registry
 
     registry = get_tenant_embedding_registry(ctx.tenant_id)
     success = registry.unregister(provider_id)
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="Provider not found")
-    
+
     return {"success": True, "message": f"Provider {provider_id} removed"}
 
 
 @router.post("/switch", response_model=EmbeddingProviderSwitchResponse)
 async def switch_embedding_provider(
     req: EmbeddingProviderSwitchRequest,
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Set the active embedding provider."""
     from encoding.embedding_providers import get_tenant_embedding_registry
 
     registry = get_tenant_embedding_registry(ctx.tenant_id)
     success = registry.set_active(req.provider_id)
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="Provider not found")
-    
+
     return EmbeddingProviderSwitchResponse(
         success=True,
         active_provider_id=req.provider_id,
@@ -297,18 +303,19 @@ async def switch_embedding_provider(
 async def test_embedding_provider(
     provider_id: str,
     req: EmbeddingProviderTestRequest,
-    ctx: FAIMContext = Depends(get_faim_context),
+    ctx: FAIMContext = Depends(get_faim_context),  # noqa: B008
 ):
     """Test an embedding provider connection and encoding."""
-    from encoding.embedding_providers import get_tenant_embedding_registry
     import time
+
+    from encoding.embedding_providers import get_tenant_embedding_registry
 
     registry = get_tenant_embedding_registry(ctx.tenant_id)
     provider = registry.get(provider_id)
-    
+
     if provider is None:
         raise HTTPException(status_code=404, detail="Provider not found")
-    
+
     if not provider.is_available():
         return EmbeddingProviderTestResponse(
             success=False,
@@ -316,10 +323,11 @@ async def test_embedding_provider(
         )
     try:
         from starlette.concurrency import run_in_threadpool
+
         start = time.perf_counter()
         result = await run_in_threadpool(provider.encode, [req.test_text])
         latency_ms = int((time.perf_counter() - start) * 1000)
-        
+
         return EmbeddingProviderTestResponse(
             success=True,
             message=f"Successfully encoded test text ({len(result.vectors[0])} dimensions)",

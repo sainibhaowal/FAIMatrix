@@ -12,6 +12,8 @@ Examples:
   - "relational", "relate" → "relat"
 """
 
+from functools import lru_cache
+
 STOP_WORDS = frozenset(
     {
         "the",
@@ -244,6 +246,7 @@ def _step5b(word: str) -> str:
     return word
 
 
+@lru_cache(maxsize=65536)
 def stem(word: str) -> str:
     """
     Apply Porter stemming algorithm to a single word.

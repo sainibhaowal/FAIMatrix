@@ -16,12 +16,12 @@ const icon = (
 );
 
 const benefits = [
-  "Infinite scalability - no limits on knowledge size",
+  "Durable PostgreSQL + Qdrant hybrid memory storage",
   "Automatic relationship discovery between concepts",
-  "Self-optimizing structure that improves over time",
-  "Sub-millisecond retrieval at any scale",
-  "Fractal compression reduces storage costs by 50x",
-  "Real-time evolution as new knowledge is added",
+  "Opt-in, graph-scoped evolution controls",
+  "Low-latency bounded retrieval with Redis caching",
+  "Deterministic 256-dim native vectors + built-in multilingual embeddings",
+  "Real-time graph updates with SHA-256 lineage",
 ];
 
 export default function MemoryEnginePage() {

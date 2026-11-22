@@ -37,8 +37,11 @@ export async function POST(): Promise<Response> {
         models.push(model);
       }
     }
-    const deduped = Array.from(new Set(models)).filter((m) => m.includes("bge") || m.includes("e5"));
-    const localModels = deduped.length > 0 ? deduped : Array.from(new Set(models));
+    const deduped = Array.from(new Set(models)).filter(
+      (m) => m.includes("bge") || m.includes("e5"),
+    );
+    const localModels =
+      deduped.length > 0 ? deduped : Array.from(new Set(models));
     return Response.json({ models: localModels }, { status: 200 });
   } catch {
     return Response.json({ models: [] }, { status: 200 });

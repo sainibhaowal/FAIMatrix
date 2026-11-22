@@ -55,9 +55,7 @@ def _fmt(labels: Dict[str, str], value: str, help_text: str, name: str) -> List[
     ]
 
 
-def metrics_to_text(
-    data: Dict[str, Any], graph_id: str, scrape_ts: int = 0
-) -> str:
+def metrics_to_text(data: Dict[str, Any], graph_id: str, scrape_ts: int = 0) -> str:
     """Convert the evolve metrics payload to Prometheus text exposition.
 
     Returns a single string of plain ``# HELP``/``# TYPE``/sample lines.
@@ -67,59 +65,107 @@ def metrics_to_text(
 
     cycles = data.get("cycles") or {}
     light = {"graph_id": graph_id}
-    lines += _fmt(light, str(int(cycles.get("count", 0) or 0)),
-                  "Completed evolution cycles", "faim_evolve_cycles_completed")
-    lines += _fmt(light, str(int(cycles.get("last_version", 0) or 0)),
-                  "Version of the latest completed evolution cycle",
-                  "faim_evolve_last_version")
-    lines += _fmt(light, str(int(cycles.get("last_merges", 0) or 0)),
-                  "Merges performed by the latest cycle", "faim_evolve_last_merges")
-    lines += _fmt(light, str(int(cycles.get("last_prunes", 0) or 0)),
-                  "Nodes pruned by the latest cycle", "faim_evolve_last_prunes")
-    lines += _fmt(light, str(int(cycles.get("last_inventions", 0) or 0)),
-                  "Inventions by the latest cycle", "faim_evolve_last_inventions")
+    lines += _fmt(
+        light,
+        str(int(cycles.get("count", 0) or 0)),
+        "Completed evolution cycles",
+        "faim_evolve_cycles_completed",
+    )
+    lines += _fmt(
+        light,
+        str(int(cycles.get("last_version", 0) or 0)),
+        "Version of the latest completed evolution cycle",
+        "faim_evolve_last_version",
+    )
+    lines += _fmt(
+        light,
+        str(int(cycles.get("last_merges", 0) or 0)),
+        "Merges performed by the latest cycle",
+        "faim_evolve_last_merges",
+    )
+    lines += _fmt(
+        light,
+        str(int(cycles.get("last_prunes", 0) or 0)),
+        "Nodes pruned by the latest cycle",
+        "faim_evolve_last_prunes",
+    )
+    lines += _fmt(
+        light,
+        str(int(cycles.get("last_inventions", 0) or 0)),
+        "Inventions by the latest cycle",
+        "faim_evolve_last_inventions",
+    )
 
     safety = data.get("data_safety") or {}
-    lines += _fmt(light, str(int(safety.get("backups_available", 0) or 0)),
-                  "Pre-action backups currently stored",
-                  "faim_evolve_backups_available")
-    lines += _fmt(light, str(int(safety.get("latest_cycle_backups", 0) or 0)),
-                  "Pre-action backups recorded for the latest cycle",
-                  "faim_evolve_backups_latest_cycle")
-    lines += _fmt(light, "1" if safety.get("coverage_ok") else "0",
-                  "1 when every pruned node of the latest cycle has a backup",
-                  "faim_evolve_backup_coverage_ok")
+    lines += _fmt(
+        light,
+        str(int(safety.get("backups_available", 0) or 0)),
+        "Pre-action backups currently stored",
+        "faim_evolve_backups_available",
+    )
+    lines += _fmt(
+        light,
+        str(int(safety.get("latest_cycle_backups", 0) or 0)),
+        "Pre-action backups recorded for the latest cycle",
+        "faim_evolve_backups_latest_cycle",
+    )
+    lines += _fmt(
+        light,
+        "1" if safety.get("coverage_ok") else "0",
+        "1 when every pruned node of the latest cycle has a backup",
+        "faim_evolve_backup_coverage_ok",
+    )
 
     learning = data.get("learning") or {}
-    lines += _fmt(light, "1" if learning.get("enabled") else "0",
-                  "Evolution learning flag enabled", "faim_evolve_learning_enabled")
-    lines += _fmt(light, "1" if learning.get("learned") else "0",
-                  "Evolution policy has learned (moved from defaults)",
-                  "faim_evolve_learning_learned")
-    lines += _fmt(light, "1" if learning.get("trust_ready") else "0",
-                  "1 when learning has enough feedback to be trusted",
-                  "faim_evolve_learning_trust_ready")
-    lines += _fmt(light, str(int(learning.get("outcomes_count", 0) or 0)),
-                  "Evolution feedback outcome rows", "faim_evolve_learning_outcomes")
-    lines += _fmt(light, str(int(learning.get("knob_drift_count", 0) or 0)),
-                  "Policy knobs moved from defaults", "faim_evolve_learning_knob_drift")
+    lines += _fmt(
+        light,
+        "1" if learning.get("enabled") else "0",
+        "Evolution learning flag enabled",
+        "faim_evolve_learning_enabled",
+    )
+    lines += _fmt(
+        light,
+        "1" if learning.get("learned") else "0",
+        "Evolution policy has learned (moved from defaults)",
+        "faim_evolve_learning_learned",
+    )
+    lines += _fmt(
+        light,
+        "1" if learning.get("trust_ready") else "0",
+        "1 when learning has enough feedback to be trusted",
+        "faim_evolve_learning_trust_ready",
+    )
+    lines += _fmt(
+        light,
+        str(int(learning.get("outcomes_count", 0) or 0)),
+        "Evolution feedback outcome rows",
+        "faim_evolve_learning_outcomes",
+    )
+    lines += _fmt(
+        light,
+        str(int(learning.get("knob_drift_count", 0) or 0)),
+        "Policy knobs moved from defaults",
+        "faim_evolve_learning_knob_drift",
+    )
     slope = learning.get("reward_trend_slope")
-    lines += _fmt(light, "nan" if slope is None else f"{slope}",
-                  "Linear slope of reward vs graph version",
-                  "faim_evolve_learning_reward_trend")
+    lines += _fmt(
+        light,
+        "nan" if slope is None else f"{slope}",
+        "Linear slope of reward vs graph version",
+        "faim_evolve_learning_reward_trend",
+    )
 
     alerts = data.get("alerts") or []
     if alerts:
-        lines.append("# HELP faim_evolve_alert Active evolution health alerts (1 present)")
+        lines.append(
+            "# HELP faim_evolve_alert Active evolution health alerts (1 present)"
+        )
         lines.append("# TYPE faim_evolve_alert gauge")
     for alert in alerts:
         if not isinstance(alert, dict):
             continue
-        label_part = ",".join(
-            f'{k}="{alert.get(k, "")}"'
-            for k in ("code", "level")
-        )
-        lines.append(f'faim_evolve_alert{{{label_part}}} 1')
+        label_part = ",".join(f'{k}="{alert.get(k, "")}"' for k in ("code", "level"))
+        lines.append(f"faim_evolve_alert{{{label_part}}} 1")
 
     lines += [
         "# HELP faim_evolve_scrape_ok 1 if this scrape produced fresh metrics",
@@ -175,9 +221,12 @@ def _write_deadman(
 
 def _fetch(path: str, base_url: str, api_key: str, tenant_id: str) -> Dict[str, Any]:
     url = f"{base_url.rstrip('/')}{path}"
-    req = urllib.request.Request(url, headers={"X-Tenant-Id": tenant_id,
-                                               "X-Api-Key": api_key})
-    with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310 - operator supplied URL
+    req = urllib.request.Request(
+        url, headers={"X-Tenant-Id": tenant_id, "X-Api-Key": api_key}
+    )
+    with urllib.request.urlopen(
+        req, timeout=30
+    ) as resp:  # nosec B310 - operator supplied URL
         return json.loads(resp.read().decode("utf-8"))
 
 
@@ -187,10 +236,14 @@ def main(argv: List[str]) -> int:
     parser.add_argument("-t", "--tenant-id", required=True)
     parser.add_argument("-g", "--graph-id", required=True)
     parser.add_argument("-k", "--api-key", required=True)
-    parser.add_argument("--out", default=None,
-                        help="write Prometheus text to this textfile path")
-    parser.add_argument("--deadman", default=None,
-                        help="optional textfile path for scrape-failure markers")
+    parser.add_argument(
+        "--out", default=None, help="write Prometheus text to this textfile path"
+    )
+    parser.add_argument(
+        "--deadman",
+        default=None,
+        help="optional textfile path for scrape-failure markers",
+    )
     args = parser.parse_args(argv)
 
     scrape_ts = int(time.time())
@@ -223,10 +276,11 @@ def main(argv: List[str]) -> int:
     _write_deadman(args.deadman, args.graph_id, ok=1, scrape_ts=scrape_ts)
 
     criticals = [
-        alert for alert in data.get("alerts") or []
-        if alert.get("level") == "critical"
+        alert for alert in data.get("alerts") or [] if alert.get("level") == "critical"
     ]
-    print(f"scrape_ok graph={args.graph_id} criticals={len(criticals)}", file=sys.stderr)
+    print(
+        f"scrape_ok graph={args.graph_id} criticals={len(criticals)}", file=sys.stderr
+    )
     return 2 if criticals else 0
 
 

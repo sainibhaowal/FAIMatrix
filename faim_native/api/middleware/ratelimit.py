@@ -6,13 +6,19 @@ Fallback: Redis → in-memory.
 
 from __future__ import annotations
 
+import logging
+import math
+import os
+import threading
 import time
 from dataclasses import dataclass
-from typing import Dict, Optional, Sequence, Tuple
+from typing import Any, Dict, Optional, Sequence, Tuple
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
+
+logger = logging.getLogger("faim.ratelimit")
 
 # =============================================================================
 # Token Bucket
@@ -40,8 +46,16 @@ class TokenBucket:
 
     def try_consume(self, tokens: int = 1) -> Tuple[bool, int]:
         """Try to consume tokens. Returns (allowed, remaining)."""
+        allowed, remaining, _, _ = self.try_consume_detailed(tokens)
+        return allowed, remaining
+
+    def try_consume_detailed(self, tokens: int = 1) -> Tuple[bool, int, int, int]:
+        """Try to consume tokens.
+
+        Returns (allowed, remaining, retry_after_seconds, reset_epoch).
+        """
         now = time.time()
-        elapsed = now - self.last_refill
+        elapsed = max(0.0, now - self.last_refill)
 
         # Refill tokens
         self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
@@ -49,9 +63,25 @@ class TokenBucket:
 
         if self.tokens >= tokens:
             self.tokens -= tokens
-            return True, int(self.tokens)
-        else:
-            return False, int(self.tokens)
+            needed_to_full = max(0.0, self.capacity - self.tokens)
+            reset_seconds = (
+                math.ceil(needed_to_full / self.refill_rate)
+                if self.refill_rate > 0
+                else 0
+            )
+            return True, int(self.tokens), 0, int(now + reset_seconds)
+
+        deficit = max(0.0, tokens - self.tokens)
+        retry_after = (
+            max(1, math.ceil(deficit / self.refill_rate))
+            if self.refill_rate > 0
+            else 60
+        )
+        needed_to_full = max(0.0, self.capacity - self.tokens)
+        reset_seconds = (
+            math.ceil(needed_to_full / self.refill_rate) if self.refill_rate > 0 else 60
+        )
+        return False, int(self.tokens), retry_after, int(now + reset_seconds)
 
 
 # =============================================================================
@@ -73,9 +103,9 @@ class InMemoryRateLimiter:
             # K6 endpoint policy categories
             "ingest_write": 60,
             "query_read": 120,
-            "events_stream": 300,
-            "storage_read": 120,
-            "storage_write": 60,
+            "events_stream": 600,
+            "storage_read": 600,
+            "storage_write": 300,
             "api_keys_read": 60,
             "api_keys_write": 20,
             "memory_search": 120,
@@ -134,10 +164,144 @@ class InMemoryRateLimiter:
         self, tenant_id: str, endpoint: str, identity: Optional[str] = None
     ) -> Tuple[bool, int]:
         """Check if request is allowed. Returns (allowed, remaining)."""
+        allowed, remaining, _, _, _ = self.check_rate_limit_detailed(
+            tenant_id, endpoint, identity=identity
+        )
+        return allowed, remaining
+
+    def check_rate_limit_detailed(
+        self, tenant_id: str, endpoint: str, identity: Optional[str] = None
+    ) -> Tuple[bool, int, int, int, int]:
+        """Check rate limit with full header metadata.
+
+        Returns (allowed, remaining, limit, retry_after_seconds, reset_epoch).
+        """
         bucket = self._get_or_create_bucket(
             tenant_id, endpoint, identity or f"tenant:{tenant_id}"
         )
-        return bucket.try_consume(1)
+        allowed, remaining, retry_after, reset_epoch = bucket.try_consume_detailed(1)
+        return allowed, remaining, bucket.capacity, retry_after, reset_epoch
+
+
+_REDIS_TOKEN_BUCKET_LUA = """
+local key = KEYS[1]
+local capacity = tonumber(ARGV[1])
+local refill_rate = tonumber(ARGV[2])
+local now = tonumber(ARGV[3])
+local requested = tonumber(ARGV[4])
+local ttl = tonumber(ARGV[5])
+
+local data = redis.call('HMGET', key, 'tokens', 'last_refill')
+local tokens = tonumber(data[1])
+local last_refill = tonumber(data[2])
+
+if tokens == nil or last_refill == nil then
+    tokens = capacity
+    last_refill = now
+else
+    local elapsed = math.max(0, now - last_refill)
+    tokens = math.min(capacity, tokens + elapsed * refill_rate)
+    last_refill = now
+end
+
+local allowed = 0
+local retry_after = 0
+if tokens >= requested then
+    tokens = tokens - requested
+    allowed = 1
+else
+    local deficit = math.max(0, requested - tokens)
+    if refill_rate > 0 then
+        retry_after = math.max(1, math.ceil(deficit / refill_rate))
+    else
+        retry_after = 60
+    end
+end
+
+local reset_seconds = 0
+if refill_rate > 0 then
+    reset_seconds = math.ceil(math.max(0, capacity - tokens) / refill_rate)
+end
+
+redis.call('HMSET', key, 'tokens', tokens, 'last_refill', last_refill)
+redis.call('EXPIRE', key, ttl)
+
+return {allowed, math.floor(tokens), retry_after, math.floor(now + reset_seconds)}
+"""
+
+
+class RedisRateLimiter(InMemoryRateLimiter):
+    """Distributed Redis-backed token bucket limiter with in-memory fallback."""
+
+    def __init__(self, redis_url: Optional[str] = None):
+        super().__init__()
+        self._redis_url = redis_url or os.getenv("REDIS_URL", "").strip()
+        self._redis_client: Any = None
+        self._redis_script: Any = None
+        self._redis_lock = threading.Lock()
+        self._next_reconnect_at = 0.0
+
+    def _get_script(self):
+        if not self._redis_url:
+            return None
+        now = time.time()
+        if self._redis_script is not None:
+            return self._redis_script
+        if now < self._next_reconnect_at:
+            return None
+        with self._redis_lock:
+            if self._redis_script is not None:
+                return self._redis_script
+            if time.time() < self._next_reconnect_at:
+                return None
+            try:
+                import redis
+
+                client = redis.from_url(
+                    self._redis_url,
+                    decode_responses=True,
+                    socket_connect_timeout=0.5,
+                    socket_timeout=0.5,
+                )
+                client.ping()
+                self._redis_client = client
+                self._redis_script = client.register_script(_REDIS_TOKEN_BUCKET_LUA)
+                return self._redis_script
+            except Exception as exc:
+                self._next_reconnect_at = time.time() + 15.0
+                logger.warning(
+                    "Redis rate limiter unavailable, using in-memory fallback: %s", exc
+                )
+                return None
+
+    def check_rate_limit_detailed(
+        self, tenant_id: str, endpoint: str, identity: Optional[str] = None
+    ) -> Tuple[bool, int, int, int, int]:
+        limit = int(self._limits.get(endpoint, 60))
+        script = self._get_script()
+        if script is not None:
+            ident = identity or f"tenant:{tenant_id}"
+            key = f"faim:rl:{self._get_bucket_key(tenant_id, endpoint, ident)}"
+            now = time.time()
+            refill_rate = limit / 60.0
+            try:
+                res = script(
+                    keys=[key],
+                    args=[limit, refill_rate, now, 1, 180],
+                )
+                allowed = bool(int(res[0]))
+                remaining = int(res[1])
+                retry_after = int(res[2])
+                reset_epoch = int(res[3])
+                return allowed, remaining, limit, retry_after, reset_epoch
+            except Exception as exc:
+                self._redis_script = None
+                self._next_reconnect_at = time.time() + 15.0
+                logger.warning(
+                    "Redis rate limit eval failed, falling back to in-memory: %s", exc
+                )
+
+        return super().check_rate_limit_detailed(tenant_id, endpoint, identity=identity)
 
 
 # =============================================================================
@@ -150,7 +314,10 @@ _rate_limiter: Optional[InMemoryRateLimiter] = None
 def get_rate_limiter() -> InMemoryRateLimiter:
     global _rate_limiter
     if _rate_limiter is None:
-        _rate_limiter = InMemoryRateLimiter()
+        if os.getenv("REDIS_URL", "").strip():
+            _rate_limiter = RedisRateLimiter()
+        else:
+            _rate_limiter = InMemoryRateLimiter()
     return _rate_limiter
 
 
@@ -264,8 +431,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Check rate limit
         limiter = get_rate_limiter()
-        allowed, remaining = limiter.check_rate_limit(
-            tenant_id, category, identity=identity
+        allowed, remaining, limit, retry_after, reset_epoch = (
+            limiter.check_rate_limit_detailed(tenant_id, category, identity=identity)
         )
 
         if not allowed:
@@ -274,18 +441,23 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 content={
                     "error": "Rate limit exceeded",
                     "category": category,
+                    "limit": limit,
                     "remaining": remaining,
-                    "retry_after_seconds": 60,
+                    "retry_after_seconds": retry_after,
                 },
                 headers={
+                    "X-RateLimit-Limit": str(limit),
                     "X-RateLimit-Remaining": str(remaining),
-                    "Retry-After": "60",
+                    "X-RateLimit-Reset": str(reset_epoch),
+                    "Retry-After": str(retry_after),
                 },
             )
 
         # Add rate limit headers to response
         response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(limit)
         response.headers["X-RateLimit-Remaining"] = str(remaining)
+        response.headers["X-RateLimit-Reset"] = str(reset_epoch)
 
         return response
 
@@ -297,6 +469,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 __all__ = [
     "TokenBucket",
     "InMemoryRateLimiter",
+    "RedisRateLimiter",
     "RateLimitMiddleware",
     "get_rate_limiter",
 ]

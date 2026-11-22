@@ -61,7 +61,6 @@ import {
   persistGraphViewState,
   safeNodeTitle,
 } from "@/lib/figViewSafety";
-import { useChat } from "@/contexts/ChatContext";
 import {
   createInitialTimelineSyncState,
   deriveTimelineSyncStatus,
@@ -308,7 +307,6 @@ type TopMode = "explore" | "analyze" | "lineage";
 export default function FigViewPage() {
   const { data: session } = useSession();
   const { toast } = useToast();
-  const { activeReasoningPath: chatReasoningPath, messages } = useChat();
 
   const [graphId, setGraphId] = useState<string>("");
   const [state, setState] = useState<FigLoadState>({ status: "idle" });
@@ -434,31 +432,17 @@ export default function FigViewPage() {
     };
   }, [explainResult]);
 
-  // Combined explain path: priority to explicit FIG explain, fallback to Chat reasoning
-  const finalExplainPath = explainPath || chatReasoningPath;
+  const finalExplainPath = explainPath;
 
-  const activeQueryExplain = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      const msg = messages[i];
-      if (msg.queryData?.graph_id && msg.queryData.graph_id !== graphId) {
-        continue;
-      }
-      const results = msg.queryData?.results ?? [];
-      if (results.length > 0) {
-        const selected =
-          (selectedNodeId && results.find((r) => r.node_id === selectedNodeId)) ||
-          results[0];
-        return selected?.explain ?? null;
-      }
-    }
-    return null;
-  }, [graphId, messages, selectedNodeId]);
+  const activeQueryExplain = null;
 
   const liveInteractionPulse = useMemo(
     () =>
       buildFigInteractionPulse({
         graphId: graphId || "fig",
-        selectedNode: selectedNodeId ? nodeIndex.get(selectedNodeId) ?? null : null,
+        selectedNode: selectedNodeId
+          ? (nodeIndex.get(selectedNodeId) ?? null)
+          : null,
         hoveredNode: hoverNode,
         overlayMode,
         topMode,
@@ -1289,11 +1273,11 @@ export default function FigViewPage() {
             initialToId={selectedNodeId}
             onNavigateToNode={handleNavigateToNode}
             onRequestExplain={handleRequestExplain}
-          explainResult={explainResult}
-          explainLoading={explainLoading}
-          queryExplain={activeQueryExplain}
-          livePulse={liveInteractionPulse}
-        />
+            explainResult={explainResult}
+            explainLoading={explainLoading}
+            queryExplain={activeQueryExplain}
+            livePulse={liveInteractionPulse}
+          />
         ) : (
           <p className="text-xs text-slate-500 text-center py-6">
             No graph data loaded.

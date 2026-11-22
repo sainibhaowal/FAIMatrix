@@ -25,7 +25,9 @@ def test_semantic_memory_learning_builds_graph_local_bundle_rows():
     assert "semantic_paraphrase" in kinds
     assert any(row["source_kind"] == "semantic_bundle" for row in result.source_rows)
 
-    bundle_rows = [row for row in result.lexicon_rows if row["kind"] == "concept_bundle"]
+    bundle_rows = [
+        row for row in result.lexicon_rows if row["kind"] == "concept_bundle"
+    ]
     assert bundle_rows
     assert any("bundle_members" in dict(row["meta"] or {}) for row in bundle_rows)
 

@@ -20,13 +20,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
+import os
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
+
+logger = logging.getLogger(__name__)
 
 # Flexible imports
 _parent = Path(__file__).parent.parent.parent
@@ -76,6 +80,21 @@ STRICT_WEIGHTS = ScoringWeights(
     w_lvl=0.05,
 )
 
+# FAST with Representation V2 uses a relevance-first profile.  The default
+# FAIM profile remains unchanged; this profile is selected only by the query
+# flow for the explicitly low-latency FAST path.  Mutable usage/recency signals
+# remain available in the existing profiles but do not outrank query evidence
+# here.
+RELEVANCE_FIRST_WEIGHTS = ScoringWeights(
+    w_sim=0.08,
+    w_novel=0.01,
+    w_opp=0.02,
+    w_red=0.01,
+    w_rec=0.0,
+    w_use=0.0,
+    w_lvl=0.01,
+)
+
 FUSION_LAYER_WEIGHTS = {
     "lexical_fusion": 0.15,
     "graph_semantics": 0.12,
@@ -84,6 +103,16 @@ FUSION_LAYER_WEIGHTS = {
     "reranker_v2": 0.18,
     "late_interaction": 0.11,
     "semantic_embedding": 0.20,
+}
+
+RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS = {
+    "lexical_fusion": 0.75,
+    "graph_semantics": 0.02,
+    "modality": 0.03,
+    "domain_memory": 0.03,
+    "reranker_v2": 0.12,
+    "late_interaction": 0.10,
+    "semantic_embedding": 0.25,
 }
 
 
@@ -238,13 +267,14 @@ def compute_node_score(
     graph_avg_touch: float,
     q_opp: Optional[Dict[str, float]] = None,
     weights: ScoringWeights = DEFAULT_WEIGHTS,
+    precomputed_sim: Optional[float] = None,
 ) -> Tuple[float, Dict[str, float]]:
     """Compute FAIM score for a node.
 
     Returns:
         (total_score, score_components dict)
     """
-    sim = cosine_similarity(q_vec, n_vec)
+    sim = precomputed_sim if precomputed_sim is not None else cosine_similarity(q_vec, n_vec)
     novel = _clamp(n_residual, 0.0, 1.0)
     opp = opposition_penalty(q_opp, n_opp)
     red = redundancy_penalty(n_touch, graph_avg_touch)
@@ -777,7 +807,7 @@ def _cosine_similarity_lists(left: Sequence[float], right: Sequence[float]) -> f
     dot = 0.0
     norm_l = 0.0
     norm_r = 0.0
-    for a, b in zip(left, right):
+    for a, b in zip(left, right, strict=False):
         fa = float(a)
         fb = float(b)
         dot += fa * fb
@@ -799,6 +829,23 @@ def recall_candidates_semantic_embedding(
     """Recall top candidates by dense v_embedding cosine similarity when populated."""
     if not q_emb:
         return []
+
+    # Prefer a real ANN index when the graph has been indexed.  The SQL path
+    # remains a compatibility fallback for existing graphs and outages.
+    try:
+        from index.semantic_qdrant_index import semantic_index_for_graph
+
+        ann_rows = semantic_index_for_graph(
+            graph_id=graph_id,
+            dimension=len(q_emb),
+        ).top_k(graph_id=graph_id, query_vector=q_emb, limit=n)
+        if ann_rows:
+            return [(UUID(node_id), score) for node_id, score in ann_rows]
+    except (ValueError, TypeError, AttributeError) as exc:
+        logger.debug("Semantic ANN unavailable; using SQL fallback: %s", exc)
+    except Exception as exc:
+        logger.warning("Semantic ANN lookup failed; using SQL fallback: %s", exc)
+
     from store.pg.models_faim import NodeModel
 
     nodes = (
@@ -821,6 +868,39 @@ def recall_candidates_semantic_embedding(
     return scored[:n]
 
 
+def _native_cosine_sims_gpu_or_cpu(mat: Any, q_unit: Any) -> Any:
+    """Compute batch cosine similarities on CUDA when enabled/available, else CPU NumPy."""
+    import numpy as np
+
+    flag = (os.getenv("FAIM_USE_GPU_BACKEND") or "auto").strip().lower()
+    if flag in {"auto", "1", "true", "yes", "on"}:
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                mat_gpu = torch.as_tensor(mat, dtype=torch.float32, device="cuda")
+                q_gpu = torch.as_tensor(q_unit, dtype=torch.float32, device="cuda")
+                norms_gpu = torch.linalg.norm(mat_gpu, dim=1)
+                raw_dots = torch.mv(mat_gpu, q_gpu)
+                sims_gpu = torch.where(
+                    norms_gpu > 0.0,
+                    raw_dots / norms_gpu.clamp(min=1e-12),
+                    torch.zeros_like(raw_dots),
+                )
+                return sims_gpu.detach().cpu().numpy()
+        except Exception:
+            pass
+
+    norms = np.linalg.norm(mat, axis=1)
+    raw_dots = mat @ q_unit
+    return np.divide(
+        raw_dots,
+        norms,
+        out=np.zeros(mat.shape[0], dtype=np.float32),
+        where=norms > 0.0,
+    )
+
+
 def rerank_faim(
     session,
     tenant_id: str,
@@ -839,6 +919,10 @@ def rerank_faim(
     include_historical: bool = True,
     as_of: Optional[datetime] = None,
     query_embedding: Optional[Sequence[float]] = None,
+    fusion_weights: Optional[Dict[str, float]] = None,
+    preloaded_reprs: Optional[Dict[UUID, Any]] = None,
+    preloaded_nodes: Optional[Dict[UUID, Any]] = None,
+    fast_skip_graph_opp: bool = False,
 ) -> List[Dict[str, Any]]:
     """Re-rank candidates using FAIM physics scoring.
 
@@ -850,36 +934,84 @@ def rerank_faim(
     from store.pg.repos.modality_repo import ModalityRepo
     from store.pg.repos.representation_repo import RepresentationRepo
 
-    # Load candidate nodes
-    node_query = session.query(NodeModel).filter(
+    active_fusion_weights = fusion_weights or FUSION_LAYER_WEIGHTS
+
+    # Load candidate nodes (from RAM cache when provided, else Postgres)
+    if as_of is not None and as_of.tzinfo is None:
+        as_of = as_of.replace(tzinfo=timezone.utc)
+    if preloaded_nodes is not None:
+        nodes = []
+        for cid in candidate_ids:
+            n = preloaded_nodes.get(cid)
+            if n is None:
+                continue
+            if as_of is not None:
+                vf = getattr(n, "valid_from", None)
+                vt = getattr(n, "valid_to", None)
+                if vf is not None and vf > as_of:
+                    continue
+                if vt is not None and vt <= as_of:
+                    continue
+            nodes.append(n)
+    else:
+        node_query = session.query(NodeModel).filter(
             NodeModel.tenant_id == tenant_id,
             NodeModel.graph_id == graph_id,
             NodeModel.node_id.in_(candidate_ids),
         )
-    if as_of is not None:
-        if as_of.tzinfo is None:
-            as_of = as_of.replace(tzinfo=timezone.utc)
-        node_query = node_query.filter(
-            (NodeModel.valid_from.is_(None)) | (NodeModel.valid_from <= as_of),
-            (NodeModel.valid_to.is_(None)) | (NodeModel.valid_to > as_of),
-        )
-    nodes = node_query.all()
+        if as_of is not None:
+            node_query = node_query.filter(
+                (NodeModel.valid_from.is_(None)) | (NodeModel.valid_from <= as_of),
+                (NodeModel.valid_to.is_(None)) | (NodeModel.valid_to > as_of),
+            )
+        nodes = node_query.all()
 
     # Score each node
     scored = []
-    repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
-    repr_rows = {
-        row.node_id: row
-        for row in repr_repo.list_by_node_ids(graph_id=graph_id, node_ids=candidate_ids)
-    }
-    modality_repo = ModalityRepo(session=session, tenant_id=tenant_id)
-    modality_rows = {
-        row.node_id: row
-        for row in modality_repo.list_by_node_ids(
-            graph_id=graph_id, node_ids=candidate_ids
-        )
-    }
-    for node in nodes:
+    repr_repo = None
+    if preloaded_reprs is not None:
+        repr_rows = {}
+    else:
+        repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
+        repr_rows = {
+            row.node_id: row
+            for row in repr_repo.list_by_node_ids(graph_id=graph_id, node_ids=candidate_ids)
+        }
+    if fast_skip_graph_opp:
+        modality_rows = {}
+    else:
+        modality_repo = ModalityRepo(session=session, tenant_id=tenant_id)
+        modality_rows = {
+            row.node_id: row
+            for row in modality_repo.list_by_node_ids(
+                graph_id=graph_id, node_ids=candidate_ids
+            )
+        }
+    # Precompute all v_native cosine similarities in one BLAS float32 pass
+    precomputed_sims: Optional[List[float]] = None
+    if nodes and q_vec:
+        try:
+            import numpy as np
+
+            q_arr = np.asarray(q_vec, dtype=np.float32)
+            q_norm = float(np.linalg.norm(q_arr))
+            if q_norm > 0.0:
+                q_unit = q_arr / q_norm
+                mat = np.asarray(
+                    [
+                        node.v_native
+                        if isinstance(node.v_native, (list, tuple))
+                        else tuple(node.v_native)
+                        for node in nodes
+                    ],
+                    dtype=np.float32,
+                )
+                sims_arr = _native_cosine_sims_gpu_or_cpu(mat, q_unit)
+                precomputed_sims = [float(x) for x in sims_arr]
+        except Exception:
+            precomputed_sims = None
+
+    for node_idx, node in enumerate(nodes):
         n_vec = (
             tuple(node.v_native)
             if isinstance(node.v_native, list)
@@ -897,6 +1029,9 @@ def rerank_faim(
             n_level=node.level or 0,
             graph_avg_touch=graph_avg_touch,
             weights=weights,
+            precomputed_sim=(
+                precomputed_sims[node_idx] if precomputed_sims is not None else None
+            ),
         )
         fusion_debug: Dict[str, Any] = {
             "core_score": round(score, 6),
@@ -917,9 +1052,13 @@ def rerank_faim(
         if query_embedding and isinstance(node.v_embedding, list):
             sem_emb_score = _cosine_similarity_lists(query_embedding, node.v_embedding)
             if sem_emb_score > 0.0:
-                sem_emb_bonus = FUSION_LAYER_WEIGHTS["semantic_embedding"] * sem_emb_score
+                sem_emb_bonus = (
+                    active_fusion_weights["semantic_embedding"] * sem_emb_score
+                )
                 score = round(score + sem_emb_bonus, 6)
-                fusion_debug["contributions"]["semantic_embedding"] = round(sem_emb_bonus, 6)
+                fusion_debug["contributions"]["semantic_embedding"] = round(
+                    sem_emb_bonus, 6
+                )
                 fusion_debug["active_layers"].append("semantic_embedding")
         components["semantic_emb"] = round(sem_emb_score, 6)
 
@@ -927,7 +1066,7 @@ def rerank_faim(
         lex_components: Dict[str, float] = {}
         if lexical_scores and node.node_id in lexical_scores:
             lex_score, lex_components = lexical_scores[node.node_id]
-            lex_bonus = FUSION_LAYER_WEIGHTS["lexical_fusion"] * lex_score
+            lex_bonus = active_fusion_weights["lexical_fusion"] * lex_score
             score = round(score + lex_bonus, 6)
             fusion_debug["contributions"]["lexical_fusion"] = round(lex_bonus, 6)
             fusion_debug["active_layers"].append("lexical_fusion")
@@ -940,7 +1079,7 @@ def rerank_faim(
         if graph_scores and node.node_id in graph_scores:
             graph_components = graph_scores[node.node_id]
             graph_total = graph_components.get("total", 0.0)
-            graph_bonus = FUSION_LAYER_WEIGHTS["graph_semantics"] * graph_total
+            graph_bonus = active_fusion_weights["graph_semantics"] * graph_total
             score = round(score + graph_bonus, 6)
             fusion_debug["contributions"]["graph_semantics"] = round(graph_bonus, 6)
             fusion_debug["active_layers"].append("graph_semantics")
@@ -963,7 +1102,7 @@ def rerank_faim(
                 overlap += len(query_terms & table_terms) / len(query_terms)
                 overlap += len(query_terms & filename_terms) / len(query_terms)
             modality_score = min(1.0, overlap / 3.0)
-            modality_bonus = FUSION_LAYER_WEIGHTS["modality"] * modality_score
+            modality_bonus = active_fusion_weights["modality"] * modality_score
             score = round(score + modality_bonus, 6)
             fusion_debug["contributions"]["modality"] = round(modality_bonus, 6)
             fusion_debug["active_layers"].append("modality")
@@ -977,7 +1116,7 @@ def rerank_faim(
             domain_total = min(
                 1.0, 0.45 * entity_link + 0.40 * fact_support + 0.15 * domain_term
             )
-            domain_bonus = FUSION_LAYER_WEIGHTS["domain_memory"] * domain_total
+            domain_bonus = active_fusion_weights["domain_memory"] * domain_total
             score = round(score + domain_bonus, 6)
             fusion_debug["contributions"]["domain_memory"] = round(domain_bonus, 6)
             fusion_debug["active_layers"].append("domain_memory")
@@ -986,9 +1125,12 @@ def rerank_faim(
             components["domain_term"] = round(domain_term, 6)
         components["domain"] = round(domain_total, 6)
 
+        preloaded_repr = preloaded_reprs.get(node.node_id) if preloaded_reprs is not None else None
         repr_row = repr_rows.get(node.node_id)
         answer_text = ""
-        if repr_row is not None and getattr(repr_row, "normalized_text", None):
+        if preloaded_repr is not None and getattr(preloaded_repr, "normalized_text", None):
+            answer_text = str(preloaded_repr.normalized_text)
+        elif repr_row is not None and getattr(repr_row, "normalized_text", None):
             answer_text = str(repr_row.normalized_text)
         elif modality_row is not None:
             answer_text = str(modality_row.ocr_text or "") or str(
@@ -1007,19 +1149,22 @@ def rerank_faim(
                 "anchor": node.anchor_json,
                 "created_at": node.created_at,
                 "graph_paths": (graph_paths or {}).get(node.node_id, []),
-                "repr_v2": repr_repo._row_to_repr(repr_row) if repr_row else None,
+                "repr_v2": (
+                    preloaded_repr
+                    if preloaded_repr is not None
+                    else (repr_repo._row_to_repr(repr_row) if (repr_row and repr_repo is not None) else None)
+                ),
                 "answer_text": answer_text,
                 "fusion_debug": fusion_debug,
             }
         )
-
 
     # --- PHASE 4: Deterministic reranker v2 ---
     if query_text and query_repr_v2 is not None and scored:
         # Contradiction suppression is pairwise.  Keep it bounded to the
         # strongest deterministic candidates; the full candidate set still
         # participates in base scoring and final top-k ordering.
-        phase4_limit = max(50, k * 2)
+        phase4_limit = max(20, k) if fast_skip_graph_opp else max(50, k * 2)
         phase4_scored = sorted(
             scored,
             key=lambda item: (-float(item.get("score", 0.0)), str(item["node_id"])),
@@ -1042,7 +1187,7 @@ def rerank_faim(
         )
         for item in scored:
             phase4_total = phase4_totals.get(item["node_id"], 0.0)
-            phase4_bonus = FUSION_LAYER_WEIGHTS["reranker_v2"] * phase4_total
+            phase4_bonus = active_fusion_weights["reranker_v2"] * phase4_total
             item["score"] = round(item["score"] + phase4_bonus, 6)
             item["score_components"]["phase4"] = round(phase4_total, 6)
             item["fusion_debug"]["contributions"]["reranker_v2"] = round(
@@ -1058,17 +1203,32 @@ def rerank_faim(
                 "explain": phase4_explain.get(item["node_id"], {}),
                 **phase4_explain.get(item["node_id"], {}),
             }
-        if phase4_suppressed:
+        if phase4_suppressed and not include_historical:
             scored = [
                 item for item in scored if item["node_id"] not in phase4_suppressed
             ]
 
+    # Grounded source evidence (level == 0 or raw_id present) must not be
+    # displaced in top-k by un-grounded macro/synthesis nodes (level > 0, raw_id is None).
+    for item in scored:
+        if (item.get("level") or 0) > 0 and not item.get("raw_id"):
+            item["score"] = round(float(item["score"]) - 0.25, 6)
+
     # --- PHASE C: FAIM-native late interaction ---
     if query_repr_v2 is not None and scored:
+        from core.query.late_interaction_native import (
+            _build_query_units,
+            build_query_concept_neighbors,
+        )
+
         # Late interaction is materially more expensive than the base score.
         # Apply it only to the strongest deterministic shortlist; the full
         # candidate set still participates in base scoring and final ordering.
-        phasec_limit = max(50, k * 2)
+        phasec_limit = max(20, k) if fast_skip_graph_opp else max(50, k * 2)
+        precomputed_q_units = _build_query_units(query_repr_v2)
+        precomputed_concept_neighbors = build_query_concept_neighbors(
+            precomputed_q_units
+        )
         phasec_ids = {
             item["node_id"]
             for item in sorted(
@@ -1083,9 +1243,11 @@ def rerank_faim(
             late_interaction = score_late_interaction_native(
                 query_repr=query_repr_v2,
                 doc_repr=repr_v2,
+                precomputed_query_units=precomputed_q_units,
+                concept_neighbors=precomputed_concept_neighbors,
             )
             phasec_total = float(late_interaction.total)
-            phasec_bonus = FUSION_LAYER_WEIGHTS["late_interaction"] * phasec_total
+            phasec_bonus = active_fusion_weights["late_interaction"] * phasec_total
             item["score"] = round(item["score"] + phasec_bonus, 6)
             item["score_components"]["phasec"] = round(phasec_total, 6)
             item["fusion_debug"]["contributions"]["late_interaction"] = round(
@@ -1115,23 +1277,20 @@ def rerank_faim(
     superseded_by_map: Dict[UUID, UUID] = {}  # node_id → newer_node_id
     supersedes_map: Dict[UUID, List[UUID]] = {}  # node_id → list of older_node_ids
 
-    if len(candidate_ids) > 1:
-        from store.pg.models_faim import EdgeModel, NodeModel
+    if len(candidate_ids) > 1 and not fast_skip_graph_opp:
         from collections import defaultdict
+
+        from store.pg.models_faim import EdgeModel, NodeModel
 
         # Temporal contradiction checks are pairwise over candidate ancestry.
         # They are only able to change the final top-k, so keep this expensive
         # phase bounded to the strongest deterministic shortlist while the
         # full candidate set still participates in base scoring.
         temporal_limit = max(50, k * 5)
-        temporal_candidate_ids = [
-            item["node_id"] for item in scored[:temporal_limit]
-        ]
+        temporal_candidate_ids = [item["node_id"] for item in scored[:temporal_limit]]
 
         # 1. Resolve Ancestors for each candidate (up to 2-hop inheritance paths)
-        ancestors: Dict[UUID, set] = {
-            cid: {cid} for cid in temporal_candidate_ids
-        }
+        ancestors: Dict[UUID, set] = {cid: {cid} for cid in temporal_candidate_ids}
 
         # Hop 1 of inheritance lookup
         hop1_edges = (
@@ -1151,7 +1310,9 @@ def rerank_faim(
             ancestors[edge.dst_node_id].add(edge.src_node_id)
 
         # Hop 2 of inheritance lookup
-        hop1_parent_ids = list({pid for parents in hop1_parents.values() for pid in parents})
+        hop1_parent_ids = list(
+            {pid for parents in hop1_parents.values() for pid in parents}
+        )
         if hop1_parent_ids:
             hop2_edges = (
                 session.query(EdgeModel)
@@ -1195,7 +1356,9 @@ def rerank_faim(
 
         if opp_edges:
             opp_pairs = {(edge.src_node_id, edge.dst_node_id) for edge in opp_edges}
-            opp_pairs.update({(edge.dst_node_id, edge.src_node_id) for edge in opp_edges})
+            opp_pairs.update(
+                {(edge.dst_node_id, edge.src_node_id) for edge in opp_edges}
+            )
 
             # 3. Detect contradictions between candidate pairs
             contradictions = []
@@ -1232,7 +1395,9 @@ def rerank_faim(
                 to_suppress: set = set()
                 for ci, cj in contradictions:
                     # Skip if either is already marked for hard suppression (only if hard suppression is active)
-                    if not include_historical and (ci in to_suppress or cj in to_suppress):
+                    if not include_historical and (
+                        ci in to_suppress or cj in to_suppress
+                    ):
                         continue
 
                     ts_i = created_at_map.get(ci)
@@ -1241,9 +1406,11 @@ def rerank_faim(
                     # Determine CURRENT vs HISTORICAL (newer = CURRENT)
                     is_i_newer = True
                     if ts_i and ts_j:
-                        is_i_newer = (ts_i >= ts_j)
+                        is_i_newer = ts_i >= ts_j
                     else:
-                        is_i_newer = (score_map.get(ci, -999.0) >= score_map.get(cj, -999.0))
+                        is_i_newer = score_map.get(ci, -999.0) >= score_map.get(
+                            cj, -999.0
+                        )
 
                     if is_i_newer:
                         current_node, historical_node = ci, cj
@@ -1264,7 +1431,6 @@ def rerank_faim(
 
                 if to_suppress:
                     scored = [r for r in scored if r["node_id"] not in to_suppress]
-
 
     # Apply temporal status and lineage mapping
     for r in scored:
@@ -1412,9 +1578,7 @@ def build_explain_payload(
                     dict(repr_row.semantic_phrase_counts or {})
                 ),
                 "concept_bucket_count": len(dict(repr_row.concept_counts or {})),
-                "morphology_bucket_count": len(
-                    dict(repr_row.morphology_counts or {})
-                ),
+                "morphology_bucket_count": len(dict(repr_row.morphology_counts or {})),
             }
             if repr_row is not None
             else None
@@ -1433,7 +1597,9 @@ def _build_fusion_summary(
         str(key): round(float(value or 0.0), 6)
         for key, value in dict(fusion_debug.get("contributions", {}) or {}).items()
     }
-    active_layers = list(dict.fromkeys(list(fusion_debug.get("active_layers", []) or [])))
+    active_layers = list(
+        dict.fromkeys(list(fusion_debug.get("active_layers", []) or []))
+    )
     strongest_layers = [
         {"layer": key, "contribution": value}
         for key, value in sorted(

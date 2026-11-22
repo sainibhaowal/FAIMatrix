@@ -169,19 +169,16 @@ export async function fetchGraphExplain(
 export async function appendFigInteractionPulse(
   graphId: string,
   pulse: FigInteractionPulse,
-): Promise<
-  | {
-      stored: boolean;
-      graph_id: string;
-      tenant_id: string;
-      seq?: number;
-      event_id?: string;
-      ts?: string | null;
-      protocol?: string | null;
-      error?: string;
-    }
-  | null
-> {
+): Promise<{
+  stored: boolean;
+  graph_id: string;
+  tenant_id: string;
+  seq?: number;
+  event_id?: string;
+  ts?: string | null;
+  protocol?: string | null;
+  error?: string;
+} | null> {
   if (!graphId || !pulse) return null;
   return figRequest(`/api/v1/events/fig-interaction?graph_id=${graphId}`, {
     method: "POST",

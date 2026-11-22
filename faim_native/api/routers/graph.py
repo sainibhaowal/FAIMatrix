@@ -174,7 +174,9 @@ def _build_pulse_trace(
         node_key = str(node_id)
         node = node_models.get(node_key)
         repr_row = repr_rows.get(node_key)
-        via_edge = path_edges[idx - 1] if idx > 0 and idx - 1 < len(path_edges) else None
+        via_edge = (
+            path_edges[idx - 1] if idx > 0 and idx - 1 < len(path_edges) else None
+        )
         evidence_sources = {"graph_path", "node_metrics"}
         if repr_row is not None:
             evidence_sources.add("semantic_signature")
@@ -213,9 +215,7 @@ def _build_pulse_trace(
                 "level": int(getattr(node, "level", 0) or 0),
                 "cognitive_type": getattr(node, "cognitive_type", None),
                 "touch_count": int(getattr(node, "touch_count", 0) or 0),
-                "residual": round(
-                    float(getattr(node, "residual", 0) or 0.0) / 1e9, 6
-                ),
+                "residual": round(float(getattr(node, "residual", 0) or 0.0) / 1e9, 6),
                 "last_access": (
                     node.last_access.isoformat() if node and node.last_access else None
                 ),

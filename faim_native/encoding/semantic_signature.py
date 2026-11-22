@@ -23,10 +23,11 @@ except (ImportError, RuntimeError):
     _parent = Path(__file__).parent.parent
     if str(_parent) not in sys.path:
         sys.path.insert(0, str(_parent))
-    from encoding.porter_stemmer import stem as stem_en
     from lexical.de_light_stemmer import stem_de_tokens
     from lexical.transliteration import transliterate_de
     from lexical.unicode_normalizer import normalize_unicode_text
+
+    from encoding.porter_stemmer import stem as stem_en
 
 
 SEMANTIC_PHRASE_BUCKETS = 4096
@@ -198,7 +199,9 @@ def _build_transliterated_tokens(raw_text: str) -> Tuple[str, ...]:
     transliterated = transliterate_de(normalized).lower()
     source_tokens = set(_tokenize(normalized))
     translit_tokens = {
-        token for token in _tokenize(transliterated) if token and token not in source_tokens
+        token
+        for token in _tokenize(transliterated)
+        if token and token not in source_tokens
     }
     return tuple(sorted(translit_tokens))
 
@@ -269,7 +272,16 @@ def _build_temporal_cues(raw_text: str) -> Tuple[str, ...]:
         cues.add("time:date")
     if _YEAR_RE.search(lowered):
         cues.add("time:year")
-    for marker in ("before", "after", "during", "since", "until", "quarter", "month", "week"):
+    for marker in (
+        "before",
+        "after",
+        "during",
+        "since",
+        "until",
+        "quarter",
+        "month",
+        "week",
+    ):
         if marker in lowered:
             cues.add(f"time:{marker}")
     return tuple(sorted(cues))

@@ -15,8 +15,8 @@ _faim_native = _tests_dir.parent
 if str(_faim_native) not in sys.path:
     sys.path.insert(0, str(_faim_native))
 
-from core.query.query_engine import rerank_faim
-from store.pg.models_faim import EdgeModel, NodeModel, create_all_tables
+from core.query.query_engine import rerank_faim  # noqa: E402
+from store.pg.models_faim import EdgeModel, NodeModel, create_all_tables  # noqa: E402
 
 
 def test_transitive_contradiction_resolution():
@@ -102,12 +102,6 @@ def test_transitive_contradiction_resolution():
 
     session.add_all([node_a, node_b, node_c, edge_opp, edge_inh])
     session.commit()
-
-    # Pre-rank list in scored format (similarity etc doesn't matter for contradiction testing)
-    scored = [
-        {"node_id": id_a, "score": 0.8, "score_components": {}, "level": 0, "touch_count": 0, "vector_hash": "hash_a"},
-        {"node_id": id_c, "score": 0.95, "score_components": {}, "level": 1, "touch_count": 0, "vector_hash": "hash_c"},
-    ]
 
     # --- Mode 1: include_historical=True (Soft Suppression) ---
     results_soft = rerank_faim(

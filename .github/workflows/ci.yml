@@ -83,7 +83,7 @@ jobs:
           cache-dependency-path: frontend/pnpm-lock.yaml
 
       - name: Install frontend dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
         run: pnpm run typecheck
@@ -93,6 +93,33 @@ jobs:
 
       - name: Unit tests
         run: pnpm run test:unit
+
+  public-benchmark-harness:
+    name: Public benchmark harness
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: faim-benchmarks
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: faim-benchmarks/pyproject.toml
+
+      - name: Install benchmark harness
+        run: python -m pip install --upgrade pip && python -m pip install -e ".[dev]"
+
+      - name: Run benchmark harness tests
+        run: python -m pytest -q
+
+      - name: Compile benchmark harness
+        run: python -m compileall -q faim_benchmarks
 
   compose-validation:
     name: Compose configuration
@@ -154,14 +181,14 @@ jobs:
         shell: bash
         run: |
           payload=$(printf 'FAIM production network index verification' | base64 -w0)
-          response=$(curl -fsS -X POST http://localhost:8001/api/v1/ingest \
+          response=$(curl -fsS --retry 2 --retry-delay 3 --retry-connrefused --max-time 300 -X POST http://localhost:8001/api/v1/ingest \
             -H 'Content-Type: application/json' \
             -H "X-Tenant-Id: $CI_TENANT_ID" -H "X-Api-Key: $CI_TENANT_KEY" \
             -d "{\"graph_id\":\"ci-qdrant-e2e\",\"filename\":\"qdrant-e2e.txt\",\"content_type\":\"text/plain\",\"profile\":\"fast\",\"persist_mode\":\"strict\",\"bytes_base64\":\"$payload\"}")
           echo "$response" | python -c 'import json,sys; d=json.load(sys.stdin); assert d["status"] in {"completed","dedup_hit"}, d; print(d)'
-          collections=$(curl -fsS http://localhost:8041/collections)
+          collections=$(curl -fsS --retry 2 --retry-delay 3 --retry-connrefused --max-time 30 http://localhost:8041/collections)
           echo "$collections" | grep -q 'faim_'
-          curl -fsS http://localhost:8001/api/v1/query \
+          curl -fsS --retry 2 --retry-delay 3 --retry-connrefused --max-time 300 -X POST http://localhost:8001/api/v1/query \
             -H 'Content-Type: application/json' \
             -H "X-Tenant-Id: $CI_TENANT_ID" -H "X-Api-Key: $CI_TENANT_KEY" \
             -d '{"graph_id":"ci-qdrant-e2e","query_text":"production network index","profile":"FAST","k":1}' \

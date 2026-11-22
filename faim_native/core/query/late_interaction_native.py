@@ -10,7 +10,9 @@ of neural token embeddings.
 from __future__ import annotations
 
 import re
+from collections import OrderedDict
 from dataclasses import dataclass
+from threading import RLock
 from typing import Dict, List, Mapping, Sequence, Tuple
 
 try:
@@ -87,6 +89,17 @@ def _maxsim_units(
     weight_norm = 0.0
     matched: List[Dict[str, object]] = []
 
+    word_to_cands: Dict[str, List[Tuple[int, str, frozenset[str]]]] | None = None
+    if partial_word_match:
+        word_to_cands = {}
+        for idx, candidate in enumerate(sorted(doc_set)):
+            cand_parts = frozenset(part for part in candidate.split() if part)
+            if not cand_parts:
+                continue
+            entry = (idx, candidate, cand_parts)
+            for part in cand_parts:
+                word_to_cands.setdefault(part, []).append(entry)
+
     for unit in query_units:
         if not unit.value:
             continue
@@ -97,20 +110,27 @@ def _maxsim_units(
         if unit.value in doc_set:
             score = 1.0
             matched_value = unit.value
-        elif partial_word_match:
-            unit_parts = tuple(part for part in unit.value.split() if part)
+        elif partial_word_match and word_to_cands is not None:
+            unit_parts = frozenset(part for part in unit.value.split() if part)
             if unit_parts:
-                for candidate in sorted(doc_set):
-                    candidate_parts = tuple(part for part in candidate.split() if part)
-                    if not candidate_parts:
-                        continue
-                    overlap = len(set(unit_parts) & set(candidate_parts))
-                    if overlap <= 0:
-                        continue
-                    candidate_score = overlap / max(len(unit_parts), len(candidate_parts))
-                    if candidate_score > score:
-                        score = candidate_score
-                        matched_value = candidate
+                seen_idx = set()
+                best_idx = -1
+                n_unit = len(unit_parts)
+                for part in unit_parts:
+                    for idx, candidate, cand_parts in word_to_cands.get(part, ()):
+                        if idx in seen_idx:
+                            continue
+                        seen_idx.add(idx)
+                        overlap = len(unit_parts & cand_parts)
+                        if overlap <= 0:
+                            continue
+                        candidate_score = overlap / max(n_unit, len(cand_parts))
+                        if candidate_score > score or (
+                            candidate_score == score and (best_idx < 0 or idx < best_idx)
+                        ):
+                            score = candidate_score
+                            matched_value = candidate
+                            best_idx = idx
 
         weighted_total += unit.weight * score
         if score > 0.0:
@@ -167,7 +187,9 @@ def _translit_bridge_values(repr_row: RepresentationV2) -> Tuple[str, ...]:
     return tuple(sorted(values))
 
 
-def _build_query_units(repr_row: RepresentationV2) -> Dict[str, Tuple[LateInteractionUnit, ...]]:
+def _build_query_units(
+    repr_row: RepresentationV2,
+) -> Dict[str, Tuple[LateInteractionUnit, ...]]:
     tokens = _tokenize(repr_row.normalized_text)
     phrases = _phrases(tokens)
     return {
@@ -176,7 +198,11 @@ def _build_query_units(repr_row: RepresentationV2) -> Dict[str, Tuple[LateIntera
             for value in tokens
         ),
         "phrase": tuple(
-            LateInteractionUnit(value=value, weight=1.15 if len(value.split()) == 3 else 1.0, channel="phrase")
+            LateInteractionUnit(
+                value=value,
+                weight=1.15 if len(value.split()) == 3 else 1.0,
+                channel="phrase",
+            )
             for value in phrases
         ),
         "alias": tuple(
@@ -220,10 +246,196 @@ def _doc_unit_values(repr_row: RepresentationV2) -> Dict[str, Tuple[str, ...]]:
     }
 
 
+_DOC_UNITS_CACHE: "OrderedDict[str, Tuple[Dict[str, Tuple[str, ...]], Dict[str, Tuple[frozenset[str], Dict[str, List[Tuple[int, str, frozenset[str]]]]]]]]" = OrderedDict()
+_DOC_UNITS_LOCK = RLock()
+_DOC_UNITS_MAX = 8192
+
+
+def _build_channel_lookup(
+    doc_values: Sequence[str], *, with_word_index: bool
+) -> Tuple[frozenset[str], Dict[str, List[Tuple[int, str, frozenset[str]]]]]:
+    doc_set = frozenset(value for value in doc_values if value)
+    if not with_word_index or not doc_set:
+        return doc_set, {}
+    word_to_cands: Dict[str, List[Tuple[int, str, frozenset[str]]]] = {}
+    for idx, candidate in enumerate(sorted(doc_set)):
+        cand_parts = frozenset(part for part in candidate.split() if part)
+        if not cand_parts:
+            continue
+        entry = (idx, candidate, cand_parts)
+        for part in cand_parts:
+            word_to_cands.setdefault(part, []).append(entry)
+    return doc_set, word_to_cands
+
+
+def _get_cached_doc_units(
+    repr_row: RepresentationV2,
+) -> Tuple[
+    Dict[str, Tuple[str, ...]],
+    Dict[str, Tuple[frozenset[str], Dict[str, List[Tuple[int, str, frozenset[str]]]]]],
+]:
+    key = getattr(repr_row, "repr_hash", "") or ""
+    if key:
+        with _DOC_UNITS_LOCK:
+            cached = _DOC_UNITS_CACHE.get(key)
+            if cached is not None:
+                _DOC_UNITS_CACHE.move_to_end(key)
+                return cached
+    doc_units = _doc_unit_values(repr_row)
+    lookups = {
+        "token": _build_channel_lookup(doc_units["token"], with_word_index=True),
+        "phrase": _build_channel_lookup(doc_units["phrase"], with_word_index=True),
+        "alias": _build_channel_lookup(doc_units["alias"], with_word_index=True),
+        "translit": _build_channel_lookup(doc_units["translit"], with_word_index=False),
+        "stem_family": _build_channel_lookup(doc_units["stem_family"], with_word_index=False),
+        "relation": _build_channel_lookup(doc_units["relation"], with_word_index=False),
+        "value": _build_channel_lookup(doc_units["value"], with_word_index=False),
+        "temporal": _build_channel_lookup(doc_units["temporal"], with_word_index=False),
+    }
+    entry = (doc_units, lookups)
+    if key:
+        with _DOC_UNITS_LOCK:
+            _DOC_UNITS_CACHE[key] = entry
+            _DOC_UNITS_CACHE.move_to_end(key)
+            while len(_DOC_UNITS_CACHE) > _DOC_UNITS_MAX:
+                _DOC_UNITS_CACHE.popitem(last=False)
+    return entry
+
+
+def build_query_concept_neighbors(
+    query_units: Mapping[str, Sequence[LateInteractionUnit]],
+    *,
+    max_hops: int = 1,
+    decay: float = 0.45,
+    max_neighbors_per_unit: int = 6,
+    extra_graph: Optional[Mapping[str, Sequence[Tuple[str, str, float]]]] = None,
+    domain_map: Optional[Mapping[str, Sequence[str]]] = None,
+    canonical_map: Optional[Mapping[str, Sequence[str]]] = None,
+    use_conceptnet: bool = True,
+) -> Dict[str, Tuple[Tuple[str, float], ...]]:
+    """Build 1-hop (or k-hop) decayed concept neighbors for query units once per query."""
+    import os
+
+    if os.getenv("FAIM_MAXSIM_CONCEPT_EXPANSION", "true").strip().lower() in {
+        "0",
+        "false",
+        "no",
+        "off",
+    }:
+        return {}
+
+    from lexical.relational_concept_graph import spread_relational_concepts
+
+    eff_decay = min(0.85, max(0.05, float(decay)))
+    neighbors_map: Dict[str, Tuple[Tuple[str, float], ...]] = {}
+    seen_values = set()
+    for channel in ("token", "phrase"):
+        for unit in query_units.get(channel, ()):
+            val = unit.value
+            if not val or val in seen_values:
+                continue
+            seen_values.add(val)
+            spread = spread_relational_concepts(
+                [val],
+                max_hops=max_hops,
+                decay=eff_decay,
+                min_score=0.05,
+                max_expansions=max_neighbors_per_unit,
+                extra_graph=extra_graph,
+                domain_map=domain_map,
+                canonical_map=canonical_map,
+                use_conceptnet=use_conceptnet,
+            )
+            if spread:
+                neighbors_map[val] = tuple(
+                    (item.term, min(eff_decay, float(item.weight)))
+                    for item in spread
+                )
+    return neighbors_map
+
+
+def _maxsim_units_preindexed(
+    query_units: Sequence[LateInteractionUnit],
+    doc_set: frozenset[str],
+    word_to_cands: Mapping[str, List[Tuple[int, str, frozenset[str]]]],
+    *,
+    partial_word_match: bool = False,
+    concept_neighbors: Optional[Mapping[str, Tuple[Tuple[str, float], ...]]] = None,
+    concept_doc_set: Optional[frozenset[str]] = None,
+) -> Tuple[float, List[Dict[str, object]]]:
+    if not query_units or not doc_set:
+        return 0.0, []
+    weighted_total = 0.0
+    weight_norm = 0.0
+    matched: List[Dict[str, object]] = []
+
+    for unit in query_units:
+        if not unit.value:
+            continue
+        weight_norm += unit.weight
+        score = 0.0
+        matched_value = ""
+        if unit.value in doc_set:
+            score = 1.0
+            matched_value = unit.value
+        elif partial_word_match and word_to_cands:
+            unit_parts = frozenset(part for part in unit.value.split() if part)
+            if unit_parts:
+                seen_idx = set()
+                best_idx = -1
+                n_unit = len(unit_parts)
+                for part in unit_parts:
+                    for idx, candidate, cand_parts in word_to_cands.get(part, ()):
+                        if idx in seen_idx:
+                            continue
+                        seen_idx.add(idx)
+                        overlap = len(unit_parts & cand_parts)
+                        if overlap <= 0:
+                            continue
+                        candidate_score = overlap / max(n_unit, len(cand_parts))
+                        if candidate_score > score or (
+                            candidate_score == score and (best_idx < 0 or idx < best_idx)
+                        ):
+                            score = candidate_score
+                            matched_value = candidate
+                            best_idx = idx
+        if score < 1.0 and concept_neighbors:
+            search_set = concept_doc_set if concept_doc_set is not None else doc_set
+            for neighbor_term, neighbor_weight in concept_neighbors.get(unit.value, ()):
+                if neighbor_term in doc_set or neighbor_term in search_set:
+                    if neighbor_weight > score:
+                        score = float(neighbor_weight)
+                        matched_value = f"concept:{neighbor_term}"
+        weighted_total += unit.weight * score
+        if score > 0.0:
+            matched.append(
+                {
+                    "query_unit": unit.value,
+                    "matched_value": matched_value,
+                    "channel": unit.channel,
+                    "score": round(score, 6),
+                    "weight": round(unit.weight, 6),
+                }
+            )
+    if weight_norm <= 0.0:
+        return 0.0, []
+    matched.sort(
+        key=lambda item: (
+            -float(item["score"]),
+            -float(item["weight"]),
+            str(item["query_unit"]),
+            str(item["matched_value"]),
+        )
+    )
+    return weighted_total / weight_norm, matched[:12]
+
+
 def score_late_interaction_native(
     *,
     query_repr: RepresentationV2,
     doc_repr: RepresentationV2 | None,
+    precomputed_query_units: Dict[str, Tuple[LateInteractionUnit, ...]] | None = None,
+    concept_neighbors: Optional[Mapping[str, Tuple[Tuple[str, float], ...]]] = None,
 ) -> LateInteractionScore:
     """Compute FAIM-native symbolic late interaction score."""
     if doc_repr is None:
@@ -245,28 +457,50 @@ def score_late_interaction_native(
             explain={"matched_units": {}},
         )
 
-    query_units = _build_query_units(query_repr)
-    doc_units = _doc_unit_values(doc_repr)
+    query_units = (
+        precomputed_query_units
+        if precomputed_query_units is not None
+        else _build_query_units(query_repr)
+    )
+    eff_concept_neighbors = (
+        concept_neighbors
+        if concept_neighbors is not None
+        else build_query_concept_neighbors(query_units)
+    )
+    _doc_units, doc_lookups = _get_cached_doc_units(doc_repr)
+    all_doc_surfaces = doc_lookups["token"][0] | doc_lookups["phrase"][0]
 
-    token_score, token_matches = _maxsim_units(
-        query_units["token"], doc_units["token"], partial_word_match=True
+    token_score, token_matches = _maxsim_units_preindexed(
+        query_units["token"],
+        *doc_lookups["token"],
+        partial_word_match=True,
+        concept_neighbors=eff_concept_neighbors,
+        concept_doc_set=all_doc_surfaces,
     )
-    phrase_score, phrase_matches = _maxsim_units(
-        query_units["phrase"], doc_units["phrase"], partial_word_match=True
+    phrase_score, phrase_matches = _maxsim_units_preindexed(
+        query_units["phrase"],
+        *doc_lookups["phrase"],
+        partial_word_match=True,
+        concept_neighbors=eff_concept_neighbors,
+        concept_doc_set=all_doc_surfaces,
     )
-    alias_score, alias_matches = _maxsim_units(query_units["alias"], doc_units["alias"])
-    translit_score, translit_matches = _maxsim_units(
-        query_units["translit"], doc_units["translit"]
+    alias_score, alias_matches = _maxsim_units_preindexed(
+        query_units["alias"], *doc_lookups["alias"]
     )
-    stem_score, stem_matches = _maxsim_units(
-        query_units["stem_family"], doc_units["stem_family"]
+    translit_score, translit_matches = _maxsim_units_preindexed(
+        query_units["translit"], *doc_lookups["translit"]
     )
-    relation_score, relation_matches = _maxsim_units(
-        query_units["relation"], doc_units["relation"]
+    stem_score, stem_matches = _maxsim_units_preindexed(
+        query_units["stem_family"], *doc_lookups["stem_family"]
     )
-    value_score, value_matches = _maxsim_units(query_units["value"], doc_units["value"])
-    temporal_score, temporal_matches = _maxsim_units(
-        query_units["temporal"], doc_units["temporal"]
+    relation_score, relation_matches = _maxsim_units_preindexed(
+        query_units["relation"], *doc_lookups["relation"]
+    )
+    value_score, value_matches = _maxsim_units_preindexed(
+        query_units["value"], *doc_lookups["value"]
+    )
+    temporal_score, temporal_matches = _maxsim_units_preindexed(
+        query_units["temporal"], *doc_lookups["temporal"]
     )
 
     semantic_phrase_overlap = _count_overlap_ratio(

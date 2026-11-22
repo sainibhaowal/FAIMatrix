@@ -136,6 +136,8 @@ class AuthKeyAuditLog(Base):
             "meta": self.meta or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
 class UserModel(Base):
     """
     Formal user registry for identity management.
@@ -174,4 +176,36 @@ class UserModel(Base):
             "name": self.full_name,
             "totp_enabled": bool(self.totp_enabled),
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class MCPOAuthGrant(Base):
+    """Persistent OAuth 2.1 grant for external MCP clients (Cursor, Claude, CLI)."""
+
+    __tablename__ = "mcp_oauth_grants"
+
+    id = Column(UUIDType, primary_key=True, default=uuid4)
+    grant_id = Column(Text, nullable=False, unique=True, index=True)
+    tenant_id = Column(Text, nullable=False, index=True)
+    user_id = Column(Text, nullable=False)
+    client_id = Column(Text, nullable=False)
+    client_name = Column(Text, nullable=False, default="MCP Client")
+    scopes = Column(JSONBType, nullable=False, default=list)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "grant_id": self.grant_id,
+            "tenant_id": self.tenant_id,
+            "user_id": self.user_id,
+            "client_id": self.client_id,
+            "client_name": self.client_name,
+            "scopes": list(self.scopes or []),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_used_at": (
+                self.last_used_at.isoformat() if self.last_used_at else None
+            ),
         }

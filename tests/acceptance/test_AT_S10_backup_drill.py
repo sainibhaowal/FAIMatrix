@@ -54,6 +54,10 @@ class TestBackupRestoreDrill(unittest.TestCase):
 
         # 3. Get row counts from drill DB
         drill_url = os.getenv("DATABASE_URL").rsplit("/", 1)[0] + "/faim_drill"
+        if drill_url.startswith("postgresql://"):
+            drill_url = "postgresql+psycopg2://" + drill_url.removeprefix(
+                "postgresql://"
+            )
         from sqlalchemy import create_engine
         from sqlalchemy.orm import sessionmaker
 

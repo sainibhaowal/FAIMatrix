@@ -187,10 +187,7 @@ def search_vptree(
     search(root)
 
     ranked = sorted(
-        (
-            (node_id, _distance_to_similarity(distance))
-            for distance, node_id in best
-        ),
+        ((node_id, _distance_to_similarity(distance)) for distance, node_id in best),
         key=lambda item: (-item[1], str(item[0])),
     )
     return ranked[:k]

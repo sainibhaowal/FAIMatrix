@@ -16,12 +16,10 @@ This suite verifies:
 
 from __future__ import annotations
 
-from datetime import datetime
 from uuid import uuid4
 
-from fastapi.testclient import TestClient
-
 import pytest  # noqa: F401
+from fastapi.testclient import TestClient
 
 
 def _mk_client(monkeypatch, *, tenant_keys_json: str, database_url: str) -> TestClient:
@@ -53,7 +51,7 @@ def _seed_cross_galaxy_graph(session, tenant_id: str, graph_id: str) -> None:
     import hashlib
 
     from encoding.representation_v2 import build_representation_v2
-    from encoding.vector_schema import FAIMVector, VECTOR_DIMENSION
+    from encoding.vector_schema import VECTOR_DIMENSION, FAIMVector
     from store.pg.repos.node_repo import NodeRepo
     from store.pg.repos.representation_repo import RepresentationRepo
 
@@ -88,19 +86,13 @@ def _seed_cross_galaxy_graph(session, tenant_id: str, graph_id: str) -> None:
         repr_repo.upsert_node_representation(
             graph_id=graph_id,
             node_id=node_id,
-            representation=build_representation_v2(
-                text, display_text=text
-            ),
+            representation=build_representation_v2(text, display_text=text),
         )
         return str(node_id)
 
     # Concept "Atlas" spans both galaxies → correlation insight.
-    _write(
-        "Atlas leads the European mission control", "galaxy-alpha", 1
-    )
-    _write(
-        "Atlas coordinates rescue across the border", "galaxy-beta", 2
-    )
+    _write("Atlas leads the European mission control", "galaxy-alpha", 1)
+    _write("Atlas coordinates rescue across the border", "galaxy-beta", 2)
     # Additional distinct content so the graph is non-trivial.
     _write("Solar panels degrade slowly in orbit", "galaxy-alpha", 3)
     _write("Quantum error correction improves throughput", "galaxy-beta", 4)
@@ -109,13 +101,12 @@ def _seed_cross_galaxy_graph(session, tenant_id: str, graph_id: str) -> None:
 
 def test_invent_from_synthesis_insights_cross_galaxy(monkeypatch, tmp_path):
     """A cross-galaxy insight becomes a bounded macro invention."""
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
     from core.dynamics.invention_native import (
         invent_from_synthesis_insights,
     )
     from core.reasoning.cross_galaxy import CrossGalaxyInsight
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
     from store.pg.models_faim import Base
     from store.pg.repos.edge_repo import EdgeRepo
     from store.pg.repos.event_repo import EventRepo
@@ -198,13 +189,12 @@ def test_invent_from_synthesis_insights_cross_galaxy(monkeypatch, tmp_path):
 
 def test_invent_from_synthesis_insights_skips_single_galaxy(monkeypatch, tmp_path):
     """Insights not spanning multiple galaxies are skipped."""
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
     from core.dynamics.invention_native import (
         invent_from_synthesis_insights,
     )
     from core.reasoning.cross_galaxy import CrossGalaxyInsight
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
     from store.pg.models_faim import Base
     from store.pg.repos.edge_repo import EdgeRepo
     from store.pg.repos.event_repo import EventRepo
@@ -258,13 +248,12 @@ def test_invent_from_synthesis_insights_skips_single_galaxy(monkeypatch, tmp_pat
 
 def test_invent_from_synthesis_insights_lambda_gate(monkeypatch, tmp_path):
     """Low λ gates synthesis invention entirely."""
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
     from core.dynamics.invention_native import (
         invent_from_synthesis_insights,
     )
     from core.reasoning.cross_galaxy import CrossGalaxyInsight
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
     from store.pg.models_faim import Base
     from store.pg.repos.edge_repo import EdgeRepo
     from store.pg.repos.event_repo import EventRepo
@@ -319,12 +308,11 @@ def test_invent_from_synthesis_insights_lambda_gate(monkeypatch, tmp_path):
 
 def test_run_synthesis_invention_cycle_end_to_end(monkeypatch, tmp_path):
     """run_synthesis_invention_cycle discovers galaxies and invents."""
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
     from core.dynamics.invention_native import (
         run_synthesis_invention_cycle,
     )
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
     from store.pg.models_faim import Base
     from store.pg.repos.edge_repo import EdgeRepo
     from store.pg.repos.event_repo import EventRepo

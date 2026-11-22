@@ -15,10 +15,10 @@ import { usePathname } from "next/navigation";
 import React, { useCallback, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
-  BarChart3,
   LayoutDashboard,
   MessageSquare,
   Network,
+  Plug,
   Shield,
   HardDrive,
   CreditCard,
@@ -27,7 +27,6 @@ import {
   ChevronRight,
   Search,
   Cpu,
-  ServerCog,
   Brain,
   AlertTriangle,
 } from "lucide-react";
@@ -50,21 +49,18 @@ const NAV_GROUPS: NavGroup[] = [
     title: "Core",
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/dashboard/memory-query", label: "FAIM Cortex", icon: Search },
       { href: "/dashboard/graph", label: "FIG View", icon: Network },
-      { href: "/dashboard/domain", label: "Domain Studio", icon: ServerCog },
     ],
   },
   {
     title: "Operations",
     items: [
       { href: "/dashboard/journal", label: "Journal", icon: MessageSquare },
-      { href: "/dashboard/benchmarks", label: "Benchmarks", icon: BarChart3 },
       { href: "/dashboard/evolution", label: "Evolution", icon: Dna },
       { href: "/dashboard/providers", label: "Providers", icon: Cpu },
       { href: "/dashboard/api-keys", label: "API Keys", icon: Shield },
+      { href: "/dashboard/mcp", label: "MCP", icon: Plug },
       { href: "/dashboard/storage", label: "Storage", icon: HardDrive },
-      { href: "/dashboard/approval-queue", label: "Approval Queue", icon: AlertTriangle },
     ],
   },
   {

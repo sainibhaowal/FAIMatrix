@@ -6,7 +6,11 @@
  */
 
 export type EmbeddingProviderType = "local" | "openai" | "custom";
-export type EmbeddingProviderStatus = "untested" | "online" | "offline" | "error";
+export type EmbeddingProviderStatus =
+  | "untested"
+  | "online"
+  | "offline"
+  | "error";
 
 export interface EmbeddingProvider {
   id: string;
@@ -51,7 +55,11 @@ export function loadEmbeddingProviders(): EmbeddingProvider[] {
         deduplicated.push(p);
       } else {
         if (p.isActive) {
-          const existing = deduplicated.find((x) => `${x.name.toLowerCase().trim()}_${normalizeBaseUrl(x.baseUrl)}` === key);
+          const existing = deduplicated.find(
+            (x) =>
+              `${x.name.toLowerCase().trim()}_${normalizeBaseUrl(x.baseUrl)}` ===
+              key,
+          );
           if (existing) existing.isActive = true;
         }
       }
@@ -79,14 +87,16 @@ export function saveEmbeddingProviders(providers: EmbeddingProvider[]): void {
 /**
  * Add or update embedding provider cleanly without creating duplicates
  */
-export function addEmbeddingProvider(provider: Omit<EmbeddingProvider, "id">): EmbeddingProvider {
+export function addEmbeddingProvider(
+  provider: Omit<EmbeddingProvider, "id">,
+): EmbeddingProvider {
   const normUrl = normalizeBaseUrl(provider.baseUrl);
   const providers = loadEmbeddingProviders();
 
   const existingIndex = providers.findIndex(
     (p) =>
       p.name.toLowerCase().trim() === provider.name.toLowerCase().trim() ||
-      normalizeBaseUrl(p.baseUrl) === normUrl
+      normalizeBaseUrl(p.baseUrl) === normUrl,
   );
 
   providers.forEach((p) => {

@@ -259,6 +259,56 @@ def find_coactivation_sets(
     return result
 
 
+def _derive_member_labels(
+    graph_id: str,
+    member_nodes: List[Any],
+    node_repo: NodeRepo,
+    session: Any,
+) -> List[str]:
+    """Extract concise human-readable concept labels for macro constituents."""
+    repr_by_id: Dict[str, str] = {}
+    if session is not None and member_nodes:
+        try:
+            from store.pg.repos.representation_repo import RepresentationRepo
+
+            rrepo = RepresentationRepo(
+                session=session, tenant_id=getattr(node_repo, "tenant_id", "default")
+            )
+            rows = rrepo.list_by_node_ids(
+                graph_id=graph_id,
+                node_ids=[n.node_id for n in member_nodes],
+            )
+            repr_by_id = {
+                str(r.node_id): str(getattr(r, "normalized_text", "") or "").strip()
+                for r in rows
+            }
+        except Exception:  # nosec B110 - best effort label resolution
+            repr_by_id = {}
+
+    snippets: List[str] = []
+    seen = set()
+    for n in member_nodes:
+        nid = str(getattr(n, "node_id", ""))
+        text = repr_by_id.get(nid, "")
+        if not text:
+            sig = getattr(n, "opp_signature", None) or {}
+            if isinstance(sig, dict):
+                text = str(sig.get("title") or sig.get("label") or "").strip()
+        if not text:
+            anchor = getattr(n, "anchor_json", None) or {}
+            if isinstance(anchor, dict):
+                text = str(anchor.get("text") or anchor.get("canonical") or "").strip()
+        if text:
+            clean = " ".join(text.split())
+            if len(clean) > 36:
+                clean = f"{clean[:33].rstrip()}..."
+            key = clean.lower()
+            if key not in seen:
+                seen.add(key)
+                snippets.append(clean)
+    return snippets
+
+
 def invent_macro(
     graph_id: str,
     member_ids: List[UUID],
@@ -272,6 +322,7 @@ def invent_macro(
     lambda_threshold: float = LAMBDA_THRESHOLD,
     min_count: int = MIN_COACTIVATION_COUNT,
     min_reduction: float = MIN_REDUNDANCY_REDUCTION,
+    synthesis_origin: str = "coactivation",
 ) -> Optional[UUID]:
     """Create a macro node from members with λ check.
 
@@ -351,23 +402,58 @@ def invent_macro(
     if existing:
         return existing.node_id
 
+    # Create macro node with level = max(parents) + 1
+    macro_level = max_level + 1
+    session = getattr(node_repo, "session", None)
+
+    # Compute residual and Coefficient of Fractional Parentage (CFP) weights
+    parent_sims = [_cosine_similarity(mean_vector, pv) for pv in member_vectors]
+    avg_sim = sum(parent_sims) / len(parent_sims) if parent_sims else 0.0
+    residual = max(0.08, min(0.85, 1.0 - avg_sim))
+
+    raw_weights: List[float] = []
+    for n, sim in zip(member_nodes, parent_sims, strict=False):
+        mass = max(1.0, float(getattr(n, "touch_count", 1) or 1))
+        raw_weights.append(mass * max(0.05, float(sim)))
+    w_sum = sum(raw_weights)
+    if w_sum > 0:
+        cfp_weights = [round(w / w_sum, 6) for w in raw_weights]
+    else:
+        cfp_weights = [round(1.0 / len(member_nodes), 6) for _ in member_nodes]
+
+    # Build human-readable macro title and summary
+    snippets = _derive_member_labels(graph_id, member_nodes, node_repo, session)
+    if snippets:
+        joined = " ⊗ ".join(snippets[:3])
+        macro_title = f"Macro: {joined}"
+        if len(macro_title) > 120:
+            macro_title = f"{macro_title[:117].rstrip()}..."
+    else:
+        macro_title = (
+            f"Synthesized Macro [L{macro_level}] ({len(member_nodes)} constituents)"
+        )
+
+    weight_preview = ", ".join(f"{w:.2f}" for w in cfp_weights[:4])
+    macro_summary = (
+        f"Level-{macro_level} abstraction synthesized from {len(member_nodes)} "
+        f"constituent nodes via {synthesis_origin} (CFP weights: {weight_preview})."
+    )
+
     # Build opp_signature
     opp_signature = {
         "norm": 1.0,
         "density": 1.0,
-        "member_count": len(member_ids),
+        "member_count": len(member_nodes),
         "lambda_at_invention": round(lambda_hat, 6),
         "redundancy_reduction": round(redundancy_reduction, 6),
+        "title": macro_title,
+        "summary": macro_summary,
+        "synthesis_origin": synthesis_origin,
+        "weights": {
+            str(n.node_id): round(float(w), 4)
+            for n, w in zip(member_nodes, cfp_weights, strict=False)
+        },
     }
-
-    # Compute residual for macro
-    # Residual = 1 - avg similarity to parents
-    parent_sims = [_cosine_similarity(mean_vector, pv) for pv in member_vectors]
-    avg_sim = sum(parent_sims) / len(parent_sims) if parent_sims else 0
-    residual = max(0.0, min(1.0, 1.0 - avg_sim))
-
-    # Create macro node with level = max(parents) + 1
-    macro_level = max_level + 1
 
     # Determine dominant cognitive type from members
     member_types = [n.cognitive_type for n in member_nodes if n.cognitive_type]
@@ -415,10 +501,29 @@ def invent_macro(
         galaxy_id=galaxy_id,
     )
 
-    # Set inheritance edges from members to macro
-    # Each member contributes equally
-    fraction = 1.0 / len(member_ids)
-    parents = [(mid, fraction) for mid in member_ids]
+    # Best-effort persist normalized text representation for search & UI labels
+    if session is not None:
+        try:
+            from encoding.representation_v2 import build_representation_v2
+            from store.pg.repos.representation_repo import RepresentationRepo
+
+            with session.begin_nested():
+                repr_repo = RepresentationRepo(
+                    session=session,
+                    tenant_id=getattr(node_repo, "tenant_id", "default"),
+                )
+                repr_v2 = build_representation_v2(
+                    f"{macro_title}. {macro_summary}",
+                    display_text=macro_title,
+                )
+                repr_repo.upsert_node_representation(graph_id, macro_id, repr_v2)
+        except Exception:  # nosec B110 - representation sidecar is optional
+            pass
+
+    # Set weighted CFP inheritance edges from constituent members to macro
+    parents = [
+        (n.node_id, float(w)) for n, w in zip(member_nodes, cfp_weights, strict=False)
+    ]
     edge_repo.set_inheritance_parents(
         graph_id=graph_id,
         child_id=macro_id,
@@ -426,7 +531,6 @@ def invent_macro(
     )
 
     # Emit event with full diagnostics reference
-    session = getattr(node_repo, "session", None)
     if session is not None:
         event_repo.emit(
             session=session,
@@ -434,7 +538,10 @@ def invent_macro(
             kind="INVENT_MACRO_NODE",
             payload={
                 "macro_id": str(macro_id),
-                "member_ids": [str(m) for m in member_ids],
+                "title": macro_title,
+                "synthesis_origin": synthesis_origin,
+                "member_ids": [str(n.node_id) for n in member_nodes],
+                "weights": opp_signature.get("weights", {}),
                 "level": macro_level,
                 "lambda_hat": round(lambda_hat, 6),
                 "redundancy_reduction": round(redundancy_reduction, 6),
@@ -496,10 +603,10 @@ def run_invention_cycle(
     This is the runtime-safe bridge that wires invention into evolve flows.
     """
     result = InventionResult(lambda_hat=lambda_hat)
-    
+
     # We still fetch state to update last_cycle_macros, but we no longer
     # need to track signature_counts natively.
-    state = state_repo.get_or_create(graph_id=graph_id, session=session)
+    state_repo.get_or_create(graph_id=graph_id, session=session)
 
     try:
         latest_seq = int(event_repo.get_max_seq(session, graph_id))
@@ -508,13 +615,13 @@ def run_invention_cycle(
         result.errors.append(f"event_cursor:{type(exc).__name__}")
     result.last_event_seq = latest_seq
     signature_snapshot: Dict[str, Dict[str, Any]] = {}
-    
+
     # 1. Fetch pending inventions directly from the synchronous DB table
     try:
         candidates = node_repo.get_pending_inventions(
-            graph_id=graph_id, 
+            graph_id=graph_id,
             min_count=min_coactivation_count,
-            limit=max_macros_per_cycle * 2
+            limit=max_macros_per_cycle * 2,
         )
     except Exception as exc:
         candidates = []
@@ -546,7 +653,7 @@ def run_invention_cycle(
         if not isinstance(members_raw, list):
             result.skipped_candidates += 1
             continue
-            
+
         if not (2 <= len(members_raw) <= max_member_set_size):
             result.skipped_candidates += 1
             continue
@@ -573,7 +680,11 @@ def run_invention_cycle(
                 node_repo.mark_invented(graph_id, signature)
             except Exception as exc:
                 result.errors.append(f"mark_invented:{type(exc).__name__}")
-            snapshot_entry = signature_snapshot.get(signature) if isinstance(signature, str) else None
+            snapshot_entry = (
+                signature_snapshot.get(signature)
+                if isinstance(signature, str)
+                else None
+            )
             if snapshot_entry is not None:
                 snapshot_entry["invented"] = True
             continue
@@ -605,7 +716,7 @@ def run_invention_cycle(
         except Exception as exc:
             macro_id = None
             result.errors.append(f"macro_create:{type(exc).__name__}")
-        
+
         if macro_id is None:
             result.skipped_candidates += 1
             continue
@@ -615,7 +726,9 @@ def run_invention_cycle(
             node_repo.mark_invented(graph_id, signature)
         except Exception as exc:
             result.errors.append(f"mark_invented:{type(exc).__name__}")
-        snapshot_entry = signature_snapshot.get(signature) if isinstance(signature, str) else None
+        snapshot_entry = (
+            signature_snapshot.get(signature) if isinstance(signature, str) else None
+        )
         if snapshot_entry is not None:
             snapshot_entry["invented"] = True
 
@@ -632,7 +745,7 @@ def run_invention_cycle(
         last_cycle_at=datetime.now(timezone.utc),
         session=session,
     )
-    
+
     result.signatures_tracked = 0
     return result
 
@@ -717,9 +830,7 @@ def invent_from_synthesis_insights(
             continue
 
     # Deterministic order: highest confidence first, then stable hash.
-    candidates.sort(
-        key=lambda c: (-c[2], str(sorted(c[0])))
-    )
+    candidates.sort(key=lambda c: (-c[2], str(sorted(c[0]))))
     candidates = candidates[: max(0, int(max_macros))]
 
     for node_ids, galaxies, confidence in candidates:
@@ -799,14 +910,13 @@ def _synthesize_for_graph(
     """Run cross-galaxy synthesis over the graph's galaxies (best effort)."""
     try:
         from core.reasoning.cross_galaxy import CrossGalaxySynthesizer
-
-        galaxy_ids = []
         from store.pg.models_faim import NodeModel
 
         rows = (
             session.query(NodeModel.galaxy_id)
             .filter(
                 NodeModel.tenant_id == tenant_id,
+                NodeModel.graph_id == graph_id,
                 NodeModel.galaxy_id.isnot(None),
                 NodeModel.galaxy_id != "",
             )
@@ -830,6 +940,140 @@ def _synthesize_for_graph(
         return []
 
 
+def _invent_from_theories_and_clusters(
+    graph_id: str,
+    *,
+    session: Any,
+    node_repo: NodeRepo,
+    edge_repo: EdgeRepo,
+    event_repo: Any,
+    lambda_hat: float,
+    lambda_threshold: float,
+    remaining_macros: int,
+    result: InventionResult,
+) -> None:
+    """Fallback deterministic synthesis from GraphTheory & structural hub clusters."""
+    if remaining_macros <= 0 or session is None or lambda_hat < lambda_threshold:
+        return
+
+    tenant_id = getattr(node_repo, "tenant_id", "default")
+
+    def _try_create(member_ids: List[UUID], origin: str) -> bool:
+        if len(member_ids) < 2:
+            return False
+        vhash = compute_macro_hash([str(mid) for mid in member_ids])
+        if node_repo.get_by_vector_hash(graph_id, vhash) is not None:
+            return False
+        try:
+            with session.begin_nested():
+                macro_id = invent_macro(
+                    graph_id=graph_id,
+                    member_ids=member_ids,
+                    node_repo=node_repo,
+                    edge_repo=edge_repo,
+                    event_repo=event_repo,
+                    lambda_hat=lambda_hat,
+                    coactivation_count=2,
+                    skip_lambda_check=False,
+                    lambda_threshold=lambda_threshold,
+                    min_count=2,
+                    min_reduction=0.0,
+                    synthesis_origin=origin,
+                )
+        except IntegrityError:
+            return False
+        except Exception as exc:
+            result.errors.append(f"cluster_macro_create:{type(exc).__name__}")
+            return False
+        if macro_id is None:
+            return False
+        result.macros_created += 1
+        result.events_emitted += 1
+        result.macro_ids.append(macro_id)
+        return True
+
+    # Pass A: Durable graph theories with >= 2 existing evidence nodes
+    try:
+        from store.pg.models_faim import GraphTheoryModel
+
+        theories = (
+            session.query(GraphTheoryModel)
+            .filter(
+                GraphTheoryModel.tenant_id == tenant_id,
+                GraphTheoryModel.graph_id == graph_id,
+            )
+            .order_by(GraphTheoryModel.confidence.desc(), GraphTheoryModel.id.desc())
+            .limit(remaining_macros * 3)
+            .all()
+        )
+        for theory in theories:
+            if remaining_macros <= 0:
+                break
+            ev_ids = list(getattr(theory, "evidence_node_ids", None) or [])
+            member_ids: List[UUID] = []
+            for nid in ev_ids:
+                try:
+                    parsed = UUID(str(nid))
+                except (ValueError, TypeError):
+                    continue
+                if node_repo.get_by_id(graph_id, parsed) is not None:
+                    member_ids.append(parsed)
+                if len(member_ids) >= 6:
+                    break
+            ttype = str(getattr(theory, "theory_type", "theory") or "theory")
+            if _try_create(member_ids, f"theory:{ttype}"):
+                remaining_macros -= 1
+    except Exception:  # nosec B110 - best effort theory synthesis
+        pass
+
+    # Pass B: High-connectivity structural clusters from recent edges
+    if remaining_macros <= 0:
+        return
+    try:
+        from collections import defaultdict
+
+        from store.pg.models_faim import EdgeModel
+
+        edges = (
+            session.query(EdgeModel)
+            .filter(
+                EdgeModel.tenant_id == tenant_id,
+                EdgeModel.graph_id == graph_id,
+                EdgeModel.kind.in_(["inheritance", "hypernym", "synonym", "co_occurs"]),
+            )
+            .order_by(EdgeModel.weight.desc(), EdgeModel.edge_id.asc())
+            .limit(300)
+            .all()
+        )
+        adj: Dict[UUID, List[UUID]] = defaultdict(list)
+        for e in edges:
+            if e.src_node_id != e.dst_node_id:
+                adj[e.dst_node_id].append(e.src_node_id)
+                adj[e.src_node_id].append(e.dst_node_id)
+
+        ranked_hubs = sorted(adj.items(), key=lambda kv: (-len(set(kv[1])), str(kv[0])))
+        for hub_id, neighbors in ranked_hubs:
+            if remaining_macros <= 0:
+                break
+            hub_node = node_repo.get_by_id(graph_id, hub_id)
+            if hub_node is None or str(getattr(hub_node, "kind", "")) == "macro":
+                continue
+            unique_members: List[UUID] = [hub_id]
+            for nb in neighbors:
+                if (
+                    nb not in unique_members
+                    and node_repo.get_by_id(graph_id, nb) is not None
+                ):
+                    unique_members.append(nb)
+                if len(unique_members) >= 5:
+                    break
+            if len(unique_members) >= 3:
+                if _try_create(unique_members, "structural_hub"):
+                    remaining_macros -= 1
+    except Exception:  # nosec B110 - best effort hub cluster synthesis
+        pass
+
+
 def run_synthesis_invention_cycle(
     graph_id: str,
     *,
@@ -845,11 +1089,11 @@ def run_synthesis_invention_cycle(
     """Run a bounded cross-galaxy synthesis invention pass on the graph.
 
     When ``insights`` are provided they are used directly; otherwise the
-    graph's galaxies are synthesized on the fly (best effort). This is the
-    runtime-safe bridge that wires cross-galaxy synthesis into the
-    self-invention flow.
+    graph's galaxies are synthesized on the fly (best effort) and supplemented
+    by durable theory/hub clusters up to ``max_macros``.
     """
     errors: List[str] = []
+    explicit_insights = insights is not None
     if insights is None:
         insights = _synthesize_for_graph(
             graph_id,
@@ -868,6 +1112,18 @@ def run_synthesis_invention_cycle(
         lambda_threshold=lambda_threshold,
         max_macros=max_macros,
     )
+    if not explicit_insights and result.macros_created < max_macros:
+        _invent_from_theories_and_clusters(
+            graph_id=graph_id,
+            session=session,
+            node_repo=node_repo,
+            edge_repo=edge_repo,
+            event_repo=event_repo,
+            lambda_hat=lambda_hat,
+            lambda_threshold=lambda_threshold,
+            remaining_macros=max(0, int(max_macros) - result.macros_created),
+            result=result,
+        )
     result.errors.extend(errors)
     return result
 

@@ -46,7 +46,7 @@ Most retrieval systems stop at “embed, search, return chunks.” FAIM-Native k
 - graph writes emit events and advance a graph version;
 - retrieval returns scores, evidence, graph metrics, and optional explanations;
 - evolution can diagnose redundancy, invent macro nodes, learn from outcomes, and restore from backups;
-- the UI can observe the same graph, event stream, metrics, and Cortex workflow exposed by the API.
+- the UI can observe the same graph, event stream, metrics, storage, provider, and evolution surfaces exposed by the API.
 
 The result is a memory substrate designed for systems that need continuity, auditability, tenant isolation, and controlled evolution—not only a similarity endpoint.
 
@@ -72,7 +72,6 @@ flowchart TB
         ENCODE["Native encoding<br/>canonical semantics + 256-d vector"]
         GRAPH["FAIM graph engine<br/>nodes, edges, inheritance, merges"]
         QUERY["Query and rerank<br/>scores, explanations, provenance"]
-        CORTEX["Cortex runtime<br/>sessions, turns, approvals"]
         WORKER["Durable worker<br/>claim and execute jobs"]
         MIGRATE["One-shot migration<br/>schema before traffic"]
     end
@@ -230,8 +229,8 @@ Manual `POST /api/v1/evolve` runs a guarded cycle directly in the API process. S
 ```mermaid
 sequenceDiagram
     autonumber
-    participant O as Operator, Cortex, or scheduler
-    participant A as API / approval route
+    participant O as Operator or scheduler
+    participant A as API route
     participant P as PostgreSQL
     participant W as Worker
     participant B as Backup records
@@ -291,7 +290,7 @@ flowchart LR
 
 The public edge is intentionally deployment-neutral. The repository does not require a particular DNS name, TLS provider, reverse proxy, host address, or gateway layout. Keep credentials, host-specific compose overrides, and operator runbooks outside public architecture diagrams.
 
-For the component inventory, failure behavior, local-versus-hosted differences, and known boundaries, see [`docs/END_TO_END_ARCHITECTURE.md`](docs/END_TO_END_ARCHITECTURE.md).
+For the component inventory, failure behavior, local-versus-hosted differences, and known boundaries, see [the canonical architecture guide](faim_native/Docs/01-architecture/01-end-to-end-architecture.md).
 
 ## Capabilities
 
@@ -302,7 +301,9 @@ For the component inventory, failure behavior, local-versus-hosted differences, 
 - graph nodes, edges, inheritance fractions, opposition signatures, versions, snapshots, and replayable events;
 - strict, fast, and relaxed execution profiles where supported;
 - query explain payloads with score components, evidence, parents, and recent events;
-- representation V2, canonical semantics, multilingual semantics, modality sidecars, and domain knowledge surfaces.
+- representation V2, canonical semantics, multilingual semantics, modality sidecars, and domain knowledge surfaces;
+- multi-hop **Typed Relational Concept Graph** (`Causes`, `HasPrerequisite`, `PartOf`, `UsedFor`, `RelatedTo`), corpus-learned **PPMI / 2nd-order co-occurrence bridges** (`worker-evolve`), async Redis **Query-to-Evidence Reinforcement Learning (QRL)**, **Concept-Expanded MaxSim**, and **Concept-aware Stage-1 BM25+**;
+- GPU-first / automatic CPU-fallback (`FAIM_EMBEDDING_DEVICE=auto`, proactive `FAIM_MIN_CUDA_FREE_MIB` VRAM OOM guard), HMAC verified-key caching, and single-flight `GraphIndexArtifacts` RAM caching.
 
 ### Durable ingestion and multimodal evidence
 
@@ -317,7 +318,6 @@ For the component inventory, failure behavior, local-versus-hosted differences, 
 - manual and guarded automated evolution controls;
 - self-invention and macro-node proposals from coactivation evidence;
 - evolution metrics, learning state, outcomes, theories, backups, and restore operations;
-- FAIM Cortex turns, persisted sessions, WebSocket chat, tool-approval proposals, and explicit approve/reject controls;
 - domain overview, graph surface, neighborhood, path explanation, and semantic graph inspection APIs.
 
 ### Operations and security
@@ -335,7 +335,7 @@ For the component inventory, failure behavior, local-versus-hosted differences, 
 | Path | Responsibility |
 | --- | --- |
 | [`faim_native/api`](faim_native/api) | FastAPI application, routers, contracts, middleware, services, and validators |
-| [`faim_native/core`](faim_native/core) | Graph engine, query scoring, reasoning, Cortex, operators, learning, and metrics |
+| [`faim_native/core`](faim_native/core) | Graph engine, query scoring, reasoning, operators, learning, and metrics |
 | [`faim_native/perception`](faim_native/perception) | File extraction, OCR, packetization, and evidence validation |
 | [`faim_native/encoding`](faim_native/encoding) | Native vectors, semantic signatures, layout, modality, and embedding-provider adapters |
 | [`faim_native/lexical`](faim_native/lexical) | Unicode normalization, canonicalization, multilingual lexicons, aliases, and phrase patterns |
@@ -345,7 +345,7 @@ For the component inventory, failure behavior, local-versus-hosted differences, 
 | [`faim-benchmarks`](faim-benchmarks) | Standalone public black-box benchmarks for FAIM, BM25, and configured external memory systems |
 | [`frontend`](frontend) | Next.js dashboard, marketing/docs surfaces, authentication, graph views, and tests |
 | [`scripts`](scripts) | Local demos, verification, smoke tests, backup/restore, deployment, and security automation |
-| [`docs`](docs) | API, architecture, operations, security, benchmark, and implementation documentation |
+| [`faim_native/Docs`](faim_native/Docs) | Canonical API, architecture, operations, security, benchmark, and implementation documentation |
 
 ## Public benchmarking
 
@@ -368,31 +368,32 @@ adapter is recorded as `skipped`, never as a fabricated score. Do not publish a
 report until the JSON integrity hash, dataset identity, seed, and completed-system
 statuses have been reviewed.
 
-### Latest complete external run
+### Latest complete external runs (`Publication gate: READY`)
 
-The latest complete run is the full official **BeIR/SciFact** split: **5,183 corpus
-documents and 300 test queries**, pinned to corpus/query revision
-`b3b5335604bf5ee3c4447671af975ea25143d4f5` and qrels revision
-`2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029`. It used the real Docker HTTP path,
-strict persistence, four API workers, Phase 5 and Representation V2, embedding
-prewarm, and PostgreSQL idle-transaction/lock timeouts. Both selected systems
-completed all 300 queries with zero ingest errors.
+The latest complete runs cover two full official BEIR splits with pinned Hugging Face revisions, isolated `worker-ingest` / `worker-evolve` pools, GPU passthrough (`faim-native-gpu`), HMAC verified-key caching, and `graph_version`-cached metadata:
 
-| System | Dataset / protocol | Recall@5 | nDCG@10 | Query p50 | Status |
-| --- | --- | ---: | ---: | ---: | --- |
-| **FAIM-Native** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | 17,373 ms | Completed |
-| **BM25 baseline** | Same SciFact split and scorer | 0.7193 | 0.6644 | 35 ms | Completed |
+1. **BeIR/SciFact** (**5,183 corpus documents / 300 test queries**, corpus/queries `b3b5335604bf5ee3c4447671af975ea25143d4f5`, qrels `2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029`).
+2. **BeIR/NFCorpus** (**3,633 corpus documents / 323 test queries**, corpus/queries `b5026a0e96e8a7ac4f95f482a596389289d46269`, qrels `a451b3b26d3ae1358f259c1a3a4dd61fcea35a65`).
 
-On this run, FAIM's nDCG@10 was **0.6127 below** the BM25 baseline and its query
-median was approximately **495× slower**. This is a real result, not a readiness
-claim: the harness publication gate remains `NOT READY` because the Git worktree
-was dirty, and the retrieval quality/latency gap independently means FAIM should
-not be presented as competitive with BM25 yet.
+| System | Dataset / protocol | Recall@5 | nDCG@10 | MRR | MAP | Query p50 | Status |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| **FAIM-Native (v19-ready, GPU stack)** | SciFact, 5,183 docs / 300 queries | **0.7554** | **0.6878** | **0.6570** | **0.6464** | **104.52 ms** | Completed (`READY`) |
+| **FAIM-Native (v18, zero-ML CPU-first)** | SciFact, 5,183 docs / 300 queries | **0.7554** | **0.6878** | **0.6570** | **0.6464** | 231.07 ms | Completed (`READY`) |
+| **BM25 baseline (v19-ready)** | Same full SciFact split and scorer | 0.7193 | 0.6644 | 0.6366 | 0.6242 | 38.44 ms | Completed (`READY`) |
+| **FAIM-Native (v1-ready, GPU stack)** | NFCorpus, 3,633 docs / 323 queries | **0.1267** | **0.3258** | **0.5259** | **0.1327** | **97.20 ms** | Completed (`READY`) |
+| **BM25 baseline (v1-ready)** | Same full NFCorpus split and scorer | 0.1205 | 0.3110 | 0.5211 | 0.1294 | 5.20 ms | Completed (`READY`) |
+| **FAIM-Native (v17 historical)** | SciFact, 5,183 docs / 300 queries | 0.4831 | 0.4184 | — | — | 7,195.68 ms | Completed |
+| **FAIM-Native (v9 historical)** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | — | — | 17,373 ms | Completed |
+
+On both full BEIR splits (`BeIR/SciFact` and `BeIR/NFCorpus`), FAIM-Native beat `BM25-Baseline` across **every retrieval metric** (`Recall@5`, `nDCG@10`, `MRR`, `MAP`), while HMAC auth caching + `graph_version`-keyed RAM caching cut full `SciFact` Query p50 by **2.2×** (`231.07 ms` → `104.52 ms`, Query p95 `159.15 ms`).
 
 Evidence artifacts:
 
+- [`ret_scifact_20261122T124757Z_df5d93fc.md`](faim-benchmarks/results/public-scifact-full-guarded-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md) (`READY`, `SHA-256: 175a5a1dfb0ac393aaf4316e7a37eaf84742a71f2b27497478d05bc0d53d7333`)
+- [`ret_nfcorpus_20261122T132435Z_6141a4e3.md`](faim-benchmarks/results/public-nfcorpus-full-guarded-v1-ready/ret_nfcorpus_20261122T132435Z_6141a4e3.md) (`READY`, `SHA-256: 1f79515b6484b6afeebec2e9d0c03561da94d5dcc13d6ddf06b4c81278b4eea6`)
+- [`ret_scifact_20261122T001726Z_3a591ec9.md`](faim-benchmarks/results/public-scifact-full-guarded-v18/ret_scifact_20261122T001726Z_3a591ec9.md) (`READY`)
+- [`ret_scifact_20261120T003156Z_2a4f4574.md`](faim-benchmarks/results/public-scifact-full-guarded-v17/ret_scifact_20261120T003156Z_2a4f4574.md)
 - [`ret_scifact_20261117T214211Z_ccef064a.md`](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md)
-- [`ret_scifact_20261117T214211Z_ccef064a.json`](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.json)
 
 ### Public competitor references (not directly comparable)
 
@@ -540,10 +541,9 @@ The FastAPI app mounts the current versioned API under `/api/v1`.
 | Events | `/api/v1/events`, `/api/v1/events/latest`, `/api/v1/events/stream` |
 | Evolution | `/api/v1/evolve`, status, control, invention, backups, learning, and metrics |
 | Storage | uploads, files, provenance, maintenance, retention, crypto rotation, and backend health |
-| Cortex | turns, sessions, WebSocket chat, storage tools, and tool approvals |
 | Benchmarks | benchmark runs, stress tests, alerts, golden signals, export, and publication suite |
 
-For request and response contracts, start with [`FAIM_API_DOCUMENTATION.md`](<docs/2) BackEnd/API_Reference/FAIM_API_DOCUMENTATION.md>) and [`api_reference.md`](<docs/2) BackEnd/API_Reference/api_reference.md>). The generated OpenAPI document at `/openapi.json` is the runtime source of truth.
+For request and response contracts, start with the [canonical API documentation](faim_native/Docs/02-api/01-api-documentation.md). The generated OpenAPI document at `/openapi.json` is the runtime source of truth.
 
 ## Native design principles
 
@@ -556,7 +556,7 @@ For request and response contracts, start with [`FAIM_API_DOCUMENTATION.md`](<do
 | Evolution is controlled | Guardrails, intervals, action limits, diagnostics, backups, and restore APIs bound automated change |
 | Tenant scope is explicit | Auth context, repositories, graph reads, event streams, and storage paths carry tenant scope; deployments must verify isolation |
 | Acceleration is secondary | Redis and Qdrant improve speed or coordination; the durable graph remains authoritative |
-| Mutations are observable | Ingest, query, evolution, storage, approval, and diagnostics flows emit structured events or audit records where the selected path supports them |
+| Mutations are observable | Ingest, query, evolution, storage, and diagnostics flows emit structured events or audit records where the selected path supports them |
 
 ## Configuration highlights
 
@@ -571,7 +571,8 @@ Important controls include:
 - `FAIM_SELF_EVOLVE_ENABLED`, `FAIM_SELF_EVOLVE_TRIGGER_MODE`, and action/interval limits for evolution;
 - `FAIM_SELF_INVENT_ENABLED` and invention thresholds for macro-node synthesis;
 - `FAIM_ENCRYPTION_AT_REST`, `FAIM_ENCRYPTION_FAIL_CLOSED`, `FAIM_STORAGE_CONTRACT_STRICT`, and auth fallback switches for security posture;
-- `FAIM_RATE_LIMITS_JSON`, payload limits, CORS, public origin, and CSP settings for edge behavior.
+- `FAIM_RATE_LIMITS_JSON`, payload limits, CORS, public origin, and CSP settings for edge behavior;
+- `FAIM_API_WORKERS`, `FAIM_INGEST_WORKERS`, `FAIM_EMBEDDING_DEVICE=auto`, `FAIM_MIN_CUDA_FREE_MIB`, and `FAIM_FAST_ML_EMBEDDING` for worker scaling and GPU/CPU hybrid sizing (see [GPU passthrough, fallback & worker sizing](faim_native/Docs/10-operations/06-gpu-passthrough-and-auth-caching.md)).
 
 Production deployments should begin with the restrictive values in [`.env.example`](.env.example), then make every relaxation deliberate and documented.
 
@@ -612,7 +613,7 @@ python scripts/faim_write_demo.py ./sample.txt
 python scripts/faim_diagnostics_demo.py
 ```
 
-The acceptance suite covers tenant isolation, strict determinism, idempotent ingest, graph writes and merges, multihop recall, cross-lingual retrieval, multimodal reranking, storage lifecycle, Cortex, evolution, benchmarks, and security surfaces. Treat the output from the current checkout as the authoritative result; older reports in `docs/` describe historical stages and may contain superseded counts or commands.
+The acceptance suite covers the implemented tenant, ingest, graph, storage, evolution, benchmark, and security surfaces. Treat the output from the current checkout as the authoritative result; historical reports are archived and may contain superseded counts or commands.
 
 ## Deployment and operations
 
@@ -620,7 +621,7 @@ The acceptance suite covers tenant isolation, strict determinism, idempotent ing
 
 The repository includes a hardened multi-service Compose stack and environment-specific deployment helpers. Use the operator runbook for the target environment, keep credentials and host-specific overrides outside source control, and validate `/health`, `/ready`, `/version`, logs, backups, and rollback procedures before exposing traffic.
 
-Read [`CI_CD.md`](CI_CD.md), [`DEPLOYMENT.md`](<docs/2) BackEnd/Deployment_Ops/DEPLOYMENT.md>), and [`RUNBOOK.md`](<docs/2) BackEnd/Deployment_Ops/RUNBOOK.md>) before using a remote environment.
+Read [`CI_CD.md`](CI_CD.md), the [Docker deployment guide](faim_native/Docs/10-operations/01-deployment.md), and the [operational runbook](faim_native/Docs/10-operations/03-runbook.md) before using a remote environment.
 
 ### Operational checks
 
@@ -640,30 +641,24 @@ Readiness is stronger than liveness: it checks database connectivity, required t
 - [Research positioning](RESEARCH_POSITIONING.md)
 - [Roadmap and release gates](ROADMAP.md)
 - [CI, semantic releases, and deployment](CI_CD.md)
-- [End-to-end architecture and runtime boundaries](docs/END_TO_END_ARCHITECTURE.md)
+- [Canonical documentation index](faim_native/Docs/00-readme.md)
+- [End-to-end architecture and runtime boundaries](faim_native/Docs/01-architecture/01-end-to-end-architecture.md)
 - [Security reporting policy](SECURITY.md)
 - [Support guide](SUPPORT.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Governance](GOVERNANCE.md)
 - [Code of conduct](CODE_OF_CONDUCT.md)
 - [Changelog](CHANGELOG.md)
-- [Backend overview](<docs/2) BackEnd/README.md>)
-- [Architecture overview](docs/architecture_overview.md)
-- [API documentation](<docs/2) BackEnd/API_Reference/FAIM_API_DOCUMENTATION.md>)
-- [Core layer guide](<docs/2) BackEnd/API_Reference/core_layer_guide.md>)
-- [Perception layer guide](<docs/2) BackEnd/API_Reference/perception_layer_guide.md>)
-- [Encoding layer guide](<docs/2) BackEnd/API_Reference/encoding_layer_guide.md>)
-- [Store layer guide](<docs/2) BackEnd/API_Reference/store_layer_guide.md>)
-- [Full-stack workflow](<docs/2) BackEnd/Architecture/FULL_STACK_WORKFLOW.md>)
-- [Request lifecycle](<docs/2) BackEnd/Architecture/REQUEST_LIFECYCLE.md>)
-- [System wiring](<docs/2) BackEnd/Architecture/SYSTEM_WIRING.md>)
-- [Security guide](<docs/2) BackEnd/Security/SECURITY_GUIDE.md>)
-- [Threat model](<docs/2) BackEnd/Security/THREAT_MODEL.md>)
-- [Multi-tenant isolation](<docs/2) BackEnd/Security/MULTI_TENANT_ISOLATION_GUARANTEE.md>)
-- [Operations and deployment](docs/Operations/deployment.md)
-- [Benchmark specification](docs/Benchmarks_Publication/BENCHMARK_SPEC.md)
-- [Reproducibility kit](docs/Benchmarks_Publication/REPRODUCIBILITY_KIT.md)
-- [Implementation report](docs/IMPLEMENTATION_REPORT.md)
+- [API documentation](faim_native/Docs/02-api/01-api-documentation.md)
+- [Current code map](faim_native/Docs/09-implementation/01-current-code-map.md)
+- [Security guide](faim_native/Docs/11-security/03-security-guide.md)
+- [Threat model](faim_native/Docs/11-security/04-threat-model.md)
+- [Operations and deployment](faim_native/Docs/10-operations/01-deployment.md)
+- [GPU passthrough, fallback & worker sizing](faim_native/Docs/10-operations/06-gpu-passthrough-and-auth-caching.md)
+- [Zero-ML retrieval, concept graph & Concept-MaxSim](faim_native/Docs/01-architecture/03-zero-ml-retrieval-and-concept-expansion.md)
+- [Production benchmark suite](faim_native/Docs/13-benchmarks/02-production-benchmark-suite-2026-11-22.md)
+- [Benchmark evidence (SciFact v19-ready)](faim-benchmarks/results/public-scifact-full-guarded-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md)
+- [Benchmark evidence (NFCorpus v1-ready)](faim-benchmarks/results/public-nfcorpus-full-guarded-v1-ready/ret_nfcorpus_20261122T132435Z_6141a4e3.md)
 
 ## Contributing
 

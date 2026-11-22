@@ -232,8 +232,9 @@ def test_policy_state_round_trip_and_fail_closed():
     assert restored.lambda_calibration.n == policy.lambda_calibration.n
 
     # Corrupt state must fail closed to defaults, not crash.
-    broken = EvolutionPolicy.from_state({"schema": "garbage", "arms": "nope"},
-                                        graph_id="g5")
+    broken = EvolutionPolicy.from_state(
+        {"schema": "garbage", "arms": "nope"}, graph_id="g5"
+    )
     assert broken.resolve_knobs().merge_threshold == 0.95
     assert EvolutionPolicy.from_state(None, graph_id="g5").version == 0
     assert EvolutionPolicy.from_state([1, 2], graph_id="g5").version == 0
@@ -568,8 +569,12 @@ def test_learning_repo_fail_open_when_no_session():
         "meta": {},
         "version": 0,
     }
-    assert repo.save_policy_state("g", arms={}, lambda_calibration={},
-                                  meta={}, policy_version=0) is False
+    assert (
+        repo.save_policy_state(
+            "g", arms={}, lambda_calibration={}, meta={}, policy_version=0
+        )
+        is False
+    )
 
 
 # =============================================================================

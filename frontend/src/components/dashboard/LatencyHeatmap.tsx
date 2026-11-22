@@ -21,16 +21,32 @@ interface LatencyHeatmapProps {
 
 const TIERS = [
   { key: "queue_depth", label: "Queue Depth", unit: "", warn: 50, crit: 100 },
-  { key: "throughput", label: "Throughput (jobs/s)", unit: "/s", warn: 0.5, crit: 0.1 },
-  { key: "hot_cache_size", label: "Hot Cache", unit: " keys", warn: 100, crit: 1000 },
+  {
+    key: "throughput",
+    label: "Throughput (jobs/s)",
+    unit: "/s",
+    warn: 0.5,
+    crit: 0.1,
+  },
+  {
+    key: "hot_cache_size",
+    label: "Hot Cache",
+    unit: " keys",
+    warn: 100,
+    crit: 1000,
+  },
 ] as const;
 
 export const LatencyHeatmap: React.FC<LatencyHeatmapProps> = ({ data }) => {
   if (!data) {
     return (
       <div className="flex-1 min-h-[140px] w-full flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-white/10 bg-white/[0.01] text-slate-500">
-        <span className="text-[11px] font-mono">Loading pipeline telemetry…</span>
-        <p className="text-[9px] text-slate-600">Queue depth, throughput, cache size</p>
+        <span className="text-[11px] font-mono">
+          Loading pipeline telemetry…
+        </span>
+        <p className="text-[9px] text-slate-600">
+          Queue depth, throughput, cache size
+        </p>
       </div>
     );
   }
@@ -40,11 +56,17 @@ export const LatencyHeatmap: React.FC<LatencyHeatmapProps> = ({ data }) => {
       <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-widest text-slate-500">
         <span>Pipeline Health</span>
         <span className="flex items-center gap-1.5">
-          <span className={`w-2 h-2 rounded-full ${data.system_health.redis ? "bg-emerald-400" : "bg-rose-400"}`} />
+          <span
+            className={`w-2 h-2 rounded-full ${data.system_health.redis ? "bg-emerald-400" : "bg-rose-400"}`}
+          />
           <span className="text-cyan-400">Redis</span>
-          <span className={`w-2 h-2 rounded-full ${data.system_health.qdrant ? "bg-emerald-400" : "bg-rose-400"}`} />
+          <span
+            className={`w-2 h-2 rounded-full ${data.system_health.qdrant ? "bg-emerald-400" : "bg-rose-400"}`}
+          />
           <span className="text-blue-400">Qdrant</span>
-          <span className={`w-2 h-2 rounded-full ${data.gpu_active ? "bg-emerald-400" : "bg-slate-500"}`} />
+          <span
+            className={`w-2 h-2 rounded-full ${data.gpu_active ? "bg-emerald-400" : "bg-slate-500"}`}
+          />
           <span className="text-violet-400">GPU</span>
         </span>
       </div>
@@ -70,9 +92,16 @@ export const LatencyHeatmap: React.FC<LatencyHeatmapProps> = ({ data }) => {
               <div className="text-[8px] font-mono uppercase tracking-wider text-slate-500">
                 {t.label}
               </div>
-              <div className="absolute bottom-1 right-1 w-2 h-2 rounded-full transition-colors" style={{
-                background: isCrit ? "#f87171" : isWarn ? "#fbbf24" : "#34d399",
-              }} />
+              <div
+                className="absolute bottom-1 right-1 w-2 h-2 rounded-full transition-colors"
+                style={{
+                  background: isCrit
+                    ? "#f87171"
+                    : isWarn
+                      ? "#fbbf24"
+                      : "#34d399",
+                }}
+              />
             </div>
           );
         })}

@@ -24,8 +24,8 @@ const benefits = [
   "Real-time updates as connections form",
   "Zoom from overview to individual nodes",
   "Filter by topic, date, or relationship type",
-  "Exact Cortex traversal-path highlighting during reasoning turns",
-  "Adaptive bounded reasoning depth from 1-24 hops by default",
+  "Exact traversal-path highlighting during multi-hop query turns",
+  "Agent-controlled bounded traversal depth from 1-24 hops (default 2)",
   "Export graph for presentations",
   "Discover hidden patterns in your data",
 ];
@@ -45,8 +45,8 @@ export default function KnowledgeGraphPage() {
       <p className="text-slate-400 mb-6">
         The Knowledge Graph transforms your documents, notes, and ideas into an
         interactive visualization. Watch as concepts connect, clusters form,
-        exact Cortex traversal paths illuminate during reasoning, and insights
-        emerge.
+        exact multi-hop traversal paths illuminate during retrieval, and
+        insights emerge.
       </p>
 
       <h3 className="text-xl font-semibold text-white mb-3">
@@ -59,14 +59,16 @@ export default function KnowledgeGraphPage() {
       </p>
 
       <h3 className="text-xl font-semibold text-white mb-3">
-        Planner-Driven Hop Traces
+        Agent-Controlled Hop Traces
       </h3>
       <p className="text-slate-400 mb-6">
-        FAIM Cortex does not just retrieve similar documents. It can execute
-        adaptive bounded graph reasoning from 1 to 24 hops by default, and
-        advanced deployments can raise that bounded ceiling as high as 128
-        hops. When the traversal branch returns an exact path, FIG View can
-        highlight the real nodes and edges used in the answer.
+        FAIM does not just retrieve similar documents. Callers and MCP agents
+        can set <code className="text-cyan-300">graph_max_hops</code> from 1 to
+        24 (defaulting to 2) on{" "}
+        <code className="text-cyan-300">/api/v1/query</code> and{" "}
+        <code className="text-cyan-300">/api/v1/memory/search</code>. When the
+        traversal branch returns an exact path, FIG View can highlight the real
+        nodes and edges used in the result.
       </p>
 
       <h3 className="text-xl font-semibold text-white mb-3">

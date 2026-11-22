@@ -54,6 +54,12 @@ class QueryRequest(BaseModel):
         None,
         description="Return only evidence valid at this ISO-8601 instant; defaults to current view.",
     )
+    graph_max_hops: Optional[int] = Field(
+        None,
+        ge=1,
+        le=24,
+        description="Maximum graph traversal hop depth (1-24). Defaults to 2 when omitted.",
+    )
 
 
 class ScoreComponents(BaseModel):
@@ -137,6 +143,12 @@ class QueryMetrics(BaseModel):
     diagnostics_graph_version: int = 0
     diagnostics_computed_at: Optional[str] = None
     diagnostics_cached: float = 0.0
+    # Additive FAST strategy diagnostics; these are numeric and non-sensitive.
+    fast_relevance_first: float = 0.0
+    fast_graph_expansion: float = 0.0
+    fast_idf: float = 0.0
+    # Additive, non-sensitive stage timings for benchmark and SLO diagnostics.
+    stage_timings_ms: Dict[str, float] = Field(default_factory=dict)
 
 
 class QueryResponse(BaseModel):
@@ -229,9 +241,14 @@ async def query_graph(
             cache=ctx.cache,
             include_historical=request.include_historical,
             as_of=request.as_of,
+            graph_max_hops=request.graph_max_hops,
         )
-        # Query flow updates touch_count / query events, so persist changes.
-        ctx.session.commit()
+        # Query flow updates touch_count / query events on non-FAST paths;
+        # commit only when the session has pending dirty/new/deleted ORM state.
+        if ctx.session is not None and (
+            ctx.session.new or ctx.session.dirty or ctx.session.deleted
+        ):
+            ctx.session.commit()
 
         # Build response
         results = []

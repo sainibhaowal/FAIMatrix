@@ -260,6 +260,37 @@ async function installApiKeyMocks(
       return;
     }
 
+    if (method === "DELETE" && path.includes("/api/v1/api-keys/")) {
+      const parts = path.split("/");
+      const keyId = decodeURIComponent(parts[parts.length - 1] || "");
+      const index = keys.findIndex((item) => item.key_id === keyId);
+      if (index < 0) {
+        await route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ detail: "API key not found" }),
+        });
+        return;
+      }
+
+      keys.splice(index, 1);
+      audit.push({
+        id: `evt-deleted-${keyId}`,
+        tenant_id: "tenant_e2e",
+        key_id: keyId,
+        action: "deleted",
+        actor: "user:e2e",
+        request_id: `req-deleted-${keyId}`,
+        meta: {},
+        created_at: isoNow(),
+      });
+      await route.fulfill({
+        status: 204,
+        body: "",
+      });
+      return;
+    }
+
     await route.fulfill({
       status: 404,
       contentType: "application/json",
@@ -271,7 +302,7 @@ async function installApiKeyMocks(
 }
 
 test.describe("API Keys Page", () => {
-  test("supports create, rotate, revoke actions", async ({ page }) => {
+  test("supports create and permanent delete actions", async ({ page }) => {
     await installApiKeyMocks(page);
     page.on("dialog", async (dialog) => {
       await dialog.accept();
@@ -281,32 +312,41 @@ test.describe("API Keys Page", () => {
     await expect(page.getByTestId("api-keys-page-title")).toBeVisible();
     await expect(page.getByText("faim_0001")).toBeVisible();
 
-    await page.getByRole("button", { name: "Create key" }).click();
-    await expect(page.getByText("One-time key reveal")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Show key" })).toBeVisible();
-    await page.getByRole("button", { name: "Show key" }).click();
+    await page.getByRole("button", { name: "Create new secret key" }).click();
+    await page.getByRole("button", { name: "Create secret key" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Save your secret key" }),
+    ).toBeVisible();
     await expect(page.getByText("faim_k0002_plaintext")).toBeVisible();
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByText("faim_0002")).toBeVisible();
 
-    await page.locator("button", { hasText: "Dismiss" }).first().click();
-    await page.getByRole("button", { name: "Rotate" }).first().click();
-    await expect(page.getByRole("button", { name: "Show key" })).toBeVisible();
-    await page.getByRole("button", { name: "Show key" }).click();
-    await expect(page.getByText("faim_k0003_plaintext")).toBeVisible();
-
-    await page.getByRole("button", { name: "Revoke" }).first().click();
-    await expect(page.getByText("revoked").first()).toBeVisible();
-    await expect(page.getByText("rotated").first()).toBeVisible();
+    const createdRow = page.getByRole("row").filter({ hasText: "faim_0002" });
+    await createdRow.getByRole("button", { name: "Delete" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Delete API key?" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Delete forever" }).click();
+    await expect(createdRow).toHaveCount(0);
   });
 
   test("renders error state on create failure", async ({ page }) => {
     await installApiKeyMocks(page, { failCreate: true });
     await page.goto("/dashboard/api-keys");
 
-    await page.getByRole("button", { name: "Create key" }).click();
+    await page
+      .getByRole("button", { name: "Create new secret key" })
+      .first()
+      .click();
+    await page.getByRole("button", { name: "Create secret key" }).click();
     await expect(
       page.getByText("Create key blocked by mock policy"),
     ).toBeVisible();
-    await expect(page.getByText("Awaiting key generation")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Show key" })).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Create new secret key" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Save your secret key" }),
+    ).toHaveCount(0);
   });
 });

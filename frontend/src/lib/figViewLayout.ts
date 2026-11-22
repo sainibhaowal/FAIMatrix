@@ -64,6 +64,73 @@ export function getLayoutConfig(mode: LayoutMode): LayoutConfig {
 }
 
 /**
+ * Create a per-node 3D elastic gravity force toward (0, 0, 0) with radial clamping.
+ * Replaces D3's default centroid-translating center force so dragging one node never
+ * shifts the entire remaining graph in the opposite direction.
+ */
+export function createElasticGravityForce(
+  centerStrength: number,
+  maxRadius = 180,
+) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let simNodes: any[] = [];
+  const pullCoeff = (centerStrength || 0.2) * 0.12;
+
+  const force = (alpha: number) => {
+    const pull = pullCoeff * alpha;
+    for (const n of simNodes) {
+      if (n.fx != null || n.fy != null || n.fz != null) continue;
+      const x = n.x ?? 0;
+      const y = n.y ?? 0;
+      const z = n.z ?? 0;
+      n.vx = (n.vx ?? 0) - x * pull;
+      n.vy = (n.vy ?? 0) - y * pull;
+      n.vz = (n.vz ?? 0) - z * pull;
+
+      const dist = Math.hypot(x, y, z);
+      if (dist > maxRadius) {
+        const scale = maxRadius / dist;
+        n.x = x * scale;
+        n.y = y * scale;
+        n.z = z * scale;
+        n.vx *= 0.5;
+        n.vy *= 0.5;
+        n.vz *= 0.5;
+      }
+    }
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  force.initialize = (nodes: any[]) => {
+    simNodes = Array.isArray(nodes) ? nodes : [];
+  };
+
+  return force;
+}
+
+/** Clamp an actively dragged node's position/pin within maxRadius from origin. */
+export function clampDraggedNode(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  node: any,
+  maxRadius = 160,
+): void {
+  if (!node) return;
+  const x = node.fx ?? node.x ?? 0;
+  const y = node.fy ?? node.y ?? 0;
+  const z = node.fz ?? node.z ?? 0;
+  const dist = Math.hypot(x, y, z);
+  if (dist > maxRadius) {
+    const scale = maxRadius / dist;
+    node.x = x * scale;
+    node.y = y * scale;
+    node.z = z * scale;
+    node.fx = node.x;
+    node.fy = node.y;
+    node.fz = node.z;
+  }
+}
+
+/**
  * Apply layout forces to a ForceGraph3D ref.
  * Caller must call `d3ReheatSimulation()` after this.
  */
@@ -72,13 +139,19 @@ export function applyLayout(
   fgRef: { current: any },
   config: LayoutConfig,
   prevConfig?: LayoutConfig,
+  reseedPositions = true,
 ): void {
   const fg = fgRef.current;
   if (!fg) return;
 
   const charge = fg.d3Force("charge");
-  if (charge && typeof charge.strength === "function") {
-    charge.strength(config.chargeStrength);
+  if (charge) {
+    if (typeof charge.strength === "function") {
+      charge.strength(config.chargeStrength);
+    }
+    if (typeof charge.distanceMax === "function") {
+      charge.distanceMax(160);
+    }
   }
 
   const link = fg.d3Force("link");
@@ -86,31 +159,31 @@ export function applyLayout(
     link.distance(config.linkDistance);
   }
 
-  const center = fg.d3Force("center");
-  if (center && typeof center.strength === "function") {
-    center.strength(config.centerStrength);
-  }
+  // Disable D3's centroid-shifting center force and replace it with per-node elastic gravity.
+  fg.d3Force("center", null);
+  fg.d3Force("gravity", createElasticGravityForce(config.centerStrength, 180));
 
   const data = fg.graphData();
   if (data && data.nodes) {
     const isDag = config.dagMode !== null;
     // Clear all fixed positions to allow 3D physics to take over
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data.nodes.forEach((n: any) => {
-      n.fx = null;
-      n.fy = null;
-      n.fz = null;
+      n.fx = undefined;
+      n.fy = undefined;
+      n.fz = undefined;
 
-      // When switching TO organic 3D modes (Explore/Analyze), 
+      // When switching TO organic 3D modes (Explore/Analyze),
       // explode nodes into a 3D sphere to prevent 'disk' look.
-      if (!isDag) {
+      if (reseedPositions && !isDag) {
         // Tighter spherical distribution for a compact globe
         const phi = Math.acos(-1 + Math.random() * 2);
         const theta = Math.random() * 2 * Math.PI;
-        const r = 100 + Math.random() * 50; 
+        const r = 100 + Math.random() * 50;
         n.x = r * Math.sin(phi) * Math.cos(theta);
         n.y = r * Math.sin(phi) * Math.sin(theta);
         n.z = r * Math.cos(phi);
-        
+
         // Subtler velocity to trigger simulation without explosion
         n.vx = (Math.random() - 0.5) * 2;
         n.vy = (Math.random() - 0.5) * 2;

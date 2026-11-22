@@ -170,9 +170,8 @@ export default function MathProof() {
             </span>
           </h2>
           <p className="mt-6 text-slate-400 max-w-2xl mx-auto text-lg leading-relaxed">
-            8 mathematical invariants are checked on write operations. These
-            are core consistency rules, not a universal guarantee of answer
-            quality.
+            8 mathematical invariants are checked on write operations. These are
+            core consistency rules, not a universal guarantee of answer quality.
           </p>
         </motion.div>
 

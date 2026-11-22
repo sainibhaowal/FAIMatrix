@@ -13,9 +13,15 @@ Supports:
 from __future__ import annotations
 
 import io
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
+
+from defusedxml import ElementTree as ET
 
 try:
     from faim.Faim_Native.core.contracts.types import BlockAnchor, EvidenceBlock
@@ -203,6 +209,7 @@ def extract_pdf_blocks(
 
     try:
         import gc
+
         import fitz
 
         doc = fitz.open(stream=file_bytes, filetype="pdf")
@@ -417,11 +424,13 @@ def extract_docx_blocks(
     file_bytes: bytes,
     raw_id: str,
     *,
+    filename: str = "",
     settings: Optional[dict] = None,
 ) -> list[EvidenceBlock]:
-    """Extract blocks from DOCX with heading hierarchy and table extraction."""
+    """Extract blocks from DOCX/DOC with heading hierarchy and table extraction."""
     blocks: list[EvidenceBlock] = []
     char_offset = 0
+    ext = Path(filename).suffix.lower() if filename else ""
 
     try:
         from docx import Document
@@ -509,6 +518,24 @@ def extract_docx_blocks(
     except Exception:
         pass
 
+    # Legacy .doc binary fallback via antiword / catdoc
+    if ext == ".doc" or file_bytes[:4] == b"\xd0\xcf\x11\xe0":
+        legacy = _run_cli_text_extractor(
+            file_bytes,
+            suffix=".doc",
+            commands=[["antiword", "{path}"], ["catdoc", "{path}"]],
+        )
+        if legacy is not None:
+            tool_name, extracted = legacy
+            legacy_blocks = _text_to_blocks(
+                extracted,
+                raw_id=raw_id,
+                doc_type="docx",
+                metadata={"legacy_format": "doc", "extractor": tool_name},
+            )
+            if legacy_blocks:
+                return legacy_blocks
+
     return [_fallback_block(raw_id, "docx")]
 
 
@@ -521,10 +548,12 @@ def extract_pptx_blocks(
     file_bytes: bytes,
     raw_id: str,
     *,
+    filename: str = "",
     settings: Optional[dict] = None,
 ) -> list[EvidenceBlock]:
-    """Extract blocks from PPTX with shape ordering, tables, and speaker notes."""
+    """Extract blocks from PPTX/PPT with shape ordering, tables, and speaker notes."""
     blocks: list[EvidenceBlock] = []
+    ext = Path(filename).suffix.lower() if filename else ""
 
     try:
         from pptx import Presentation
@@ -627,6 +656,25 @@ def extract_pptx_blocks(
     except Exception:
         pass
 
+    # Legacy .ppt binary fallback via catppt
+    if ext == ".ppt" or file_bytes[:4] == b"\xd0\xcf\x11\xe0":
+        legacy = _run_cli_text_extractor(
+            file_bytes,
+            suffix=".ppt",
+            commands=[["catppt", "{path}"]],
+        )
+        if legacy is not None:
+            tool_name, extracted = legacy
+            legacy_blocks = _text_to_blocks(
+                extracted,
+                raw_id=raw_id,
+                doc_type="pptx",
+                metadata={"legacy_format": "ppt", "extractor": tool_name},
+                use_slide_anchor=True,
+            )
+            if legacy_blocks:
+                return legacy_blocks
+
     return [_fallback_block(raw_id, "pptx")]
 
 
@@ -701,6 +749,56 @@ def extract_xlsx_blocks(
                         )
                     )
             return blocks if blocks else [_fallback_block(raw_id, "xlsx")]
+        except Exception:
+            pass
+
+    # Legacy .xls (Excel 97-2003) via xlrd
+    if ext == ".xls" or file_bytes[:4] == b"\xd0\xcf\x11\xe0":
+        try:
+            import xlrd
+
+            wb = xlrd.open_workbook(file_contents=file_bytes)
+            for sheet_name in wb.sheet_names():
+                sheet = wb.sheet_by_name(sheet_name)
+                rows_data = [
+                    sheet.row_values(row_idx) for row_idx in range(sheet.nrows)
+                ]
+                if not rows_data:
+                    continue
+
+                has_header = _looks_like_header(rows_data[0])
+                ROWS_PER_BLOCK = 50
+
+                for start in range(0, len(rows_data), ROWS_PER_BLOCK):
+                    chunk = rows_data[start : start + ROWS_PER_BLOCK]
+                    lines = _format_rows(chunk, has_header=(has_header and start == 0))
+                    content = "\n".join(lines)
+                    if content.strip():
+                        anchor = BlockAnchor(
+                            doc_type="xlsx",
+                            sheet=sheet_name,
+                            row_start=start + 1,
+                            row_end=start + len(chunk),
+                        )
+                        blocks.append(
+                            EvidenceBlock.create(
+                                raw_id=raw_id,
+                                anchor=anchor,
+                                content=content,
+                                block_type="table",
+                                confidence=1.0,
+                                metadata={
+                                    "sheet": sheet_name,
+                                    "total_rows": len(rows_data),
+                                    "has_header": has_header,
+                                    "legacy_format": "xls",
+                                },
+                            )
+                        )
+            if blocks:
+                return blocks
+        except ImportError:
+            pass
         except Exception:
             pass
 
@@ -801,6 +899,7 @@ def extract_text_blocks(
         ".c",
         ".cpp",
         ".h",
+        ".hpp",
         ".cs",
         ".rb",
         ".php",
@@ -811,6 +910,8 @@ def extract_text_blocks(
         ".sql",
     }
 
+    block_type = "code" if ext in CODE_EXTS else "text"
+
     if len(text) < 5000:
         anchor = BlockAnchor(doc_type="text", char_start=0, char_end=len(text))
         blocks.append(
@@ -818,19 +919,31 @@ def extract_text_blocks(
                 raw_id=raw_id,
                 anchor=anchor,
                 content=text,
-                block_type="code" if ext in CODE_EXTS else "text",
+                block_type=block_type,
                 confidence=1.0,
             )
         )
     else:
         BLOCK_SIZE = 2000
-        paragraphs = text.split("\n\n")
+        # Split into paragraphs, then break any oversized paragraph by lines or fixed slices
+        raw_segments: list[str] = []
+        for para in text.split("\n\n"):
+            if len(para) <= BLOCK_SIZE:
+                raw_segments.append(para)
+            else:
+                for line in para.split("\n"):
+                    if len(line) <= BLOCK_SIZE:
+                        raw_segments.append(line)
+                    else:
+                        for idx in range(0, len(line), BLOCK_SIZE):
+                            raw_segments.append(line[idx : idx + BLOCK_SIZE])
+
         current: list[str] = []
         current_size = 0
         char_start = 0
 
-        for para in paragraphs:
-            if current_size + len(para) > BLOCK_SIZE and current:
+        for seg in raw_segments:
+            if current_size + len(seg) > BLOCK_SIZE and current:
                 content = "\n\n".join(current)
                 anchor = BlockAnchor(
                     doc_type="text",
@@ -842,14 +955,14 @@ def extract_text_blocks(
                         raw_id=raw_id,
                         anchor=anchor,
                         content=content,
-                        block_type="text",
+                        block_type=block_type,
                         confidence=1.0,
                     )
                 )
                 char_start += len(content) + 2
                 current, current_size = [], 0
-            current.append(para)
-            current_size += len(para) + 2
+            current.append(seg)
+            current_size += len(seg) + 2
 
         if current:
             content = "\n\n".join(current)
@@ -863,7 +976,7 @@ def extract_text_blocks(
                     raw_id=raw_id,
                     anchor=anchor,
                     content=content,
-                    block_type="text",
+                    block_type=block_type,
                     confidence=1.0,
                 )
             )
@@ -928,9 +1041,20 @@ def extract_image_stub(
     *,
     filename: str = "",
 ) -> list[EvidenceBlock]:
-    """Extract image content via OCR when enabled, else stub block."""
+    """Extract image content via OCR when enabled (with SVG rasterization + XML text)."""
     anchor = BlockAnchor(doc_type="image", page=1)
     ocr_error: Optional[str] = None
+    ext = Path(filename).suffix.lower() if filename else ""
+    is_svg = ext == ".svg" or b"<svg" in file_bytes[:512].lower()
+
+    svg_xml_text = _svg_extract_xml_text(file_bytes) if is_svg else ""
+    ocr_input_bytes = file_bytes
+    ocr_filename = filename
+    if is_svg:
+        rasterized = _svg_rasterize_png(file_bytes)
+        if rasterized is not None:
+            ocr_input_bytes = rasterized
+            ocr_filename = f"{Path(filename).stem or 'vector'}.png"
 
     try:
         try:
@@ -945,20 +1069,29 @@ def extract_image_stub(
             )
 
         settings = get_ocr_settings()
-        ocr_result = extract_text_from_image_bytes(
-            file_bytes,
-            source="image_upload",
-            filename=filename,
-            settings=settings,
-        )
+        ocr_result = None
+        if not is_svg or ocr_input_bytes is not file_bytes:
+            ocr_result = extract_text_from_image_bytes(
+                ocr_input_bytes,
+                source="image_upload",
+                filename=ocr_filename,
+                settings=settings,
+            )
+
         if ocr_result is not None:
+            combined_text = ocr_result.text
             metadata = dict(ocr_result.metadata or {})
             metadata.setdefault("size_bytes", len(file_bytes))
+            if is_svg:
+                metadata["svg_rasterized"] = True
+                if svg_xml_text and svg_xml_text.lower() not in combined_text.lower():
+                    combined_text = f"{svg_xml_text}\n\n{combined_text}".strip()
+                    metadata["svg_xml_text_included"] = True
             return [
                 EvidenceBlock.create(
                     raw_id=raw_id,
                     anchor=anchor,
-                    content=ocr_result.text,
+                    content=combined_text,
                     block_type="text",
                     confidence=max(0.2, min(1.0, float(ocr_result.confidence))),
                     metadata=metadata,
@@ -968,11 +1101,26 @@ def extract_image_stub(
         try:
             from perception.extract.ocr_service import get_ocr_settings
 
-            if get_ocr_settings().fail_closed:
+            if get_ocr_settings().fail_closed and not svg_xml_text:
                 raise
         except ImportError:
             pass
         ocr_error = str(exc)
+
+    if svg_xml_text:
+        return [
+            EvidenceBlock.create(
+                raw_id=raw_id,
+                anchor=anchor,
+                content=svg_xml_text,
+                block_type="text",
+                confidence=0.98,
+                metadata={
+                    "extractor": "svg_xml_text",
+                    "size_bytes": len(file_bytes),
+                },
+            )
+        ]
 
     return [
         _image_stub_block(
@@ -989,6 +1137,141 @@ def extract_image_stub(
 # =============================================================================
 # Helpers
 # =============================================================================
+
+
+def _run_cli_text_extractor(
+    file_bytes: bytes,
+    *,
+    suffix: str,
+    commands: list[list[str]],
+) -> Optional[Tuple[str, str]]:
+    """Run an external CLI extractor on a temp file and return (tool, text)."""
+    tmp_path: Optional[str] = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+
+        for cmd_template in commands:
+            exe = cmd_template[0]
+            if not shutil.which(exe):
+                continue
+            cmd = [tmp_path if arg == "{path}" else arg for arg in cmd_template]
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+            if proc.returncode == 0:
+                text = (
+                    proc.stdout.decode("utf-8", errors="ignore")
+                    .replace("\x00", "")
+                    .strip()
+                )
+                if text:
+                    return (exe, text)
+    except Exception:
+        pass
+    finally:
+        if tmp_path:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+    return None
+
+
+def _text_to_blocks(
+    text: str,
+    *,
+    raw_id: str,
+    doc_type: str,
+    metadata: Optional[dict] = None,
+    use_slide_anchor: bool = False,
+) -> list[EvidenceBlock]:
+    """Chunk extracted plain text into deterministic EvidenceBlocks."""
+    cleaned = text.replace("\x00", "").strip()
+    if not cleaned:
+        return []
+
+    blocks: list[EvidenceBlock] = []
+    chunk_size = 4000
+    char_offset = 0
+    slide_num = 1
+
+    for start in range(0, len(cleaned), chunk_size):
+        chunk = cleaned[start : start + chunk_size].strip()
+        if not chunk:
+            continue
+        if use_slide_anchor:
+            anchor = BlockAnchor(doc_type=doc_type, slide=slide_num)
+            slide_num += 1
+        else:
+            anchor = BlockAnchor(
+                doc_type=doc_type,
+                char_start=char_offset,
+                char_end=char_offset + len(chunk),
+            )
+            char_offset += len(chunk) + 1
+        blocks.append(
+            EvidenceBlock.create(
+                raw_id=raw_id,
+                anchor=anchor,
+                content=chunk,
+                block_type="text",
+                confidence=0.95,
+                metadata=dict(metadata or {}),
+            )
+        )
+    return blocks
+
+
+def _svg_rasterize_png(file_bytes: bytes) -> Optional[bytes]:
+    """Rasterize SVG bytes to PNG via rsvg-convert (or cairosvg if installed)."""
+    if shutil.which("rsvg-convert"):
+        try:
+            proc = subprocess.run(
+                ["rsvg-convert", "-f", "png", "-w", "1600", "-"],
+                input=file_bytes,
+                capture_output=True,
+                timeout=20,
+                check=False,
+            )
+            if proc.returncode == 0 and proc.stdout:
+                return proc.stdout
+        except Exception:
+            pass
+
+    try:
+        import cairosvg
+
+        png_bytes = cairosvg.svg2png(bytestring=file_bytes, output_width=1600)
+        if png_bytes:
+            return png_bytes
+    except Exception:
+        pass
+    return None
+
+
+def _svg_extract_xml_text(file_bytes: bytes) -> str:
+    """Safely extract readable text/title/desc elements from an SVG XML document."""
+    try:
+        raw_xml = file_bytes.decode("utf-8", errors="ignore")
+        # Strip DOCTYPE/ENTITY declarations to prevent XXE
+        if "<!DOCTYPE" in raw_xml or "<!ENTITY" in raw_xml:
+            return ""
+        root = ET.fromstring(raw_xml)
+        parts: list[str] = []
+        for elem in root.iter():
+            tag = elem.tag.split("}")[-1].lower() if isinstance(elem.tag, str) else ""
+            if tag in {"text", "tspan", "title", "desc"}:
+                txt = "".join(elem.itertext()).strip()
+                if txt and txt not in parts:
+                    parts.append(txt)
+        return "\n".join(parts).strip()
+    except Exception:
+        return ""
 
 
 def _fallback_block(raw_id: str, doc_type: str) -> EvidenceBlock:

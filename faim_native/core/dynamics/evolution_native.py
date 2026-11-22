@@ -86,7 +86,7 @@ def _vectorized_cosine_matrix(vectors: List[List[float]]) -> Optional[np.ndarray
     Returns:
         Float64 array of shape (n, n) or None.
     """
-    if len(vectors) < 2:
+    if len(vectors) < 2 or len(vectors) > 2048:
         return None
     dim = len(vectors[0])
     if any(len(v) != dim for v in vectors):
@@ -504,7 +504,12 @@ def evolve_once(
     # vectorized (single BLAS) similarity pass below.
     _sess = getattr(node_repo, "session", None)
     is_pg = False
-    if _sess and hasattr(_sess, "bind") and _sess.bind and hasattr(_sess.bind, "dialect"):
+    if (
+        _sess
+        and hasattr(_sess, "bind")
+        and _sess.bind
+        and hasattr(_sess.bind, "dialect")
+    ):
         is_pg = _sess.bind.dialect.name == "postgresql"
 
     # Vectorized pair similarity, computed ONCE and reused for diagnostics,
@@ -514,16 +519,16 @@ def evolve_once(
     sims_flat = None
     node_vectors = None
     use_embeddings = False
-    
+
     # Check if embedding vectors are available on nodes
     if not is_pg and len(nodes) >= 2:
         # Prefer embedding vectors if available, fallback to native
-        if all(hasattr(n, 'v_embedding') and n.v_embedding is not None for n in nodes):
+        if all(hasattr(n, "v_embedding") and n.v_embedding is not None for n in nodes):
             node_vectors = [n.v_embedding for n in nodes]
             use_embeddings = True
         elif all(n.v_native is not None for n in nodes):
             node_vectors = [n.v_native for n in nodes]
-        
+
         if node_vectors is not None:
             try:
                 sim_matrix_np = _vectorized_cosine_matrix(node_vectors)
@@ -623,7 +628,9 @@ def evolve_once(
 
     # Build similarity matrix
     if is_pg:
-        sim_matrix = node_repo.get_max_similarities(graph_id, adapted_prune_policy.min_similarity_for_redundancy)
+        sim_matrix = node_repo.get_max_similarities(
+            graph_id, adapted_prune_policy.min_similarity_for_redundancy
+        )
     elif sim_matrix_np is not None:
         node_ids = [n.node_id for n in nodes]
         sim_matrix = dict(
@@ -635,16 +642,14 @@ def evolve_once(
     # 4-5. Find merge candidates and merge
     if is_pg:
         redundant_pairs = node_repo.find_redundant_pairs(
-            graph_id=graph_id, 
-            threshold=adapted_merge_threshold, 
-            limit=max_actions
+            graph_id=graph_id, threshold=adapted_merge_threshold, limit=max_actions
         )
         for id_a, id_b, score in redundant_pairs:
             if action_count >= max_actions:
                 break
             if id_a in merged_ids or id_b in merged_ids:
                 continue
-                
+
             node_a = node_repo.get_by_id(graph_id, id_a)
             node_b = node_repo.get_by_id(graph_id, id_b)
             if not node_a or not node_b:
@@ -758,7 +763,7 @@ def evolve_once(
         prune_candidates = []
         for n_id, max_sim in sim_matrix.items():
             n = node_repo.get_by_id(graph_id, n_id)
-            if n: 
+            if n:
                 prune_candidates.append((n, max_sim))
     else:
         prune_candidates = [(n, sim_matrix.get(n.node_id, 0.0)) for n in nodes]
@@ -787,9 +792,7 @@ def evolve_once(
                         session=_sess, tenant_id=node_repo.tenant_id
                     ).list_by_node_ids(graph_id=graph_id, node_ids=[str(node.node_id)])
                     repr_json = _serialize_row(repr_rows[0]) if repr_rows else None
-                    edge_rows = edge_repo.list_edges_for_node(
-                        graph_id, node.node_id
-                    )
+                    edge_rows = edge_repo.list_edges_for_node(graph_id, node.node_id)
                     backup_repo.snapshot_model(
                         graph_id=graph_id,
                         node=node,
@@ -799,7 +802,9 @@ def evolve_once(
                         repr_json=repr_json,
                         edges_json=[_serialize_row(e) for e in edge_rows],
                     )
-                except Exception:  # nosec B110 - backup failure must not block evolution
+                except (
+                    Exception
+                ):  # nosec B110 - backup failure must not block evolution
                     logger.warning(
                         "Pre-action backup failed for node=%s",
                         node.node_id,
@@ -871,11 +876,14 @@ def evolve_once(
             invention_settings["synthesis_max_macros"] = max(
                 0, int(invention_overrides["synthesis_max_macros"])
             )
-    invention_allowed = bool(
-        invention_settings["enabled"] and invention_settings["on_evolve"]
-    )
-    if self_invent_requested is not None:
-        invention_allowed = invention_allowed and bool(self_invent_requested)
+    if self_invent_requested is True:
+        invention_allowed = True
+    elif self_invent_requested is False:
+        invention_allowed = False
+    else:
+        invention_allowed = bool(
+            invention_settings["enabled"] and invention_settings["on_evolve"]
+        )
 
     if invention_allowed and _sess is not None:
         try:
@@ -955,9 +963,19 @@ def evolve_once(
     synthesis_bridge_enabled = bool(
         invention_settings.get("synthesis_bridge_enabled", False)
     )
-    synthesis_max_macros = int(
-        invention_settings.get("synthesis_max_macros", 0) or 0
-    )
+    synthesis_max_macros = int(invention_settings.get("synthesis_max_macros", 0) or 0)
+    if invention_allowed and self_invent_requested is True:
+        invention_settings["lambda_threshold"] = min(
+            float(invention_settings.get("lambda_threshold", 0.3)),
+            0.05,
+        )
+        if not synthesis_bridge_enabled:
+            synthesis_bridge_enabled = True
+            synthesis_max_macros = max(
+                synthesis_max_macros,
+                int(invention_settings.get("max_macros_per_cycle", 3) or 3),
+                3,
+            )
     if (
         invention_allowed
         and synthesis_bridge_enabled
@@ -986,9 +1004,7 @@ def evolve_once(
                     {
                         "type": "invention_synthesis",
                         "count": synthesis_result.macros_created,
-                        "macro_ids": [
-                            str(mid) for mid in synthesis_result.macro_ids
-                        ],
+                        "macro_ids": [str(mid) for mid in synthesis_result.macro_ids],
                     }
                 )
             for error in list(getattr(synthesis_result, "errors", []) or []):
@@ -1007,9 +1023,7 @@ def evolve_once(
                     payload={
                         "inventions": synthesis_result.macros_created,
                         "skipped_candidates": synthesis_result.skipped_candidates,
-                        "macro_ids": [
-                            str(mid) for mid in synthesis_result.macro_ids
-                        ],
+                        "macro_ids": [str(mid) for mid in synthesis_result.macro_ids],
                     },
                     result=result,
                 )
@@ -1050,16 +1064,15 @@ def evolve_once(
             try:
                 from store.pg.repos.evolution_backup_repo import EvolutionBackupRepo
 
-                EvolutionBackupRepo(
-                    session=_sess, tenant_id=node_repo.tenant_id
-                ).retag(
+                EvolutionBackupRepo(session=_sess, tenant_id=node_repo.tenant_id).retag(
                     graph_id=graph_id,
                     from_version=current_version,
                     to_version=int(new_version),
                 )
             except Exception:  # nosec B110 - retag is best-effort bookkeeping
                 logger.warning(
-                    "Backup version retag failed for graph=%s", graph_id,
+                    "Backup version retag failed for graph=%s",
+                    graph_id,
                     exc_info=True,
                 )
 

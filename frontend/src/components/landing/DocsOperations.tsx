@@ -13,14 +13,6 @@ const CARDS = [
     accent: "cyan",
   },
   {
-    title: "FAIM Cortex",
-    tag: "Memory synthesis",
-    text: "Planner-driven adaptive hop reasoning with pulse-v2 reason ledgers, exact traversal paths, and approved memory writebacks that now execute through a durable receipt-backed backend path. Default bounded depth is 1-24 hops, configurable to 128.",
-    href: "/dashboard/memory-query",
-    cta: "Open Cortex",
-    accent: "purple",
-  },
-  {
     title: "Matrix Billing",
     tag: "Scale-Ready",
     text: "4-tier professional subscription matrix metered by cognitive capacity (Nodes & Hops). Transparent resource allocation.",
@@ -40,13 +32,6 @@ const ACCENT_STYLES: Record<
     text: "text-cyan-300/70",
     button:
       "border-cyan-500/30 bg-cyan-500/10 text-cyan-200 hover:bg-cyan-500/20",
-  },
-  purple: {
-    border: "border-purple-500/20",
-    bg: "bg-purple-500/[0.04]",
-    text: "text-purple-300/70",
-    button:
-      "border-purple-500/30 bg-purple-500/10 text-purple-200 hover:bg-purple-500/20",
   },
   emerald: {
     border: "border-emerald-500/20",
@@ -83,9 +68,10 @@ export default function DocsOperations() {
           <p className="mt-4 text-slate-400 max-w-3xl mx-auto text-lg">
             The public site now exposes the current FAIM system, the memory
             synthesis layer, the autonomous domain-memory flow, the new
-            semantic-signature retrieval layer, the pulse-v2 FIG proof layer, the guardrailed evolve
-            controls, the approved writeback execution flow, and the production deploy flow in one place so operators
-            do not have to hunt through scattered notes.
+            semantic-signature retrieval layer, the pulse-v2 FIG proof layer,
+            the guardrailed evolve controls, the Remote MCP + OAuth 2.1
+            integration flow, and the production deploy flow in one place so
+            operators do not have to hunt through scattered notes.
           </p>
         </motion.div>
 
@@ -132,10 +118,11 @@ export default function DocsOperations() {
           className="mt-8 grid gap-3 md:grid-cols-4"
         >
           {[
-            "Local prod uses .env.localprod",
-            "VPS prod uses deploy/env.vpsprod",
-            "Selective rebuilds avoid full image churn",
-            "Benchmark and smoke checks stay explicit",
+            "Remote MCP (/mcp) with OAuth 2.1 + PKCE",
+            "One-time API keys & 1-click session revoke",
+            "Tenant-isolated Postgres, Redis & Qdrant",
+            "Live benchmarks & pulse-v2 provenance",
+            "ANN retrieval with isolated, reproducible benchmark runs",
           ].map((line) => (
             <div
               key={line}

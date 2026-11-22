@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol
 
 
 class AdapterConfigError(RuntimeError):
@@ -26,27 +26,29 @@ class QueryOutcome:
     retrieved_texts: List[str] = field(default_factory=list)
     answer_text: str = ""
     latency_ms: float = 0.0
-    metadata: Dict[str, str] = field(default_factory=dict)
+    # Adapter-owned diagnostics only. Adapters must not place query text,
+    # document text, credentials, or provider responses here.
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class MemorySystemAdapter(Protocol):
     name: str
     system_type: str
 
-    def is_configured(self) -> tuple[bool, Optional[str]]:
-        ...
+    def is_configured(self) -> tuple[bool, Optional[str]]: ...
 
-    def prepare_namespace(self, namespace: str) -> None:
-        ...
+    def prepare_namespace(self, namespace: str) -> None: ...
 
-    def ingest_document(self, namespace: str, doc_id: str, title: str, text: str) -> IngestOutcome:
-        ...
+    def ingest_document(
+        self, namespace: str, doc_id: str, title: str, text: str
+    ) -> IngestOutcome: ...
 
-    def write_memory(self, namespace: str, memory_id: str, text: str, timestamp: Optional[str] = None) -> IngestOutcome:
-        ...
+    def write_memory(
+        self, namespace: str, memory_id: str, text: str, timestamp: Optional[str] = None
+    ) -> IngestOutcome: ...
 
-    def query(self, namespace: str, query_id: str, query_text: str, k: int = 20) -> QueryOutcome:
-        ...
+    def query(
+        self, namespace: str, query_id: str, query_text: str, k: int = 20
+    ) -> QueryOutcome: ...
 
-    def close(self) -> None:
-        ...
+    def close(self) -> None: ...

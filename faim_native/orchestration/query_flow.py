@@ -12,14 +12,16 @@ NOT RAG: No chunking, no ST, uses EvidenceBlocks only.
 
 from __future__ import annotations
 
+import logging
 import os
 import sys
-import logging
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from threading import RLock
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
 # Flexible imports
@@ -31,6 +33,8 @@ from core.contracts.types import EventRecord  # noqa: E402
 from core.query.idf_cache import apply_idf, compute_idf_weights  # noqa: E402
 from core.query.query_engine import (  # noqa: E402
     DEFAULT_WEIGHTS,
+    RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS,
+    RELEVANCE_FIRST_WEIGHTS,
     STRICT_WEIGHTS,
     build_explain_payload,
     compute_query_hash,
@@ -195,8 +199,8 @@ def refresh_graph_diagnostics(
     request.  The stale-read fallback below exists only for legacy graphs that
     predate the cache migration.
     """
-    from sqlalchemy import func
     from core.dynamics.evolution_native import compute_graph_diagnostics
+    from sqlalchemy import func
     from store.pg.models_faim import (
         EdgeModel,
         GraphDiagnosticsCacheModel,
@@ -329,7 +333,9 @@ def persist_graph_diagnostics_snapshot(
     cached.node_count = node_count
     cached.edge_count = edge_count
     cached.cr = round(node_count / edge_count, 6) if edge_count else 0.0
-    cached.redundancy = round(float(getattr(diagnostics, "redundancy_R", 0.0) or 0.0), 6)
+    cached.redundancy = round(
+        float(getattr(diagnostics, "redundancy_R", 0.0) or 0.0), 6
+    )
     cached.d_hat = round(float(getattr(diagnostics, "D_hat", 0.0) or 0.0), 6)
     cached.h_hat = round(float(getattr(diagnostics, "H_hat", 0.0) or 0.0), 6)
     cached.lambda_hat = round(float(getattr(diagnostics, "lambda_hat", 0.0) or 0.0), 6)
@@ -370,6 +376,34 @@ def get_graph_metrics(session, tenant_id: str, graph_id: str) -> Dict[str, Any]:
         .first()
     )
     if cached is None or int(cached.graph_version or 0) < int(graph_version or 0):
+        # Never make the synchronous query path materialize a large graph just
+        # to rebuild an optional diagnostics snapshot.  The old compatibility
+        # backfill loaded every node and edge while holding the request's
+        # transaction open; on production-sized graphs that exceeded the
+        # PostgreSQL idle-in-transaction budget before ANN recall could run.
+        # Evolution/maintenance jobs still own full diagnostics computation.
+        max_sync_nodes_raw = os.getenv("FAIM_QUERY_DIAGNOSTICS_MAX_SYNC_NODES", "2000")
+        try:
+            max_sync_nodes = max(0, int(max_sync_nodes_raw))
+        except ValueError:
+            max_sync_nodes = 2000
+        if node_count > max_sync_nodes:
+            return {
+                "node_count": node_count,
+                "avg_touch": avg_touch,
+                "edge_count": 0,
+                "CR": 0.0,
+                "R": 0.0,
+                "D_hat": 0.0,
+                "H_hat": 0.0,
+                "lambda_hat": 0.0,
+                "novelty": 0.0,
+                "energy": 0.0,
+                "diagnostics_hash": "",
+                "diagnostics_graph_version": int(graph_version or 0),
+                "diagnostics_computed_at": None,
+                "diagnostics_cached": 0.0,
+            }
         # Compatibility backfill for graphs created before migration 0041.  It
         # runs once per version, then every query is a bounded cache read.
         return refresh_graph_diagnostics(
@@ -400,24 +434,24 @@ def update_usage(
     """
     from store.pg.models_faim import NodeModel
 
+    if not node_ids:
+        return {}
+
     now = datetime.now(timezone.utc)
     touches = {}
-
-    for node_id in node_ids:
-        node = (
-            session.query(NodeModel)
-            .filter(
-                NodeModel.tenant_id == tenant_id,
-                NodeModel.graph_id == graph_id,
-                NodeModel.node_id == node_id,
-            )
-            .first()
+    nodes = (
+        session.query(NodeModel)
+        .filter(
+            NodeModel.tenant_id == tenant_id,
+            NodeModel.graph_id == graph_id,
+            NodeModel.node_id.in_(node_ids),
         )
-
-        if node:
-            node.touch_count = (node.touch_count or 0) + 1
-            node.last_access = now
-            touches[node_id] = node.touch_count
+        .all()
+    )
+    for node in nodes:
+        node.touch_count = (node.touch_count or 0) + 1
+        node.last_access = now
+        touches[node.node_id] = node.touch_count
 
     session.flush()
     return touches
@@ -439,6 +473,40 @@ def _phase4_stopwords_enabled() -> bool:
     """Feature gate for Phase 4 stop-word filtering in query vectorization."""
     raw = os.getenv("FAIM_PHASE4_STOPWORDS_ENABLED", "true").strip().lower()
     return raw in {"1", "true", "yes", "on"}
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Read a boolean feature flag without raising on malformed deployment input."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _fast_relevance_first_enabled(profile: FAIMProfile) -> bool:
+    """Use query-relevance-first scoring for the bounded FAST path.
+
+    FAST is the public low-latency profile. Its default must not let mutable
+    usage/recency signals or broad graph diffusion displace lexical evidence.
+    An explicit environment value remains available for controlled rollback.
+    """
+    if profile != FAIMProfile.FAST or not _repr_v2_enabled():
+        return False
+    return _env_bool("FAIM_FAST_RELEVANCE_FIRST", True)
+
+
+def _fast_graph_expansion_enabled(profile: FAIMProfile) -> bool:
+    """Keep graph expansion out of FAST unless explicitly enabled."""
+    if profile != FAIMProfile.FAST:
+        return True
+    return _env_bool("FAIM_FAST_GRAPH_EXPANSION", False)
+
+
+def _fast_idf_enabled(profile: FAIMProfile) -> bool:
+    """Avoid a graph-wide IDF scan in FAST unless explicitly enabled."""
+    if profile != FAIMProfile.FAST:
+        return True
+    return _env_bool("FAIM_FAST_IDF", False)
 
 
 def _stable_union_ids(primary_ids: List[UUID], extra_ids: List[UUID]) -> List[UUID]:
@@ -482,7 +550,9 @@ def _build_query_fusion_summary(
         },
         "query_expansion": {
             "source_counts": dict(phaseb_expansion_info.get("source_counts", {}) or {}),
-            "expansion_count": len(list(phaseb_expansion_info.get("expansions", []) or [])),
+            "expansion_count": len(
+                list(phaseb_expansion_info.get("expansions", []) or [])
+            ),
         },
         "graph_runtime": {
             "max_hops": int(graph_options.get("graph_max_hops", 0) or 0),
@@ -570,6 +640,39 @@ def _domain_weighted_expansions(query_text: str, rows: Sequence[object]):
 # =============================================================================
 
 
+_QUERY_GRAPH_META_CACHE_LOCK = RLock()
+_QUERY_GRAPH_META_CACHE: OrderedDict[Tuple[str, str, int], Dict[str, Any]] = (
+    OrderedDict()
+)
+_QUERY_GRAPH_META_CACHE_MAX_SIZE = 256
+
+
+def _get_cached_graph_meta(
+    tenant_id: str, graph_id: str, graph_version: int
+) -> Optional[Dict[str, Any]]:
+    if graph_version <= 0:
+        return None
+    cache_key = (tenant_id, graph_id, int(graph_version))
+    with _QUERY_GRAPH_META_CACHE_LOCK:
+        cached = _QUERY_GRAPH_META_CACHE.get(cache_key)
+        if cached is not None:
+            _QUERY_GRAPH_META_CACHE.move_to_end(cache_key)
+        return cached
+
+
+def _set_cached_graph_meta(
+    tenant_id: str, graph_id: str, graph_version: int, meta: Dict[str, Any]
+) -> None:
+    if graph_version <= 0:
+        return
+    cache_key = (tenant_id, graph_id, int(graph_version))
+    with _QUERY_GRAPH_META_CACHE_LOCK:
+        _QUERY_GRAPH_META_CACHE[cache_key] = meta
+        _QUERY_GRAPH_META_CACHE.move_to_end(cache_key)
+        while len(_QUERY_GRAPH_META_CACHE) > _QUERY_GRAPH_META_CACHE_MAX_SIZE:
+            _QUERY_GRAPH_META_CACHE.popitem(last=False)
+
+
 def run_query(
     session,
     tenant_id: str,
@@ -614,6 +717,13 @@ def run_query(
     """
     start_time = time.perf_counter()
     degraded_features: List[str] = []
+    stage_timings_ms: Dict[str, float] = {}
+
+    def _stage_start() -> float:
+        return time.perf_counter()
+
+    def _stage_end(name: str, started: float) -> None:
+        stage_timings_ms[name] = round((time.perf_counter() - started) * 1000.0, 3)
 
     def _degraded(feature: str, exc: Exception) -> None:
         """Expose non-fatal retrieval degradation without leaking internals."""
@@ -627,9 +737,23 @@ def run_query(
     # Compute query hash
     query_hash = compute_query_hash(query_text, graph_id)
     profile_name = profile.name if isinstance(profile, FAIMProfile) else str(profile)
+    fast_relevance_first = _fast_relevance_first_enabled(profile)
+    fast_graph_expansion = _fast_graph_expansion_enabled(profile)
+    fast_idf = _fast_idf_enabled(profile)
+    fast_async_touch = fast_relevance_first and not _env_bool(
+        "FAIM_FAST_SYNC_TOUCH", False
+    )
 
-    # 1. Emit QUERY_START
-    emit_query_start(journal, graph_id, query_hash, k, profile_name)
+    from store.pg.repos.graph_version_repo import GraphVersionRepo
+
+    gv_repo = GraphVersionRepo(tenant_id=tenant_id)
+    graph_version = gv_repo.get_version(session, graph_id) if session is not None else 0
+    cached_meta = _get_cached_graph_meta(tenant_id, graph_id, int(graph_version or 0))
+    meta_to_cache: Dict[str, Any] = {} if cached_meta is None else dict(cached_meta)
+
+    # 1. Emit QUERY_START (skip synchronous DB insert in FAST read-only mode)
+    if not fast_async_touch:
+        emit_query_start(journal, graph_id, query_hash, k, profile_name)
 
     # 2. Canonicalize and expand query text with deterministic weighted sources.
     canonical_query_text = query_text
@@ -653,8 +777,12 @@ def run_query(
         )
         from store.pg.repos.canonical_semantics_repo import CanonicalSemanticsRepo
 
-        canonical_repo = CanonicalSemanticsRepo(session=session, tenant_id=tenant_id)
-        canonical_map = canonical_repo.get_canonical_map(graph_id)
+        if cached_meta is not None and "canonical_map" in cached_meta:
+            canonical_map = cached_meta["canonical_map"]
+        else:
+            canonical_repo = CanonicalSemanticsRepo(session=session, tenant_id=tenant_id)
+            canonical_map = canonical_repo.get_canonical_map(graph_id)
+            meta_to_cache["canonical_map"] = canonical_map
         canonicalized = canonicalize_text(query_text, canonical_map=canonical_map)
         if canonicalized.canonical_text:
             canonical_query_text = canonicalized.canonical_text
@@ -689,8 +817,12 @@ def run_query(
         )
         from store.pg.repos.multilingual_repo import MultilingualRepo
 
-        multilingual_repo = MultilingualRepo(session=session, tenant_id=tenant_id)
-        multilingual_map = multilingual_repo.get_language_map(graph_id)
+        if cached_meta is not None and "multilingual_map" in cached_meta:
+            multilingual_map = cached_meta["multilingual_map"]
+        else:
+            multilingual_repo = MultilingualRepo(session=session, tenant_id=tenant_id)
+            multilingual_map = multilingual_repo.get_language_map(graph_id)
+            meta_to_cache["multilingual_map"] = multilingual_map
         multilingualized = canonicalize_multilingual_text(
             canonicalized.normalized_text if canonicalized else canonical_query_text,
             graph_map=multilingual_map,
@@ -721,9 +853,19 @@ def run_query(
         from store.pg.repos.domain_knowledge_repo import DomainKnowledgeRepo
         from store.pg.repos.edge_repo import EdgeRepo
 
-        domain_repo = DomainKnowledgeRepo(session=session, tenant_id=tenant_id)
-        domain_rows = domain_repo.list_lexicon_entries(graph_id)
-        domain_map = domain_repo.get_domain_map(graph_id)
+        if (
+            cached_meta is not None
+            and "domain_rows" in cached_meta
+            and "domain_map" in cached_meta
+        ):
+            domain_rows = cached_meta["domain_rows"]
+            domain_map = cached_meta["domain_map"]
+        else:
+            domain_repo = DomainKnowledgeRepo(session=session, tenant_id=tenant_id)
+            domain_rows = domain_repo.list_lexicon_entries(graph_id)
+            domain_map = domain_repo.get_domain_map(graph_id)
+            meta_to_cache["domain_rows"] = domain_rows
+            meta_to_cache["domain_map"] = domain_map
         linked_terms = resolve_query_links(expanded_query_text, domain_rows)
         domain_linked_terms = [
             {
@@ -751,7 +893,9 @@ def run_query(
             render_weighted_expansion_text,
         )
 
-        domain_expansions = _domain_weighted_expansions(expanded_query_text, domain_rows)
+        domain_expansions = _domain_weighted_expansions(
+            expanded_query_text, domain_rows
+        )
         phaseb_expansions = merge_weighted_expansions(
             list(phaseb_expansions) + list(domain_expansions),
             max_total=36,
@@ -776,12 +920,14 @@ def run_query(
             render_weighted_expansion_text,
         )
 
-        registry_expansions, semantic_registry_info = resolve_semantic_registry_expansions(
-            query_text=expanded_query_text,
-            canonical_map=canonical_map,
-            multilingual_map=multilingual_map,
-            domain_map=domain_map,
-            max_total=20,
+        registry_expansions, semantic_registry_info = (
+            resolve_semantic_registry_expansions(
+                query_text=expanded_query_text,
+                canonical_map=canonical_map,
+                multilingual_map=multilingual_map,
+                domain_map=domain_map,
+                max_total=20,
+            )
         )
         phaseb_expansions = merge_weighted_expansions(
             list(phaseb_expansions) + list(registry_expansions),
@@ -833,64 +979,67 @@ def run_query(
     effective_graph_diffusion_steps = max(1, int(graph_diffusion_steps or 3))
 
     # 2b. Apply IDF weighting (Phase 3C)
-    try:
-        _idf = compute_idf_weights(session, tenant_id, graph_id)
-        q_vec = apply_idf(tuple(q_vec), _idf)
-    except Exception as exc:
-        _degraded("inheritance_query_expansion", exc)
-        # If IDF computation fails (e.g., empty graph), continue with unweighted q_vec
-        pass
+    if fast_idf:
+        try:
+            _idf = compute_idf_weights(session, tenant_id, graph_id)
+            q_vec = apply_idf(tuple(q_vec), _idf)
+        except Exception as exc:
+            _degraded("inheritance_query_expansion", exc)
+            # If IDF computation fails (e.g., empty graph), continue with unweighted q_vec
+            pass
 
     # 2c. Inheritance-weighted query expansion (Phase 7)
-    try:
-        if index is not None and profile != FAIMProfile.STRICT:
-            _seeds = recall_candidates_index(
-                index=index,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=20,
-            )
-        else:
-            _seeds = recall_candidates_brute_force(
-                session=session,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=20,
-            )
-        if not _seeds and index is not None and profile != FAIMProfile.STRICT:
-            _seeds = recall_candidates_brute_force(
-                session=session,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=20,
-            )
-        if _seeds:
-            _seed_ids = [node_id for node_id, _ in _seeds]
-            q_vec = inheritance_weighted_expansion(
-                session=session,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                seed_node_ids=_seed_ids,
-                alpha=0.2,
-            )
-    except Exception:
-        # Graceful fallback — continue with non-expanded q_vec
-        pass
+    if fast_graph_expansion:
+        try:
+            if index is not None and profile != FAIMProfile.STRICT:
+                _seeds = recall_candidates_index(
+                    index=index,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=20,
+                )
+            else:
+                _seeds = recall_candidates_brute_force(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=20,
+                )
+            if not _seeds and index is not None and profile != FAIMProfile.STRICT:
+                _seeds = recall_candidates_brute_force(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=20,
+                )
+            if _seeds:
+                _seed_ids = [node_id for node_id, _ in _seeds]
+                q_vec = inheritance_weighted_expansion(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    seed_node_ids=_seed_ids,
+                    alpha=0.2,
+                )
+        except Exception:
+            # Graceful fallback — continue with non-expanded q_vec
+            pass
 
-    # 3. Get graph metrics
-    metrics = get_graph_metrics(session, tenant_id, graph_id)
+    # 3. Get graph metrics (graph-versioned cache)
+    if cached_meta is not None and "metrics" in cached_meta:
+        metrics = cached_meta["metrics"]
+    else:
+        metrics = get_graph_metrics(session, tenant_id, graph_id)
+        meta_to_cache["metrics"] = metrics
+        _set_cached_graph_meta(tenant_id, graph_id, int(graph_version or 0), meta_to_cache)
     graph_avg_touch = metrics.get("avg_touch", 1.0)
 
-    from store.pg.repos.graph_version_repo import GraphVersionRepo
-
-    gv_repo = GraphVersionRepo(tenant_id=tenant_id)
-    graph_version = gv_repo.get_version(session, graph_id)
-
     # 4. Recall candidates (cache -> index/brute-force fallback)
+    recall_started = _stage_start()
     cache_hit = False
     profile_name_cache = (
         profile.value if isinstance(profile, FAIMProfile) else str(profile).lower()
@@ -898,6 +1047,9 @@ def run_query(
     candidates: List[Any] = []
     phase5_sparse_candidates: List[Any] = []
     phase5_dense_candidates: List[Any] = []
+    phase5_exact_scores: Dict[UUID, float] = {}
+    artifacts_sparse_docs: Optional[Dict[UUID, Any]] = None
+    artifacts_node_meta: Optional[Dict[UUID, Any]] = None
 
     if cache is not None:
         try:
@@ -932,55 +1084,100 @@ def run_query(
                 )
                 from store.pg.repos.representation_repo import RepresentationRepo
 
+                try:
+                    dense_sql_limit = max(
+                        0,
+                        int(os.getenv("FAIM_PHASE5_DENSE_SQL_MAX_NODES", "2000")),
+                    )
+                except ValueError:
+                    dense_sql_limit = 2000
+                graph_node_count = int(metrics.get("node_count", 0) or 0)
                 artifacts = get_graph_index_artifacts(
                     session=session,
                     tenant_id=tenant_id,
                     graph_id=graph_id,
                     graph_version=graph_version,
+                    # Preserve the deterministic in-process dense path for
+                    # small/legacy graphs. Large graphs use persistent
+                    # semantic Qdrant ANN below and must not materialize
+                    # every SQL vector in the request transaction.
+                    include_dense=graph_node_count <= dense_sql_limit,
                 )
-                repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
-                stats_by_channel = repr_repo.get_graph_stats(graph_id)
-                phase5_sparse_candidates = list(
-                    block_max_wand_shortlist(
-                        artifacts.sparse_index,
-                        query_repr_v2,
-                        stats_by_channel,
-                        k=max(200, k * 20),
-                        max_candidates=max(400, k * 40),
+                artifacts_sparse_docs = artifacts.sparse_index.documents
+                artifacts_node_meta = getattr(artifacts, "node_meta", None)
+                shortlist_k = max(80, k * 4) if fast_relevance_first else max(200, k * 20)
+                if (
+                    canonical_query_text
+                    and hasattr(artifacts.sparse_index, "has_exact_bm25")
+                    and artifacts.sparse_index.has_exact_bm25()
+                ):
+                    bm25_expanded_terms = {
+                        str(getattr(item, "term", "")): float(getattr(item, "weight", 0.0) or 0.0)
+                        for item in (phaseb_expansions or ())
+                        if getattr(item, "term", None)
+                    }
+                    phase5_exact_scores = artifacts.sparse_index.score_bm25_fast(
+                        canonical_query_text,
+                        expanded_terms=bm25_expanded_terms or None,
                     )
-                )
-                phase5_dense_candidates = list(
-                    search_vptree(
-                        artifacts.ann_root,
-                        tuple(q_vec),
-                        max(200, k * 20),
-                    )
-                )
-                candidates = phase5_sparse_candidates or []
-                candidate_ids = [node_id for node_id, _score in candidates]
-                dense_ids = [node_id for node_id, _score in phase5_dense_candidates]
-                merged_ids = _stable_union_ids(candidate_ids, dense_ids)
-                dense_score_map = {
-                    node_id: float(score) for node_id, score in phase5_dense_candidates
-                }
-                sparse_score_map = {
-                    node_id: float(score) for node_id, score in phase5_sparse_candidates
-                }
-                merged_candidates = []
-                for node_id in merged_ids:
-                    merged_candidates.append(
-                        (
-                            node_id,
-                            max(
-                                sparse_score_map.get(node_id, 0.0),
-                                dense_score_map.get(node_id, 0.0),
-                            ),
+                    if phase5_exact_scores:
+                        phase5_sparse_candidates = sorted(
+                            phase5_exact_scores.items(),
+                            key=lambda item: (-item[1], str(item[0])),
+                        )[:shortlist_k]
+                if not phase5_sparse_candidates:
+                    repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
+                    stats_by_channel = repr_repo.get_graph_stats(graph_id)
+                    phase5_sparse_candidates = list(
+                        block_max_wand_shortlist(
+                            artifacts.sparse_index,
+                            query_repr_v2,
+                            stats_by_channel,
+                            k=shortlist_k,
+                            max_candidates=max(400, k * 40),
                         )
                     )
-                candidates = sorted(
-                    merged_candidates,
-                    key=lambda item: (-item[1], str(item[0])),
-                )[: max(200, k * 20)]
+                phase5_dense_candidates = []
+                if artifacts.ann_root is not None and not (
+                    fast_relevance_first and len(phase5_sparse_candidates) >= k
+                ):
+                    phase5_dense_candidates = list(
+                        search_vptree(
+                            artifacts.ann_root,
+                            tuple(q_vec),
+                            max(200, k * 20),
+                        )
+                    )
+                candidates = phase5_sparse_candidates or []
+                if phase5_dense_candidates:
+                    candidate_ids = [node_id for node_id, _score in candidates]
+                    dense_ids = [
+                        node_id for node_id, _score in phase5_dense_candidates
+                    ]
+                    merged_ids = _stable_union_ids(candidate_ids, dense_ids)
+                    dense_score_map = {
+                        node_id: float(score)
+                        for node_id, score in phase5_dense_candidates
+                    }
+                    sparse_score_map = {
+                        node_id: float(score)
+                        for node_id, score in phase5_sparse_candidates
+                    }
+                    merged_candidates = []
+                    for node_id in merged_ids:
+                        merged_candidates.append(
+                            (
+                                node_id,
+                                max(
+                                    sparse_score_map.get(node_id, 0.0),
+                                    dense_score_map.get(node_id, 0.0),
+                                ),
+                            )
+                        )
+                    candidates = sorted(
+                        merged_candidates,
+                        key=lambda item: (-item[1], str(item[0])),
+                    )[: max(200, k * 20)]
             except Exception as exc:
                 _degraded("phase5_hybrid_recall", exc)
                 phase5_sparse_candidates = []
@@ -1035,101 +1232,125 @@ def run_query(
                 pass
 
     candidate_ids = [c[0] for c in candidates]
+    _stage_end("candidate_recall_ms", recall_started)
 
     if _repr_v2_enabled():
-        try:
-            from store.pg.repos.representation_repo import RepresentationRepo
+        if phase5_exact_scores:
+            lexical_scores = {
+                nid: (
+                    float(phase5_exact_scores[nid]),
+                    {"word": float(phase5_exact_scores[nid])},
+                )
+                for nid in candidate_ids
+                if nid in phase5_exact_scores
+            }
+        else:
+            try:
+                from store.pg.repos.representation_repo import RepresentationRepo
 
-            repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
-            # Phase 5 already produced a deterministic sparse lexical
-            # shortlist.  Rescanning every representation here defeats the
-            # bounded-recall path on large graphs and can make one query
-            # exceed the API request budget.  Keep the legacy full lexical
-            # scan only when the Phase 5 shortlist is unavailable.
-            if not phase5_sparse_candidates:
-                lexical_candidates = repr_repo.top_k_lexical(
+                repr_repo = RepresentationRepo(session=session, tenant_id=tenant_id)
+                # Phase 5 already produced a deterministic sparse lexical
+                # shortlist.  Rescanning every representation here defeats the
+                # bounded-recall path on large graphs and can make one query
+                # exceed the API request budget.  Keep the legacy full lexical
+                # scan only when the Phase 5 shortlist is unavailable.
+                if not phase5_sparse_candidates:
+                    lexical_candidates = repr_repo.top_k_lexical(
+                        graph_id=graph_id,
+                        query_repr=query_repr_v2,
+                        k=max(200, k * 20),
+                    )
+                    lexical_candidate_ids = [
+                        node_id for node_id, _score in lexical_candidates
+                    ]
+                    candidate_ids = _stable_union_ids(candidate_ids, lexical_candidate_ids)
+                lexical_scores = repr_repo.score_node_ids(
                     graph_id=graph_id,
                     query_repr=query_repr_v2,
-                    k=max(200, k * 20),
+                    node_ids=candidate_ids,
                 )
-                lexical_candidate_ids = [
-                    node_id for node_id, _score in lexical_candidates
-                ]
-                candidate_ids = _stable_union_ids(candidate_ids, lexical_candidate_ids)
-            lexical_scores = repr_repo.score_node_ids(
-                graph_id=graph_id,
-                query_repr=query_repr_v2,
-                node_ids=candidate_ids,
-            )
-        except Exception as exc:
-            _degraded("lexical_scoring", exc)
-            lexical_scores = {}
+            except Exception as exc:
+                _degraded("lexical_scoring", exc)
+                lexical_scores = {}
 
     if domain_candidate_ids:
         candidate_ids = _stable_union_ids(candidate_ids, domain_candidate_ids)
 
-    # Phase 3: bounded multi-hop graph semantics and diffusion
-    try:
-        from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
-        from core.query.graph_semantics import build_graph_semantic_scores
-        from store.pg.repos.edge_repo import EdgeRepo
-        from store.pg.repos.node_repo import NodeRepo
+    # Phase 3: bounded multi-hop graph semantics and diffusion.  FAST keeps
+    # this optional so broad graph expansion cannot displace a strong first
+    # stage or consume the latency budget before ranking.
+    graph_started = _stage_start()
+    if fast_graph_expansion:
+        try:
+            from core.operators.semantic_typing import KNOWN_SEMANTIC_KINDS
+            from core.query.graph_semantics import build_graph_semantic_scores
+            from store.pg.repos.edge_repo import EdgeRepo
+            from store.pg.repos.node_repo import NodeRepo
 
-        if index is not None and profile != FAIMProfile.STRICT:
-            seed_pairs = recall_candidates_index(
-                index=index,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=30,
+            if index is not None and profile != FAIMProfile.STRICT:
+                seed_pairs = recall_candidates_index(
+                    index=index,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=30,
+                )
+            else:
+                seed_pairs = recall_candidates_brute_force(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=30,
+                )
+            if not seed_pairs and index is not None and profile != FAIMProfile.STRICT:
+                seed_pairs = recall_candidates_brute_force(
+                    session=session,
+                    tenant_id=tenant_id,
+                    graph_id=graph_id,
+                    q_vec=tuple(q_vec),
+                    n=30,
+                )
+            seed_score_map = {node_id: max(0.0, score) for node_id, score in seed_pairs}
+            graph_candidate_ids, graph_scores, graph_paths = (
+                build_graph_semantic_scores(
+                    edge_repo=EdgeRepo(session=session, tenant_id=tenant_id),
+                    node_repo=NodeRepo(session=session, tenant_id=tenant_id),
+                    graph_id=graph_id,
+                    seed_scores=seed_score_map,
+                    base_candidate_ids=candidate_ids,
+                    allowed_kinds={"inheritance"}
+                    | KNOWN_SEMANTIC_KINDS
+                    | {"opposition"},
+                    max_hops=effective_graph_max_hops,
+                    max_neighbors=effective_graph_max_neighbors,
+                    decay=effective_graph_decay,
+                    alpha=effective_graph_alpha,
+                    steps=effective_graph_diffusion_steps,
+                )
             )
-        else:
-            seed_pairs = recall_candidates_brute_force(
-                session=session,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=30,
-            )
-        if not seed_pairs and index is not None and profile != FAIMProfile.STRICT:
-            seed_pairs = recall_candidates_brute_force(
-                session=session,
-                tenant_id=tenant_id,
-                graph_id=graph_id,
-                q_vec=tuple(q_vec),
-                n=30,
-            )
-        seed_score_map = {node_id: max(0.0, score) for node_id, score in seed_pairs}
-        graph_candidate_ids, graph_scores, graph_paths = build_graph_semantic_scores(
-            edge_repo=EdgeRepo(session=session, tenant_id=tenant_id),
-            node_repo=NodeRepo(session=session, tenant_id=tenant_id),
-            graph_id=graph_id,
-            seed_scores=seed_score_map,
-            base_candidate_ids=candidate_ids,
-            allowed_kinds={"inheritance"} | KNOWN_SEMANTIC_KINDS | {"opposition"},
-            max_hops=effective_graph_max_hops,
-            max_neighbors=effective_graph_max_neighbors,
-            decay=effective_graph_decay,
-            alpha=effective_graph_alpha,
-            steps=effective_graph_diffusion_steps,
-        )
-        candidate_ids = _stable_union_ids(candidate_ids, graph_candidate_ids)
-    except Exception as exc:
-        _degraded("graph_semantic_expansion", exc)
-        graph_scores = {}
-        graph_paths = {}
+            candidate_ids = _stable_union_ids(candidate_ids, graph_candidate_ids)
+        except Exception as exc:
+            _degraded("graph_semantic_expansion", exc)
+            graph_scores = {}
+            graph_paths = {}
+    _stage_end("graph_expansion_ms", graph_started)
 
-    # Optional dense semantic embedding (e.g., Granite 97M R2) for hybrid recall + rerank
+    # Optional dense semantic embedding (skipped in pure-native FAST unless FAIM_FAST_ML_EMBEDDING=true)
+    embedding_started = _stage_start()
     query_embedding: Optional[List[float]] = None
-    try:
-        from encoding import get_active_embedding_provider
+    if not fast_relevance_first or _env_bool("FAIM_FAST_ML_EMBEDDING", False):
+        try:
+            from encoding import get_active_embedding_provider
 
-        emb_provider = get_active_embedding_provider()
-        if emb_provider and emb_provider.is_available():
-            query_embedding = emb_provider.encode_single(expanded_query_text or query_text)
-    except Exception as exc:
-        _degraded("semantic_embedding_encode", exc)
-        query_embedding = None
+            emb_provider = get_active_embedding_provider()
+            if emb_provider and emb_provider.is_available():
+                query_embedding = emb_provider.encode_single(
+                    expanded_query_text or query_text
+                )
+        except Exception as exc:
+            _degraded("semantic_embedding_encode", exc)
+            query_embedding = None
 
     if query_embedding:
         try:
@@ -1147,9 +1368,15 @@ def run_query(
                 )
         except Exception as exc:
             _degraded("semantic_embedding_recall", exc)
+    _stage_end("embedding_ms", embedding_started)
 
     # 5. Re-rank with FAIM scoring
-    weights = STRICT_WEIGHTS if profile == FAIMProfile.STRICT else DEFAULT_WEIGHTS
+    rerank_started = _stage_start()
+    weights = (
+        RELEVANCE_FIRST_WEIGHTS
+        if fast_relevance_first
+        else (STRICT_WEIGHTS if profile == FAIMProfile.STRICT else DEFAULT_WEIGHTS)
+    )
     ranked = rerank_faim(
         session=session,
         tenant_id=tenant_id,
@@ -1168,7 +1395,14 @@ def run_query(
         include_historical=include_historical,
         as_of=as_of,
         query_embedding=query_embedding,
+        fusion_weights=(
+            RELEVANCE_FIRST_FUSION_LAYER_WEIGHTS if fast_relevance_first else None
+        ),
+        preloaded_reprs=artifacts_sparse_docs,
+        preloaded_nodes=artifacts_node_meta,
+        fast_skip_graph_opp=(fast_relevance_first and include_historical),
     )
+    _stage_end("rerank_ms", rerank_started)
     query_fusion_summary = _build_query_fusion_summary(
         candidate_ids=candidate_ids,
         lexical_scores=lexical_scores,
@@ -1185,17 +1419,22 @@ def run_query(
         },
     )
 
-    # Emit QUERY_RERANKED
-    top_ids = [str(r["node_id"]) for r in ranked]
-    emit_query_reranked(journal, graph_id, query_hash, top_ids)
+    # Emit QUERY_RERANKED + usage updates (in pure-relevance FAST mode, avoid
+    # blocking read latency on 20+ synchronous Postgres ORM writes/commits).
+    fast_async_touch = fast_relevance_first and not _env_bool(
+        "FAIM_FAST_SYNC_TOUCH", False
+    )
+    if not fast_async_touch:
+        top_ids = [str(r["node_id"]) for r in ranked]
+        emit_query_reranked(journal, graph_id, query_hash, top_ids)
 
-    # 6. Update usage for top results
-    result_node_ids = [r["node_id"] for r in ranked]
-    touches = update_usage(session, tenant_id, graph_id, result_node_ids)
+        # 6. Update usage for top results
+        result_node_ids = [r["node_id"] for r in ranked]
+        touches = update_usage(session, tenant_id, graph_id, result_node_ids)
 
-    # 7. Emit QUERY_TOUCH for each touched node
-    for node_id, touch_count in touches.items():
-        emit_query_touch(journal, graph_id, str(node_id), touch_count)
+        # 7. Emit QUERY_TOUCH for each touched node
+        for node_id, touch_count in touches.items():
+            emit_query_touch(journal, graph_id, str(node_id), touch_count)
 
     # 8. Build results
     results = []
@@ -1209,7 +1448,9 @@ def run_query(
             "touch_count": r["touch_count"],
             "temporal_status": r.get("temporal_status"),
             "supersedes": [str(x) for x in r.get("supersedes", [])],
-            "superseded_by": str(r["superseded_by"]) if r.get("superseded_by") else None,
+            "superseded_by": (
+                str(r["superseded_by"]) if r.get("superseded_by") else None
+            ),
         }
 
         # Add evidence info
@@ -1274,6 +1515,7 @@ def run_query(
 
         results.append(result_item)
 
+    answer_started = _stage_start()
     answer = None
     try:
         from core.query.answer_synthesis import synthesize_answer
@@ -1287,13 +1529,19 @@ def run_query(
     except Exception as exc:
         _degraded("answer_synthesis", exc)
         answer = None
+    _stage_end("answer_synthesis_ms", answer_started)
 
     metrics["cache_hit"] = 1.0 if cache_hit else 0.0
+    metrics["fast_relevance_first"] = 1.0 if fast_relevance_first else 0.0
+    metrics["fast_graph_expansion"] = 1.0 if fast_graph_expansion else 0.0
+    metrics["fast_idf"] = 1.0 if fast_idf else 0.0
     metrics["degraded_feature_count"] = float(len(degraded_features))
     metrics["phaseb_expansion_terms"] = float(len(phaseb_expansions))
     metrics["phaseb_expansion_sources"] = float(
         len(phaseb_expansion_info.get("source_counts", {}))
     )
+    stage_timings_ms["total_ms"] = round((time.perf_counter() - start_time) * 1000.0, 3)
+    metrics["stage_timings_ms"] = stage_timings_ms
     if phase5_sparse_candidates or phase5_dense_candidates:
         metrics["phase5_sparse_candidates"] = float(len(phase5_sparse_candidates))
         metrics["phase5_dense_candidates"] = float(len(phase5_dense_candidates))
@@ -1301,10 +1549,25 @@ def run_query(
     # Compute result
     duration_ms = (time.perf_counter() - start_time) * 1000
 
-    # 9. Emit QUERY_COMPLETE
-    emit_query_complete(
-        journal, graph_id, query_hash, len(results), duration_ms, query_hash
-    )
+    # 9. Emit QUERY_COMPLETE (skipped on read-only FAST path to avoid DB write latency)
+    if not fast_async_touch:
+        emit_query_complete(
+            journal, graph_id, query_hash, len(results), duration_ms, query_hash
+        )
+
+    # Non-blocking Redis feedback enqueue for worker-evolve reinforcement
+    if results:
+        try:
+            from orchestration.query_reinforcement import record_query_evidence_async
+
+            record_query_evidence_async(
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                query_text=canonical_query_text,
+                top_node_ids=[r["node_id"] for r in results[:3]],
+            )
+        except Exception:  # nosec B110
+            pass
 
     return QueryResult(
         tenant_id=tenant_id,

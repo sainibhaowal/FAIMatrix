@@ -36,8 +36,9 @@ def test_build_weighted_synonym_expansions_is_capped_and_deterministic():
         "quarter": ["trimester", "period"],
         "revenue quarter": ["financial quarter"],
     }
-    with patch("faim_native.lexical.synonym_expander._synonyms", fake), patch(
-        "faim_native.lexical.synonym_expander._AVAILABLE", True
+    with (
+        patch("faim_native.lexical.synonym_expander._synonyms", fake),
+        patch("faim_native.lexical.synonym_expander._AVAILABLE", True),
     ):
         first = build_weighted_synonym_expansions(
             "revenue quarter", max_synonyms_per_term=2, max_total=3
@@ -75,7 +76,9 @@ def test_canonicalize_text_emits_weighted_phrase_and_lemma_expansions():
         },
     )
     assert "retrieval control plane" in item.expansions
-    assert any(exp.term == "retrieval control plane" for exp in item.weighted_expansions)
+    assert any(
+        exp.term == "retrieval control plane" for exp in item.weighted_expansions
+    )
     assert any("canonical_lemma" in exp.sources for exp in item.weighted_expansions)
 
 
@@ -85,6 +88,8 @@ def test_multilingual_canonicalizer_emits_weighted_translation_and_graph_rows():
         graph_map={"umsatz": ("income_statement",)},
     )
     assert any(exp.term.startswith("concept:") for exp in item.weighted_expansions)
-    assert any("multilingual_translation" in exp.sources for exp in item.weighted_expansions)
+    assert any(
+        "multilingual_translation" in exp.sources for exp in item.weighted_expansions
+    )
     assert any("graph_multilingual" in exp.sources for exp in item.weighted_expansions)
     assert any("multilingual_bridge" in exp.sources for exp in item.weighted_expansions)

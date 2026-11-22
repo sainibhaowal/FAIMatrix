@@ -11,8 +11,18 @@ const PIPELINE_STEPS = [
     detail: "extract -> packetize -> encode -> lexical/semantic sidecars",
     gradient: "from-cyan-500 to-blue-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+        />
       </svg>
     ),
   },
@@ -20,12 +30,23 @@ const PIPELINE_STEPS = [
     number: "02",
     title: "Classify",
     description:
-      "Every query is routed through a deterministic Cortex alias engine. Intent is mapped into 8 core cognitive tasks without requiring an LLM classifier, while the larger semantic registry runtime is reserved for retrieval-time broadening rather than task routing.",
-    detail: "seeded aliases -> task routing -> deterministic intent",
+      "Every query is normalized and tokenized deterministically without an LLM classifier. Canonical forms, aliases, and temporal cues are prepared for hybrid search and graph traversal, while the semantic registry runtime is reserved for retrieval-time broadening.",
+    detail:
+      "canonical forms -> alias normalization -> deterministic query prep",
     gradient: "from-blue-500 to-indigo-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.53 16.122l9.37-5.622a.5.5 0 000-.856l-9.37-5.622a.5.5 0 00-.73.428v11.244a.5.5 0 00.73.428z" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9.53 16.122l9.37-5.622a.5.5 0 000-.856l-9.37-5.622a.5.5 0 00-.73.428v11.244a.5.5 0 00.73.428z"
+        />
       </svg>
     ),
   },
@@ -37,8 +58,18 @@ const PIPELINE_STEPS = [
     detail: "inheritance -> semantic edges -> graph version",
     gradient: "from-indigo-500 to-purple-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"
+        />
       </svg>
     ),
   },
@@ -47,11 +78,22 @@ const PIPELINE_STEPS = [
     title: "Adapt",
     description:
       "Graph-local rebuild paths mine aliases, phrases, terminology, and facts from uploaded data. This adds coverage without changing raw truth or native vector identity.",
-    detail: "canonical rebuilds -> autonomous domain memory -> query enrichment",
+    detail:
+      "canonical rebuilds -> autonomous domain memory -> query enrichment",
     gradient: "from-purple-500 to-pink-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"
+        />
       </svg>
     ),
   },
@@ -59,25 +101,47 @@ const PIPELINE_STEPS = [
     number: "05",
     title: "Retrieve",
     description:
-      "Queries first pass through a weighted deterministic expansion layer that blends canonical semantics, the 2.31M+ shipped semantic registry term base, ConceptNet broadening, broader multilingual concept bridges, and graph-learned domain memory. FAIM then combines the canonical native vector with additive lexical-semantic sidecars, a native late-interaction match layer, graph expansion, and deterministic reranking. Cortex can keep simple turns shallow, then deepen into bounded 1-24 hop evidence walks by default, or higher bounded ceilings when configured for advanced deployments.",
-    detail: "weighted expansion -> semantic registry runtime -> multilingual concept bridges -> v_native + semantic sidecars -> native late interaction -> adaptive hop planning -> bounded expansion -> reranker v2",
+      "Queries first pass through a weighted deterministic expansion layer that blends canonical semantics, the 2.31M+ shipped semantic registry term base, ConceptNet broadening, broader multilingual concept bridges, and graph-learned domain memory. FAIM then combines the canonical native vector with additive lexical-semantic sidecars, a native late-interaction match layer, graph expansion, and deterministic reranking. Agents and callers control traversal depth via graph_max_hops (1–24, defaulting to 2) for shallow lookups or deeper bounded multi-hop evidence walks.",
+    detail:
+      "weighted expansion -> semantic registry runtime -> multilingual concept bridges -> v_native + semantic sidecars -> native late interaction -> adaptive hop planning -> bounded expansion -> reranker v2",
     gradient: "from-pink-500 to-orange-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+        />
       </svg>
     ),
   },
   {
     number: "06",
-    title: "Answer",
+    title: "Serve",
     description:
-      "Top evidence is assembled into a citation-first answer with provenance where the selected path supports it. Cortex persists structured reasoning state, traversal-path metadata when available, and a pulse-v2 reason source ledger. Approved writebacks execute through a durable, idempotent memory path and record receipts; optional generated language can vary.",
-    detail: "span selection -> traversal branch -> pulse-v2 ledger -> citation-first answer -> approved writeback receipts",
+      "Top evidence is returned with provenance, confidence scores, and traversal-path metadata over REST, Remote MCP (/mcp with OAuth 2.1 / PKCE), or the offline faim-mcp CLI and Python SDK. Direct memory writes execute deterministically through idempotent API and MCP endpoints.",
+    detail:
+      "span selection -> traversal branch -> provenance -> REST & MCP delivery",
     gradient: "from-emerald-500 to-cyan-500",
     icon: (
-      <svg viewBox="0 0 24 24" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+      <svg
+        viewBox="0 0 24 24"
+        className="w-6 h-6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"
+        />
       </svg>
     ),
   },
@@ -89,7 +153,7 @@ export default function HowItWorks() {
       id="how-it-works"
       className="py-28 px-4 bg-gradient-to-b from-[#070a18] to-slate-950"
     >
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -109,10 +173,10 @@ export default function HowItWorks() {
           <p className="mt-4 text-slate-400 max-w-2xl mx-auto">
             FAIM now covers the full path from raw data to grounded answers. The
             core invariants remain intact while retrieval and answer layers stay
-            additive. The product surfaces that matter most are FAIM Cortex for
-            grounded answers and Storage for extractor selection, provenance,
-            autonomous domain memory, writeback execution receipts, and
-            maintenance workflows.
+            additive. The product surfaces that matter most are Storage for
+            extractor selection, provenance, and autonomous domain memory, plus
+            Remote MCP and API Keys for connecting AI agents, and maintenance
+            workflows.
           </p>
         </motion.div>
 

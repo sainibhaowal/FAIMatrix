@@ -132,7 +132,9 @@ async def get_scorecard(
             )
         node_count = ctx.node_repo.count(graph_id)
         edge_count = ctx.edge_repo.count(graph_id)
-        if cached is not None and int(cached.graph_version or 0) >= int(gv.version or 0):
+        if cached is not None and int(cached.graph_version or 0) >= int(
+            gv.version or 0
+        ):
             return MetricsScorecard(
                 graph_id=graph_id,
                 graph_version=gv.version,

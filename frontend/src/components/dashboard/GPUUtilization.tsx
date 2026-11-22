@@ -14,7 +14,8 @@ export const GPUUtilization: React.FC<GPUUtilizationProps> = ({
   throughput,
 }) => {
   const utilization = useMemo(() => {
-    if (!gpuAvailable) return { level: 0, label: "Unavailable", color: "#64748b" };
+    if (!gpuAvailable)
+      return { level: 0, label: "Unavailable", color: "#64748b" };
     if (!gpuActive) return { level: 0, label: "Idle (CPU)", color: "#64748b" };
     // Estimate utilization from throughput (jobs/s) — rough heuristic
     const level = Math.min(1, Math.max(0, throughput / 5)); // 5 jobs/s = 100%
@@ -50,8 +51,12 @@ export const GPUUtilization: React.FC<GPUUtilizationProps> = ({
           </svg>
         </div>
         <div className="text-center">
-          <p className="text-[20px] font-mono font-bold text-slate-500">GPU N/A</p>
-          <p className="text-[9px] uppercase tracking-wider text-slate-600">Acceleration disabled</p>
+          <p className="text-[20px] font-mono font-bold text-slate-500">
+            GPU N/A
+          </p>
+          <p className="text-[9px] uppercase tracking-wider text-slate-600">
+            Acceleration disabled
+          </p>
         </div>
       </div>
     );

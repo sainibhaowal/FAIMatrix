@@ -71,11 +71,7 @@ def _get_engine():
         if db_url.startswith("postgresql"):
             idle_ms = max(
                 1_000,
-                int(
-                    os.getenv(
-                        "FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "60000"
-                    )
-                ),
+                int(os.getenv("FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "60000")),
             )
             lock_ms = max(
                 1_000,
@@ -105,9 +101,7 @@ def _get_engine():
                     idle_ms = max(
                         1_000,
                         int(
-                            os.getenv(
-                                "FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "60000"
-                            )
+                            os.getenv("FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS", "60000")
                         ),
                     )
                     lock_ms = max(

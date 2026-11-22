@@ -56,10 +56,15 @@ def test_self_invent_after_upload_requires_jobs(monkeypatch):
 
     flags = FeatureFlags(self_invent_enabled=True, self_invent_after_upload=True)
     errors, _warnings = validate_feature_flags(flags)
-    assert any("FAIM_SELF_INVENT_AFTER_UPLOAD requires FAIM_ENABLE_JOBS=true" in err for err in errors)
+    assert any(
+        "FAIM_SELF_INVENT_AFTER_UPLOAD requires FAIM_ENABLE_JOBS=true" in err
+        for err in errors
+    )
 
     reset_config()
     with pytest.raises(ValueError) as exc:
         load_config()
-    assert "FAIM_SELF_INVENT_AFTER_UPLOAD requires FAIM_ENABLE_JOBS=true" in str(exc.value)
+    assert "FAIM_SELF_INVENT_AFTER_UPLOAD requires FAIM_ENABLE_JOBS=true" in str(
+        exc.value
+    )
     reset_config()

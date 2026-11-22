@@ -1,0 +1,55 @@
+# Pre-commit & Pre-push Quality Gates for FAIMatrix
+# Install once: pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push
+
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
+repos:
+  - repo: local
+    hooks:
+      - id: python-compileall
+        name: Python bytecode compile check
+        entry: python3 -m compileall -q faim_native tests faim-benchmarks/faim_benchmarks scripts
+        language: system
+        pass_filenames: false
+
+      - id: shell-syntax
+        name: Shell script syntax check
+        entry: bash -c 'for f in "$@"; do bash -n "$f" || exit 1; done' --
+        language: system
+        types: [shell]
+
+      - id: compose-validate
+        name: Docker Compose syntax check
+        entry: docker compose -f docker-compose.test.yml config --quiet
+        language: system
+        files: ^docker-compose.*\.yml$
+        pass_filenames: false
+
+      - id: benchmark-harness-tests
+        name: Benchmark harness unit tests (pre-push)
+        entry: bash -c 'cd faim-benchmarks && python3 -m pytest -q'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: backend-critical-suite
+        name: Backend core, parity, retrieval, and security tests (pre-push)
+        entry: bash -c 'FAIM_PYTEST_ISOLATE_DB=1 python3 -m pytest tests/unit/test_evolution_vectorized_parity.py tests/unit/test_retrieval_acceleration.py tests/acceptance/test_AT_IDX1_sparse_shortlist.py tests/acceptance/test_AT_IDX4_query_scale_pipeline.py tests/acceptance/test_AT_A5_query_deterministic_strict.py -q'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: frontend-quality
+        name: Frontend typecheck, lint, and unit tests (pre-push)
+        entry: bash -c 'cd frontend && pnpm run typecheck && pnpm run lint && pnpm run test:unit'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: security-audit
+        name: Hardcoded secret & bandit scan (pre-push)
+        entry: bash -c 'python3 -m bandit -q -r faim_native -ll && ! grep -rnE "(AKIA[0-9A-Z]{16}|-----BEGIN (RSA|EC|OPENSSH) PRIVATE KEY-----)" faim_native faim-benchmarks frontend/src scripts'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false

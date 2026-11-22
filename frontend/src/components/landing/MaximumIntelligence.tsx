@@ -35,54 +35,54 @@ const CAPABILITIES = [
     tag: "Adaptive planning",
   },
   {
-    title: "Continuous Learning",
+    title: "Graph-Local Domain Memory",
     icon: RefreshCw,
     description:
-      "Improves answer quality over time by learning from user feedback. Tracks reasoning pattern success and automatically adjusts confidence thresholds for more reliable results.",
-    tag: "Feedback-driven improvement",
+      "Automatically mines aliases, entities, terminology, and facts from uploaded documents into graph-local domain memory without altering raw source truth.",
+    tag: "Domain adaptation",
   },
   {
     title: "FAIM-Native Semantic Power",
     icon: Globe,
     description:
-      "Additive semantic signatures strengthen phrase, concept, alias, transliteration, morphology, relation, value, and temporal matching around the deterministic core. This improves fuzzy retrieval while keeping the system explainable and graph-native.",
+      "Additive semantic signatures and built-in multilingual embeddings strengthen phrase, concept, alias, morphology, relation, and temporal matching around the deterministic core.",
     tag: "Native semantic channels",
   },
   {
-    title: "Quality Intelligence",
+    title: "Live Benchmarks & Health",
     icon: Activity,
     description:
-      "Built-in quality monitoring tracks user satisfaction, confidence distribution, and system performance. Provides actionable recommendations to improve knowledge coverage and accuracy.",
+      "Real-time infrastructure and engine benchmarks track latency (p50/p95/p99), graph invariants, and database health with exportable SHA-256 reports.",
     tag: "Real-time health metrics",
   },
   {
     title: "Temporal Understanding",
     icon: Clock,
     description:
-      "Reasons about sequences, timelines, and temporal relationships. Understands 'before', 'after', and 'during' to analyze trends, check deadlines, and build chronological narratives.",
-    tag: "Time-aware reasoning",
+      "Supports time-aware retrieval with as_of and include_historical parameters across REST and MCP, preserving timeline sequences and supersession.",
+    tag: "Time-aware retrieval",
   },
   {
     title: "Transparent Explanations",
     icon: Monitor,
     description:
-      "Visualizes reasoning paths so you can see exactly how answers were derived. Interactive feedback interfaces let you rate and correct responses to guide future improvements.",
-    tag: "Explainable AI",
+      "Visualizes traversal paths in 3D FIG View with pulse-v2 provenance ledgers so you can inspect every node, edge, and score signal behind a result.",
+    tag: "Explainable retrieval",
   },
   {
-    title: "Enterprise Integration",
+    title: "Remote MCP & REST APIs",
     icon: Layers,
     description:
-      "Production-ready APIs enable seamless integration into your workflows. Every capability is exposed through REST endpoints with full tenant isolation and security controls.",
-    tag: "API-first architecture",
+      "Connect Cursor, Claude, and VS Code via Remote MCP (/mcp + OAuth 2.1 / PKCE), or integrate via tenant-isolated REST endpoints, faim-mcp CLI, and one-time API keys.",
+    tag: "MCP & API-first",
   },
 ];
 
 const METRICS = [
-  { label: "Reasoning Depth", value: "Bounded", suffix: " causal chains" },
-  { label: "Learning", value: "Continuous", suffix: " from feedback" },
-  { label: "Synthesis", value: "Cross-document", suffix: " insights" },
-  { label: "Quality", value: "Real-time", suffix: " monitoring" },
+  { label: "Hop Depth", value: "1–24", suffix: " caller-controlled" },
+  { label: "Embeddings", value: "Multilingual", suffix: " built-in dense" },
+  { label: "Agent Access", value: "MCP + REST", suffix: " OAuth 2.1 / PKCE" },
+  { label: "Core Engine", value: "Zero-LLM", suffix: " deterministic" },
 ];
 
 export default function MaximumIntelligence() {
@@ -93,7 +93,7 @@ export default function MaximumIntelligence() {
       <div className="absolute top-1/4 -left-32 w-64 h-64 bg-cyan-500/5 blur-[120px] rounded-full" />
       <div className="absolute bottom-1/4 -right-32 w-64 h-64 bg-purple-500/5 blur-[120px] rounded-full" />
 
-      <div className="max-w-7xl mx-auto relative z-10">
+      <div className="max-w-6xl mx-auto relative z-10">
         {/* Header */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -116,11 +116,11 @@ export default function MaximumIntelligence() {
             </span>
           </h2>
           <p className="text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed">
-            FAIM Cortex goes beyond finding documents — it reasons across your
-            knowledge, and delivers answers you can trust and verify. The
-            runtime stays deterministic, semantic enrichment remains additive
-            and inspectable, and any autonomy features stay explicit and
-            graph-scoped.
+            FAIM goes beyond finding documents — it traverses your knowledge
+            graph deterministically, and delivers evidence you can trust and
+            verify. The runtime stays deterministic, semantic enrichment remains
+            additive and inspectable, and any autonomy features stay explicit
+            and graph-scoped.
           </p>
         </motion.div>
 
@@ -231,15 +231,15 @@ export default function MaximumIntelligence() {
             <div>
               <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                 <span className="w-8 h-px bg-cyan-500/40" />
-                FAIM Cortex
+                FAIM Engine
               </h3>
               <ul className="space-y-3 text-slate-400">
                 {[
-                  "Follows chains of evidence across documents",
-                  "Synthesizes unified answers with citations",
-                  "Confidence adapts from user feedback",
-                  "Improves with every interaction",
-                  "Understands causality and temporal relationships",
+                  "Follows chains of evidence across documents (1–24 hops)",
+                  "Returns provenance-backed results with citations",
+                  "Built-in multilingual semantic recall",
+                  "Exposes 6 tools over Remote MCP (/mcp) & faim-mcp",
+                  "Supports as_of & include_historical temporal queries",
                 ].map((item) => (
                   <li key={item} className="flex gap-3 text-sm">
                     <span className="text-cyan-500 shrink-0">✓</span>

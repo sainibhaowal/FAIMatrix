@@ -6,6 +6,7 @@ Repository for managing durable background jobs and their event journals.
 from __future__ import annotations
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
@@ -44,8 +45,18 @@ class JobStore:
         graph_id: str,
         kind: str,
         payload: Dict[str, Any],
+        status: str = "pending",
     ) -> UUID:
-        """Enqueue a new pending job."""
+        """Enqueue a durable job in a caller-selected pre-claim state.
+
+        ``staging`` is reserved for multi-step producers that must persist a
+        complete payload before a worker can claim the job.  The worker only
+        claims ``pending`` or stale ``running`` jobs, so this preserves the
+        existing default while preventing partial upload payload races.
+        """
+        normalized_status = str(status or "pending").strip().lower()
+        if normalized_status not in {"staging", "pending"}:
+            raise ValueError("Job enqueue status must be 'staging' or 'pending'")
         job_id = uuid4()
         job = JobModel(
             job_id=job_id,
@@ -53,7 +64,7 @@ class JobStore:
             graph_id=graph_id,
             kind=kind,
             payload_json=payload,
-            status="pending",
+            status=normalized_status,
         )
         session.add(job)
         session.commit()
@@ -185,6 +196,78 @@ class JobStore:
             job.updated_at = datetime.now(timezone.utc)
             session.commit()
             logger.error(f"Job failed: {job_id} - {error}")
+
+    @staticmethod
+    def retry_or_fail(
+        session: Session,
+        job_id: UUID,
+        error: BaseException,
+    ) -> bool:
+        """Requeue one transient worker failure after its transaction is reset.
+
+        Only connection/transaction failures are retried, and the retry count
+        is persisted in the job payload so a poisoned job cannot loop forever.
+        The caller must rollback before invoking this method.
+        """
+        message = str(error)
+        error_name = type(error).__name__.lower()
+        lowered = message.lower()
+        transient = error_name in {
+            "operationalerror",
+            "dbapierror",
+            "pendingrollbackerror",
+            "connectionerror",
+            "timeouterror",
+        } or any(
+            marker in lowered
+            for marker in (
+                "deadlock",
+                "connection refused",
+                "connection reset",
+                "could not connect",
+                "transaction is aborted",
+                "invalid transaction",
+                "server closed the connection",
+            )
+        )
+        if not transient:
+            return False
+
+        try:
+            max_retries = max(0, int(os.getenv("FAIM_JOB_MAX_RETRIES", "1")))
+        except ValueError:
+            max_retries = 1
+
+        job = session.query(JobModel).filter_by(job_id=job_id).first()
+        if job is None:
+            return False
+        payload = dict(job.payload_json or {})
+        retry_count = int(payload.get("worker_retry_count", 0) or 0)
+        if retry_count >= max_retries or JobStore._is_cancel_requested(job):
+            return False
+
+        retry_count += 1
+        payload.update(
+            {
+                "worker_retry_count": retry_count,
+                "worker_last_error": message[:1024],
+                "worker_retry_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        job.payload_json = payload
+        job.status = "pending"
+        job.error_message = None
+        job.started_at = None
+        job.completed_at = None
+        job.updated_at = datetime.now(timezone.utc)
+        session.commit()
+        logger.warning(
+            "Requeued transient job failure: %s retry=%d/%d",
+            job_id,
+            retry_count,
+            max_retries,
+        )
+        return True
 
     @staticmethod
     def request_cancel(

@@ -25,8 +25,8 @@ const NAV_GROUPS = [
       { id: "memory", label: "Memory System" },
       { id: "graph", label: "Knowledge Graph" },
       { id: "retrieval", label: "Retrieval Engine" },
-      { id: "cortex", label: "FAIM Cortex" },
-      { id: "cortex-runtime", label: "Cortex Runtime" },
+      { id: "cortex", label: "MCP & Agent Access" },
+      { id: "cortex-runtime", label: "Query & Hop Runtime" },
     ],
   },
   {
@@ -232,9 +232,15 @@ function SectionCurrentState() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Current State (July 2026)</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Current State (July 2026)
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM has evolved into a production-grade cognitive infrastructure. The current runtime combines deterministic semantic routing, bounded multi-hop reasoning, GPU-hardened 3D visualization, a multi-tier Matrix subscription ecosystem, and explicit graph autonomy controls that stay default-off until enabled.
+          FAIM has evolved into a production-grade cognitive infrastructure. The
+          current runtime combines deterministic semantic routing, bounded
+          multi-hop reasoning, GPU-hardened 3D visualization, a multi-tier
+          Matrix subscription ecosystem, and explicit graph autonomy controls
+          that stay default-off until enabled.
         </p>
       </div>
 
@@ -242,9 +248,9 @@ function SectionCurrentState() {
         <Card title="Latest Upgrades" color="cyan">
           <ul className="space-y-2 text-sm text-slate-400">
             {[
-              "Deterministic Cortex router: seeded alias maps classify intents without a large LLM-style classifier, while remaining intentionally small and task-focused.",
+              "Remote MCP + OAuth 2.1 / PKCE: connect Cursor, Claude, and VS Code directly to /mcp, or run offline with the faim-mcp CLI, thin Python SDK, and one-time scoped API keys.",
               "Semantic Registry Runtime: FAIM now carries a real 2.31M+ shipped semantic registry term base built from ConceptNet and multilingual lexicon surfaces, then grows it further through graph-local canonical, multilingual, and domain-memory lexicons.",
-              "ConceptNet-derived lexical expansion resources are used for broadening, while the Cortex router stays separate and compact.",
+              "Built-in Multilingual Embeddings: local semantic embeddings complement deterministic native vectors and ConceptNet lexical broadening.",
               "Semantic Signature V1: additive semantic phrase, concept, alias, transliteration, morphology, relation, value, and temporal channels now enrich retrieval without changing the canonical native vector contract.",
               "Weighted Expansion Engine: query-time expansion now merges ConceptNet, graph-local canonical semantics, multilingual mappings, and graph-learned domain terms into a capped, weighted, source-tagged retrieval surface.",
               "Native Late Interaction: FAIM now adds a fine-grained symbolic interaction scorer across query/document tokens, phrases, concepts, aliases, morphology, values, and temporal cues before final ranking.",
@@ -252,7 +258,7 @@ function SectionCurrentState() {
               "Multilingual Enterprise Pack: FAIM now ships a larger compressed multilingual lexicon pack with tens of thousands of surface forms across EN, DE, ES, FR, IT, PT, and NL, still loaded as a deterministic runtime asset rather than an online translation service.",
               "GPU Hardened FIG View: Static asset registry eliminates rendering-induced crashes.",
               "Pulse-v2 Reason Ledger: backend graph/query events drive FIG node glow, path motion, inspector proof, relation traces, and semantic-layer legends.",
-              "Memory Writeback Proposals: Human-in-the-loop safety for structural memory updates.",
+              "Idempotent Memory Writes & Session Revocation: direct REST/MCP writes with tenant isolation and 1-click OAuth grant disconnect in Dashboard → MCP.",
               "Tenant crypto rotation: guarded execute/job path rewraps tenant DEKs under the current master key without re-encrypting payload blobs.",
               "Historical raw-reencryption: guarded execute/job path migrates legacy plaintext blobs into encrypted storage.",
               "FAIM Matrix Tiers: 4 professional subscription levels (Explorer to Matrix).",
@@ -332,14 +338,14 @@ function SectionQuickStart() {
         </ol>
       </Card>
 
-      <Card title="Step 3 — Run FAIM Cortex" color="emerald">
+      <Card title="Step 3 — Connect via MCP or API" color="emerald">
         <ol className="space-y-3">
           {[
-            "Go to Dashboard → FAIM Cortex tab",
-            "Type any question about the documents you uploaded",
-            "FAIM retrieves the most relevant nodes, re-ranks them, and returns a grounded answer",
-            "Every answer shows which document + page + section it came from",
-            "Try asking: 'How many documents do I have?' to see the document inventory in action",
+            "Go to Dashboard → MCP to copy your /mcp endpoint for Cursor, Claude, or VS Code (OAuth 2.1 + PKCE)",
+            "Or go to Dashboard → API Keys to create a one-time secret key for REST, Python SDK, or offline faim-mcp",
+            "Query /api/v1/query or /api/v1/memory/search with graph_max_hops (1–24, default 2)",
+            "Every result returns provenance (document, page, section) and confidence scores",
+            "Inspect connected MCP sessions and revoke any client in one click from Dashboard → MCP",
             "If graph autonomy is enabled, use Evolution to see the live effective state and worker status",
           ].map((s, i) => (
             <li key={i} className="flex gap-3 text-sm text-slate-400">
@@ -750,8 +756,8 @@ On ingest:
           </div>
         </div>
         <p className="text-[10px] text-slate-600 mt-3 font-mono">
-          Both options are exposed through the storage maintenance routes. Long-term nodes
-          are always skipped.
+          Both options are exposed through the storage maintenance routes.
+          Long-term nodes are always skipped.
         </p>
       </Card>
 
@@ -996,7 +1002,8 @@ function SectionRetrieval() {
         <p className="text-slate-400 leading-relaxed">
           FAIM runs a multi-stage retrieval pipeline. Every query hits all data
           stores, first passes through a weighted deterministic expansion
-          engine, semantic registry broadening, broader multilingual concept bridges, then fuses dense and lexical-semantic channels, applies a
+          engine, semantic registry broadening, broader multilingual concept
+          bridges, then fuses dense and lexical-semantic channels, applies a
           native late-interaction scorer, scores through deterministic
           components, and re-ranks before synthesizing a grounded answer.
         </p>
@@ -1030,7 +1037,7 @@ function SectionRetrieval() {
               step: "4",
               label: "Canonical vector recall",
               detail:
-                "Exact cosine fallback / validation path against the graph's v_native vectors using the strengthened expanded query surface",
+                "Qdrant ANN recall for model embeddings and native vectors when indexed, with bounded SQL/exact fallback for legacy graphs or outages",
               color: "#60a5fa",
             },
             {
@@ -1094,18 +1101,51 @@ function SectionRetrieval() {
         </div>
       </Card>
 
+      <Card title="Benchmark isolation and publication gate" color="emerald">
+        <div className="space-y-3 text-sm text-slate-400">
+          <p>
+            Reproducible benchmark jobs run with self-evolution and domain
+            autonomy isolated from ingestion. Worker transactions rollback
+            before retry, native and semantic vectors use batch Qdrant writes,
+            and PostgreSQL remains the canonical source of truth.
+          </p>
+          <p>
+            A result is publishable only when the dataset and commit are pinned,
+            the run uses API-key authentication, health checks pass, errors are
+            zero, and the report includes configuration and variance evidence.
+            In pure zero-ML CPU-first mode (collision-free BM25+,{" "}
+            <code className="text-cyan-300">GraphIndexArtifacts</code> RAM
+            caching, vectorized <code className="text-cyan-300">float32</code>{" "}
+            BLAS scoring, cached <code className="text-cyan-300">_maxsim_units</code>{" "}
+            &amp; propositions, and{" "}
+            <code className="text-cyan-300">RerankerV2</code>{" "}
+            soft-suppression), FAIM-Native achieved{" "}
+            <code className="text-emerald-300">nDCG@10 = 0.6878</code>,{" "}
+            <code className="text-emerald-300">Recall@5 = 0.7554</code>,{" "}
+            <code className="text-emerald-300">MRR = 0.6570</code>, and{" "}
+            <code className="text-emerald-300">231.07 ms</code> HTTP P50 ({" "}
+            <code className="text-emerald-300">284.02 ms</code> P95) on the
+            full 5,183-doc / 300-query SciFact split ({" "}
+            <code className="text-emerald-300">Publication gate: READY</code>)
+            vs. <code className="text-slate-300">BM25-Baseline</code> (
+            <code className="text-slate-300">0.6644</code> nDCG@10 /{" "}
+            <code className="text-slate-300">0.7193</code> Recall@5).
+          </p>
+        </div>
+      </Card>
+
       <Card title="Representation V2 — Sparse Sidecars" color="purple">
         <p className="text-sm text-slate-400 mb-3">
           Alongside the 256-dim dense vector, every node has a set of sparse
           channels computed by Representation V2. These enable lexically-rich
           matching on top of vector similarity. Semantic Signature V1 extends
-          this same additive sidecar path rather than replacing the core
-          vector. Phase B then adds a weighted deterministic expansion layer
-          ahead of retrieval so alias, phrase, multilingual, and domain-memory
-          matches can strengthen the query before dense and sparse scoring.
-          Phase C then adds a native late-interaction layer so these same
-          channels can participate in fine-grained query/document matching
-          before final ranking.
+          this same additive sidecar path rather than replacing the core vector.
+          Phase B then adds a weighted deterministic expansion layer ahead of
+          retrieval so alias, phrase, multilingual, and domain-memory matches
+          can strengthen the query before dense and sparse scoring. Phase C then
+          adds a native late-interaction layer so these same channels can
+          participate in fine-grained query/document matching before final
+          ranking.
         </p>
         <div className="grid md:grid-cols-2 gap-2">
           {[
@@ -1139,10 +1179,22 @@ function SectionRetrieval() {
             ],
             ["time_tokens", "Dates, years, quarters, temporal markers"],
             ["layout_tokens", "block_type + page + section encoded as tokens"],
-            ["alias_families", "Known alias groups such as AI ↔ artificial intelligence"],
-            ["transliterated_tokens", "Cross-lingual bridging tokens such as München → muenchen"],
-            ["stem_families", "Stem-linked surface families preserved for explainable fuzzy matching"],
-            ["relation/value/temporal cues", "Deterministic cues for relations, numeric language, and time phrasing"],
+            [
+              "alias_families",
+              "Known alias groups such as AI ↔ artificial intelligence",
+            ],
+            [
+              "transliterated_tokens",
+              "Cross-lingual bridging tokens such as München → muenchen",
+            ],
+            [
+              "stem_families",
+              "Stem-linked surface families preserved for explainable fuzzy matching",
+            ],
+            [
+              "relation/value/temporal cues",
+              "Deterministic cues for relations, numeric language, and time phrasing",
+            ],
           ].map(([k, v]) => (
             <div
               key={k}
@@ -1250,10 +1302,14 @@ function SectionRetrieval() {
             </p>
             <ul className="space-y-1.5 text-[11px] text-slate-500 leading-relaxed">
               <li>Static lexicon resources now load from multiple TSVs</li>
-              <li>Compressed enterprise lexicon packs now load directly at runtime</li>
+              <li>
+                Compressed enterprise lexicon packs now load directly at runtime
+              </li>
               <li>Language detection spans EN, DE, ES, FR, IT, PT, and NL</li>
               <li>Token and phrase surface matching improved</li>
-              <li>Cross-language bridge forms remain bounded and explainable</li>
+              <li>
+                Cross-language bridge forms remain bounded and explainable
+              </li>
             </ul>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
@@ -1273,52 +1329,76 @@ function SectionRetrieval() {
 
       <Card title="IWQE — Inheritance-Weighted Query Expansion" color="indigo">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-          Dynamic query reformulation mechanism that runs on retrieval and rewrites the query vector in 256-dimensional space, blending taxonomic ancestry and semantic neighbors before final scoring.
+          Dynamic query reformulation mechanism that runs on retrieval and
+          rewrites the query vector in 256-dimensional space, blending taxonomic
+          ancestry and semantic neighbors before final scoring.
         </p>
         <div className="grid md:grid-cols-2 gap-4 mb-4">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <p className="text-xs font-mono text-indigo-400 mb-1.5">Layer A: Taxonomic Inheritance</p>
+            <p className="text-xs font-mono text-indigo-400 mb-1.5">
+              Layer A: Taxonomic Inheritance
+            </p>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Adds contribution vectors from parents scaled by edge weights and parent semantic importance, preserving context ancestry.
+              Adds contribution vectors from parents scaled by edge weights and
+              parent semantic importance, preserving context ancestry.
             </p>
             <div className="mt-3 p-2 rounded-lg bg-slate-950 border border-slate-800 text-[10px] font-mono text-cyan-400">
               {"q_expanded = q + sum( alpha * fraction * weight * v_parent )"}
             </div>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <p className="text-xs font-mono text-indigo-400 mb-1.5">Layer B: Semantic Associations</p>
+            <p className="text-xs font-mono text-indigo-400 mb-1.5">
+              Layer B: Semantic Associations
+            </p>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Blends semantic neighbors (synonyms, translations, domain terms) using halved blending strength for taxonomic dominance.
+              Blends semantic neighbors (synonyms, translations, domain terms)
+              using halved blending strength for taxonomic dominance.
             </p>
             <div className="mt-3 p-2 rounded-lg bg-slate-950 border border-slate-800 text-[10px] font-mono text-cyan-400">
-              {"q_expanded = q_expanded + sum( alpha_sem * strength * v_neighbor )"}
+              {
+                "q_expanded = q_expanded + sum( alpha_sem * strength * v_neighbor )"
+              }
             </div>
           </div>
         </div>
         <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 flex items-center justify-between text-xs">
           <span className="text-slate-500">L2 Re-normalization Lock:</span>
-          <span className="font-mono text-indigo-300">{"q_final = q_expanded / ||q_expanded||_2"}</span>
+          <span className="font-mono text-indigo-300">
+            {"q_final = q_expanded / ||q_expanded||_2"}
+          </span>
         </div>
       </Card>
 
       <Card title="TCT — Transitive Contradiction Traversal" color="red">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-          Real-world facts change. TCT resolves conflicts transitivity: if node C inherits from B, and B is in opposition with A, the system detects that C conflicts with A.
+          Real-world facts change. TCT resolves conflicts transitivity: if node
+          C inherits from B, and B is in opposition with A, the system detects
+          that C conflicts with A.
         </p>
         <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 font-mono text-[10px] text-cyan-400 mb-4 text-center">
-          {"exists a in Ancestors(c_i), b in Ancestors(c_j) s.t. (a, b) in E_opposition"}
+          {
+            "exists a in Ancestors(c_i), b in Ancestors(c_j) s.t. (a, b) in E_opposition"
+          }
         </div>
         <div className="grid md:grid-cols-2 gap-4">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <p className="text-xs font-mono text-red-400 mb-1.5">Soft Suppression (include_historical = true)</p>
+            <p className="text-xs font-mono text-red-400 mb-1.5">
+              Soft Suppression (include_historical = true)
+            </p>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Outdated nodes are retained in final results but annotated with temporal status (HISTORICAL / CURRENT) and superseded lineage links to trace history.
+              Outdated nodes are retained in final results but annotated with
+              temporal status (HISTORICAL / CURRENT) and superseded lineage
+              links to trace history.
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-            <p className="text-xs font-mono text-red-400 mb-1.5">Hard Suppression (include_historical = false)</p>
+            <p className="text-xs font-mono text-red-400 mb-1.5">
+              Hard Suppression (include_historical = false)
+            </p>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Older, superseded nodes are filtered out entirely from final output, ensuring the RAG pipeline operates on a mathematically clean, current state.
+              Older, superseded nodes are filtered out entirely from final
+              output, ensuring the RAG pipeline operates on a mathematically
+              clean, current state.
             </p>
           </div>
         </div>
@@ -1331,47 +1411,83 @@ function SectionCortex() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">FAIM Cortex</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          MCP &amp; Agent Access
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          The high-level reasoning layer that transforms graph retrieval into structured prose and actionable insights.
+          Zero-LLM deterministic memory access for external AI agents over
+          Remote MCP (/mcp), OAuth 2.1 + PKCE, offline faim-mcp CLI, and scoped
+          API keys.
         </p>
       </div>
 
-      <Card title="Deterministic Semantic Alias Engine" color="cyan">
+      <Card title="Remote MCP + OAuth 2.1 / PKCE" color="cyan">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          FAIM Cortex uses a seeded alias map and pattern overrides to classify intent without the latency or drift of a traditional LLM.
+          Connect Cursor, Claude Code / Desktop, and VS Code to your
+          tenant-isolated knowledge graph with automatic browser login and
+          1-click session revocation in Dashboard → MCP.
         </p>
         <div className="grid md:grid-cols-2 gap-3 mb-6">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-            <p className="text-xs font-mono text-cyan-400 mb-1.5">Deterministic Routing</p>
+            <p className="text-xs font-mono text-cyan-400 mb-1.5">
+              6 Exposed MCP Tools
+            </p>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Keywords and concepts are mapped to 8 core cognitive tasks (Timeline, Contradiction, etc.) using fast dictionary lookups.
+              faim_memory_write, faim_memory_search, faim_query,
+              faim_ingest_text, faim_memory_get, and faim_graph_surface.
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
-            <p className="text-xs font-mono text-cyan-400 mb-1.5">Zero-Latency Classification</p>
+            <p className="text-xs font-mono text-cyan-400 mb-1.5">
+              Offline CLI &amp; Python SDK
+            </p>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Avoids the 2-5 second "thought" delay of LLMs. Routing happens in &lt;10ms.
+              Run faim-mcp locally over stdio with OAuth credentials or a
+              one-time API key from Dashboard → API Keys.
             </p>
           </div>
         </div>
 
         <div className="p-4 rounded-xl border border-cyan-500/10 bg-cyan-500/[0.02]">
-          <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-3">Registry Technical Spec</p>
+          <p className="text-xs font-bold text-cyan-400 uppercase tracking-widest mb-3">
+            Access &amp; Embedding Spec
+          </p>
           <ul className="grid grid-cols-2 gap-x-6 gap-y-2 text-[10px] text-slate-500 font-mono">
-            <li className="flex justify-between"><span>Dictionary Hashing</span><span className="text-slate-300">O(1) lookup</span></li>
-            <li className="flex justify-between"><span>Seeded Aliases</span><span className="text-slate-300">100+ task aliases</span></li>
-            <li className="flex justify-between"><span>Collision Resistance</span><span className="text-slate-300">SHA-256 gated</span></li>
-            <li className="flex justify-between"><span>Search Strategy</span><span className="text-slate-300">Trie-based prefix</span></li>
-            <li className="flex justify-between"><span>Compute Requirement</span><span className="text-slate-300">&lt; 25MB RAM</span></li>
-            <li className="flex justify-between"><span>Availability</span><span className="text-slate-300">100% Offline</span></li>
+            <li className="flex justify-between">
+              <span>MCP Transport</span>
+              <span className="text-slate-300">Streamable HTTP + stdio</span>
+            </li>
+            <li className="flex justify-between">
+              <span>OAuth Flow</span>
+              <span className="text-slate-300">OAuth 2.1 + PKCE</span>
+            </li>
+            <li className="flex justify-between">
+              <span>Semantic Embeddings</span>
+              <span className="text-slate-300">Built-in multilingual</span>
+            </li>
+            <li className="flex justify-between">
+              <span>Hop Budget</span>
+              <span className="text-slate-300">graph_max_hops (1–24)</span>
+            </li>
+            <li className="flex justify-between">
+              <span>API Keys</span>
+              <span className="text-slate-300">
+                One-time + permanent delete
+              </span>
+            </li>
+            <li className="flex justify-between">
+              <span>LLM Dependency</span>
+              <span className="text-slate-300">Zero-LLM core</span>
+            </li>
           </ul>
         </div>
       </Card>
 
-      <Card title="Memory Writebacks" color="amber">
+      <Card title="Direct Idempotent Memory Writes" color="amber">
         <p className="text-sm text-slate-400 leading-relaxed">
-          Safety first: Cortex still requires explicit approval for structural changes, but approved writebacks now execute through a durable backend path and appear in the FIG View with receipts and lifecycle status. Pending items still show up clearly before commitment to the long-term knowledge graph.
+          Memory writes execute deterministically through idempotent REST and
+          MCP endpoints (faim_memory_write, faim_ingest_text) with full tenant
+          isolation, provenance tracking, and no approval-queue bottleneck.
         </p>
       </Card>
     </div>
@@ -1382,26 +1498,58 @@ function SectionCortexRuntime() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Cortex Runtime Architecture</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Query &amp; Hop Runtime Architecture
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          The stateful control loop above memory retrieval. It classifies requests, allocates a bounded hop budget, scales graph-semantic retrieval, runs parallel reasoning branches, executes an exact traversal branch, and synthesizes answers.
+          The deterministic retrieval loop over your knowledge graph. Callers
+          and MCP agents control traversal depth via graph_max_hops (1–24,
+          defaulting to 2) while hybrid vector, lexical, and graph signals rank
+          evidence with provenance.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Runtime Phases" color="cyan">
           <ul className="space-y-2 text-xs text-slate-400">
-            <li><strong>Turn Controller:</strong> Classifies intent into 8 cognitive modes using the deterministic semantic router.</li>
-            <li><strong>Adaptive Hop Planner:</strong> Computes a bounded hop budget per turn and maps it into retrieval limits.</li>
-            <li><strong>Retrieval Fusion:</strong> Benefits automatically from v_native, Representation V2, and Semantic Signature V1 without requiring frontend toggles.</li>
-            <li><strong>Late Interaction:</strong> Adds a symbolic query/document interaction score before final ranking so fuzzy phrase and concept matches stay inspectable.</li>
-            <li><strong>Parallel Branches:</strong> Simultaneous recall, traversal, timeline, contradiction, provenance, and continuity analysis.</li>
-            <li><strong>Reducer:</strong> Merges branch outputs into a unified brain state.</li>
-            <li><strong>Narrator:</strong> Produces the final prose answer with citations.</li>
+            <li>
+              <strong>Query Prep:</strong> Normalizes tokens, canonical forms,
+              aliases, and temporal cues deterministically.
+            </li>
+            <li>
+              <strong>Agent Hop Budget:</strong> Uses caller-specified
+              graph_max_hops (1–24, default 2) on /api/v1/query and
+              /api/v1/memory/search.
+            </li>
+            <li>
+              <strong>Retrieval Fusion:</strong> Combines v_native, built-in
+              multilingual embeddings, Representation V2, and Semantic Signature
+              V1.
+            </li>
+            <li>
+              <strong>Late Interaction:</strong> Adds a symbolic query/document
+              interaction score before final ranking so fuzzy phrase and concept
+              matches stay inspectable.
+            </li>
+            <li>
+              <strong>Graph Traversal:</strong> Bounded multi-hop diffusion and
+              exact path tracing with temporal conflict checks.
+            </li>
+            <li>
+              <strong>Reranker V2:</strong> Deterministic score fusion across
+              dense, sparse, and graph signals.
+            </li>
+            <li>
+              <strong>Evidence Delivery:</strong> Returns ranked chunks,
+              provenance, and traversal-path metadata to your agent or app.
+            </li>
           </ul>
         </Card>
 
-        <Card title="Cognitive Modes (The Deterministic Engine)" color="emerald">
+        <Card
+          title="Cognitive Modes (The Deterministic Engine)"
+          color="emerald"
+        >
           <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950/40">
             <table className="w-full text-[10px] text-left">
               <thead className="bg-slate-900/50 text-slate-500 uppercase tracking-tighter">
@@ -1411,11 +1559,46 @@ function SectionCortexRuntime() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
-                <tr><td className="px-3 py-2 text-cyan-400 font-bold">TIMELINE</td><td className="px-3 py-2 text-slate-400">Chronological event sequencing</td></tr>
-                <tr><td className="px-3 py-2 text-red-400 font-bold">CONTRADICTION</td><td className="px-3 py-2 text-slate-400">Conflict detection & resolution</td></tr>
-                <tr><td className="px-3 py-2 text-purple-400 font-bold">CONSOLIDATE</td><td className="px-3 py-2 text-slate-400">Fragmented data merging</td></tr>
-                <tr><td className="px-3 py-2 text-blue-400 font-bold">PROVENANCE</td><td className="px-3 py-2 text-slate-400">Full evidence lineage tracing</td></tr>
-                <tr><td className="px-3 py-2 text-amber-400 font-bold">INVESTIGATE</td><td className="px-3 py-2 text-slate-400">Bounded causal analysis with planner-selected hop limits</td></tr>
+                <tr>
+                  <td className="px-3 py-2 text-cyan-400 font-bold">
+                    TIMELINE
+                  </td>
+                  <td className="px-3 py-2 text-slate-400">
+                    Chronological event sequencing
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-red-400 font-bold">
+                    CONTRADICTION
+                  </td>
+                  <td className="px-3 py-2 text-slate-400">
+                    Conflict detection & resolution
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-purple-400 font-bold">
+                    CONSOLIDATE
+                  </td>
+                  <td className="px-3 py-2 text-slate-400">
+                    Fragmented data merging
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-blue-400 font-bold">
+                    PROVENANCE
+                  </td>
+                  <td className="px-3 py-2 text-slate-400">
+                    Full evidence lineage tracing
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-3 py-2 text-amber-400 font-bold">
+                    INVESTIGATE
+                  </td>
+                  <td className="px-3 py-2 text-slate-400">
+                    Bounded causal analysis with planner-selected hop limits
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -1433,26 +1616,56 @@ function SectionCortexRuntime() {
         <div className="grid md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <p className="text-sm text-slate-400 leading-relaxed">
-              FAIM Cortex now uses a real planner-driven bounded hop runtime. Simple turns can remain shallow, investigative turns can expand through an adaptive 1-24 hop ceiling by default, and advanced deployments can raise the bounded ceiling to 128 hops through configuration while keeping deterministic pruning and path auditability.
+              FAIM uses a caller-controlled bounded hop runtime. Simple lookups
+              can stay at 1–2 hops, while investigative queries from agents or
+              API callers can set{" "}
+              <code className="text-indigo-300">graph_max_hops</code> up to 24
+              (default 2) with deterministic pruning and path auditability.
             </p>
             <div className="flex gap-4">
               <div className="flex-1 p-3 rounded-lg border border-indigo-500/10 bg-indigo-500/[0.02]">
-                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Default Runtime</p>
+                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">
+                  Default Runtime
+                </p>
                 <p className="text-xl font-bold text-white">1-24</p>
               </div>
               <div className="flex-1 p-3 rounded-lg border border-indigo-500/10 bg-indigo-500/[0.02]">
-                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">Configurable Ceiling</p>
+                <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1">
+                  Configurable Ceiling
+                </p>
                 <p className="text-xl font-bold text-white">128</p>
               </div>
             </div>
           </div>
           <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
-            <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-3">Diffusion Parameters</p>
+            <p className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-3">
+              Diffusion Parameters
+            </p>
             <ul className="space-y-2 text-[10px] text-slate-500 font-mono">
-              <li className="flex justify-between"><span>Planner Ceiling</span><span className="text-slate-300">24 default / 128 max config</span></li>
-              <li className="flex justify-between"><span>Traversal Guards</span><span className="text-slate-300">frontier + expansion caps</span></li>
-              <li className="flex justify-between"><span>Inference Path</span><span className="text-slate-300">bounded, deterministic, cycle-safe</span></li>
-              <li className="flex justify-between"><span>Provenance</span><span className="text-slate-300">exact path metadata + citations</span></li>
+              <li className="flex justify-between">
+                <span>Planner Ceiling</span>
+                <span className="text-slate-300">
+                  24 default / 128 max config
+                </span>
+              </li>
+              <li className="flex justify-between">
+                <span>Traversal Guards</span>
+                <span className="text-slate-300">
+                  frontier + expansion caps
+                </span>
+              </li>
+              <li className="flex justify-between">
+                <span>Inference Path</span>
+                <span className="text-slate-300">
+                  bounded, deterministic, cycle-safe
+                </span>
+              </li>
+              <li className="flex justify-between">
+                <span>Provenance</span>
+                <span className="text-slate-300">
+                  exact path metadata + citations
+                </span>
+              </li>
             </ul>
           </div>
         </div>
@@ -1461,20 +1674,38 @@ function SectionCortexRuntime() {
       <Card title="Reasoning Depth (What is a Hop?)" color="cyan">
         <div className="space-y-4">
           <p className="text-sm text-slate-400 leading-relaxed">
-            In FAIM, a <strong>Hop</strong> is a single semantic step between two nodes. The runtime uses bounded hop budgets rather than unlimited traversal, so the planner can stay deterministic while still reaching deeper evidence when needed.
+            In FAIM, a <strong>Hop</strong> is a single semantic step between
+            two nodes. The runtime uses bounded hop budgets rather than
+            unlimited traversal, so the planner can stay deterministic while
+            still reaching deeper evidence when needed.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
-              <p className="text-xs font-bold text-cyan-400 mb-2 uppercase tracking-widest">1-4 Hops</p>
-              <p className="text-[10px] text-slate-500">Surface-level retrieval. Answers "Who", "What", and "When".</p>
+              <p className="text-xs font-bold text-cyan-400 mb-2 uppercase tracking-widest">
+                1-4 Hops
+              </p>
+              <p className="text-[10px] text-slate-500">
+                Surface-level retrieval. Answers "Who", "What", and "When".
+              </p>
             </div>
             <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
-              <p className="text-xs font-bold text-purple-400 mb-2 uppercase tracking-widest">5-24 Hops</p>
-              <p className="text-[10px] text-slate-500">Deep synthesis and investigation. Connects documents, facts, timelines, and dependencies through bounded exact traversal.</p>
+              <p className="text-xs font-bold text-purple-400 mb-2 uppercase tracking-widest">
+                5-24 Hops
+              </p>
+              <p className="text-[10px] text-slate-500">
+                Deep synthesis and investigation. Connects documents, facts,
+                timelines, and dependencies through bounded exact traversal.
+              </p>
             </div>
             <div className="p-4 rounded-xl border border-slate-800 bg-slate-950/40">
-              <p className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-widest">24-128 Hops</p>
-              <p className="text-[10px] text-slate-500">Advanced bounded deployments only. Higher ceilings remain deterministic but must still obey pruning, frontier, and expansion guards.</p>
+              <p className="text-xs font-bold text-amber-400 mb-2 uppercase tracking-widest">
+                24-128 Hops
+              </p>
+              <p className="text-[10px] text-slate-500">
+                Advanced bounded deployments only. Higher ceilings remain
+                deterministic but must still obey pruning, frontier, and
+                expansion guards.
+              </p>
             </div>
           </div>
         </div>
@@ -1482,7 +1713,9 @@ function SectionCortexRuntime() {
 
       <Card title="Query Life-Cycle & End-to-End Proof" color="amber">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-          FAIM processes every query through a rigorous 5-Phase End-to-End Life-Cycle, moving seamlessly from input auto-classification to pulse-v2 explain ledgers and human-gated writebacks.
+          FAIM processes every query through a 5-Phase End-to-End Life-Cycle,
+          moving from deterministic query preparation to pulse-v2 explain
+          ledgers and provenance-backed evidence delivery.
         </p>
         <div className="space-y-4">
           {[
@@ -1492,7 +1725,7 @@ function SectionCortexRuntime() {
             },
             {
               phase: "Phase 2: Bounded Memory Discovery",
-              desc: "The Cortex engine executes bounded multi-hop traversal through relevant document, config, and relational nodes. The 3D FIG View renders the pulse-v2 path and query evidence events attached to the current explain payload.",
+              desc: "FAIM executes bounded multi-hop traversal through relevant document, config, and relational nodes up to graph_max_hops. The 3D FIG View renders the pulse-v2 path and query evidence events attached to the current explain payload.",
             },
             {
               phase: "Phase 3: Causal Traceback Proof",
@@ -1503,17 +1736,22 @@ function SectionCortexRuntime() {
               desc: "Streams citation-first extracted sentences annotated with [INVESTIGATE], [CONTRADICTION], or [PROVENANCE] badges, highlighting specific graph pathways in the FIG overlay.",
             },
             {
-              phase: "Phase 5: Writeback Proposals & Human Consolidation",
-              desc: "Detects corrections and generates a structured writeback candidate (containing proposed_by, confidence, reasoning_path). Approved candidates execute through the durable backend path and the resulting receipt is persisted before the knowledge becomes permanent.",
+              phase: "Phase 5: Provenance & Idempotent Memory Updates",
+              desc: "Returns ranked evidence with provenance and traversal receipts, while any new agent memory writes execute deterministically through idempotent REST or MCP endpoints.",
             },
           ].map((p, idx) => (
-            <div key={p.phase} className="flex gap-4 p-3 rounded-xl border border-slate-800 bg-slate-950/60">
+            <div
+              key={p.phase}
+              className="flex gap-4 p-3 rounded-xl border border-slate-800 bg-slate-950/60"
+            >
               <span className="text-xs font-mono font-bold text-amber-400 shrink-0 w-6 h-6 rounded-lg bg-amber-500/10 flex items-center justify-center">
                 {idx + 1}
               </span>
               <div>
                 <p className="text-xs font-bold text-white mb-0.5">{p.phase}</p>
-                <p className="text-[11px] text-slate-500 leading-relaxed">{p.desc}</p>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  {p.desc}
+                </p>
               </div>
             </div>
           ))}
@@ -1529,22 +1767,40 @@ function SectionFigView() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">FIG View</h2>
         <p className="text-slate-400 leading-relaxed">
-          Professional-grade 3D visualization for exploring complex cognitive landscapes.
+          Professional-grade 3D visualization for exploring complex cognitive
+          landscapes.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Pulse-v2 Reason Ledger" color="purple">
           <p className="text-sm text-slate-400 leading-relaxed">
-            As Cortex reasons, FIG View reads the backend pulse-v2 ledger: graph hops, expansion sources, semantic registry signals, domain-memory links, reranker factors, and late-interaction matches. Glow and path motion are driven by those events, while raycast-invisible visual layers keep node dragging responsive.
+            During query traversal, FIG View reads the backend pulse-v2 ledger:
+            graph hops, expansion sources, semantic registry signals,
+            domain-memory links, reranker factors, and late-interaction matches.
+            Glow and path motion are driven by those events, while
+            raycast-invisible visual layers keep node dragging responsive.
           </p>
         </Card>
 
         <Card title="GPU Resource Hardening" color="red">
           <ul className="space-y-2 text-xs text-slate-400">
-            <li className="flex gap-2"><span className="text-red-400">→</span><strong>Static Asset Registry:</strong> Reuses 3D geometries and materials to eliminate memory leaks.</li>
-            <li className="flex gap-2"><span className="text-red-400">→</span><strong>Render Loop Memoization:</strong> Prevents unnecessary re-renders during high-density graph manipulation.</li>
-            <li className="flex gap-2"><span className="text-red-400">→</span><strong>Gravitational Anchor:</strong> Physics constants tuned (centerStrength: 0.5) to keep atoms from drifting during interaction.</li>
+            <li className="flex gap-2">
+              <span className="text-red-400">→</span>
+              <strong>Static Asset Registry:</strong> Reuses 3D geometries and
+              materials to eliminate memory leaks.
+            </li>
+            <li className="flex gap-2">
+              <span className="text-red-400">→</span>
+              <strong>Render Loop Memoization:</strong> Prevents unnecessary
+              re-renders during high-density graph manipulation.
+            </li>
+            <li className="flex gap-2">
+              <span className="text-red-400">→</span>
+              <strong>Gravitational Anchor:</strong> Physics constants tuned
+              (centerStrength: 0.5) to keep atoms from drifting during
+              interaction.
+            </li>
           </ul>
         </Card>
       </div>
@@ -1553,11 +1809,23 @@ function SectionFigView() {
         <Card title="Canvas — Visualization Modes" color="cyan">
           <div className="space-y-3 text-sm text-slate-400">
             {[
-              { mode: "Surface", desc: "Default view showing up to 500 nodes." },
-              { mode: "Neighborhood", desc: "K-hop expansion from a selected node." },
+              {
+                mode: "Surface",
+                desc: "Default view showing up to 500 nodes.",
+              },
+              {
+                mode: "Neighborhood",
+                desc: "K-hop expansion from a selected node.",
+              },
               { mode: "Timeline", desc: "Nodes arranged by creation time." },
-              { mode: "Path", desc: "The shortest semantic path connecting two nodes." },
-              { mode: "Analyze", desc: "Full graph with live scorecard (density, entropy)." },
+              {
+                mode: "Path",
+                desc: "The shortest semantic path connecting two nodes.",
+              },
+              {
+                mode: "Analyze",
+                desc: "Full graph with live scorecard (density, entropy).",
+              },
             ].map((m) => (
               <div key={m.mode}>
                 <p className="text-cyan-400 font-mono text-xs">{m.mode}</p>
@@ -1571,11 +1839,26 @@ function SectionFigView() {
           <div className="space-y-3 text-sm text-slate-400">
             {[
               { mode: "None", desc: "Standard physical 3D graph structure." },
-              { mode: "Cognitive", desc: "Colors nodes by their deterministic semantic router classification (Logic, Evidence, contradiction)." },
-              { mode: "Retrieval", desc: "Highlights nodes currently being read into the active MemoryRefSet." },
-              { mode: "Evolution", desc: "Visualizes nodes that have changed or evolved over time (State Delta)." },
-              { mode: "Temporal", desc: "Spectrum from oldest to newest based on the createdAt timestamp." },
-              { mode: "Causality", desc: "Highlights targeted CAUSES, BLOCKS, and ENABLES relational edges." },
+              {
+                mode: "Cognitive",
+                desc: "Colors nodes by their deterministic semantic router classification (Logic, Evidence, contradiction).",
+              },
+              {
+                mode: "Retrieval",
+                desc: "Highlights nodes currently being read into the active MemoryRefSet.",
+              },
+              {
+                mode: "Evolution",
+                desc: "Visualizes nodes that have changed or evolved over time (State Delta).",
+              },
+              {
+                mode: "Temporal",
+                desc: "Spectrum from oldest to newest based on the createdAt timestamp.",
+              },
+              {
+                mode: "Causality",
+                desc: "Highlights targeted CAUSES, BLOCKS, and ENABLES relational edges.",
+              },
             ].map((m) => (
               <div key={m.mode}>
                 <p className="text-purple-400 font-mono text-xs">{m.mode}</p>
@@ -1595,18 +1878,35 @@ function SectionBilling() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Matrix Billing</h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM is tiered by cognitive capacity (Nodes and Hops) rather than token counts.
+          FAIM is tiered by cognitive capacity (Nodes and Hops) rather than
+          token counts.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         {[
-          { name: "Explorer", desc: "1,000 Nodes, 1-Hop reasoning. Free forever." },
-          { name: "Architect", desc: "10,000 Nodes, 4-Hop reasoning. Includes Snapshots." },
-          { name: "Neural", desc: "100,000 Nodes, bounded multi-hop reasoning. Cross-graph synthesis." },
-          { name: "Matrix", desc: "Unlimited. Private memory shards and dedicated workers." }
-        ].map(tier => (
-          <Card key={tier.name} title={tier.name} color={tier.name === "Neural" ? "purple" : "default"}>
+          {
+            name: "Explorer",
+            desc: "1,000 Nodes, 1-Hop reasoning. Free forever.",
+          },
+          {
+            name: "Architect",
+            desc: "10,000 Nodes, 4-Hop reasoning. Includes Snapshots.",
+          },
+          {
+            name: "Neural",
+            desc: "100,000 Nodes, bounded multi-hop reasoning. Cross-graph synthesis.",
+          },
+          {
+            name: "Matrix",
+            desc: "Unlimited. Private memory shards and dedicated workers.",
+          },
+        ].map((tier) => (
+          <Card
+            key={tier.name}
+            title={tier.name}
+            color={tier.name === "Neural" ? "purple" : "default"}
+          >
             <p className="text-xs text-slate-400">{tier.desc}</p>
           </Card>
         ))}
@@ -2235,8 +2535,8 @@ function SectionCapabilities() {
           "done",
         ],
         [
-          "FAIM Cortex answer modes",
-          "Direct, Timeline, Contradiction-aware, and Provenance-first prose synthesis",
+          "Structured query modes",
+          "Direct, Timeline, Contradiction-aware, and Provenance-first evidence retrieval",
           "done",
         ],
         [
@@ -2740,41 +3040,58 @@ function SectionCanonicalSemantics() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Canonical Semantics Pipeline (P2)</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Canonical Semantics Pipeline (P2)
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM matches concepts using deterministic lemmatization and broadeners instead of relying on stochastic learned semantics models.
+          FAIM matches concepts using deterministic lemmatization and broadeners
+          instead of relying on stochastic learned semantics models.
         </p>
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
         <Card title="Porter Stemmer & Lemmatization" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Every text node is normalized by reducing terms to their base roots via a deterministic, rule-based Porter Stemmer. This eliminates the need to run costly learned lemmatization engines on every search loop.
+            Every text node is normalized by reducing terms to their base roots
+            via a deterministic, rule-based Porter Stemmer. This eliminates the
+            need to run costly learned lemmatization engines on every search
+            loop.
           </p>
         </Card>
         <Card title="Acronym Expansion Registry" color="purple">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Acronyms (like "ROI" or "CAGR") are expanded deterministically during text tokenization, matching their canonical form and ensuring exact search coverage.
+            Acronyms (like "ROI" or "CAGR") are expanded deterministically
+            during text tokenization, matching their canonical form and ensuring
+            exact search coverage.
           </p>
         </Card>
         <Card title="O(1) Stop Word Filtering" color="amber">
           <p className="text-sm text-slate-400 leading-relaxed">
-            High-frequency, low-semantic-value words (e.g., "the", "is") are aggressively stripped out using a compiled <code>frozenset</code> dictionary before intent matching, preventing vector space dilution.
+            High-frequency, low-semantic-value words (e.g., "the", "is") are
+            aggressively stripped out using a compiled <code>frozenset</code>{" "}
+            dictionary before intent matching, preventing vector space dilution.
           </p>
         </Card>
       </div>
 
       <Card title="Distributional Synonyms & ConceptNet" color="amber">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          Unsupervised synonyms are mined using Jaccard and PMI co-occurrence calculations from the active corpus. Broad semantic associations are linked using the local ConceptNet-derived lexical archive, the new semantic registry runtime, and the small deterministic Cortex router.
+          Unsupervised synonyms are mined using Jaccard and PMI co-occurrence
+          calculations from the active corpus. Broad semantic associations are
+          linked using the local ConceptNet-derived lexical archive, the
+          semantic registry runtime, and built-in multilingual embeddings.
         </p>
         <Code>{`PMI(w_1, w_2) = log_2 ( P(w_1, w_2) / (P(w_1) * P(w_2)) )
 synonym_edge = PMI >= tau_pmi AND jaccard >= tau_jaccard`}</Code>
       </Card>
 
-      <Card title="ConceptNet vs. Semantic Registry vs. Cortex Router" color="indigo">
+      <Card
+        title="ConceptNet vs. Semantic Registry vs. Dense Embeddings"
+        color="indigo"
+      >
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          FAIM splits lexical broadening, semantic lookup, and task routing into separate deterministic layers.
+          FAIM splits lexical broadening, semantic lookup, and task routing into
+          separate deterministic layers.
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-400 border-collapse">
@@ -2789,25 +3106,43 @@ synonym_edge = PMI >= tau_pmi AND jaccard >= tau_jaccard`}</Code>
             </thead>
             <tbody className="divide-y divide-slate-800/40">
               <tr>
-                <td className="py-2 px-3 font-bold text-white">ConceptNet Lexicon</td>
-                <td className="py-2 px-3 text-cyan-400 font-mono">2,172,991 terms</td>
+                <td className="py-2 px-3 font-bold text-white">
+                  ConceptNet Lexicon
+                </td>
+                <td className="py-2 px-3 text-cyan-400 font-mono">
+                  2,172,991 terms
+                </td>
                 <td className="py-2 px-3">Global Lexical Flexibility</td>
                 <td className="py-2 px-3">Pre-Processing</td>
-                <td className="py-2 px-3 italic">"residing" → ["dwelling", "living"]</td>
+                <td className="py-2 px-3 italic">
+                  "residing" → ["dwelling", "living"]
+                </td>
               </tr>
               <tr>
-                <td className="py-2 px-3 font-bold text-white">Semantic Registry Runtime</td>
-                <td className="py-2 px-3 text-emerald-400 font-mono">2.31M+ shipped term base</td>
+                <td className="py-2 px-3 font-bold text-white">
+                  Semantic Registry Runtime
+                </td>
+                <td className="py-2 px-3 text-emerald-400 font-mono">
+                  2.31M+ shipped term base
+                </td>
                 <td className="py-2 px-3">Combined semantic lookup</td>
                 <td className="py-2 px-3">Query expansion</td>
-                <td className="py-2 px-3 italic">"rcp revenue latency" → graph-aware semantic broadening</td>
+                <td className="py-2 px-3 italic">
+                  "rcp revenue latency" → graph-aware semantic broadening
+                </td>
               </tr>
               <tr>
-                <td className="py-2 px-3 font-bold text-white">Deterministic Cortex Router</td>
-                <td className="py-2 px-3 text-purple-400 font-mono">Seeded alias map</td>
-                <td className="py-2 px-3">Cognitive Routing</td>
-                <td className="py-2 px-3">Intent Classification</td>
-                <td className="py-2 px-3 italic">"Why did it crash?" → CAUSALITY</td>
+                <td className="py-2 px-3 font-bold text-white">
+                  Multilingual Dense Embeddings
+                </td>
+                <td className="py-2 px-3 text-purple-400 font-mono">
+                  Built-in multilingual
+                </td>
+                <td className="py-2 px-3">Semantic Recall</td>
+                <td className="py-2 px-3">Dense Vector Scoring</td>
+                <td className="py-2 px-3 italic">
+                  "revenue latency" → cross-lingual dense match
+                </td>
               </tr>
             </tbody>
           </table>
@@ -2821,28 +3156,41 @@ function SectionGraphDiffusion() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Graph Semantics and Diffusion (P3)</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Graph Semantics and Diffusion (P3)
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM traverses active query paths using bounded multi-hop walks and deterministic diffusion equations to reward localized neighborhood coherence.
+          FAIM traverses active query paths using bounded multi-hop walks and
+          deterministic diffusion equations to reward localized neighborhood
+          coherence.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Decaying Path Score" color="indigo">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Score weights decay geometrically with each traversal hop, ensuring that localized neighborhood connections are rewarded over distant semantic jumps.
+            Score weights decay geometrically with each traversal hop, ensuring
+            that localized neighborhood connections are rewarded over distant
+            semantic jumps.
           </p>
         </Card>
         <Card title="Temporal Opposition Suppression" color="red">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Chronological conflicts and contradictory properties are flagged during path traversal, suppressing the older candidate before re-ranking.
+            Chronological conflicts and contradictory properties are flagged
+            during path traversal, suppressing the older candidate before
+            re-ranking.
           </p>
         </Card>
       </div>
 
       <Card title="PageRank style Bounded Diffusion" color="purple">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          Scores diffuse outward from seed nodes using a deterministic, PageRank-style matrix propagation across the active adjacency graph. The live Cortex runtime can then layer an exact traversal branch on top of that retrieval surface using the planner-selected hop budget.
+          Scores diffuse outward from seed nodes using a deterministic,
+          PageRank-style matrix propagation across the active adjacency graph.
+          The query runtime can then layer an exact traversal branch on top of
+          that retrieval surface using the caller-selected{" "}
+          <code className="text-purple-300">graph_max_hops</code> budget (1–24,
+          default 2).
         </p>
         <Code>{`y^(k+1) = (1 - alpha) * y_seed + alpha * P^T * y^(k)
 default_hops_max = 24
@@ -2857,28 +3205,34 @@ function SectionRerankerV2() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Deterministic Reranker V2 (P4)</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Deterministic Reranker V2 (P4)
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          Fuses sparse, dense, and graph components into a single multi-signal score to achieve extreme precision without learned cross-encoders.
+          Fuses sparse, dense, and graph components into a single multi-signal
+          score to achieve extreme precision without learned cross-encoders.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Multi-Signal Score Blend" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Combines lexical term frequencies, graph path scores, matching entities, chronological times, and evidence density.
+            Combines lexical term frequencies, graph path scores, matching
+            entities, chronological times, and evidence density.
           </p>
         </Card>
         <Card title="Pairwise Dominance Suppression" color="emerald">
           <p className="text-sm text-slate-400 leading-relaxed">
-            If two nodes assert contradicting values for the same entity and relation, the younger node suppresses the older candidate pairwise.
+            If two nodes assert contradicting values for the same entity and
+            relation, the younger node suppresses the older candidate pairwise.
           </p>
         </Card>
       </div>
 
       <Card title="The V2 Reranker Equation" color="purple">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          The final score is synthesized using a deterministic linear combination of structural and temporal components:
+          The final score is synthesized using a deterministic linear
+          combination of structural and temporal components:
         </p>
         <Code>{`S_rerank = lexical + graph + entity + time
            + evidence_span + proposition_match
@@ -2892,21 +3246,28 @@ function SectionScaleANN() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Scale and ANN (P5)</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Scale and ANN (P5)
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM scales retrieval to millions of nodes using graph-versioned cached artifacts, WAND pruning, and a deterministic VP-tree dense shortlist.
+          FAIM scales retrieval to millions of nodes using graph-versioned
+          cached artifacts, WAND pruning, and a deterministic VP-tree dense
+          shortlist.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Block-Max WAND Pruning" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Computes a dynamic score upper bound for term blocks, instantly skipping non-matching ranges to deliver sublinear candidate shortlist times.
+            Computes a dynamic score upper bound for term blocks, instantly
+            skipping non-matching ranges to deliver sublinear candidate
+            shortlist times.
           </p>
         </Card>
         <Card title="Deterministic VP-tree Dense Shortlist" color="purple">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Keeps dense retrieval deterministic by using a fixed VP-tree build/search order with cache reuse keyed by graph version.
+            Keeps dense retrieval deterministic by using a fixed VP-tree
+            build/search order with cache reuse keyed by graph version.
           </p>
         </Card>
       </div>
@@ -2914,10 +3275,22 @@ function SectionScaleANN() {
       <Card title="The 4-Stage Progressive Retrieval Flow" color="amber">
         <div className="space-y-3 text-sm text-slate-400">
           {[
-            { stage: "Stage 1", desc: "Sparse postings shortlist using Block-Max WAND upper bounds." },
-            { stage: "Stage 2", desc: "Native vector shortlist query using a deterministic VP-tree dense path and graph-versioned cache reuse." },
-            { stage: "Stage 3", desc: "Graph expansion and bounded multi-hop neighborhood diffusion." },
-            { stage: "Stage 4", desc: "Deterministic V2 reranking with pairwise dominance suppression." }
+            {
+              stage: "Stage 1",
+              desc: "Sparse postings shortlist using Block-Max WAND upper bounds.",
+            },
+            {
+              stage: "Stage 2",
+              desc: "Native vector shortlist query using a deterministic VP-tree dense path and graph-versioned cache reuse.",
+            },
+            {
+              stage: "Stage 3",
+              desc: "Graph expansion and bounded multi-hop neighborhood diffusion.",
+            },
+            {
+              stage: "Stage 4",
+              desc: "Deterministic V2 reranking with pairwise dominance suppression.",
+            },
           ].map((s) => (
             <div key={s.stage}>
               <p className="text-amber-400 font-mono text-xs">{s.stage}</p>
@@ -2934,21 +3307,27 @@ function SectionMultilingual() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Multilingual & Cross-Lingual Semantics (P6)</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Multilingual & Cross-Lingual Semantics (P6)
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          Bridges English, German, Spanish, French, Italian, Portuguese, and Dutch terms directly onto language-agnostic conceptual nodes using deterministic lexicons.
+          Bridges English, German, Spanish, French, Italian, Portuguese, and
+          Dutch terms directly onto language-agnostic conceptual nodes using
+          deterministic lexicons.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="German Transliteration" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Unifies spelling differences by standardizing German umlauts deterministically (ä → ae, ö → oe, ü → ue, ß → ss).
+            Unifies spelling differences by standardizing German umlauts
+            deterministically (ä → ae, ö → oe, ü → ue, ß → ss).
           </p>
         </Card>
         <Card title="Light German Stemmer" color="purple">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Stems German roots deterministically to handle inflections and plural variants perfectly without heavy dictionary runtimes.
+            Stems German roots deterministically to handle inflections and
+            plural variants perfectly without heavy dictionary runtimes.
           </p>
         </Card>
       </div>
@@ -2971,28 +3350,35 @@ function SectionMultimodalNoML() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Multimodal Without ML (P7)</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Multimodal Without ML (P7)
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          Deterministic support for spreadsheet tables, page layout coordinates, and visual assets without heavy transformer models.
+          Deterministic support for spreadsheet tables, page layout coordinates,
+          and visual assets without heavy transformer models.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Table Linearization" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Transforms pipe-delimited table rows into standardized, semicolon-delimited grids row-by-row, keeping cells grouped for keyword proximity queries.
+            Transforms pipe-delimited table rows into standardized,
+            semicolon-delimited grids row-by-row, keeping cells grouped for
+            keyword proximity queries.
           </p>
         </Card>
         <Card title="Image Perceptual Hash (pHash)" color="purple">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Generates a stable 16-character fingerprint proxy based on SHA-256 to identify exact or near-duplicate visual assets instantly.
+            Generates a stable 16-character fingerprint proxy based on SHA-256
+            to identify exact or near-duplicate visual assets instantly.
           </p>
         </Card>
       </div>
 
       <Card title="Layout Coordinates & Metadata" color="amber">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          Saves and indexes physical layout boundaries (page numbers, slides, sections, block types) as easily queryable search tokens.
+          Saves and indexes physical layout boundaries (page numbers, slides,
+          sections, block types) as easily queryable search tokens.
         </p>
         <Code>{`layout_token = "page:{nr}" | "slide:{nr}" | "section:{header}" | "block_type:{type}"`}</Code>
       </Card>
@@ -3004,28 +3390,35 @@ function SectionDomainAdaptation() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Long-Tail Knowledge & Domain Adaptation (P8)</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Long-Tail Knowledge & Domain Adaptation (P8)
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          Solves specialized domain jargon by ingesting curated corporate KB dumps and executing algebraic neighborhood walks.
+          Solves specialized domain jargon by ingesting curated corporate KB
+          dumps and executing algebraic neighborhood walks.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Deterministic Entity Linking" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Substring-matches input query words against the localized graph lexicon, resolving them directly to specific target seed node UUIDs.
+            Substring-matches input query words against the localized graph
+            lexicon, resolving them directly to specific target seed node UUIDs.
           </p>
         </Card>
         <Card title="Multi-Relational Graph Walks" color="purple">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Starting at seed nodes, the engine executes neighborhood walks across adjacent entity relationships, fact values, and source citations.
+            Starting at seed nodes, the engine executes neighborhood walks
+            across adjacent entity relationships, fact values, and source
+            citations.
           </p>
         </Card>
       </div>
 
       <Card title="Knowledge Base Edge-Scaling Multipliers" color="indigo">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          Adjacent activated nodes receive relevance boosts scaled by normalized edge weights and connecting multipliers:
+          Adjacent activated nodes receive relevance boosts scaled by normalized
+          edge weights and connecting multipliers:
         </p>
         <Code>{`W(e) = clamp( weight_db / 10^9 )
 S_fact_support = max( S_fact_support, Multiplier * W(e) )
@@ -3039,28 +3432,34 @@ function SectionAnswerSynthesis() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Extractive Answer Synthesis (P9)</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Extractive Answer Synthesis (P9)
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          Composes 100% auditable, citation-first extractive prose and exact confidence intervals without generative LLM drift.
+          Composes 100% auditable, citation-first extractive prose and exact
+          confidence intervals without generative LLM drift.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Extractive Span Selector" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Splits text candidates into sentences and scores them based on term overlap, document rank, and temporal active/historical markers.
+            Splits text candidates into sentences and scores them based on term
+            overlap, document rank, and temporal active/historical markers.
           </p>
         </Card>
         <Card title="Contradiction Warnings" color="red">
           <p className="text-sm text-slate-400 leading-relaxed">
-            Automatically flags value conflicts asserting different figures for the same entity and relation in top retrieval candidates.
+            Automatically flags value conflicts asserting different figures for
+            the same entity and relation in top retrieval candidates.
           </p>
         </Card>
       </div>
 
       <Card title="Evidence Confidence Interval Equation" color="purple">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          Computes a mathematically sound confidence index $[0, 1]$ based on evidence breadth, active span ratio, and contradiction penalties:
+          Computes a mathematically sound confidence index $[0, 1]$ based on
+          evidence breadth, active span ratio, and contradiction penalties:
         </p>
         <Code>{`S_confidence = clamp( 0.45 * S_avg_span + 0.30 * S_breadth + 0.25 * S_active - S_penalty )
 S_breadth = min( 1.0, unique_docs / 3.0 ), S_penalty = min( 0.5, 0.15 * conflicts )`}</Code>
@@ -3074,75 +3473,226 @@ function SectionLandingCoverage() {
     {
       name: "Core story",
       modules: [
-        ["Tech Stack", "Architecture, memory, native vectors, graph storage", "architecture / memory"],
-        ["Highlights", "Shipped capabilities and product outcomes", "current-state / capabilities"],
-        ["Maximum Intelligence", "Cortex planning, semantic enrichment, domain memory, and explainability", "cortex-runtime / domain-adaptation"],
-        ["Outcomes", "Search, inspectability, domain adaptation, and operational use", "why-faim / capabilities"],
+        [
+          "Tech Stack",
+          "Architecture, memory, native vectors, graph storage",
+          "architecture / memory",
+        ],
+        [
+          "Highlights",
+          "Shipped capabilities and product outcomes",
+          "current-state / capabilities",
+        ],
+        [
+          "Maximum Intelligence",
+          "Multi-hop traversal, semantic enrichment, domain memory, and explainability",
+          "cortex-runtime / domain-adaptation",
+        ],
+        [
+          "Outcomes",
+          "Search, inspectability, domain adaptation, and operational use",
+          "why-faim / capabilities",
+        ],
       ],
     },
     {
       name: "Platform shape",
       modules: [
-        ["Architecture", "Layered application, query, graph, vector, and storage runtime", "architecture"],
-        ["Hybrid Recall", "Dense native recall, sparse sidecars, graph diffusion, and reranking", "retrieval / graph-diffusion"],
-        ["RAG Comparison", "FAIM-native retrieval versus a generic fetch-and-summarize wrapper", "why-faim / retrieval"],
-        ["ADI Pipeline", "Sparse shortlist, dense shortlist, graph diffusion, rerank, and answer synthesis", "retrieval / cortex-runtime"],
-        ["Enterprise Pillars", "Determinism, explainability, security, tenant isolation, and self-hosting", "capabilities / security / deployment"],
-        ["Seven Powers", "Native memory, semantic routing, graph reasoning, evolution, and proof surfaces", "capabilities / cortex"],
+        [
+          "Architecture",
+          "Layered application, query, graph, vector, and storage runtime",
+          "architecture",
+        ],
+        [
+          "Hybrid Recall",
+          "Dense native recall, sparse sidecars, graph diffusion, and reranking",
+          "retrieval / graph-diffusion",
+        ],
+        [
+          "RAG Comparison",
+          "FAIM-native retrieval versus a generic fetch-and-summarize wrapper",
+          "why-faim / retrieval",
+        ],
+        [
+          "ADI Pipeline",
+          "Sparse shortlist, dense shortlist, graph diffusion, rerank, and evidence delivery",
+          "retrieval / cortex-runtime",
+        ],
+        [
+          "Enterprise Pillars",
+          "Determinism, explainability, security, tenant isolation, and self-hosting",
+          "capabilities / security / deployment",
+        ],
+        [
+          "Seven Powers",
+          "Native memory, semantic enrichment, graph traversal, evolution, and proof surfaces",
+          "capabilities / cortex",
+        ],
       ],
     },
     {
       name: "Proof layer",
       modules: [
-        ["Graph Demo", "Interactive graph concepts and typed relationships", "graph"],
-        ["Integration", "How uploads, graph state, retrieval, Cortex, and FIG View connect", "architecture / ingestion / fig-view"],
-        ["Ingestion", "Extract, packetize, encode, verify invariants, and write to graph", "ingestion / document-intel"],
-        ["Quick Start", "Local production stack, health checks, and first Cortex query", "quickstart / deployment"],
-        ["Math Proof", "Native-vector math, graph invariants, fingerprints, and deterministic checks", "memory / capabilities"],
-        ["Query Explain", "Score stack, provenance, pulse-v2, and answer evidence", "retrieval / cortex / fig-view"],
-        ["Evolution", "Explicit graph-scoped self-evolve and self-invent controls", "cortex-runtime / roadmap"],
-        ["FIG View", "3D graph inspection, pulse-v2 ledger, event timeline, and lineage", "fig-view"],
-        ["Manifesto", "FAIM design principles and non-goals", "what-is-faim / why-faim"],
-        ["Benchmarks", "Live engine, infrastructure, stress, and regression measurements", "benchmarks"],
+        [
+          "Graph Demo",
+          "Interactive graph concepts and typed relationships",
+          "graph",
+        ],
+        [
+          "Integration",
+          "How uploads, graph state, retrieval, Remote MCP, and FIG View connect",
+          "architecture / ingestion / fig-view",
+        ],
+        [
+          "Ingestion",
+          "Extract, packetize, encode, verify invariants, and write to graph",
+          "ingestion / document-intel",
+        ],
+        [
+          "Quick Start",
+          "Local production stack, health checks, and MCP / API key setup",
+          "quickstart / deployment",
+        ],
+        [
+          "Math Proof",
+          "Native-vector math, graph invariants, fingerprints, and deterministic checks",
+          "memory / capabilities",
+        ],
+        [
+          "Query Explain",
+          "Score stack, provenance, pulse-v2, and retrieval evidence",
+          "retrieval / cortex / fig-view",
+        ],
+        [
+          "Evolution",
+          "Explicit graph-scoped self-evolve and self-invent controls",
+          "cortex-runtime / roadmap",
+        ],
+        [
+          "FIG View",
+          "3D graph inspection, pulse-v2 ledger, event timeline, and lineage",
+          "fig-view",
+        ],
+        [
+          "Manifesto",
+          "FAIM design principles and non-goals",
+          "what-is-faim / why-faim",
+        ],
+        [
+          "Benchmarks",
+          "Live engine, infrastructure, stress, and regression measurements",
+          "benchmarks",
+        ],
       ],
     },
     {
       name: "Operations and scale",
       modules: [
-        ["How It Works", "Upload-to-answer lifecycle", "architecture / ingestion / retrieval"],
-        ["Docs and Operations", "Runbooks, deployment, maintenance, and operational contracts", "deployment / current-state"],
-        ["Developer API", "Tenant-scoped REST and API-key integration surface", "security / deployment"],
-        ["Security", "Authentication, scopes, encryption, provenance, and tenant boundaries", "security"],
-        ["Use Cases", "Knowledge teams, regulated companies, platform teams, and research", "why-faim / capabilities"],
-        ["Roadmap and Future Scale", "Implemented runtime versus bounded future GPU/scale work", "roadmap / scale-ann"],
-        ["FAQ and CTA", "Public product questions and conversion paths", "what-is-faim / quickstart"],
+        [
+          "How It Works",
+          "Upload-to-answer lifecycle",
+          "architecture / ingestion / retrieval",
+        ],
+        [
+          "Docs and Operations",
+          "Runbooks, deployment, maintenance, and operational contracts",
+          "deployment / current-state",
+        ],
+        [
+          "Developer API",
+          "Tenant-scoped REST and API-key integration surface",
+          "security / deployment",
+        ],
+        [
+          "Security",
+          "Authentication, scopes, encryption, provenance, and tenant boundaries",
+          "security",
+        ],
+        [
+          "Use Cases",
+          "Knowledge teams, regulated companies, platform teams, and research",
+          "why-faim / capabilities",
+        ],
+        [
+          "Roadmap and Future Scale",
+          "Implemented runtime versus bounded future GPU/scale work",
+          "roadmap / scale-ann",
+        ],
+        [
+          "FAQ and CTA",
+          "Public product questions and conversion paths",
+          "what-is-faim / quickstart",
+        ],
       ],
     },
   ];
 
   const claimRegister = [
-    ["Deterministic native core", "Implemented", "256-dimensional native vectors, SHA-256 lineage, graph writes, and invariant validation are documented under Architecture and Memory System."],
-    ["Hybrid retrieval", "Implemented", "Native vector recall remains canonical; sparse Representation V2, Semantic Signature V1, weighted expansion, late interaction, graph diffusion, and deterministic reranking are documented under Retrieval Engine and P2–P6."],
-    ["Adaptive bounded reasoning", "Implemented", "Cortex uses planner-driven bounded traversal: shallow turns can stay small, 1–24 hops are the normal bounded ceiling, and higher deployment ceilings are explicitly configuration-dependent."],
-    ["Semantic registry and lexical broadening", "Implemented with bounded runtime claims", "ConceptNet-derived resources, multilingual lexicons, graph-local semantics, and domain memory strengthen retrieval. Registry size and shipped archive counts must remain tied to measured assets, not marketing labels."],
-    ["Autonomous domain memory", "Implemented", "Uploaded material can form graph-local terms, aliases, entities, relations, facts, values, temporal cues, and domain bundles used by later retrieval."],
-    ["Pulse-v2 and FIG proof", "Implemented for supported query/path explain contracts", "Backend pulse events and reason-source ledgers drive node glow, path motion, inspector proof, relation traces, and semantic-layer explanations."],
-    ["Cortex writebacks", "Implemented with approval and receipts", "Proposals remain safety-gated; approved writebacks execute durably and idempotently, with lifecycle status and receipts surfaced in Cortex/FIG documentation."],
-    ["OCR and multimodal extraction", "Implemented in supported pipeline", "Document intelligence covers supported files, OCR fail-closed behavior, tables, layout, image features, and additive sidecars. Availability follows the runtime supported-types surface."],
-    ["Security and operations", "Implemented", "Authenticated tenant-scoped sessions, API-key scopes, encrypted raw storage, key maintenance, rate limits, health checks, and operational routes are documented under Security and Deployment."],
-    ["GPU massive-scale claims", "Roadmap / deployment-dependent", "GPU acceleration, 100M+ node throughput, and sub-millisecond targets are future or benchmark-dependent architecture targets, not universal current guarantees."],
+    [
+      "Deterministic native core",
+      "Implemented",
+      "256-dimensional native vectors, SHA-256 lineage, graph writes, and invariant validation are documented under Architecture and Memory System.",
+    ],
+    [
+      "Hybrid retrieval",
+      "Implemented",
+      "Native vector recall remains canonical; sparse Representation V2, Semantic Signature V1, weighted expansion, late interaction, graph diffusion, and deterministic reranking are documented under Retrieval Engine and P2–P6.",
+    ],
+    [
+      "Adaptive bounded traversal",
+      "Implemented",
+      "Callers and MCP agents control bounded traversal via graph_max_hops (1–24, defaulting to 2) on /api/v1/query and /api/v1/memory/search.",
+    ],
+    [
+      "Semantic registry and lexical broadening",
+      "Implemented with bounded runtime claims",
+      "ConceptNet-derived resources, multilingual lexicons, graph-local semantics, and domain memory strengthen retrieval. Registry size and shipped archive counts must remain tied to measured assets, not marketing labels.",
+    ],
+    [
+      "Autonomous domain memory",
+      "Implemented",
+      "Uploaded material can form graph-local terms, aliases, entities, relations, facts, values, temporal cues, and domain bundles used by later retrieval.",
+    ],
+    [
+      "Pulse-v2 and FIG proof",
+      "Implemented for supported query/path explain contracts",
+      "Backend pulse events and reason-source ledgers drive node glow, path motion, inspector proof, relation traces, and semantic-layer explanations.",
+    ],
+    [
+      "Remote MCP & idempotent writes",
+      "Implemented",
+      "Remote MCP (/mcp with OAuth 2.1 + PKCE), offline faim-mcp CLI, and one-time API keys provide direct idempotent memory writes and tenant-isolated graph access.",
+    ],
+    [
+      "OCR and multimodal extraction",
+      "Implemented in supported pipeline",
+      "Document intelligence covers supported files, OCR fail-closed behavior, tables, layout, image features, and additive sidecars. Availability follows the runtime supported-types surface.",
+    ],
+    [
+      "Security and operations",
+      "Implemented",
+      "Authenticated tenant-scoped sessions, API-key scopes, encrypted raw storage, key maintenance, rate limits, health checks, and operational routes are documented under Security and Deployment.",
+    ],
+    [
+      "GPU massive-scale claims",
+      "Roadmap / deployment-dependent",
+      "GPU acceleration, 100M+ node throughput, and sub-millisecond targets are future or benchmark-dependent architecture targets, not universal current guarantees.",
+    ],
   ];
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Landing Page Coverage</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Landing Page Coverage
+        </h2>
         <p className="text-slate-400 leading-relaxed">
           This section is the source map between the public landing page and the
           technical documentation. The landing page is organized as 30 modules
-          across 5 product layers. Every module below points to the documentation
-          section that explains its runtime behavior, or states clearly when the
-          surface is a future/roadmap presentation rather than a current guarantee.
+          across 5 product layers. Every module below points to the
+          documentation section that explains its runtime behavior, or states
+          clearly when the surface is a future/roadmap presentation rather than
+          a current guarantee.
         </p>
       </div>
 
@@ -3157,17 +3707,30 @@ function SectionLandingCoverage() {
                 <table className="w-full min-w-[680px] text-left text-[11px]">
                   <thead className="bg-slate-950/70 text-slate-500">
                     <tr>
-                      <th className="px-3 py-2 font-mono uppercase tracking-wider">Landing module</th>
-                      <th className="px-3 py-2 font-mono uppercase tracking-wider">Information exposed</th>
-                      <th className="px-3 py-2 font-mono uppercase tracking-wider">Docs cross-reference</th>
+                      <th className="px-3 py-2 font-mono uppercase tracking-wider">
+                        Landing module
+                      </th>
+                      <th className="px-3 py-2 font-mono uppercase tracking-wider">
+                        Information exposed
+                      </th>
+                      <th className="px-3 py-2 font-mono uppercase tracking-wider">
+                        Docs cross-reference
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {group.modules.map(([module, info, reference]) => (
-                      <tr key={module} className="border-t border-slate-800/80 align-top">
-                        <td className="px-3 py-2.5 font-medium text-white">{module}</td>
+                      <tr
+                        key={module}
+                        className="border-t border-slate-800/80 align-top"
+                      >
+                        <td className="px-3 py-2.5 font-medium text-white">
+                          {module}
+                        </td>
                         <td className="px-3 py-2.5 text-slate-400">{info}</td>
-                        <td className="px-3 py-2.5 font-mono text-cyan-300/80">{reference}</td>
+                        <td className="px-3 py-2.5 font-mono text-cyan-300/80">
+                          {reference}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -3189,17 +3752,32 @@ function SectionLandingCoverage() {
           <table className="w-full min-w-[760px] text-left text-[11px]">
             <thead className="bg-slate-950/70 text-slate-500">
               <tr>
-                <th className="px-3 py-2 font-mono uppercase tracking-wider">Claim area</th>
-                <th className="px-3 py-2 font-mono uppercase tracking-wider">Status</th>
-                <th className="px-3 py-2 font-mono uppercase tracking-wider">Documentation truth</th>
+                <th className="px-3 py-2 font-mono uppercase tracking-wider">
+                  Claim area
+                </th>
+                <th className="px-3 py-2 font-mono uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-3 py-2 font-mono uppercase tracking-wider">
+                  Documentation truth
+                </th>
               </tr>
             </thead>
             <tbody>
               {claimRegister.map(([area, status, truth]) => (
-                <tr key={area} className="border-t border-slate-800/80 align-top">
+                <tr
+                  key={area}
+                  className="border-t border-slate-800/80 align-top"
+                >
                   <td className="px-3 py-2.5 font-medium text-white">{area}</td>
-                  <td className={`px-3 py-2.5 font-mono ${status.startsWith("Roadmap") ? "text-amber-300" : "text-emerald-300"}`}>{status}</td>
-                  <td className="px-3 py-2.5 leading-relaxed text-slate-400">{truth}</td>
+                  <td
+                    className={`px-3 py-2.5 font-mono ${status.startsWith("Roadmap") ? "text-amber-300" : "text-emerald-300"}`}
+                  >
+                    {status}
+                  </td>
+                  <td className="px-3 py-2.5 leading-relaxed text-slate-400">
+                    {truth}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -3209,10 +3787,34 @@ function SectionLandingCoverage() {
 
       <Card title="Maintenance Rule" color="amber">
         <ul className="space-y-2 text-sm leading-relaxed text-slate-400">
-          <li className="flex gap-2"><span className="text-amber-300">→</span><span>When a landing module changes, update its linked technical docs and this coverage map in the same change.</span></li>
-          <li className="flex gap-2"><span className="text-amber-300">→</span><span>Keep current runtime behavior separate from future GPU, ANN-scale, or benchmark targets.</span></li>
-          <li className="flex gap-2"><span className="text-amber-300">→</span><span>Use the application’s measured benchmark and health surfaces before adding performance numbers to public copy.</span></li>
-          <li className="flex gap-2"><span className="text-amber-300">→</span><span>Do not describe showcase visualizations as live backend telemetry unless the corresponding explain/event contract exists.</span></li>
+          <li className="flex gap-2">
+            <span className="text-amber-300">→</span>
+            <span>
+              When a landing module changes, update its linked technical docs
+              and this coverage map in the same change.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-amber-300">→</span>
+            <span>
+              Keep current runtime behavior separate from future GPU, ANN-scale,
+              or benchmark targets.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-amber-300">→</span>
+            <span>
+              Use the application’s measured benchmark and health surfaces
+              before adding performance numbers to public copy.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span className="text-amber-300">→</span>
+            <span>
+              Do not describe showcase visualizations as live backend telemetry
+              unless the corresponding explain/event contract exists.
+            </span>
+          </li>
         </ul>
       </Card>
     </div>
@@ -3237,7 +3839,7 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   "graph-diffusion": SectionGraphDiffusion,
   "reranker-v2": SectionRerankerV2,
   "scale-ann": SectionScaleANN,
-  "multilingual": SectionMultilingual,
+  multilingual: SectionMultilingual,
   "multimodal-no-ml": SectionMultimodalNoML,
   "domain-adaptation": SectionDomainAdaptation,
   "answer-synthesis": SectionAnswerSynthesis,

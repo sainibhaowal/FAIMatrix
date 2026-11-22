@@ -14,24 +14,24 @@ const buttonVariants = cva(
   /* Base styles */
   [
     "inline-flex items-center justify-center gap-2",
-    "font-medium transition-all relative overflow-hidden group",
+    "font-medium transition-all duration-200 ease-out relative overflow-hidden group",
     "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--surface-0)]",
     "disabled:cursor-not-allowed disabled:opacity-50",
-    "active:scale-[0.98]",
+    "hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98]",
   ].join(" "),
   {
     variants: {
       variant: {
         primary: [
           "bg-[var(--faim-primary)] text-slate-900",
-          "hover:bg-[var(--faim-primary-hover)]",
+          "hover:bg-[var(--faim-primary-hover)] hover:shadow-[0_0_24px_rgba(34,211,238,0.38)]",
           "focus-visible:ring-[var(--faim-primary)]",
           "shadow-[var(--glow-cyan)]",
         ].join(" "),
         secondary: [
           "bg-[var(--faim-secondary-muted)] text-[var(--faim-secondary)]",
           "border border-[var(--faim-secondary)]/30",
-          "hover:bg-[var(--faim-secondary)]/20 hover:border-[var(--faim-secondary)]/50",
+          "hover:bg-[var(--faim-secondary)]/20 hover:border-[var(--faim-secondary)]/55 hover:shadow-[0_0_18px_rgba(167,139,250,0.22)]",
           "focus-visible:ring-[var(--faim-secondary)]",
         ].join(" "),
         ghost: [
@@ -42,19 +42,19 @@ const buttonVariants = cva(
         outline: [
           "bg-transparent text-[var(--text-primary)]",
           "border border-[var(--border-default)]",
-          "hover:bg-[var(--glass-hover)] hover:border-[var(--border-primary)]",
+          "hover:bg-[var(--glass-hover)] hover:border-cyan-400/35 hover:shadow-[0_0_16px_rgba(34,211,238,0.14)]",
           "focus-visible:ring-[var(--faim-primary)]",
         ].join(" "),
         danger: [
           "bg-[var(--faim-error-muted)] text-[var(--faim-error-text)]",
           "border border-[var(--faim-error)]/30",
-          "hover:bg-[var(--faim-error)]/20 hover:border-[var(--faim-error)]/50",
+          "hover:bg-[var(--faim-error)]/20 hover:border-[var(--faim-error)]/55 hover:shadow-[0_0_18px_rgba(248,113,113,0.22)]",
           "focus-visible:ring-[var(--faim-error)]",
         ].join(" "),
         success: [
           "bg-[var(--faim-success-muted)] text-[var(--faim-success-text)]",
           "border border-[var(--faim-success)]/30",
-          "hover:bg-[var(--faim-success)]/20 hover:border-[var(--faim-success)]/50",
+          "hover:bg-[var(--faim-success)]/20 hover:border-[var(--faim-success)]/55 hover:shadow-[0_0_18px_rgba(52,211,153,0.22)]",
           "focus-visible:ring-[var(--faim-success)]",
         ].join(" "),
       },

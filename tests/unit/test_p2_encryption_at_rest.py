@@ -59,7 +59,9 @@ def test_encrypted_raw_store_stores_ciphertext(
     assert "cipher_version" in stats
 
 
-def test_tenant_dek_rotation_rewraps_and_preserves_payload(monkeypatch, session_factory):
+def test_tenant_dek_rotation_rewraps_and_preserves_payload(
+    monkeypatch, session_factory
+):
     import tempfile
 
     from store.crypto.envelope import TenantDEKManager, master_key_fingerprint
@@ -106,6 +108,10 @@ def test_tenant_dek_rotation_rewraps_and_preserves_payload(monkeypatch, session_
         )
 
     monkeypatch.delenv("FAIM_MASTER_KEY_PREVIOUS_JSON", raising=False)
-    fresh_cipher = EnvelopeCipher(tenant_id=tenant_id, session_factory=session_factory.create)
-    fresh_store = EncryptedRawStore(inner=inner, cipher=fresh_cipher, graph_id=tenant_id)
+    fresh_cipher = EnvelopeCipher(
+        tenant_id=tenant_id, session_factory=session_factory.create
+    )
+    fresh_store = EncryptedRawStore(
+        inner=inner, cipher=fresh_cipher, graph_id=tenant_id
+    )
     assert fresh_store.load(raw_ref, verify=True) == payload

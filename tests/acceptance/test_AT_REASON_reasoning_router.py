@@ -32,9 +32,9 @@ def _mk_client(
     from runtime import context as runtime_context
     from runtime.config import reset_config
     from sqlalchemy import create_engine
+    from store.pg import models_feedback as _models_feedback  # noqa: F401
     from store.pg import session as pg_session
     from store.pg.models_faim import Base
-    from store.pg import models_feedback as _models_feedback  # noqa: F401
 
     monkeypatch.setattr(pg_session, "DEFAULT_DATABASE_URL", db_url, raising=False)
     monkeypatch.setattr(pg_session, "_SESSION_FACTORY_CACHE", {}, raising=False)

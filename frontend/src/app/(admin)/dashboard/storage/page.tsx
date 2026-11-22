@@ -23,6 +23,7 @@ import {
   ScanText,
   Cpu,
   Zap,
+  Trash2,
 } from "lucide-react";
 
 import { motion, AnimatePresence } from "framer-motion";
@@ -35,6 +36,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import { GlassHeader } from "@/components/layout/GlassHeader";
 import { StorageManual } from "@/components/manuals/StorageManual";
 
@@ -87,13 +89,44 @@ function ThemedSelect<T extends string>({
   placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const current = options.find((o) => o.value === value);
+
+  const updatePosition = useCallback(() => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setCoords({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: Math.max(rect.width, 120),
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, updatePosition]);
 
   return (
     <div className={`relative ${className}`}>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => {
+          if (!open) updatePosition();
+          setOpen(!open);
+        }}
         className="flex h-8 w-full items-center justify-between gap-2 rounded-lg border px-2.5 text-xs outline-none transition-all hover:bg-white/5 active:scale-[0.98]"
         style={{
           background: "rgba(255, 255, 255, 0.03)",
@@ -109,44 +142,51 @@ function ThemedSelect<T extends string>({
         />
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <>
-            <div
-              className="fixed inset-0 z-[var(--z-modal)]"
-              onClick={() => setOpen(false)}
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -4 }}
-              className="absolute left-0 top-9 z-[var(--z-dropdown)] w-full min-w-[120px] overflow-hidden rounded-xl border border-white/8 p-1 shadow-2xl backdrop-blur-xl"
-              style={{
-                background: "rgba(10, 15, 25, 0.96)",
-                boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
-              }}
-            >
-              {options.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => {
-                    onChange(opt.value);
-                    setOpen(false);
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open && coords && (
+              <>
+                <div
+                  className="fixed inset-0 z-[9998]"
+                  onClick={() => setOpen(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                  className="fixed z-[9999] overflow-hidden rounded-xl border border-white/10 p-1 shadow-2xl backdrop-blur-xl"
+                  style={{
+                    top: coords.top,
+                    left: coords.left,
+                    width: coords.width,
+                    background: "rgba(10, 15, 25, 0.98)",
+                    boxShadow: "0 12px 40px rgba(0,0,0,0.7)",
                   }}
-                  className={`flex h-8 w-full items-center rounded-lg px-2.5 text-xs transition-colors ${
-                    opt.value === value
-                      ? "bg-indigo-500/10 font-medium text-indigo-400"
-                      : "text-[var(--text-secondary)] hover:bg-white/5"
-                  }`}
                 >
-                  {opt.label}
-                </button>
-              ))}
-            </motion.div>
-          </>
+                  {options.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => {
+                        onChange(opt.value);
+                        setOpen(false);
+                      }}
+                      className={`flex h-8 w-full items-center rounded-lg px-2.5 text-xs transition-colors ${
+                        opt.value === value
+                          ? "bg-indigo-500/15 font-medium text-indigo-400"
+                          : "text-[var(--text-secondary)] hover:bg-white/5"
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </div>
   );
 }
@@ -284,7 +324,6 @@ type StorageSupportedTypesResponse = {
   embedding_provider?: string | null;
   embedding_model?: string | null;
 };
-
 
 type StorageDomainMemoryTerm = {
   surface_form: string;
@@ -464,7 +503,13 @@ function redactUri(uri?: string | null): string {
 
 function mapStorageStatus(status?: string | null): QueueStatus {
   const normalized = String(status || "").toLowerCase();
-  if (normalized === "ingested" || normalized === "completed")
+  if (
+    normalized === "ingested" ||
+    normalized === "completed" ||
+    normalized === "done" ||
+    normalized === "succeeded" ||
+    normalized === "success"
+  )
     return "ingested";
   if (normalized === "dedup_hit") return "dedup_hit";
   if (normalized === "failed" || normalized === "error") return "failed";
@@ -533,9 +578,57 @@ function extractorModeLabel(_mode?: string | null): string {
   return "FAIM Native";
 }
 
+function shortMimeType(mime?: string | null): string {
+  const raw = (mime || "").trim().toLowerCase();
+  if (!raw) return "file";
+  if (raw === "application/pdf") return "pdf";
+  if (
+    raw ===
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  )
+    return "docx";
+  if (raw === "application/msword") return "doc";
+  if (
+    raw === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  )
+    return "xlsx";
+  if (
+    raw ===
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  )
+    return "pptx";
+  if (raw.startsWith("text/")) return raw.slice(5);
+  if (raw.startsWith("image/")) return raw.slice(6);
+  const slash = raw.indexOf("/");
+  return slash >= 0 ? raw.slice(slash + 1) : raw;
+}
+
+let cachedSessionToken: string | undefined;
+let cachedSessionExpiresAt = 0;
+let inFlightSessionPromise: Promise<string | undefined> | null = null;
+
+async function getCachedAccessToken(): Promise<string | undefined> {
+  const now = Date.now();
+  if (cachedSessionToken && now < cachedSessionExpiresAt) {
+    return cachedSessionToken;
+  }
+  if (!inFlightSessionPromise) {
+    inFlightSessionPromise = getSession()
+      .then((session) => {
+        const token = (session as { accessToken?: string } | null)?.accessToken;
+        cachedSessionToken = token;
+        cachedSessionExpiresAt = Date.now() + 15_000;
+        return token;
+      })
+      .finally(() => {
+        inFlightSessionPromise = null;
+      });
+  }
+  return inFlightSessionPromise;
+}
+
 async function authHeaders(extra?: HeadersInit): Promise<HeadersInit> {
-  const session = await getSession();
-  const token = (session as { accessToken?: string } | null)?.accessToken;
+  const token = await getCachedAccessToken();
   const base: Record<string, string> = {};
   if (token) base.Authorization = `Bearer ${token}`;
 
@@ -615,6 +708,10 @@ export default function StoragePage() {
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [loadingDomainMemory, setLoadingDomainMemory] = useState(false);
   const [actionRawId, setActionRawId] = useState<string | null>(null);
+  const [selectedRawIds, setSelectedRawIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [query, setQuery] = useState("");
@@ -654,6 +751,8 @@ export default function StoragePage() {
 
   const queueRef = useRef<QueueItem[]>([]);
   const uploadControllersRef = useRef<Map<string, AbortController>>(new Map());
+  const inFlightPollJobsRef = useRef<Set<string>>(new Set());
+  const pollBackoffUntilRef = useRef<number>(0);
   const refreshLockRef = useRef(false);
   const toastRef = useRef(toast);
   const toastDedupRef = useRef<Record<string, number>>({});
@@ -743,6 +842,7 @@ export default function StoragePage() {
         limit: String(PAGE_SIZE),
         offset: String(page * PAGE_SIZE),
         include_delete_requested: "true",
+        exclude_failed: "true",
       });
       if (statusFilter && statusFilter !== "all")
         params.set("status", statusFilter);
@@ -751,7 +851,10 @@ export default function StoragePage() {
       const data = await fetchJson<FileListResponse>(
         `/api/v1/storage/files?${params.toString()}`,
       );
-      setFiles(data.items || []);
+      const nonFailedItems = (data.items || []).filter(
+        (item) => item.ingest_status !== "failed",
+      );
+      setFiles(nonFailedItems);
       setTotal(data.total || 0);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -902,9 +1005,13 @@ export default function StoragePage() {
 
   const patchQueueItem = useCallback(
     (itemId: string, updater: (item: QueueItem) => QueueItem) => {
-      setQueueItems((prev) =>
-        prev.map((item) => (item.id === itemId ? updater(item) : item)),
-      );
+      setQueueItems((prev) => {
+        const next = prev.map((item) =>
+          item.id === itemId ? updater(item) : item,
+        );
+        queueRef.current = next;
+        return next;
+      });
     },
     [],
   );
@@ -936,9 +1043,12 @@ export default function StoragePage() {
 
   const refreshQueueJob = useCallback(
     async (itemId: string, jobId: string) => {
+      if (safeNow() < pollBackoffUntilRef.current) return;
+      if (inFlightPollJobsRef.current.has(jobId)) return;
       const current = queueRef.current.find((item) => item.id === itemId);
       if (!current || TERMINAL_QUEUE_STATUS.has(current.status)) return;
 
+      inFlightPollJobsRef.current.add(jobId);
       try {
         const [statusData, eventsData] = await Promise.all([
           fetchJson<UploadStatusResponse>(
@@ -961,17 +1071,40 @@ export default function StoragePage() {
         );
         appendQueueEvents(itemId, nextEvents);
 
-        const storageStatus = fileMatch?.ingest_status || statusData.status;
-        let nextStatus = mapStorageStatus(storageStatus);
-        if (statusData.status === "cancelled") nextStatus = "cancelled";
+        const jobNorm = String(statusData.status || "").toLowerCase();
+        const fileNorm = String(fileMatch?.ingest_status || "").toLowerCase();
+        let nextStatus = mapStorageStatus(
+          fileMatch?.ingest_status || statusData.status,
+        );
+        if (jobNorm === "cancelled") {
+          nextStatus = "cancelled";
+        } else if (jobNorm === "failed" || jobNorm === "error") {
+          nextStatus = "failed";
+        } else if (
+          (jobNorm === "done" ||
+            jobNorm === "completed" ||
+            jobNorm === "succeeded") &&
+          !TERMINAL_QUEUE_STATUS.has(nextStatus)
+        ) {
+          nextStatus = fileNorm === "dedup_hit" ? "dedup_hit" : "ingested";
+        } else if (
+          !TERMINAL_QUEUE_STATUS.has(nextStatus) &&
+          nextStatus === "queued"
+        ) {
+          // Once a jobId exists, "uploaded"/"pending"/"queued" on the worker must stay "ingesting"
+          // so the browser queue dispatcher never treats it as an un-uploaded file and re-uploads it.
+          nextStatus = "ingesting";
+        }
 
-        const nextProgress = TERMINAL_QUEUE_STATUS.has(nextStatus)
+        const baseProgress = TERMINAL_QUEUE_STATUS.has(nextStatus)
           ? 100
-          : nextStatus === "ingesting"
+          : jobNorm === "running" || fileNorm === "ingesting"
             ? 78
-            : nextStatus === "uploading"
-              ? 35
-              : queueProgress(nextStatus);
+            : nextStatus === "ingesting"
+              ? 45
+              : nextStatus === "uploading"
+                ? 35
+                : Math.max(40, queueProgress(nextStatus));
 
         const wasTerminal = TERMINAL_QUEUE_STATUS.has(current.status);
         const nowTerminal = TERMINAL_QUEUE_STATUS.has(nextStatus);
@@ -979,7 +1112,7 @@ export default function StoragePage() {
         patchQueueItem(itemId, (item) => ({
           ...item,
           status: nextStatus,
-          progress: nextProgress,
+          progress: nowTerminal ? 100 : Math.max(item.progress, baseProgress),
           jobId,
           rawId: fileMatch?.raw_id || item.rawId,
           packetHash: fileMatch?.packet_hash ?? item.packetHash,
@@ -1004,7 +1137,7 @@ export default function StoragePage() {
               | null
               | undefined) ?? item.effectiveExtractorMode,
           durabilityPath: statusData.durability_path ?? item.durabilityPath,
-          error: fileMatch?.error || item.error,
+          error: fileMatch?.error || undefined,
           cancelRequested: statusData.cancel_requested || item.cancelRequested,
           updatedAt: safeNow(),
         }));
@@ -1024,13 +1157,28 @@ export default function StoragePage() {
           return;
         }
 
+        if (error instanceof ApiError && error.status === 429) {
+          pollBackoffUntilRef.current = safeNow() + 15_000;
+          patchQueueItem(itemId, (item) => ({
+            ...item,
+            error: "Rate limited — retrying shortly",
+            updatedAt: safeNow(),
+          }));
+          return;
+        }
+
         const message =
           error instanceof Error ? error.message : "Unknown error";
+        if (message.toLowerCase().includes("failed to fetch")) {
+          pollBackoffUntilRef.current = safeNow() + 8_000;
+        }
         patchQueueItem(itemId, (item) => ({
           ...item,
           error: message,
           updatedAt: safeNow(),
         }));
+      } finally {
+        inFlightPollJobsRef.current.delete(jobId);
       }
     },
     [appendQueueEvents, fetchJson, patchQueueItem, refreshViews],
@@ -1102,8 +1250,9 @@ export default function StoragePage() {
 
   const startQueueUpload = useCallback(
     async (itemId: string) => {
+      if (uploadControllersRef.current.has(itemId)) return;
       const current = queueRef.current.find((item) => item.id === itemId);
-      if (!current || current.status !== "queued") return;
+      if (!current || current.status !== "queued" || current.jobId) return;
       const modePolicy = resolveUiModePolicy("ingest", profile, persistMode);
       if (!modePolicy.supported) {
         patchQueueItem(itemId, (item) => ({
@@ -1124,7 +1273,7 @@ export default function StoragePage() {
       patchQueueItem(itemId, (item) => ({
         ...item,
         status: "uploading",
-        progress: 0,
+        progress: Math.max(item.progress, 5),
         error: undefined,
         cancelRequested: false,
         updatedAt: safeNow(),
@@ -1143,96 +1292,108 @@ export default function StoragePage() {
 
         const headers = await authHeaders();
 
-        let processingInterval: NodeJS.Timeout | null = null;
+        const sendUploadXhr = () =>
+          new Promise<UploadBatchResponse>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", "/api/v1/storage/uploads");
 
-        const batch = await new Promise<UploadBatchResponse>((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open("POST", "/api/v1/storage/uploads");
+            Object.entries(headers).forEach(([key, val]) => {
+              if (val) xhr.setRequestHeader(key, val);
+            });
 
-          Object.entries(headers).forEach(([key, val]) => {
-            if (val) xhr.setRequestHeader(key, val);
+            if (controller.signal) {
+              controller.signal.addEventListener("abort", () => {
+                xhr.abort();
+              });
+            }
+
+            xhr.upload.onprogress = (event) => {
+              if (event.lengthComputable && event.total > 0) {
+                const bytePercent = Math.min(
+                  35,
+                  Math.max(5, Math.round((event.loaded / event.total) * 35)),
+                );
+                const doneTransfer = event.loaded >= event.total;
+                patchQueueItem(itemId, (item) => ({
+                  ...item,
+                  status: doneTransfer ? "ingesting" : "uploading",
+                  progress: Math.max(
+                    item.progress,
+                    doneTransfer ? 40 : bytePercent,
+                  ),
+                  updatedAt: safeNow(),
+                }));
+              }
+            };
+
+            xhr.onload = () => {
+              let payload: unknown = null;
+              if (xhr.responseText) {
+                try {
+                  payload = JSON.parse(xhr.responseText);
+                } catch {
+                  payload = xhr.responseText;
+                }
+              }
+
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(payload as UploadBatchResponse);
+              } else {
+                reject(
+                  new ApiError(
+                    xhr.status,
+                    normalizeApiError(payload, "Upload failed"),
+                  ),
+                );
+              }
+            };
+
+            xhr.onerror = () => {
+              reject(new ApiError(500, "Network error during upload"));
+            };
+            xhr.onabort = () => {
+              reject(new DOMException("Aborted", "AbortError"));
+            };
+
+            xhr.send(formData);
           });
 
-          if (controller.signal) {
-            controller.signal.addEventListener("abort", () => {
-              if (processingInterval) clearInterval(processingInterval);
-              xhr.abort();
-            });
+        let batch: UploadBatchResponse | null = null;
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          try {
+            batch = await sendUploadXhr();
+            break;
+          } catch (uploadErr) {
+            if (
+              uploadErr instanceof ApiError &&
+              uploadErr.status === 429 &&
+              attempt < 3 &&
+              !controller.signal.aborted
+            ) {
+              await new Promise((res) =>
+                window.setTimeout(res, 2500 * (attempt + 1)),
+              );
+              continue;
+            }
+            throw uploadErr;
           }
-
-          xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable && event.total > 0) {
-              const bytePercent = Math.min(
-                30,
-                Math.max(1, Math.round((event.loaded / event.total) * 30)),
-              );
-              patchQueueItem(itemId, (item) => ({
-                ...item,
-                status: "uploading",
-                progress: bytePercent,
-                updatedAt: safeNow(),
-              }));
-
-              // Once byte transfer completes, start granular 1% by 1% live ticker (31% -> 99%)
-              if (event.loaded >= event.total && !processingInterval) {
-                let currentProg = Math.max(30, bytePercent);
-                processingInterval = setInterval(() => {
-                  if (currentProg < 99) {
-                    currentProg += 1;
-                    patchQueueItem(itemId, (item) => ({
-                      ...item,
-                      status: "ingesting",
-                      progress: currentProg,
-                      updatedAt: safeNow(),
-                    }));
-                  }
-                }, 150);
-              }
-            }
-          };
-
-          xhr.onload = () => {
-            if (processingInterval) clearInterval(processingInterval);
-            let payload: unknown = null;
-            if (xhr.responseText) {
-              try {
-                payload = JSON.parse(xhr.responseText);
-              } catch {
-                payload = xhr.responseText;
-              }
-            }
-
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve(payload as UploadBatchResponse);
-            } else {
-              reject(
-                new ApiError(
-                  xhr.status,
-                  normalizeApiError(payload, "Upload failed"),
-                ),
-              );
-            }
-          };
-
-          xhr.onerror = () => {
-            if (processingInterval) clearInterval(processingInterval);
-            reject(new ApiError(500, "Network error during upload"));
-          };
-          xhr.onabort = () => {
-            if (processingInterval) clearInterval(processingInterval);
-            reject(new DOMException("Aborted", "AbortError"));
-          };
-
-          xhr.send(formData);
-        });
+        }
+        if (!batch) {
+          throw new ApiError(500, "Upload failed");
+        }
 
         const result = batch.files?.[0];
-        const status = mapStorageStatus(result?.status || batch.status);
+        let status = mapStorageStatus(result?.status || batch.status);
+        if (batch.job_id && status === "queued") {
+          status = "ingesting";
+        }
 
         patchQueueItem(itemId, (item) => ({
           ...item,
           status,
-          progress: queueProgress(status),
+          progress: TERMINAL_QUEUE_STATUS.has(status)
+            ? 100
+            : Math.max(item.progress, queueProgress(status)),
           jobId: batch.job_id,
           rawId: result?.raw_id || item.rawId,
           packetHash: result?.packet_hash ?? item.packetHash,
@@ -1343,7 +1504,13 @@ export default function StoragePage() {
       }));
 
       try {
-        if (current.status === "queued") {
+        const controller = uploadControllersRef.current.get(itemId);
+        if (controller) {
+          controller.abort();
+          uploadControllersRef.current.delete(itemId);
+        }
+
+        if (current.status === "queued" && !current.jobId) {
           patchQueueItem(itemId, (item) => ({
             ...item,
             status: "cancelled",
@@ -1362,22 +1529,28 @@ export default function StoragePage() {
             { method: "POST" },
           );
 
-          const status = mapStorageStatus(data.status);
+          const mapped = mapStorageStatus(data.status);
+          const nextStatus: QueueStatus =
+            mapped === "cancelled"
+              ? "cancelled"
+              : TERMINAL_QUEUE_STATUS.has(mapped)
+                ? mapped
+                : "ingesting";
           patchQueueItem(itemId, (item) => ({
             ...item,
-            status,
-            cancelRequested: data.cancel_requested || true,
+            status: nextStatus,
+            progress: nextStatus === "cancelled" ? 100 : item.progress,
+            cancelRequested: Boolean(data.cancel_requested || true),
             busyAction: undefined,
+            error:
+              nextStatus === "cancelled" ? "Cancelled by user" : item.error,
             updatedAt: safeNow(),
           }));
-          if (status === "cancelled") {
+          if (nextStatus === "cancelled") {
             await refreshViews();
           }
           return;
         }
-
-        const controller = uploadControllersRef.current.get(itemId);
-        if (controller) controller.abort();
 
         patchQueueItem(itemId, (item) => ({
           ...item,
@@ -1385,6 +1558,7 @@ export default function StoragePage() {
           progress: 100,
           cancelRequested: true,
           busyAction: undefined,
+          error: "Cancelled by user",
           updatedAt: safeNow(),
         }));
       } catch (error) {
@@ -1529,14 +1703,68 @@ export default function StoragePage() {
   );
 
   const clearTerminalQueueItems = useCallback(() => {
-    setQueueItems((prev) =>
-      prev.filter((item) => !TERMINAL_QUEUE_STATUS.has(item.status)),
-    );
+    setQueueItems((prev) => {
+      const next = prev.filter(
+        (item) => !TERMINAL_QUEUE_STATUS.has(item.status),
+      );
+      queueRef.current = next;
+      return next;
+    });
   }, []);
 
-  const removeQueueItem = useCallback((itemId: string) => {
-    setQueueItems((prev) => prev.filter((item) => item.id !== itemId));
-  }, []);
+  const cancelAllQueueItems = useCallback(async () => {
+    const active = queueRef.current.filter(
+      (item) => !TERMINAL_QUEUE_STATUS.has(item.status),
+    );
+    if (!active.length) return;
+    await Promise.allSettled(active.map((item) => requestQueueCancel(item.id)));
+  }, [requestQueueCancel]);
+
+  const removeQueueItem = useCallback(
+    (itemId: string) => {
+      const current = queueRef.current.find((item) => item.id === itemId);
+      const controller = uploadControllersRef.current.get(itemId);
+      if (controller) {
+        controller.abort();
+        uploadControllersRef.current.delete(itemId);
+      }
+      if (
+        current &&
+        !TERMINAL_QUEUE_STATUS.has(current.status) &&
+        current.jobId
+      ) {
+        void fetchJson<StorageUploadCancelResponse>(
+          `/api/v1/storage/uploads/${encodeURIComponent(current.jobId)}/cancel?reason=${encodeURIComponent("Removed from upload queue")}`,
+          { method: "POST" },
+        ).catch(() => {});
+      }
+      setQueueItems((prev) => {
+        const next = prev.filter((item) => item.id !== itemId);
+        queueRef.current = next;
+        return next;
+      });
+    },
+    [fetchJson],
+  );
+
+  const clearAllQueueItems = useCallback(() => {
+    const items = [...queueRef.current];
+    for (const item of items) {
+      const controller = uploadControllersRef.current.get(item.id);
+      if (controller) {
+        controller.abort();
+        uploadControllersRef.current.delete(item.id);
+      }
+      if (!TERMINAL_QUEUE_STATUS.has(item.status) && item.jobId) {
+        void fetchJson<StorageUploadCancelResponse>(
+          `/api/v1/storage/uploads/${encodeURIComponent(item.jobId)}/cancel?reason=${encodeURIComponent("Queue cleared by user")}`,
+          { method: "POST" },
+        ).catch(() => {});
+      }
+    }
+    queueRef.current = [];
+    setQueueItems([]);
+  }, [fetchJson]);
 
   const runFileAction = useCallback(
     async (rawId: string, action: "ingest" | "retry" | "delete") => {
@@ -1612,6 +1840,131 @@ export default function StoragePage() {
       toast,
     ],
   );
+
+  useEffect(() => {
+    setSelectedRawIds((prev) => {
+      if (prev.size === 0) return prev;
+      const visibleIds = new Set(files.map((f) => f.raw_id));
+      let changed = false;
+      const next = new Set<string>();
+      prev.forEach((id) => {
+        if (visibleIds.has(id)) {
+          next.add(id);
+        } else {
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [files]);
+
+  const allVisibleSelected = useMemo(
+    () => files.length > 0 && files.every((f) => selectedRawIds.has(f.raw_id)),
+    [files, selectedRawIds],
+  );
+
+  const someVisibleSelected = useMemo(
+    () =>
+      files.some((f) => selectedRawIds.has(f.raw_id)) && !allVisibleSelected,
+    [files, selectedRawIds, allVisibleSelected],
+  );
+
+  const toggleSelectFile = useCallback((rawId: string) => {
+    setSelectedRawIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(rawId)) {
+        next.delete(rawId);
+      } else {
+        next.add(rawId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleSelectAllVisible = useCallback(() => {
+    setSelectedRawIds((prev) => {
+      const next = new Set(prev);
+      const everySelected =
+        files.length > 0 && files.every((f) => next.has(f.raw_id));
+      if (everySelected) {
+        for (const f of files) {
+          next.delete(f.raw_id);
+        }
+      } else {
+        for (const f of files) {
+          next.add(f.raw_id);
+        }
+      }
+      return next;
+    });
+  }, [files]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedRawIds(new Set());
+  }, []);
+
+  const runBulkDelete = useCallback(async () => {
+    const targets = files
+      .filter((f) => selectedRawIds.has(f.raw_id))
+      .map((f) => f.raw_id);
+    if (targets.length === 0 || bulkDeleting) return;
+
+    setBulkDeleting(true);
+    try {
+      const res = await fetchJson<{
+        requested: number;
+        deleted: number;
+        failed: number;
+        deleted_raw_ids: string[];
+        errors: string[];
+      }>("/api/v1/storage/files/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          graph_id: activeGraphId,
+          raw_ids: targets,
+          reason: "Bulk delete requested from storage UI",
+          hard_delete: true,
+        }),
+      });
+
+      const deletedSet = new Set(res.deleted_raw_ids || []);
+      const remaining = new Set(targets.filter((id) => !deletedSet.has(id)));
+      setSelectedRawIds(remaining);
+
+      if ((res.failed || 0) === 0) {
+        toast.success(
+          "Bulk delete completed",
+          `${res.deleted} file(s) deleted`,
+        );
+      } else if ((res.deleted || 0) > 0) {
+        toast.warning(
+          "Bulk delete partially completed",
+          `${res.deleted} deleted, ${res.failed} failed`,
+        );
+      } else {
+        toast.error(
+          "Bulk delete failed",
+          res.errors?.[0] || `${res.failed} file(s) could not be deleted`,
+        );
+      }
+
+      await refreshViews();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      toast.error("Bulk delete failed", message);
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [
+    activeGraphId,
+    bulkDeleting,
+    fetchJson,
+    files,
+    refreshViews,
+    selectedRawIds,
+    toast,
+  ]);
 
   const downloadStorageFile = useCallback(
     async (rawId: string, filename: string) => {
@@ -1737,31 +2090,117 @@ export default function StoragePage() {
     if (capacity <= 0) return;
 
     const queued = queueItems
-      .filter((item) => item.status === "queued")
+      .filter(
+        (item) =>
+          item.status === "queued" &&
+          !item.jobId &&
+          !uploadControllersRef.current.has(item.id),
+      )
       .slice(0, capacity);
     for (const item of queued) {
       void startQueueUpload(item.id);
     }
   }, [isAuthenticated, queueItems, startQueueUpload]);
 
+  const hasActivePollTargets = useMemo(
+    () =>
+      queueItems.some(
+        (item) =>
+          Boolean(item.jobId) && !TERMINAL_QUEUE_STATUS.has(item.status),
+      ),
+    [queueItems],
+  );
+
   useEffect(() => {
-    if (!isAuthenticated) return;
-    const pollTargets = queueItems.filter(
-      (item) => item.jobId && !TERMINAL_QUEUE_STATUS.has(item.status),
-    );
-    if (!pollTargets.length) return;
+    if (!isAuthenticated || !hasActivePollTargets) return;
 
     const poll = () => {
-      for (const item of pollTargets) {
-        if (!item.jobId) continue;
+      if (safeNow() < pollBackoffUntilRef.current) return;
+      const seenJobs = new Set<string>();
+      for (const item of queueRef.current) {
+        if (!item.jobId || TERMINAL_QUEUE_STATUS.has(item.status)) continue;
+        if (seenJobs.has(item.jobId)) continue;
+        seenJobs.add(item.jobId);
         void refreshQueueJob(item.id, item.jobId);
       }
     };
 
-    poll();
+    const initialTimer = window.setTimeout(poll, 1200);
     const timer = window.setInterval(poll, JOB_POLL_INTERVAL_MS);
-    return () => window.clearInterval(timer);
-  }, [isAuthenticated, queueItems, refreshQueueJob]);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, [hasActivePollTargets, isAuthenticated, refreshQueueJob]);
+
+  // Real-time SSE stream for live File Catalog, Summary & Domain Memory updates
+  useEffect(() => {
+    if (!isAuthenticated || !activeGraphId) return;
+
+    const abortController = new AbortController();
+    let refreshTimer: number | null = null;
+    let closed = false;
+
+    const scheduleCatalogRefresh = () => {
+      if (refreshTimer !== null) return;
+      refreshTimer = window.setTimeout(() => {
+        refreshTimer = null;
+        void refreshViews();
+      }, 900);
+    };
+
+    const connectSse = async () => {
+      while (!closed && !abortController.signal.aborted) {
+        try {
+          const headers = await authHeaders();
+          const res = await fetch(
+            `/api/v1/events/stream?graph_id=${encodeURIComponent(activeGraphId)}&after_seq=0`,
+            {
+              headers: {
+                ...headers,
+                Accept: "text/event-stream",
+              },
+              signal: abortController.signal,
+            },
+          );
+          if (!res.ok || !res.body) {
+            await new Promise((r) => window.setTimeout(r, 5000));
+            continue;
+          }
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          while (!closed) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const chunks = buffer.split("\n\n");
+            buffer = chunks.pop() || "";
+            for (const block of chunks) {
+              if (
+                block.includes("STORAGE_") ||
+                block.includes("INGEST_") ||
+                block.includes("WRITE_ATOMS_DONE") ||
+                block.includes("JOB_")
+              ) {
+                scheduleCatalogRefresh();
+              }
+            }
+          }
+        } catch {
+          if (abortController.signal.aborted || closed) break;
+        }
+        await new Promise((r) => window.setTimeout(r, 4000));
+      }
+    };
+
+    void connectSse();
+    return () => {
+      closed = true;
+      abortController.abort();
+      if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+    };
+  }, [activeGraphId, isAuthenticated, refreshViews]);
 
   useEffect(() => {
     if (!provenanceOpen) return;
@@ -1822,1987 +2261,2184 @@ export default function StoragePage() {
         <div className="faim-grid" />
 
         <GlassHeader
-        title="Storage Control"
-        titleTestId="storage-page-title"
-        subtitle={`Immutable Provenance & Ingest Lifecycle · Graph Scope: ${activeGraphId}`}
-        icon={Database}
-        actions={
-          <>
-            <Button
-              variant="outline"
-              leftIcon={<BookOpen size={13} />}
-              onClick={() => setManualOpen(true)}
-              className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 backdrop-blur-md h-10 px-5 text-[11px] font-bold uppercase tracking-[0.2em]"
-            >
-              User Manual
-            </Button>
-            <div className="flex items-center gap-2">
-              <label
-                className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/5 px-5 h-10 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
-                style={{ color: "var(--text-primary)" }}
+          title="Storage Control"
+          titleTestId="storage-page-title"
+          subtitle={`Immutable Provenance & Ingest Lifecycle · Graph Scope: ${activeGraphId}`}
+          icon={Database}
+          actions={
+            <>
+              <Button
+                variant="outline"
+                leftIcon={<BookOpen size={13} />}
+                onClick={() => setManualOpen(true)}
+                className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 backdrop-blur-md h-10 px-5 text-[11px] font-bold uppercase tracking-[0.2em]"
               >
-                <UploadCloud size={14} className="opacity-80" />
-                Upload Matrix
-                <input
-                  type="file"
-                  multiple
-                  className="hidden"
-                  onChange={onInputFiles}
-                  disabled={!ingestModePolicy.supported}
-                />
-              </label>
-            </div>
-          </>
-        }
-      />
+                User Manual
+              </Button>
+              <div className="flex items-center gap-2">
+                <label
+                  className="inline-flex cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/5 px-5 h-10 text-[11px] font-bold uppercase tracking-widest transition-all hover:bg-white/10 backdrop-blur-md shadow-sm"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <UploadCloud size={14} className="opacity-80" />
+                  Upload Matrix
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={onInputFiles}
+                    disabled={!ingestModePolicy.supported}
+                  />
+                </label>
+              </div>
+            </>
+          }
+        />
 
-      {!isAuthenticated && (
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-          Storage requires an active signed-in session. Sign out and sign back
-          in if the page shows token errors or stale data.
-        </div>
-      )}
+        {!isAuthenticated && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+            Storage requires an active signed-in session. Sign out and sign back
+            in if the page shows token errors or stale data.
+          </div>
+        )}
 
-      {/* ── Graph Scope ─────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-            Graph Scope
-          </p>
-        </div>
-
-        <div className="grid gap-3 px-5 py-4 md:grid-cols-3">
-          <div>
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500">
+        {/* ── Graph Scope ─────────────────────────────────────── */}
+        <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+          <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
               Graph Scope
             </p>
-            <Input
-              value={graphScopeInput}
-              onChange={(e) => setGraphScopeInput(e.target.value)}
-              placeholder={sessionGraphId}
-            />
           </div>
-          <div className="flex items-end gap-2">
-            <Button size="sm" variant="outline" onClick={applyGraphScope}>
-              Apply Scope
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setGraphScopeInput(sessionGraphId);
-                setGraphScope(sessionGraphId);
-                setPage(0);
-                setQueueItems([]);
-              }}
-            >
-              Reset
-            </Button>
-          </div>
-          <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-2.5 text-xs">
-            <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
-            <p className="text-[10px] uppercase tracking-widest text-slate-500">
-              Scope summary
-            </p>
-            <p className="mt-1 font-mono font-medium text-cyan-200">
-              {activeGraphId}
-            </p>
-          </div>
-        </div>
-      </div>
 
-      {/* ── Metric Strip ─────────────────────────────────────── */}
-      <div className="relative grid grid-cols-2 overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] xl:grid-cols-4">
-        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
-        {[
-          {
-            label: "Total Files",
-            value: summary?.total_files ?? 0,
-            sub: "in graph",
-            icon: <FileText size={18} />,
-            accent: "from-cyan-400/80 via-cyan-400/30",
-            textColor: "text-cyan-200",
-          },
-          {
-            label: "Total Storage",
-            value: formatBytes((summary as any)?.total_user_footprint_bytes || summary?.total_bytes || 0),
-            sub: `Raw: ${formatBytes((summary as any)?.raw_bytes || summary?.total_bytes || 0)} · Graph: ${formatBytes((summary as any)?.graph_memory_bytes || 0)}`,
-            icon: <HardDrive size={18} />,
-            accent: "from-purple-400/80 via-purple-400/30",
-            textColor: "text-purple-200",
-          },
-          {
-            label: "Ingested",
-            value: ingestedCount,
-            sub: `Dedup hits: ${dedupCount}`,
-            icon: <CheckCircle2 size={18} />,
-            accent: "from-emerald-400/80 via-emerald-400/30",
-            textColor: "text-emerald-400",
-          },
-          {
-            label: "Failures",
-            value: failedCount,
-            sub: "needs retry",
-            icon: <AlertCircle size={18} />,
-            accent: failedCount > 0 ? "from-red-400/80 via-red-400/30" : "from-amber-400/80 via-amber-400/30",
-            textColor: failedCount > 0 ? "text-red-400" : "text-slate-400",
-          },
-        ].map((m, i) => (
-          <div
-            key={m.label}
-            className={`relative flex flex-col justify-center px-6 py-4 ${
-              i > 0 ? "border-t xl:border-t-0 xl:border-l border-white/6" : ""
-            }`}
-          >
-            <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/60 to-transparent xl:hidden" />
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                {m.label}
+          <div className="grid gap-3 px-5 py-4 md:grid-cols-3">
+            <div>
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                Graph Scope
               </p>
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-cyan-300">
-                {m.icon}
-              </div>
+              <Input
+                value={graphScopeInput}
+                onChange={(e) => setGraphScopeInput(e.target.value)}
+                placeholder={sessionGraphId}
+              />
             </div>
-            <p className={`font-semibold tabular-nums leading-none ${m.textColor}`} style={{ fontSize: 26 }}>
-              {m.value}
-            </p>
-            <p className="mt-2 text-[11px] text-slate-400">
-              {m.sub}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Domain Memory ───────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-purple-500/80 via-purple-400/40 to-transparent rounded-full" />
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-            Domain Memory
-          </p>
-          <div className="flex items-center gap-2">
-            <Link href="/dashboard/domain">
-              <Button size="sm" variant="ghost" leftIcon={<Database size={12} />}>
-                Open Domain Studio
+            <div className="flex items-end gap-2">
+              <Button size="sm" variant="outline" onClick={applyGraphScope}>
+                Apply Scope
               </Button>
-            </Link>
-            <Button
-              size="sm"
-              variant="ghost"
-              leftIcon={<ServerCog size={12} />}
-              onClick={() => {
-                void fetchDomainMemoryInternal();
-              }}
-            >
-              Refresh
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              leftIcon={
-                domainMemory?.jobs_enabled ? (
-                  <CheckCircle2 size={12} />
-                ) : (
-                  <AlertCircle size={12} />
-                )
-              }
-            >
-              Jobs {domainMemory?.jobs_enabled ? "enabled" : "disabled"}
-            </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setGraphScopeInput(sessionGraphId);
+                  setGraphScope(sessionGraphId);
+                  setPage(0);
+                  setQueueItems([]);
+                }}
+              >
+                Reset
+              </Button>
+            </div>
+            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-2.5 text-xs">
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/80 via-cyan-400/30 to-transparent" />
+              <p className="text-[10px] uppercase tracking-widest text-slate-500">
+                Scope summary
+              </p>
+              <p className="mt-1 font-mono font-medium text-cyan-200">
+                {activeGraphId}
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="grid gap-4 px-5 py-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="space-y-3">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              {[
-                {
-                  label: "Domain autonomy",
-                  value: domainMemory?.domain_autonomy_enabled
-                    ? "enabled"
-                    : "disabled",
-                  bar: "from-cyan-400/80 via-cyan-400/30",
-                },
-                {
-                  label: "Lexicon rows",
-                  value: domainMemory?.lexicon_total ?? 0,
-                  bar: "from-sky-400/80 via-sky-400/30",
-                },
-                {
-                  label: "KB sources",
-                  value: domainMemory?.source_total ?? 0,
-                  bar: "from-purple-400/80 via-purple-400/30",
-                },
-                {
-                  label: "Graph version",
-                  value: domainMemory?.graph_version ?? 0,
-                  bar: "from-indigo-400/80 via-indigo-400/30",
-                },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-2.5"
-                >
-                  <div className={`absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b ${item.bar} to-transparent`} />
-                  <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                    {item.label}
-                  </p>
-                  <p className="mt-1 text-sm font-semibold text-slate-100">
-                    {item.value}
-                  </p>
+        {/* ── Metric Strip ─────────────────────────────────────── */}
+        <div className="relative grid grid-cols-2 overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)] xl:grid-cols-4">
+          <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
+          {[
+            {
+              label: "Total Files",
+              value: summary?.total_files ?? 0,
+              sub: "in graph",
+              icon: <FileText size={18} />,
+              accent: "from-cyan-400/80 via-cyan-400/30",
+              textColor: "text-cyan-200",
+            },
+            {
+              label: "Total Storage",
+              value: formatBytes(
+                (summary as any)?.total_user_footprint_bytes ||
+                  summary?.total_bytes ||
+                  0,
+              ),
+              sub: `Raw: ${formatBytes((summary as any)?.raw_bytes || summary?.total_bytes || 0)} · Graph: ${formatBytes((summary as any)?.graph_memory_bytes || 0)}`,
+              icon: <HardDrive size={18} />,
+              accent: "from-purple-400/80 via-purple-400/30",
+              textColor: "text-purple-200",
+            },
+            {
+              label: "Ingested",
+              value: ingestedCount,
+              sub: `Dedup hits: ${dedupCount}`,
+              icon: <CheckCircle2 size={18} />,
+              accent: "from-emerald-400/80 via-emerald-400/30",
+              textColor: "text-emerald-400",
+            },
+            {
+              label: "Failures",
+              value: failedCount,
+              sub: "needs retry",
+              icon: <AlertCircle size={18} />,
+              accent:
+                failedCount > 0
+                  ? "from-red-400/80 via-red-400/30"
+                  : "from-amber-400/80 via-amber-400/30",
+              textColor: failedCount > 0 ? "text-red-400" : "text-slate-400",
+            },
+          ].map((m, i) => (
+            <div
+              key={m.label}
+              className={`relative flex flex-col justify-center px-6 py-4 ${
+                i > 0 ? "border-t xl:border-t-0 xl:border-l border-white/6" : ""
+              }`}
+            >
+              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-400/60 to-transparent xl:hidden" />
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                  {m.label}
+                </p>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-cyan-300">
+                  {m.icon}
                 </div>
-              ))}
-            </div>
-
-            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-3">
-              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
-              <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                Detected packs
+              </div>
+              <p
+                className={`font-semibold tabular-nums leading-none ${m.textColor}`}
+                style={{ fontSize: 26 }}
+              >
+                {m.value}
               </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {(domainMemory?.detected_packs?.length
-                  ? domainMemory.detected_packs
-                  : ["general"]).map((pack) => (
-                  <Badge key={pack} size="xs" variant="info">
-                    {pack}
-                  </Badge>
+              <p className="mt-2 text-[11px] text-slate-400">{m.sub}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Domain Memory ───────────────────────────────────── */}
+        <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+          <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-purple-500/80 via-purple-400/40 to-transparent rounded-full" />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+              Domain Memory
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                leftIcon={<ServerCog size={12} />}
+                onClick={() => {
+                  void fetchDomainMemoryInternal();
+                }}
+              >
+                Refresh
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                leftIcon={
+                  domainMemory?.jobs_enabled ? (
+                    <CheckCircle2 size={12} />
+                  ) : (
+                    <AlertCircle size={12} />
+                  )
+                }
+              >
+                Jobs {domainMemory?.jobs_enabled ? "enabled" : "disabled"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 px-5 py-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {[
+                  {
+                    label: "Domain autonomy",
+                    value: domainMemory?.domain_autonomy_enabled
+                      ? "enabled"
+                      : "disabled",
+                    bar: "from-cyan-400/80 via-cyan-400/30",
+                  },
+                  {
+                    label: "Lexicon rows",
+                    value: domainMemory?.lexicon_total ?? 0,
+                    bar: "from-sky-400/80 via-sky-400/30",
+                  },
+                  {
+                    label: "KB sources",
+                    value: domainMemory?.source_total ?? 0,
+                    bar: "from-purple-400/80 via-purple-400/30",
+                  },
+                  {
+                    label: "Graph version",
+                    value: domainMemory?.graph_version ?? 0,
+                    bar: "from-indigo-400/80 via-indigo-400/30",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-2.5"
+                  >
+                    <div
+                      className={`absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b ${item.bar} to-transparent`}
+                    />
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500">
+                      {item.label}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-100">
+                      {item.value}
+                    </p>
+                  </div>
                 ))}
               </div>
-              <p className="mt-2 text-[11px] text-slate-400">
-                {domainMemory?.last_updated_at
-                  ? `Last updated ${new Date(domainMemory.last_updated_at).toLocaleString()}`
-                  : loadingDomainMemory
-                    ? "Refreshing autonomous domain memory..."
-                    : "Graph-local learning updates automatically after uploads and memory writes."}
-              </p>
-            </div>
 
-            <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-3">
-              <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
-              <p className="text-[10px] uppercase tracking-wider text-slate-500">
-                Query-time effect
-              </p>
-              <p className="mt-1 text-xs leading-relaxed text-slate-300">
-                Domain links are learned into the graph and then re-used by the
-                query reranker. Open a query with `return_explain=true` to see
-                linked terms and per-node domain score components.
-              </p>
-            </div>
-          </div>
-
-          <div className="relative overflow-hidden rounded-[16px] border border-white/8 bg-white/[0.02] p-4">
-            <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-purple-500/80 via-purple-400/40 to-transparent rounded-full" />
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-                  Top learned terms
+              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-3">
+                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-sky-400/80 via-sky-400/30 to-transparent" />
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">
+                  Detected packs
                 </p>
-                <p className="mt-1 text-sm text-slate-300">
-                  What FAIM currently knows for this graph
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(domainMemory?.detected_packs?.length
+                    ? domainMemory.detected_packs
+                    : ["general"]
+                  ).map((pack) => (
+                    <Badge key={pack} size="xs" variant="info">
+                      {pack}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-slate-400">
+                  {domainMemory?.last_updated_at
+                    ? `Last updated ${new Date(domainMemory.last_updated_at).toLocaleString()}`
+                    : loadingDomainMemory
+                      ? "Refreshing autonomous domain memory..."
+                      : "Graph-local learning updates automatically after uploads and memory writes."}
                 </p>
               </div>
-              <Badge size="xs" variant="success">
-                {domainMemory?.top_terms?.length ?? 0} shown
-              </Badge>
+
+              <div className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-3">
+                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
+                <p className="text-[10px] uppercase tracking-wider text-slate-500">
+                  Query-time effect
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-slate-300">
+                  Domain links are learned into the graph and then re-used by
+                  the query reranker. Open a query with `return_explain=true` to
+                  see linked terms and per-node domain score components.
+                </p>
+              </div>
             </div>
 
-            <div className="mt-4 space-y-2 max-h-[280px] overflow-auto pr-1">
-              {(domainMemory?.top_terms?.length
-                ? domainMemory.top_terms
-                : []).map((term) => (
-                <div
-                  key={`${term.surface_form}-${term.kind}-${term.canonical_form}`}
-                  className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-2.5"
-                >
-                  <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-100">
-                        {term.surface_form}
-                      </p>
-                      <p className="mt-0.5 truncate text-[11px] text-slate-400">
-                        {term.kind} · {term.canonical_form}
-                      </p>
+            <div className="relative overflow-hidden rounded-[16px] border border-white/8 bg-white/[0.02] p-4">
+              <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-purple-500/80 via-purple-400/40 to-transparent rounded-full" />
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+                    Top learned terms
+                  </p>
+                  <p className="mt-1 text-sm text-slate-300">
+                    What FAIM currently knows for this graph
+                  </p>
+                </div>
+                <Badge size="xs" variant="success">
+                  {domainMemory?.top_terms?.length ?? 0} shown
+                </Badge>
+              </div>
+
+              <div className="mt-4 space-y-2 max-h-[280px] overflow-auto pr-1">
+                {(domainMemory?.top_terms?.length
+                  ? domainMemory.top_terms
+                  : []
+                ).map((term) => (
+                  <div
+                    key={`${term.surface_form}-${term.kind}-${term.canonical_form}`}
+                    className="relative overflow-hidden rounded-[14px] border border-white/8 bg-white/[0.03] px-3.5 py-2.5"
+                  >
+                    <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-purple-400/80 via-purple-400/30 to-transparent" />
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-100">
+                          {term.surface_form}
+                        </p>
+                        <p className="mt-0.5 truncate text-[11px] text-slate-400">
+                          {term.kind} · {term.canonical_form}
+                        </p>
+                      </div>
+                      <div className="text-right text-[11px] tabular-nums">
+                        <p className="text-slate-300">
+                          support {term.support_count}
+                        </p>
+                        <p className="text-slate-500">
+                          score {term.score.toFixed(2)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right text-[11px] tabular-nums">
-                      <p className="text-slate-300">
-                        support {term.support_count}
-                      </p>
-                      <p className="text-slate-500">
-                        score {term.score.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    {term.domain_pack && (
-                      <Badge size="xs" variant="info">
-                        {term.domain_pack}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {term.domain_pack && (
+                        <Badge size="xs" variant="info">
+                          {term.domain_pack}
+                        </Badge>
+                      )}
+                      <Badge
+                        size="xs"
+                        variant={term.has_node ? "success" : "warning"}
+                      >
+                        {term.has_node ? "graph-linked" : "learned"}
                       </Badge>
-                    )}
-                    <Badge
-                      size="xs"
-                      variant={term.has_node ? "success" : "warning"}
-                    >
-                      {term.has_node ? "graph-linked" : "learned"}
-                    </Badge>
+                    </div>
                   </div>
-                </div>
-              ))}
-              {!domainMemory?.top_terms?.length && (
-                <div className="rounded-[14px] border border-dashed border-white/10 px-3 py-8 text-center text-xs text-slate-400">
-                  {loadingDomainMemory
-                    ? "Loading autonomous domain memory..."
-                    : "No learned domain memory yet for this graph."}
-                </div>
-              )}
+                ))}
+                {!domainMemory?.top_terms?.length && (
+                  <div className="rounded-[14px] border border-dashed border-white/10 px-3 py-8 text-center text-xs text-slate-400">
+                    {loadingDomainMemory
+                      ? "Loading autonomous domain memory..."
+                      : "No learned domain memory yet for this graph."}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Upload Panel ─────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-amber-500/80 via-amber-400/40 to-transparent rounded-full" />
-        {/* Section header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-            Upload Panel
-          </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              leftIcon={<FileText size={12} />}
-              data-testid="storage-supported-types-open"
-              onClick={openSupportedTypes}
-            >
-              Supported Files
-              {supportedTypes ? ` (${supportedTypes.total_extensions})` : ""}
-            </Button>
-            {supportedTypes && (
-              <Link href="/dashboard/providers?tab=ocr" title="Open OCR provider settings">
+        {/* ── Upload Panel ─────────────────────────────────────── */}
+        <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+          <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-amber-500/80 via-amber-400/40 to-transparent rounded-full" />
+          {/* Section header */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+              Upload Panel
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                leftIcon={<FileText size={12} />}
+                data-testid="storage-supported-types-open"
+                onClick={openSupportedTypes}
+              >
+                Supported Files
+                {supportedTypes ? ` (${supportedTypes.total_extensions})` : ""}
+              </Button>
+              {supportedTypes && (
+                <Link
+                  href="/dashboard/providers?tab=ocr"
+                  title="Open OCR provider settings"
+                >
+                  <Badge
+                    size="xs"
+                    variant={supportedTypes.ocr_enabled ? "success" : "warning"}
+                    className="gap-1 font-mono cursor-pointer hover:brightness-125 transition-all"
+                  >
+                    <ScanText size={10} />
+                    {supportedTypes.ocr_enabled
+                      ? `OCR: ${supportedTypes.ocr_model_name || (supportedTypes.ocr_engine.includes("paddle") ? "PaddleOCR v6" : supportedTypes.ocr_engine)}`
+                      : "OCR off"}
+                  </Badge>
+                </Link>
+              )}
+              {supportedTypes && (
                 <Badge
                   size="xs"
-                  variant={supportedTypes.ocr_enabled ? "success" : "warning"}
-                  className="gap-1 font-mono cursor-pointer hover:brightness-125 transition-all"
+                  variant="info"
+                  className="gap-1 font-mono border-primary-500/30 bg-primary-500/10 text-primary-300"
                 >
-                  <ScanText size={10} />
-                  {supportedTypes.ocr_enabled
-                    ? `OCR: ${supportedTypes.ocr_model_name || (supportedTypes.ocr_engine.includes("paddle") ? "PaddleOCR v6" : supportedTypes.ocr_engine)}`
-                    : "OCR off"}
+                  <Cpu size={10} />
+                  {`Embedding: ${supportedTypes.embedding_model || "ibm-granite/granite-embedding-97m-multilingual-r2"}`}
                 </Badge>
-              </Link>
-            )}
-            {supportedTypes && (
-              <Badge
-                size="xs"
-                variant="info"
-                className="gap-1 font-mono border-primary-500/30 bg-primary-500/10 text-primary-300"
-              >
-                <Cpu size={10} />
-                {`Embedding: ${supportedTypes.embedding_model || "bge-small-en-v1.5"}`}
-              </Badge>
-            )}
-            <Button size="sm" variant="ghost" onClick={clearTerminalQueueItems}>
-              Clear Completed
-            </Button>
-          </div>
-        </div>
-
-
-        {/* Hero Drop Zone */}
-        <motion.div
-          whileHover={{ backgroundColor: "rgba(99,102,241,0.04)" }}
-          animate={
-            isDragOver
-              ? {
-                  borderColor: "rgba(99,102,241,0.9)",
-                  backgroundColor: "rgba(99,102,241,0.06)",
-                }
-              : { borderColor: "rgba(255,255,255,0.1)" }
-          }
-          transition={{ duration: 0.2 }}
-          className="mx-5 mt-5 flex h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed border-indigo-500/30 bg-indigo-500/[0.02]"
-          onDragOver={(e) => {
-            e.preventDefault();
-            setIsDragOver(true);
-          }}
-          onDragLeave={() => setIsDragOver(false)}
-          onDrop={onDropFiles}
-          onClick={() => document.getElementById("storage-file-input")?.click()}
-        >
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-lg"
-            style={{ background: "rgba(99,102,241,0.12)", color: "#818cf8" }}
-          >
-            <UploadCloud size={18} />
-          </div>
-          <p className="text-sm font-medium text-slate-100">
-            Drop files here or click to browse
-          </p>
-          <p className="text-xs text-slate-400">
-            Multi-file append-only · Queue keeps in-flight work
-          </p>
-          <p className="text-[11px] text-center max-w-lg leading-relaxed text-slate-400">
-            Scanned PDFs and images are OCR'd when enabled. Open Supported Files
-            for policy, engine, and capability details.
-          </p>
-          <input
-            id="storage-file-input"
-            type="file"
-            multiple
-            className="hidden"
-            onChange={onInputFiles}
-            disabled={!ingestModePolicy.supported}
-          />
-        </motion.div>
-
-        {/* Controls row */}
-        <div className="grid grid-cols-4 gap-3 px-5 pb-4 pt-4">
-          {[
-            {
-              label: "Profile",
-              node: (
-                <ThemedSelect
-                  value={profile}
-                  onChange={setProfile}
-                  options={[
-                    { value: "strict", label: "strict" },
-                    { value: "balanced", label: "balanced" },
-                    { value: "fast", label: "fast" },
-                    { value: "relaxed", label: "relaxed" },
-                  ]}
-                />
-              ),
-            },
-            {
-              label: "Persist Mode",
-              node: (
-                <ThemedSelect
-                  value={persistMode}
-                  onChange={setPersistMode}
-                  options={[
-                    { value: "relaxed", label: "relaxed" },
-                    { value: "strict", label: "strict" },
-                  ]}
-                />
-              ),
-            },
-            {
-              label: "Extractor",
-              node: (
-                <div className="flex h-8 items-center rounded-lg border border-white/8 bg-white/[0.03] px-2.5 text-xs font-medium text-slate-200">
-                  FAIM Native
-                </div>
-              ),
-            },
-            {
-              label: "Queue Depth",
-              node: (
-                <div className="flex h-8 items-center rounded-lg border border-white/8 bg-white/[0.03] px-2.5 text-xs tabular-nums text-slate-200">
-                  {queueItems.length} item(s)
-                </div>
-              ),
-            },
-          ].map((c) => (
-            <div key={c.label}>
-              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500">
-                {c.label}
-              </p>
-              {c.node}
-            </div>
-          ))}
-        </div>
-
-        {/* Mode info */}
-        <div
-          className={`mx-5 mb-4 rounded-[14px] border px-4 py-3 text-[11px] leading-relaxed ${
-            ingestModePolicy.supported
-              ? ""
-              : "border-[var(--faim-error)]/30 bg-[var(--faim-error-muted)]"
-          }`}
-          style={
-            ingestModePolicy.supported
-              ? {
-                  borderColor: "rgba(99,102,241,0.22)",
-                  background: "rgba(99,102,241,0.06)",
-                  color: "var(--text-secondary)",
-                }
-              : { color: "var(--faim-error-text)" }
-          }
-        >
-          <span style={{ color: "#818cf8", fontWeight: 500 }}>
-            Requested mode: {selectedModeLabel}
-          </span>
-          {" · "}Extractor: {selectedExtractorLabel}
-          {" · "}
-          {getProfileHelper(profile)} {getPersistHelper(persistMode)}{" "}
-          {ingestModePolicy.supported
-            ? "All profile/persist combinations supported by policy."
-            : ingestModePolicy.reason}
-        </div>
-      </div>
-
-      {/* ── File Catalog ─────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
-        <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
-          <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
-            File Catalog
-          </p>
-        </div>
-
-        {/* Pipeline bar */}
-        <div
-          className="flex items-center gap-0 border-t px-5 py-3 border-white/6"
-        >
-          {[
-            {
-              label: "queued",
-              count: queueCounts.queued,
-              active: queueCounts.queued > 0,
-              color: "var(--text-tertiary)",
-            },
-            {
-              label: "running",
-              count: queueCounts.uploading + queueCounts.ingesting,
-              active: true,
-              color: "var(--faim-info-text)",
-            },
-            {
-              label: "done",
-              count: queueCounts.ingested + queueCounts.dedup_hit,
-              active: true,
-              color: "var(--faim-success-text)",
-            },
-          ].map((step, i) => (
-            <span
-              key={step.label}
-              className="flex items-center gap-1.5 text-[11px]"
-            >
-              {i > 0 && (
-                <span
-                  className="mx-2 text-[10px]"
-                  style={{ color: "var(--text-tertiary)" }}
-                >
-                  →
-                </span>
               )}
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{
-                  background: step.count > 0 ? step.color : "var(--os-stroke)",
-                }}
-              />
-              <span
-                className="tabular-nums font-semibold"
-                style={{ color: "var(--text-primary)" }}
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={clearTerminalQueueItems}
               >
-                {step.count}
-              </span>
-              <span style={{ color: "var(--text-tertiary)" }}>
-                {step.label}
-              </span>
-            </span>
-          ))}
-          <span
-            className="mx-3 h-3 w-px"
-            style={{ background: "var(--os-stroke)" }}
-          />
-          <span className="flex items-center gap-1.5 text-[11px]">
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{
-                background:
-                  queueCounts.failed > 0
-                    ? "var(--faim-error)"
-                    : "var(--os-stroke)",
-              }}
-            />
-            <span
-              className="tabular-nums font-semibold"
-              style={{
-                color:
-                  queueCounts.failed > 0
-                    ? "var(--faim-error-text)"
-                    : "var(--text-primary)",
-              }}
-            >
-              {queueCounts.failed}
-            </span>
-            <span style={{ color: "var(--text-tertiary)" }}>failed</span>
-          </span>
-        </div>
-
-        {/* Queue items */}
-        <div className="border-t" style={{ borderColor: "var(--os-stroke)" }}>
-          {queueItems.length === 0 ? (
-            <div
-              className="px-5 py-6 text-center text-xs"
-              style={{ color: "var(--text-tertiary)" }}
-            >
-              No queued files yet. Drop files above to begin.
+                Clear Completed
+              </Button>
             </div>
-          ) : (
-            queueItems.map((item) => {
-              const canCancel =
-                !TERMINAL_QUEUE_STATUS.has(item.status) && !item.busyAction;
-              const canRetry =
-                (item.status === "failed" || item.status === "cancelled") &&
-                !item.busyAction;
-              const latest = latestMessage(item);
-              const mode = modeSummary(item);
+          </div>
 
-              return (
-                <div
-                  key={item.id}
-                  className="overflow-hidden rounded-xl border p-4 transition-all"
-                  style={{
-                    borderColor: "var(--os-stroke)",
-                    background: "var(--os-surface-2)",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                  }}
-                  data-testid="storage-queue-item"
-                  data-filename={item.filename}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p
-                          className="max-w-[320px] truncate text-sm font-medium"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          {item.filename}
-                        </p>
-                        <Badge size="xs" variant={statusVariant(item.status)}>
-                          {item.status}
-                        </Badge>
-                        {item.cancelRequested &&
-                          !TERMINAL_QUEUE_STATUS.has(item.status) && (
-                            <Badge size="xs" variant="warning">
-                              cancel requested
-                            </Badge>
-                          )}
-                      </div>
-                      <p
-                        className="mt-1 text-[11px]"
-                        style={{ color: "var(--text-tertiary)" }}
-                      >
-                        {formatBytes(item.sizeBytes)} |{" "}
-                        {item.mimeType || "application/octet-stream"} | job:{" "}
-                        {shortId(item.jobId)} | raw: {shortId(item.rawId)}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        className="h-7"
-                        data-testid="storage-queue-cancel"
-                        data-filename={item.filename}
-                        disabled={!canCancel}
-                        onClick={() => {
-                          void requestQueueCancel(item.id);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="outline"
-                        className="h-7"
-                        data-testid="storage-queue-retry"
-                        data-filename={item.filename}
-                        disabled={!canRetry || !ingestModePolicy.supported}
-                        leftIcon={<RotateCcw size={12} />}
-                        onClick={() => {
-                          void retryQueueItem(item.id);
-                        }}
-                      >
-                        Retry
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        className="h-7"
-                        onClick={() => removeQueueItem(item.id)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="mt-2">
-                    <Progress
-                      value={item.progress}
-                      showLabel
-                      label="Lifecycle"
-                      variant={
-                        item.status === "failed" || item.status === "cancelled"
-                          ? "error"
-                          : "gradient"
-                      }
-                    />
-                    {mode && (
-                      <p
-                        className="mt-1 text-[11px] text-cyan-300/90"
-                        data-testid="storage-queue-mode"
-                      >
-                        {mode}
-                      </p>
-                    )}
-                    <p
-                      className="mt-1 text-[11px] text-slate-400"
-                      data-testid="storage-queue-extractor"
-                    >
-                      Extractor:{" "}
-                      {extractorModeLabel(
-                        item.requestedExtractorMode ||
-                          item.effectiveExtractorMode ||
-                          extractorMode,
-                      )}
-                    </p>
-                    <p className="mt-1 text-[11px] text-slate-400">{latest}</p>
-                  </div>
-
-                  {!!item.events.length && (
-                    <details
-                      className="mt-3 rounded-lg border px-3 py-2 transition-all"
-                      style={{
-                        borderColor: "var(--os-stroke)",
-                        background: "var(--os-surface-1)",
-                      }}
-                    >
-                      <summary
-                        className="cursor-pointer text-[11px] font-medium transition-colors hover:text-white"
-                        style={{ color: "var(--text-tertiary)" }}
-                      >
-                        Timeline events ({item.events.length})
-                      </summary>
-                      <div className="mt-2 max-h-32 space-y-1.5 overflow-auto pr-1 text-[11px]">
-                        {item.events.slice(-10).map((event) => (
-                          <div
-                            key={`${item.id}-${event.seq}`}
-                            className="flex items-start justify-between gap-3"
-                            style={{ color: "var(--text-secondary)" }}
-                          >
-                            <span className="min-w-0 flex-1 truncate opacity-90">
-                              #{event.seq} {event.kind}
-                            </span>
-                            <span className="whitespace-nowrap opacity-50 font-mono">
-                              {event.ts
-                                ? new Date(event.ts).toLocaleTimeString()
-                                : "-"}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
-
-                  {item.error && (
-                    <div className="mt-2 flex items-center gap-1 text-[11px] text-rose-400">
-                      <XCircle size={12} /> {item.error}
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* ── File Catalog ─────────────────────────────────────── */}
-      <div
-        className="overflow-hidden rounded-xl border"
-        style={{
-          borderColor: "var(--os-stroke)",
-          background: "var(--os-surface-1)",
-        }}
-      >
-        {/* Header */}
-        <div
-          className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
-          style={{ borderColor: "var(--os-stroke)" }}
-        >
-          <p
-            className="text-[10px] font-medium uppercase tracking-widest"
-            style={{ color: "var(--text-tertiary)" }}
+          {/* Hero Drop Zone */}
+          <motion.div
+            whileHover={{ backgroundColor: "rgba(99,102,241,0.04)" }}
+            animate={
+              isDragOver
+                ? {
+                    borderColor: "rgba(99,102,241,0.9)",
+                    backgroundColor: "rgba(99,102,241,0.06)",
+                  }
+                : { borderColor: "rgba(255,255,255,0.1)" }
+            }
+            transition={{ duration: 0.2 }}
+            className="mx-5 mt-5 flex h-36 cursor-pointer flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed border-indigo-500/30 bg-indigo-500/[0.02]"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={onDropFiles}
+            onClick={() =>
+              document.getElementById("storage-file-input")?.click()
+            }
           >
-            File Catalog
-          </p>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-lg"
+              style={{ background: "rgba(99,102,241,0.12)", color: "#818cf8" }}
+            >
+              <UploadCloud size={18} />
+            </div>
+            <p className="text-sm font-medium text-slate-100">
+              Drop files here or click to browse
+            </p>
+            <p className="text-xs text-slate-400">
+              Multi-file append-only · Queue keeps in-flight work
+            </p>
+            <p className="text-[11px] text-center max-w-lg leading-relaxed text-slate-400">
+              Scanned PDFs and images are OCR'd when enabled. Open Supported
+              Files for policy, engine, and capability details.
+            </p>
+            <input
+              id="storage-file-input"
+              type="file"
+              multiple
+              className="hidden"
+              onChange={onInputFiles}
+              disabled={!ingestModePolicy.supported}
+            />
+          </motion.div>
+
+          {/* Controls row */}
+          <div className="grid grid-cols-1 gap-3 px-5 pb-4 pt-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                label: "Profile",
+                node: (
+                  <ThemedSelect
+                    value={profile}
+                    onChange={setProfile}
+                    options={[
+                      { value: "strict", label: "strict" },
+                      { value: "balanced", label: "balanced" },
+                      { value: "fast", label: "fast" },
+                      { value: "relaxed", label: "relaxed" },
+                    ]}
+                  />
+                ),
+              },
+              {
+                label: "Persist Mode",
+                node: (
+                  <ThemedSelect
+                    value={persistMode}
+                    onChange={setPersistMode}
+                    options={[
+                      { value: "relaxed", label: "relaxed" },
+                      { value: "strict", label: "strict" },
+                    ]}
+                  />
+                ),
+              },
+              {
+                label: "Extractor",
+                node: (
+                  <div className="flex h-8 items-center rounded-lg border border-white/8 bg-white/[0.03] px-2.5 text-xs font-medium text-slate-200">
+                    FAIM Native
+                  </div>
+                ),
+              },
+              {
+                label: "Queue Depth",
+                node: (
+                  <div className="flex h-8 items-center rounded-lg border border-white/8 bg-white/[0.03] px-2.5 text-xs tabular-nums text-slate-200">
+                    {queueItems.length} item(s)
+                  </div>
+                ),
+              },
+            ].map((c) => (
+              <div key={c.label}>
+                <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-slate-500">
+                  {c.label}
+                </p>
+                {c.node}
+              </div>
+            ))}
+          </div>
+
+          {/* Mode info */}
+          <div
+            className={`mx-5 mb-4 rounded-[14px] border px-4 py-3 text-[11px] leading-relaxed ${
+              ingestModePolicy.supported
+                ? ""
+                : "border-[var(--faim-error)]/30 bg-[var(--faim-error-muted)]"
+            }`}
+            style={
+              ingestModePolicy.supported
+                ? {
+                    borderColor: "rgba(99,102,241,0.22)",
+                    background: "rgba(99,102,241,0.06)",
+                    color: "var(--text-secondary)",
+                  }
+                : { color: "var(--faim-error-text)" }
+            }
+          >
+            <span style={{ color: "#818cf8", fontWeight: 500 }}>
+              Requested mode: {selectedModeLabel}
+            </span>
+            {" · "}Extractor: {selectedExtractorLabel}
+            {" · "}
+            {getProfileHelper(profile)} {getPersistHelper(persistMode)}{" "}
+            {ingestModePolicy.supported
+              ? "All profile/persist combinations supported by policy."
+              : ingestModePolicy.reason}
+          </div>
+        </div>
+
+        {/* ── File Catalog ─────────────────────────────────────── */}
+        <div className="relative overflow-hidden rounded-[18px] border border-white/8 bg-[linear-gradient(180deg,rgba(5,7,13,0.98),rgba(9,13,21,0.94))] shadow-[0_14px_40px_rgba(0,0,0,0.24)]">
+          <div className="absolute top-0 left-6 right-6 h-[2px] bg-gradient-to-r from-cyan-500/80 via-cyan-400/40 to-transparent rounded-full" />
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/6 px-5 py-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-widest text-slate-500">
+              File Catalog
+            </p>
+          </div>
+
+          {/* Pipeline bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t px-5 py-3 border-white/6">
+            <div className="flex flex-wrap items-center gap-0">
               {[
-                { key: "postgres", label: "Postgres", ok: backends?.postgres },
                 {
-                  key: "raw_store",
-                  label: "RawStore",
-                  ok: backends?.raw_store,
+                  label: "queued",
+                  count: queueCounts.queued,
+                  active: queueCounts.queued > 0,
+                  color: "var(--text-tertiary)",
                 },
-                { key: "redis", label: "Redis", ok: backends?.redis },
-                { key: "qdrant", label: "Qdrant", ok: backends?.qdrant },
-              ].map((b) => (
+                {
+                  label: "running",
+                  count: queueCounts.uploading + queueCounts.ingesting,
+                  active: true,
+                  color: "var(--faim-info-text)",
+                },
+                {
+                  label: "done",
+                  count: queueCounts.ingested + queueCounts.dedup_hit,
+                  active: true,
+                  color: "var(--faim-success-text)",
+                },
+              ].map((step, i) => (
                 <span
-                  key={b.key}
-                  className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-medium"
-                  style={{
-                    borderColor: b.ok
-                      ? "rgba(52,211,153,0.25)"
-                      : "rgba(248,113,113,0.25)",
-                    background: b.ok
-                      ? "rgba(52,211,153,0.08)"
-                      : "rgba(248,113,113,0.08)",
-                    color: b.ok
-                      ? "var(--faim-success-text)"
-                      : "var(--faim-error-text)",
-                  }}
+                  key={step.label}
+                  className="flex items-center gap-1.5 text-[11px]"
                 >
+                  {i > 0 && (
+                    <span
+                      className="mx-2 text-[10px]"
+                      style={{ color: "var(--text-tertiary)" }}
+                    >
+                      →
+                    </span>
+                  )}
                   <span
                     className="h-1.5 w-1.5 rounded-full"
-                    style={{ background: "currentColor" }}
+                    style={{
+                      background:
+                        step.count > 0 ? step.color : "var(--os-stroke)",
+                    }}
                   />
-                  {b.label}
+                  <span
+                    className="tabular-nums font-semibold"
+                    style={{ color: "var(--text-primary)" }}
+                  >
+                    {step.count}
+                  </span>
+                  <span style={{ color: "var(--text-tertiary)" }}>
+                    {step.label}
+                  </span>
                 </span>
               ))}
+              <span
+                className="mx-3 h-3 w-px"
+                style={{ background: "var(--os-stroke)" }}
+              />
+              <span className="flex items-center gap-1.5 text-[11px]">
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{
+                    background:
+                      queueCounts.failed > 0
+                        ? "var(--faim-error)"
+                        : "var(--os-stroke)",
+                  }}
+                />
+                <span
+                  className="tabular-nums font-semibold"
+                  style={{
+                    color:
+                      queueCounts.failed > 0
+                        ? "var(--faim-error-text)"
+                        : "var(--text-primary)",
+                  }}
+                >
+                  {queueCounts.failed}
+                </span>
+                <span style={{ color: "var(--text-tertiary)" }}>failed</span>
+              </span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<RefreshCw size={12} />}
-              onClick={() => {
-                void refreshViews();
-              }}
-            >
-              Refresh Catalog
-            </Button>
-          </div>
-        </div>
 
-        {/* Search + filter toolbar */}
-        <div className="flex flex-wrap items-center gap-3 px-5 py-3">
-          <div className="relative flex-1" style={{ maxWidth: 280 }}>
-            <Search
-              size={12}
-              className="absolute left-3 top-1/2 -translate-y-1/2"
-              style={{ color: "var(--text-tertiary)" }}
-            />
-            <input
-              value={query}
-              onChange={(e) => {
-                setPage(0);
-                setQuery(e.target.value);
-              }}
-              placeholder="Search filename or hash"
-              className="h-8 w-full rounded-lg border pl-8 pr-3 text-xs outline-none transition-colors focus:border-indigo-500"
-              style={{
-                background: "var(--os-surface-2)",
-                borderColor: "var(--os-stroke)",
-                color: "var(--text-primary)",
-              }}
-            />
+            {queueItems.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {queueCounts.queued +
+                  queueCounts.uploading +
+                  queueCounts.ingesting >
+                  0 && (
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    className="h-7 border-amber-500/30 text-amber-300 hover:bg-amber-500/10"
+                    leftIcon={<XCircle size={12} />}
+                    onClick={() => {
+                      void cancelAllQueueItems();
+                    }}
+                  >
+                    Cancel Running (
+                    {queueCounts.queued +
+                      queueCounts.uploading +
+                      queueCounts.ingesting}
+                    )
+                  </Button>
+                )}
+                {queueCounts.ingested +
+                  queueCounts.dedup_hit +
+                  queueCounts.failed +
+                  queueCounts.cancelled >
+                  0 && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    className="h-7"
+                    onClick={clearTerminalQueueItems}
+                  >
+                    Clear Completed
+                  </Button>
+                )}
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="h-7 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+                  leftIcon={<Trash2 size={12} />}
+                  onClick={clearAllQueueItems}
+                >
+                  Clear All ({queueItems.length})
+                </Button>
+              </div>
+            )}
           </div>
-          <ThemedSelect
-            className="w-40"
-            value={statusFilter}
-            onChange={(val) => {
-              setPage(0);
-              setStatusFilter(val);
-            }}
-            options={[
-              { value: "", label: "All statuses" },
-              { value: "uploaded", label: "uploaded" },
-              { value: "ingesting", label: "ingesting" },
-              { value: "ingested", label: "ingested" },
-              { value: "dedup_hit", label: "dedup_hit" },
-              { value: "failed", label: "failed" },
-              { value: "cancelled", label: "cancelled" },
-              { value: "delete_requested", label: "delete_requested" },
-            ]}
-          />
-        </div>
 
-        {/* Table */}
-        <div
-          className="overflow-x-auto border-t"
-          style={{ borderColor: "var(--os-stroke)" }}
-        >
-          <table className="w-full min-w-[960px] text-left">
-            <thead>
-              <tr style={{ borderBottom: "1px solid var(--os-stroke)" }}>
-                {[
-                  "Filename",
-                  "Status",
-                  "Size",
-                  "Raw ID",
-                  "Updated",
-                  "Actions",
-                ].map((h) => (
-                  <th
-                    key={h}
-                    className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider whitespace-nowrap"
-                    style={{ color: "var(--text-tertiary)" }}
+          {/* Queue items */}
+          <div
+            className="border-t p-4 space-y-3"
+            style={{ borderColor: "var(--os-stroke)" }}
+          >
+            {queueItems.length === 0 ? (
+              <div
+                className="py-4 text-center text-xs"
+                style={{ color: "var(--text-tertiary)" }}
+              >
+                No queued files yet. Drop files above to begin.
+              </div>
+            ) : (
+              queueItems.map((item) => {
+                const isTerminal = TERMINAL_QUEUE_STATUS.has(item.status);
+                const canCancel =
+                  !isTerminal && !item.busyAction && !item.cancelRequested;
+                const canRetry =
+                  (item.status === "failed" || item.status === "cancelled") &&
+                  !item.busyAction;
+                const latest = latestMessage(item);
+                const mode = modeSummary(item);
+                const progressLabel =
+                  item.status === "queued"
+                    ? "Queued"
+                    : item.status === "uploading"
+                      ? "Uploading"
+                      : item.status === "ingesting"
+                        ? item.cancelRequested
+                          ? "Cancelling"
+                          : "Ingesting"
+                        : item.status === "dedup_hit"
+                          ? "Deduplicated"
+                          : item.status === "ingested"
+                            ? "Ingested"
+                            : item.status === "cancelled"
+                              ? "Cancelled"
+                              : "Failed";
+
+                return (
+                  <div
+                    key={item.id}
+                    className="overflow-hidden rounded-xl border p-4 transition-all"
+                    style={{
+                      borderColor: "var(--os-stroke)",
+                      background: "var(--os-surface-2)",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
+                    }}
+                    data-testid="storage-queue-item"
+                    data-filename={item.filename}
                   >
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loadingFiles ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-10 text-center text-xs"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    Loading storage catalog...
-                  </td>
-                </tr>
-              ) : files.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-10 text-center text-xs"
-                    style={{ color: "var(--text-tertiary)" }}
-                  >
-                    No files found for current filters.
-                  </td>
-                </tr>
-              ) : (
-                files.map((row) => {
-                  const busy = actionRawId === row.raw_id;
-                  return (
-                    <tr
-                      key={row.raw_id}
-                      className={`group transition-colors hover:bg-white/[0.02] ${rowAccent(row.ingest_status, row.delete_requested)}`}
-                      style={{ borderBottom: "1px solid var(--os-stroke)" }}
-                    >
-                      <td className="px-4 py-3">
-                        <div
-                          className="max-w-[240px] truncate text-sm font-medium"
-                          style={{ color: "var(--text-primary)" }}
-                          title={row.filename}
-                        >
-                          {row.filename}
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p
+                            className="truncate text-sm font-medium"
+                            style={{ color: "var(--text-primary)" }}
+                            title={item.filename}
+                          >
+                            {item.filename}
+                          </p>
+                          <Badge size="xs" variant={statusVariant(item.status)}>
+                            {item.status}
+                          </Badge>
+                          {item.cancelRequested && !isTerminal && (
+                            <Badge size="xs" variant="warning">
+                              cancelling...
+                            </Badge>
+                          )}
                         </div>
-                        {row.error && (
-                          <div
-                            className="mt-0.5 flex items-center gap-1 text-[11px]"
-                            style={{ color: "var(--faim-error-text)" }}
-                          >
-                            <XCircle size={11} /> {row.error}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          size="xs"
-                          variant={statusVariant(row.ingest_status)}
+                        <p
+                          className="mt-1 truncate font-mono text-[11px]"
+                          style={{ color: "var(--text-tertiary)" }}
+                          title={`${formatBytes(item.sizeBytes)} | ${item.mimeType || "application/octet-stream"} | job: ${item.jobId || "-"} | raw: ${item.rawId || "-"}`}
                         >
-                          {row.ingest_status}
-                        </Badge>
-                      </td>
-                      <td
-                        className="px-4 py-3 text-xs tabular-nums"
-                        style={{ color: "var(--text-secondary)" }}
-                      >
-                        {formatBytes(row.size_bytes)}
-                      </td>
-                      <td
-                        className="px-4 py-3 font-mono text-[11px]"
-                        style={{ color: "var(--text-tertiary)" }}
-                      >
-                        {shortId(row.raw_id)}
-                      </td>
-                      <td
-                        className="px-4 py-3 text-xs whitespace-nowrap"
-                        style={{ color: "var(--text-tertiary)" }}
-                      >
-                        {row.updated_at
-                          ? new Date(row.updated_at).toLocaleString()
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                          {formatBytes(item.sizeBytes)} ·{" "}
+                          {shortMimeType(item.mimeType)} · job:{" "}
+                          {shortId(item.jobId)} · raw: {shortId(item.rawId)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {!isTerminal && (
                           <Button
                             size="xs"
-                            variant="ghost"
-                            className="h-6 text-[11px]"
-                            data-testid="storage-file-inspect"
-                            data-raw-id={row.raw_id}
-                            disabled={busy}
-                            leftIcon={<FileSearch size={11} />}
+                            variant="outline"
+                            className="h-7 border-amber-500/30 text-amber-200 hover:bg-amber-500/10"
+                            data-testid="storage-queue-cancel"
+                            data-filename={item.filename}
+                            disabled={!canCancel}
+                            leftIcon={<XCircle size={12} />}
                             onClick={() => {
-                              void openProvenance(row.raw_id, "faim");
+                              void requestQueueCancel(item.id);
                             }}
                           >
-                            Inspect
+                            {item.busyAction === "cancel" ||
+                            item.cancelRequested
+                              ? "Cancelling..."
+                              : "Cancel"}
                           </Button>
+                        )}
+                        {canRetry && (
                           <Button
                             size="xs"
-                            variant="ghost"
-                            className="h-6 text-[11px]"
-                            disabled={busy}
-                            leftIcon={<Download size={11} />}
+                            variant="outline"
+                            className="h-7"
+                            data-testid="storage-queue-retry"
+                            data-filename={item.filename}
+                            disabled={!ingestModePolicy.supported}
+                            leftIcon={<RotateCcw size={12} />}
                             onClick={() => {
-                              void downloadStorageFile(
-                                row.raw_id,
-                                row.filename,
-                              );
-                            }}
-                          >
-                            Download
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            className="h-6 text-[11px]"
-                            data-testid="storage-file-technical"
-                            data-raw-id={row.raw_id}
-                            disabled={busy}
-                            leftIcon={<Activity size={11} />}
-                            onClick={() => {
-                              void openProvenance(row.raw_id, "technical");
-                            }}
-                          >
-                            Technical Trace
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            className="h-6 text-[11px]"
-                            disabled={busy}
-                            onClick={() => {
-                              void runFileAction(row.raw_id, "ingest");
-                            }}
-                          >
-                            Re-ingest
-                          </Button>
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            className="h-6 text-[11px]"
-                            disabled={busy}
-                            leftIcon={<RotateCcw size={11} />}
-                            onClick={() => {
-                              void runFileAction(row.raw_id, "retry");
+                              void retryQueueItem(item.id);
                             }}
                           >
                             Retry
                           </Button>
-                          <Button
-                            size="xs"
-                            variant="danger"
-                            className="h-6 text-[11px]"
-                            disabled={busy}
-                            onClick={() => {
-                              void runFileAction(row.raw_id, "delete");
-                            }}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                        )}
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="h-7 text-slate-400 hover:bg-white/10 hover:text-slate-100"
+                          leftIcon={<X size={12} />}
+                          title="Remove from queue (cancels if still running)"
+                          onClick={() => removeQueueItem(item.id)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
 
-        {/* Footer / Pagination */}
-        <div
-          className="flex items-center justify-between border-t px-5 py-3 text-xs"
-          style={{
-            borderColor: "var(--os-stroke)",
-            color: "var(--text-tertiary)",
-          }}
-        >
-          <span>
-            {loadingSummary ? "Loading..." : `Total ${total} file(s)`}
-          </span>
-          <div className="flex items-center gap-1.5">
-            <Button
-              variant="ghost"
-              size="xs"
-              className="h-6"
-              disabled={page <= 0}
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-            >
-              Prev
-            </Button>
-            <span
-              className="px-2 tabular-nums"
-              style={{ color: "var(--text-secondary)" }}
-            >
-              {Math.min(page + 1, totalPages)} / {totalPages}
-            </span>
-            <Button
-              variant="ghost"
-              size="xs"
-              className="h-6"
-              disabled={page + 1 >= totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next
-            </Button>
+                    <div className="mt-3">
+                      <Progress
+                        value={item.progress}
+                        showLabel
+                        label={progressLabel}
+                        variant={
+                          item.status === "failed" ||
+                          item.status === "cancelled"
+                            ? "error"
+                            : "gradient"
+                        }
+                      />
+                      {mode && (
+                        <p
+                          className="mt-1 text-[11px] text-cyan-300/90"
+                          data-testid="storage-queue-mode"
+                        >
+                          {mode}
+                        </p>
+                      )}
+                      <p
+                        className="mt-1 text-[11px] text-slate-400"
+                        data-testid="storage-queue-extractor"
+                      >
+                        Extractor:{" "}
+                        {extractorModeLabel(
+                          item.requestedExtractorMode ||
+                            item.effectiveExtractorMode ||
+                            extractorMode,
+                        )}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        {latest}
+                      </p>
+                    </div>
+
+                    {!!item.events.length && (
+                      <details
+                        className="mt-3 rounded-lg border px-3 py-2 transition-all"
+                        style={{
+                          borderColor: "var(--os-stroke)",
+                          background: "var(--os-surface-1)",
+                        }}
+                      >
+                        <summary
+                          className="cursor-pointer text-[11px] font-medium transition-colors hover:text-white"
+                          style={{ color: "var(--text-tertiary)" }}
+                        >
+                          Timeline events ({item.events.length})
+                        </summary>
+                        <div className="mt-2 max-h-32 space-y-1.5 overflow-auto pr-1 text-[11px]">
+                          {item.events.slice(-10).map((event) => (
+                            <div
+                              key={`${item.id}-${event.seq}`}
+                              className="flex items-start justify-between gap-3"
+                              style={{ color: "var(--text-secondary)" }}
+                            >
+                              <span className="min-w-0 flex-1 truncate opacity-90">
+                                #{event.seq} {event.kind}
+                              </span>
+                              <span className="whitespace-nowrap opacity-50 font-mono">
+                                {event.ts
+                                  ? new Date(event.ts).toLocaleTimeString()
+                                  : "-"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+
+                    {item.error && (
+                      <div className="mt-2 flex items-center gap-1 text-[11px] text-rose-400">
+                        <XCircle size={12} /> {item.error}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
-      </div>
 
-      {supportedTypesOpen && (
-        <div className="fixed inset-0 z-40">
-          <button
-            type="button"
-            className="absolute inset-0 bg-black/45 backdrop-blur-sm"
-            onClick={() => setSupportedTypesOpen(false)}
-            aria-label="Close supported types panel"
-          />
-
-          <aside
-            className="absolute right-0 top-0 h-full w-full max-w-[680px] overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl"
-            data-testid="storage-supported-types-panel"
+        {/* ── File Catalog ─────────────────────────────────────── */}
+        <div
+          className="overflow-hidden rounded-xl border"
+          style={{
+            borderColor: "var(--os-stroke)",
+            background: "var(--os-surface-1)",
+          }}
+        >
+          {/* Header */}
+          <div
+            className="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-1.5"
+            style={{ borderColor: "var(--os-stroke)" }}
           >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold">
-                  Supported Files Coverage
-                </h3>
-                <p className="text-xs text-slate-400">
-                  Backend validator and extractor capability matrix
-                </p>
-              </div>
+            <p
+              className="text-[10px] font-medium uppercase tracking-widest"
+              style={{ color: "var(--text-tertiary)" }}
+            >
+              File Catalog
+            </p>
+            <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => {
-                    void fetchSupportedTypesInternal();
+                {[
+                  {
+                    key: "postgres",
+                    label: "Postgres",
+                    ok: backends?.postgres,
+                  },
+                  {
+                    key: "raw_store",
+                    label: "RawStore",
+                    ok: backends?.raw_store,
+                  },
+                  { key: "redis", label: "Redis", ok: backends?.redis },
+                  { key: "qdrant", label: "Qdrant", ok: backends?.qdrant },
+                ].map((b) => (
+                  <span
+                    key={b.key}
+                    className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-medium"
+                    style={{
+                      borderColor: b.ok
+                        ? "rgba(52,211,153,0.25)"
+                        : "rgba(248,113,113,0.25)",
+                      background: b.ok
+                        ? "rgba(52,211,153,0.08)"
+                        : "rgba(248,113,113,0.08)",
+                      color: b.ok
+                        ? "var(--faim-success-text)"
+                        : "var(--faim-error-text)",
+                    }}
+                  >
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: "currentColor" }}
+                    />
+                    {b.label}
+                  </span>
+                ))}
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                leftIcon={<RefreshCw size={12} />}
+                onClick={() => {
+                  void refreshViews();
+                }}
+              >
+                Refresh Catalog
+              </Button>
+            </div>
+          </div>
+
+          {/* Search + filter toolbar */}
+          <div className="flex flex-wrap items-center gap-3 px-5 py-3">
+            <div className="relative flex-1" style={{ maxWidth: 280 }}>
+              <Search
+                size={12}
+                className="absolute left-3 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--text-tertiary)" }}
+              />
+              <input
+                value={query}
+                onChange={(e) => {
+                  setPage(0);
+                  setQuery(e.target.value);
+                }}
+                placeholder="Search filename or hash"
+                className="h-8 w-full rounded-lg border pl-8 pr-3 text-xs outline-none transition-colors focus:border-indigo-500"
+                style={{
+                  background: "var(--os-surface-2)",
+                  borderColor: "var(--os-stroke)",
+                  color: "var(--text-primary)",
+                }}
+              />
+            </div>
+            <ThemedSelect
+              className="w-40"
+              value={statusFilter}
+              onChange={(val) => {
+                setPage(0);
+                setStatusFilter(val);
+              }}
+              options={[
+                { value: "", label: "All statuses" },
+                { value: "uploaded", label: "uploaded" },
+                { value: "ingesting", label: "ingesting" },
+                { value: "ingested", label: "ingested" },
+                { value: "dedup_hit", label: "dedup_hit" },
+                { value: "cancelled", label: "cancelled" },
+                { value: "delete_requested", label: "delete_requested" },
+              ]}
+            />
+            {selectedRawIds.size > 0 && (
+              <div className="ml-auto flex items-center gap-2">
+                <span
+                  className="rounded-md border px-2 py-1 text-[11px] font-medium tabular-nums"
+                  style={{
+                    borderColor: "rgba(99, 102, 241, 0.35)",
+                    background: "rgba(99, 102, 241, 0.12)",
+                    color: "var(--text-primary)",
                   }}
                 >
-                  Refresh
+                  {selectedRawIds.size} selected
+                </span>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  disabled={bulkDeleting}
+                  onClick={clearSelection}
+                >
+                  Clear
                 </Button>
                 <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  onClick={() => setSupportedTypesOpen(false)}
-                  aria-label="Close"
+                  size="sm"
+                  variant="danger"
+                  loading={bulkDeleting}
+                  leftIcon={<Trash2 size={12} />}
+                  data-testid="storage-bulk-delete"
+                  onClick={() => {
+                    void runBulkDelete();
+                  }}
                 >
-                  <X size={14} />
+                  Delete Selected ({selectedRawIds.size})
                 </Button>
               </div>
-            </div>
-
-            {supportedTypesLoading && !supportedTypes ? (
-              <div className="rounded-lg border border-slate-800 px-4 py-8 text-center text-sm text-slate-400">
-                Loading supported type coverage...
-              </div>
-            ) : !supportedTypes ? (
-              <div className="rounded-lg border border-slate-800 px-4 py-8 text-center text-sm text-slate-500">
-                Supported coverage data is unavailable.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <Card className="os-card rounded-2xl space-y-2">
-                  <h4 className="text-xs font-semibold text-slate-300">
-                    Limits, OCR & Embedding Policy
-                  </h4>
-                  <div className="grid grid-cols-1 gap-2 text-xs text-slate-300 sm:grid-cols-2">
-                    <p>
-                      <span className="text-slate-500">max batch total:</span>{" "}
-                      {supportedTypes.max_batch_total_mb} MB
-                    </p>
-                    <p>
-                      <span className="text-slate-500">file count:</span>{" "}
-                      unlimited (total must be ≤{" "}
-                      {supportedTypes.max_batch_total_mb} MB)
-                    </p>
-                    <p>
-                      <span className="text-slate-500">extensions:</span>{" "}
-                      {supportedTypes.total_extensions}
-                    </p>
-                    <p>
-                      <span className="text-slate-500">MIME types:</span>{" "}
-                      {supportedTypes.total_content_types}
-                    </p>
-                    <p>
-                      <span className="text-slate-500">OCR engine:</span>{" "}
-                      <span className="text-emerald-400 font-mono font-semibold">
-                        {supportedTypes.ocr_model_name || supportedTypes.ocr_engine}
-                      </span>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">OCR status:</span>{" "}
-                      <span className={supportedTypes.ocr_enabled ? "text-emerald-400 font-semibold" : "text-amber-400"}>
-                        {supportedTypes.ocr_enabled ? "ONLINE (Active)" : "OFF"}
-                      </span>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Embedding model:</span>{" "}
-                      <span className="text-primary-300 font-mono font-semibold">
-                        {supportedTypes.embedding_model || "bge-small-en-v1.5"}
-                      </span>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">Embedding runtime:</span>{" "}
-                      <span className="text-primary-300">
-                        {supportedTypes.embedding_provider || "Managed Local Runtime"}
-                      </span>
-                    </p>
-                    <p>
-                      <span className="text-slate-500">OCR fail-closed:</span>{" "}
-                      {String(supportedTypes.ocr_fail_closed)}
-                    </p>
-                  </div>
-
-                </Card>
-
-                <Card className="os-card rounded-2xl space-y-2">
-                  <h4 className="text-xs font-semibold text-slate-300">
-                    Category Coverage
-                  </h4>
-                  <div className="space-y-2 text-xs">
-                    {Object.entries(supportedTypes.categories).map(
-                      ([category, extensions]) => (
-                        <div
-                          key={category}
-                          className="rounded-lg border border-slate-800 px-2 py-2"
-                        >
-                          <p className="text-slate-300">
-                            <span className="font-semibold">{category}</span>
-                            <span className="ml-2 text-slate-500">
-                              ({extensions.length})
-                            </span>
-                          </p>
-                          <p className="mt-1 font-mono text-[11px] text-slate-400">
-                            {extensions.join(", ") || "-"}
-                          </p>
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </Card>
-
-                <Card className="os-card rounded-2xl space-y-2">
-                  <h4 className="text-xs font-semibold text-slate-300">
-                    Extractor Mapping
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
-                    {Object.entries(supportedTypes.extractor_doc_types).map(
-                      ([docType, count]) => (
-                        <div
-                          key={docType}
-                          className="rounded-md border border-slate-800 px-2 py-1"
-                        >
-                          <span className="font-mono">{docType}</span>: {count}
-                        </div>
-                      ),
-                    )}
-                  </div>
-                </Card>
-
-                <Card className="os-card rounded-2xl space-y-2">
-                  <h4 className="text-xs font-semibold text-slate-300">
-                    OCR-Capable Extensions
-                  </h4>
-                  <p className="font-mono text-[11px] text-slate-400">
-                    {supportedTypes.ocr_capable_extensions.join(", ") || "-"}
-                  </p>
-                </Card>
-              </div>
             )}
-          </aside>
-        </div>
-      )}
+          </div>
 
-      <AnimatePresence>
-        {provenanceOpen && (
-          <div className="fixed inset-0 z-50 overflow-hidden">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="absolute inset-0 bg-black/5"
-              onClick={() => setProvenanceOpen(false)}
-              aria-label="Close provenance panel"
-            />
-
-            <motion.aside
-              initial={{ x: "100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "100%", opacity: 0 }}
-              transition={{
-                type: "spring",
-                damping: 32,
-                stiffness: 210,
-                mass: 0.8,
-              }}
-              className="absolute right-4 top-4 bottom-4 w-full max-w-[720px] overflow-hidden border shadow-[0_30px_100px_rgba(0,0,0,0.7)] backdrop-blur-3xl"
-              style={{
-                borderColor: "rgba(255,255,255,0.12)",
-                background: "rgba(10, 15, 25, 0.78)",
-                borderRadius: "24px",
-                boxShadow:
-                  "0 25px 80px -20px rgba(0,0,0,0.9), inset 0 1px 1px rgba(255,255,255,0.08)",
-              }}
-              data-testid="storage-provenance-panel"
-            >
-              <div className="h-full w-full overflow-y-auto px-8 py-7 custom-scrollbar">
-                <div
-                  className="mb-6 flex items-center justify-between border-b pb-4"
-                  style={{ borderColor: "var(--os-stroke)" }}
-                >
-                  <div>
-                    <h3
-                      className="text-base font-bold tracking-tight"
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      {provenanceView === "faim"
-                        ? "FAIM Ingestion Dashboard"
-                        : "Technical Audit Trace"}
-                    </h3>
-                    <p
-                      className="text-[11px]"
+          {/* Table */}
+          <div
+            className="overflow-x-auto border-t"
+            style={{ borderColor: "var(--os-stroke)" }}
+          >
+            <table className="w-full min-w-[960px] text-left">
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--os-stroke)" }}>
+                  <th className="w-10 px-4 py-2.5">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all visible files"
+                      data-testid="storage-select-all"
+                      className="h-3.5 w-3.5 cursor-pointer rounded border border-white/20 bg-transparent accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                      checked={allVisibleSelected}
+                      disabled={
+                        files.length === 0 || loadingFiles || bulkDeleting
+                      }
+                      ref={(el) => {
+                        if (el) {
+                          el.indeterminate = someVisibleSelected;
+                        }
+                      }}
+                      onChange={toggleSelectAllVisible}
+                    />
+                  </th>
+                  {[
+                    "Filename",
+                    "Status",
+                    "Size",
+                    "Raw ID",
+                    "Updated",
+                    "Actions",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-2.5 text-[10px] font-medium uppercase tracking-wider whitespace-nowrap"
                       style={{ color: "var(--text-tertiary)" }}
                     >
-                      {provenanceView === "faim"
-                        ? "Deterministic pipeline & fractal diagnostics"
-                        : "Raw reference & node integration audit"}
-                    </p>
-                  </div>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loadingFiles ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-4 py-10 text-center text-xs"
+                      style={{ color: "var(--text-tertiary)" }}
+                    >
+                      Loading storage catalog...
+                    </td>
+                  </tr>
+                ) : files.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={7}
+                      className="px-4 py-10 text-center text-xs"
+                      style={{ color: "var(--text-tertiary)" }}
+                    >
+                      No files found for current filters.
+                    </td>
+                  </tr>
+                ) : (
+                  files.map((row) => {
+                    const busy = actionRawId === row.raw_id || bulkDeleting;
+                    const isSelected = selectedRawIds.has(row.raw_id);
+                    return (
+                      <tr
+                        key={row.raw_id}
+                        className={`group transition-colors hover:bg-white/[0.02] ${isSelected ? "bg-indigo-500/[0.06]" : ""} ${rowAccent(row.ingest_status, row.delete_requested)}`}
+                        style={{ borderBottom: "1px solid var(--os-stroke)" }}
+                      >
+                        <td className="w-10 px-4 py-3">
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${row.filename}`}
+                            data-testid="storage-file-checkbox"
+                            data-raw-id={row.raw_id}
+                            className="h-3.5 w-3.5 cursor-pointer rounded border border-white/20 bg-transparent accent-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+                            checked={isSelected}
+                            disabled={busy}
+                            onChange={() => {
+                              toggleSelectFile(row.raw_id);
+                            }}
+                          />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div
+                            className="max-w-[240px] truncate text-sm font-medium"
+                            style={{ color: "var(--text-primary)" }}
+                            title={row.filename}
+                          >
+                            {row.filename}
+                          </div>
+                          {row.error && (
+                            <div
+                              className="mt-0.5 flex items-center gap-1 text-[11px]"
+                              style={{ color: "var(--faim-error-text)" }}
+                            >
+                              <XCircle size={11} /> {row.error}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge
+                            size="xs"
+                            variant={statusVariant(row.ingest_status)}
+                          >
+                            {row.ingest_status}
+                          </Badge>
+                        </td>
+                        <td
+                          className="px-4 py-3 text-xs tabular-nums"
+                          style={{ color: "var(--text-secondary)" }}
+                        >
+                          {formatBytes(row.size_bytes)}
+                        </td>
+                        <td
+                          className="px-4 py-3 font-mono text-[11px]"
+                          style={{ color: "var(--text-tertiary)" }}
+                        >
+                          {shortId(row.raw_id)}
+                        </td>
+                        <td
+                          className="px-4 py-3 text-xs whitespace-nowrap"
+                          style={{ color: "var(--text-tertiary)" }}
+                        >
+                          {row.updated_at
+                            ? new Date(row.updated_at).toLocaleString()
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="h-6 text-[11px]"
+                              data-testid="storage-file-inspect"
+                              data-raw-id={row.raw_id}
+                              disabled={busy}
+                              leftIcon={<FileSearch size={11} />}
+                              onClick={() => {
+                                void openProvenance(row.raw_id, "faim");
+                              }}
+                            >
+                              Inspect
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="h-6 text-[11px]"
+                              disabled={busy}
+                              leftIcon={<Download size={11} />}
+                              onClick={() => {
+                                void downloadStorageFile(
+                                  row.raw_id,
+                                  row.filename,
+                                );
+                              }}
+                            >
+                              Download
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="h-6 text-[11px]"
+                              data-testid="storage-file-technical"
+                              data-raw-id={row.raw_id}
+                              disabled={busy}
+                              leftIcon={<Activity size={11} />}
+                              onClick={() => {
+                                void openProvenance(row.raw_id, "technical");
+                              }}
+                            >
+                              Technical Trace
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="h-6 text-[11px]"
+                              disabled={busy}
+                              onClick={() => {
+                                void runFileAction(row.raw_id, "ingest");
+                              }}
+                            >
+                              Re-ingest
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              className="h-6 text-[11px]"
+                              disabled={busy}
+                              leftIcon={<RotateCcw size={11} />}
+                              onClick={() => {
+                                void runFileAction(row.raw_id, "retry");
+                              }}
+                            >
+                              Retry
+                            </Button>
+                            <Button
+                              size="xs"
+                              variant="danger"
+                              className="h-6 text-[11px]"
+                              disabled={busy}
+                              onClick={() => {
+                                void runFileAction(row.raw_id, "delete");
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer / Pagination */}
+          <div
+            className="flex items-center justify-between border-t px-5 py-3 text-xs"
+            style={{
+              borderColor: "var(--os-stroke)",
+              color: "var(--text-tertiary)",
+            }}
+          >
+            <span>
+              {loadingSummary ? "Loading..." : `Total ${total} file(s)`}
+            </span>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="ghost"
+                size="xs"
+                className="h-6"
+                disabled={page <= 0}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                Prev
+              </Button>
+              <span
+                className="px-2 tabular-nums"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                {Math.min(page + 1, totalPages)} / {totalPages}
+              </span>
+              <Button
+                variant="ghost"
+                size="xs"
+                className="h-6"
+                disabled={page + 1 >= totalPages}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {supportedTypesOpen && (
+          <div className="fixed inset-0 z-40">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/45 backdrop-blur-sm"
+              onClick={() => setSupportedTypesOpen(false)}
+              aria-label="Close supported types panel"
+            />
+
+            <aside
+              className="absolute right-0 top-0 h-full w-full max-w-[680px] overflow-y-auto border-l border-slate-700 bg-slate-950 p-5 shadow-2xl"
+              data-testid="storage-supported-types-panel"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold">
+                    Supported Files Coverage
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Backend validator and extractor capability matrix
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => {
+                      void fetchSupportedTypesInternal();
+                    }}
+                  >
+                    Refresh
+                  </Button>
                   <Button
                     size="icon-sm"
                     variant="ghost"
-                    onClick={() => setProvenanceOpen(false)}
+                    onClick={() => setSupportedTypesOpen(false)}
                     aria-label="Close"
-                    className="hover:rotate-90 transition-transform duration-300"
                   >
-                    <X size={16} />
+                    <X size={14} />
                   </Button>
                 </div>
+              </div>
 
-                {
-                  (() => {
-                    const data = provenanceData;
-                    if (provenanceLoading) {
-                      return (
-                        <div
-                          className="rounded-2xl border px-4 py-12 text-center text-xs"
-                          style={{
-                            borderColor: "var(--os-stroke)",
-                            color: "var(--text-tertiary)",
-                            background: "rgba(255,255,255,0.02)",
-                          }}
+              {supportedTypesLoading && !supportedTypes ? (
+                <div className="rounded-lg border border-slate-800 px-4 py-8 text-center text-sm text-slate-400">
+                  Loading supported type coverage...
+                </div>
+              ) : !supportedTypes ? (
+                <div className="rounded-lg border border-slate-800 px-4 py-8 text-center text-sm text-slate-500">
+                  Supported coverage data is unavailable.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Card className="os-card rounded-2xl space-y-2">
+                    <h4 className="text-xs font-semibold text-slate-300">
+                      Limits, OCR & Embedding Policy
+                    </h4>
+                    <div className="grid grid-cols-1 gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                      <p>
+                        <span className="text-slate-500">max batch total:</span>{" "}
+                        {supportedTypes.max_batch_total_mb} MB
+                      </p>
+                      <p>
+                        <span className="text-slate-500">file count:</span>{" "}
+                        unlimited (total must be ≤{" "}
+                        {supportedTypes.max_batch_total_mb} MB)
+                      </p>
+                      <p>
+                        <span className="text-slate-500">extensions:</span>{" "}
+                        {supportedTypes.total_extensions}
+                      </p>
+                      <p>
+                        <span className="text-slate-500">MIME types:</span>{" "}
+                        {supportedTypes.total_content_types}
+                      </p>
+                      <p>
+                        <span className="text-slate-500">OCR engine:</span>{" "}
+                        <span className="text-emerald-400 font-mono font-semibold">
+                          {supportedTypes.ocr_model_name ||
+                            supportedTypes.ocr_engine}
+                        </span>
+                      </p>
+                      <p>
+                        <span className="text-slate-500">OCR status:</span>{" "}
+                        <span
+                          className={
+                            supportedTypes.ocr_enabled
+                              ? "text-emerald-400 font-semibold"
+                              : "text-amber-400"
+                          }
                         >
-                          <RefreshCw
-                            className="inline-block animate-spin mr-2"
-                            size={14}
-                          />
-                          Synchronizing provenance matrix...
-                        </div>
-                      );
-                    }
-                    if (!data) {
-                      return (
-                        <div
-                          className="rounded-2xl border px-4 py-12 text-center text-xs"
-                          style={{
-                            borderColor: "var(--os-stroke)",
-                            color: "var(--text-tertiary)",
-                            background: "rgba(255,255,255,0.02)",
-                          }}
-                        >
-                          No provenance sequence found for{" "}
-                          <span
-                            className="font-mono break-all"
-                            style={{ color: "var(--faim-primary)" }}
+                          {supportedTypes.ocr_enabled
+                            ? "ONLINE (Active)"
+                            : "OFF"}
+                        </span>
+                      </p>
+                      <p>
+                        <span className="text-slate-500">Embedding model:</span>{" "}
+                        <span className="text-primary-300 font-mono font-semibold">
+                          {supportedTypes.embedding_model ||
+                            "ibm-granite/granite-embedding-97m-multilingual-r2"}
+                        </span>
+                      </p>
+                      <p>
+                        <span className="text-slate-500">
+                          Embedding runtime:
+                        </span>{" "}
+                        <span className="text-primary-300">
+                          {supportedTypes.embedding_provider ||
+                            "Managed Local Runtime"}
+                        </span>
+                      </p>
+                      <p>
+                        <span className="text-slate-500">OCR fail-closed:</span>{" "}
+                        {String(supportedTypes.ocr_fail_closed)}
+                      </p>
+                    </div>
+                  </Card>
+
+                  <Card className="os-card rounded-2xl space-y-2">
+                    <h4 className="text-xs font-semibold text-slate-300">
+                      Category Coverage
+                    </h4>
+                    <div className="space-y-2 text-xs">
+                      {Object.entries(supportedTypes.categories).map(
+                        ([category, extensions]) => (
+                          <div
+                            key={category}
+                            className="rounded-lg border border-slate-800 px-2 py-2"
                           >
-                            {provenanceRawId}
-                          </span>
-                          .
-                        </div>
-                      );
-                    }
+                            <p className="text-slate-300">
+                              <span className="font-semibold">{category}</span>
+                              <span className="ml-2 text-slate-500">
+                                ({extensions.length})
+                              </span>
+                            </p>
+                            <p className="mt-1 font-mono text-[11px] text-slate-400">
+                              {extensions.join(", ") || "-"}
+                            </p>
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  </Card>
 
-                    return (
-                      <div className="space-y-5">
-                        {provenanceView === "faim" ? (
-                          <>
-                            <div
-                              className="rounded-2xl border px-6 py-5"
-                              style={{
-                                background: "rgba(255,255,255,0.03)",
-                                borderColor: "var(--os-stroke)",
-                              }}
+                  <Card className="os-card rounded-2xl space-y-2">
+                    <h4 className="text-xs font-semibold text-slate-300">
+                      Extractor Mapping
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
+                      {Object.entries(supportedTypes.extractor_doc_types).map(
+                        ([docType, count]) => (
+                          <div
+                            key={docType}
+                            className="rounded-md border border-slate-800 px-2 py-1"
+                          >
+                            <span className="font-mono">{docType}</span>:{" "}
+                            {count}
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  </Card>
+
+                  <Card className="os-card rounded-2xl space-y-2">
+                    <h4 className="text-xs font-semibold text-slate-300">
+                      OCR-Capable Extensions
+                    </h4>
+                    <p className="font-mono text-[11px] text-slate-400">
+                      {supportedTypes.ocr_capable_extensions.join(", ") || "-"}
+                    </p>
+                  </Card>
+                </div>
+              )}
+            </aside>
+          </div>
+        )}
+
+        <AnimatePresence>
+          {provenanceOpen && (
+            <div className="fixed inset-0 z-50 overflow-hidden">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 bg-black/5"
+                onClick={() => setProvenanceOpen(false)}
+                aria-label="Close provenance panel"
+              />
+
+              <motion.aside
+                initial={{ x: "100%", opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: "100%", opacity: 0 }}
+                transition={{
+                  type: "spring",
+                  damping: 32,
+                  stiffness: 210,
+                  mass: 0.8,
+                }}
+                className="absolute right-4 top-4 bottom-4 w-full max-w-[720px] overflow-hidden border shadow-[0_30px_100px_rgba(0,0,0,0.7)] backdrop-blur-3xl"
+                style={{
+                  borderColor: "rgba(255,255,255,0.12)",
+                  background: "rgba(10, 15, 25, 0.78)",
+                  borderRadius: "24px",
+                  boxShadow:
+                    "0 25px 80px -20px rgba(0,0,0,0.9), inset 0 1px 1px rgba(255,255,255,0.08)",
+                }}
+                data-testid="storage-provenance-panel"
+              >
+                <div className="h-full w-full overflow-y-auto px-8 py-7 custom-scrollbar">
+                  <div
+                    className="mb-6 flex items-center justify-between border-b pb-4"
+                    style={{ borderColor: "var(--os-stroke)" }}
+                  >
+                    <div>
+                      <h3
+                        className="text-base font-bold tracking-tight"
+                        style={{ color: "var(--text-primary)" }}
+                      >
+                        {provenanceView === "faim"
+                          ? "FAIM Ingestion Dashboard"
+                          : "Technical Audit Trace"}
+                      </h3>
+                      <p
+                        className="text-[11px]"
+                        style={{ color: "var(--text-tertiary)" }}
+                      >
+                        {provenanceView === "faim"
+                          ? "Deterministic pipeline & fractal diagnostics"
+                          : "Raw reference & node integration audit"}
+                      </p>
+                    </div>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      onClick={() => setProvenanceOpen(false)}
+                      aria-label="Close"
+                      className="hover:rotate-90 transition-transform duration-300"
+                    >
+                      <X size={16} />
+                    </Button>
+                  </div>
+
+                  {
+                    (() => {
+                      const data = provenanceData;
+                      if (provenanceLoading) {
+                        return (
+                          <div
+                            className="rounded-2xl border px-4 py-12 text-center text-xs"
+                            style={{
+                              borderColor: "var(--os-stroke)",
+                              color: "var(--text-tertiary)",
+                              background: "rgba(255,255,255,0.02)",
+                            }}
+                          >
+                            <RefreshCw
+                              className="inline-block animate-spin mr-2"
+                              size={14}
+                            />
+                            Synchronizing provenance matrix...
+                          </div>
+                        );
+                      }
+                      if (!data) {
+                        return (
+                          <div
+                            className="rounded-2xl border px-4 py-12 text-center text-xs"
+                            style={{
+                              borderColor: "var(--os-stroke)",
+                              color: "var(--text-tertiary)",
+                              background: "rgba(255,255,255,0.02)",
+                            }}
+                          >
+                            No provenance sequence found for{" "}
+                            <span
+                              className="font-mono break-all"
+                              style={{ color: "var(--faim-primary)" }}
                             >
-                              <p
-                                className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]"
-                                style={{ color: "var(--text-tertiary)" }}
+                              {provenanceRawId}
+                            </span>
+                            .
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-5">
+                          {provenanceView === "faim" ? (
+                            <>
+                              <div
+                                className="rounded-2xl border px-6 py-5"
+                                style={{
+                                  background: "rgba(255,255,255,0.03)",
+                                  borderColor: "var(--os-stroke)",
+                                }}
                               >
-                                Ingestion Pipeline Sequence
-                              </p>
-                              <div className="flex items-center gap-0">
-                                {(() => {
-                                  const kinds = new Set(
-                                    data.events.map((e) => e.kind),
-                                  );
-                                  let curr = 1;
-                                  if (
-                                    kinds.has("WRITE_ATOMS_DONE") ||
-                                    kinds.has("INGEST_DEDUP_HIT") ||
-                                    data.file.ingest_status === "ingested" ||
-                                    data.file.ingest_status === "dedup_hit"
-                                  )
-                                    curr = 5;
-                                  else if (kinds.has("ENCODED")) curr = 4;
-                                  else if (kinds.has("PACKET_CREATED"))
-                                    curr = 3;
-                                  else if (kinds.has("INGEST_START")) curr = 2;
-
-                                  return [
-                                    "Stored",
-                                    "Perceived",
-                                    "Packetized",
-                                    "Encoded",
-                                    "Integrated",
-                                  ].map((label, i) => {
-                                    const step = i + 1;
-                                    const isDone = curr >= step;
-                                    const isCurrent = curr === step;
-                                    const color = isDone
-                                      ? "var(--faim-success-text)"
-                                      : "var(--os-stroke)";
-
-                                    return (
-                                      <span
-                                        key={label}
-                                        className="flex items-center gap-1.5 text-[11px]"
-                                      >
-                                        {i > 0 && (
-                                          <span
-                                            className="mx-2 text-[10px]"
-                                            style={{
-                                              color: "var(--text-tertiary)",
-                                            }}
-                                          >
-                                            →
-                                          </span>
-                                        )}
-                                        <span
-                                          className="h-2 w-2 rounded-full"
-                                          style={{
-                                            background: isDone
-                                              ? "currentColor"
-                                              : "var(--os-stroke)",
-                                            color: color,
-                                            boxShadow: isCurrent
-                                              ? "0 0 10px currentColor"
-                                              : "none",
-                                          }}
-                                        />
-                                        <span
-                                          className="font-semibold"
-                                          style={{
-                                            color: isDone
-                                              ? "var(--text-primary)"
-                                              : "var(--text-tertiary)",
-                                          }}
-                                        >
-                                          {label}
-                                        </span>
-                                      </span>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                            </div>
-
-                            <div
-                              className="rounded-2xl border px-6 py-5"
-                              style={{
-                                background: "rgba(255,255,255,0.03)",
-                                borderColor: "var(--os-stroke)",
-                              }}
-                            >
-                              <div className="mb-5 flex items-center justify-between">
                                 <p
-                                  className="text-[10px] font-bold uppercase tracking-[0.2em]"
+                                  className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]"
                                   style={{ color: "var(--text-tertiary)" }}
                                 >
-                                  Fractal Diagnostics
+                                  Ingestion Pipeline Sequence
                                 </p>
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] px-2.5 py-0.5 h-5 uppercase font-black tracking-tighter"
-                                  style={{
-                                    borderColor: "rgba(52,211,153,0.3)",
-                                    color: "var(--faim-success-text)",
-                                    background: "rgba(52,211,153,0.05)",
-                                  }}
-                                >
-                                  DETERMINISTIC
-                                </Badge>
+                                <div className="flex items-center gap-0">
+                                  {(() => {
+                                    const kinds = new Set(
+                                      data.events.map((e) => e.kind),
+                                    );
+                                    let curr = 1;
+                                    if (
+                                      kinds.has("WRITE_ATOMS_DONE") ||
+                                      kinds.has("INGEST_DEDUP_HIT") ||
+                                      data.file.ingest_status === "ingested" ||
+                                      data.file.ingest_status === "dedup_hit"
+                                    )
+                                      curr = 5;
+                                    else if (kinds.has("ENCODED")) curr = 4;
+                                    else if (kinds.has("PACKET_CREATED"))
+                                      curr = 3;
+                                    else if (kinds.has("INGEST_START"))
+                                      curr = 2;
+
+                                    return [
+                                      "Stored",
+                                      "Perceived",
+                                      "Packetized",
+                                      "Encoded",
+                                      "Integrated",
+                                    ].map((label, i) => {
+                                      const step = i + 1;
+                                      const isDone = curr >= step;
+                                      const isCurrent = curr === step;
+                                      const color = isDone
+                                        ? "var(--faim-success-text)"
+                                        : "var(--os-stroke)";
+
+                                      return (
+                                        <span
+                                          key={label}
+                                          className="flex items-center gap-1.5 text-[11px]"
+                                        >
+                                          {i > 0 && (
+                                            <span
+                                              className="mx-2 text-[10px]"
+                                              style={{
+                                                color: "var(--text-tertiary)",
+                                              }}
+                                            >
+                                              →
+                                            </span>
+                                          )}
+                                          <span
+                                            className="h-2 w-2 rounded-full"
+                                            style={{
+                                              background: isDone
+                                                ? "currentColor"
+                                                : "var(--os-stroke)",
+                                              color: color,
+                                              boxShadow: isCurrent
+                                                ? "0 0 10px currentColor"
+                                                : "none",
+                                            }}
+                                          />
+                                          <span
+                                            className="font-semibold"
+                                            style={{
+                                              color: isDone
+                                                ? "var(--text-primary)"
+                                                : "var(--text-tertiary)",
+                                            }}
+                                          >
+                                            {label}
+                                          </span>
+                                        </span>
+                                      );
+                                    });
+                                  })()}
+                                </div>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-6 text-xs">
-                                <div>
-                                  <p
-                                    className="mb-1.5 text-[10px] uppercase tracking-wider font-medium"
-                                    style={{ color: "var(--text-tertiary)" }}
-                                  >
-                                    Nodes / Dimension
-                                  </p>
-                                  <p
-                                    className="font-mono text-sm font-bold"
-                                    style={{ color: "var(--text-primary)" }}
-                                  >
-                                    {data.node_count}{" "}
-                                    <span
-                                      style={{
-                                        color: "var(--text-tertiary)",
-                                        fontSize: "11px",
-                                        fontWeight: "normal",
-                                      }}
-                                    >
-                                      /{" "}
-                                      {data.events
-                                        .find((e) => e.kind === "ENCODED")
-                                        ?.payload_keys?.includes("vector_dim")
-                                        ? "256"
-                                        : "FAIM Standard"}
-                                    </span>
-                                  </p>
-                                </div>
-                                <div>
-                                  <p
-                                    className="mb-1.5 text-[10px] uppercase tracking-wider font-medium"
-                                    style={{ color: "var(--text-tertiary)" }}
-                                  >
-                                    Method / Extractor
-                                  </p>
-                                  <p
-                                    className="font-bold"
-                                    style={{ color: "var(--text-primary)" }}
-                                  >
-                                    EvidenceBlocks (Native)
-                                  </p>
-                                  <p
-                                    className="text-[10px] font-medium"
-                                    style={{ color: "var(--text-tertiary)" }}
-                                  >
-                                    Non-LLM atomic extraction
-                                  </p>
-                                </div>
-
-                                {data.dedup.dedup_record_found && (
-                                  <div
-                                    className="col-span-2 mt-2 rounded-xl border p-4"
-                                    style={{
-                                      background: "rgba(99,102,241,0.05)",
-                                      borderColor: "rgba(99,102,241,0.15)",
-                                    }}
-                                  >
-                                    <p
-                                      className="mb-2 text-[9px] font-black uppercase tracking-[0.2em]"
-                                      style={{ color: "#818cf8" }}
-                                    >
-                                      Idempotency Match
-                                    </p>
-                                    <p
-                                      className="break-all font-mono text-[11px]"
-                                      style={{ color: "var(--text-secondary)" }}
-                                    >
-                                      {data.dedup.packet_hash}
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            <div
-                              className="rounded-2xl border px-6 py-5"
-                              style={{
-                                background: "rgba(255,255,255,0.03)",
-                                borderColor: "var(--os-stroke)",
-                              }}
-                            >
-                              <p
-                                className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]"
-                                style={{ color: "var(--text-tertiary)" }}
+                              <div
+                                className="rounded-2xl border px-6 py-5"
+                                style={{
+                                  background: "rgba(255,255,255,0.03)",
+                                  borderColor: "var(--os-stroke)",
+                                }}
                               >
-                                Security & Sovereign Integrity
-                              </p>
-
-                              <div className="space-y-5">
-                                <div>
+                                <div className="mb-5 flex items-center justify-between">
                                   <p
-                                    className="mb-2 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                    className="text-[10px] font-bold uppercase tracking-[0.2em]"
                                     style={{ color: "var(--text-tertiary)" }}
                                   >
-                                    SHA256 Fingerprint
+                                    Fractal Diagnostics
                                   </p>
-                                  <div
-                                    className="flex items-center justify-between rounded-xl border p-3"
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[10px] px-2.5 py-0.5 h-5 uppercase font-black tracking-tighter"
                                     style={{
-                                      background: "rgba(0,0,0,0.2)",
-                                      borderColor: "rgba(255,255,255,0.06)",
+                                      borderColor: "rgba(52,211,153,0.3)",
+                                      color: "var(--faim-success-text)",
+                                      background: "rgba(52,211,153,0.05)",
                                     }}
                                   >
-                                    <p
-                                      className="break-all font-mono text-[11px] font-medium"
-                                      style={{ color: "var(--faim-primary)" }}
-                                    >
-                                      {data.file.sha256}
-                                    </p>
-                                    <Button
-                                      variant="ghost"
-                                      size="xs"
-                                      className="h-7 w-7 p-0 ml-3"
-                                      onClick={() => {
-                                        void navigator.clipboard.writeText(
-                                          data.file.sha256 || "",
-                                        );
-                                      }}
-                                    >
-                                      <FileText size={13} />
-                                    </Button>
-                                  </div>
+                                    DETERMINISTIC
+                                  </Badge>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-6">
+                                <div className="grid grid-cols-2 gap-6 text-xs">
                                   <div>
                                     <p
-                                      className="mb-1 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                      className="mb-1.5 text-[10px] uppercase tracking-wider font-medium"
                                       style={{ color: "var(--text-tertiary)" }}
                                     >
-                                      Raw Reference
+                                      Nodes / Dimension
                                     </p>
                                     <p
-                                      className="font-mono text-[11px] font-bold break-all"
+                                      className="font-mono text-sm font-bold"
+                                      style={{ color: "var(--text-primary)" }}
+                                    >
+                                      {data.node_count}{" "}
+                                      <span
+                                        style={{
+                                          color: "var(--text-tertiary)",
+                                          fontSize: "11px",
+                                          fontWeight: "normal",
+                                        }}
+                                      >
+                                        /{" "}
+                                        {data.events
+                                          .find((e) => e.kind === "ENCODED")
+                                          ?.payload_keys?.includes("vector_dim")
+                                          ? "256"
+                                          : "FAIM Standard"}
+                                      </span>
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <p
+                                      className="mb-1.5 text-[10px] uppercase tracking-wider font-medium"
+                                      style={{ color: "var(--text-tertiary)" }}
+                                    >
+                                      Method / Extractor
+                                    </p>
+                                    <p
+                                      className="font-bold"
+                                      style={{ color: "var(--text-primary)" }}
+                                    >
+                                      EvidenceBlocks (Native)
+                                    </p>
+                                    <p
+                                      className="text-[10px] font-medium"
+                                      style={{ color: "var(--text-tertiary)" }}
+                                    >
+                                      Non-LLM atomic extraction
+                                    </p>
+                                  </div>
+
+                                  {data.dedup.dedup_record_found && (
+                                    <div
+                                      className="col-span-2 mt-2 rounded-xl border p-4"
+                                      style={{
+                                        background: "rgba(99,102,241,0.05)",
+                                        borderColor: "rgba(99,102,241,0.15)",
+                                      }}
+                                    >
+                                      <p
+                                        className="mb-2 text-[9px] font-black uppercase tracking-[0.2em]"
+                                        style={{ color: "#818cf8" }}
+                                      >
+                                        Idempotency Match
+                                      </p>
+                                      <p
+                                        className="break-all font-mono text-[11px]"
+                                        style={{
+                                          color: "var(--text-secondary)",
+                                        }}
+                                      >
+                                        {data.dedup.packet_hash}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div
+                                className="rounded-2xl border px-6 py-5"
+                                style={{
+                                  background: "rgba(255,255,255,0.03)",
+                                  borderColor: "var(--os-stroke)",
+                                }}
+                              >
+                                <p
+                                  className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]"
+                                  style={{ color: "var(--text-tertiary)" }}
+                                >
+                                  Security & Sovereign Integrity
+                                </p>
+
+                                <div className="space-y-5">
+                                  <div>
+                                    <p
+                                      className="mb-2 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                      style={{ color: "var(--text-tertiary)" }}
+                                    >
+                                      SHA256 Fingerprint
+                                    </p>
+                                    <div
+                                      className="flex items-center justify-between rounded-xl border p-3"
+                                      style={{
+                                        background: "rgba(0,0,0,0.2)",
+                                        borderColor: "rgba(255,255,255,0.06)",
+                                      }}
+                                    >
+                                      <p
+                                        className="break-all font-mono text-[11px] font-medium"
+                                        style={{ color: "var(--faim-primary)" }}
+                                      >
+                                        {data.file.sha256}
+                                      </p>
+                                      <Button
+                                        variant="ghost"
+                                        size="xs"
+                                        className="h-7 w-7 p-0 ml-3"
+                                        onClick={() => {
+                                          void navigator.clipboard.writeText(
+                                            data.file.sha256 || "",
+                                          );
+                                        }}
+                                      >
+                                        <FileText size={13} />
+                                      </Button>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-6">
+                                    <div>
+                                      <p
+                                        className="mb-1 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                        style={{
+                                          color: "var(--text-tertiary)",
+                                        }}
+                                      >
+                                        Raw Reference
+                                      </p>
+                                      <p
+                                        className="font-mono text-[11px] font-bold break-all"
+                                        style={{
+                                          color: "var(--text-secondary)",
+                                        }}
+                                      >
+                                        {data.file.raw_id}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p
+                                        className="mb-1 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                        style={{
+                                          color: "var(--text-tertiary)",
+                                        }}
+                                      >
+                                        Tenant Isolation
+                                      </p>
+                                      <div
+                                        className="flex h-5 w-max items-center gap-1.5 rounded-full border px-3 text-[9px] font-black tracking-tight"
+                                        style={{
+                                          borderColor: "rgba(52,211,153,0.2)",
+                                          background: "rgba(52,211,153,0.05)",
+                                          color: "var(--faim-success-text)",
+                                        }}
+                                      >
+                                        <ShieldCheck size={12} /> SECURE
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="space-y-5">
+                              <div
+                                className="rounded-2xl border px-6 py-5"
+                                style={{
+                                  background: "rgba(255,255,255,0.03)",
+                                  borderColor: "var(--os-stroke)",
+                                }}
+                              >
+                                <p
+                                  className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]"
+                                  style={{ color: "var(--text-tertiary)" }}
+                                >
+                                  Core Reference Metadata
+                                </p>
+                                <div className="grid grid-cols-2 gap-x-10 gap-y-5">
+                                  <div>
+                                    <p
+                                      className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                      style={{ color: "var(--text-tertiary)" }}
+                                    >
+                                      Filename
+                                    </p>
+                                    <p
+                                      className="font-bold truncate text-sm"
+                                      style={{ color: "var(--text-primary)" }}
+                                    >
+                                      {data.file.filename}
+                                    </p>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <p
+                                      className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                      style={{ color: "var(--text-tertiary)" }}
+                                    >
+                                      Raw ID
+                                    </p>
+                                    <p
+                                      className="font-mono text-[11px] font-medium break-all"
                                       style={{ color: "var(--text-secondary)" }}
                                     >
                                       {data.file.raw_id}
                                     </p>
                                   </div>
+                                </div>
+                              </div>
+
+                              <div
+                                className="rounded-2xl border px-6 py-5"
+                                style={{
+                                  background: "rgba(255,255,255,0.03)",
+                                  borderColor: "var(--os-stroke)",
+                                }}
+                              >
+                                <p
+                                  className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]"
+                                  style={{ color: "var(--text-tertiary)" }}
+                                >
+                                  Raw Persistence Layer
+                                </p>
+                                <div className="grid grid-cols-2 gap-6">
                                   <div>
                                     <p
-                                      className="mb-1 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                      className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]"
                                       style={{ color: "var(--text-tertiary)" }}
                                     >
-                                      Tenant Isolation
+                                      Mime Type
+                                    </p>
+                                    <p
+                                      className="text-[11px] font-mono font-bold"
+                                      style={{ color: "var(--text-secondary)" }}
+                                    >
+                                      {data.file.mime_type || "unknown"}
+                                    </p>
+                                  </div>
+                                  <div className="col-span-2">
+                                    <p
+                                      className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                      style={{ color: "var(--text-tertiary)" }}
+                                    >
+                                      Backend URI
                                     </p>
                                     <div
-                                      className="flex h-5 w-max items-center gap-1.5 rounded-full border px-3 text-[9px] font-black tracking-tight"
+                                      className="rounded-xl border px-4 py-2 font-mono text-[11px] break-all shadow-inner"
                                       style={{
-                                        borderColor: "rgba(52,211,153,0.2)",
-                                        background: "rgba(52,211,153,0.05)",
-                                        color: "var(--faim-success-text)",
+                                        background: "rgba(0,0,0,0.2)",
+                                        borderColor: "rgba(255,255,255,0.06)",
+                                        color: "var(--text-tertiary)",
                                       }}
                                     >
-                                      <ShieldCheck size={12} /> SECURE
+                                      {data.raw_ref?.uri || "no_uri_recorded"}
                                     </div>
                                   </div>
                                 </div>
                               </div>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="space-y-5">
-                            <div
-                              className="rounded-2xl border px-6 py-5"
-                              style={{
-                                background: "rgba(255,255,255,0.03)",
-                                borderColor: "var(--os-stroke)",
-                              }}
-                            >
-                              <p
-                                className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]"
-                                style={{ color: "var(--text-tertiary)" }}
+
+                              <div
+                                className="rounded-2xl border overflow-hidden"
+                                style={{
+                                  background: "rgba(255,255,255,0.03)",
+                                  borderColor: "var(--os-stroke)",
+                                }}
                               >
-                                Core Reference Metadata
-                              </p>
-                              <div className="grid grid-cols-2 gap-x-10 gap-y-5">
-                                <div>
+                                <div
+                                  className="flex items-center justify-between border-b px-6 py-4"
+                                  style={{
+                                    borderColor: "rgba(255,255,255,0.06)",
+                                  }}
+                                >
                                   <p
-                                    className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                    className="text-[10px] font-bold uppercase tracking-[0.2em]"
                                     style={{ color: "var(--text-tertiary)" }}
                                   >
-                                    Filename
+                                    Atomic Node Integration
                                   </p>
-                                  <p
-                                    className="font-bold truncate text-sm"
-                                    style={{ color: "var(--text-primary)" }}
+                                  <span
+                                    className="text-[10px] font-black tracking-widest uppercase"
+                                    style={{ color: "var(--text-tertiary)" }}
                                   >
-                                    {data.file.filename}
-                                  </p>
+                                    {data.nodes.length < data.node_count
+                                      ? `${data.nodes.length} of ${data.node_count} atoms`
+                                      : `${data.node_count} atoms`}
+                                  </span>
                                 </div>
-                                <div className="col-span-2">
-                                  <p
-                                    className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]"
-                                    style={{ color: "var(--text-tertiary)" }}
-                                  >
-                                    Raw ID
-                                  </p>
-                                  <p
-                                    className="font-mono text-[11px] font-medium break-all"
-                                    style={{ color: "var(--text-secondary)" }}
-                                  >
-                                    {data.file.raw_id}
-                                  </p>
+                                <div className="max-h-80 overflow-y-auto p-4 custom-scrollbar">
+                                  <div className="space-y-3">
+                                    {data.nodes.length === 0 ? (
+                                      <p
+                                        className="py-8 text-center text-[11px] font-medium italic"
+                                        style={{
+                                          color: "var(--text-tertiary)",
+                                        }}
+                                      >
+                                        No nodes integrated yet.
+                                      </p>
+                                    ) : (
+                                      data.nodes.map((n, i) => (
+                                        <div
+                                          key={i}
+                                          className="flex flex-col gap-2 rounded-xl border px-5 py-4 shadow-sm"
+                                          style={{
+                                            background: "rgba(0,0,0,0.15)",
+                                            borderColor:
+                                              "rgba(255,255,255,0.04)",
+                                          }}
+                                        >
+                                          <p
+                                            className="font-mono text-[11px] font-black break-all"
+                                            style={{
+                                              color: "var(--text-secondary)",
+                                            }}
+                                          >
+                                            {n.node_id}
+                                          </p>
+                                          <div className="flex items-center justify-between">
+                                            <p
+                                              className="text-[9px] uppercase tracking-tighter font-bold"
+                                              style={{
+                                                color: "var(--text-tertiary)",
+                                              }}
+                                            >
+                                              VEC: {n.vector_hash?.slice(0, 16)}
+                                              ... · BLK: {n.block_id || "-"}
+                                            </p>
+                                            <Badge
+                                              variant="outline"
+                                              className="h-4 text-[8px] border font-black opacity-60 px-1"
+                                            >
+                                              ATOM
+                                            </Badge>
+                                          </div>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            <div
-                              className="rounded-2xl border px-6 py-5"
-                              style={{
-                                background: "rgba(255,255,255,0.03)",
-                                borderColor: "var(--os-stroke)",
-                              }}
-                            >
-                              <p
-                                className="mb-5 text-[10px] font-bold uppercase tracking-[0.2em]"
-                                style={{ color: "var(--text-tertiary)" }}
+                              <div
+                                className="rounded-2xl border overflow-hidden"
+                                style={{
+                                  background: "rgba(255,255,255,0.03)",
+                                  borderColor: "var(--os-stroke)",
+                                }}
                               >
-                                Raw Persistence Layer
-                              </p>
-                              <div className="grid grid-cols-2 gap-6">
-                                <div>
+                                <div
+                                  className="flex items-center justify-between border-b px-6 py-4"
+                                  style={{
+                                    borderColor: "rgba(255,255,255,0.06)",
+                                  }}
+                                >
                                   <p
-                                    className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]"
+                                    className="text-[10px] font-bold uppercase tracking-[0.2em]"
                                     style={{ color: "var(--text-tertiary)" }}
                                   >
-                                    Mime Type
+                                    Sequential Event Stream
                                   </p>
-                                  <p
-                                    className="text-[11px] font-mono font-bold"
-                                    style={{ color: "var(--text-secondary)" }}
+                                  <span
+                                    className="text-[10px] font-black tracking-widest uppercase"
+                                    style={{ color: "var(--text-tertiary)" }}
                                   >
-                                    {data.file.mime_type || "unknown"}
-                                  </p>
+                                    {data.events.length} signals
+                                  </span>
                                 </div>
-                                <div className="col-span-2">
-                                  <p
-                                    className="mb-1.5 text-[9px] font-medium uppercase tracking-[0.2em]"
-                                    style={{ color: "var(--text-tertiary)" }}
-                                  >
-                                    Backend URI
-                                  </p>
+                                <div className="p-6 relative">
                                   <div
-                                    className="rounded-xl border px-4 py-2 font-mono text-[11px] break-all shadow-inner"
+                                    className="absolute left-7 top-8 bottom-8 w-px"
                                     style={{
-                                      background: "rgba(0,0,0,0.2)",
-                                      borderColor: "rgba(255,255,255,0.06)",
-                                      color: "var(--text-tertiary)",
+                                      background: "rgba(255,255,255,0.06)",
                                     }}
-                                  >
-                                    {data.raw_ref?.uri || "no_uri_recorded"}
+                                  />
+                                  <div className="space-y-6 relative z-10">
+                                    {data.events.length === 0 ? (
+                                      <p
+                                        className="text-[11px] font-medium italic"
+                                        style={{
+                                          color: "var(--text-tertiary)",
+                                        }}
+                                      >
+                                        No trace signals recorded.
+                                      </p>
+                                    ) : (
+                                      data.events.map((e, i) => (
+                                        <div
+                                          key={i}
+                                          className="flex gap-4 text-[11px] group"
+                                        >
+                                          <div
+                                            className="w-2 h-2 rounded-full mt-1.5 shrink-0 transition-transform group-hover:scale-125 bg-[var(--faim-primary)]"
+                                            style={{
+                                              boxShadow: `0 0 8px var(--faim-primary)`,
+                                            }}
+                                          />
+                                          <div className="flex-1 min-w-0">
+                                            <p
+                                              className="font-black uppercase tracking-widest text-[10px]"
+                                              style={{
+                                                color: "var(--text-primary)",
+                                              }}
+                                            >
+                                              {e.kind}
+                                            </p>
+                                            <p
+                                              className="text-[9px] mt-1 font-mono font-medium opacity-60"
+                                              style={{
+                                                color: "var(--text-tertiary)",
+                                              }}
+                                            >
+                                              TS:{" "}
+                                              {e.ts
+                                                ? new Date(e.ts).toISOString()
+                                                : "-"}
+                                            </p>
+                                            {Object.keys(e.payload || {})
+                                              .length > 0 && (
+                                              <div className="mt-2 flex flex-wrap gap-1.5">
+                                                {Object.entries(e.payload)
+                                                  .slice(0, 4)
+                                                  .map(([key, value]) => (
+                                                    <span
+                                                      key={`${e.seq}-${key}`}
+                                                      className="rounded-full border px-2 py-0.5 font-mono text-[9px]"
+                                                      style={{
+                                                        borderColor:
+                                                          "rgba(255,255,255,0.08)",
+                                                        background:
+                                                          "rgba(255,255,255,0.03)",
+                                                        color:
+                                                          "var(--text-secondary)",
+                                                      }}
+                                                    >
+                                                      {key}:{" "}
+                                                      {typeof value === "string"
+                                                        ? value
+                                                        : JSON.stringify(value)}
+                                                    </span>
+                                                  ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             </div>
-
-                            <div
-                              className="rounded-2xl border overflow-hidden"
-                              style={{
-                                background: "rgba(255,255,255,0.03)",
-                                borderColor: "var(--os-stroke)",
-                              }}
-                            >
-                              <div
-                                className="flex items-center justify-between border-b px-6 py-4"
-                                style={{
-                                  borderColor: "rgba(255,255,255,0.06)",
-                                }}
-                              >
-                                <p
-                                  className="text-[10px] font-bold uppercase tracking-[0.2em]"
-                                  style={{ color: "var(--text-tertiary)" }}
-                                >
-                                  Atomic Node Integration
-                                </p>
-                                <span
-                                  className="text-[10px] font-black tracking-widest uppercase"
-                                  style={{ color: "var(--text-tertiary)" }}
-                                >
-                                  {data.nodes.length} atoms
-                                </span>
-                              </div>
-                              <div className="max-h-80 overflow-y-auto p-4 custom-scrollbar">
-                                <div className="space-y-3">
-                                  {data.nodes.length === 0 ? (
-                                    <p
-                                      className="py-8 text-center text-[11px] font-medium italic"
-                                      style={{ color: "var(--text-tertiary)" }}
-                                    >
-                                      No nodes integrated yet.
-                                    </p>
-                                  ) : (
-                                    data.nodes.map((n, i) => (
-                                      <div
-                                        key={i}
-                                        className="flex flex-col gap-2 rounded-xl border px-5 py-4 shadow-sm"
-                                        style={{
-                                          background: "rgba(0,0,0,0.15)",
-                                          borderColor: "rgba(255,255,255,0.04)",
-                                        }}
-                                      >
-                                        <p
-                                          className="font-mono text-[11px] font-black break-all"
-                                          style={{
-                                            color: "var(--text-secondary)",
-                                          }}
-                                        >
-                                          {n.node_id}
-                                        </p>
-                                        <div className="flex items-center justify-between">
-                                          <p
-                                            className="text-[9px] uppercase tracking-tighter font-bold"
-                                            style={{
-                                              color: "var(--text-tertiary)",
-                                            }}
-                                          >
-                                            VEC: {n.vector_hash?.slice(0, 16)}
-                                            ... · BLK: {n.block_id || "-"}
-                                          </p>
-                                          <Badge
-                                            variant="outline"
-                                            className="h-4 text-[8px] border font-black opacity-60 px-1"
-                                          >
-                                            ATOM
-                                          </Badge>
-                                        </div>
-                                      </div>
-                                    ))
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div
-                              className="rounded-2xl border overflow-hidden"
-                              style={{
-                                background: "rgba(255,255,255,0.03)",
-                                borderColor: "var(--os-stroke)",
-                              }}
-                            >
-                              <div
-                                className="flex items-center justify-between border-b px-6 py-4"
-                                style={{
-                                  borderColor: "rgba(255,255,255,0.06)",
-                                }}
-                              >
-                                <p
-                                  className="text-[10px] font-bold uppercase tracking-[0.2em]"
-                                  style={{ color: "var(--text-tertiary)" }}
-                                >
-                                  Sequential Event Stream
-                                </p>
-                                <span
-                                  className="text-[10px] font-black tracking-widest uppercase"
-                                  style={{ color: "var(--text-tertiary)" }}
-                                >
-                                  {data.events.length} signals
-                                </span>
-                              </div>
-                              <div className="p-6 relative">
-                                <div
-                                  className="absolute left-7 top-8 bottom-8 w-px"
-                                  style={{
-                                    background: "rgba(255,255,255,0.06)",
-                                  }}
-                                />
-                                <div className="space-y-6 relative z-10">
-                                  {data.events.length === 0 ? (
-                                    <p
-                                      className="text-[11px] font-medium italic"
-                                      style={{ color: "var(--text-tertiary)" }}
-                                    >
-                                      No trace signals recorded.
-                                    </p>
-                                  ) : (
-                                    data.events.map((e, i) => (
-                                      <div
-                                        key={i}
-                                        className="flex gap-4 text-[11px] group"
-                                      >
-                                        <div
-                                          className="w-2 h-2 rounded-full mt-1.5 shrink-0 transition-transform group-hover:scale-125 bg-[var(--faim-primary)]"
-                                          style={{
-                                            boxShadow: `0 0 8px var(--faim-primary)`,
-                                          }}
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                          <p
-                                            className="font-black uppercase tracking-widest text-[10px]"
-                                            style={{
-                                              color: "var(--text-primary)",
-                                            }}
-                                          >
-                                            {e.kind}
-                                          </p>
-                                          <p
-                                            className="text-[9px] mt-1 font-mono font-medium opacity-60"
-                                            style={{
-                                              color: "var(--text-tertiary)",
-                                            }}
-                                          >
-                                            TS:{" "}
-                                            {e.ts
-                                              ? new Date(e.ts).toISOString()
-                                              : "-"}
-                                          </p>
-                                          {Object.keys(e.payload || {}).length >
-                                            0 && (
-                                            <div className="mt-2 flex flex-wrap gap-1.5">
-                                              {Object.entries(e.payload)
-                                                .slice(0, 4)
-                                                .map(([key, value]) => (
-                                                  <span
-                                                    key={`${e.seq}-${key}`}
-                                                    className="rounded-full border px-2 py-0.5 font-mono text-[9px]"
-                                                    style={{
-                                                      borderColor:
-                                                        "rgba(255,255,255,0.08)",
-                                                      background:
-                                                        "rgba(255,255,255,0.03)",
-                                                      color:
-                                                        "var(--text-secondary)",
-                                                    }}
-                                                  >
-                                                    {key}:{" "}
-                                                    {typeof value === "string"
-                                                      ? value
-                                                      : JSON.stringify(value)}
-                                                  </span>
-                                                ))}
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                    ))
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })() as React.ReactNode
-                }
-              </div>
-            </motion.aside>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
-    <StorageManual open={manualOpen} onClose={() => setManualOpen(false)} />
-  </>
+                          )}
+                        </div>
+                      );
+                    })() as React.ReactNode
+                  }
+                </div>
+              </motion.aside>
+            </div>
+          )}
+        </AnimatePresence>
+      </div>
+      <StorageManual open={manualOpen} onClose={() => setManualOpen(false)} />
+    </>
   );
 }

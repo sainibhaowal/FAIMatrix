@@ -111,11 +111,7 @@ class EvolutionBackupRepo:
         )
         if version is not None:
             query = query.filter(EvolutionBackupModel.version == int(version))
-        return (
-            query.order_by(EvolutionBackupModel.created_at.desc())
-            .limit(limit)
-            .all()
-        )
+        return query.order_by(EvolutionBackupModel.created_at.desc()).limit(limit).all()
 
     def count_for_version(self, graph_id: str, version: int) -> int:
         return (

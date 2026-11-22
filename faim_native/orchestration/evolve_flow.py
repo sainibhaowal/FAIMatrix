@@ -184,11 +184,20 @@ def _resolve_lambda_gate(
     scale_actions = bool(getattr(runtime_cfg, "self_evolve_lambda_action_scale", False))
 
     # Allow policy to override (learning can adjust)
-    if hasattr(policy, "evolve_lambda_gate_enabled") and policy.evolve_lambda_gate_enabled is not None:
+    if (
+        hasattr(policy, "evolve_lambda_gate_enabled")
+        and policy.evolve_lambda_gate_enabled is not None
+    ):
         enabled = bool(policy.evolve_lambda_gate_enabled)
-    if hasattr(policy, "evolve_lambda_gate_min") and policy.evolve_lambda_gate_min is not None:
+    if (
+        hasattr(policy, "evolve_lambda_gate_min")
+        and policy.evolve_lambda_gate_min is not None
+    ):
         min_lambda = max(0.0, min(1.0, float(policy.evolve_lambda_gate_min)))
-    if hasattr(policy, "evolve_lambda_action_scale") and policy.evolve_lambda_action_scale is not None:
+    if (
+        hasattr(policy, "evolve_lambda_action_scale")
+        and policy.evolve_lambda_action_scale is not None
+    ):
         scale_actions = bool(policy.evolve_lambda_action_scale)
 
     return {
@@ -266,7 +275,9 @@ def _compute_before_diagnostics(
             "node_count": max(0, len(nodes or [])),
         }
     except Exception:  # nosec B110 - learning is best effort
-        logger.debug("[Evolve] Before-diagnostics unavailable for learning", exc_info=True)
+        logger.debug(
+            "[Evolve] Before-diagnostics unavailable for learning", exc_info=True
+        )
         return None
 
 
@@ -385,16 +396,12 @@ def _record_learning_outcome(
         after_diag = (diagnostics_dict or {}).get("metrics") or diagnostics_dict or {}
         after = {
             "R": float(after_diag.get("R", after_diag.get("redundancy_R", 0.0))),
-            "N": float(
-                after_diag.get("novelty", after_diag.get("novelty_N", 0.0))
-            ),
+            "N": float(after_diag.get("novelty", after_diag.get("novelty_N", 0.0))),
             "E": float(after_diag.get("energy", after_diag.get("energy_E", 0.0))),
             "D": float(after_diag.get("D_hat", after_diag.get("D", 0.0))),
             "H": float(after_diag.get("H_hat", after_diag.get("H", 0.0))),
             "lambda": float(
-                after_diag.get(
-                    "lambda_hat", after_diag.get("lambda", 0.0)
-                )
+                after_diag.get("lambda_hat", after_diag.get("lambda", 0.0))
             ),
         }
 
@@ -437,14 +444,10 @@ def _record_learning_outcome(
         # ---- Meta-metrics: maturity proof derived from this cycle --------
         merges = outcome.merges
         prunes = outcome.prunes
-        r_red = (outcome.r_before - outcome.r_after) / max(
-            0.05, outcome.r_before
-        )
+        r_red = (outcome.r_before - outcome.r_after) / max(0.05, outcome.r_before)
         merge_usefulness = _clamp01(r_red) if merges > 0 else 0.5
         # Regret: pruning that fails to relieve redundancy was wasted work.
-        prune_regret = (
-            _clamp01(1.0 - r_red) if prunes > 0 and r_red < 0.01 else 0.0
-        )
+        prune_regret = _clamp01(1.0 - r_red) if prunes > 0 and r_red < 0.01 else 0.0
         invention_utilization = _invention_utilization(
             graph_id=graph_id, node_repo=node_repo, session=session
         )
@@ -529,9 +532,7 @@ def _record_learning_outcome(
             ),
             "meta_metrics": {
                 "merge_usefulness": round(float(merge_usefulness), 6),
-                "invention_utilization": round(
-                    float(invention_utilization), 6
-                ),
+                "invention_utilization": round(float(invention_utilization), 6),
                 "prune_regret": round(float(prune_regret), 6),
                 "alerts": alerts,
             },
@@ -824,10 +825,37 @@ def run_evolve(
                     if self_invent_requested is None
                     else bool(self_invent_requested)
                 )
+                if self_invent_requested is None and hasattr(session, "query"):
+                    try:
+                        from store.pg.repos.self_evolution_state_repo import (
+                            SelfEvolutionStateRepo,
+                        )
+
+                        ctrl = SelfEvolutionStateRepo(
+                            session=session, tenant_id=tenant_id
+                        ).resolve_control_state(graph_id=graph_id, session=session)
+                        if (
+                            ctrl.source == "db_override"
+                            and ctrl.self_invent_enabled
+                            and ctrl.self_invent_on_evolve
+                        ):
+                            resolved_self_invent_requested = True
+                    except Exception:  # nosec B110 - control lookup is best effort
+                        pass
+
                 invention_overrides = _resolve_invention_overrides(
                     runtime_cfg=runtime_cfg,
                     policy=policy,
                 )
+                if resolved_self_invent_requested:
+                    invention_overrides = dict(invention_overrides)
+                    invention_overrides["enabled"] = True
+                    invention_overrides["on_evolve"] = True
+                    invention_overrides["synthesis_bridge_enabled"] = True
+                    invention_overrides["synthesis_max_macros"] = max(
+                        3,
+                        int(invention_overrides.get("max_macros_per_cycle", 3) or 3),
+                    )
                 lambda_gate = _resolve_lambda_gate(
                     runtime_cfg=runtime_cfg,
                     policy=policy,
@@ -979,7 +1007,9 @@ def run_evolve(
                         logger.warning("Failed to convert diagnostics: %s", e)
 
                     try:
-                        from orchestration.query_flow import persist_graph_diagnostics_snapshot
+                        from orchestration.query_flow import (
+                            persist_graph_diagnostics_snapshot,
+                        )
 
                         persist_graph_diagnostics_snapshot(
                             session,
@@ -1046,9 +1076,7 @@ def run_evolve(
                         graph_version=result.graph_version,
                         lambda_hat=lambda_hat,
                         lambda_threshold=float(
-                            (invention_overrides or {}).get(
-                                "lambda_threshold", 0.3
-                            )
+                            (invention_overrides or {}).get("lambda_threshold", 0.3)
                         ),
                     )
                     theories_created = theory_result.theories_created
@@ -1198,8 +1226,7 @@ def run_evolve(
                         and learning_ctx.retrieval_before > 0.05
                     ):
                         delta = (
-                            learning_ctx.retrieval_after
-                            - learning_ctx.retrieval_before
+                            learning_ctx.retrieval_after - learning_ctx.retrieval_before
                         ) / learning_ctx.retrieval_before
                         retrieval_delta = max(-1.0, min(1.0, delta))
                     learning_summary = _record_learning_outcome(
@@ -1216,6 +1243,46 @@ def run_evolve(
                         retrieval_delta=retrieval_delta,
                         theories=theories_created,
                     )
+
+                if session is not None:
+                    try:
+                        from lexical.cooccurrence_bridge import (
+                            run_cooccurrence_bridge_learning,
+                        )
+
+                        bridge_res = run_cooccurrence_bridge_learning(
+                            session=session,
+                            tenant_id=tenant_id,
+                            graph_id=graph_id,
+                        )
+                        if bridge_res.bridges_persisted > 0:
+                            if bridge_res.graph_version is not None:
+                                result.graph_version = bridge_res.graph_version
+                            events_emitted.append("COOCCURRENCE_BRIDGES_LEARNED")
+                    except Exception as bridge_exc:  # nosec B110
+                        logger.warning(
+                            "[Evolve] Co-occurrence bridge learning failed (non-fatal): %s",
+                            bridge_exc,
+                        )
+                    try:
+                        from orchestration.query_reinforcement import (
+                            promote_query_evidence_bridges,
+                        )
+
+                        qrl_res = promote_query_evidence_bridges(
+                            session=session,
+                            tenant_id=tenant_id,
+                            graph_id=graph_id,
+                        )
+                        if qrl_res.bridges_persisted > 0:
+                            if qrl_res.graph_version is not None:
+                                result.graph_version = qrl_res.graph_version
+                            events_emitted.append("QUERY_REINFORCEMENT_PROMOTED")
+                    except Exception as qrl_exc:  # nosec B110
+                        logger.warning(
+                            "[Evolve] Query reinforcement promotion failed (non-fatal): %s",
+                            qrl_exc,
+                        )
 
                 # =====================================================================
                 # STEP 3: Build result

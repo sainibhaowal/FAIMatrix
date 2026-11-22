@@ -53,7 +53,10 @@ export function SubHeading({
   children: React.ReactNode;
 }) {
   return (
-    <h3 id={id} className="scroll-mt-24 pt-5 text-sm font-semibold text-cyan-200">
+    <h3
+      id={id}
+      className="scroll-mt-24 pt-5 text-sm font-semibold text-cyan-200"
+    >
       {children}
     </h3>
   );
@@ -69,9 +72,21 @@ export function Callout({
   children: React.ReactNode;
 }) {
   const tones = {
-    info: { border: "border-sky-400/30", bg: "bg-sky-400/[0.06]", text: "text-sky-300" },
-    success: { border: "border-emerald-400/30", bg: "bg-emerald-400/[0.06]", text: "text-emerald-300" },
-    warn: { border: "border-amber-400/30", bg: "bg-amber-400/[0.06]", text: "text-amber-300" },
+    info: {
+      border: "border-sky-400/30",
+      bg: "bg-sky-400/[0.06]",
+      text: "text-sky-300",
+    },
+    success: {
+      border: "border-emerald-400/30",
+      bg: "bg-emerald-400/[0.06]",
+      text: "text-emerald-300",
+    },
+    warn: {
+      border: "border-amber-400/30",
+      bg: "bg-amber-400/[0.06]",
+      text: "text-amber-300",
+    },
   } as const;
   const t = tones[tone];
   return (
@@ -79,7 +94,9 @@ export function Callout({
       <span className={`mt-0.5 shrink-0 text-sm ${t.text}`}>◆</span>
       <div>
         <p className={`text-xs font-semibold ${t.text}`}>{title}</p>
-        <div className="mt-1 text-xs leading-relaxed text-slate-300">{children}</div>
+        <div className="mt-1 text-xs leading-relaxed text-slate-300">
+          {children}
+        </div>
       </div>
     </div>
   );
@@ -90,13 +107,7 @@ export interface DTableRow {
   cells: React.ReactNode[];
 }
 
-export function DTable({
-  head,
-  rows,
-}: {
-  head: string[];
-  rows: DTableRow[];
-}) {
+export function DTable({ head, rows }: { head: string[]; rows: DTableRow[] }) {
   return (
     <div className="overflow-x-auto rounded-[14px] border border-white/8">
       <table className="w-full text-left text-xs">
@@ -111,7 +122,10 @@ export function DTable({
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={row.key ?? String(i)} className="border-b border-white/4 last:border-b-0 text-slate-300">
+            <tr
+              key={row.key ?? String(i)}
+              className="border-b border-white/4 last:border-b-0 text-slate-300"
+            >
               {row.cells.map((cell, j) => (
                 <td key={j} className="px-3 py-2 align-top">
                   {cell}
@@ -199,7 +213,9 @@ export function ManualShell({
             <BookOpen size={16} />
           </span>
           <div className="min-w-0">
-            <p className="text-sm font-semibold tracking-tight text-white">{title}</p>
+            <p className="text-sm font-semibold tracking-tight text-white">
+              {title}
+            </p>
             <p className="truncate font-mono text-[10px] uppercase tracking-widest text-slate-500">
               {subtitle}
             </p>
@@ -229,7 +245,9 @@ export function ManualShell({
             <nav className="mt-3 space-y-1">
               {toc.map((item) => {
                 const active = activeId === item.id;
-                const childActive = item.children?.some((c) => c.id === activeId);
+                const childActive = item.children?.some(
+                  (c) => c.id === activeId,
+                );
                 return (
                   <div key={item.id}>
                     <button
@@ -241,7 +259,9 @@ export function ManualShell({
                           : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
                       }`}
                     >
-                      <span className={active || childActive ? "font-semibold" : ""}>
+                      <span
+                        className={active || childActive ? "font-semibold" : ""}
+                      >
                         {item.label}
                       </span>
                       {childActive && !active && (
@@ -292,8 +312,13 @@ export function ManualShell({
           </div>
         </div>
 
-        <main ref={contentRef} className="min-w-0 flex-1 overflow-y-auto custom-scrollbar">
-          <div className="mx-auto max-w-4xl space-y-10 px-5 py-8 sm:px-8">{children}</div>
+        <main
+          ref={contentRef}
+          className="min-w-0 flex-1 overflow-y-auto custom-scrollbar"
+        >
+          <div className="mx-auto max-w-4xl space-y-10 px-5 py-8 sm:px-8">
+            {children}
+          </div>
         </main>
       </div>
     </div>,

@@ -89,9 +89,7 @@ def _seed_redundant_graph(session, tenant_id: str, graph_id: str) -> int:
     return len(node_repo.list_atoms(graph_id=graph_id, limit=100))
 
 
-def _run_evolve_with_permissive_policy(
-    session, tenant_id: str, graph_id: str
-) -> dict:
+def _run_evolve_with_permissive_policy(session, tenant_id: str, graph_id: str) -> dict:
     """Run evolve_once directly with a permissive prune policy.
 
     The API defaults never prune on small graphs (7-day age gate + merge-first
@@ -232,9 +230,7 @@ def test_phase_ev_e_backups_tenant_isolation(monkeypatch, tmp_path):
 
     client = _mk_client(
         monkeypatch,
-        tenant_keys_json=(
-            f'{{"{tenant_a}":["{key_a}"],"{tenant_b}":["{key_b}"]}}'
-        ),
+        tenant_keys_json=(f'{{"{tenant_a}":["{key_a}"],"{tenant_b}":["{key_b}"]}}'),
         database_url=database_url,
     )
 
@@ -250,12 +246,8 @@ def test_phase_ev_e_backups_tenant_isolation(monkeypatch, tmp_path):
     headers_a = {"X-Tenant-Id": tenant_a, "X-Api-Key": key_a}
     headers_b = {"X-Tenant-Id": tenant_b, "X-Api-Key": key_b}
 
-    own = client.get(
-        f"/api/v1/evolve/backups?graph_id={graph_a}", headers=headers_a
-    )
-    other = client.get(
-        f"/api/v1/evolve/backups?graph_id={graph_a}", headers=headers_b
-    )
+    own = client.get(f"/api/v1/evolve/backups?graph_id={graph_a}", headers=headers_a)
+    other = client.get(f"/api/v1/evolve/backups?graph_id={graph_a}", headers=headers_b)
     assert own.status_code == 200
     assert other.status_code == 200
     assert own.json()["count"] >= 1

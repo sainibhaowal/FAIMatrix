@@ -2,17 +2,16 @@
 
 from __future__ import annotations
 
-import csv
 import gzip
 import re
-from functools import lru_cache
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 
 from lexical.de_light_stemmer import stem_de_tokens
 from lexical.synonym_expander import WeightedExpansion, merge_weighted_expansions
-from lexical.transliteration import transliterate_de, transliterate_text
+from lexical.transliteration import transliterate_text
 from lexical.unicode_normalizer import normalize_unicode_text
 
 try:
@@ -49,10 +48,66 @@ _LANGUAGE_HINTS: Dict[str, Tuple[str, ...]] = {
     "nl": ("de", "het", "met", "voor", "omzet", "kwartaal"),
 }
 _LIGHT_SUFFIXES: Dict[str, Tuple[str, ...]] = {
-    "es": ("aciones", "acion", "mente", "adora", "adores", "ador", "idad", "idades", "mente", "ismo", "ista", "istas", "cion", "sion", "es", "s"),
-    "fr": ("ements", "ement", "atrices", "atrice", "ateur", "ation", "ations", "euses", "euse", "eaux", "aux", "es", "s"),
-    "it": ("azioni", "azione", "mente", "atori", "atore", "trice", "zioni", "zione", "ita", "ita'", "i", "e"),
-    "pt": ("acoes", "acao", "mente", "idades", "idade", "adores", "ador", "coes", "cao", "es", "s"),
+    "es": (
+        "aciones",
+        "acion",
+        "mente",
+        "adora",
+        "adores",
+        "ador",
+        "idad",
+        "idades",
+        "mente",
+        "ismo",
+        "ista",
+        "istas",
+        "cion",
+        "sion",
+        "es",
+        "s",
+    ),
+    "fr": (
+        "ements",
+        "ement",
+        "atrices",
+        "atrice",
+        "ateur",
+        "ation",
+        "ations",
+        "euses",
+        "euse",
+        "eaux",
+        "aux",
+        "es",
+        "s",
+    ),
+    "it": (
+        "azioni",
+        "azione",
+        "mente",
+        "atori",
+        "atore",
+        "trice",
+        "zioni",
+        "zione",
+        "ita",
+        "ita'",
+        "i",
+        "e",
+    ),
+    "pt": (
+        "acoes",
+        "acao",
+        "mente",
+        "idades",
+        "idade",
+        "adores",
+        "ador",
+        "coes",
+        "cao",
+        "es",
+        "s",
+    ),
     "nl": ("heden", "iteit", "eren", "eren", "ing", "ingen", "baar", "lijk", "en", "s"),
 }
 
@@ -152,7 +207,7 @@ def _iter_lexicon_rows() -> List[Tuple[str, Dict[str, str]]]:
             if header and len(header) == len(parts):
                 concept_key = parts[0]
                 surfaces: Dict[str, str] = {}
-                for name, value in zip(header[1:], parts[1:]):
+                for name, value in zip(header[1:], parts[1:], strict=False):
                     lang = _LANG_ALIASES.get(name.strip().lower())
                     if lang and value:
                         surfaces[lang] = value
@@ -203,7 +258,9 @@ def load_multilingual_resources() -> Tuple[
 
 def load_multilingual_lexicon() -> Dict[str, Dict[str, Tuple[str, str]]]:
     by_language, _concept_surfaces, supported_languages = load_multilingual_resources()
-    lexicon: Dict[str, Dict[str, Tuple[str, str]]] = {language: {} for language in supported_languages}
+    lexicon: Dict[str, Dict[str, Tuple[str, str]]] = {
+        language: {} for language in supported_languages
+    }
     for language, mapping in by_language.items():
         for surface, match in mapping.items():
             lexicon.setdefault(language, {})[surface] = (

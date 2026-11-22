@@ -328,6 +328,7 @@ def create_app() -> FastAPI:
             except ValueError:
                 prewarm_timeout = 300
             try:
+
                 def _prewarm_embedding() -> str:
                     provider = get_active_embedding_provider()
                     if provider is None:

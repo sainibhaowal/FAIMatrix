@@ -175,13 +175,17 @@ export function CommandCenterManual({
         </p>
         <Callout tone="info" title="All data is real">
           The charts and the 3D graph render actual graph data fetched from the
-          backend — not placeholder or decorative series. Empty states are
-          shown honestly while the graph is empty or while the first samples
-          are still arriving.
+          backend — not placeholder or decorative series. Empty states are shown
+          honestly while the graph is empty or while the first samples are still
+          arriving.
         </Callout>
       </SectionHeading>
 
-      <SectionHeading id="realtime" kicker="Chapter 02" title="Live Data Architecture">
+      <SectionHeading
+        id="realtime"
+        kicker="Chapter 02"
+        title="Live Data Architecture"
+      >
         <p>
           The page uses a hybrid push + pull model so updates arrive quickly
           without hammering the backend.
@@ -190,12 +194,14 @@ export function CommandCenterManual({
         <SubHeading id="rt-sse">SSE Event Stream</SubHeading>
         <p>
           The activity feed subscribes to the backend Server-Sent Events
-          endpoint <span className="font-mono text-cyan-300">/api/v1/events/stream</span>{" "}
+          endpoint{" "}
+          <span className="font-mono text-cyan-300">/api/v1/events/stream</span>{" "}
           once the initial event history is loaded. It resumes from your last
-          known sequence number (<span className="font-mono text-cyan-300">after_seq</span>),
-          so no events are skipped or replayed. The backend sends a heartbeat
-          every 15 seconds to keep the connection alive, and the client
-          reconnects automatically with a 3-second backoff if the stream drops.
+          known sequence number (
+          <span className="font-mono text-cyan-300">after_seq</span>), so no
+          events are skipped or replayed. The backend sends a heartbeat every 15
+          seconds to keep the connection alive, and the client reconnects
+          automatically with a 3-second backoff if the stream drops.
         </p>
 
         <SubHeading id="rt-poll">Polling Fallback</SubHeading>
@@ -215,49 +221,63 @@ export function CommandCenterManual({
             {
               cells: [
                 "Active Nodes",
-                <span className={K.mono} key="e1">/api/v1/metrics/scorecard</span>,
+                <span className={K.mono} key="e1">
+                  /api/v1/metrics/scorecard
+                </span>,
                 "30s",
               ],
             },
             {
               cells: [
                 "Storage Used",
-                <span className={K.mono} key="e2">/api/v1/storage/summary</span>,
+                <span className={K.mono} key="e2">
+                  /api/v1/storage/summary
+                </span>,
                 "30s",
               ],
             },
             {
               cells: [
                 "API Keys",
-                <span className={K.mono} key="e3">/api/v1/api-keys</span>,
+                <span className={K.mono} key="e3">
+                  /api/v1/api-keys
+                </span>,
                 "on load",
               ],
             },
             {
               cells: [
                 "System Health",
-                <span className={K.mono} key="e4">/api/health</span>,
+                <span className={K.mono} key="e4">
+                  /api/health
+                </span>,
                 "on load",
               ],
             },
             {
               cells: [
                 "3D Cortex Graph",
-                <span className={K.mono} key="e5">/api/v1/graph/surface</span>,
+                <span className={K.mono} key="e5">
+                  /api/v1/graph/surface
+                </span>,
                 "30s",
               ],
             },
             {
               cells: [
                 "Event Activity",
-                <span className={K.mono} key="e6">/api/v1/events/stream</span>,
+                <span className={K.mono} key="e6">
+                  /api/v1/events/stream
+                </span>,
                 "SSE real-time",
               ],
             },
             {
               cells: [
                 "Evolution Status",
-                <span className={K.mono} key="e7">/api/v1/evolve/status</span>,
+                <span className={K.mono} key="e7">
+                  /api/v1/evolve/status
+                </span>,
                 "30s",
               ],
             },
@@ -268,8 +288,8 @@ export function CommandCenterManual({
       <SectionHeading id="kpi" kicker="Chapter 03" title="KPI Strip">
         <p>
           The top row shows four live counters. Each card carries an accent bar
-          whose color matches its series, and a skeleton shimmer while the
-          first fetch is in flight.
+          whose color matches its series, and a skeleton shimmer while the first
+          fetch is in flight.
         </p>
 
         <SubHeading id="kpi-nodes">Active Nodes</SubHeading>
@@ -294,12 +314,17 @@ export function CommandCenterManual({
         <SubHeading id="kpi-health">System Health</SubHeading>
         <p>
           Liveness of the backend plus measured latency in milliseconds. The
-          badge in the header shows <span className="font-mono text-emerald-300">System Online</span>{" "}
-          when the health endpoint reports ok.
+          badge in the header shows{" "}
+          <span className="font-mono text-emerald-300">System Online</span> when
+          the health endpoint reports ok.
         </p>
       </SectionHeading>
 
-      <SectionHeading id="spectrum" kicker="Chapter 04" title="Graph Topology Spectrum">
+      <SectionHeading
+        id="spectrum"
+        kicker="Chapter 04"
+        title="Graph Topology Spectrum"
+      >
         <p>
           This chart plots three graph-theoretic measures over time: Density
           (D), Entropy (H), and Spectral Radius (λ). You can toggle each series
@@ -331,7 +356,11 @@ export function CommandCenterManual({
         </Callout>
       </SectionHeading>
 
-      <SectionHeading id="fig3d" kicker="Chapter 05" title="Live Cortex 3D Graph">
+      <SectionHeading
+        id="fig3d"
+        kicker="Chapter 05"
+        title="Live Cortex 3D Graph"
+      >
         <p>
           The 3D panel is a live preview of the actual knowledge graph — the
           same surface data used by the full FIG view at{" "}
@@ -344,8 +373,8 @@ export function CommandCenterManual({
           Every 30 seconds the canvas refetches{" "}
           <span className="font-mono text-cyan-300">/api/v1/graph/surface</span>{" "}
           and re-lays out your real nodes and links. Node size reflects access
-          activity (touch count), so frequently used memories render larger.
-          The canvas auto-rotates so you can inspect clusters.
+          activity (touch count), so frequently used memories render larger. The
+          canvas auto-rotates so you can inspect clusters.
         </p>
 
         <SubHeading id="fig-colors">Node / Edge Colors</SubHeading>
@@ -370,10 +399,14 @@ export function CommandCenterManual({
         </Callout>
       </SectionHeading>
 
-      <SectionHeading id="activity" kicker="Chapter 06" title="Event Velocity & Activity Log">
+      <SectionHeading
+        id="activity"
+        kicker="Chapter 06"
+        title="Event Velocity & Activity Log"
+      >
         <p>
-          Two panels work together to show what the engine is doing right now:
-          a rolling throughput chart and a live event feed.
+          Two panels work together to show what the engine is doing right now: a
+          rolling throughput chart and a live event feed.
         </p>
 
         <SubHeading id="act-feed">Live Activity Feed</SubHeading>
@@ -393,16 +426,70 @@ export function CommandCenterManual({
         <DTable
           head={["Kind", "Tag", "Meaning"]}
           rows={[
-            { cells: ["NODE_UPSERT", "UPSERT", "A memory node was created or updated"] },
-            { cells: ["INVENT_MACRO_NODE", "MACRO", "The engine invented a macro node"] },
-            { cells: ["PRUNE_NODE", "PRUNE", "A node was pruned from the graph"] },
-            { cells: ["MERGE / EVOLUTION_MERGE", "MERGE / EVOLVE", "Edges or nodes were merged"] },
-            { cells: ["EVOLUTION_COMPLETE", "EVOLVED", "An evolution pass finished"] },
-            { cells: ["EVOLUTION_SKIPPED", "SKIP", "Evolution ran but found nothing to change"] },
-            { cells: ["GRAPH_VERSION_BUMP", "VERSION", "Graph version advanced"] },
-            { cells: ["QUERY_*", "QUERY / RANK / DONE", "Query lifecycle: start, rerank, complete"] },
+            {
+              cells: [
+                "NODE_UPSERT",
+                "UPSERT",
+                "A memory node was created or updated",
+              ],
+            },
+            {
+              cells: [
+                "INVENT_MACRO_NODE",
+                "MACRO",
+                "The engine invented a macro node",
+              ],
+            },
+            {
+              cells: [
+                "PRUNE_NODE",
+                "PRUNE",
+                "A node was pruned from the graph",
+              ],
+            },
+            {
+              cells: [
+                "MERGE / EVOLUTION_MERGE",
+                "MERGE / EVOLVE",
+                "Edges or nodes were merged",
+              ],
+            },
+            {
+              cells: [
+                "EVOLUTION_COMPLETE",
+                "EVOLVED",
+                "An evolution pass finished",
+              ],
+            },
+            {
+              cells: [
+                "EVOLUTION_SKIPPED",
+                "SKIP",
+                "Evolution ran but found nothing to change",
+              ],
+            },
+            {
+              cells: [
+                "GRAPH_VERSION_BUMP",
+                "VERSION",
+                "Graph version advanced",
+              ],
+            },
+            {
+              cells: [
+                "QUERY_*",
+                "QUERY / RANK / DONE",
+                "Query lifecycle: start, rerank, complete",
+              ],
+            },
             { cells: ["STORAGE_RAW_STORED", "STORE", "A raw file was stored"] },
-            { cells: ["STORAGE_ENCRYPT_FAILED", "ERR", "Encryption failed during storage"] },
+            {
+              cells: [
+                "STORAGE_ENCRYPT_FAILED",
+                "ERR",
+                "Encryption failed during storage",
+              ],
+            },
           ]}
         />
 
@@ -415,12 +502,16 @@ export function CommandCenterManual({
         </p>
       </SectionHeading>
 
-      <SectionHeading id="gauges" kicker="Chapter 07" title="Topology Metrics (D / H / λ)">
+      <SectionHeading
+        id="gauges"
+        kicker="Chapter 07"
+        title="Topology Metrics (D / H / λ)"
+      >
         <p>
           Three gauges summarize graph health with human-readable labels and
           thresholds. A gauge shows <span className="font-mono">—</span> with
-          the hint "no snapshot" when the backend has not yet produced a
-          metrics snapshot.
+          the hint "no snapshot" when the backend has not yet produced a metrics
+          snapshot.
         </p>
 
         <SubHeading id="gauge-d">D — Density</SubHeading>
@@ -441,14 +532,18 @@ export function CommandCenterManual({
 
         <SubHeading id="gauge-lambda">λ — Spectral Radius</SubHeading>
         <p>
-          Connectivity scale. <span className="text-emerald-300">clustered</span>{" "}
-          at or above 2.0, <span className="text-amber-300">moderate</span>{" "}
-          between 0.5 and 2.0, <span className="text-slate-400">sparse</span>{" "}
-          below 0.5.
+          Connectivity scale.{" "}
+          <span className="text-emerald-300">clustered</span> at or above 2.0,{" "}
+          <span className="text-amber-300">moderate</span> between 0.5 and 2.0,{" "}
+          <span className="text-slate-400">sparse</span> below 0.5.
         </p>
       </SectionHeading>
 
-      <SectionHeading id="commands" kicker="Chapter 08" title="Quick Command Matrix">
+      <SectionHeading
+        id="commands"
+        kicker="Chapter 08"
+        title="Quick Command Matrix"
+      >
         <p>
           One-click navigation to the most-used FAIM areas, plus the file upload
           action. Each command shows its keyboard hint.
@@ -476,7 +571,11 @@ export function CommandCenterManual({
         </p>
       </SectionHeading>
 
-      <SectionHeading id="security" kicker="Chapter 09" title="Security & Auth Keys">
+      <SectionHeading
+        id="security"
+        kicker="Chapter 09"
+        title="Security & Auth Keys"
+      >
         <p>
           This panel reports how many API keys are active for your tenant. The
           green indicator means at least one key is active. Use the{" "}
@@ -485,23 +584,28 @@ export function CommandCenterManual({
           Every dashboard API request is authenticated with your session token.
         </p>
         <Callout tone="success" title="Isolation">
-          All data shown is scoped to your tenant and graph. The backend
-          derives your tenant from your session token, so you only ever see
-          your own graph and storage.
+          All data shown is scoped to your tenant and graph. The backend derives
+          your tenant from your session token, so you only ever see your own
+          graph and storage.
         </Callout>
       </SectionHeading>
 
-      <SectionHeading id="evolution" kicker="Chapter 10" title="Evolution Engine">
+      <SectionHeading
+        id="evolution"
+        kicker="Chapter 10"
+        title="Evolution Engine"
+      >
         <p>
           FAIM runs autonomous graph self-organization: merging redundant
-          memories, inventing macro nodes, pruning stale structures, and
-          bumping the graph version.
+          memories, inventing macro nodes, pruning stale structures, and bumping
+          the graph version.
         </p>
 
         <SubHeading id="evo-run">Running Evolution</SubHeading>
         <p>
-          Click <span className="font-mono text-emerald-300">Run Evolution</span>{" "}
-          to trigger a strict-profile evolution pass on the active graph. The
+          Click{" "}
+          <span className="font-mono text-emerald-300">Run Evolution</span> to
+          trigger a strict-profile evolution pass on the active graph. The
           button disables while a job is already running. After submission the
           page re-checks status and re-fetches the scorecard and activity feed
           to show the results.
@@ -511,14 +615,18 @@ export function CommandCenterManual({
         <p>
           Status colors tell you the engine state at a glance:{" "}
           <span className="text-cyan-300">running</span> (worker active),{" "}
-          <span className="text-emerald-300">completed</span> (last job
-          finished cleanly), <span className="text-rose-300">error / failed</span>{" "}
-          (last job errored), and slate when idle. The worker count, if shown,
+          <span className="text-emerald-300">completed</span> (last job finished
+          cleanly), <span className="text-rose-300">error / failed</span> (last
+          job errored), and slate when idle. The worker count, if shown,
           reflects how many background evolution workers are online.
         </p>
       </SectionHeading>
 
-      <SectionHeading id="infrastructure" kicker="Chapter 11" title="Worker Pool & GPU Acceleration">
+      <SectionHeading
+        id="infrastructure"
+        kicker="Chapter 11"
+        title="Worker Pool & GPU Acceleration"
+      >
         <p>
           FAIM employs a decoupled, asynchronous micro-worker architecture for
           ingestion pipelines, vector indexing, graph evolution, and hardware
@@ -528,7 +636,8 @@ export function CommandCenterManual({
 
         <SubHeading id="infra-workers">Worker Pool Topology</SubHeading>
         <p>
-          The Worker Pool card tracks four distinct subsystem services in real time:
+          The Worker Pool card tracks four distinct subsystem services in real
+          time:
         </p>
         {/* eslint-disable-next-line react/jsx-key */}
         <DTable
@@ -538,28 +647,48 @@ export function CommandCenterManual({
               cells: [
                 "Evolution Workers",
                 "Asynchronous background workers executing graph entropy reduction and memory self-organization passes.",
-                <span key="evolution-workers" className="font-mono text-[10px] text-emerald-300">IDLE · RUNNING (X active) · OFFLINE</span>,
+                <span
+                  key="evolution-workers"
+                  className="font-mono text-[10px] text-emerald-300"
+                >
+                  IDLE · RUNNING (X active) · OFFLINE
+                </span>,
               ],
             },
             {
               cells: [
                 "Ingest Pipeline",
                 "Multi-stage document parsing, markdown extraction, token chunking, and semantic embedding generation.",
-                <span key="ingest-pipeline" className="font-mono text-[10px] text-cyan-300">IDLE · QUEUED · N jobs/s throughput</span>,
+                <span
+                  key="ingest-pipeline"
+                  className="font-mono text-[10px] text-cyan-300"
+                >
+                  IDLE · QUEUED · N jobs/s throughput
+                </span>,
               ],
             },
             {
               cells: [
                 "Vector Index",
                 "Qdrant HNSW vector search database connection health, payload filtering, and indexing status.",
-                <span key="vector-index" className="font-mono text-[10px] text-violet-300">CONNECTED · DISCONNECTED</span>,
+                <span
+                  key="vector-index"
+                  className="font-mono text-[10px] text-violet-300"
+                >
+                  CONNECTED · DISCONNECTED
+                </span>,
               ],
             },
             {
               cells: [
                 "GPU Accelerator",
                 "NVIDIA CUDA hardware offloading for embedding inference and deep neural re-ranking models.",
-                <span key="gpu-accelerator" className="font-mono text-[10px] text-amber-300">CUDA ACTIVE · CPU FALLBACK · DISABLED</span>,
+                <span
+                  key="gpu-accelerator"
+                  className="font-mono text-[10px] text-amber-300"
+                >
+                  CUDA ACTIVE · CPU FALLBACK · DISABLED
+                </span>,
               ],
             },
           ]}
@@ -568,63 +697,106 @@ export function CommandCenterManual({
         <SubHeading id="infra-gpu">GPU Acceleration Status</SubHeading>
         <p>
           The GPU radial utilization gauge displays whether your deployment is
-          leveraging dedicated GPU compute (CUDA/TensorRT) or operating in CPU fallback
-          mode. When hardware acceleration is enabled, vector embeddings and neural
-          re-ranking operations achieve sub-5ms latencies.
+          leveraging dedicated GPU compute (CUDA/TensorRT) or operating in CPU
+          fallback mode. When hardware acceleration is enabled, vector
+          embeddings and neural re-ranking operations achieve sub-5ms latencies.
         </p>
         <Callout tone="info" title="CPU Fallback">
           If NVIDIA GPU drivers are unavailable in your container or host, FAIM
-          transparently switches to quantized CPU matrix operations without dropping queries.
+          transparently switches to quantized CPU matrix operations without
+          dropping queries.
         </Callout>
       </SectionHeading>
 
-      <SectionHeading id="telemetry" kicker="Chapter 12" title="Storage, Mini-Map & Pipeline Telemetry">
+      <SectionHeading
+        id="telemetry"
+        kicker="Chapter 12"
+        title="Storage, Mini-Map & Pipeline Telemetry"
+      >
         <p>
-          The right operational rail provides multi-modal storage analytics, bird's-eye
-          spatial graph previews, hot cache telemetry, and end-to-end ingestion pipeline
-          latency heatmaps.
+          The right operational rail provides multi-modal storage analytics,
+          bird's-eye spatial graph previews, hot cache telemetry, and end-to-end
+          ingestion pipeline latency heatmaps.
         </p>
 
         <SubHeading id="tel-storage">Storage Modality Breakdown</SubHeading>
         <p>
           Documents ingested into FAIM are classified and stored by their true
-          modality. The interactive bar chart dynamically visualizes file distributions:
+          modality. The interactive bar chart dynamically visualizes file
+          distributions:
         </p>
         {/* eslint-disable-next-line react/jsx-key */}
         <DTable
           head={["Modality", "File Types", "Processing Pipeline"]}
           rows={[
-            { cells: ["PDF", ".pdf", "OCR extraction + layout-aware section chunking"] },
-            { cells: ["TEXT", ".txt, .md, .rst", "Direct tokenization + AST header parsing"] },
-            { cells: ["TABLE", ".csv, .xlsx, .tsv", "Tabular schema extraction + row-level embedding"] },
-            { cells: ["IMAGE", ".png, .jpg, .webp", "Vision transformer embedding + caption indexing"] },
-            { cells: ["RAW", ".bin, .zip, other", "Encrypted blob storage with metadata indexing"] },
+            {
+              cells: [
+                "PDF",
+                ".pdf",
+                "OCR extraction + layout-aware section chunking",
+              ],
+            },
+            {
+              cells: [
+                "TEXT",
+                ".txt, .md, .rst",
+                "Direct tokenization + AST header parsing",
+              ],
+            },
+            {
+              cells: [
+                "TABLE",
+                ".csv, .xlsx, .tsv",
+                "Tabular schema extraction + row-level embedding",
+              ],
+            },
+            {
+              cells: [
+                "IMAGE",
+                ".png, .jpg, .webp",
+                "Vision transformer embedding + caption indexing",
+              ],
+            },
+            {
+              cells: [
+                "RAW",
+                ".bin, .zip, other",
+                "Encrypted blob storage with metadata indexing",
+              ],
+            },
           ]}
         />
 
         <SubHeading id="tel-minimap">Bird's Eye Mini-Map</SubHeading>
         <p>
           The Mini-Map renders a lightweight 2D canvas radar showing active
-          knowledge clusters and edge connections. It provides instant topological
-          awareness of graph partitioning without requiring full 3D WebGL camera navigation.
+          knowledge clusters and edge connections. It provides instant
+          topological awareness of graph partitioning without requiring full 3D
+          WebGL camera navigation.
         </p>
 
-        <SubHeading id="tel-latency">Pipeline Latency & Health Heatmap</SubHeading>
+        <SubHeading id="tel-latency">
+          Pipeline Latency & Health Heatmap
+        </SubHeading>
         <p>
-          Tracks the live queue depth, end-to-end throughput (jobs/second), and hot
-          in-memory cache size. Provides visual indicators when queue depth exceeds
-          normal operating thresholds.
+          Tracks the live queue depth, end-to-end throughput (jobs/second), and
+          hot in-memory cache size. Provides visual indicators when queue depth
+          exceeds normal operating thresholds.
         </p>
 
         <SubHeading id="tel-cache">Cache Hit Rate & Retention</SubHeading>
         <p>
-          Measures the proportion of queries and graph traversals served directly
-          from Redis/memory without disk or vector re-computation. A high hit rate
-          (&gt;75%) ensures ultra-responsive Cortex turns.
+          Measures the proportion of queries and graph traversals served
+          directly from Redis/memory without disk or vector re-computation. A
+          high hit rate (&gt;75%) ensures ultra-responsive Cortex turns.
         </p>
       </SectionHeading>
 
-      <SectionHeading id="troubleshoot" kicker="Chapter 13" title="Troubleshooting">
+      <SectionHeading
+        id="troubleshoot"
+        kicker="Chapter 13"
+        title="Troubleshooting"
+      >
         <SubHeading id="trouble-empty">Empty charts on a new graph</SubHeading>
         <p>
           A fresh graph has no diagnostics snapshot yet. Ingest a document or
@@ -663,18 +835,22 @@ export function CommandCenterManual({
 
         <SubHeading id="qs-first">First Login</SubHeading>
         <p>
-          After signing in you land on the Command Center. If the KPI strip shows
+          After signing in you land on the Command Center. If the KPI strip
+          shows
           <span className="font-mono text-slate-400">0 nodes</span> and{" "}
-          <span className="font-mono text-slate-400">0 B storage</span>, your graph
-          is empty — that is expected. The <span className="font-mono text-emerald-300">System Online</span>{" "}
+          <span className="font-mono text-slate-400">0 B storage</span>, your
+          graph is empty — that is expected. The{" "}
+          <span className="font-mono text-emerald-300">System Online</span>{" "}
           badge confirms the backend is reachable.
         </p>
 
         <SubHeading id="qs-ingest">Ingest Your First Document</SubHeading>
         <ol className="list-decimal list-inside space-y-2 text-sm text-slate-300">
           <li>
-            Click <span className="font-mono text-cyan-300">Upload to FAIM</span> in
-            the Quick Command Matrix (or press <span className="font-mono">⌘S</span>
+            Click{" "}
+            <span className="font-mono text-cyan-300">Upload to FAIM</span> in
+            the Quick Command Matrix (or press{" "}
+            <span className="font-mono">⌘S</span>
             then choose the file).
           </li>
           <li>
@@ -696,8 +872,8 @@ export function CommandCenterManual({
         <SubHeading id="qs-evolve">Run Your First Evolution</SubHeading>
         <p>
           Once you have a handful of nodes, click{" "}
-          <span className="font-mono text-emerald-300">Run Evolution</span> in the
-          Evolution Engine card. The status changes to{" "}
+          <span className="font-mono text-emerald-300">Run Evolution</span> in
+          the Evolution Engine card. The status changes to{" "}
           <span className="text-cyan-300">running</span> while background
           workers merge duplicates, build lineage edges, and compute the first
           spectral metrics snapshot.
@@ -705,28 +881,34 @@ export function CommandCenterManual({
 
         <SubHeading id="qs-fig">Explore the FIG View</SubHeading>
         <p>
-          Click <span className="font-mono text-cyan-300">Open FIG View</span> in
-          the Quick Command Matrix (or press <span className="font-mono">⌘G</span>).
-          The full 3D interactive explorer opens with camera controls, node
-          inspector, neighborhood expansion, and explain overlays.
+          Click <span className="font-mono text-cyan-300">Open FIG View</span>{" "}
+          in the Quick Command Matrix (or press{" "}
+          <span className="font-mono">⌘G</span>). The full 3D interactive
+          explorer opens with camera controls, node inspector, neighborhood
+          expansion, and explain overlays.
         </p>
       </SectionHeading>
 
-      <SectionHeading id="bestpractices" kicker="Chapter 15" title="Best Practices & Tips">
+      <SectionHeading
+        id="bestpractices"
+        kicker="Chapter 15"
+        title="Best Practices & Tips"
+      >
         <SubHeading id="bp-ingest">Ingestion Strategy</SubHeading>
         <ul className="list-disc list-inside space-y-2 text-sm text-slate-300">
           <li>
-            <strong>Batch related documents</strong> — uploading a project's docs in
-            one session lets evolution find cross-document patterns immediately.
+            <strong>Batch related documents</strong> — uploading a project's
+            docs in one session lets evolution find cross-document patterns
+            immediately.
           </li>
           <li>
             <strong>Use descriptive filenames</strong> — they become the
-            <span className="font-mono">galaxy_id</span> in the graph, helping you
-            trace nodes back to their source.
+            <span className="font-mono">galaxy_id</span> in the graph, helping
+            you trace nodes back to their source.
           </li>
           <li>
-            <strong>Prefer text over scanned PDFs</strong> — OCR adds latency and
-            can introduce noise; clean text yields cleaner nodes.
+            <strong>Prefer text over scanned PDFs</strong> — OCR adds latency
+            and can introduce noise; clean text yields cleaner nodes.
           </li>
         </ul>
 
@@ -742,25 +924,28 @@ export function CommandCenterManual({
             ingest to restore diversity.
           </li>
           <li>
-            <strong>Use the Journal</strong> (<span className="font-mono">⌘J</span>)
-            to audit exactly what evolution changed — every merge, prune, and
-            macro invention is logged with before/after context.
+            <strong>Use the Journal</strong> (
+            <span className="font-mono">⌘J</span>) to audit exactly what
+            evolution changed — every merge, prune, and macro invention is
+            logged with before/after context.
           </li>
         </ul>
 
         <SubHeading id="bp-monitor">Monitoring Health</SubHeading>
         <ul className="list-disc list-inside space-y-2 text-sm text-slate-300">
           <li>
-            <strong>Density (D) below 0.05</strong> — graph is fragmented; ingest
-            more related content or run evolution to connect clusters.
+            <strong>Density (D) below 0.05</strong> — graph is fragmented;
+            ingest more related content or run evolution to connect clusters.
           </li>
           <li>
-            <strong>Spectral radius (λ) above 3.0</strong> — graph is over-connected
-            (dense core with many weak edges); evolution will prune automatically.
+            <strong>Spectral radius (λ) above 3.0</strong> — graph is
+            over-connected (dense core with many weak edges); evolution will
+            prune automatically.
           </li>
           <li>
-            <strong>Event velocity sustained above 50 ev/min</strong> — indicates
-            heavy ingest or evolution activity; normal for batch loads.
+            <strong>Event velocity sustained above 50 ev/min</strong> —
+            indicates heavy ingest or evolution activity; normal for batch
+            loads.
           </li>
           <li>
             <strong>Storage growth</strong> — the Storage card shows raw bytes;
@@ -772,12 +957,13 @@ export function CommandCenterManual({
         <SubHeading id="bp-keys">API Key Hygiene</SubHeading>
         <ul className="list-disc list-inside space-y-2 text-sm text-slate-300">
           <li>
-            <strong>Rotate keys quarterly</strong> — use the rotation grace window
-            to swap credentials without downtime.
+            <strong>Rotate keys quarterly</strong> — use the rotation grace
+            window to swap credentials without downtime.
           </li>
           <li>
             <strong>Scope minimally</strong> — grant only the scopes an
-            integration needs (e.g., <span className="font-mono">ingest:write</span>
+            integration needs (e.g.,{" "}
+            <span className="font-mono">ingest:write</span>
             for a pipeline, not <span className="font-mono">admin</span>).
           </li>
           <li>
@@ -787,7 +973,11 @@ export function CommandCenterManual({
         </ul>
       </SectionHeading>
 
-      <SectionHeading id="interpret" kicker="Chapter 16" title="Metrics Interpretation Guide">
+      <SectionHeading
+        id="interpret"
+        kicker="Chapter 16"
+        title="Metrics Interpretation Guide"
+      >
         <p>
           The three metrics (D, H, λ) are not independent — they form a
           diagnostic triangle. Here is how to read them together.
@@ -803,10 +993,34 @@ export function CommandCenterManual({
         <DTable
           head={["Range", "Interpretation", "Action"]}
           rows={[
-            { cells: ["D < 0.05", "Disconnected / fragmented", "Ingest more related content; run evolution"] },
-            { cells: ["0.05 ≤ D < 0.15", "Sparse but structured", "Healthy for early-stage graphs"] },
-            { cells: ["0.15 ≤ D < 0.30", "Well-connected", "Mature knowledge base; good retrieval"] },
-            { cells: ["D ≥ 0.30", "Dense core", "Strong clustering; watch for redundancy"] },
+            {
+              cells: [
+                "D < 0.05",
+                "Disconnected / fragmented",
+                "Ingest more related content; run evolution",
+              ],
+            },
+            {
+              cells: [
+                "0.05 ≤ D < 0.15",
+                "Sparse but structured",
+                "Healthy for early-stage graphs",
+              ],
+            },
+            {
+              cells: [
+                "0.15 ≤ D < 0.30",
+                "Well-connected",
+                "Mature knowledge base; good retrieval",
+              ],
+            },
+            {
+              cells: [
+                "D ≥ 0.30",
+                "Dense core",
+                "Strong clustering; watch for redundancy",
+              ],
+            },
           ]}
         />
 
@@ -820,43 +1034,122 @@ export function CommandCenterManual({
         <DTable
           head={["Range", "Interpretation", "Action"]}
           rows={[
-            { cells: ["H < 0.3", "Uniform / repetitive", "Ingest diverse topics; avoid duplicate uploads"] },
-            { cells: ["0.3 ≤ H < 0.8", "Moderate diversity", "Balanced; good for general queries"] },
-            { cells: ["H ≥ 0.8", "Highly diverse", "Excellent coverage; retrieval spans many domains"] },
+            {
+              cells: [
+                "H < 0.3",
+                "Uniform / repetitive",
+                "Ingest diverse topics; avoid duplicate uploads",
+              ],
+            },
+            {
+              cells: [
+                "0.3 ≤ H < 0.8",
+                "Moderate diversity",
+                "Balanced; good for general queries",
+              ],
+            },
+            {
+              cells: [
+                "H ≥ 0.8",
+                "Highly diverse",
+                "Excellent coverage; retrieval spans many domains",
+              ],
+            },
           ]}
         />
 
         <SubHeading id="interp-lambda">Reading Spectral Radius (λ)</SubHeading>
         <p>
-          <strong>λ measures the largest eigenvalue of the normalized adjacency
-          — roughly, how far a random walk travels before mixing.</strong> It
-          correlates with the "effective diameter" of the graph.
+          <strong>
+            λ measures the largest eigenvalue of the normalized adjacency —
+            roughly, how far a random walk travels before mixing.
+          </strong>{" "}
+          It correlates with the "effective diameter" of the graph.
         </p>
         {/* eslint-disable-next-line react/jsx-key */}
         <DTable
           head={["Range", "Interpretation", "Action"]}
           rows={[
-            { cells: ["λ < 0.5", "Sparse / shallow", "Graph lacks connective tissue; ingest bridging docs"] },
-            { cells: ["0.5 ≤ λ < 2.0", "Moderate connectivity", "Healthy small-world structure"] },
-            { cells: ["2.0 ≤ λ < 3.0", "Clustered", "Strong communities; good for topical queries"] },
-            { cells: ["λ ≥ 3.0", "Over-connected", "Dense hubs forming; evolution will prune"] },
+            {
+              cells: [
+                "λ < 0.5",
+                "Sparse / shallow",
+                "Graph lacks connective tissue; ingest bridging docs",
+              ],
+            },
+            {
+              cells: [
+                "0.5 ≤ λ < 2.0",
+                "Moderate connectivity",
+                "Healthy small-world structure",
+              ],
+            },
+            {
+              cells: [
+                "2.0 ≤ λ < 3.0",
+                "Clustered",
+                "Strong communities; good for topical queries",
+              ],
+            },
+            {
+              cells: [
+                "λ ≥ 3.0",
+                "Over-connected",
+                "Dense hubs forming; evolution will prune",
+              ],
+            },
           ]}
         />
 
         <SubHeading id="interp-combined">Combined Signals</SubHeading>
         <p>
-          The three metrics together diagnose graph health more reliably than any
-          single number:
+          The three metrics together diagnose graph health more reliably than
+          any single number:
         </p>
         {/* eslint-disable-next-line react/jsx-key */}
         <DTable
           head={["Pattern", "D / H / λ", "Meaning", "Remedy"]}
           rows={[
-            { cells: ["Starved", "Low / Low / Low", "Too little content", "Ingest documents"] },
-            { cells: ["Fragmented", "Low / High / Low", "Many isolated topics", "Run evolution to connect"] },
-            { cells: ["Echo chamber", "High / Low / High", "Redundant core", "Ingest diverse content; run evolution"] },
-            { cells: ["Healthy", "Med / High / Med", "Balanced knowledge base", "Maintain cadence"] },
-            { cells: ["Overgrown", "High / Med / High", "Dense with redundancy", "Run evolution; enable retention"] },
+            {
+              cells: [
+                "Starved",
+                "Low / Low / Low",
+                "Too little content",
+                "Ingest documents",
+              ],
+            },
+            {
+              cells: [
+                "Fragmented",
+                "Low / High / Low",
+                "Many isolated topics",
+                "Run evolution to connect",
+              ],
+            },
+            {
+              cells: [
+                "Echo chamber",
+                "High / Low / High",
+                "Redundant core",
+                "Ingest diverse content; run evolution",
+              ],
+            },
+            {
+              cells: [
+                "Healthy",
+                "Med / High / Med",
+                "Balanced knowledge base",
+                "Maintain cadence",
+              ],
+            },
+            {
+              cells: [
+                "Overgrown",
+                "High / Med / High",
+                "Dense with redundancy",
+                "Run evolution; enable retention",
+              ],
+            },
           ]}
         />
         <Callout tone="success" title="Rule of thumb">
@@ -875,18 +1168,78 @@ export function CommandCenterManual({
         <DTable
           head={["Term", "Definition"]}
           rows={[
-            { cells: ["Graph", "Your tenant-scoped knowledge network: nodes (memories) + edges (relations)"] },
-            { cells: ["Node", "A memory unit — fact, concept, event, entity, procedure, or macro"] },
-            { cells: ["Edge", "A typed relation between nodes (e.g., SUPPORTS, CONTRADICTS, SEQUENCE)"] },
-            { cells: ["Macro node", "An invented higher-level node that abstracts a recurring pattern"] },
-            { cells: ["Galaxy", "A source-document grouping; all nodes from one upload share a galaxy_id"] },
-            { cells: ["Temperature", "Node access tier: hot (recent), warm (occasional), cold (archived)"] },
-            { cells: ["Touch count", "How many times a node has been accessed or cited in queries"] },
-            { cells: ["Graph version", "Monotonically increasing counter; bumped on every structural change"] },
-            { cells: ["DIAGNOSTICS_SNAPSHOT", "Event emitted after evolution/ingest with D, H, λ, and counts"] },
-            { cells: ["Seq", "Monotonic event sequence number; the source of truth for ordering"] },
-            { cells: ["Tenant", "Isolation boundary — all data and keys belong to exactly one tenant"] },
-            { cells: ["Scope", "Permission grant on an API key (e.g., ingest:write, query:read, admin)"] },
+            {
+              cells: [
+                "Graph",
+                "Your tenant-scoped knowledge network: nodes (memories) + edges (relations)",
+              ],
+            },
+            {
+              cells: [
+                "Node",
+                "A memory unit — fact, concept, event, entity, procedure, or macro",
+              ],
+            },
+            {
+              cells: [
+                "Edge",
+                "A typed relation between nodes (e.g., SUPPORTS, CONTRADICTS, SEQUENCE)",
+              ],
+            },
+            {
+              cells: [
+                "Macro node",
+                "An invented higher-level node that abstracts a recurring pattern",
+              ],
+            },
+            {
+              cells: [
+                "Galaxy",
+                "A source-document grouping; all nodes from one upload share a galaxy_id",
+              ],
+            },
+            {
+              cells: [
+                "Temperature",
+                "Node access tier: hot (recent), warm (occasional), cold (archived)",
+              ],
+            },
+            {
+              cells: [
+                "Touch count",
+                "How many times a node has been accessed or cited in queries",
+              ],
+            },
+            {
+              cells: [
+                "Graph version",
+                "Monotonically increasing counter; bumped on every structural change",
+              ],
+            },
+            {
+              cells: [
+                "DIAGNOSTICS_SNAPSHOT",
+                "Event emitted after evolution/ingest with D, H, λ, and counts",
+              ],
+            },
+            {
+              cells: [
+                "Seq",
+                "Monotonic event sequence number; the source of truth for ordering",
+              ],
+            },
+            {
+              cells: [
+                "Tenant",
+                "Isolation boundary — all data and keys belong to exactly one tenant",
+              ],
+            },
+            {
+              cells: [
+                "Scope",
+                "Permission grant on an API key (e.g., ingest:write, query:read, admin)",
+              ],
+            },
           ]}
         />
 
@@ -895,12 +1248,48 @@ export function CommandCenterManual({
         <DTable
           head={["Symbol", "Name", "What It Measures"]}
           rows={[
-            { cells: ["D", "Density", "Edge count / (node count choose 2) — structural richness"] },
-            { cells: ["H", "Entropy", "Spectral entropy of normalized adjacency — semantic diversity"] },
-            { cells: ["λ (lambda)", "Spectral Radius", "Largest eigenvalue — connectivity scale / effective diameter"] },
-            { cells: ["R", "Redundancy", "Fraction of edges that are inferable from transitive closure"] },
-            { cells: ["N", "Novelty", "Fraction of new information added since last snapshot"] },
-            { cells: ["E", "Energy", "Total residual in the system — proxy for unresolved tension"] },
+            {
+              cells: [
+                "D",
+                "Density",
+                "Edge count / (node count choose 2) — structural richness",
+              ],
+            },
+            {
+              cells: [
+                "H",
+                "Entropy",
+                "Spectral entropy of normalized adjacency — semantic diversity",
+              ],
+            },
+            {
+              cells: [
+                "λ (lambda)",
+                "Spectral Radius",
+                "Largest eigenvalue — connectivity scale / effective diameter",
+              ],
+            },
+            {
+              cells: [
+                "R",
+                "Redundancy",
+                "Fraction of edges that are inferable from transitive closure",
+              ],
+            },
+            {
+              cells: [
+                "N",
+                "Novelty",
+                "Fraction of new information added since last snapshot",
+              ],
+            },
+            {
+              cells: [
+                "E",
+                "Energy",
+                "Total residual in the system — proxy for unresolved tension",
+              ],
+            },
           ]}
         />
 
@@ -912,33 +1301,105 @@ export function CommandCenterManual({
         <DTable
           head={["Kind", "Tag", "Trigger"]}
           rows={[
-            { cells: ["NODE_UPSERT", "UPSERT", "Node created or updated (ingest or evolution)"] },
-            { cells: ["INVENT_MACRO_NODE", "MACRO", "Evolution invented a macro node"] },
-            { cells: ["PRUNE_NODE", "PRUNE", "Evolution removed a stale node"] },
-            { cells: ["MERGE", "MERGE", "Two nodes or edges merged as duplicates"] },
-            { cells: ["EVOLUTION_MERGE", "EVOLVE", "Macro-node merge during evolution"] },
-            { cells: ["EVOLUTION_COMPLETE", "EVOLVED", "Evolution pass finished"] },
-            { cells: ["EVOLUTION_SKIPPED", "SKIP", "Evolution ran but graph unchanged"] },
-            { cells: ["GRAPH_VERSION_BUMP", "VERSION", "Graph version incremented"] },
+            {
+              cells: [
+                "NODE_UPSERT",
+                "UPSERT",
+                "Node created or updated (ingest or evolution)",
+              ],
+            },
+            {
+              cells: [
+                "INVENT_MACRO_NODE",
+                "MACRO",
+                "Evolution invented a macro node",
+              ],
+            },
+            {
+              cells: ["PRUNE_NODE", "PRUNE", "Evolution removed a stale node"],
+            },
+            {
+              cells: [
+                "MERGE",
+                "MERGE",
+                "Two nodes or edges merged as duplicates",
+              ],
+            },
+            {
+              cells: [
+                "EVOLUTION_MERGE",
+                "EVOLVE",
+                "Macro-node merge during evolution",
+              ],
+            },
+            {
+              cells: [
+                "EVOLUTION_COMPLETE",
+                "EVOLVED",
+                "Evolution pass finished",
+              ],
+            },
+            {
+              cells: [
+                "EVOLUTION_SKIPPED",
+                "SKIP",
+                "Evolution ran but graph unchanged",
+              ],
+            },
+            {
+              cells: [
+                "GRAPH_VERSION_BUMP",
+                "VERSION",
+                "Graph version incremented",
+              ],
+            },
             { cells: ["QUERY_START", "QUERY", "Cortex query initiated"] },
-            { cells: ["QUERY_RERANKED", "RANK", "Results reranked by late interaction"] },
-            { cells: ["QUERY_TOUCH", "TOUCH", "Result node touch count incremented"] },
+            {
+              cells: [
+                "QUERY_RERANKED",
+                "RANK",
+                "Results reranked by late interaction",
+              ],
+            },
+            {
+              cells: [
+                "QUERY_TOUCH",
+                "TOUCH",
+                "Result node touch count incremented",
+              ],
+            },
             { cells: ["QUERY_COMPLETE", "DONE", "Query returned results"] },
-            { cells: ["STORAGE_RAW_STORED", "STORE", "Raw file persisted to storage"] },
-            { cells: ["STORAGE_ENCRYPT_FAILED", "ERR", "Encryption failure during storage"] },
+            {
+              cells: [
+                "STORAGE_RAW_STORED",
+                "STORE",
+                "Raw file persisted to storage",
+              ],
+            },
+            {
+              cells: [
+                "STORAGE_ENCRYPT_FAILED",
+                "ERR",
+                "Encryption failure during storage",
+              ],
+            },
           ]}
         />
       </SectionHeading>
 
       <SectionHeading id="faq" kicker="Chapter 18" title="FAQ">
-        <SubHeading id="faq-1">Why does the spectrum chart show "waiting for real-time telemetry"?</SubHeading>
+        <SubHeading id="faq-1">
+          Why does the spectrum chart show "waiting for real-time telemetry"?
+        </SubHeading>
         <p>
           Your graph has no DIAGNOSTICS_SNAPSHOT event yet. This happens on a
           brand-new graph before any ingest or evolution. Ingest a document and
           run evolution — the chart will seed with real samples.
         </p>
 
-        <SubHeading id="faq-2">What does "LIVE CORTEX — 0 N · 0 E" mean?</SubHeading>
+        <SubHeading id="faq-2">
+          What does "LIVE CORTEX — 0 N · 0 E" mean?
+        </SubHeading>
         <p>
           The 3D panel has connected to the surface endpoint but your graph has
           zero nodes. Upload a document; the badge will update to real counts on
@@ -947,9 +1408,10 @@ export function CommandCenterManual({
 
         <SubHeading id="faq-3">How real-time is the activity feed?</SubHeading>
         <p>
-          The feed uses a persistent SSE stream from <span className="font-mono">/api/v1/events/stream</span>.
-          New events appear within milliseconds of being committed to the event
-          journal. A 15-second polling fallback runs only if the stream drops.
+          The feed uses a persistent SSE stream from{" "}
+          <span className="font-mono">/api/v1/events/stream</span>. New events
+          appear within milliseconds of being committed to the event journal. A
+          15-second polling fallback runs only if the stream drops.
         </p>
 
         <SubHeading id="faq-4">Can I export the dashboard data?</SubHeading>
@@ -957,16 +1419,17 @@ export function CommandCenterManual({
           Not directly from the Command Center. Use the API endpoints directly:
           <span className="font-mono">/api/v1/metrics/scorecard</span>,
           <span className="font-mono">/api/v1/storage/summary</span>,
-          <span className="font-mono">/api/v1/events</span>. The Benchmarks page
-          (<span className="font-mono">/dashboard/benchmarks</span>) also has
-          exportable reports.
+          <span className="font-mono">/api/v1/events</span>.
         </p>
 
-        <SubHeading id="faq-5">Why are the D/H/λ gauges showing "—" (dash)?</SubHeading>
+        <SubHeading id="faq-5">
+          Why are the D/H/λ gauges showing "—" (dash)?
+        </SubHeading>
         <p>
-          The backend has not yet produced a metrics snapshot. This is normal for
-          a fresh graph. The gauges will populate with real values once the
-          first DIAGNOSTICS_SNAPSHOT event is emitted (after ingest + evolution).
+          The backend has not yet produced a metrics snapshot. This is normal
+          for a fresh graph. The gauges will populate with real values once the
+          first DIAGNOSTICS_SNAPSHOT event is emitted (after ingest +
+          evolution).
         </p>
 
         <SubHeading id="faq-6">What keyboard shortcuts work?</SubHeading>
@@ -979,18 +1442,24 @@ export function CommandCenterManual({
           work from anywhere in the dashboard.
         </p>
 
-        <SubHeading id="faq-7">How do I know if evolution is actually doing something?</SubHeading>
+        <SubHeading id="faq-7">
+          How do I know if evolution is actually doing something?
+        </SubHeading>
         <p>
-          Watch the Activity Log for <span className="font-mono text-emerald-300">EVOLVED</span>,
+          Watch the Activity Log for{" "}
+          <span className="font-mono text-emerald-300">EVOLVED</span>,
           <span className="font-mono text-blue-300">MERGE</span>,{" "}
           <span className="font-mono text-violet-300">MACRO</span>, and{" "}
           <span className="font-mono text-rose-300">PRUNE</span> events. The
-          Evolution Engine panel status changes to <span className="text-cyan-300">running</span>
+          Evolution Engine panel status changes to{" "}
+          <span className="text-cyan-300">running</span>
           while workers are active. After completion, the Topology Spectrum
           chart appends a new point with updated D/H/λ.
         </p>
 
-        <SubHeading id="faq-8">My graph has thousands of nodes — will the 3D preview lag?</SubHeading>
+        <SubHeading id="faq-8">
+          My graph has thousands of nodes — will the 3D preview lag?
+        </SubHeading>
         <p>
           The Command Center 3D panel caps the surface fetch at 30 nodes / 60
           edges, so it stays snappy regardless of total graph size. For the full
@@ -999,7 +1468,9 @@ export function CommandCenterManual({
           rendering.
         </p>
 
-        <SubHeading id="faq-9">What happens to my data if I revoke an API key?</SubHeading>
+        <SubHeading id="faq-9">
+          What happens to my data if I revoke an API key?
+        </SubHeading>
         <p>
           Revoking a key only invalidates that credential — it does not delete
           any graph data, storage files, or events. The key's audit trail
@@ -1007,12 +1478,14 @@ export function CommandCenterManual({
           page.
         </p>
 
-        <SubHeading id="faq-10">How do I interpret a sudden spike in event velocity?</SubHeading>
+        <SubHeading id="faq-10">
+          How do I interpret a sudden spike in event velocity?
+        </SubHeading>
         <p>
           A spike usually means one of: (1) a large file upload finished and
-          ingest created many nodes, (2) an evolution pass ran and emitted merge/
-          prune/ macro events, (3) a batch query touched many nodes. Check the
-          Activity Log — the event kinds will tell you which.
+          ingest created many nodes, (2) an evolution pass ran and emitted
+          merge/ prune/ macro events, (3) a batch query touched many nodes.
+          Check the Activity Log — the event kinds will tell you which.
         </p>
       </SectionHeading>
     </ManualShell>

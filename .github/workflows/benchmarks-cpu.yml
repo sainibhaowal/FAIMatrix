@@ -1,0 +1,288 @@
+name: FAIM CPU Parallel Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      suites:
+        description: "Comma-separated suites to run (all, or subset of: scifact,nfcorpus,arguana,fiqa,trec-covid,locomo,longmemeval)"
+        required: false
+        default: "scifact,nfcorpus,arguana,locomo,longmemeval"
+      ingest_workers:
+        description: "Concurrent HTTP ingest workers per runner"
+        required: false
+        default: "4"
+      max_cases:
+        description: "Optional max QA cases for memory suites (leave empty for full dataset)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      beir_datasets: ${{ steps.set_matrix.outputs.beir_datasets }}
+      memory_suites: ${{ steps.set_matrix.outputs.memory_suites }}
+    steps:
+      - name: Compute benchmark matrix
+        id: set_matrix
+        shell: python3 {0}
+        run: |
+          import json, os
+          raw = os.environ.get("INPUT_SUITES", "scifact,nfcorpus,arguana,locomo,longmemeval")
+          tokens = [t.strip().lower() for t in raw.split(",") if t.strip()]
+          all_beir = ["scifact", "nfcorpus", "arguana", "fiqa", "trec-covid"]
+          all_mem = ["locomo", "longmemeval"]
+          if "all" in tokens:
+              beir = all_beir
+              mem = all_mem
+          else:
+              beir = [t for t in tokens if t in all_beir]
+              mem = [t for t in tokens if t in all_mem]
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"beir_datasets={json.dumps(beir)}\n")
+              fh.write(f"memory_suites={json.dumps(mem)}\n")
+        env:
+          INPUT_SUITES: ${{ github.event.inputs.suites }}
+
+  beir-cpu:
+    needs: plan
+    if: ${{ needs.plan.outputs.beir_datasets != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        dataset: ${{ fromJson(needs.plan.outputs.beir_datasets) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Configure CPU-only Compose environment
+        run: |
+          cat > .env << 'EOF'
+          POSTGRES_PASSWORD=faim_bench_pg_pass
+          REDIS_PASSWORD=faim_bench_redis_pass
+          QDRANT_API_KEY=faim_bench_qdrant_key
+          NEXTAUTH_SECRET=faim_bench_nextauth_secret_0123456789abcdef
+          FAIM_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          FAIM_API_WORKERS=2
+          FAIM_INGEST_WORKERS=3
+          FAIM_FAST_ML_EMBEDDING=false
+          FAIM_EMBEDDING_DEVICE=cpu
+          FAIM_USE_GPU_BACKEND=false
+          FAIM_BENCHMARK_MODE=true
+          FAIM_SELF_EVOLVE_ENABLED=false
+          FAIM_RATE_LIMITS_JSON={"ingest_per_minute":6000,"query_per_minute":6000,"ingest_write_per_minute":6000,"query_read_per_minute":6000,"memory_search_per_minute":6000,"memory_read_per_minute":6000,"memory_write_per_minute":6000}
+          EOF
+
+      - name: Start FAIM CPU Docker stack and run migrations
+        run: |
+          docker compose up -d postgres redis qdrant
+          docker compose build api worker-ingest worker-evolve migrate
+          docker compose run --rm migrate
+          docker compose up -d api worker-ingest worker-evolve
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8000/ready; then echo ""; break; fi
+            sleep 2
+          done
+          curl -sf http://localhost:8000/ready
+
+      - name: Provision ephemeral benchmark API key
+        id: auth
+        run: |
+          API_KEY=$(docker compose exec -T api python3 - << 'PY'
+          import uuid
+          from store.pg.session import get_session
+          from store.pg.repos.auth_repo import AuthRepo
+          tenant_id = f"user:{uuid.uuid5(uuid.NAMESPACE_DNS, 'faim-ci-bench')}"
+          with get_session() as session:
+              _rec, raw_key = AuthRepo(session).create_tenant_key(
+                  tenant_id=tenant_id,
+                  scopes=["ingest", "query", "storage", "memory", "evolve"],
+              )
+              session.commit()
+              print(f"{tenant_id}|{raw_key}")
+          PY
+          )
+          TENANT_ID="${API_KEY%%|*}"
+          RAW_KEY="${API_KEY##*|}"
+          echo "tenant_id=${TENANT_ID}" >> "$GITHUB_OUTPUT"
+          echo "::add-mask::${RAW_KEY}"
+          echo "api_key=${RAW_KEY}" >> "$GITHUB_OUTPUT"
+
+      - name: Install faim-benchmarks and run BEIR suite (${{ matrix.dataset }})
+        run: |
+          python3 -m pip install -e "./faim-benchmarks[datasets,dev]"
+          mkdir -p faim-benchmarks/results/ci-${{ matrix.dataset }}
+          export FAIM_BASE_URL=http://localhost:8000
+          export FAIM_TENANT_ID="${{ steps.auth.outputs.tenant_id }}"
+          export FAIM_API_KEY="${{ steps.auth.outputs.api_key }}"
+          export FAIM_PROFILE=fast
+          export FAIM_BENCH_FAIM_BATCH_SIZE=50
+          export FAIM_SELF_EVOLVE_ENABLED=false
+          export FAIM_EMBEDDING_PROVIDER_ID=faim-native-cpu
+          export FAIM_EMBEDDING_MODEL_ID=zero-ml-repr-v2-cpu
+          export FAIM_EMBEDDING_MODEL_REVISION="${GITHUB_SHA::7}"
+          case "${{ matrix.dataset }}" in
+            scifact)
+              export FAIM_BEIR_CORPUS_REVISION=b3b5335604bf5ee3c4447671af975ea25143d4f5
+              export FAIM_BEIR_QUERIES_REVISION=b3b5335604bf5ee3c4447671af975ea25143d4f5
+              export FAIM_BEIR_QRELS_REVISION=2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029
+              ;;
+            nfcorpus)
+              export FAIM_BEIR_CORPUS_REVISION=b5026a0e96e8a7ac4f95f482a596389289d46269
+              export FAIM_BEIR_QUERIES_REVISION=b5026a0e96e8a7ac4f95f482a596389289d46269
+              export FAIM_BEIR_QRELS_REVISION=a451b3b26d3ae1358f259c1a3a4dd61fcea35a65
+              ;;
+            arguana)
+              export FAIM_BEIR_CORPUS_REVISION=9bcf8fc0320c4e3860e25b8b85fa205fcdd7078f
+              export FAIM_BEIR_QUERIES_REVISION=9bcf8fc0320c4e3860e25b8b85fa205fcdd7078f
+              export FAIM_BEIR_QRELS_REVISION=ae5468c6f1c198109a8af5f0d4dc58bd18b6fea7
+              ;;
+            fiqa)
+              export FAIM_BEIR_CORPUS_REVISION=979c07a7cb5ccc6ca009792241fa1250b98055dd
+              export FAIM_BEIR_QUERIES_REVISION=979c07a7cb5ccc6ca009792241fa1250b98055dd
+              export FAIM_BEIR_QRELS_REVISION=252958f2d646e22cab6d0c72dd3f0d5de6d0655a
+              ;;
+            trec-covid)
+              export FAIM_BEIR_CORPUS_REVISION=7e16fde3016c639c7f856e803f4bab92645562c4
+              export FAIM_BEIR_QUERIES_REVISION=7e16fde3016c639c7f856e803f4bab92645562c4
+              export FAIM_BEIR_QRELS_REVISION=532ac68ee6756ac22c9346eebf65bd3c6a042e10
+              ;;
+          esac
+          faim-bench beir \
+            --dataset "${{ matrix.dataset }}" \
+            --systems faim,bm25 \
+            --ingest-workers "${{ github.event.inputs.ingest_workers }}" \
+            --require-faim-beats-bm25 \
+            --retain-query-traces \
+            --out-dir "faim-benchmarks/results/ci-${{ matrix.dataset }}"
+
+      - name: Upload signed benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: faim-beir-${{ matrix.dataset }}
+          path: faim-benchmarks/results/ci-${{ matrix.dataset }}/*
+
+  memory-cpu:
+    needs: plan
+    if: ${{ needs.plan.outputs.memory_suites != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJson(needs.plan.outputs.memory_suites) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Configure CPU-only Compose environment (worker-evolve active)
+        run: |
+          cat > .env << 'EOF'
+          POSTGRES_PASSWORD=faim_bench_pg_pass
+          REDIS_PASSWORD=faim_bench_redis_pass
+          QDRANT_API_KEY=faim_bench_qdrant_key
+          NEXTAUTH_SECRET=faim_bench_nextauth_secret_0123456789abcdef
+          FAIM_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          FAIM_API_WORKERS=2
+          FAIM_INGEST_WORKERS=3
+          FAIM_FAST_ML_EMBEDDING=false
+          FAIM_EMBEDDING_DEVICE=cpu
+          FAIM_USE_GPU_BACKEND=false
+          FAIM_BENCHMARK_MODE=false
+          FAIM_SELF_EVOLVE_ENABLED=true
+          FAIM_RATE_LIMITS_JSON={"ingest_per_minute":6000,"query_per_minute":6000,"ingest_write_per_minute":6000,"query_read_per_minute":6000,"memory_search_per_minute":6000,"memory_read_per_minute":6000,"memory_write_per_minute":6000}
+          EOF
+
+      - name: Start FAIM CPU Docker stack and run migrations
+        run: |
+          docker compose up -d postgres redis qdrant
+          docker compose build api worker-ingest worker-evolve migrate
+          docker compose run --rm migrate
+          docker compose up -d api worker-ingest worker-evolve
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8000/ready; then echo ""; break; fi
+            sleep 2
+          done
+          curl -sf http://localhost:8000/ready
+
+      - name: Provision ephemeral benchmark API key
+        id: auth
+        run: |
+          API_KEY=$(docker compose exec -T api python3 - << 'PY'
+          import uuid
+          from store.pg.session import get_session
+          from store.pg.repos.auth_repo import AuthRepo
+          tenant_id = f"user:{uuid.uuid5(uuid.NAMESPACE_DNS, 'faim-ci-mem-bench')}"
+          with get_session() as session:
+              _rec, raw_key = AuthRepo(session).create_tenant_key(
+                  tenant_id=tenant_id,
+                  scopes=["ingest", "query", "storage", "memory", "evolve"],
+              )
+              session.commit()
+              print(f"{tenant_id}|{raw_key}")
+          PY
+          )
+          TENANT_ID="${API_KEY%%|*}"
+          RAW_KEY="${API_KEY##*|}"
+          echo "tenant_id=${TENANT_ID}" >> "$GITHUB_OUTPUT"
+          echo "::add-mask::${RAW_KEY}"
+          echo "api_key=${RAW_KEY}" >> "$GITHUB_OUTPUT"
+
+      - name: Download memory dataset (${{ matrix.suite }})
+        run: |
+          mkdir -p ~/.faim/bench_datasets
+          if [ "${{ matrix.suite }}" = "locomo" ]; then
+            curl -fSL -o ~/.faim/bench_datasets/locomo10.json "https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json"
+          else
+            python3 -m pip install huggingface_hub
+            python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='xiaowu0162/longmemeval-cleaned', filename='longmemeval_s_cleaned.json', repo_type='dataset', local_dir='/home/runner/.faim/bench_datasets')"
+          fi
+
+      - name: Install faim-benchmarks and run memory suite (${{ matrix.suite }})
+        run: |
+          python3 -m pip install -e "./faim-benchmarks[datasets,dev]"
+          mkdir -p faim-benchmarks/results/ci-${{ matrix.suite }}
+          export FAIM_BASE_URL=http://localhost:8000
+          export FAIM_TENANT_ID="${{ steps.auth.outputs.tenant_id }}"
+          export FAIM_API_KEY="${{ steps.auth.outputs.api_key }}"
+          export FAIM_PROFILE=fast
+          export FAIM_SELF_EVOLVE_ENABLED=true
+          export FAIM_EMBEDDING_PROVIDER_ID=faim-native-cpu
+          export FAIM_EMBEDDING_MODEL_ID=zero-ml-repr-v2-cpu
+          export FAIM_EMBEDDING_MODEL_REVISION="${GITHUB_SHA::7}"
+          if [ "${{ matrix.suite }}" = "locomo" ]; then
+            DATA_PATH="$HOME/.faim/bench_datasets/locomo10.json"
+          else
+            DATA_PATH="$HOME/.faim/bench_datasets/longmemeval_s_cleaned.json"
+          fi
+          EXTRA_ARGS=""
+          if [ -n "${{ github.event.inputs.max_cases }}" ]; then
+            EXTRA_ARGS="--max-cases ${{ github.event.inputs.max_cases }}"
+          fi
+          faim-bench memory \
+            --suite "${{ matrix.suite }}" \
+            --data-path "$DATA_PATH" \
+            --systems faim,bm25 \
+            $EXTRA_ARGS \
+            --out-dir "faim-benchmarks/results/ci-${{ matrix.suite }}"
+
+      - name: Upload signed benchmark artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: faim-memory-${{ matrix.suite }}
+          path: faim-benchmarks/results/ci-${{ matrix.suite }}/*

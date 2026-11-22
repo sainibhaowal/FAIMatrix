@@ -8,7 +8,7 @@ export type ApiValidationIssue = {
 
 export function normalizeApiErrorMessage(
   detail: unknown,
-  fallback = "Request failed"
+  fallback = "Request failed",
 ): string {
   if (typeof detail === "string" && detail.trim()) {
     return detail;

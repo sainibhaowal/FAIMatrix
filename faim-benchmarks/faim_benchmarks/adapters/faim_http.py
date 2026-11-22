@@ -36,17 +36,36 @@ class FaimHttpAdapter:
         transport: Optional[httpx.BaseTransport] = None,
         timeout: Optional[float] = None,
     ) -> None:
-        self.base_url = (base_url or os.getenv("FAIM_BASE_URL", "http://localhost:8000")).rstrip("/")
-        self.api_key = api_key if api_key is not None else os.getenv("FAIM_API_KEY", "").strip()
-        self.tenant_id = tenant_id if tenant_id is not None else os.getenv("FAIM_TENANT_ID", "").strip()
-        self.bearer_token = bearer_token if bearer_token is not None else os.getenv("FAIM_BEARER_TOKEN", "").strip()
+        self.base_url = (
+            base_url or os.getenv("FAIM_BASE_URL", "http://localhost:8000")
+        ).rstrip("/")
+        self.api_key = (
+            api_key if api_key is not None else os.getenv("FAIM_API_KEY", "").strip()
+        )
+        self.tenant_id = (
+            tenant_id
+            if tenant_id is not None
+            else os.getenv("FAIM_TENANT_ID", "").strip()
+        )
+        self.bearer_token = (
+            bearer_token
+            if bearer_token is not None
+            else os.getenv("FAIM_BEARER_TOKEN", "").strip()
+        )
         self.profile = profile or os.getenv("FAIM_PROFILE", "strict")
         self.persist_mode = persist_mode or os.getenv("FAIM_PERSIST_MODE", "strict")
-        self.write_mode = os.getenv("FAIM_BENCH_FAIM_WRITE_MODE", "ingest").strip().lower()
+        self.write_mode = (
+            os.getenv("FAIM_BENCH_FAIM_WRITE_MODE", "ingest").strip().lower()
+        )
         if self.write_mode not in {"ingest", "memory"}:
             raise ValueError("FAIM_BENCH_FAIM_WRITE_MODE must be 'ingest' or 'memory'")
-        self.graph_max_hops = int(graph_max_hops or os.getenv("FAIM_GRAPH_MAX_HOPS", "2"))
+        self.graph_max_hops = int(
+            graph_max_hops or os.getenv("FAIM_GRAPH_MAX_HOPS", "2")
+        )
         self.batch_size = max(0, int(os.getenv("FAIM_BENCH_FAIM_BATCH_SIZE", "0")))
+        self.benchmark_mode = os.getenv(
+            "FAIM_BENCHMARK_MODE", "false"
+        ).strip().lower() in {"1", "true", "yes", "on"}
         configured_timeout = (
             float(timeout)
             if timeout is not None
@@ -91,11 +110,20 @@ class FaimHttpAdapter:
     def _sync_storage_raw_ids(self, namespace: str) -> None:
         if namespace in self._synced_namespaces:
             return
-        self._synced_namespaces.add(namespace)
         fn_map = self._filename_to_doc.get(namespace, {})
         if not fn_map:
+            self._synced_namespaces.add(namespace)
             return
         raw_map = self._raw_to_doc.setdefault(namespace, {})
+        # Batch upload responses contain the server-assigned raw_id for every
+        # successful file.  Avoid an unbounded catalog scan on the first
+        # query: for a large benchmark graph that scan can monopolize an API
+        # worker long enough for gunicorn to terminate it.  The catalog
+        # fallback remains available only when a response omitted a mapping.
+        if len(raw_map) >= len(fn_map):
+            self._synced_namespaces.add(namespace)
+            return
+        self._synced_namespaces.add(namespace)
         offset = 0
         limit = 100
         while True:
@@ -118,7 +146,9 @@ class FaimHttpAdapter:
             if not items or offset >= total:
                 break
 
-    def ingest_document(self, namespace: str, doc_id: str, title: str, text: str) -> IngestOutcome:
+    def ingest_document(
+        self, namespace: str, doc_id: str, title: str, text: str
+    ) -> IngestOutcome:
         if self.write_mode == "memory":
             content = f"{title}\n\n{text}".strip() if title else text
             return self.write_memory(namespace, doc_id, content)
@@ -136,12 +166,20 @@ class FaimHttpAdapter:
             "content_type": "text/plain",
             "profile": self.profile,
             "persist_mode": self.persist_mode,
+            "benchmark_mode": self.benchmark_mode,
         }
         t0 = time.perf_counter()
-        resp = self._client.post("/api/v1/ingest", json=payload, headers=self._headers())
+        resp = self._client.post(
+            "/api/v1/ingest", json=payload, headers=self._headers()
+        )
         latency_ms = (time.perf_counter() - t0) * 1000.0
         if resp.status_code >= 400:
-            return IngestOutcome(doc_id=doc_id, latency_ms=latency_ms, ok=False, error=f"HTTP {resp.status_code}: {resp.text[:200]}")
+            return IngestOutcome(
+                doc_id=doc_id,
+                latency_ms=latency_ms,
+                ok=False,
+                error=f"HTTP {resp.status_code}: {resp.text[:200]}",
+            )
         resp_raw_id = str(resp.json().get("raw_id") or "")
         if resp_raw_id:
             self._raw_to_doc[namespace][resp_raw_id] = doc_id
@@ -160,7 +198,9 @@ class FaimHttpAdapter:
         """
         if self.write_mode != "ingest" or self.batch_size <= 1:
             return [
-                self.ingest_document(namespace, doc_id, doc.get("title", ""), doc.get("text", ""))
+                self.ingest_document(
+                    namespace, doc_id, doc.get("title", ""), doc.get("text", "")
+                )
                 for doc_id, doc in items
             ]
 
@@ -183,6 +223,7 @@ class FaimHttpAdapter:
                 "profile": self.profile,
                 "persist_mode": self.persist_mode,
                 "extractor_mode": "faim_native",
+                "benchmark_mode": "true" if self.benchmark_mode else "false",
             },
             files=files,
             headers=self._auth_headers(),
@@ -191,10 +232,19 @@ class FaimHttpAdapter:
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         if resp.status_code >= 400:
             error = f"HTTP {resp.status_code}: {resp.text[:200]}"
-            return [IngestOutcome(doc_id=doc_id, latency_ms=elapsed_ms, ok=False, error=error) for doc_id, _ in item_list]
+            return [
+                IngestOutcome(
+                    doc_id=doc_id, latency_ms=elapsed_ms, ok=False, error=error
+                )
+                for doc_id, _ in item_list
+            ]
 
         payload = resp.json()
-        if str(payload.get("status") or "").lower() in {"queued", "processing", "ingesting"}:
+        if str(payload.get("status") or "").lower() in {
+            "queued",
+            "processing",
+            "ingesting",
+        }:
             job_id = str(payload.get("job_id") or "")
             deadline = time.monotonic() + max(
                 60.0, float(os.getenv("FAIM_BENCH_FAIM_JOB_TIMEOUT_SECONDS", "3600"))
@@ -205,7 +255,9 @@ class FaimHttpAdapter:
             )
             last_poll_error: Optional[str] = None
             while job_id and time.monotonic() < deadline:
-                time.sleep(max(0.1, float(os.getenv("FAIM_BENCH_FAIM_JOB_POLL_SECONDS", "1"))))
+                time.sleep(
+                    max(0.1, float(os.getenv("FAIM_BENCH_FAIM_JOB_POLL_SECONDS", "1")))
+                )
                 try:
                     status_resp = self._client.get(
                         f"/api/v1/storage/uploads/{job_id}",
@@ -229,7 +281,11 @@ class FaimHttpAdapter:
                     break
                 payload = status_resp.json()
                 if str(payload.get("status") or "").lower() in {
-                    "done", "completed", "partial_failed", "failed", "cancelled"
+                    "done",
+                    "completed",
+                    "partial_failed",
+                    "failed",
+                    "cancelled",
                 }:
                     break
             else:
@@ -238,17 +294,30 @@ class FaimHttpAdapter:
                     "files": [],
                     "error": (
                         f"FAIM storage job {job_id or '<missing>'} timed out"
-                        + (f"; last poll error: {last_poll_error}" if last_poll_error else "")
+                        + (
+                            f"; last poll error: {last_poll_error}"
+                            if last_poll_error
+                            else ""
+                        )
                     ),
                 }
-        results = {str(row.get("filename")): row for row in (payload.get("files") or [])}
+        results = {
+            str(row.get("filename")): row for row in (payload.get("files") or [])
+        }
         per_doc_ms = elapsed_ms / max(1, len(item_list))
         outcomes: List[IngestOutcome] = []
         for doc_id, _ in item_list:
             filename = f"bench_{doc_id}.txt"
             row = results.get(filename)
             if not row:
-                outcomes.append(IngestOutcome(doc_id=doc_id, latency_ms=per_doc_ms, ok=False, error="Batch response omitted document"))
+                outcomes.append(
+                    IngestOutcome(
+                        doc_id=doc_id,
+                        latency_ms=per_doc_ms,
+                        ok=False,
+                        error="Batch response omitted document",
+                    )
+                )
                 continue
             raw_id = str(row.get("raw_id") or "")
             if raw_id:
@@ -260,12 +329,20 @@ class FaimHttpAdapter:
                     doc_id=doc_id,
                     latency_ms=per_doc_ms,
                     ok=ok,
-                    error=None if ok else str(row.get("error") or f"Batch status: {status or 'unknown'}"),
+                    error=(
+                        None
+                        if ok
+                        else str(
+                            row.get("error") or f"Batch status: {status or 'unknown'}"
+                        )
+                    ),
                 )
             )
         return outcomes
 
-    def write_memory(self, namespace: str, memory_id: str, text: str, timestamp: Optional[str] = None) -> IngestOutcome:
+    def write_memory(
+        self, namespace: str, memory_id: str, text: str, timestamp: Optional[str] = None
+    ) -> IngestOutcome:
         body_text = f"[{timestamp}] {text}" if timestamp else text
         payload = {
             "graph_id": namespace,
@@ -275,16 +352,25 @@ class FaimHttpAdapter:
             "idempotency_key": f"{namespace}:{memory_id}",
         }
         t0 = time.perf_counter()
-        resp = self._client.post("/api/v1/memory/write", json=payload, headers=self._headers())
+        resp = self._client.post(
+            "/api/v1/memory/write", json=payload, headers=self._headers()
+        )
         latency_ms = (time.perf_counter() - t0) * 1000.0
         if resp.status_code >= 400:
-            return IngestOutcome(doc_id=memory_id, latency_ms=latency_ms, ok=False, error=f"HTTP {resp.status_code}: {resp.text[:200]}")
+            return IngestOutcome(
+                doc_id=memory_id,
+                latency_ms=latency_ms,
+                ok=False,
+                error=f"HTTP {resp.status_code}: {resp.text[:200]}",
+            )
         raw_id = str(resp.json().get("raw_id") or "")
         if raw_id:
             self._raw_to_doc.setdefault(namespace, {})[raw_id] = memory_id
         return IngestOutcome(doc_id=memory_id, latency_ms=latency_ms, ok=True)
 
-    def query(self, namespace: str, query_id: str, query_text: str, k: int = 20) -> QueryOutcome:
+    def query(
+        self, namespace: str, query_id: str, query_text: str, k: int = 20
+    ) -> QueryOutcome:
         self._sync_storage_raw_ids(namespace)
         payload = {
             "graph_id": namespace,
@@ -311,14 +397,39 @@ class FaimHttpAdapter:
                 retrieved_ids.append(mapped)
 
         answer = data.get("answer") or {}
-        spans = [str(s.get("text") or "") for s in answer.get("supporting_spans", []) if s.get("text")]
+        spans = [
+            str(s.get("text") or "")
+            for s in answer.get("supporting_spans", [])
+            if s.get("text")
+        ]
         answer_text = str(answer.get("direct_answer") or "") or "\n".join(spans)
+        response_metrics = data.get("metrics") or {}
+        safe_metrics = {
+            key: response_metrics[key]
+            for key in (
+                "cache_hit",
+                "phase5_sparse_candidates",
+                "phase5_dense_candidates",
+                "degraded_feature_count",
+                "node_count",
+                "diagnostics_cached",
+                "stage_timings_ms",
+            )
+            if key in response_metrics
+        }
+        degraded = data.get("degraded_features") or []
+        safe_metadata = {
+            "response_metrics": safe_metrics,
+            "degraded_features": [str(item) for item in degraded[:20]],
+            "result_count": len(retrieved_ids),
+        }
         return QueryOutcome(
             query_id=query_id,
             retrieved_doc_ids=retrieved_ids,
             retrieved_texts=spans,
             answer_text=answer_text,
             latency_ms=latency_ms,
+            metadata=safe_metadata,
         )
 
     def close(self) -> None:

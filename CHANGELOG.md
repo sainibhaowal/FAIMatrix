@@ -38,7 +38,7 @@
 
 # Changelog
 
-All notable changes to FAIM-Native should be recorded here. This project is still evolving, so historical stage reports under `docs/` are implementation records rather than stable release guarantees.
+All notable changes to FAIM-Native should be recorded here. This project is still evolving, so historical stage reports under `faim_native/Docs/` and the external documentation archive are implementation records rather than stable release guarantees.
 
 ## Unreleased
 
@@ -62,7 +62,7 @@ All notable changes to FAIM-Native should be recorded here. This project is stil
 - Added explicit experimental-use boundaries and research-positioning language.
 - Added public-facing experimental status, research positioning, and roadmap documents.
 - Expanded README with implementation-grounded end-to-end, ingest, query, evolution, and deployment diagrams.
-- Added a detailed runtime component inventory and boundary document under `docs/`.
+- Added a detailed runtime component inventory and boundary document under `faim_native/Docs/01-architecture/`.
 
 ### CI/CD
 

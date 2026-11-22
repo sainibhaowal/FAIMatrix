@@ -16,21 +16,21 @@ except (ImportError, RuntimeError):
 class LexicalWeights:
     """Weights for additive lexical channels."""
 
-    word: float = 0.35
-    phrase: float = 0.20
-    skip: float = 0.15
-    entity: float = 0.15
-    time: float = 0.10
-    layout: float = 0.05
-    semantic_phrase: float = 0.16
-    concept: float = 0.12
-    morphology: float = 0.08
-    alias: float = 0.06
-    translit: float = 0.05
-    stem_family: float = 0.05
-    relation: float = 0.04
-    value: float = 0.04
-    temporal: float = 0.03
+    word: float = 0.65
+    phrase: float = 0.15
+    skip: float = 0.03
+    entity: float = 0.05
+    time: float = 0.03
+    layout: float = 0.01
+    semantic_phrase: float = 0.03
+    concept: float = 0.02
+    morphology: float = 0.01
+    alias: float = 0.005
+    translit: float = 0.005
+    stem_family: float = 0.005
+    relation: float = 0.002
+    value: float = 0.002
+    temporal: float = 0.001
 
 
 DEFAULT_LEXICAL_WEIGHTS = LexicalWeights()
@@ -50,6 +50,7 @@ def _bm25_channel_score(
     doc_len: int,
     k1: float = 1.2,
     b: float = 0.75,
+    delta: float = 0.35,
 ) -> float:
     if not query_counts or not doc_counts or doc_count <= 0:
         return 0.0
@@ -63,7 +64,8 @@ def _bm25_channel_score(
         df = float(df_map.get(term, 0))
         idf = math.log(1.0 + ((doc_count - df + 0.5) / (df + 0.5)))
         denom = f + k1 * (1.0 - b + b * (doc_len / denom_len))
-        score += idf * ((f * (k1 + 1.0)) / max(denom, 1e-9)) * max(float(q_tf), 1.0)
+        tf_norm = ((f * (k1 + 1.0)) / max(denom, 1e-9)) + delta
+        score += idf * tf_norm * max(float(q_tf), 1.0)
 
     return score / (1.0 + score)
 
@@ -112,7 +114,7 @@ def compute_lexical_score(
     word = _bm25_channel_score(
         query_repr.word_counts,
         doc_repr.word_counts,
-        dict(word_stats.get("df_map", {})),  # type: ignore[call-overload]
+        word_stats.get("df_map") or {},  # type: ignore[arg-type]
         doc_count=int(word_stats.get("doc_count", 0)),  # type: ignore[call-overload]
         avg_len=float(word_stats.get("avg_len", 0.0)),
         doc_len=int(doc_repr.channel_lengths.get("word", 0)),
@@ -120,7 +122,7 @@ def compute_lexical_score(
     phrase_bm25 = _bm25_channel_score(
         query_repr.phrase_counts,
         doc_repr.phrase_counts,
-        dict(phrase_stats.get("df_map", {})),  # type: ignore[call-overload]
+        phrase_stats.get("df_map") or {},  # type: ignore[arg-type]
         doc_count=int(phrase_stats.get("doc_count", 0)),  # type: ignore[call-overload]
         avg_len=float(phrase_stats.get("avg_len", 0.0)),
         doc_len=int(doc_repr.channel_lengths.get("phrase", 0)),
@@ -130,7 +132,7 @@ def compute_lexical_score(
     skip = _bm25_channel_score(
         query_repr.skip_counts,
         doc_repr.skip_counts,
-        dict(skip_stats.get("df_map", {})),  # type: ignore[call-overload]
+        skip_stats.get("df_map") or {},  # type: ignore[arg-type]
         doc_count=int(skip_stats.get("doc_count", 0)),  # type: ignore[call-overload]
         avg_len=float(skip_stats.get("avg_len", 0.0)),
         doc_len=int(doc_repr.channel_lengths.get("skip", 0)),
@@ -141,7 +143,7 @@ def compute_lexical_score(
     semantic_phrase_bm25 = _bm25_channel_score(
         query_repr.semantic_phrase_counts or {},
         doc_repr.semantic_phrase_counts or {},
-        dict(semantic_phrase_stats.get("df_map", {})),  # type: ignore[call-overload]
+        semantic_phrase_stats.get("df_map") or {},  # type: ignore[arg-type]
         doc_count=int(semantic_phrase_stats.get("doc_count", 0)),  # type: ignore[call-overload]
         avg_len=float(semantic_phrase_stats.get("avg_len", 0.0)),
         doc_len=int(doc_repr.channel_lengths.get("semantic_phrase", 0)),
@@ -154,7 +156,7 @@ def compute_lexical_score(
     concept = _bm25_channel_score(
         query_repr.concept_counts or {},
         doc_repr.concept_counts or {},
-        dict(concept_stats.get("df_map", {})),  # type: ignore[call-overload]
+        concept_stats.get("df_map") or {},  # type: ignore[arg-type]
         doc_count=int(concept_stats.get("doc_count", 0)),  # type: ignore[call-overload]
         avg_len=float(concept_stats.get("avg_len", 0.0)),
         doc_len=int(doc_repr.channel_lengths.get("concept", 0)),
@@ -162,7 +164,7 @@ def compute_lexical_score(
     morphology = _bm25_channel_score(
         query_repr.morphology_counts or {},
         doc_repr.morphology_counts or {},
-        dict(morphology_stats.get("df_map", {})),  # type: ignore[call-overload]
+        morphology_stats.get("df_map") or {},  # type: ignore[arg-type]
         doc_count=int(morphology_stats.get("doc_count", 0)),  # type: ignore[call-overload]
         avg_len=float(morphology_stats.get("avg_len", 0.0)),
         doc_len=int(doc_repr.channel_lengths.get("morphology", 0)),

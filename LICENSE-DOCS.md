@@ -2,7 +2,7 @@
 
 Unless a file says otherwise, the original documentation and non-code assets in this repository are made available under the **Creative Commons Attribution 4.0 International License (CC BY 4.0)**.
 
-That includes Markdown guides, diagrams, architecture explanations, screenshots, and the original README visuals under `docs/` and `assets/`.
+That includes Markdown guides, diagrams, architecture explanations, screenshots, and the original README visuals under `faim_native/Docs/` and `assets/`.
 
 You may share and adapt these materials for any purpose, including commercial use, provided that you:
 

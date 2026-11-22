@@ -86,6 +86,10 @@ services:
       NEXTAUTH_SECRET: playwright-e2e-secret
       REDIS_URL: redis://:faim_test_password@redis-test:8030/0
       FAIM_ENABLE_INDEX: "true"
+      FAIM_FAST_ML_EMBEDDING: "false"
+      FAIM_EMBEDDING_DEVICE: "cpu"
+      FAIM_BENCHMARK_MODE: "true"
+      FAIM_SELF_EVOLVE_ENABLED: "false"
       QDRANT_URL: http://qdrant-test:6333
     volumes:
       - raw_test_data:/var/lib/faim/raw

@@ -18,13 +18,18 @@ Config:
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import logging
 import os
 import re
+import secrets
+import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from threading import RLock
+from typing import Dict, List, Optional, Tuple
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -36,6 +41,46 @@ AUDIT_ACTION_KEY_USED = "used"
 AUDIT_ACTION_DENIED_SCOPE = "denied(scope)"
 AUDIT_ACTION_DENIED_EXPIRED = "denied(expired)"
 AUDIT_ACTION_DENIED_REVOKED = "denied(revoked)"
+
+_VERIFIED_KEY_CACHE_LOCK = RLock()
+_VERIFIED_KEY_CACHE: OrderedDict[Tuple[str, str], Tuple["AuthDecision", float]] = (
+    OrderedDict()
+)
+_VERIFIED_KEY_CACHE_MAX_SIZE = 2048
+_CACHE_HMAC_SECRET = secrets.token_bytes(32)
+
+
+def _key_cache_ttl_seconds() -> float:
+    raw = os.getenv("FAIM_AUTH_KEY_CACHE_TTL_SECONDS", "60").strip()
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 60.0
+
+
+def _cache_digest(api_key: str) -> str:
+    return hmac.new(
+        _CACHE_HMAC_SECRET, api_key.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+
+
+def invalidate_tenant_key_cache(
+    tenant_id: Optional[str] = None,
+    key_id: Optional[str] = None,
+) -> None:
+    """Invalidate cached verified API key decisions on revoke or rotation."""
+    with _VERIFIED_KEY_CACHE_LOCK:
+        if tenant_id is None and key_id is None:
+            _VERIFIED_KEY_CACHE.clear()
+            return
+        to_delete = [
+            cache_key
+            for cache_key, (decision, _exp) in _VERIFIED_KEY_CACHE.items()
+            if (tenant_id is None or cache_key[0] == tenant_id)
+            and (key_id is None or decision.key_id == key_id)
+        ]
+        for cache_key in to_delete:
+            _VERIFIED_KEY_CACHE.pop(cache_key, None)
 
 
 # =============================================================================
@@ -215,7 +260,21 @@ def _verify_db_tenant_key(
     *,
     request_id: Optional[str] = None,
 ) -> AuthDecision:
-    """DB-backed key verification returning AuthDecision with denial reason."""
+    """DB-backed key verification with short-TTL HMAC verified-key cache."""
+    ttl = _key_cache_ttl_seconds()
+    cache_key: Optional[Tuple[str, str]] = None
+    if ttl > 0.0:
+        cache_key = (tenant_id, _cache_digest(api_key))
+        now_mono = time.monotonic()
+        with _VERIFIED_KEY_CACHE_LOCK:
+            cached = _VERIFIED_KEY_CACHE.get(cache_key)
+            if cached is not None:
+                decision, expires_at = cached
+                if now_mono < expires_at:
+                    _VERIFIED_KEY_CACHE.move_to_end(cache_key)
+                    return decision
+                _VERIFIED_KEY_CACHE.pop(cache_key, None)
+
     from runtime.context import close_session, get_session
     from store.pg.repos.auth_repo import AuthRepo
 
@@ -232,12 +291,22 @@ def _verify_db_tenant_key(
                 meta={"method": "db_primary"},
             )
             session.commit()
-            return AuthDecision(
+            decision = AuthDecision(
                 valid=True,
                 auth_method="api_key_db",
                 key_id=str(verification.record.key_id),
                 scopes=list(verification.record.scopes or []),
             )
+            if ttl > 0.0 and cache_key is not None:
+                with _VERIFIED_KEY_CACHE_LOCK:
+                    _VERIFIED_KEY_CACHE[cache_key] = (
+                        decision,
+                        time.monotonic() + ttl,
+                    )
+                    _VERIFIED_KEY_CACHE.move_to_end(cache_key)
+                    while len(_VERIFIED_KEY_CACHE) > _VERIFIED_KEY_CACHE_MAX_SIZE:
+                        _VERIFIED_KEY_CACHE.popitem(last=False)
+            return decision
 
         if verification.reason == "expired" and verification.matched_key_id:
             repo.append_key_audit(
@@ -373,8 +442,8 @@ def validate_tenant_key(tenant_id: str, api_key: str) -> bool:
 # Tenant ID Validation
 # =============================================================================
 
-# Valid tenant pattern: alphanumeric, hyphens, underscores
-TENANT_PATTERN = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+# Valid tenant pattern: alphanumeric, colons (e.g. user:<uuid>), hyphens, underscores
+TENANT_PATTERN = re.compile(r"^[a-zA-Z0-9_:-]{1,96}$")
 
 
 def normalize_tenant_id(tenant_id: str) -> str:
@@ -419,6 +488,11 @@ EXEMPT_PATHS = {
     "/api/v1/reranker/test",
     "/api/v1/reranker/activate",
     "/api/v1/reranker/deactivate",
+    "/.well-known/oauth-protected-resource",
+    "/.well-known/oauth-protected-resource/mcp",
+    "/.well-known/oauth-authorization-server",
+    "/oauth/register",
+    "/oauth/token",
 }
 
 # Auth paths that should be exempt from tenant auth
@@ -471,12 +545,35 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         # Get headers
-        raw_tenant_id = request.headers.get("X-Tenant-Id", "") or request.headers.get(
-            "X-Tenant-ID", "default"
-        )
+        explicit_tenant_id = request.headers.get(
+            "X-Tenant-Id", ""
+        ) or request.headers.get("X-Tenant-ID", "")
         api_key = request.headers.get("X-Api-Key", "") or request.headers.get(
             "X-FAIM-KEY", ""
         )
+        if not api_key:
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.lower().startswith("bearer "):
+                candidate = auth_header[7:].strip()
+                if candidate.startswith("faim_"):
+                    api_key = candidate
+
+        raw_tenant_id = explicit_tenant_id or "default"
+        if not explicit_tenant_id and api_key:
+            try:
+                from runtime.context import close_session, get_session
+                from store.pg.repos.auth_repo import AuthRepo
+
+                _s = get_session()
+                try:
+                    found = AuthRepo(_s).find_tenant_key_by_any_key(api_key)
+                    if found is not None:
+                        raw_tenant_id = found[0]
+                        _s.commit()
+                finally:
+                    close_session(_s)
+            except Exception:
+                pass
 
         # Normalize and validate tenant ID
         tenant_id = normalize_tenant_id(raw_tenant_id)
@@ -490,9 +587,18 @@ class TenantAuthMiddleware(BaseHTTPMiddleware):
 
         # Check API key present
         if not api_key:
+            headers = None
+            if request.url.path.startswith("/mcp"):
+                origin = (os.getenv("FAIM_PUBLIC_ORIGIN") or "").strip().rstrip(
+                    "/"
+                ) or str(request.base_url).rstrip("/")
+                headers = {
+                    "WWW-Authenticate": f'Bearer resource_metadata="{origin}/.well-known/oauth-protected-resource", scope="mcp:read mcp:write"'
+                }
             return JSONResponse(
                 status_code=401,
                 content={"error": "Missing X-Api-Key header"},
+                headers=headers,
             )
 
         # Authenticate key

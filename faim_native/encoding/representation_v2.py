@@ -10,6 +10,7 @@ import hashlib
 import json
 import re
 import sys
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
@@ -134,8 +135,7 @@ class RepresentationV2:
 
 
 def _hash_bucket(term: str, num_buckets: int) -> str:
-    digest = hashlib.sha256(term.encode("utf-8")).digest()
-    return str(int.from_bytes(digest[:4], "big", signed=False) % num_buckets)
+    return str(zlib.crc32(term.encode("utf-8")) % num_buckets)
 
 
 def _count_bucketed(terms: Iterable[str], num_buckets: int) -> Dict[str, int]:
@@ -268,7 +268,9 @@ def build_representation_v2(
         "entity": len(entity_tokens),
         "time": len(time_tokens),
         "layout": len(layout_tokens),
-        "semantic_phrase": sum((semantic_signature.semantic_phrase_counts or {}).values()),
+        "semantic_phrase": sum(
+            (semantic_signature.semantic_phrase_counts or {}).values()
+        ),
         "concept": sum((semantic_signature.concept_counts or {}).values()),
         "morphology": sum((semantic_signature.morphology_counts or {}).values()),
         "alias": len(semantic_signature.alias_families),

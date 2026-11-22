@@ -12,8 +12,8 @@ const PHASES = [
   },
   {
     tag: "Q3 2026",
-    title: "Proposals-Only Safety",
-    desc: "Enforced human-in-the-loop writebacks and cryptographic graph fingerprints for regulatory compliance.",
+    title: "Cryptographic Audit Trails",
+    desc: "Cryptographic graph fingerprints and verifiable tenant audit trails for regulatory compliance.",
     status: "Developing",
     color: "purple",
   },

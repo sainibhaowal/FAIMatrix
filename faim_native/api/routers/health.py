@@ -227,9 +227,7 @@ def pipeline_stats():
     try:
         import httpx
 
-        qdrant_url = os.getenv(
-            "QDRANT_URL", "http://localhost:8040"
-        ).rstrip("/")
+        qdrant_url = os.getenv("QDRANT_URL", "http://localhost:8040").rstrip("/")
         resp = httpx.get(f"{qdrant_url}/healthz", timeout=1.0)
         qdrant_ok = resp.status_code in (200, 404)
     except Exception:  # nosec B110

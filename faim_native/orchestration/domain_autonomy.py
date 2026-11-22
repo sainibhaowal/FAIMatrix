@@ -9,9 +9,8 @@ from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import and_
-
 from orchestration.jobs.job_store import JobStore
+from sqlalchemy import and_
 from store.pg.models_faim import JobModel
 
 logger = logging.getLogger(__name__)
@@ -111,7 +110,7 @@ def run_domain_autonomy_now(
 ):
     from orchestration.domain_profile_rebuild import run_domain_profile_rebuild
 
-    return run_domain_profile_rebuild(
+    result = run_domain_profile_rebuild(
         session=session,
         tenant_id=tenant_id,
         graph_id=graph_id,
@@ -123,6 +122,20 @@ def run_domain_autonomy_now(
         event_repo=event_repo,
         domain_pack=None,
     )
+    try:
+        from lexical.cooccurrence_bridge import run_cooccurrence_bridge_learning
+
+        run_cooccurrence_bridge_learning(
+            session=session,
+            tenant_id=tenant_id,
+            graph_id=graph_id,
+        )
+    except Exception as exc:  # nosec B110
+        logger.warning(
+            "Co-occurrence bridge learning during domain autonomy failed (non-fatal): %s",
+            exc,
+        )
+    return result
 
 
 __all__ = [

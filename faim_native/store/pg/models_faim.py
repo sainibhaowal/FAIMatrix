@@ -15,12 +15,13 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
     inspect,
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.types import JSON, TypeDecorator
 
 # Flexible imports
@@ -68,6 +69,9 @@ class JSONBType(TypeDecorator):
         return dialect.type_descriptor(JSON())
 
 
+AutoIncrementBigInteger = BigInteger().with_variant(Integer, "sqlite")
+
+
 class UUIDType(TypeDecorator):
     """Cross-database UUID type (native on Postgres, string on SQLite)."""
 
@@ -85,6 +89,7 @@ class UUIDType(TypeDecorator):
                 return val_uuid if dialect.name == "postgresql" else str(val_uuid)
             except (ValueError, TypeError, AttributeError):
                 import uuid
+
                 val_uuid = uuid.uuid5(uuid.NAMESPACE_DNS, value)
                 return val_uuid if dialect.name == "postgresql" else str(val_uuid)
         return value
@@ -504,7 +509,9 @@ class NodeModel(Base):
     block_id = Column(Text, nullable=True)
     anchor_json = Column(JSONBType, nullable=True)
     v_native = Column(JSONBType, nullable=False)
-    v_embedding = Column(JSONBType, nullable=True)  # 0034: semantic embedding vector (e.g., bge-m3 1024-dim)
+    v_embedding = Column(
+        JSONBType, nullable=True
+    )  # 0034: semantic embedding vector (e.g., bge-m3 1024-dim)
     opp_signature = Column(JSONBType, nullable=True)
 
     residual = Column(BigInteger, nullable=False, default=0)  # Stored as int * 1e9
@@ -990,6 +997,16 @@ class EdgeModel(Base):
     """
 
     __tablename__ = "edges"
+    __table_args__ = (
+        UniqueConstraint(
+            "tenant_id",
+            "graph_id",
+            "src_node_id",
+            "dst_node_id",
+            "kind",
+            name="uq_edges_tenant_graph_src_dst_kind",
+        ),
+    )
 
     edge_id = Column(UUIDType, primary_key=True)
     tenant_id = Column(
@@ -1124,7 +1141,7 @@ class JobEventModel(Base):
 
     __tablename__ = "job_events"
 
-    seq = Column(BigInteger, primary_key=True, autoincrement=True)
+    seq = Column(AutoIncrementBigInteger, primary_key=True, autoincrement=True)
     job_id = Column(UUIDType, nullable=False, index=True)
     ts = Column(
         DateTime(timezone=True),
@@ -1444,7 +1461,7 @@ class BenchmarkSampleModel(Base):
 
     __tablename__ = "benchmark_samples"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(AutoIncrementBigInteger, primary_key=True, autoincrement=True)
     tenant_id = Column(String(64), nullable=False, index=True)
     graph_id = Column(String(64), nullable=False, index=True)
     metric_name = Column(String(64), nullable=False)
@@ -1480,7 +1497,7 @@ class BenchmarkBaselineModel(Base):
 
     __tablename__ = "benchmark_baselines"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(AutoIncrementBigInteger, primary_key=True, autoincrement=True)
     tenant_id = Column(String(64), nullable=False, index=True)
     graph_id = Column(String(64), nullable=False, index=True)
     label = Column(String(128), nullable=False)

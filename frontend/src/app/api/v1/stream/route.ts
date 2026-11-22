@@ -21,9 +21,13 @@ export async function GET(req: NextRequest) {
 
   // IMPORTANT: graph_id is OPTIONAL. Backend can derive universe from X-FAIM-USER.
   const graphId = url.searchParams.get("graph_id");
+  const afterSeq = url.searchParams.get("after_seq");
 
   const upstream = new URL(`${backendBase()}/api/v1/events/stream`);
   if (graphId) upstream.searchParams.set("graph_id", graphId);
+  if (afterSeq !== null && afterSeq !== "") {
+    upstream.searchParams.set("after_seq", afterSeq);
+  }
 
   const xUser =
     req.headers.get("x-faim-user") || req.headers.get("x-user-id") || "";

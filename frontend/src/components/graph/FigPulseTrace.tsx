@@ -120,7 +120,8 @@ export default function FigPulseTrace({
   const queryFusion = qExp?.query_fusion_summary ?? null;
   const semanticSignature = qExp?.semantic_signature ?? null;
   const reasonLedger = qExp?.reason_source_ledger ?? null;
-  const pulseEvents = reasonLedger?.events ?? qExp?.pulse_event_stream ?? pulseTrace.events ?? [];
+  const pulseEvents =
+    reasonLedger?.events ?? qExp?.pulse_event_stream ?? pulseTrace.events ?? [];
   const liveEvents = livePulse?.events ?? [];
   const rerankerExplain =
     reranker?.explain && typeof reranker.explain === "object"
@@ -159,7 +160,8 @@ export default function FigPulseTrace({
             Pulse Protocol
           </p>
           <p className="text-[11px] text-slate-400">
-            Backend-backed trace over path, semantic signature, metrics, and provenance.
+            Backend-backed trace over path, semantic signature, metrics, and
+            provenance.
           </p>
         </div>
         <div className="flex items-center gap-1.5">
@@ -173,7 +175,10 @@ export default function FigPulseTrace({
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <SignalChip label="Trace ID" value={(pulseTrace.trace_id ?? "none").slice(0, 12)} />
+        <SignalChip
+          label="Trace ID"
+          value={(pulseTrace.trace_id ?? "none").slice(0, 12)}
+        />
         <SignalChip label="Path Length" value={pulseTrace.path_length} />
         <SignalChip label="Source" value={pulseTrace.source} />
         <SignalChip label="Signals" value={Object.keys(layerSummary).length} />
@@ -181,7 +186,9 @@ export default function FigPulseTrace({
 
       <div className="flex flex-wrap gap-1.5">
         {strongLayers.length === 0 ? (
-          <span className="text-[10px] text-slate-600">No runtime evidence layers reported.</span>
+          <span className="text-[10px] text-slate-600">
+            No runtime evidence layers reported.
+          </span>
         ) : (
           strongLayers.slice(0, 8).map(([layer, count]) => (
             <Badge key={layer} size="sm" variant="outline">
@@ -232,14 +239,18 @@ export default function FigPulseTrace({
                     Why this node glows
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {Object.entries(reasonLedger.why_glowing.expansion_sources ?? {})
+                    {Object.entries(
+                      reasonLedger.why_glowing.expansion_sources ?? {},
+                    )
                       .slice(0, 6)
                       .map(([source, count]) => (
                         <Badge key={source} size="sm" variant="secondary">
                           {source}: {count}
                         </Badge>
                       ))}
-                    {Object.entries(reasonLedger.why_glowing.reranker_components ?? {})
+                    {Object.entries(
+                      reasonLedger.why_glowing.reranker_components ?? {},
+                    )
                       .filter(([, value]) => Math.abs(Number(value)) > 0)
                       .slice(0, 4)
                       .map(([source, value]) => (
@@ -247,7 +258,10 @@ export default function FigPulseTrace({
                           rerank {source}: {Number(value).toFixed(2)}
                         </Badge>
                       ))}
-                    {Object.entries(reasonLedger.why_glowing.late_interaction_components ?? {})
+                    {Object.entries(
+                      reasonLedger.why_glowing.late_interaction_components ??
+                        {},
+                    )
                       .filter(([, value]) => Math.abs(Number(value)) > 0)
                       .slice(0, 4)
                       .map(([source, value]) => (
@@ -262,16 +276,29 @@ export default function FigPulseTrace({
                     Hop and domain proof
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
-                    {(reasonLedger.why_glowing.graph_hops ?? []).slice(0, 5).map((hop, idx) => (
-                      <Badge key={`${idx}-${String(hop.kind ?? "hop")}`} size="sm" variant="secondary">
-                        hop {String(hop.hop ?? idx + 1)}: {String(hop.kind ?? "edge")}
-                      </Badge>
-                    ))}
+                    {(reasonLedger.why_glowing.graph_hops ?? [])
+                      .slice(0, 5)
+                      .map((hop, idx) => (
+                        <Badge
+                          key={`${idx}-${String(hop.kind ?? "hop")}`}
+                          size="sm"
+                          variant="secondary"
+                        >
+                          hop {String(hop.hop ?? idx + 1)}:{" "}
+                          {String(hop.kind ?? "edge")}
+                        </Badge>
+                      ))}
                     {(reasonLedger.why_glowing.domain_memory?.query_links ?? [])
                       .slice(0, 5)
                       .map((link, idx) => (
-                        <Badge key={`${idx}-${String(link.term ?? link.node_id ?? "domain")}`} size="sm" variant="outline">
-                          {String(link.term ?? link.canonical_form ?? "domain").slice(0, 24)}
+                        <Badge
+                          key={`${idx}-${String(link.term ?? link.node_id ?? "domain")}`}
+                          size="sm"
+                          variant="outline"
+                        >
+                          {String(
+                            link.term ?? link.canonical_form ?? "domain",
+                          ).slice(0, 24)}
                         </Badge>
                       ))}
                   </div>
@@ -380,9 +407,15 @@ export default function FigPulseTrace({
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {(queryExpansion.expansions ?? []).slice(0, 10).map((exp) => (
-                  <Badge key={`${exp.term ?? "term"}-${exp.score ?? 0}`} size="sm" variant="outline">
+                  <Badge
+                    key={`${exp.term ?? "term"}-${exp.score ?? 0}`}
+                    size="sm"
+                    variant="outline"
+                  >
                     {(exp.term ?? "term").slice(0, 28)}
-                    {exp.score != null ? ` · ${(exp.score * 100).toFixed(0)}%` : ""}
+                    {exp.score != null
+                      ? ` · ${(exp.score * 100).toFixed(0)}%`
+                      : ""}
                   </Badge>
                 ))}
               </div>
@@ -390,15 +423,21 @@ export default function FigPulseTrace({
                 <div className="grid grid-cols-3 gap-2">
                   <StatRow
                     label="Registry terms"
-                    value={queryExpansion.semantic_registry.registry_term_count ?? 0}
+                    value={
+                      queryExpansion.semantic_registry.registry_term_count ?? 0
+                    }
                   />
                   <StatRow
                     label="Static terms"
-                    value={queryExpansion.semantic_registry.static_term_count ?? 0}
+                    value={
+                      queryExpansion.semantic_registry.static_term_count ?? 0
+                    }
                   />
                   <StatRow
                     label="Registry expansions"
-                    value={queryExpansion.semantic_registry.expansion_count ?? 0}
+                    value={
+                      queryExpansion.semantic_registry.expansion_count ?? 0
+                    }
                   />
                 </div>
               )}
@@ -423,11 +462,17 @@ export default function FigPulseTrace({
                   />
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {(domainRelevance.query_links ?? []).slice(0, 8).map((link) => (
-                    <Badge key={`${link.term ?? link.node_id ?? "link"}-${link.kind ?? "k"}`} size="sm" variant="secondary">
-                      {(link.term ?? link.node_id ?? "link").slice(0, 26)}
-                    </Badge>
-                  ))}
+                  {(domainRelevance.query_links ?? [])
+                    .slice(0, 8)
+                    .map((link) => (
+                      <Badge
+                        key={`${link.term ?? link.node_id ?? "link"}-${link.kind ?? "k"}`}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        {(link.term ?? link.node_id ?? "link").slice(0, 26)}
+                      </Badge>
+                    ))}
                 </div>
               </div>
             )}
@@ -439,25 +484,43 @@ export default function FigPulseTrace({
                   subtitle="Path, diffusion, neighborhood, and contradiction signal balance."
                 />
                 <div className="grid grid-cols-2 gap-2">
-                  <StatRow label="Total" value={graphScore.total?.toFixed(3) ?? "—"} />
-                  <StatRow label="Path" value={graphScore.path?.toFixed(3) ?? "—"} />
-                  <StatRow label="Diffusion" value={graphScore.diffusion?.toFixed(3) ?? "—"} />
-                  <StatRow label="Neighborhood" value={graphScore.neighborhood?.toFixed(3) ?? "—"} />
-                  <StatRow label="Contradiction" value={graphScore.contradiction?.toFixed(3) ?? "—"} />
+                  <StatRow
+                    label="Total"
+                    value={graphScore.total?.toFixed(3) ?? "—"}
+                  />
+                  <StatRow
+                    label="Path"
+                    value={graphScore.path?.toFixed(3) ?? "—"}
+                  />
+                  <StatRow
+                    label="Diffusion"
+                    value={graphScore.diffusion?.toFixed(3) ?? "—"}
+                  />
+                  <StatRow
+                    label="Neighborhood"
+                    value={graphScore.neighborhood?.toFixed(3) ?? "—"}
+                  />
+                  <StatRow
+                    label="Contradiction"
+                    value={graphScore.contradiction?.toFixed(3) ?? "—"}
+                  />
                 </div>
               </div>
             )}
           </div>
 
           <div className="grid gap-3 lg:grid-cols-2">
-          {reranker && (
-            <div className="rounded-xl border border-slate-800/60 bg-slate-950/35 p-3 space-y-2">
+            {reranker && (
+              <div className="rounded-xl border border-slate-800/60 bg-slate-950/35 p-3 space-y-2">
                 <SectionTitle
                   title="Reranker"
                   subtitle="Deterministic evidence alignment and contradiction handling."
                 />
                 <div className="grid grid-cols-2 gap-2">
-                  <StatRow label="Total" value={reranker.total?.toFixed(3) ?? "—"} />
+                  <StatRow
+                    label="Total"
+                    value={reranker.total?.toFixed(3) ?? "—"}
+                  />
                   <StatRow
                     label="Components"
                     value={Object.keys(reranker.components ?? {}).length}
@@ -492,10 +555,18 @@ export default function FigPulseTrace({
                     </div>
                     {rerankerEvidenceComponents.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
-                        {rerankerEvidenceComponents.slice(0, 6).map((part, idx) => (
-                            <Badge key={`${idx}-${part.label ?? "e"}`} size="sm" variant="secondary">
+                        {rerankerEvidenceComponents
+                          .slice(0, 6)
+                          .map((part, idx) => (
+                            <Badge
+                              key={`${idx}-${part.label ?? "e"}`}
+                              size="sm"
+                              variant="secondary"
+                            >
                               {(part.label ?? "evidence").slice(0, 22)}
-                              {part.value != null ? `: ${Number(part.value).toFixed(3)}` : ""}
+                              {part.value != null
+                                ? `: ${Number(part.value).toFixed(3)}`
+                                : ""}
                             </Badge>
                           ))}
                       </div>
@@ -548,7 +619,11 @@ export default function FigPulseTrace({
                         )
                         .slice(0, 12)
                         .map((item, idx) => (
-                          <Badge key={`${item.label}-${idx}`} size="sm" variant="secondary">
+                          <Badge
+                            key={`${item.label}-${idx}`}
+                            size="sm"
+                            variant="secondary"
+                          >
                             {item.label}: {item.value.slice(0, 18)}
                           </Badge>
                         ))}
@@ -581,14 +656,20 @@ export default function FigPulseTrace({
               </div>
               {queryFusion?.top_result?.strongest_layers && (
                 <div className="flex flex-wrap gap-1.5">
-                  {queryFusion.top_result.strongest_layers.slice(0, 6).map((layer, idx) => (
-                    <Badge key={`${layer.layer ?? "layer"}-${idx}`} size="sm" variant="outline">
-                      {layer.layer ?? "layer"}
-                      {layer.contribution != null
-                        ? `: ${(layer.contribution * 100).toFixed(0)}%`
-                        : ""}
-                    </Badge>
-                  ))}
+                  {queryFusion.top_result.strongest_layers
+                    .slice(0, 6)
+                    .map((layer, idx) => (
+                      <Badge
+                        key={`${layer.layer ?? "layer"}-${idx}`}
+                        size="sm"
+                        variant="outline"
+                      >
+                        {layer.layer ?? "layer"}
+                        {layer.contribution != null
+                          ? `: ${(layer.contribution * 100).toFixed(0)}%`
+                          : ""}
+                      </Badge>
+                    ))}
                 </div>
               )}
             </div>
@@ -629,7 +710,8 @@ export default function FigPulseTrace({
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {livePulse.ui_context?.selected_node_id && (
                   <Badge size="sm" variant="secondary">
-                    selected: {livePulse.ui_context.selected_node_id.slice(0, 12)}
+                    selected:{" "}
+                    {livePulse.ui_context.selected_node_id.slice(0, 12)}
                   </Badge>
                 )}
                 {livePulse.ui_context?.hovered_node_id && (
@@ -701,7 +783,9 @@ export default function FigPulseTrace({
           steps.map((step) => {
             const n = nodeIndex.get(step.node_id);
             const title = n ? safeNodeTitle(n) : step.title;
-            const state = (n ? nodeStateClass(n) : "unknown") as FigNodeDisplayState;
+            const state = (
+              n ? nodeStateClass(n) : "unknown"
+            ) as FigNodeDisplayState;
             const stateColor = nodeColorByState(state, false);
             return (
               <motion.div
@@ -737,7 +821,10 @@ export default function FigPulseTrace({
 
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <SignalChip label="Touches" value={step.touch_count} />
-                  <SignalChip label="Residual" value={step.residual.toFixed(3)} />
+                  <SignalChip
+                    label="Residual"
+                    value={step.residual.toFixed(3)}
+                  />
                   <SignalChip label="Level" value={step.level} />
                   <SignalChip
                     label="Evidence"
