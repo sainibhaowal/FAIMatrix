@@ -1103,20 +1103,22 @@ def run_query(
                     # every SQL vector in the request transaction.
                     include_dense=graph_node_count <= dense_sql_limit,
                 )
-                artifacts_sparse_docs = dict(artifacts.sparse_index.documents)
-                artifacts_node_meta = (
-                    dict(artifacts.node_meta)
-                    if getattr(artifacts, "node_meta", None) is not None
-                    else None
-                )
+                artifacts_sparse_docs = artifacts.sparse_index.documents
+                artifacts_node_meta = getattr(artifacts, "node_meta", None)
                 shortlist_k = max(80, k * 4) if fast_relevance_first else max(200, k * 20)
                 if (
                     canonical_query_text
                     and hasattr(artifacts.sparse_index, "has_exact_bm25")
                     and artifacts.sparse_index.has_exact_bm25()
                 ):
+                    bm25_expanded_terms = {
+                        str(getattr(item, "term", "")): float(getattr(item, "weight", 0.0) or 0.0)
+                        for item in (phaseb_expansions or ())
+                        if getattr(item, "term", None)
+                    }
                     phase5_exact_scores = artifacts.sparse_index.score_bm25_fast(
-                        canonical_query_text
+                        canonical_query_text,
+                        expanded_terms=bm25_expanded_terms or None,
                     )
                     if phase5_exact_scores:
                         phase5_sparse_candidates = sorted(

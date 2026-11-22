@@ -10,7 +10,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
-from threading import RLock
+from threading import Event, RLock
 from typing import Any, Dict, Optional, Tuple
 from uuid import UUID
 
@@ -59,6 +59,7 @@ _INDEX_ARTIFACT_CACHE: (
 ) = OrderedDict()
 _INDEX_ARTIFACT_CACHE_LOCK = RLock()
 _INDEX_ARTIFACT_CACHE_MAX_SIZE = 16
+_INFLIGHT_BUILDS: Dict[Tuple[str, str, int, bool], Event] = {}
 
 
 def build_graph_index_artifacts(
@@ -134,27 +135,45 @@ def get_graph_index_artifacts(
     *,
     include_dense: bool = True,
 ) -> GraphIndexArtifacts:
-    """Return graph-index artifacts with graph-versioned in-process caching."""
+    """Return graph-index artifacts with graph-versioned in-process caching
+    and single-flight coalescing across concurrent requests."""
     cache_key = (tenant_id, graph_id, int(graph_version), bool(include_dense))
-    with _INDEX_ARTIFACT_CACHE_LOCK:
-        cached = _INDEX_ARTIFACT_CACHE.get(cache_key)
-        if cached is not None:
-            _INDEX_ARTIFACT_CACHE.move_to_end(cache_key)
-            return cached
+    while True:
+        inflight_event: Optional[Event] = None
+        is_builder = False
+        with _INDEX_ARTIFACT_CACHE_LOCK:
+            cached = _INDEX_ARTIFACT_CACHE.get(cache_key)
+            if cached is not None:
+                _INDEX_ARTIFACT_CACHE.move_to_end(cache_key)
+                return cached
+            inflight_event = _INFLIGHT_BUILDS.get(cache_key)
+            if inflight_event is None:
+                inflight_event = Event()
+                _INFLIGHT_BUILDS[cache_key] = inflight_event
+                is_builder = True
 
-    artifacts = build_graph_index_artifacts(
-        session=session,
-        tenant_id=tenant_id,
-        graph_id=graph_id,
-        include_dense=include_dense,
-    )
+        if not is_builder and inflight_event is not None:
+            inflight_event.wait(timeout=60.0)
+            continue
 
-    with _INDEX_ARTIFACT_CACHE_LOCK:
-        _INDEX_ARTIFACT_CACHE[cache_key] = artifacts
-        _INDEX_ARTIFACT_CACHE.move_to_end(cache_key)
-        while len(_INDEX_ARTIFACT_CACHE) > _INDEX_ARTIFACT_CACHE_MAX_SIZE:
-            _INDEX_ARTIFACT_CACHE.popitem(last=False)
-    return artifacts
+        try:
+            artifacts = build_graph_index_artifacts(
+                session=session,
+                tenant_id=tenant_id,
+                graph_id=graph_id,
+                include_dense=include_dense,
+            )
+            with _INDEX_ARTIFACT_CACHE_LOCK:
+                _INDEX_ARTIFACT_CACHE[cache_key] = artifacts
+                _INDEX_ARTIFACT_CACHE.move_to_end(cache_key)
+                while len(_INDEX_ARTIFACT_CACHE) > _INDEX_ARTIFACT_CACHE_MAX_SIZE:
+                    _INDEX_ARTIFACT_CACHE.popitem(last=False)
+            return artifacts
+        finally:
+            with _INDEX_ARTIFACT_CACHE_LOCK:
+                ev = _INFLIGHT_BUILDS.pop(cache_key, None)
+                if ev is not None:
+                    ev.set()
 
 
 __all__ = [
