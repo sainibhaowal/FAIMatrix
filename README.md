@@ -389,11 +389,9 @@ On both full BEIR splits (`BeIR/SciFact` and `BeIR/NFCorpus`), FAIM-Native beat 
 
 Evidence artifacts:
 
-- [`ret_scifact_20261122T124757Z_df5d93fc.md`](faim-benchmarks/results/public-scifact-full-guarded-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md) (`READY`, `SHA-256: 175a5a1dfb0ac393aaf4316e7a37eaf84742a71f2b27497478d05bc0d53d7333`)
-- [`ret_nfcorpus_20261122T132435Z_6141a4e3.md`](faim-benchmarks/results/public-nfcorpus-full-guarded-v1-ready/ret_nfcorpus_20261122T132435Z_6141a4e3.md) (`READY`, `SHA-256: 1f79515b6484b6afeebec2e9d0c03561da94d5dcc13d6ddf06b4c81278b4eea6`)
-- [`ret_scifact_20261122T001726Z_3a591ec9.md`](faim-benchmarks/results/public-scifact-full-guarded-v18/ret_scifact_20261122T001726Z_3a591ec9.md) (`READY`)
-- [`ret_scifact_20261120T003156Z_2a4f4574.md`](faim-benchmarks/results/public-scifact-full-guarded-v17/ret_scifact_20261120T003156Z_2a4f4574.md)
-- [`ret_scifact_20261117T214211Z_ccef064a.md`](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md)
+- [`ret_scifact_20261122T124757Z_df5d93fc.md`](faim-benchmarks/results/gpu/scifact-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md) (`READY`, `SHA-256: 175a5a1dfb0ac393aaf4316e7a37eaf84742a71f2b27497478d05bc0d53d7333`)
+- [`ret_nfcorpus_20261122T132435Z_6141a4e3.md`](faim-benchmarks/results/gpu/nfcorpus-v1-ready/ret_nfcorpus_20261122T132435Z_6141a4e3.md) (`READY`, `SHA-256: 1f79515b6484b6afeebec2e9d0c03561da94d5dcc13d6ddf06b4c81278b4eea6`)
+- [`ret_scifact_20261122T001726Z_3a591ec9.md`](faim-benchmarks/results/cpu/scifact-v18-ready/ret_scifact_20261122T001726Z_3a591ec9.md) (`READY`)
 
 ### Public competitor references (not directly comparable)
 
@@ -657,8 +655,9 @@ Readiness is stronger than liveness: it checks database connectivity, required t
 - [GPU passthrough, fallback & worker sizing](faim_native/Docs/10-operations/06-gpu-passthrough-and-auth-caching.md)
 - [Zero-ML retrieval, concept graph & Concept-MaxSim](faim_native/Docs/01-architecture/03-zero-ml-retrieval-and-concept-expansion.md)
 - [Production benchmark suite](faim_native/Docs/13-benchmarks/02-production-benchmark-suite-2026-11-22.md)
-- [Benchmark evidence (SciFact v19-ready)](faim-benchmarks/results/public-scifact-full-guarded-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md)
-- [Benchmark evidence (NFCorpus v1-ready)](faim-benchmarks/results/public-nfcorpus-full-guarded-v1-ready/ret_nfcorpus_20261122T132435Z_6141a4e3.md)
+- [Benchmark evidence (SciFact v19-ready GPU)](faim-benchmarks/results/gpu/scifact-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md)
+- [Benchmark evidence (NFCorpus v1-ready GPU)](faim-benchmarks/results/gpu/nfcorpus-v1-ready/ret_nfcorpus_20261122T132435Z_6141a4e3.md)
+- [Benchmark evidence (SciFact v18-ready CPU)](faim-benchmarks/results/cpu/scifact-v18-ready/ret_scifact_20261122T001726Z_3a591ec9.md)
 
 ## Contributing
 

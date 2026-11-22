@@ -6,7 +6,7 @@ on:
       suites:
         description: "Comma-separated suites to run (all, or subset of: scifact,nfcorpus,arguana,fiqa,trec-covid,locomo,longmemeval)"
         required: false
-        default: "scifact,nfcorpus,arguana,locomo,longmemeval"
+        default: "all"
       ingest_workers:
         description: "Concurrent HTTP ingest workers per runner"
         required: false
@@ -120,7 +120,7 @@ jobs:
       - name: Install faim-benchmarks and run BEIR suite (${{ matrix.dataset }})
         run: |
           python3 -m pip install -e "./faim-benchmarks[datasets,dev]"
-          mkdir -p faim-benchmarks/results/ci-${{ matrix.dataset }}
+          mkdir -p faim-benchmarks/results/cpu/${{ matrix.dataset }}
           export FAIM_BASE_URL=http://localhost:8000
           export FAIM_TENANT_ID="${{ steps.auth.outputs.tenant_id }}"
           export FAIM_API_KEY="${{ steps.auth.outputs.api_key }}"
@@ -163,14 +163,14 @@ jobs:
             --ingest-workers "${{ github.event.inputs.ingest_workers }}" \
             --require-faim-beats-bm25 \
             --retain-query-traces \
-            --out-dir "faim-benchmarks/results/ci-${{ matrix.dataset }}"
+            --out-dir "faim-benchmarks/results/cpu/${{ matrix.dataset }}"
 
       - name: Upload signed benchmark artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: faim-beir-${{ matrix.dataset }}
-          path: faim-benchmarks/results/ci-${{ matrix.dataset }}/*
+          name: faim-cpu-beir-${{ matrix.dataset }}
+          path: faim-benchmarks/results/cpu/${{ matrix.dataset }}/*
 
   memory-cpu:
     needs: plan
@@ -255,7 +255,7 @@ jobs:
       - name: Install faim-benchmarks and run memory suite (${{ matrix.suite }})
         run: |
           python3 -m pip install -e "./faim-benchmarks[datasets,dev]"
-          mkdir -p faim-benchmarks/results/ci-${{ matrix.suite }}
+          mkdir -p faim-benchmarks/results/cpu/${{ matrix.suite }}
           export FAIM_BASE_URL=http://localhost:8000
           export FAIM_TENANT_ID="${{ steps.auth.outputs.tenant_id }}"
           export FAIM_API_KEY="${{ steps.auth.outputs.api_key }}"
@@ -278,11 +278,11 @@ jobs:
             --data-path "$DATA_PATH" \
             --systems faim,bm25 \
             $EXTRA_ARGS \
-            --out-dir "faim-benchmarks/results/ci-${{ matrix.suite }}"
+            --out-dir "faim-benchmarks/results/cpu/${{ matrix.suite }}"
 
       - name: Upload signed benchmark artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: faim-memory-${{ matrix.suite }}
-          path: faim-benchmarks/results/ci-${{ matrix.suite }}/*
+          name: faim-cpu-memory-${{ matrix.suite }}
+          path: faim-benchmarks/results/cpu/${{ matrix.suite }}/*
