@@ -40,6 +40,15 @@ class Worker:
             "storage_retention",
             "raw_reencryption",
         )
+        configured_kinds = os.getenv("FAIM_WORKER_JOB_KINDS", "").strip()
+        if configured_kinds:
+            requested_kinds = tuple(
+                k.strip() for k in configured_kinds.split(",") if k.strip()
+            )
+            valid_kinds = set(self.executable_job_kinds)
+            filtered = tuple(k for k in requested_kinds if k in valid_kinds)
+            if filtered:
+                self.executable_job_kinds = filtered
         self.benchmark_mode = os.getenv(
             "FAIM_BENCHMARK_MODE", "false"
         ).strip().lower() in {
@@ -57,6 +66,9 @@ class Worker:
                 for kind in self.executable_job_kinds
                 if kind not in {"evolve", "domain_autonomy"}
             )
+        self.self_evolve_scan_enabled = os.getenv(
+            "FAIM_WORKER_SELF_EVOLVE_SCAN_ENABLED", "true"
+        ).strip().lower() in {"1", "true", "yes", "on"}
         flags = get_feature_flags()
         default_scan_interval = max(
             30,
@@ -235,7 +247,7 @@ class Worker:
 
     def _maybe_run_self_evolve_scan(self):
         """Run periodic autonomous self-evolve scan (tenant-scoped)."""
-        if self.benchmark_mode:
+        if self.benchmark_mode or not self.self_evolve_scan_enabled:
             return
         now_mono = time.monotonic()
         if (

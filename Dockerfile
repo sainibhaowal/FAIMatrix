@@ -29,9 +29,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 
 # Install Python dependencies with persistent BuildKit package cache
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --default-timeout=100 --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt gunicorn uvicorn[standard] psycopg[binary] psycopg2-binary redis qdrant-client
+    pip install --default-timeout=100 --extra-index-url ${TORCH_INDEX_URL} -r requirements.txt gunicorn uvicorn[standard] psycopg[binary] psycopg2-binary redis qdrant-client
 
 # Non-root user (security) - Create BEFORE copy to fix ownership
 RUN useradd -m -u 1000 -s /bin/false faim

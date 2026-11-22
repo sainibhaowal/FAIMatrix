@@ -16,10 +16,12 @@ import logging
 import os
 import sys
 import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from threading import RLock
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 from uuid import UUID
 
 # Flexible imports
@@ -638,6 +640,39 @@ def _domain_weighted_expansions(query_text: str, rows: Sequence[object]):
 # =============================================================================
 
 
+_QUERY_GRAPH_META_CACHE_LOCK = RLock()
+_QUERY_GRAPH_META_CACHE: OrderedDict[Tuple[str, str, int], Dict[str, Any]] = (
+    OrderedDict()
+)
+_QUERY_GRAPH_META_CACHE_MAX_SIZE = 256
+
+
+def _get_cached_graph_meta(
+    tenant_id: str, graph_id: str, graph_version: int
+) -> Optional[Dict[str, Any]]:
+    if graph_version <= 0:
+        return None
+    cache_key = (tenant_id, graph_id, int(graph_version))
+    with _QUERY_GRAPH_META_CACHE_LOCK:
+        cached = _QUERY_GRAPH_META_CACHE.get(cache_key)
+        if cached is not None:
+            _QUERY_GRAPH_META_CACHE.move_to_end(cache_key)
+        return cached
+
+
+def _set_cached_graph_meta(
+    tenant_id: str, graph_id: str, graph_version: int, meta: Dict[str, Any]
+) -> None:
+    if graph_version <= 0:
+        return
+    cache_key = (tenant_id, graph_id, int(graph_version))
+    with _QUERY_GRAPH_META_CACHE_LOCK:
+        _QUERY_GRAPH_META_CACHE[cache_key] = meta
+        _QUERY_GRAPH_META_CACHE.move_to_end(cache_key)
+        while len(_QUERY_GRAPH_META_CACHE) > _QUERY_GRAPH_META_CACHE_MAX_SIZE:
+            _QUERY_GRAPH_META_CACHE.popitem(last=False)
+
+
 def run_query(
     session,
     tenant_id: str,
@@ -702,9 +737,23 @@ def run_query(
     # Compute query hash
     query_hash = compute_query_hash(query_text, graph_id)
     profile_name = profile.name if isinstance(profile, FAIMProfile) else str(profile)
+    fast_relevance_first = _fast_relevance_first_enabled(profile)
+    fast_graph_expansion = _fast_graph_expansion_enabled(profile)
+    fast_idf = _fast_idf_enabled(profile)
+    fast_async_touch = fast_relevance_first and not _env_bool(
+        "FAIM_FAST_SYNC_TOUCH", False
+    )
 
-    # 1. Emit QUERY_START
-    emit_query_start(journal, graph_id, query_hash, k, profile_name)
+    from store.pg.repos.graph_version_repo import GraphVersionRepo
+
+    gv_repo = GraphVersionRepo(tenant_id=tenant_id)
+    graph_version = gv_repo.get_version(session, graph_id) if session is not None else 0
+    cached_meta = _get_cached_graph_meta(tenant_id, graph_id, int(graph_version or 0))
+    meta_to_cache: Dict[str, Any] = {} if cached_meta is None else dict(cached_meta)
+
+    # 1. Emit QUERY_START (skip synchronous DB insert in FAST read-only mode)
+    if not fast_async_touch:
+        emit_query_start(journal, graph_id, query_hash, k, profile_name)
 
     # 2. Canonicalize and expand query text with deterministic weighted sources.
     canonical_query_text = query_text
@@ -728,8 +777,12 @@ def run_query(
         )
         from store.pg.repos.canonical_semantics_repo import CanonicalSemanticsRepo
 
-        canonical_repo = CanonicalSemanticsRepo(session=session, tenant_id=tenant_id)
-        canonical_map = canonical_repo.get_canonical_map(graph_id)
+        if cached_meta is not None and "canonical_map" in cached_meta:
+            canonical_map = cached_meta["canonical_map"]
+        else:
+            canonical_repo = CanonicalSemanticsRepo(session=session, tenant_id=tenant_id)
+            canonical_map = canonical_repo.get_canonical_map(graph_id)
+            meta_to_cache["canonical_map"] = canonical_map
         canonicalized = canonicalize_text(query_text, canonical_map=canonical_map)
         if canonicalized.canonical_text:
             canonical_query_text = canonicalized.canonical_text
@@ -764,8 +817,12 @@ def run_query(
         )
         from store.pg.repos.multilingual_repo import MultilingualRepo
 
-        multilingual_repo = MultilingualRepo(session=session, tenant_id=tenant_id)
-        multilingual_map = multilingual_repo.get_language_map(graph_id)
+        if cached_meta is not None and "multilingual_map" in cached_meta:
+            multilingual_map = cached_meta["multilingual_map"]
+        else:
+            multilingual_repo = MultilingualRepo(session=session, tenant_id=tenant_id)
+            multilingual_map = multilingual_repo.get_language_map(graph_id)
+            meta_to_cache["multilingual_map"] = multilingual_map
         multilingualized = canonicalize_multilingual_text(
             canonicalized.normalized_text if canonicalized else canonical_query_text,
             graph_map=multilingual_map,
@@ -796,9 +853,19 @@ def run_query(
         from store.pg.repos.domain_knowledge_repo import DomainKnowledgeRepo
         from store.pg.repos.edge_repo import EdgeRepo
 
-        domain_repo = DomainKnowledgeRepo(session=session, tenant_id=tenant_id)
-        domain_rows = domain_repo.list_lexicon_entries(graph_id)
-        domain_map = domain_repo.get_domain_map(graph_id)
+        if (
+            cached_meta is not None
+            and "domain_rows" in cached_meta
+            and "domain_map" in cached_meta
+        ):
+            domain_rows = cached_meta["domain_rows"]
+            domain_map = cached_meta["domain_map"]
+        else:
+            domain_repo = DomainKnowledgeRepo(session=session, tenant_id=tenant_id)
+            domain_rows = domain_repo.list_lexicon_entries(graph_id)
+            domain_map = domain_repo.get_domain_map(graph_id)
+            meta_to_cache["domain_rows"] = domain_rows
+            meta_to_cache["domain_map"] = domain_map
         linked_terms = resolve_query_links(expanded_query_text, domain_rows)
         domain_linked_terms = [
             {
@@ -910,9 +977,6 @@ def run_query(
     effective_graph_decay = float(graph_decay if graph_decay is not None else 0.6)
     effective_graph_alpha = float(graph_alpha if graph_alpha is not None else 0.2)
     effective_graph_diffusion_steps = max(1, int(graph_diffusion_steps or 3))
-    fast_relevance_first = _fast_relevance_first_enabled(profile)
-    fast_graph_expansion = _fast_graph_expansion_enabled(profile)
-    fast_idf = _fast_idf_enabled(profile)
 
     # 2b. Apply IDF weighting (Phase 3C)
     if fast_idf:
@@ -965,14 +1029,14 @@ def run_query(
             # Graceful fallback — continue with non-expanded q_vec
             pass
 
-    # 3. Get graph metrics
-    metrics = get_graph_metrics(session, tenant_id, graph_id)
+    # 3. Get graph metrics (graph-versioned cache)
+    if cached_meta is not None and "metrics" in cached_meta:
+        metrics = cached_meta["metrics"]
+    else:
+        metrics = get_graph_metrics(session, tenant_id, graph_id)
+        meta_to_cache["metrics"] = metrics
+        _set_cached_graph_meta(tenant_id, graph_id, int(graph_version or 0), meta_to_cache)
     graph_avg_touch = metrics.get("avg_touch", 1.0)
-
-    from store.pg.repos.graph_version_repo import GraphVersionRepo
-
-    gv_repo = GraphVersionRepo(tenant_id=tenant_id)
-    graph_version = gv_repo.get_version(session, graph_id)
 
     # 4. Recall candidates (cache -> index/brute-force fallback)
     recall_started = _stage_start()

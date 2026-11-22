@@ -22,6 +22,7 @@ import hashlib
 import json
 import logging
 import math
+import os
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -867,6 +868,39 @@ def recall_candidates_semantic_embedding(
     return scored[:n]
 
 
+def _native_cosine_sims_gpu_or_cpu(mat: Any, q_unit: Any) -> Any:
+    """Compute batch cosine similarities on CUDA when enabled/available, else CPU NumPy."""
+    import numpy as np
+
+    flag = (os.getenv("FAIM_USE_GPU_BACKEND") or "auto").strip().lower()
+    if flag in {"auto", "1", "true", "yes", "on"}:
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                mat_gpu = torch.as_tensor(mat, dtype=torch.float32, device="cuda")
+                q_gpu = torch.as_tensor(q_unit, dtype=torch.float32, device="cuda")
+                norms_gpu = torch.linalg.norm(mat_gpu, dim=1)
+                raw_dots = torch.mv(mat_gpu, q_gpu)
+                sims_gpu = torch.where(
+                    norms_gpu > 0.0,
+                    raw_dots / norms_gpu.clamp(min=1e-12),
+                    torch.zeros_like(raw_dots),
+                )
+                return sims_gpu.detach().cpu().numpy()
+        except Exception:
+            pass
+
+    norms = np.linalg.norm(mat, axis=1)
+    raw_dots = mat @ q_unit
+    return np.divide(
+        raw_dots,
+        norms,
+        out=np.zeros(mat.shape[0], dtype=np.float32),
+        where=norms > 0.0,
+    )
+
+
 def rerank_faim(
     session,
     tenant_id: str,
@@ -972,14 +1006,7 @@ def rerank_faim(
                     ],
                     dtype=np.float32,
                 )
-                norms = np.linalg.norm(mat, axis=1)
-                raw_dots = mat @ q_unit
-                sims_arr = np.divide(
-                    raw_dots,
-                    norms,
-                    out=np.zeros(len(nodes), dtype=np.float32),
-                    where=norms > 0.0,
-                )
+                sims_arr = _native_cosine_sims_gpu_or_cpu(mat, q_unit)
                 precomputed_sims = [float(x) for x in sims_arr]
         except Exception:
             precomputed_sims = None

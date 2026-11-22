@@ -26,6 +26,108 @@ logger = logging.getLogger(__name__)
 LOCAL_MODELS_DIR = Path(__file__).parent.parent / "models" / "embeddings"
 
 
+def _cuda_available() -> bool:
+    """Return True when PyTorch is installed and a CUDA GPU is usable."""
+    try:
+        import torch
+
+        return bool(torch.cuda.is_available())
+    except Exception:
+        return False
+
+
+def _resolve_embedding_device(device: Optional[str] = None) -> str:
+    """Resolve embedding device: GPU-first when available, CPU fallback otherwise."""
+    raw = (device or os.environ.get("FAIM_EMBEDDING_DEVICE", "auto")).strip()
+    lowered = raw.lower()
+    if not lowered or lowered == "auto":
+        return "cuda" if _cuda_available() else "cpu"
+    if lowered.startswith("cuda") and not _cuda_available():
+        logger.warning(
+            "Requested embedding device %r, but CUDA is unavailable; falling back to cpu.",
+            raw,
+        )
+        return "cpu"
+    return raw
+
+
+def _load_sentence_transformer_on_device(
+    model_name_or_path: str, device: str
+) -> tuple[Any, str]:
+    """Load a SentenceTransformer on `device`, falling back to CPU on CUDA errors."""
+    from sentence_transformers import SentenceTransformer
+
+    def _build(target_device: str) -> Any:
+        kwargs: Dict[str, Any] = {"device": target_device}
+        if str(target_device).lower() == "cpu":
+            try:
+                import torch
+
+                kwargs["model_kwargs"] = {"dtype": torch.float32}
+            except ImportError:
+                pass
+        return SentenceTransformer(str(model_name_or_path), **kwargs)
+
+    try:
+        return _build(device), device
+    except Exception as exc:
+        if str(device).lower().startswith("cuda"):
+            logger.warning(
+                "CUDA load failed for %s (%s); falling back to cpu.",
+                model_name_or_path,
+                exc,
+            )
+            try:
+                import torch
+
+                torch.cuda.empty_cache()
+            except Exception:
+                pass
+            return _build("cpu"), "cpu"
+        raise
+
+
+def _encode_sentence_transformer_with_fallback(
+    model: Any,
+    model_name_or_path: str,
+    device: str,
+    texts: List[str],
+) -> tuple[Any, Any, str]:
+    """Encode texts on `device`, transparently falling back to CPU on CUDA errors."""
+    try:
+        embeddings = model.encode(
+            texts,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+            convert_to_numpy=True,
+        )
+        return embeddings, model, device
+    except Exception as exc:
+        if not str(device).lower().startswith("cuda"):
+            raise
+        logger.warning(
+            "CUDA encode failed for %s (%s); falling back to cpu.",
+            model_name_or_path,
+            exc,
+        )
+        try:
+            import torch
+
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
+        cpu_model, cpu_device = _load_sentence_transformer_on_device(
+            str(model_name_or_path), "cpu"
+        )
+        embeddings = cpu_model.encode(
+            texts,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+            convert_to_numpy=True,
+        )
+        return embeddings, cpu_model, cpu_device
+
+
 @dataclass(frozen=True)
 class EmbeddingModelInfo:
     """Metadata about an embedding model."""
@@ -166,7 +268,7 @@ class LocalEmbeddingProvider(EmbeddingProvider):
         self._display_name = display_name or self._model_path.name
         self._dimension = _read_model_dimension(self._model_path) or 384
         self._max_tokens = _read_model_max_tokens(self._model_path)
-        self._device = device or os.environ.get("FAIM_EMBEDDING_DEVICE", "cpu")
+        self._device = _resolve_embedding_device(device)
         self._model = None
         self._model_loaded = False
 
@@ -194,22 +296,16 @@ class LocalEmbeddingProvider(EmbeddingProvider):
         if self._model_loaded:
             return
         try:
-            from sentence_transformers import SentenceTransformer
-
             logger.info(
                 f"Loading local model from {self._model_path} on device={self._device}"
             )
-            kwargs: Dict[str, Any] = {"device": self._device}
-            if str(self._device).lower() == "cpu":
-                try:
-                    import torch
-
-                    kwargs["model_kwargs"] = {"dtype": torch.float32}
-                except ImportError:
-                    pass
-            self._model = SentenceTransformer(str(self._model_path), **kwargs)
+            self._model, self._device = _load_sentence_transformer_on_device(
+                str(self._model_path), self._device
+            )
             self._model_loaded = True
-            logger.info(f"Local model {self._model_path.name} loaded successfully")
+            logger.info(
+                f"Local model {self._model_path.name} loaded successfully on device={self._device}"
+            )
         except Exception as e:
             logger.error(f"Failed to load local model {self._model_path}: {e}")
             self._model = None
@@ -234,11 +330,13 @@ class LocalEmbeddingProvider(EmbeddingProvider):
             raise RuntimeError(
                 f"Local model {self._model_path.name} failed to load from {self._model_path}."
             )
-        embeddings = self._model.encode(
-            texts,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-            convert_to_numpy=True,
+        embeddings, self._model, self._device = (
+            _encode_sentence_transformer_with_fallback(
+                self._model,
+                str(self._model_path),
+                self._device,
+                texts,
+            )
         )
         return EmbeddingResult(
             vectors=embeddings.tolist(),
@@ -259,7 +357,7 @@ class BgeM3LocalProvider(EmbeddingProvider):
         self._model_dir = model_dir or os.environ.get(
             "FAIM_EMBEDDING_MODEL_DIR", str(Path(__file__).parent.parent / "models")
         )
-        self._device = device or os.environ.get("FAIM_EMBEDDING_DEVICE", "cpu")
+        self._device = _resolve_embedding_device(device)
         candidates = [
             Path(self._model_dir) / "bge-m3",
             LOCAL_MODELS_DIR / "bge-m3",
@@ -303,16 +401,14 @@ class BgeM3LocalProvider(EmbeddingProvider):
         if self._model_loaded:
             return
         try:
-            from sentence_transformers import SentenceTransformer
-
             logger.info(
                 f"Loading BAAI/bge-m3 from {self._model_name_or_path} on device={self._device}"
             )
-            self._model = SentenceTransformer(
-                self._model_name_or_path, device=self._device
+            self._model, self._device = _load_sentence_transformer_on_device(
+                str(self._model_name_or_path), self._device
             )
             self._model_loaded = True
-            logger.info("BAAI/bge-m3 loaded successfully")
+            logger.info(f"BAAI/bge-m3 loaded successfully on device={self._device}")
         except Exception as e:
             logger.error(f"Failed to load BAAI/bge-m3: {e}")
             self._model = None
@@ -333,11 +429,13 @@ class BgeM3LocalProvider(EmbeddingProvider):
                 f"BAAI/bge-m3 model failed to load from {self._model_name_or_path}."
             )
 
-        embeddings = self._model.encode(
-            texts,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-            convert_to_numpy=True,
+        embeddings, self._model, self._device = (
+            _encode_sentence_transformer_with_fallback(
+                self._model,
+                str(self._model_name_or_path),
+                self._device,
+                texts,
+            )
         )
         return EmbeddingResult(
             vectors=embeddings.tolist(),

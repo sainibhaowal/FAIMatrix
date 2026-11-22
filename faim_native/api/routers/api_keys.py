@@ -328,6 +328,9 @@ async def rotate_api_key(
 
         old_record, new_record, plaintext = rotated
         ctx.session.commit()
+        from api.middleware.auth import invalidate_tenant_key_cache
+
+        invalidate_tenant_key_cache(tenant_id=ctx.tenant_id, key_id=target_key_id)
         return APIKeyRotateResponse(
             old_key=_serialize_key(old_record),
             new_key=_serialize_key(new_record),
@@ -380,6 +383,9 @@ async def revoke_api_key(
             raise HTTPException(status_code=404, detail="API key not found")
 
         ctx.session.commit()
+        from api.middleware.auth import invalidate_tenant_key_cache
+
+        invalidate_tenant_key_cache(tenant_id=ctx.tenant_id, key_id=target_key_id)
         return APIKeyRevokeResponse(key=_serialize_key(record))
     except HTTPException:
         raise

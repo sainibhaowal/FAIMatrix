@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -99,6 +100,22 @@ class WriteResult:
     events_emitted: int = 0
     graph_version: int = 0
     node_ids: List[UUID] = field(default_factory=list)
+
+
+def _matvec_gpu_or_cpu(matrix: Any, vec: Any) -> Any:
+    """Multiply float32 matrix by vector on CUDA when available, else CPU NumPy."""
+    flag = (os.getenv("FAIM_USE_GPU_BACKEND") or "auto").strip().lower()
+    if flag in {"auto", "1", "true", "yes", "on"}:
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                mat_gpu = torch.as_tensor(matrix, dtype=torch.float32, device="cuda")
+                vec_gpu = torch.as_tensor(vec, dtype=torch.float32, device="cuda")
+                return torch.mv(mat_gpu, vec_gpu).detach().cpu().numpy()
+        except Exception:
+            pass
+    return matrix @ vec
 
 
 class FAIMNativeEngine:
@@ -488,7 +505,7 @@ class FAIMNativeEngine:
                 and record_ids is not None
                 and precomputed_norm_matrix.shape[0] == len(record_ids)
             ):
-                similarities = precomputed_norm_matrix @ child_unit
+                similarities = _matvec_gpu_or_cpu(precomputed_norm_matrix, child_unit)
                 if skip_id is not None:
                     mask_idx = [i for i, nid in enumerate(record_ids) if nid == skip_id]
                     if mask_idx:
@@ -531,7 +548,7 @@ class FAIMNativeEngine:
             )
             norms = np.linalg.norm(matrix, axis=1)
             similarities = np.divide(
-                matrix @ child_unit,
+                _matvec_gpu_or_cpu(matrix, child_unit),
                 norms,
                 out=np.zeros(len(candidates), dtype=np.float32),
                 where=norms != 0,

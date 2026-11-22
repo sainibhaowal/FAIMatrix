@@ -378,18 +378,20 @@ completed all 300 queries with zero ingest errors.
 
 | System | Dataset / protocol | Recall@5 | nDCG@10 | Query p50 | Status |
 | --- | --- | ---: | ---: | ---: | --- |
-| **FAIM-Native (v9 baseline)** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | 17,373 ms | Completed |
-| **FAIM-Native (v17 baseline)** | SciFact, 5,183 docs / 300 queries | 0.4831 | 0.4184 | 7,195.68 ms | Completed |
-| **BM25 baseline** | Same full SciFact split and scorer | 0.7193 | 0.6644 | 48.42 ms | Completed |
-| **FAIM-Native (smoke-v8, zero-ML CPU-first)** | SciFact sampled (300 docs / 50 queries) | **0.9060** | **0.8616** | **264.64 ms** | Completed |
+| **FAIM-Native (v18, zero-ML CPU-first)** | SciFact, 5,183 docs / 300 queries | **0.7554** | **0.6878** | **231.07 ms** | Completed (`READY`) |
+| **BM25 baseline (v18)** | Same full SciFact split and scorer | 0.7193 | 0.6644 | 55.06 ms | Completed (`READY`) |
+| **FAIM-Native (v17 historical)** | SciFact, 5,183 docs / 300 queries | 0.4831 | 0.4184 | 7,195.68 ms | Completed |
+| **FAIM-Native (v9 historical)** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | 17,373 ms | Completed |
+| **FAIM-Native (smoke-v8, zero-ML CPU-first)** | SciFact sampled (300 docs / 50 queries) | 0.9060 | 0.8616 | 264.64 ms | Completed |
 | **BM25 baseline (smoke-v8)** | Same 300-doc / 50-query sampled split | 0.8160 | 0.8024 | 1.50 ms | Completed |
 
-On the historical full-split runs (`v9` and `v17`), FAIM-Native trailed BM25 in both nDCG@10 and latency. After upgrading FAIM-Native with collision-free stemmed+raw+bigram BM25+ in `InvertedIndex`, `GraphIndexArtifacts` RAM metadata caching, vectorized `float32` BLAS scoring, pre-indexed & cached `_maxsim_units`, proposition caching, and `include_historical=True` soft-suppression in `RerankerV2` (with zero ML models on CPU), the `smoke-v8` run beat BM25-Baseline on the 300-doc / 50-query sampled split (**+0.0592 nDCG@10**, **+0.0900 Recall@5**, **27× lower HTTP query p50 vs v17**; **146.59 ms** server-side P50). The harness publication gate remains `NOT READY` until a full 5,183-doc clean-tree run is completed.
+On the historical full-split runs (`v9` and `v17`), FAIM-Native trailed BM25 in both nDCG@10 and latency. After upgrading FAIM-Native with collision-free stemmed+raw+bigram BM25+ in `InvertedIndex`, `GraphIndexArtifacts` RAM metadata caching, vectorized `float32` BLAS scoring, pre-indexed & cached `_maxsim_units`, proposition caching, `defer_repr_stats` ingest batching, and `include_historical=True` soft-suppression in `RerankerV2` (with zero ML models on CPU), the **full 5,183-doc / 300-query `v18` run (`Publication gate: READY`, clean tree `c68f9c1`)** beat BM25-Baseline across every retrieval metric (**0.7554 vs 0.7193 Recall@5**, **0.6878 vs 0.6644 nDCG@10**, **0.6570 vs 0.6366 MRR**, **0.6464 vs 0.6242 MAP**) with **231.07 ms Query p50** and **284.02 ms Query p95** (**31× lower Query p50** than `v17`).
 
 Evidence artifacts:
 
-- [`ret_scifact_20261117T214211Z_ccef064a.md`](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md)
+- [`ret_scifact_20261122T001726Z_3a591ec9.md`](faim-benchmarks/results/public-scifact-full-guarded-v18/ret_scifact_20261122T001726Z_3a591ec9.md)
 - [`ret_scifact_20261120T003156Z_2a4f4574.md`](faim-benchmarks/results/public-scifact-full-guarded-v17/ret_scifact_20261120T003156Z_2a4f4574.md)
+- [`ret_scifact_20261117T214211Z_ccef064a.md`](faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md)
 - [`ret_scifact_20261121T225200Z_76c129ce.md`](faim-benchmarks/results/smoke-v8/ret_scifact_20261121T225200Z_76c129ce.md)
 
 ### Public competitor references (not directly comparable)

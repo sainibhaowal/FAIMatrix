@@ -96,6 +96,7 @@ def build_graph_index_artifacts(
             NodeModel.valid_to,
             NodeModel.last_access,
             NodeModel.residual,
+            NodeModel.v_embedding,
         )
         .filter(NodeModel.tenant_id == tenant_id, NodeModel.graph_id == graph_id)
         .all()
@@ -116,6 +117,7 @@ def build_graph_index_artifacts(
             valid_to=r.valid_to,
             last_access=r.last_access,
             residual=int(r.residual or 0),
+            v_embedding=r.v_embedding if isinstance(r.v_embedding, list) else None,
         )
         for r in node_rows
     }
