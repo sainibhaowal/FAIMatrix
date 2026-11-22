@@ -344,6 +344,8 @@ def load_locomo_split(
     qa_cases: List[MemoryQACase] = []
 
     for conv_idx, conv in enumerate(records):
+        if max_cases is not None and len(qa_cases) >= max_cases:
+            break
         conv_obj = conv.get("conversation", conv)
         for key, val in conv_obj.items():
             if key.startswith("session_") and isinstance(val, list):
@@ -359,12 +361,15 @@ def load_locomo_split(
                     )
         for qa_idx, qa in enumerate(conv.get("qa", [])):
             raw_cat = str(qa.get("category", "general")).strip()
+            ans_val = qa.get("answer")
+            if ans_val is None:
+                ans_val = qa.get("adversarial_answer", "")
             qa_cases.append(
                 MemoryQACase(
                     case_id=f"locomo_{conv_idx}_{qa_idx}",
                     category=_LOCOMO_CATEGORY_NAMES.get(raw_cat, raw_cat),
                     question=str(qa["question"]),
-                    answer=str(qa["answer"]),
+                    answer=str(ans_val),
                     evidence_ids=[str(e) for e in qa.get("evidence", [])],
                 )
             )
@@ -387,6 +392,8 @@ def load_longmemeval_split(
     """Load LongMemEval JSON file."""
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     records = data if isinstance(data, list) else data.get("items", [])
+    if max_cases is not None:
+        records = records[:max_cases]
     turns: List[ConversationalTurn] = []
     qa_cases: List[MemoryQACase] = []
 
