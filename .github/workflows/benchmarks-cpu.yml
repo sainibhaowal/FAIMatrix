@@ -99,12 +99,14 @@ jobs:
         run: |
           API_KEY=$(docker compose exec -T api python3 - << 'PY'
           import uuid
-          from store.pg.db import SessionLocal
-          from store.pg.repos.api_key_repo import ApiKeyRepo
+          from store.pg.session import get_session
+          from store.pg.repos.auth_repo import AuthRepo
           tenant_id = f"user:{uuid.uuid5(uuid.NAMESPACE_DNS, 'faim-ci-bench')}"
-          with SessionLocal() as session:
-              repo = ApiKeyRepo(session=session, tenant_id=tenant_id)
-              raw_key, _meta = repo.create_key(name="ci-bench", scopes=["ingest", "query", "storage", "memory", "evolve"])
+          with get_session() as session:
+              _rec, raw_key = AuthRepo(session).create_tenant_key(
+                  tenant_id=tenant_id,
+                  scopes=["ingest", "query", "storage", "memory", "evolve"],
+              )
               session.commit()
               print(f"{tenant_id}|{raw_key}")
           PY
@@ -222,12 +224,14 @@ jobs:
         run: |
           API_KEY=$(docker compose exec -T api python3 - << 'PY'
           import uuid
-          from store.pg.db import SessionLocal
-          from store.pg.repos.api_key_repo import ApiKeyRepo
+          from store.pg.session import get_session
+          from store.pg.repos.auth_repo import AuthRepo
           tenant_id = f"user:{uuid.uuid5(uuid.NAMESPACE_DNS, 'faim-ci-mem-bench')}"
-          with SessionLocal() as session:
-              repo = ApiKeyRepo(session=session, tenant_id=tenant_id)
-              raw_key, _meta = repo.create_key(name="ci-mem-bench", scopes=["ingest", "query", "storage", "memory", "evolve"])
+          with get_session() as session:
+              _rec, raw_key = AuthRepo(session).create_tenant_key(
+                  tenant_id=tenant_id,
+                  scopes=["ingest", "query", "storage", "memory", "evolve"],
+              )
               session.commit()
               print(f"{tenant_id}|{raw_key}")
           PY
