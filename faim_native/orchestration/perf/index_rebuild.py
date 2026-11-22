@@ -81,47 +81,49 @@ def build_graph_index_artifacts(
         vector_points = repo.load_vector_points(graph_id)
         ann_root = build_vptree(vector_points)
 
-    node_rows = (
-        session.query(
-            NodeModel.node_id,
-            NodeModel.raw_id,
-            NodeModel.block_id,
-            NodeModel.anchor_json,
-            NodeModel.level,
-            NodeModel.touch_count,
-            NodeModel.vector_hash,
-            NodeModel.v_native,
-            NodeModel.opp_signature,
-            NodeModel.created_at,
-            NodeModel.valid_from,
-            NodeModel.valid_to,
-            NodeModel.last_access,
-            NodeModel.residual,
-            NodeModel.v_embedding,
+    node_meta: Optional[Dict[UUID, CachedNodeMeta]] = None
+    if hasattr(session, "query"):
+        node_rows = (
+            session.query(
+                NodeModel.node_id,
+                NodeModel.raw_id,
+                NodeModel.block_id,
+                NodeModel.anchor_json,
+                NodeModel.level,
+                NodeModel.touch_count,
+                NodeModel.vector_hash,
+                NodeModel.v_native,
+                NodeModel.opp_signature,
+                NodeModel.created_at,
+                NodeModel.valid_from,
+                NodeModel.valid_to,
+                NodeModel.last_access,
+                NodeModel.residual,
+                NodeModel.v_embedding,
+            )
+            .filter(NodeModel.tenant_id == tenant_id, NodeModel.graph_id == graph_id)
+            .all()
         )
-        .filter(NodeModel.tenant_id == tenant_id, NodeModel.graph_id == graph_id)
-        .all()
-    )
-    node_meta = {
-        r.node_id: CachedNodeMeta(
-            node_id=r.node_id,
-            raw_id=r.raw_id,
-            block_id=r.block_id,
-            anchor_json=r.anchor_json,
-            level=int(r.level or 0),
-            touch_count=int(r.touch_count or 0),
-            vector_hash=str(r.vector_hash or ""),
-            v_native=tuple(r.v_native) if r.v_native is not None else (),
-            opp_signature=r.opp_signature if isinstance(r.opp_signature, dict) else {},
-            created_at=r.created_at,
-            valid_from=r.valid_from,
-            valid_to=r.valid_to,
-            last_access=r.last_access,
-            residual=int(r.residual or 0),
-            v_embedding=r.v_embedding if isinstance(r.v_embedding, list) else None,
-        )
-        for r in node_rows
-    }
+        node_meta = {
+            r.node_id: CachedNodeMeta(
+                node_id=r.node_id,
+                raw_id=r.raw_id,
+                block_id=r.block_id,
+                anchor_json=r.anchor_json,
+                level=int(r.level or 0),
+                touch_count=int(r.touch_count or 0),
+                vector_hash=str(r.vector_hash or ""),
+                v_native=tuple(r.v_native) if r.v_native is not None else (),
+                opp_signature=r.opp_signature if isinstance(r.opp_signature, dict) else {},
+                created_at=r.created_at,
+                valid_from=r.valid_from,
+                valid_to=r.valid_to,
+                last_access=r.last_access,
+                residual=int(r.residual or 0),
+                v_embedding=r.v_embedding if isinstance(r.v_embedding, list) else None,
+            )
+            for r in node_rows
+        }
     return GraphIndexArtifacts(
         sparse_index=sparse_index, ann_root=ann_root, node_meta=node_meta
     )
