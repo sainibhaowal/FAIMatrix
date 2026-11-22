@@ -165,22 +165,44 @@ def render_markdown_report(result: Dict[str, Any]) -> str:
     else:
         lines.extend(
             [
-                "| System | Status | Fact Recall | Token F1 | Exact Match | Query P50 (ms) | Query P95 (ms) |",
-                "| :--- | :--- | ---: | ---: | ---: | ---: | ---: |",
+                "| System | Status | Fact Recall | Token F1 | Exact Match | Median (ms) | IQR (ms) | Query P95 (ms) | Avg Context Tokens |",
+                "| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
             ]
         )
         for row in result["systems"]:
             if row["status"] != "completed":
                 lines.append(
-                    f"| {row['system']} | {row['status']} ({row.get('reason', '')}) | — | — | — | — | — |"
+                    f"| {row['system']} | {row['status']} ({row.get('reason', '')}) | — | — | — | — | — | — | — |"
                 )
                 continue
             m = row["metrics"]
             lat = row["latency_ms"]
+            ctx = row.get("context_tokens") or {}
             lines.append(
                 f"| {row['system']} | completed | {m.get('fact_recall', 0):.4f} | {m.get('token_f1', 0):.4f} | "
-                f"{m.get('exact_match', 0):.4f} | {lat.get('query_p50', 0):.2f} | {lat.get('query_p95', 0):.2f} |"
+                f"{m.get('exact_match', 0):.4f} | {lat.get('query_p50', 0):.2f} | {lat.get('query_iqr_ms', 0):.2f} | "
+                f"{lat.get('query_p95', 0):.2f} | {ctx.get('avg', 0):.1f} |"
             )
+
+        has_cats = any(row.get("category_breakdown") for row in result["systems"] if row.get("status") == "completed")
+        if has_cats:
+            lines.extend(
+                [
+                    "",
+                    "### Per-Category Breakdown",
+                    "",
+                    "| System | Category | Count | Fact Recall | Token F1 | Exact Match |",
+                    "| :--- | :--- | ---: | ---: | ---: | ---: |",
+                ]
+            )
+            for row in result["systems"]:
+                if row.get("status") != "completed":
+                    continue
+                for cat, stats in sorted((row.get("category_breakdown") or {}).items()):
+                    lines.append(
+                        f"| {row['system']} | {cat} | {stats.get('count', 0)} | "
+                        f"{stats.get('fact_recall', 0):.4f} | {stats.get('token_f1', 0):.4f} | {stats.get('exact_match', 0):.4f} |"
+                    )
 
     lines.append("")
     quality_gates = result.get("run_metadata", {}).get("quality_gates") or {}

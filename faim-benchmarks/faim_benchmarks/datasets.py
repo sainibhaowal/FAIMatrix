@@ -325,6 +325,15 @@ def _subsample_retrieval(
     )
 
 
+_LOCOMO_CATEGORY_NAMES: Dict[str, str] = {
+    "1": "multi_hop",
+    "2": "temporal",
+    "3": "open_domain",
+    "4": "single_hop",
+    "5": "adversarial",
+}
+
+
 def load_locomo_split(
     path: str, *, max_cases: Optional[int] = None
 ) -> ConversationalBenchmarkSplit:
@@ -349,10 +358,11 @@ def load_locomo_split(
                         )
                     )
         for qa_idx, qa in enumerate(conv.get("qa", [])):
+            raw_cat = str(qa.get("category", "general")).strip()
             qa_cases.append(
                 MemoryQACase(
                     case_id=f"locomo_{conv_idx}_{qa_idx}",
-                    category=str(qa.get("category", "general")),
+                    category=_LOCOMO_CATEGORY_NAMES.get(raw_cat, raw_cat),
                     question=str(qa["question"]),
                     answer=str(qa["answer"]),
                     evidence_ids=[str(e) for e in qa.get("evidence", [])],
@@ -407,6 +417,65 @@ def load_longmemeval_split(
         qa_cases = qa_cases[:max_cases]
     return ConversationalBenchmarkSplit(
         name="longmemeval",
+        turns=turns,
+        qa_cases=qa_cases,
+        metadata={
+            "source_type": "local_json",
+            "source_path": str(Path(path).resolve()),
+        },
+    )
+
+
+def load_generic_memory_split(
+    path: str, *, suite_name: str, max_cases: Optional[int] = None
+) -> ConversationalBenchmarkSplit:
+    """Load BEAM-1M, TM-Bench, or normalized conversational memory JSON."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    records = data if isinstance(data, list) else data.get("items", [data])
+    turns: List[ConversationalTurn] = []
+    qa_cases: List[MemoryQACase] = []
+
+    for idx, item in enumerate(records):
+        raw_turns = item.get("turns") or item.get("messages") or []
+        for t_idx, turn in enumerate(raw_turns):
+            turns.append(
+                ConversationalTurn(
+                    speaker=str(turn.get("speaker") or turn.get("role") or "user"),
+                    text=str(turn.get("text") or turn.get("content") or ""),
+                    timestamp=str(turn["timestamp"]) if turn.get("timestamp") else None,
+                    session_id=str(turn.get("session_id") or f"{suite_name}_{idx}_{t_idx}"),
+                )
+            )
+        sessions = item.get("sessions") or item.get("haystack_sessions") or []
+        dates = item.get("dates") or item.get("haystack_dates") or []
+        for s_idx, session in enumerate(sessions):
+            ts = dates[s_idx] if s_idx < len(dates) else None
+            for msg in session:
+                turns.append(
+                    ConversationalTurn(
+                        speaker=str(msg.get("speaker") or msg.get("role") or "user"),
+                        text=str(msg.get("text") or msg.get("content") or ""),
+                        timestamp=str(ts) if ts else None,
+                        session_id=f"{suite_name}_{idx}_{s_idx}",
+                    )
+                )
+        q_list = item.get("qa_cases") or item.get("qa") or item.get("questions") or []
+        if not q_list and "question" in item and "answer" in item:
+            q_list = [item]
+        for q_idx, qa in enumerate(q_list):
+            qa_cases.append(
+                MemoryQACase(
+                    case_id=str(qa.get("case_id") or qa.get("question_id") or f"{suite_name}_{idx}_{q_idx}"),
+                    category=str(qa.get("category") or qa.get("question_type") or "general"),
+                    question=str(qa["question"]),
+                    answer=str(qa["answer"]),
+                    evidence_ids=[str(e) for e in (qa.get("evidence_ids") or qa.get("evidence") or [])],
+                )
+            )
+    if max_cases is not None:
+        qa_cases = qa_cases[:max_cases]
+    return ConversationalBenchmarkSplit(
+        name=suite_name,
         turns=turns,
         qa_cases=qa_cases,
         metadata={

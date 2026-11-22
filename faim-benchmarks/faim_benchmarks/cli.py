@@ -14,6 +14,7 @@ from typing import List, Optional
 from faim_benchmarks.adapters import build_all_adapters
 from faim_benchmarks.datasets import (
     load_beir_split,
+    load_generic_memory_split,
     load_locomo_split,
     load_longmemeval_split,
 )
@@ -187,9 +188,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     beir.add_argument("--out-dir", default="results")
 
     conv = sub.add_parser(
-        "memory", help="Run LoCoMo or LongMemEval conversational memory benchmark"
+        "memory", help="Run LoCoMo, LongMemEval, BEAM-1M, or TM-Bench memory benchmark"
     )
-    conv.add_argument("--suite", choices=["locomo", "longmemeval"], required=True)
+    conv.add_argument(
+        "--suite", choices=["locomo", "longmemeval", "beam", "tm"], required=True
+    )
     conv.add_argument(
         "--data-path", required=True, help="Path to LoCoMo or LongMemEval JSON file"
     )
@@ -237,11 +240,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                 retain_query_traces=args.retain_query_traces,
             )
         else:
-            split = (
-                load_locomo_split(args.data_path, max_cases=args.max_cases)
-                if args.suite == "locomo"
-                else load_longmemeval_split(args.data_path, max_cases=args.max_cases)
-            )
+            if args.suite == "locomo":
+                split = load_locomo_split(args.data_path, max_cases=args.max_cases)
+            elif args.suite == "longmemeval":
+                split = load_longmemeval_split(args.data_path, max_cases=args.max_cases)
+            else:
+                split = load_generic_memory_split(
+                    args.data_path, suite_name=args.suite, max_cases=args.max_cases
+                )
             result = run_conversational_benchmark(
                 split=split,
                 adapters=adapters,

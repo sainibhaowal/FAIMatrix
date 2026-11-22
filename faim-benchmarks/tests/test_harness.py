@@ -266,6 +266,9 @@ def test_conversational_locomo_and_longmemeval_loaders_and_adapters(tmp_path: Pa
     )
     by_sys = {s["system"]: s for s in res["systems"]}
     assert by_sys["BM25-Baseline"]["metrics"]["fact_recall"] == 1.0
+    assert "single-hop" in by_sys["BM25-Baseline"]["category_breakdown"]
+    assert "query_iqr_ms" in by_sys["BM25-Baseline"]["latency_ms"]
+    assert by_sys["BM25-Baseline"]["context_tokens"]["avg"] > 0
 
 
 def test_failed_adapter_is_reported_without_aborting_other_systems():
