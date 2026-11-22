@@ -277,7 +277,10 @@ class _GraphVectors:
             use_gpu_eff = self._decide_use_gpu(use_gpu)
 
             if use_gpu_eff:
-                idxs, scores = self._top_k_gpu(q, k_eff)
+                try:
+                    idxs, scores = self._top_k_gpu(q, k_eff)
+                except Exception:
+                    idxs, scores = self._top_k_cpu(q, k_eff)
             else:
                 idxs, scores = self._top_k_cpu(q, k_eff)
 
@@ -324,7 +327,10 @@ class _GraphVectors:
             use_gpu_eff = self._decide_use_gpu(use_gpu)
 
             if use_gpu_eff:
-                dist_sq = self._radius_gpu(q)
+                try:
+                    dist_sq = self._radius_gpu(q)
+                except Exception:
+                    dist_sq = self._radius_cpu(q)
             else:
                 dist_sq = self._radius_cpu(q)
 
@@ -398,7 +404,9 @@ class _GraphVectors:
         return True
 
     def _use_gpu_backend(self) -> bool:
-        flag = (os.getenv("FAIM_USE_GPU_BACKEND") or "").strip().lower()
+        flag = (os.getenv("FAIM_USE_GPU_BACKEND") or "auto").strip().lower()
+        if flag == "auto":
+            return bool(_GPU_BACKEND_AVAILABLE and GPUSearchBackend is not None and GPUSearchBackend.is_available())
         return flag in ("1", "true", "yes", "y", "on")
 
     def _ensure_gpu_backend_synced(self) -> Optional["GPUSearchBackend"]:

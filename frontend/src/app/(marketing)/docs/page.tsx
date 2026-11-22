@@ -1120,15 +1120,16 @@ function SectionRetrieval() {
             &amp; propositions, and{" "}
             <code className="text-cyan-300">RerankerV2</code>{" "}
             soft-suppression), FAIM-Native achieved{" "}
-            <code className="text-emerald-300">nDCG@10 = 0.8616</code>,{" "}
-            <code className="text-emerald-300">Recall@5 = 0.9060</code>, and{" "}
-            <code className="text-emerald-300">146.59 ms</code> server P50 ({" "}
-            <code className="text-emerald-300">264.64 ms</code> HTTP P50) on a
-            300-doc / 50-query sampled SciFact split vs.{" "}
-            <code className="text-slate-300">BM25-Baseline</code> (
-            <code className="text-slate-300">0.8024</code> /{" "}
-            <code className="text-slate-300">0.8160</code>), while full
-            5,183-doc clean-tree validation remains gated before publication.
+            <code className="text-emerald-300">nDCG@10 = 0.6878</code>,{" "}
+            <code className="text-emerald-300">Recall@5 = 0.7554</code>,{" "}
+            <code className="text-emerald-300">MRR = 0.6570</code>, and{" "}
+            <code className="text-emerald-300">231.07 ms</code> HTTP P50 ({" "}
+            <code className="text-emerald-300">284.02 ms</code> P95) on the
+            full 5,183-doc / 300-query SciFact split ({" "}
+            <code className="text-emerald-300">Publication gate: READY</code>)
+            vs. <code className="text-slate-300">BM25-Baseline</code> (
+            <code className="text-slate-300">0.6644</code> nDCG@10 /{" "}
+            <code className="text-slate-300">0.7193</code> Recall@5).
           </p>
         </div>
       </Card>

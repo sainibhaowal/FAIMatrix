@@ -18,13 +18,18 @@ Config:
 
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import logging
 import os
 import re
+import secrets
+import time
+from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+from threading import RLock
+from typing import Dict, List, Optional, Tuple
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -36,6 +41,46 @@ AUDIT_ACTION_KEY_USED = "used"
 AUDIT_ACTION_DENIED_SCOPE = "denied(scope)"
 AUDIT_ACTION_DENIED_EXPIRED = "denied(expired)"
 AUDIT_ACTION_DENIED_REVOKED = "denied(revoked)"
+
+_VERIFIED_KEY_CACHE_LOCK = RLock()
+_VERIFIED_KEY_CACHE: OrderedDict[Tuple[str, str], Tuple["AuthDecision", float]] = (
+    OrderedDict()
+)
+_VERIFIED_KEY_CACHE_MAX_SIZE = 2048
+_CACHE_HMAC_SECRET = secrets.token_bytes(32)
+
+
+def _key_cache_ttl_seconds() -> float:
+    raw = os.getenv("FAIM_AUTH_KEY_CACHE_TTL_SECONDS", "60").strip()
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 60.0
+
+
+def _cache_digest(api_key: str) -> str:
+    return hmac.new(
+        _CACHE_HMAC_SECRET, api_key.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+
+
+def invalidate_tenant_key_cache(
+    tenant_id: Optional[str] = None,
+    key_id: Optional[str] = None,
+) -> None:
+    """Invalidate cached verified API key decisions on revoke or rotation."""
+    with _VERIFIED_KEY_CACHE_LOCK:
+        if tenant_id is None and key_id is None:
+            _VERIFIED_KEY_CACHE.clear()
+            return
+        to_delete = [
+            cache_key
+            for cache_key, (decision, _exp) in _VERIFIED_KEY_CACHE.items()
+            if (tenant_id is None or cache_key[0] == tenant_id)
+            and (key_id is None or decision.key_id == key_id)
+        ]
+        for cache_key in to_delete:
+            _VERIFIED_KEY_CACHE.pop(cache_key, None)
 
 
 # =============================================================================
@@ -215,7 +260,21 @@ def _verify_db_tenant_key(
     *,
     request_id: Optional[str] = None,
 ) -> AuthDecision:
-    """DB-backed key verification returning AuthDecision with denial reason."""
+    """DB-backed key verification with short-TTL HMAC verified-key cache."""
+    ttl = _key_cache_ttl_seconds()
+    cache_key: Optional[Tuple[str, str]] = None
+    if ttl > 0.0:
+        cache_key = (tenant_id, _cache_digest(api_key))
+        now_mono = time.monotonic()
+        with _VERIFIED_KEY_CACHE_LOCK:
+            cached = _VERIFIED_KEY_CACHE.get(cache_key)
+            if cached is not None:
+                decision, expires_at = cached
+                if now_mono < expires_at:
+                    _VERIFIED_KEY_CACHE.move_to_end(cache_key)
+                    return decision
+                _VERIFIED_KEY_CACHE.pop(cache_key, None)
+
     from runtime.context import close_session, get_session
     from store.pg.repos.auth_repo import AuthRepo
 
@@ -232,12 +291,22 @@ def _verify_db_tenant_key(
                 meta={"method": "db_primary"},
             )
             session.commit()
-            return AuthDecision(
+            decision = AuthDecision(
                 valid=True,
                 auth_method="api_key_db",
                 key_id=str(verification.record.key_id),
                 scopes=list(verification.record.scopes or []),
             )
+            if ttl > 0.0 and cache_key is not None:
+                with _VERIFIED_KEY_CACHE_LOCK:
+                    _VERIFIED_KEY_CACHE[cache_key] = (
+                        decision,
+                        time.monotonic() + ttl,
+                    )
+                    _VERIFIED_KEY_CACHE.move_to_end(cache_key)
+                    while len(_VERIFIED_KEY_CACHE) > _VERIFIED_KEY_CACHE_MAX_SIZE:
+                        _VERIFIED_KEY_CACHE.popitem(last=False)
+            return decision
 
         if verification.reason == "expired" and verification.matched_key_id:
             repo.append_key_audit(
