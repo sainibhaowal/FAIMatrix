@@ -36,12 +36,36 @@ def _cuda_available() -> bool:
         return False
 
 
+def _has_sufficient_cuda_vram() -> bool:
+    """Return True if free CUDA VRAM meets FAIM_MIN_CUDA_FREE_MIB (default 1024 MiB)."""
+    try:
+        min_mib = max(0, int(os.environ.get("FAIM_MIN_CUDA_FREE_MIB", "1024")))
+    except ValueError:
+        min_mib = 1024
+    if min_mib == 0:
+        return True
+    try:
+        import torch
+
+        free_bytes, _total_bytes = torch.cuda.mem_get_info()
+        return (free_bytes / (1024 * 1024)) >= float(min_mib)
+    except Exception:
+        return True
+
+
 def _resolve_embedding_device(device: Optional[str] = None) -> str:
-    """Resolve embedding device: GPU-first when available, CPU fallback otherwise."""
+    """Resolve embedding device: GPU-first when VRAM is available, CPU fallback otherwise."""
     raw = (device or os.environ.get("FAIM_EMBEDDING_DEVICE", "auto")).strip()
     lowered = raw.lower()
     if not lowered or lowered == "auto":
-        return "cuda" if _cuda_available() else "cpu"
+        if not _cuda_available():
+            return "cpu"
+        if not _has_sufficient_cuda_vram():
+            logger.warning(
+                "Free CUDA VRAM below FAIM_MIN_CUDA_FREE_MIB; falling back to cpu to prevent OOM."
+            )
+            return "cpu"
+        return "cuda"
     if lowered.startswith("cuda") and not _cuda_available():
         logger.warning(
             "Requested embedding device %r, but CUDA is unavailable; falling back to cpu.",
