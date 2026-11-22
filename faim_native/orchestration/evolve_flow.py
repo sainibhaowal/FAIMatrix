@@ -1264,6 +1264,25 @@ def run_evolve(
                             "[Evolve] Co-occurrence bridge learning failed (non-fatal): %s",
                             bridge_exc,
                         )
+                    try:
+                        from orchestration.query_reinforcement import (
+                            promote_query_evidence_bridges,
+                        )
+
+                        qrl_res = promote_query_evidence_bridges(
+                            session=session,
+                            tenant_id=tenant_id,
+                            graph_id=graph_id,
+                        )
+                        if qrl_res.bridges_persisted > 0:
+                            if qrl_res.graph_version is not None:
+                                result.graph_version = qrl_res.graph_version
+                            events_emitted.append("QUERY_REINFORCEMENT_PROMOTED")
+                    except Exception as qrl_exc:  # nosec B110
+                        logger.warning(
+                            "[Evolve] Query reinforcement promotion failed (non-fatal): %s",
+                            qrl_exc,
+                        )
 
                 # =====================================================================
                 # STEP 3: Build result

@@ -21,6 +21,7 @@ from typing import Dict, List, Mapping, Sequence, Tuple
 
 from lexical import synonym_expander
 from lexical.multilingual_canonicalizer import load_multilingual_resources
+from lexical.relational_concept_graph import spread_relational_concepts
 from lexical.synonym_expander import (
     WeightedExpansion,
     _normalize_term,
@@ -94,6 +95,7 @@ def resolve_semantic_registry_expansions(
         "multilingual": [],
         "domain": [],
         "conceptnet": [],
+        "relational_graph": [],
     }
 
     for surface in windows:
@@ -157,6 +159,19 @@ def resolve_semantic_registry_expansions(
                 rows.extend(conceptnet_rows)
                 if surface not in matched_surfaces["conceptnet"]:
                     matched_surfaces["conceptnet"].append(surface)
+
+    relational_rows = spread_relational_concepts(
+        windows,
+        domain_map=domain_map,
+        canonical_map=canonical_map,
+        max_expansions=min(12, max(4, int(max_total))),
+    )
+    if relational_rows:
+        rows.extend(relational_rows)
+        for item in relational_rows:
+            for origin in item.origins:
+                if origin not in matched_surfaces["relational_graph"]:
+                    matched_surfaces["relational_graph"].append(origin)
 
     merged = merge_weighted_expansions(rows, max_total=max_total)
     snapshot = load_semantic_registry_snapshot()
