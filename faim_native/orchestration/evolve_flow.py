@@ -1244,6 +1244,27 @@ def run_evolve(
                         theories=theories_created,
                     )
 
+                if session is not None:
+                    try:
+                        from lexical.cooccurrence_bridge import (
+                            run_cooccurrence_bridge_learning,
+                        )
+
+                        bridge_res = run_cooccurrence_bridge_learning(
+                            session=session,
+                            tenant_id=tenant_id,
+                            graph_id=graph_id,
+                        )
+                        if bridge_res.bridges_persisted > 0:
+                            if bridge_res.graph_version is not None:
+                                result.graph_version = bridge_res.graph_version
+                            events_emitted.append("COOCCURRENCE_BRIDGES_LEARNED")
+                    except Exception as bridge_exc:  # nosec B110
+                        logger.warning(
+                            "[Evolve] Co-occurrence bridge learning failed (non-fatal): %s",
+                            bridge_exc,
+                        )
+
                 # =====================================================================
                 # STEP 3: Build result
                 # =====================================================================
