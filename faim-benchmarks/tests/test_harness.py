@@ -10,10 +10,6 @@ import httpx
 from faim_benchmarks.adapters import (
     BM25BaselineAdapter,
     FaimHttpAdapter,
-    Mem0Adapter,
-    OpenAIFullContextAdapter,
-    SuperMemoryAdapter,
-    ZepAdapter,
 )
 from faim_benchmarks.adapters.base import IngestOutcome
 from faim_benchmarks.datasets import (
@@ -124,12 +120,34 @@ def test_local_beir_runner_and_signed_reports(tmp_path: Path):
         tenant_id="t",
         transport=httpx.MockTransport(faim_handler),
     )
-    unconfigured_mem0 = Mem0Adapter(api_key="")
+    class UnconfiguredAdapter:
+        name = "Unconfigured-Baseline"
+        system_type = "test"
+
+        def is_configured(self):
+            return False, "UNCONFIGURED_API_KEY not set"
+
+        def prepare_namespace(self, namespace):
+            return None
+
+        def ingest_document(self, namespace, doc_id, title, text):
+            return IngestOutcome(doc_id=doc_id, latency_ms=0.0)
+
+        def write_memory(self, namespace, memory_id, text, timestamp=None):
+            return IngestOutcome(doc_id=memory_id, latency_ms=0.0)
+
+        def query(self, namespace, query_id, query_text, k=20):
+            raise NotImplementedError
+
+        def close(self):
+            return None
+
+    unconfigured_adapter = UnconfiguredAdapter()
     bm25 = BM25BaselineAdapter()
 
     result = run_retrieval_benchmark(
         split=split,
-        adapters=[faim, bm25, unconfigured_mem0],
+        adapters=[faim, bm25, unconfigured_adapter],
         top_k=5,
         seed=42,
         bootstrap_iterations=50,
@@ -140,7 +158,7 @@ def test_local_beir_runner_and_signed_reports(tmp_path: Path):
 
     assert saved["integrity_sha256"] == compute_payload_sha256(saved)
     assert saved["publication_gate"]["ready"] is False
-    assert "unconfigured systems: Mem0" in saved["publication_gate"]["reasons"]
+    assert "unconfigured systems: Unconfigured-Baseline" in saved["publication_gate"]["reasons"]
     assert md_path.exists()
     by_sys = {s["system"]: s for s in saved["systems"]}
     assert by_sys["FAIM-Native"]["status"] == "completed"
@@ -155,7 +173,7 @@ def test_local_beir_runner_and_signed_reports(tmp_path: Path):
         == 2.5
     )
     assert by_sys["BM25-Baseline"]["metrics"]["recall@5"] == 1.0
-    assert by_sys["Mem0"]["status"] == "skipped"
+    assert by_sys["Unconfigured-Baseline"]["status"] == "skipped"
 
 
 def test_faim_batch_query_does_not_scan_complete_storage_catalog(monkeypatch):
@@ -238,111 +256,16 @@ def test_conversational_locomo_and_longmemeval_loaders_and_adapters(tmp_path: Pa
     assert len(locomo_split.qa_cases) == 1
     assert len(lme_split.qa_cases) == 1
 
-    def mock_mem0(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/v1/memories/":
-            return httpx.Response(200, json={"results": [{"id": "m1"}]})
-        return httpx.Response(
-            200,
-            json={
-                "results": [
-                    {
-                        "id": "m1",
-                        "memory": "Alice project codename is Hyperion",
-                        "metadata": {"doc_id": "turn_0"},
-                    }
-                ]
-            },
-        )
-
-    mem0 = Mem0Adapter(api_key="test-key", transport=httpx.MockTransport(mock_mem0))
     bm25 = BM25BaselineAdapter()
     res = run_conversational_benchmark(
         split=locomo_split,
-        adapters=[bm25, mem0],
+        adapters=[bm25],
         top_k=5,
         seed=42,
         bootstrap_iterations=20,
     )
     by_sys = {s["system"]: s for s in res["systems"]}
     assert by_sys["BM25-Baseline"]["metrics"]["fact_recall"] == 1.0
-    assert by_sys["Mem0"]["metrics"]["fact_recall"] == 1.0
-
-    # Verify remaining commercial adapters check env keys cleanly
-    assert ZepAdapter(api_key="").is_configured()[0] is False
-    assert SuperMemoryAdapter(api_key="").is_configured()[0] is False
-    assert OpenAIFullContextAdapter(api_key="").is_configured()[0] is False
-
-
-def test_supermemory_v5_adapter_uses_namespaced_api():
-    seen = []
-
-    def mock_supermemory(request: httpx.Request) -> httpx.Response:
-        seen.append(
-            (
-                request.method,
-                request.url.path,
-                json.loads(request.content.decode("utf-8")),
-            )
-        )
-        if request.url.path.endswith("/document"):
-            return httpx.Response(200, json={"id": "d1", "status": "queued"})
-        return httpx.Response(
-            200,
-            json={
-                "results": [
-                    {
-                        "documentId": "d1",
-                        "metadata": {"doc_id": "d1"},
-                        "content": "memory",
-                    }
-                ]
-            },
-        )
-
-    adapter = SuperMemoryAdapter(
-        api_key="test-key", transport=httpx.MockTransport(mock_supermemory)
-    )
-    adapter.prepare_namespace("bench namespace")
-    assert adapter.ingest_document("bench namespace", "d1", "Title", "body").ok
-    result = adapter.query("bench namespace", "q1", "body", k=5)
-
-    assert result.retrieved_doc_ids == ["d1"]
-    assert seen[0][1] == "/ns/bench namespace/document"
-    assert seen[1][1] == "/ns/bench namespace/search"
-    assert seen[0][2]["id"] == "d1"
-
-
-def test_zep_v4_adapter_resolves_uuid_and_maps_episode_results():
-    seen = []
-
-    def mock_zep(request: httpx.Request) -> httpx.Response:
-        seen.append(
-            (
-                request.method,
-                request.url.path,
-                json.loads(request.content.decode("utf-8")),
-            )
-        )
-        if request.url.path == "/api/v4/users":
-            return httpx.Response(201, json={"uuid": "user-uuid"})
-        if request.url.path.endswith("/episodes"):
-            return httpx.Response(202, json={"episode": {"uuid": "episode-uuid"}})
-        return httpx.Response(
-            200,
-            json={
-                "items": [{"episode_uuids": ["episode-uuid"], "fact": "memory fact"}]
-            },
-        )
-
-    adapter = ZepAdapter(api_key="test-key", transport=httpx.MockTransport(mock_zep))
-    adapter.prepare_namespace("zep-bench")
-    assert adapter.write_memory("zep-bench", "d1", "memory fact").ok
-    result = adapter.query("zep-bench", "q1", "memory", k=5)
-
-    assert result.retrieved_doc_ids == ["d1"]
-    assert seen[0][1] == "/api/v4/users"
-    assert seen[1][1] == "/api/v4/graphs/user-uuid/episodes"
-    assert seen[2][1] == "/api/v4/graphs/user-uuid/search/edges"
 
 
 def test_failed_adapter_is_reported_without_aborting_other_systems():
