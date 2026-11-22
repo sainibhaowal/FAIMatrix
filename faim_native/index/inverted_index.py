@@ -11,7 +11,7 @@ import math
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from uuid import UUID
 
 try:
@@ -150,32 +150,91 @@ class InvertedIndex:
                 scores[node_id] += idf * tf_norm * q_w
         return scores
 
-    def score_bm25_fast(self, query_text: str) -> Dict[UUID, float]:
-        """Score matching documents using collision-free stemmed+raw+bigram BM25+."""
+    def score_bm25_fast(
+        self,
+        query_text: str,
+        expanded_terms: Optional[Mapping[str, float]] = None,
+    ) -> Dict[UUID, float]:
+        """Score matching documents using collision-free stemmed+raw+bigram BM25+
+        plus optional concept-expanded bridge terms at decayed weight."""
         if self._exact_doc_count <= 0:
             return {}
         q_raw = _tokenize_exact(query_text)
-        if not q_raw:
+        if not q_raw and not expanded_terms:
             return {}
         q_stem = [_porter_stem(w) for w in q_raw]
         q_bi = [f"{q_stem[i]}_{q_stem[i + 1]}" for i in range(len(q_stem) - 1)]
 
-        s_stem = self._score_bm25_channel(
-            q_stem, self._stem_postings, self._stem_dl, self._avg_stem_dl, delta=0.5
+        s_stem = (
+            self._score_bm25_channel(
+                q_stem, self._stem_postings, self._stem_dl, self._avg_stem_dl, delta=0.5
+            )
+            if q_stem
+            else {}
         )
-        if not s_stem:
-            return {}
-        s_raw = self._score_bm25_channel(
-            q_raw, self._raw_postings, self._raw_dl, self._avg_raw_dl, delta=0.0
+        s_raw = (
+            self._score_bm25_channel(
+                q_raw, self._raw_postings, self._raw_dl, self._avg_raw_dl, delta=0.0
+            )
+            if q_raw
+            else {}
         )
-        s_bi = self._score_bm25_channel(
-            q_bi, self._bi_postings, self._bi_dl, self._avg_bi_dl, delta=0.0
+        s_bi = (
+            self._score_bm25_channel(
+                q_bi, self._bi_postings, self._bi_dl, self._avg_bi_dl, delta=0.0
+            )
+            if q_bi
+            else {}
         )
 
+        # Concept-aware candidate recall: score 1-2 hop expanded concept terms
+        # at capped decayed weight so zero-overlap queries reach Stage-2 MaxSim
+        # while exact literal matches still rank higher.
+        s_exp: Dict[UUID, float] = defaultdict(float)
+        if expanded_terms:
+            q_stem_set = set(q_stem)
+            exp_weights: Dict[str, float] = {}
+            for raw_term, weight in expanded_terms.items():
+                w_val = min(0.45, max(0.0, float(weight or 0.0)))
+                if w_val <= 0.0:
+                    continue
+                for tok in _tokenize_exact(str(raw_term)):
+                    st = _porter_stem(tok)
+                    if st in q_stem_set:
+                        continue
+                    if w_val > exp_weights.get(st, 0.0):
+                        exp_weights[st] = w_val
+            if exp_weights:
+                n_docs = self._exact_doc_count
+                avg_len = max(self._avg_stem_dl, 1.0)
+                k1, b, delta = 1.2, 0.75, 0.25
+                for st, w_val in exp_weights.items():
+                    postings = self._stem_postings.get(st)
+                    if not postings:
+                        continue
+                    df = len(postings)
+                    idf = math.log((n_docs - df + 0.5) / (df + 0.5) + 1.0)
+                    for node_id, tf in postings:
+                        dl = self._stem_dl[node_id]
+                        denom = tf + k1 * (1.0 - b + b * (dl / avg_len))
+                        tf_norm = ((tf * (k1 + 1.0)) / max(denom, 1e-9)) + delta
+                        s_exp[node_id] += idf * tf_norm * w_val
+
+        if not s_stem and not s_exp:
+            return {}
+
+        all_nodes = set(s_stem.keys()) | set(s_exp.keys())
         raw_scores: Dict[UUID, float] = {}
         max_raw = 0.0
-        for node_id, base in s_stem.items():
-            raw_val = base + 0.35 * s_raw.get(node_id, 0.0) + 0.25 * s_bi.get(node_id, 0.0)
+        for node_id in all_nodes:
+            raw_val = (
+                s_stem.get(node_id, 0.0)
+                + 0.35 * s_raw.get(node_id, 0.0)
+                + 0.25 * s_bi.get(node_id, 0.0)
+                + 0.45 * s_exp.get(node_id, 0.0)
+            )
+            if raw_val <= 0.0:
+                continue
             raw_scores[node_id] = raw_val
             if raw_val > max_raw:
                 max_raw = raw_val
