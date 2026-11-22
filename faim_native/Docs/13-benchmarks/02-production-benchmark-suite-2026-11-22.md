@@ -71,3 +71,16 @@ xychart-beta
 - **Query-to-Evidence Reinforcement Learning suite (`test_query_reinforcement.py`):** `4 passed` (`13.90s`)
 - **Concept-Expanded MaxSim suite (`test_late_interaction_concept_maxsim.py`):** `3 passed` (`13.61s`)
 - **Live Stack Readiness (`/ready`):** `{"status":"ready","db_connected":true,"tables_ok":true,"migrations_ok":true,"latest_migration":43,"applied_migration":43}`
+
+---
+
+## 5. Live Before vs. After Functional Verification (Postgres + Redis + `faim-worker-evolve`)
+
+Executed directly inside the live `faim-worker-evolve` container (`task-1381`, exit code `0`, temporary test rows cleaned up):
+
+| Feature | Test Input (Zero Shared Words) | Before | After (Live) | Delta / Timing |
+| :--- | :--- | :--- | :--- | :--- |
+| **Multi-Hop Typed Relational Graph** (`relational_concept_graph.py`) | `"symptom_alpha"` → 3-hop chain (`Causes` → `HasPrerequisite` → `PartOf`) | `[]` (`0.024 ms`) | `pathway_beta` (`0.51`, hop 1) → `mechanism_gamma` (`0.2601`, hop 2) → `target_delta` (`0.1248`, hop 3) | **`0.058 ms`** (< 0.1 ms) |
+| **Corpus-Learned PPMI + 2nd-Order Bridge** (`cooccurrence_bridge.py`) | Query `"won't start"` vs `"ignition battery failure troubleshooting"` | `score = 0.0863` | `score = 0.0953` (`263` bridges persisted in Postgres) | **`+10.4%`** (`+16.2%` on `"vehicle battery..."`: `0.0860 → 0.0999`) |
+| **Query-to-Evidence RL** (`query_reinforcement.py` + Redis) | Query `"sluggish crank"` vs `"ignition coil voltage failure troubleshooting"` (2 Redis events) | `score = 0.0879` | `score = 0.5865` (`12` bridges promoted Redis → Postgres) | **`6.67×` higher score** |
+| **Concept-Expanded MaxSim** (`late_interaction_native.py`) | Query `"symptom_alpha"` vs `"pathway_beta details"` (vs exact `"symptom_alpha details"`) | `token_maxsim = 0.0000` (`total = 0.0233`) | `token_maxsim = 0.3825` (`total = 0.0845`); exact = `1.0000` (`0.2800`) | **`3.63×` higher**; exact (`0.2800`) strictly outranks concept (`0.0845`) |
