@@ -71,7 +71,7 @@ jobs:
           REDIS_PASSWORD=faim_bench_redis_pass
           QDRANT_API_KEY=faim_bench_qdrant_key
           NEXTAUTH_SECRET=faim_bench_nextauth_secret_0123456789abcdef
-          FAIM_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          FAIM_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
           FAIM_API_WORKERS=2
           FAIM_INGEST_WORKERS=3
           FAIM_FAST_ML_EMBEDDING=false
@@ -164,6 +164,7 @@ jobs:
             --require-faim-beats-bm25 \
             --retain-query-traces \
             --out-dir "faim-benchmarks/results/cpu/${{ matrix.dataset }}"
+          cat faim-benchmarks/results/cpu/${{ matrix.dataset }}/*.md >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Upload signed benchmark artifacts
         if: always()
@@ -196,7 +197,7 @@ jobs:
           REDIS_PASSWORD=faim_bench_redis_pass
           QDRANT_API_KEY=faim_bench_qdrant_key
           NEXTAUTH_SECRET=faim_bench_nextauth_secret_0123456789abcdef
-          FAIM_MASTER_KEY=MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+          FAIM_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
           FAIM_API_WORKERS=2
           FAIM_INGEST_WORKERS=3
           FAIM_FAST_ML_EMBEDDING=false
@@ -279,6 +280,7 @@ jobs:
             --systems faim,bm25 \
             $EXTRA_ARGS \
             --out-dir "faim-benchmarks/results/cpu/${{ matrix.suite }}"
+          cat faim-benchmarks/results/cpu/${{ matrix.suite }}/*.md >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Upload signed benchmark artifacts
         if: always()
