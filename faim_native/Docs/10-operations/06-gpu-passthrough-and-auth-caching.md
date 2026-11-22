@@ -21,7 +21,8 @@ flowchart TD
 
 ### Verified Components
 1. **Embedding Providers ([`faim_native/encoding/embedding_providers.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/encoding/embedding_providers.py)):**
-   - `_resolve_embedding_device`: Resolves `"auto"` → `"cuda"` if `torch.cuda.is_available()` else `"cpu"`; downgrades explicit `"cuda"` requests to `"cpu"` with a warning if CUDA is unavailable.
+   - `_has_sufficient_cuda_vram`: Checks `torch.cuda.mem_get_info()` against `FAIM_MIN_CUDA_FREE_MIB` (default `1024 MiB`) before allocating a CUDA context, preventing multi-worker CUDA OOM on 8 GB GPUs.
+   - `_resolve_embedding_device`: Resolves `"auto"` → `"cuda"` if CUDA is available **and** free VRAM meets `FAIM_MIN_CUDA_FREE_MIB`, else `"cpu"`; downgrades explicit `"cuda"` requests to `"cpu"` with a warning if CUDA is unavailable.
    - `_load_sentence_transformer_on_device` & `_encode_sentence_transformer_with_fallback`: Catches CUDA load/encode failures, clears CUDA cache, reloads the model on CPU with `dtype=torch.float32`, and completes `encode()` transparently.
 2. **VectorBank ([`faim_native/orchestration/perf/vector_bank.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/orchestration/perf/vector_bank.py)):**
    - `_use_gpu_backend()` supports `"auto"` (default) alongside explicit `"true"` / `"false"`.
@@ -73,3 +74,12 @@ Running 64 MB Argon2id (`time_cost=3`) + a synchronous `AuthKeyAuditLog` Postgre
 ### 3.2 Graph-Versioned Query Metadata Cache & Read-Only `FAST` Mode ([`query_flow.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/orchestration/query_flow.py))
 - `_QUERY_GRAPH_META_CACHE` caches `canonical_map`, `multilingual_map`, `domain_rows`, `domain_map`, and `get_graph_metrics` keyed by `(tenant_id, graph_id, graph_version)` (LRU max 256). Any write, merge, or evolution bumps `graph_version`, guaranteeing zero stale reads.
 - When `fast_async_touch` is active (`FAST` profile without `FAIM_FAST_SYNC_TOUCH=true`), `emit_query_start`, `QUERY_TOUCH`, and `QUERY_COMPLETE` synchronous DB inserts are skipped, making `FAST` queries completely read-only.
+
+---
+
+## 4. Production Worker & VPS Sizing ([`docker-compose.yml`](file:///home/AverQel/Projects/Projects_Science/FAIM/docker-compose.yml))
+
+| Deployment Target | `FAIM_API_WORKERS` | `FAIM_INGEST_WORKERS` | `worker-evolve` | `FAIM_FAST_ML_EMBEDDING` | Postgres `max_connections` | Notes |
+| :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **32-Core + RTX 4060 (8 GB) Local** (Compose default) | `6` | `8` | `1` | `false` (`true` w/ `FAIM_MIN_CUDA_FREE_MIB=1024`) | `300` | High-bandwidth external LLM API + bulk uploads (`2,400/min` query/memory, `1,200/min` write/ingest) |
+| **4 vCPU / 8 GB RAM CPU-Only VPS** (`.env` override) | `2` | `2` | `1` | `false` (`FAIM_EMBEDDING_DEVICE=cpu`) | `300` | Keeps total RAM ~4–5 GB with ~3 GB OS/DB headroom and zero OOM |
