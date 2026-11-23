@@ -72,8 +72,8 @@ jobs:
           QDRANT_API_KEY=faim_bench_qdrant_key
           NEXTAUTH_SECRET=faim_bench_nextauth_secret_0123456789abcdef
           FAIM_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-          FAIM_API_WORKERS=2
-          FAIM_INGEST_WORKERS=3
+          FAIM_API_WORKERS=4
+          FAIM_INGEST_WORKERS=4
           FAIM_FAST_ML_EMBEDDING=false
           FAIM_EMBEDDING_DEVICE=cpu
           FAIM_USE_GPU_BACKEND=false
@@ -152,6 +152,7 @@ jobs:
               export FAIM_BEIR_QRELS_REVISION=252958f2d646e22cab6d0c72dd3f0d5de6d0655a
               ;;
             trec-covid)
+              export FAIM_BENCH_FAIM_BATCH_SIZE=250
               export FAIM_BEIR_CORPUS_REVISION=7e16fde3016c639c7f856e803f4bab92645562c4
               export FAIM_BEIR_QUERIES_REVISION=7e16fde3016c639c7f856e803f4bab92645562c4
               export FAIM_BEIR_QRELS_REVISION=532ac68ee6756ac22c9346eebf65bd3c6a042e10
@@ -198,8 +199,8 @@ jobs:
           QDRANT_API_KEY=faim_bench_qdrant_key
           NEXTAUTH_SECRET=faim_bench_nextauth_secret_0123456789abcdef
           FAIM_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-          FAIM_API_WORKERS=2
-          FAIM_INGEST_WORKERS=3
+          FAIM_API_WORKERS=4
+          FAIM_INGEST_WORKERS=4
           FAIM_FAST_ML_EMBEDDING=false
           FAIM_EMBEDDING_DEVICE=cpu
           FAIM_USE_GPU_BACKEND=false
