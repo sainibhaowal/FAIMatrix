@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from sqlalchemy import and_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 # Flexible imports
@@ -36,6 +37,26 @@ class GraphVersionRepo:
 
             resolved = get_session()
         return resolved
+
+    @staticmethod
+    def _is_postgresql(session: Session) -> bool:
+        """Return True when the session is bound to a PostgreSQL dialect."""
+        bind = session.get_bind() if hasattr(session, "get_bind") else None
+        dialect_name = (getattr(bind, "dialect", None) and bind.dialect.name) or ""
+        return dialect_name == "postgresql"
+
+    def _expire_cached(self, session: Session, graph_id: str) -> None:
+        """Expire any cached GraphVersionModel for (tenant_id, graph_id) in session."""
+        identity_map = getattr(session, "identity_map", None)
+        if not identity_map:
+            return
+        for obj in list(identity_map.values()):
+            if (
+                isinstance(obj, GraphVersionModel)
+                and obj.tenant_id == self.tenant_id
+                and obj.graph_id == graph_id
+            ):
+                session.expire(obj)
 
     def get_version(self, session: Optional[Session], graph_id: str) -> int:
         """Get the current version for a graph.
@@ -104,6 +125,19 @@ class GraphVersionRepo:
     ) -> GraphVersionModel:
         """Get graph version row; create version=0 row if missing."""
         session = self._resolve_session(session)
+        if self._is_postgresql(session):
+            stmt = (
+                pg_insert(GraphVersionModel)
+                .values(
+                    tenant_id=self.tenant_id,
+                    graph_id=graph_id,
+                    version=0,
+                    reason="init",
+                    updated_at=datetime.now(timezone.utc),
+                )
+                .on_conflict_do_nothing(index_elements=["tenant_id", "graph_id"])
+            )
+            session.execute(stmt)
         model = (
             session.query(GraphVersionModel)
             .filter(
@@ -147,6 +181,32 @@ class GraphVersionRepo:
             New version number after bump.
         """
         session = self._resolve_session(session)
+        now = datetime.now(timezone.utc)
+
+        if self._is_postgresql(session):
+            stmt = (
+                pg_insert(GraphVersionModel)
+                .values(
+                    tenant_id=self.tenant_id,
+                    graph_id=graph_id,
+                    version=1,
+                    reason=reason,
+                    updated_at=now,
+                )
+                .on_conflict_do_update(
+                    index_elements=["tenant_id", "graph_id"],
+                    set_={
+                        "version": GraphVersionModel.version + 1,
+                        "reason": reason,
+                        "updated_at": now,
+                    },
+                )
+                .returning(GraphVersionModel.version)
+            )
+            new_version = int(session.execute(stmt).scalar_one())
+            self._expire_cached(session, graph_id)
+            return new_version
+
         model = (
             session.query(GraphVersionModel)
             .filter(
@@ -157,8 +217,6 @@ class GraphVersionRepo:
             )
             .first()
         )
-
-        now = datetime.now(timezone.utc)
 
         if model:
             model.version += 1
@@ -198,6 +256,29 @@ class GraphVersionRepo:
             reason: Reason for setting.
         """
         now = datetime.now(timezone.utc)
+
+        if self._is_postgresql(session):
+            stmt = (
+                pg_insert(GraphVersionModel)
+                .values(
+                    tenant_id=self.tenant_id,
+                    graph_id=graph_id,
+                    version=version,
+                    reason=reason,
+                    updated_at=now,
+                )
+                .on_conflict_do_update(
+                    index_elements=["tenant_id", "graph_id"],
+                    set_={
+                        "version": version,
+                        "reason": reason,
+                        "updated_at": now,
+                    },
+                )
+            )
+            session.execute(stmt)
+            self._expire_cached(session, graph_id)
+            return
 
         model = (
             session.query(GraphVersionModel)
