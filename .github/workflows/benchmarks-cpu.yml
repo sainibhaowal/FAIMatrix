@@ -72,8 +72,8 @@ jobs:
           QDRANT_API_KEY=faim_bench_qdrant_key
           NEXTAUTH_SECRET=faim_bench_nextauth_secret_0123456789abcdef
           FAIM_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-          FAIM_API_WORKERS=4
-          FAIM_INGEST_WORKERS=4
+          FAIM_API_WORKERS=2
+          FAIM_INGEST_WORKERS=3
           FAIM_FAST_ML_EMBEDDING=false
           FAIM_EMBEDDING_DEVICE=cpu
           FAIM_USE_GPU_BACKEND=false
@@ -199,8 +199,8 @@ jobs:
           QDRANT_API_KEY=faim_bench_qdrant_key
           NEXTAUTH_SECRET=faim_bench_nextauth_secret_0123456789abcdef
           FAIM_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-          FAIM_API_WORKERS=4
-          FAIM_INGEST_WORKERS=4
+          FAIM_API_WORKERS=2
+          FAIM_INGEST_WORKERS=3
           FAIM_FAST_ML_EMBEDDING=false
           FAIM_EMBEDDING_DEVICE=cpu
           FAIM_USE_GPU_BACKEND=false
