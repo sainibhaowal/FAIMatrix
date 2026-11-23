@@ -135,7 +135,7 @@ class GraphVersionRepo:
                     reason="init",
                     updated_at=datetime.now(timezone.utc),
                 )
-                .on_conflict_do_nothing(index_elements=["tenant_id", "graph_id"])
+                .on_conflict_do_nothing(constraint="graph_version_pkey")
             )
             session.execute(stmt)
         model = (
@@ -194,7 +194,7 @@ class GraphVersionRepo:
                     updated_at=now,
                 )
                 .on_conflict_do_update(
-                    index_elements=["tenant_id", "graph_id"],
+                    constraint="graph_version_pkey",
                     set_={
                         "version": GraphVersionModel.version + 1,
                         "reason": reason,
@@ -268,7 +268,7 @@ class GraphVersionRepo:
                     updated_at=now,
                 )
                 .on_conflict_do_update(
-                    index_elements=["tenant_id", "graph_id"],
+                    constraint="graph_version_pkey",
                     set_={
                         "version": version,
                         "reason": reason,

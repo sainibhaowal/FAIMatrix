@@ -43,7 +43,7 @@ def test_bump_uses_postgresql_on_conflict_upsert() -> None:
             dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
         )
     )
-    assert "ON CONFLICT (tenant_id, graph_id) DO UPDATE" in compiled
+    assert "ON CONFLICT ON CONSTRAINT graph_version_pkey DO UPDATE" in compiled
     assert "graph_version.version + 1" in compiled
     assert "RETURNING graph_version.version" in compiled
     session.expire.assert_called_once_with(cached)
@@ -66,7 +66,7 @@ def test_get_or_create_uses_postgresql_on_conflict_do_nothing() -> None:
             dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
         )
     )
-    assert "ON CONFLICT (tenant_id, graph_id) DO NOTHING" in compiled
+    assert "ON CONFLICT ON CONSTRAINT graph_version_pkey DO NOTHING" in compiled
 
 
 def test_set_version_uses_postgresql_on_conflict_upsert() -> None:
@@ -82,7 +82,7 @@ def test_set_version_uses_postgresql_on_conflict_upsert() -> None:
             dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
         )
     )
-    assert "ON CONFLICT (tenant_id, graph_id) DO UPDATE" in compiled
+    assert "ON CONFLICT ON CONSTRAINT graph_version_pkey DO UPDATE" in compiled
 
 
 def test_sqlite_fallback_round_trip() -> None:
