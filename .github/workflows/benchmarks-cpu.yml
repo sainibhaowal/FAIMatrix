@@ -105,7 +105,7 @@ jobs:
           with get_session() as session:
               _rec, raw_key = AuthRepo(session).create_tenant_key(
                   tenant_id=tenant_id,
-                  scopes=["ingest", "query", "storage", "memory", "evolve"],
+                  scopes=["ingest", "query", "storage", "memory", "memory.read", "memory.write", "evolve"],
               )
               session.commit()
               print(f"{tenant_id}|{raw_key}")
@@ -232,7 +232,7 @@ jobs:
           with get_session() as session:
               _rec, raw_key = AuthRepo(session).create_tenant_key(
                   tenant_id=tenant_id,
-                  scopes=["ingest", "query", "storage", "memory", "evolve"],
+                  scopes=["ingest", "query", "storage", "memory", "memory.read", "memory.write", "evolve"],
               )
               session.commit()
               print(f"{tenant_id}|{raw_key}")

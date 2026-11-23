@@ -149,10 +149,11 @@ class FaimHttpAdapter:
     def ingest_document(
         self, namespace: str, doc_id: str, title: str, text: str
     ) -> IngestOutcome:
-        if self.write_mode == "memory":
-            content = f"{title}\n\n{text}".strip() if title else text
-            return self.write_memory(namespace, doc_id, content)
         content = f"{title}\n\n{text}".strip() if title else text
+        if not content.strip():
+            return IngestOutcome(doc_id=doc_id, latency_ms=0.0, ok=True)
+        if self.write_mode == "memory":
+            return self.write_memory(namespace, doc_id, content)
         raw_uuid = _deterministic_uuid(namespace, doc_id)
         filename = f"bench_{doc_id}.txt"
         self._raw_to_doc.setdefault(namespace, {})[raw_uuid] = doc_id
@@ -209,11 +210,22 @@ class FaimHttpAdapter:
             return []
         filename_to_doc: Dict[str, str] = {}
         files = []
+        empty_outcomes: List[IngestOutcome] = []
+        non_empty_items: List[tuple[str, Dict[str, str]]] = []
         for doc_id, doc in item_list:
+            content = f"{doc.get('title', '')}\n\n{doc.get('text', '')}".strip()
+            if not content:
+                empty_outcomes.append(
+                    IngestOutcome(doc_id=doc_id, latency_ms=0.0, ok=True)
+                )
+                continue
+            non_empty_items.append((doc_id, doc))
             filename = f"bench_{doc_id}.txt"
             filename_to_doc[filename] = doc_id
-            content = f"{doc.get('title', '')}\n\n{doc.get('text', '')}".strip()
             files.append(("files", (filename, content.encode("utf-8"), "text/plain")))
+
+        if not non_empty_items:
+            return empty_outcomes
 
         t0 = time.perf_counter()
         resp = self._client.post(
@@ -232,11 +244,11 @@ class FaimHttpAdapter:
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
         if resp.status_code >= 400:
             error = f"HTTP {resp.status_code}: {resp.text[:200]}"
-            return [
+            return empty_outcomes + [
                 IngestOutcome(
                     doc_id=doc_id, latency_ms=elapsed_ms, ok=False, error=error
                 )
-                for doc_id, _ in item_list
+                for doc_id, _ in non_empty_items
             ]
 
         payload = resp.json()
@@ -304,9 +316,9 @@ class FaimHttpAdapter:
         results = {
             str(row.get("filename")): row for row in (payload.get("files") or [])
         }
-        per_doc_ms = elapsed_ms / max(1, len(item_list))
-        outcomes: List[IngestOutcome] = []
-        for doc_id, _ in item_list:
+        per_doc_ms = elapsed_ms / max(1, len(non_empty_items))
+        outcomes: List[IngestOutcome] = list(empty_outcomes)
+        for doc_id, _ in non_empty_items:
             filename = f"bench_{doc_id}.txt"
             row = results.get(filename)
             if not row:
