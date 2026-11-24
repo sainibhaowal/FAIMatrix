@@ -279,6 +279,7 @@ jobs:
             --suite "${{ matrix.suite }}" \
             --data-path "$DATA_PATH" \
             --systems faim,bm25 \
+            --ingest-workers "${{ github.event.inputs.ingest_workers }}" \
             $EXTRA_ARGS \
             --out-dir "faim-benchmarks/results/cpu/${{ matrix.suite }}"
           cat faim-benchmarks/results/cpu/${{ matrix.suite }}/*.md >> "$GITHUB_STEP_SUMMARY" || true

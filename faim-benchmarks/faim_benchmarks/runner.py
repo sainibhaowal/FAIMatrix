@@ -324,6 +324,7 @@ def run_conversational_benchmark(
     top_k: int = 20,
     seed: int = 42,
     bootstrap_iterations: int = 300,
+    ingest_workers: int = 1,
     run_metadata: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Run LoCoMo or LongMemEval across all configured memory adapters."""
@@ -354,27 +355,73 @@ def run_conversational_benchmark(
 
         write_latencies: List[float] = []
         write_errors = 0
-        for idx, turn in enumerate(split.turns):
-            mem_id = f"turn_{idx}"
-            text = f"{turn.speaker}: {turn.text}"
+        workers = (
+            1
+            if getattr(adapter, "name", "") == "BM25-Baseline"
+            else max(1, int(ingest_workers))
+        )
+        if workers <= 1:
+            for idx, turn in enumerate(split.turns):
+                mem_id = f"turn_{idx}"
+                text = f"{turn.speaker}: {turn.text}"
+                try:
+                    res = adapter.write_memory(
+                        namespace, mem_id, text, timestamp=turn.timestamp
+                    )
+                except Exception as exc:
+                    systems_out.append(
+                        _failed_system(
+                            adapter,
+                            f"Write failed for {mem_id}: {_exception_reason(exc)}",
+                            namespace=namespace,
+                            turns_written=idx,
+                            write_errors=write_errors + 1,
+                        )
+                    )
+                    break
+                write_latencies.append(res.latency_ms)
+                if not res.ok:
+                    write_errors += 1
+        else:
+            # Group turns by session_id so each session is written strictly in
+            # chronological order while idle workers steal the next session.
+            sessions: Dict[str, List[tuple[int, Any]]] = {}
+            for idx, turn in enumerate(split.turns):
+                sid = str(turn.session_id or f"__turn_{idx}")
+                sessions.setdefault(sid, []).append((idx, turn))
+
+            def _write_session(
+                session_turns: List[tuple[int, Any]],
+            ) -> tuple[List[float], int]:
+                s_lats: List[float] = []
+                s_errs = 0
+                for idx, turn in session_turns:
+                    mem_id = f"turn_{idx}"
+                    text = f"{turn.speaker}: {turn.text}"
+                    res = adapter.write_memory(
+                        namespace, mem_id, text, timestamp=turn.timestamp
+                    )
+                    s_lats.append(res.latency_ms)
+                    if not res.ok:
+                        s_errs += 1
+                return s_lats, s_errs
+
             try:
-                res = adapter.write_memory(
-                    namespace, mem_id, text, timestamp=turn.timestamp
-                )
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    for s_lats, s_errs in pool.map(_write_session, sessions.values()):
+                        write_latencies.extend(s_lats)
+                        write_errors += s_errs
             except Exception as exc:
                 systems_out.append(
                     _failed_system(
                         adapter,
-                        f"Write failed for {mem_id}: {_exception_reason(exc)}",
+                        f"Parallel session write failed: {_exception_reason(exc)}",
                         namespace=namespace,
-                        turns_written=idx,
+                        turns_written=len(write_latencies),
                         write_errors=write_errors + 1,
                     )
                 )
-                break
-            write_latencies.append(res.latency_ms)
-            if not res.ok:
-                write_errors += 1
+                continue
 
         if write_errors or len(write_latencies) != len(split.turns):
             if not systems_out or systems_out[-1].get("namespace") != namespace:
@@ -398,21 +445,29 @@ def run_conversational_benchmark(
         }
         per_category: Dict[str, Dict[str, List[float]]] = {}
 
-        for case in split.qa_cases:
-            try:
-                qres = adapter.query(namespace, case.case_id, case.question, k=top_k)
-            except Exception as exc:
-                systems_out.append(
-                    _failed_system(
-                        adapter,
-                        f"Query failed for {case.case_id}: {_exception_reason(exc)}",
-                        namespace=namespace,
-                        turns_written=len(split.turns),
-                        cases_evaluated=len(per_case["exact_match"]),
-                        write_errors=write_errors,
-                    )
+        def _eval_case(case: Any) -> tuple[Any, Any]:
+            return case, adapter.query(namespace, case.case_id, case.question, k=top_k)
+
+        try:
+            if workers <= 1:
+                case_results = [_eval_case(case) for case in split.qa_cases]
+            else:
+                with ThreadPoolExecutor(max_workers=workers) as pool:
+                    case_results = list(pool.map(_eval_case, split.qa_cases))
+        except Exception as exc:
+            systems_out.append(
+                _failed_system(
+                    adapter,
+                    f"Query failed: {_exception_reason(exc)}",
+                    namespace=namespace,
+                    turns_written=len(split.turns),
+                    cases_evaluated=len(per_case["exact_match"]),
+                    write_errors=write_errors,
                 )
-                break
+            )
+            continue
+
+        for case, qres in case_results:
             query_latencies.append(qres.latency_ms)
             combined_ctx = qres.answer_text or "\n".join(qres.retrieved_texts)
             ctx_tokens = float(len(combined_ctx.split())) if combined_ctx else 0.0

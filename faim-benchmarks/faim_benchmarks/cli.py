@@ -205,6 +205,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         default=None,
         help="Comma-separated comparison scope; default: all adapters",
     )
+    conv.add_argument(
+        "--ingest-workers",
+        type=int,
+        default=1,
+        help="Bounded concurrent HTTP session/query workers (default: 1)",
+    )
     conv.add_argument("--out-dir", default="results")
 
     args = parser.parse_args(argv)
@@ -254,6 +260,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 top_k=args.top_k,
                 seed=args.seed,
                 bootstrap_iterations=args.bootstrap,
+                ingest_workers=args.ingest_workers,
                 run_metadata=run_metadata,
             )
 

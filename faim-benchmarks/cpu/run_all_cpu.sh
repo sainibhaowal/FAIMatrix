@@ -51,17 +51,17 @@ run_beir trec-covid 7e16fde3016c639c7f856e803f4bab92645562c4 532ac68ee6756ac22c9
 DATA_DIR="${FAIM_BENCH_DATA_DIR:-$HOME/.faim/bench_datasets}"
 if [ -f "$DATA_DIR/locomo10.json" ]; then
   echo "=== [CPU MEMORY] locomo ==="
-  FAIM_SELF_EVOLVE_ENABLED=true faim-bench memory --suite locomo --data-path "$DATA_DIR/locomo10.json" --systems faim,bm25 --out-dir "$OUT_BASE/locomo"
+  FAIM_SELF_EVOLVE_ENABLED=true faim-bench memory --suite locomo --data-path "$DATA_DIR/locomo10.json" --systems faim,bm25 --ingest-workers "$INGEST_WORKERS" --out-dir "$OUT_BASE/locomo"
 fi
 if [ -f "$DATA_DIR/longmemeval_s_cleaned.json" ]; then
   echo "=== [CPU MEMORY] longmemeval ==="
-  FAIM_SELF_EVOLVE_ENABLED=true faim-bench memory --suite longmemeval --data-path "$DATA_DIR/longmemeval_s_cleaned.json" --systems faim,bm25 --out-dir "$OUT_BASE/longmemeval"
+  FAIM_SELF_EVOLVE_ENABLED=true faim-bench memory --suite longmemeval --data-path "$DATA_DIR/longmemeval_s_cleaned.json" --systems faim,bm25 --ingest-workers "$INGEST_WORKERS" --out-dir "$OUT_BASE/longmemeval"
 fi
 if [ -n "${BEAM_DATA_PATH:-}" ] && [ -f "$BEAM_DATA_PATH" ]; then
   echo "=== [CPU MEMORY] beam ==="
-  FAIM_SELF_EVOLVE_ENABLED=true faim-bench memory --suite beam --data-path "$BEAM_DATA_PATH" --systems faim,bm25 --out-dir "$OUT_BASE/beam"
+  FAIM_SELF_EVOLVE_ENABLED=true faim-bench memory --suite beam --data-path "$BEAM_DATA_PATH" --systems faim,bm25 --ingest-workers "$INGEST_WORKERS" --out-dir "$OUT_BASE/beam"
 fi
 if [ -n "${TM_DATA_PATH:-}" ] && [ -f "$TM_DATA_PATH" ]; then
   echo "=== [CPU MEMORY] tm ==="
-  FAIM_SELF_EVOLVE_ENABLED=true faim-bench memory --suite tm --data-path "$TM_DATA_PATH" --systems faim,bm25 --out-dir "$OUT_BASE/tm"
+  FAIM_SELF_EVOLVE_ENABLED=true faim-bench memory --suite tm --data-path "$TM_DATA_PATH" --systems faim,bm25 --ingest-workers "$INGEST_WORKERS" --out-dir "$OUT_BASE/tm"
 fi

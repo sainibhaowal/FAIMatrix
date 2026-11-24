@@ -357,3 +357,90 @@ def test_retrieval_quality_gates_block_underperforming_faim():
     assert any("below gate" in reason for reason in gate["reasons"])
     assert any("exceeds gate" in reason for reason in gate["reasons"])
     assert any("does not exceed BM25" in reason for reason in gate["reasons"])
+
+
+def test_conversational_parallel_sessions_preserve_order():
+    import threading
+    from faim_benchmarks.adapters.base import QueryOutcome
+    from faim_benchmarks.datasets import (
+        ConversationalBenchmarkSplit,
+        ConversationalTurn,
+        MemoryQACase,
+    )
+
+    turns = [
+        ConversationalTurn(
+            speaker="user",
+            text=f"s{s}_m{m}",
+            timestamp=f"2026-01-01T00:0{s}:0{m}Z",
+            session_id=f"s{s}",
+        )
+        for s in range(4)
+        for m in range(3)
+    ]
+    split = ConversationalBenchmarkSplit(
+        name="parallel_mem",
+        turns=turns,
+        qa_cases=[
+            MemoryQACase(
+                case_id=f"q{i}",
+                category="temporal",
+                question=f"What happened in s{i}?",
+                answer=f"s{i}_m2",
+                evidence_ids=[],
+            )
+            for i in range(4)
+        ],
+    )
+
+    lock = threading.Lock()
+    per_session_seen: dict[str, list[str]] = {}
+    threads_used: set[int] = set()
+
+    class ParallelMockAdapter:
+        name = "FAIM-Native"
+        system_type = "fractal_graph_memory"
+
+        def is_configured(self):
+            return True, None
+
+        def prepare_namespace(self, namespace):
+            return None
+
+        def write_memory(self, namespace, memory_id, text, timestamp=None):
+            with lock:
+                threads_used.add(threading.get_ident())
+                session_key = text.split(": ", 1)[1].split("_", 1)[0]
+                per_session_seen.setdefault(session_key, []).append(text)
+            return IngestOutcome(doc_id=memory_id, latency_ms=1.0, ok=True)
+
+        def query(self, namespace, query_id, query_text, k=20):
+            idx = query_id[1:]
+            return QueryOutcome(
+                query_id=query_id,
+                latency_ms=1.0,
+                retrieved_doc_ids=[],
+                retrieved_texts=[f"s{idx}_m2"],
+                answer_text=f"s{idx}_m2",
+            )
+
+        def close(self):
+            return None
+
+    res = run_conversational_benchmark(
+        split=split,
+        adapters=[ParallelMockAdapter()],
+        top_k=5,
+        bootstrap_iterations=10,
+        ingest_workers=4,
+    )
+    sys_out = res["systems"][0]
+    assert sys_out["status"] == "completed", sys_out.get("reason")
+    assert sys_out["turns_written"] == 12
+    assert sys_out["metrics"]["fact_recall"] == 1.0
+    for s in range(4):
+        assert per_session_seen[f"s{s}"] == [
+            f"user: s{s}_m0",
+            f"user: s{s}_m1",
+            f"user: s{s}_m2",
+        ]
