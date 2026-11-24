@@ -13,7 +13,7 @@
 | **`3-gpu-granite` (Flagship)** | `fast` + Granite 97M GPU (`2` API + `4` Ingest, `batch=256`) | **0.6900** (`0.7704` / `140.17 ms`) | **0.3314** (`0.1297` / `101.62 ms`) | **0.3387** (`0.5096` / `304.55 ms`) |
 | **`1-cpu-pure-faim`** | `fast` + Zero-ML CPU | 0.6871 (`0.7554` / `100.22 ms`) | 0.3267 (`0.1289` / `66.48 ms`) | 0.3149 (`0.4604` / `250.98 ms`) |
 | **`2-gpu-pure-faim`** | `fast` + Zero-ML CUDA | 0.6871 (`0.7554` / `100.00 ms`) | 0.3267 (`0.1289` / `63.34 ms`) | 0.3149 (`0.4604` / `250.73 ms`) |
-| **`4-hybrid-hw-pure-faim`** | `fast` + Zero-ML Auto | 0.6871 (`0.7554` / `102.92 ms`) | *re-running* | *re-running* |
+| **`4-hybrid-hw-pure-faim`** | `fast` + Zero-ML Auto | 0.6871 (`0.7554` / `102.92 ms`) | 0.3267 (`0.1289` / `68.98 ms`) | 0.3149 (`0.4604` / `275.16 ms`) |
 | **`5-hybrid-faim-plus-embedding`** | `balanced` + Granite 97M GPU | 0.6560 (`0.7412` / `2487.46 ms`) | 0.3176 (`0.1264` / `1941.70 ms`) | *stopped early* |
 | **CPU CI (`faim-cpu-beir-*.zip`)** | `fast` + Zero-ML CPU | 0.6871 (`0.7554` / **`86.31 ms`**) | 0.3267 (`0.1289` / **`49.91 ms`**) | 0.3149 (`0.4604` / **`167.74 ms`**) |
 | **`BM25-Baseline` (CPU CI)** | In-process BM25 | 0.6644 (`0.7193` / `45.76 ms`) | 0.3110 (`0.1205` / `3.32 ms`) | 0.3451 (`0.5275` / `567.83 ms`) |
@@ -24,7 +24,8 @@
 
 | Scenario / System | Status | Fact Recall | Token F1 | Exact Match | Median (ms) | P95 (ms) | Avg Context Tokens |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| **`3-gpu-granite` (FAIM-Native)** | completed (`READY`) | 0.0710 | **0.0582** | 0.0000 | 234.56 | 446.77 | 11.9 |
+| **`3-gpu-granite` (FAIM-Native)** | completed (`READY`) | 0.0710 | 0.0582 | 0.0000 | 234.56 | 446.77 | 11.9 |
+| **`4-hybrid-hw-pure-faim` (FAIM-Native)** | completed (`READY`) | **0.0715** | **0.0584** | 0.0000 | **188.50** | 485.03 | 11.9 |
 | **`BM25-Baseline` (CPU CI)** | completed | 0.2049 | 0.0383 | 0.0000 | 16.02 | 28.31 | 92.3 |
 
 ### `3-gpu-granite` LoCoMo Per-Category Breakdown
