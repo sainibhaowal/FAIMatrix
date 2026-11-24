@@ -21,9 +21,9 @@ repos:
 
       - id: compose-validate
         name: Docker Compose syntax check
-        entry: docker compose -f docker-compose.test.yml config --quiet
+        entry: docker compose --profile test --profile vps config --quiet
         language: system
-        files: ^docker-compose.*\.yml$
+        files: ^docker-compose\.yml$
         pass_filenames: false
 
       - id: benchmark-harness-tests

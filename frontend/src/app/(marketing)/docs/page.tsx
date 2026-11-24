@@ -2298,20 +2298,19 @@ function SectionDeployment() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Deployment</h2>
         <p className="text-slate-400 leading-relaxed">
-          Production now uses one real env file per target. Local prod and VPS
-          prod mirror the same stack, but they stay isolated so the deploy path
-          is deterministic and clean.
+          Deployment uses a single root <code>docker-compose.yml</code> and root{" "}
+          <code>.env</code> configuration across local CPU/GPU and remote VPS targets.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Local Production" color="cyan">
+        <Card title="Local Stack (CPU & GPU)" color="cyan">
           <ul className="space-y-2 text-sm text-slate-400">
             {[
-              ".env.localprod is the single local-prod source of truth.",
-              "npm run faim:localprod:up brings up the production-like stack.",
-              "npm run faim:localprod:up frontend, api, worker, or migrate supports selective rebuilds.",
-              "npm run faim:localprod:smoke checks the edge, readiness, and health endpoints.",
+              "Copy .env.example to .env as the single environment source of truth.",
+              "docker compose up -d starts PostgreSQL, Redis, Qdrant, API, workers, and frontend.",
+              "Set TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124 and FAIM_GPU_COUNT=1 in .env for CUDA GPU passthrough.",
+              "npm run faim:ps and /ready verify service health across all containers.",
             ].map((item) => (
               <li key={item} className="flex gap-2">
                 <span className="text-cyan-400 shrink-0">→</span>
@@ -2320,13 +2319,13 @@ function SectionDeployment() {
             ))}
           </ul>
         </Card>
-        <Card title="VPS Production" color="purple">
+        <Card title="VPS & Reverse Proxy" color="purple">
           <ul className="space-y-2 text-sm text-slate-400">
             {[
-              "deploy/env.vpsprod is copied separately to the VPS and not synced by rsync.",
-              "scripts/vps_sync.sh excludes docs, tests, the root Runtime/ scratch folder, and secret env files.",
-              "npm run faim:vps:up uses docker-compose.vps.yml with the VPS env file.",
-              "Selective rebuilds keep frontend, api, worker, and migrate rebuilds small.",
+              "Use the same docker-compose.yml with --profile vps and keep host .env outside version control.",
+              "deploy/Caddyfile.vps and deploy/nginx.conf provide ready-to-use reverse-proxy templates.",
+              "scripts/vps_sync.sh excludes docs, tests, Runtime/ scratch folders, and secret env files.",
+              "scripts/vps_deploy_ci.sh validates .env and pulls pre-built images cleanly without compose down.",
             ].map((item) => (
               <li key={item} className="flex gap-2">
                 <span className="text-purple-400 shrink-0">→</span>

@@ -1,6 +1,6 @@
 # GPU Passthrough, Automatic CPU Fallback, and HMAC Auth Caching
 
-**Scope:** Production deployment and latency-hardening guide for [`Dockerfile`](../../../Dockerfile), [`docker-compose.yml`](../../../docker-compose.yml), [`docker-compose.gpu.yml`](../../../docker-compose.gpu.yml), GPU/CPU fallback in [`embedding_providers.py`](../../encoding/embedding_providers.py) and [`vector_bank.py`](../../orchestration/perf/vector_bank.py), and HMAC verified-key caching in [`auth.py`](../../api/middleware/auth.py).
+**Scope:** Production deployment and latency-hardening guide for [`Dockerfile`](../../../Dockerfile), [`docker-compose.yml`](../../../docker-compose.yml), GPU/CPU fallback in [`embedding_providers.py`](../../encoding/embedding_providers.py) and [`vector_bank.py`](../../orchestration/perf/vector_bank.py), and HMAC verified-key caching in [`auth.py`](../../api/middleware/auth.py).
 
 ---
 
@@ -50,9 +50,9 @@ Uses `TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu` in [`Dockerfile`](..
    sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
    sudo systemctl restart docker
    ```
-2. Build and start with [`docker-compose.gpu.yml`](../../../docker-compose.gpu.yml):
+2. Enable CUDA wheels and GPU passthrough in `.env` (`TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124`, `FAIM_GPU_COUNT=1`) and start with [`docker-compose.yml`](../../../docker-compose.yml):
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+   TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124 FAIM_GPU_COUNT=1 docker compose up -d --build
    ```
    Verified inside `faim-api` and `faim-worker-ingest-1` on RTX 4060 Laptop GPU (`8188 MiB`):
    `torch 2.15.0+cu132`, `cuda: True`, `_resolve_embedding_device() == 'cuda'`.

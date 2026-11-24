@@ -78,16 +78,16 @@ MODE="${1:-all}" # native | hybrid | all
 if [ "$MODE" = "native" ] || [ "$MODE" = "all" ]; then
   apply_autoscale "native"
   echo "=== Starting Pure FAIM-Native GPU Stack ($FAIM_API_WORKERS API / $FAIM_INGEST_WORKERS Ingest) ==="
-  (cd "$REPO_ROOT" && FAIM_API_WORKERS="$FAIM_API_WORKERS" FAIM_INGEST_WORKERS="$FAIM_INGEST_WORKERS" FAIM_FAST_ML_EMBEDDING=false FAIM_EMBEDDING_DEVICE=auto FAIM_MIN_CUDA_FREE_MIB="$FAIM_MIN_CUDA_FREE_MIB" FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
+  (cd "$REPO_ROOT" && FAIM_API_WORKERS="$FAIM_API_WORKERS" FAIM_INGEST_WORKERS="$FAIM_INGEST_WORKERS" FAIM_FAST_ML_EMBEDDING=false FAIM_EMBEDDING_DEVICE=auto FAIM_GPU_COUNT=1 FAIM_MIN_CUDA_FREE_MIB="$FAIM_MIN_CUDA_FREE_MIB" FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml up -d api worker-ingest worker-evolve)
   run_suite_set "native" "faim-native-gpu" "zero-ml-repr-v2-cuda-concept-maxsim"
 fi
 
 if [ "$MODE" = "hybrid" ] || [ "$MODE" = "all" ]; then
   apply_autoscale "hybrid"
   echo "=== Starting FAIM + Granite GPU Hybrid Stack ($FAIM_API_WORKERS API / $FAIM_INGEST_WORKERS Ingest, CUDA Batch $FAIM_EMBEDDING_BATCH_SIZE, VRAM Guard ${FAIM_MIN_CUDA_FREE_MIB} MiB) ==="
-  (cd "$REPO_ROOT" && FAIM_API_WORKERS="$FAIM_API_WORKERS" FAIM_INGEST_WORKERS="$FAIM_INGEST_WORKERS" FAIM_FAST_ML_EMBEDDING=true FAIM_EMBEDDING_DEVICE=auto FAIM_MIN_CUDA_FREE_MIB="$FAIM_MIN_CUDA_FREE_MIB" FAIM_EMBEDDING_BATCH_SIZE="$FAIM_EMBEDDING_BATCH_SIZE" FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
+  (cd "$REPO_ROOT" && FAIM_API_WORKERS="$FAIM_API_WORKERS" FAIM_INGEST_WORKERS="$FAIM_INGEST_WORKERS" FAIM_FAST_ML_EMBEDDING=true FAIM_EMBEDDING_DEVICE=auto FAIM_GPU_COUNT=1 FAIM_MIN_CUDA_FREE_MIB="$FAIM_MIN_CUDA_FREE_MIB" FAIM_EMBEDDING_BATCH_SIZE="$FAIM_EMBEDDING_BATCH_SIZE" FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml up -d api worker-ingest worker-evolve)
   run_suite_set "granite-hybrid" "local-gpu-hybrid" "ibm-granite/granite-embedding-97m-multilingual-r2"
   echo "=== Restoring Default Pure FAIM-Native Stack ==="
   apply_autoscale "native"
-  (cd "$REPO_ROOT" && FAIM_API_WORKERS="$FAIM_API_WORKERS" FAIM_INGEST_WORKERS="$FAIM_INGEST_WORKERS" FAIM_FAST_ML_EMBEDDING=false FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
+  (cd "$REPO_ROOT" && FAIM_API_WORKERS="$FAIM_API_WORKERS" FAIM_INGEST_WORKERS="$FAIM_INGEST_WORKERS" FAIM_FAST_ML_EMBEDDING=false FAIM_GPU_COUNT=1 FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml up -d api worker-ingest worker-evolve)
 fi

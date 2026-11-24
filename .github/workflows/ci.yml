@@ -137,14 +137,8 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
 
-      - name: Validate local Compose configuration
-        run: docker compose config --quiet
-
-      - name: Prepare VPS Compose environment
-        run: cp deploy/env.vpsprod.example deploy/env.vpsprod
-
-      - name: Validate VPS registry Compose configuration
-        run: docker compose -f docker-compose.yml -f docker-compose.vps.yml -f docker-compose.registry.yml --profile accel config --quiet
+      - name: Validate Compose configuration
+        run: docker compose --profile test --profile vps config --quiet
 
   production-network-e2e:
     name: Postgres Redis Qdrant network E2E
@@ -155,7 +149,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Start real service stack
-        run: docker compose -f docker-compose.test.yml up -d --build
+        run: docker compose --profile test up -d --build api-test
 
       - name: Wait for API and Qdrant
         run: |
@@ -169,7 +163,7 @@ jobs:
       - name: Provision and verify a real non-default tenant key
         shell: bash
         run: |
-          tenant_key=$(docker compose -f docker-compose.test.yml exec -T api-test \
+          tenant_key=$(docker compose --profile test exec -T api-test \
             python -c 'from runtime.context import close_session, get_session; from store.pg.repos.auth_repo import AuthRepo; s=get_session(); _, key=AuthRepo(s).create_tenant_key(tenant_id="ci-tenant", scopes=["memory.read", "memory.write"]); s.commit(); close_session(s); print(key)' \
             | tail -n 1)
           test -n "$tenant_key"
@@ -203,7 +197,7 @@ jobs:
 
       - name: Stop real service stack
         if: always()
-        run: docker compose -f docker-compose.test.yml down -v
+        run: docker compose --profile test down -v
 
   security-audit:
     name: Security audit

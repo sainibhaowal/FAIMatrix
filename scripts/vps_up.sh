@@ -6,28 +6,20 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_ROOT"
 
-ENV_FILE="deploy/env.vpsprod"
+ENV_FILE=".env"
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Missing $ENV_FILE."
-  echo "Copy deploy/env.vpsprod.example to deploy/env.vpsprod and fill in the VPS-production secrets."
+  echo "Copy .env.example to .env and fill in the production secrets."
   exit 1
 fi
 
 chmod 600 "$ENV_FILE"
 
-mkdir -p Runtime/vps/{postgres,redis,qdrant,raw,backups,caddy_data,caddy_config}
-
-docker run --rm \
-  -u root \
-  -v "$PROJECT_ROOT/Runtime/vps/postgres:/var/lib/postgresql/data" \
-  postgres:15 \
-  bash -lc 'chown -R 999:999 /var/lib/postgresql/data && chmod -R u+rwX,go-rwx /var/lib/postgresql/data'
-
 SERVICES=("$@")
 
 if [[ ${#SERVICES[@]} -eq 0 ]]; then
-  docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.vps.yml --profile accel run --rm --build migrate
-  docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.vps.yml --profile accel up -d --build
+  docker compose --env-file "$ENV_FILE" -f docker-compose.yml --profile vps run --rm --build migrate
+  docker compose --env-file "$ENV_FILE" -f docker-compose.yml --profile vps up -d --build
   exit 0
 fi
 
@@ -42,10 +34,10 @@ for svc in "${SERVICES[@]}"; do
 done
 
 if $RUN_MIGRATE; then
-  docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.vps.yml --profile accel run --rm --build migrate
+  docker compose --env-file "$ENV_FILE" -f docker-compose.yml --profile vps run --rm --build migrate
 fi
 
 if [[ ${#BUILD_SERVICES[@]} -gt 0 ]]; then
-  docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.vps.yml --profile accel build "${BUILD_SERVICES[@]}"
-  docker compose --env-file "$ENV_FILE" -f docker-compose.yml -f docker-compose.vps.yml --profile accel up -d --no-deps "${BUILD_SERVICES[@]}"
+  docker compose --env-file "$ENV_FILE" -f docker-compose.yml --profile vps build "${BUILD_SERVICES[@]}"
+  docker compose --env-file "$ENV_FILE" -f docker-compose.yml --profile vps up -d --no-deps "${BUILD_SERVICES[@]}"
 fi

@@ -1,5 +1,5 @@
-# TLS is terminated by the existing VPS gateway.  This proxy intentionally
-# listens on plain HTTP inside the FAIM stack and is not internet-facing.
+# TLS is terminated by the upstream gateway or load balancer.
+# This reverse proxy listens on internal port 80 and routes to FAIM services.
 :80 {
   encode gzip zstd
 
@@ -13,13 +13,10 @@
 
   @backend_health path /health /ready /version
   handle @backend_health {
-    # This Caddy instance also joins the shared gateway network.  Use the
-    # FAIM container name instead of the generic `api` alias so Docker DNS
-    # cannot resolve an unrelated project's service on that second network.
-    reverse_proxy faim-api-vps:8000
+    reverse_proxy faim-api:8000
   }
 
   handle {
-    reverse_proxy faim-frontend-vps:8010
+    reverse_proxy faim-frontend:8010
   }
 }

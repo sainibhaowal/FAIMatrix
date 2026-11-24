@@ -19,7 +19,7 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   - Standalone HTTP-only evaluation harness (`faim-bench`) supporting BEIR (`SciFact`, `NFCorpus`, and opt-in `FiQA`, `TREC-COVID`, `ArguAna`) and memory/QA datasets (`LoCoMo`, opt-in `LongMemEval`), writing SHA-256-verified JSON and Markdown reports.
   - 6-scenario comparative runner, automated `RESULTS.md` aggregator, and bidirectional GPU/CPU fallback test coverage (`36a2aa8`).
 - **GPU passthrough & hardware-aware autoscaling (Nov 2026):**
-  - Added [`docker-compose.gpu.yml`](docker-compose.gpu.yml) with `FAIM_MIN_CUDA_FREE_MIB` OOM protection and automatic CUDA-to-CPU fallback across `embedding_providers.py`, `VectorBank`, and 256-dim native kernels (`c512417`).
+  - Integrated CUDA GPU passthrough (`TORCH_INDEX_URL`, `FAIM_GPU_COUNT`, `FAIM_MIN_CUDA_FREE_MIB`) and automatic CUDA-to-CPU fallback across `embedding_providers.py`, `VectorBank`, and 256-dim native kernels directly into [`docker-compose.yml`](docker-compose.yml).
   - Added hardware-aware CPU/RAM/VRAM autoscaler for native and GPU hybrid runtimes (`96c9684`).
 - **Verified external benchmark & multi-scenario results (`READY`, Nov 2026):**
   - Full `BeIR/SciFact` (5,183 docs / 300 queries): `Recall@5 = 0.7554`, `nDCG@10 = 0.6878`, `MRR = 0.6570`, `MAP = 0.6464` (beating `BM25-Baseline` across all metrics, Query p50 reduced to `104.52 ms` on GPU stack).
@@ -41,6 +41,7 @@ This changelog follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Changed & Documentation
 - Organized benchmark artifacts into clean `cpu/`, `gpu/`, and multi-scenario result directories (`d45b855`, `91259dc`).
 - Moved CI/CD runbook into [CI, semantic releases, and deployment](faim_native/Docs/10-operations/07-ci-and-releases.md) and research framing into [Research positioning](faim_native/Docs/14-research/04-research-positioning.md), removing stale root status docs (`PROJECT_STATUS.md`, `EXPERIMENTAL_STATUS.md`, `ROADMAP.md`, root `CI_CD.md`), unused scratch scripts (`debug_csv.py`, `scripts/generate_resume_pdf.js`), local filesystem paths, and private infrastructure references.
+- Consolidated Docker Compose overlays and environment templates into a single [`docker-compose.yml`](docker-compose.yml) (using `--profile vps`, `--profile test`, and `FAIM_GPU_COUNT`) and a single canonical [`.env.example`](.env.example) / `.env` configuration pair, keeping `deploy/Caddyfile.vps` and `deploy/nginx.conf`.
 - Updated [GOVERNANCE.md](GOVERNANCE.md), [CONTRIBUTING.md](CONTRIBUTING.md), [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md), [SUPPORT.md](SUPPORT.md), [CODEOWNERS](.github/CODEOWNERS), and [README.md](README.md) to production documentation standards.
 
 ---

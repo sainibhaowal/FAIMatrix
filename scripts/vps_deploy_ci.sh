@@ -7,7 +7,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-ENV_FILE="$PROJECT_ROOT/deploy/env.vpsprod"
+ENV_FILE="$PROJECT_ROOT/.env"
 
 : "${FAIM_IMAGE_PREFIX:?FAIM_IMAGE_PREFIX is required}"
 : "${FAIM_IMAGE_TAG:?FAIM_IMAGE_TAG is required}"
@@ -100,13 +100,16 @@ fi
 cd "$PROJECT_ROOT"
 chmod 600 "$ENV_FILE"
 
+export FAIM_MIGRATE_IMAGE="${FAIM_IMAGE_PREFIX}/backend:${FAIM_IMAGE_TAG}"
+export FAIM_API_IMAGE="${FAIM_IMAGE_PREFIX}/backend:${FAIM_IMAGE_TAG}"
+export FAIM_WORKER_IMAGE="${FAIM_IMAGE_PREFIX}/backend:${FAIM_IMAGE_TAG}"
+export FAIM_FRONTEND_IMAGE="${FAIM_IMAGE_PREFIX}/frontend:${FAIM_IMAGE_TAG}"
+
 COMPOSE=(
   docker compose
   --env-file "$ENV_FILE"
   -f docker-compose.yml
-  -f docker-compose.vps.yml
-  -f docker-compose.registry.yml
-  --profile accel
+  --profile vps
 )
 
 if [[ "${1:-}" == "--preflight-only" ]]; then
@@ -120,17 +123,17 @@ echo "Starting infrastructure without stopping existing services..."
 "${COMPOSE[@]}" up -d --wait postgres redis qdrant
 
 echo "Pulling immutable application images: $FAIM_IMAGE_TAG"
-"${COMPOSE[@]}" pull migrate api worker frontend
+"${COMPOSE[@]}" pull migrate api worker-ingest worker-evolve frontend
 
 echo "Applying migrations..."
-"${COMPOSE[@]}" run --rm migrate
+"${COMPOSE[@]}" run --rm --no-build migrate
 
 # A bootstrap payload is intentionally accepted only from the explicit,
 # short-lived env-file line. The backend image hashes it with Argon2id and the
 # line is removed only after the transaction succeeds. Never echo this value.
 if [[ -n "$(env_value FAIM_TENANT_KEY_BOOTSTRAP_JSON)" ]]; then
   echo "Bootstrapping tenant API keys into the authentication database..."
-  "${COMPOSE[@]}" run --rm --no-deps migrate \
+  "${COMPOSE[@]}" run --rm --no-deps --no-build migrate \
     /app/scripts/bootstrap_tenant_api_keys.py --apply
 
   remove_bootstrap_env_line
@@ -138,7 +141,7 @@ if [[ -n "$(env_value FAIM_TENANT_KEY_BOOTSTRAP_JSON)" ]]; then
 fi
 
 echo "Updating application services without compose down..."
-"${COMPOSE[@]}" up -d --wait --remove-orphans --no-deps api worker frontend
+"${COMPOSE[@]}" up -d --wait --remove-orphans --no-deps --no-build api worker-ingest worker-evolve frontend
 
 echo "Ensuring the reverse proxy is running..."
 "${COMPOSE[@]}" up -d --wait --no-deps caddy

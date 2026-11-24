@@ -70,8 +70,6 @@ Thumbs.db
 # Environments & Configs
 .env*
 !.env.example
-!.env.localprod.example
-deploy/env.vpsprod
 
 # Runtime & Data
 Runtime/

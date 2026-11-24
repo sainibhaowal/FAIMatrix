@@ -117,7 +117,7 @@ jobs:
           build-args: |
             NEXTAUTH_SECRET=${{ steps.frontend-build-secret.outputs.nextauth_secret }}
             NEXTAUTH_URL=https://faimatrix.com
-            API_HOST=faim-api-vps:8000
+            API_HOST=faim-api:8000
             NEXT_PUBLIC_APP_VERSION=${{ steps.app-version.outputs.version }}
           tags: |
             ${{ env.IMAGE_PREFIX }}/frontend:${{ steps.tag.outputs.image_tag }}
@@ -183,13 +183,13 @@ jobs:
           rsync_ssh="ssh -i $HOME/.ssh/faim-vps -p $VPS_PORT -o BatchMode=yes -o StrictHostKeyChecking=yes"
           "${ssh_cmd[@]}" "$target" "mkdir -p '$VPS_PATH/scripts' '$VPS_PATH/deploy'"
           rsync -az -e "$rsync_ssh" \
-            docker-compose.yml docker-compose.vps.yml docker-compose.registry.yml \
+            docker-compose.yml \
             "$target:$VPS_PATH/"
           rsync -az -e "$rsync_ssh" \
             scripts/vps_deploy_ci.sh scripts/vps_smoke.sh \
             "$target:$VPS_PATH/scripts/"
           rsync -az -e "$rsync_ssh" \
-            deploy/Caddyfile.vps \
+            deploy/Caddyfile.vps deploy/nginx.conf \
             "$target:$VPS_PATH/deploy/"
 
       - name: Authenticate VPS to GHCR

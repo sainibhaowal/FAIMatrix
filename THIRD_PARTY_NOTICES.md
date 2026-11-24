@@ -113,13 +113,13 @@ Direct runtime dependencies defined in [`frontend/package.json`](frontend/packag
 
 ## 5. Container base and infrastructure images
 
-Container images referenced in [`Dockerfile`](Dockerfile), [`frontend/Dockerfile`](frontend/Dockerfile), and `docker-compose*.yml`:
+Container images referenced in [`Dockerfile`](Dockerfile), [`frontend/Dockerfile`](frontend/Dockerfile), and [`docker-compose.yml`](docker-compose.yml):
 
 - **`python:3.11-slim`** and **`node:22-alpine`:** Official Python ([PSFL](https://spdx.org/licenses/Python-2.0.html)) and Node.js ([MIT](https://spdx.org/licenses/MIT.html)) base images; base OS packages in Debian/Alpine remain subject to their distribution licenses.
 - **`pgvector/pgvector:pg15`:** PostgreSQL and `pgvector` extension ([PostgreSQL License](https://spdx.org/licenses/PostgreSQL.html)).
 - **`redis:7-alpine`:** Redis server image on Alpine Linux (upstream Redis OSS / RSALv2 / SSPLv1 per upstream image tag terms; check the exact image tag before redistributing).
 - **`qdrant/qdrant`:** Qdrant vector database ([Apache-2.0](https://spdx.org/licenses/Apache-2.0.html)).
-- **`caddy:2-alpine`:** Caddy web server / reverse proxy ([Apache-2.0](https://spdx.org/licenses/Apache-2.0.html)) in [`docker-compose.vps.yml`](docker-compose.vps.yml).
+- **`caddy:2-alpine`:** Caddy web server / reverse proxy ([Apache-2.0](https://spdx.org/licenses/Apache-2.0.html)) in [`docker-compose.yml`](docker-compose.yml).
 
 ---
 

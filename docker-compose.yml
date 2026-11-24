@@ -1,6 +1,11 @@
+x-gpu-devices: &gpu-devices
+  - driver: nvidia
+    count: ${FAIM_GPU_COUNT:-0}
+    capabilities: [gpu]
+
 services:
   # ---------------------------------------------------------------------------
-  # PostgreSQL (Required - Source of Truth)
+  # PostgreSQL (Required - Canonical Source of Truth)
   # ---------------------------------------------------------------------------
   postgres:
     image: pgvector/pgvector:pg15
@@ -44,7 +49,7 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # Redis (Optional - Acceleration Only)
+  # Redis (Optional Acceleration & Locks)
   # ---------------------------------------------------------------------------
   redis:
     image: redis:7-alpine
@@ -100,10 +105,12 @@ services:
   # One-Shot Migration Job (Operator runs explicitly)
   # ---------------------------------------------------------------------------
   migrate:
-    image: faim-migrate:latest
+    image: ${FAIM_MIGRATE_IMAGE:-faim-migrate:latest}
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
     container_name: faim-migrate
     entrypoint: ["python"]
     command: ["-m", "store.pg.migrate", "up"]
@@ -122,15 +129,13 @@ services:
   # FAIM-Native API
   # ---------------------------------------------------------------------------
   api:
-    image: faim-api:latest
+    image: ${FAIM_API_IMAGE:-faim-api:latest}
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
     container_name: faim-api
-    # Keep the API responsive while a synchronous graph/storage operation is
-    # running.  The image ships gunicorn and this is the production command;
-    # the previous single uvicorn worker allowed one blocked request to stall
-    # liveness, readiness, and every user request in the container.
     command:
       [
         "gunicorn",
@@ -150,6 +155,7 @@ services:
       ]
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
+      FAIM_BACKUP_DIR: ${FAIM_BACKUP_DIR:-/var/lib/faim/backups}
       FAIM_RAW_STORE_PATH: /var/lib/faim/raw/blobs
       FAIM_MODE: ${FAIM_MODE:-production}
       FAIM_ENV: ${FAIM_ENV:-production}
@@ -164,27 +170,21 @@ services:
       FAIM_PUBLIC_ORIGIN: ${FAIM_PUBLIC_ORIGIN:-http://localhost:8010}
       FAIM_CORS_ALLOW_ORIGINS: ${FAIM_CORS_ALLOW_ORIGINS:-http://localhost:8010}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:8010}
-
-      # IMPORTANT: Production default is FALSE (safer)
       FAIM_AUTO_MIGRATE: ${FAIM_AUTO_MIGRATE:-false}
-
-      # Authentication
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET required}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
       TENANT_KEYS_JSON: ${TENANT_KEYS_JSON:-{}}
       ADMIN_KEYS_JSON: ${ADMIN_KEYS_JSON:-{}}
-
-      # Acceleration (enabled only with --profile accel)
       FAIM_ENABLE_CACHE: ${FAIM_ENABLE_CACHE:-false}
       FAIM_ENABLE_INDEX: ${FAIM_ENABLE_INDEX:-false}
       FAIM_OCR_ENABLED: ${FAIM_OCR_ENABLED:-true}
       FAIM_OCR_ENGINE: ${FAIM_OCR_ENGINE:-paddleocr_v6}
       FAIM_OCR_FAIL_CLOSED: ${FAIM_OCR_FAIL_CLOSED:-false}
-
       FAIM_OCR_LANGS: ${FAIM_OCR_LANGS:-eng}
       FAIM_EMBEDDING_DEVICE: ${FAIM_EMBEDDING_DEVICE:-auto}
       FAIM_USE_GPU_BACKEND: ${FAIM_USE_GPU_BACKEND:-auto}
       FAIM_FAST_ML_EMBEDDING: ${FAIM_FAST_ML_EMBEDDING:-false}
+      FAIM_MIN_CUDA_FREE_MIB: ${FAIM_MIN_CUDA_FREE_MIB:-1024}
       FAIM_EMBEDDING_PREWARM: ${FAIM_EMBEDDING_PREWARM:-true}
       FAIM_EMBEDDING_PREWARM_TIMEOUT_SECONDS: ${FAIM_EMBEDDING_PREWARM_TIMEOUT_SECONDS:-300}
       FAIM_EMBEDDING_PREWARM_REQUIRED: ${FAIM_EMBEDDING_PREWARM_REQUIRED:-true}
@@ -220,9 +220,9 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://:faim_pass@redis:8030/0}
       QDRANT_URL: ${QDRANT_URL:-http://qdrant:8040}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
-
     volumes:
       - raw_data:/var/lib/faim/raw
+      - backups_data:/var/lib/faim/backups
     ports:
       - "8000:8000"
     depends_on:
@@ -247,7 +247,6 @@ services:
       interval: 10s
       timeout: 8s
       retries: 30
-    # Stage-11: Container Hardening
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -260,6 +259,7 @@ services:
         reservations:
           cpus: "0.5"
           memory: 512M
+          devices: *gpu-devices
     networks: [faim-net]
     restart: unless-stopped
 
@@ -267,14 +267,19 @@ services:
   # Background Workers (Isolated Ingest & Self-Evolve Pools)
   # ---------------------------------------------------------------------------
   worker-ingest:
-    image: faim-worker:latest
+    image: ${FAIM_WORKER_IMAGE:-faim-worker:latest}
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
     command: ["python", "-m", "orchestration.jobs.worker"]
     restart: unless-stopped
     deploy:
       replicas: ${FAIM_INGEST_WORKERS:-8}
+      resources:
+        reservations:
+          devices: *gpu-devices
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
       REDIS_URL: ${REDIS_URL:-redis://:faim_pass@redis:8030/0}
@@ -302,6 +307,7 @@ services:
       FAIM_EMBEDDING_DEVICE: ${FAIM_EMBEDDING_DEVICE:-auto}
       FAIM_USE_GPU_BACKEND: ${FAIM_USE_GPU_BACKEND:-auto}
       FAIM_FAST_ML_EMBEDDING: ${FAIM_FAST_ML_EMBEDDING:-false}
+      FAIM_MIN_CUDA_FREE_MIB: ${FAIM_MIN_CUDA_FREE_MIB:-1024}
       FAIM_CHUNKING_ENABLED: ${FAIM_CHUNKING_ENABLED:-false}
       FAIM_CHUNK_MAX_CHARS: ${FAIM_CHUNK_MAX_CHARS:-1200}
       FAIM_CHUNK_OVERLAP: ${FAIM_CHUNK_OVERLAP:-120}
@@ -332,7 +338,6 @@ services:
       FAIM_SELF_INVENT_LAMBDA_THRESHOLD: ${FAIM_SELF_INVENT_LAMBDA_THRESHOLD:-0.2}
       FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION: ${FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION:-0.01}
       FAIM_PROFILE_PERSIST_COMPAT_MODE: ${FAIM_PROFILE_PERSIST_COMPAT_MODE:-true}
-
     volumes:
       - raw_data:/var/lib/faim/raw
     depends_on:
@@ -354,13 +359,19 @@ services:
     networks: [faim-net]
 
   worker-evolve:
-    image: faim-worker:latest
+    image: ${FAIM_WORKER_IMAGE:-faim-worker:latest}
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
     container_name: faim-worker-evolve
     command: ["python", "-m", "orchestration.jobs.worker"]
     restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices: *gpu-devices
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
       REDIS_URL: ${REDIS_URL:-redis://:faim_pass@redis:8030/0}
@@ -387,6 +398,8 @@ services:
       FAIM_WORKER_SELF_EVOLVE_SCAN_ENABLED: "true"
       FAIM_EMBEDDING_DEVICE: ${FAIM_EMBEDDING_DEVICE:-auto}
       FAIM_USE_GPU_BACKEND: ${FAIM_USE_GPU_BACKEND:-auto}
+      FAIM_FAST_ML_EMBEDDING: ${FAIM_FAST_ML_EMBEDDING:-false}
+      FAIM_MIN_CUDA_FREE_MIB: ${FAIM_MIN_CUDA_FREE_MIB:-1024}
       FAIM_JOB_MAX_RETRIES: ${FAIM_JOB_MAX_RETRIES:-1}
       FAIM_DOMAIN_AUTONOMY_ENABLED: ${FAIM_DOMAIN_AUTONOMY_ENABLED:-true}
       FAIM_REPR_V2_ENABLED: ${FAIM_REPR_V2_ENABLED:-true}
@@ -407,7 +420,6 @@ services:
       FAIM_SELF_INVENT_LAMBDA_THRESHOLD: ${FAIM_SELF_INVENT_LAMBDA_THRESHOLD:-0.2}
       FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION: ${FAIM_SELF_INVENT_MIN_REDUNDANCY_REDUCTION:-0.01}
       FAIM_PROFILE_PERSIST_COMPAT_MODE: ${FAIM_PROFILE_PERSIST_COMPAT_MODE:-true}
-
     volumes:
       - raw_data:/var/lib/faim/raw
     depends_on:
@@ -427,11 +439,12 @@ services:
       timeout: 10s
       retries: 3
     networks: [faim-net]
+
   # ---------------------------------------------------------------------------
   # FAIM Frontend (Next.js)
   # ---------------------------------------------------------------------------
   frontend:
-    image: faim-frontend:latest
+    image: ${FAIM_FRONTEND_IMAGE:-faim-frontend:latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -443,7 +456,7 @@ services:
     environment:
       - API_HOST=faim-api:8000
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL:-https://faimatrix.localhost:8443}
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:8010}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
@@ -454,12 +467,165 @@ services:
     networks: [faim-net]
     restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Optional VPS Reverse Proxy (--profile vps)
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: faim-caddy
+    profiles: ["vps"]
+    volumes:
+      - ./deploy/Caddyfile.vps:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks: [faim-net, gateway-net]
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Isolated CI / E2E Test Stack (--profile test)
+  # ---------------------------------------------------------------------------
+  postgres-test:
+    image: pgvector/pgvector:pg15
+    container_name: faim-postgres-test
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: faim
+      POSTGRES_PASSWORD: faim_test_password
+      POSTGRES_DB: faim_native
+    ports:
+      - "8021:8020"
+    command: ["postgres", "-p", "8020"]
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U faim -d faim_native -p 8020"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [faim-test-net]
+    restart: unless-stopped
+
+  redis-test:
+    image: redis:7-alpine
+    container_name: faim-redis-test
+    profiles: ["test"]
+    ports:
+      - "8031:8030"
+    command:
+      [
+        "redis-server",
+        "--port",
+        "8030",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "faim_test_password",
+        "--stop-writes-on-bgsave-error",
+        "no",
+      ]
+    volumes:
+      - redis_test_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "8030", "-a", "faim_test_password", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [faim-test-net]
+    restart: unless-stopped
+
+  qdrant-test:
+    image: qdrant/qdrant:v1.14.1
+    container_name: faim-qdrant-test
+    profiles: ["test"]
+    ports:
+      - "8041:6333"
+    volumes:
+      - qdrant_test_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/6333'"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    networks: [faim-test-net]
+    restart: unless-stopped
+
+  api-test:
+    image: faim-api-test:latest
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: faim-api-test
+    command:
+      [
+        "uvicorn",
+        "api.app:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
+    environment:
+      DATABASE_URL: postgresql://faim:faim_test_password@postgres-test:8020/faim_native
+      FAIM_RAW_STORE_PATH: /var/lib/faim/raw/blobs
+      FAIM_AUTO_MIGRATE: "true"
+      FAIM_AUTH_DB_PRIMARY: "true"
+      FAIM_AUTH_ENV_FALLBACK_ENABLED: "false"
+      FAIM_AUTH_SCOPE_ENFORCEMENT_ENABLED: "true"
+      NEXTAUTH_SECRET: playwright-e2e-secret
+      REDIS_URL: redis://:faim_test_password@redis-test:8030/0
+      FAIM_ENABLE_INDEX: "true"
+      FAIM_FAST_ML_EMBEDDING: "false"
+      FAIM_EMBEDDING_DEVICE: "cpu"
+      FAIM_BENCHMARK_MODE: "true"
+      FAIM_SELF_EVOLVE_ENABLED: "false"
+      QDRANT_URL: http://qdrant-test:6333
+    volumes:
+      - raw_test_data:/var/lib/faim/raw
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+      qdrant-test:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:8000/ready | grep -q 'status'",
+        ]
+      interval: 10s
+      timeout: 8s
+      retries: 30
+    networks: [faim-test-net]
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   qdrant_data:
   raw_data:
+  backups_data:
+  caddy_data:
+  caddy_config:
+  postgres_test_data:
+  redis_test_data:
+  raw_test_data:
+  qdrant_test_data:
 
 networks:
   faim-net:
     driver: bridge
+  faim-test-net:
+    driver: bridge
+  gateway-net:
+    external: true
+    name: ${FAIM_GATEWAY_NETWORK:-faim-gateway-net}

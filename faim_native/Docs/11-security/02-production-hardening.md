@@ -46,7 +46,7 @@ afterward through `/api/v1/api-keys`.
 Do not place `FAIM_TENANT_KEY_BOOTSTRAP_JSON` in a long-running API/worker
 environment, source control, or a persistent dotenv file. Production runtime
 configuration and the container entrypoint reject it. For the automated VPS
-deploy helper only, a temporary line in `deploy/env.vpsprod` is consumed after
+deploy helper only, a temporary line in the remote `.env` file is consumed after
 migrations and removed only after the DB transaction succeeds; on failure, the
 line remains for an operator to correct and retry.
 
