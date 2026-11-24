@@ -20,7 +20,7 @@ FAIM_LOCAL_SQLITE=1 python -m pytest --cov=faim_native --cov-report=term-missing
 ruff check faim_native tests
 mypy faim_native
 black --check .
-bandit -r faim_native faim-benchmarks/faim_benchmarks scripts debug_csv.py -ll
+bandit -r faim_native faim-benchmarks/faim_benchmarks scripts -ll
 ```
 
 `FAIM_LOCAL_SQLITE=1` forces isolated, file-backed SQLite databases for local
