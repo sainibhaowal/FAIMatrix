@@ -1,6 +1,6 @@
 # FAIM Python SDK & MCP Server
 
-## 1. Remote MCP (SaaS — Automatic Browser Login)
+## 1. Remote MCP (SaaS: Automatic Browser Login)
 
 Point your IDE or AI agent (Cursor, Claude Code, VS Code) to your FAIM `/mcp` endpoint:
 

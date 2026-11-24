@@ -1,4 +1,4 @@
-# `faim-benchmarks` — External Standalone Benchmark Harness
+# `faim-benchmarks`: External Standalone Benchmark Harness
 
 Black-box, reproducible benchmark suite comparing **FAIM-Native** against **BM25**, **Mem0**, **Zep**, **SuperMemory**, **Letta**, and **Full-Context LLMs** across **BEIR**, **LoCoMo**, and **LongMemEval**.
 

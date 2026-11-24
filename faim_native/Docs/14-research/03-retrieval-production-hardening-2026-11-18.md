@@ -1,4 +1,4 @@
-# FAIM retrieval and benchmark hardening — 2026-11-18
+# FAIM retrieval and benchmark hardening: 2026-11-18
 
 ## Purpose
 

@@ -18,7 +18,7 @@ This is strong evidence that the current ranking pipeline is not retrieving rele
 
 ### 1.1 External benchmark result
 
-Source: [retained JSON artifact](../../../faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.json) and [human-readable report](../../../faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md).
+Source: Historical `v9` baseline run `ret_scifact_20261117T214211Z_ccef064a` (retained metrics; superseded by [`scifact-v19-ready`](../../../faim-benchmarks/results/gpu/scifact-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md)).
 
 | Measure | FAIM-Native | BM25 reference | Interpretation |
 |---|---:|---:|---|
@@ -231,7 +231,7 @@ The next fair comparison is to run each system through one locked suite per task
 
 ## 6. Target architecture to close the gap
 
-### Phase 0 — measurement freeze
+### Phase 0: measurement freeze
 
 Before changing ranking logic:
 
@@ -246,7 +246,7 @@ Before changing ranking logic:
 
 **Exit gate:** every benchmark result is reproducible from the repository, environment lock, dataset revisions, and model manifest.
 
-### Phase 1 — strong first-stage retrieval
+### Phase 1: strong first-stage retrieval
 
 Implement and measure three independent legs:
 
@@ -258,25 +258,25 @@ Fuse the legs using a simple, inspectable method. Keep the top 100–200 candida
 
 **Exit gate:** candidate recall@100 is at least 0.95 on SciFact, with a documented trade-off between recall and latency. This is a target, not a current result.
 
-### Phase 2 — evidence granularity
+### Phase 2: evidence granularity
 
 Split documents into sentence/paragraph evidence blocks while preserving document IDs and section/offset metadata. Retrieve at block level, aggregate to document level for SciFact scoring, and expose the supporting sentence for downstream verification.
 
 **Exit gate:** no loss in document recall, plus a measurable improvement in rationale/evidence selection.
 
-### Phase 3 — bounded learned reranking
+### Phase 3: bounded learned reranking
 
 Rerank only the top 50–100 candidates using a cross-encoder or late-interaction model selected through offline evaluation. The reranker must be optional and budgeted; it must not run over the whole graph.
 
 **Exit gate:** nDCG@10 improves over the best first-stage baseline with a declared p95 budget.
 
-### Phase 4 — graph as a gated feature
+### Phase 4: graph as a gated feature
 
 Apply graph expansion only after the strong candidate set exists. Treat graph scores as a bounded reranking feature. Run graph-on versus graph-off on the same queries and keep graph enabled only where it improves paired metrics without violating latency or precision guardrails.
 
 **Exit gate:** graph-on wins a predeclared paired test or is restricted to query classes where it wins.
 
-### Phase 5 — production performance
+### Phase 5: production performance
 
 For an initial 5k–100k-document tenant target, establish engineering targets of **p50 below 200 ms and p95 below 500 ms** for retrieval-only queries, then scale-test beyond that size. These are design targets, not claims about the current system and not guarantees for every hardware/model configuration.
 
@@ -286,7 +286,7 @@ The fast path should be:
 
 Graph diagnostics, usage touches, journal writes, and optional answer synthesis should be asynchronous or separately budgeted unless the request explicitly asks for them.
 
-### Phase 6 — broad public evaluation
+### Phase 6: broad public evaluation
 
 Use SciFact plus adjacent BEIR/MTEB retrieval tasks such as NFCorpus and SciDocs, then add an agent-memory suite such as LoCoMo and LongMemEval if FAIM claims memory functionality. Report per-dataset scores, confidence intervals, latency percentiles, hardware, model, cost, and failure rates. Do not average incompatible task families into one “intelligence score.”
 
@@ -350,8 +350,7 @@ Do not spend the next iteration on visual polish, extra graph features, or marke
 
 ### Local evidence
 
-- [Canonical benchmark JSON](../../../faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.json)
-- [Canonical benchmark report](../../../faim-benchmarks/results/public-scifact-full-guarded-v9/ret_scifact_20261117T214211Z_ccef064a.md)
+- Superseded `v9` baseline metrics preserved in Section 1.1 (`ret_scifact_20261117T214211Z_ccef064a`); current canonical results are in [`RESULTS.md`](../../../faim-benchmarks/results/RESULTS.md)
 - [Benchmark harness README](../../../faim-benchmarks/README.md)
 - [FAIM query flow](../../orchestration/query_flow.py)
 - [FAIM native text vectorizer](../../encoding/text_vectorizer.py)
@@ -360,7 +359,7 @@ Do not spend the next iteration on visual polish, extra graph features, or marke
 
 ### Primary external research and technical references
 
-- [Fact or Fiction: Verifying Scientific Claims — SciFact](https://aclanthology.org/2020.emnlp-main.609/)
+- [Fact or Fiction: Verifying Scientific Claims: SciFact](https://aclanthology.org/2020.emnlp-main.609/)
 - [BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models](https://arxiv.org/abs/2104.08663)
 - [SPLADE: Sparse Lexical and Expansion Model for First Stage Ranking](https://arxiv.org/abs/2107.05720)
 - [ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction](https://arxiv.org/abs/2112.01488)

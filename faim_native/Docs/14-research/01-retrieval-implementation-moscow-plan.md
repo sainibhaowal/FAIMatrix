@@ -1,4 +1,4 @@
-# FAIM Retrieval Improvement — MoSCoW Requirements and Safe Implementation Plan
+# FAIM Retrieval Improvement: MoSCoW Requirements and Safe Implementation Plan
 
 **Status:** implementation in progress
 **Branch:** feature/faimatrix-retrieval-production-foundation
@@ -44,7 +44,7 @@ Changing many ranking features before capturing this evidence would make the sys
 
 ## 4. MoSCoW requirements
 
-### MUST — release-critical
+### MUST: release-critical
 
 | Requirement | Why | Exact implementation area | Acceptance evidence |
 |---|---|---|---|
@@ -58,7 +58,7 @@ Changing many ranking features before capturing this evidence would make the sys
 | Avoid query/document text in trace artifacts | Prevent data leakage | QueryOutcome and report writer | Negative test proves text is absent |
 | Test update/delete/tenant isolation | Prevent stale or cross-tenant retrieval | API/storage/query integration tests | Explicit pass/fail evidence |
 
-### SHOULD — high-value next
+### SHOULD: high-value next
 
 | Requirement | Why | Exact implementation area | Acceptance evidence |
 |---|---|---|---|
@@ -70,7 +70,7 @@ Changing many ranking features before capturing this evidence would make the sys
 | Async journal/touch side effects | Reduce read latency | query flow and event/journal services | Retrieval latency excludes or bounds writes |
 | Multi-dataset BEIR/MTEB suite | Avoid SciFact-only claims | benchmark CLI/datasets | Results for SciFact, NFCorpus, SciDocs |
 
-### COULD — after the baseline wins
+### COULD: after the baseline wins
 
 | Requirement | Why | Exact implementation area | Acceptance evidence |
 |---|---|---|---|
@@ -81,7 +81,7 @@ Changing many ranking features before capturing this evidence would make the sys
 | LoCoMo/LongMemEval qualification | Validate memory claims | memory adapters and runner | Separate memory report |
 | Cost and energy reporting | Production trade-offs | benchmark metadata | Hardware/cost assumptions retained |
 
-### WON'T — out of scope until retrieval gates pass
+### WON'T: out of scope until retrieval gates pass
 
 - Claim perfect retrieval or universal market superiority.
 - Replace the existing auth, tenant, cryptography, or provider credential model.
@@ -95,34 +95,34 @@ Changing many ranking features before capturing this evidence would make the sys
 
 ### Current benchmark surface
 
-- faim-benchmarks/faim_benchmarks/adapters/base.py — normalized IngestOutcome and QueryOutcome.
-- faim-benchmarks/faim_benchmarks/adapters/faim_http.py — black-box FAIM HTTP calls and safe response diagnostics.
-- faim-benchmarks/faim_benchmarks/adapters/competitors.py — BM25 and public competitor adapters.
-- faim-benchmarks/faim_benchmarks/runner.py — dataset-wide execution, metrics, traces, failure isolation.
-- faim-benchmarks/faim_benchmarks/report.py — signed artifact and publication gate.
-- faim-benchmarks/faim_benchmarks/cli.py — command-line flags and non-secret run metadata.
-- faim-benchmarks/faim_benchmarks/datasets.py — BEIR, LoCoMo, and LongMemEval loaders.
-- faim-benchmarks/faim_benchmarks/metrics.py — IR/QA/latency metrics and bootstrap intervals.
-- faim-benchmarks/tests/test_harness.py — deterministic harness, adapter, report, and failure-isolation tests.
+- faim-benchmarks/faim_benchmarks/adapters/base.py: normalized IngestOutcome and QueryOutcome.
+- faim-benchmarks/faim_benchmarks/adapters/faim_http.py: black-box FAIM HTTP calls and safe response diagnostics.
+- faim-benchmarks/faim_benchmarks/adapters/competitors.py: BM25 and public competitor adapters.
+- faim-benchmarks/faim_benchmarks/runner.py: dataset-wide execution, metrics, traces, failure isolation.
+- faim-benchmarks/faim_benchmarks/report.py: signed artifact and publication gate.
+- faim-benchmarks/faim_benchmarks/cli.py: command-line flags and non-secret run metadata.
+- faim-benchmarks/faim_benchmarks/datasets.py: BEIR, LoCoMo, and LongMemEval loaders.
+- faim-benchmarks/faim_benchmarks/metrics.py: IR/QA/latency metrics and bootstrap intervals.
+- faim-benchmarks/tests/test_harness.py: deterministic harness, adapter, report, and failure-isolation tests.
 
 ### Existing FAIM runtime surface to protect
 
-- faim_native/api/routers/query.py — POST /api/v1/query and QueryResponse.
-- faim_native/api/routers/ingest.py — POST /api/v1/ingest.
-- faim_native/api/routers/storage.py — storage uploads, files, and job status.
-- faim_native/api/routers/auth.py and middleware/auth.py — authentication and tenant authorization.
-- faim_native/api/routers/api_keys.py — API-key lifecycle.
-- faim_native/api/routers/memory.py — memory write/search contracts.
-- faim_native/api/routers/evolve.py and orchestration/evolve_flow.py — evolution contracts.
-- faim_native/api/routers/events.py and store/journal/event_journal.py — event and journal behavior.
-- faim_native/api/routers/mcp.py and oauth.py — MCP/OAuth integrations.
-- faim_native/orchestration/query_flow.py — retrieval, graph, rerank, touches, and event lifecycle.
-- faim_native/orchestration/ingest_flow.py and perception/extract/extractors_faim.py — extraction and block construction.
-- faim_native/encoding/embedding_providers.py — provider registry and model loading.
-- faim_native/index/ — deterministic ANN/index artifacts.
-- faim_native/store/pg/ — persistence, tenant scope, migrations, and repositories.
-- frontend/src/app/(admin)/dashboard/ — existing operational UI.
-- frontend/src/components/ — existing storage, providers, evolution, graph, and journal components.
+- faim_native/api/routers/query.py: POST /api/v1/query and QueryResponse.
+- faim_native/api/routers/ingest.py: POST /api/v1/ingest.
+- faim_native/api/routers/storage.py: storage uploads, files, and job status.
+- faim_native/api/routers/auth.py and middleware/auth.py: authentication and tenant authorization.
+- faim_native/api/routers/api_keys.py: API-key lifecycle.
+- faim_native/api/routers/memory.py: memory write/search contracts.
+- faim_native/api/routers/evolve.py and orchestration/evolve_flow.py: evolution contracts.
+- faim_native/api/routers/events.py and store/journal/event_journal.py: event and journal behavior.
+- faim_native/api/routers/mcp.py and oauth.py: MCP/OAuth integrations.
+- faim_native/orchestration/query_flow.py: retrieval, graph, rerank, touches, and event lifecycle.
+- faim_native/orchestration/ingest_flow.py and perception/extract/extractors_faim.py: extraction and block construction.
+- faim_native/encoding/embedding_providers.py: provider registry and model loading.
+- faim_native/index/: deterministic ANN/index artifacts.
+- faim_native/store/pg/: persistence, tenant scope, migrations, and repositories.
+- frontend/src/app/(admin)/dashboard/: existing operational UI.
+- frontend/src/components/: existing storage, providers, evolution, graph, and journal components.
 
 ### Required test surfaces
 
@@ -135,7 +135,7 @@ Changing many ranking features before capturing this evidence would make the sys
 
 ## 6. Safe implementation sequence
 
-### Phase 0 — measurement freeze
+### Phase 0: measurement freeze
 
 Current branch implementation:
 
@@ -155,7 +155,7 @@ matched benchmark confirms it. The switches are
 `FAIM_FAST_RELEVANCE_FIRST`, `FAIM_FAST_GRAPH_EXPANSION`, and `FAIM_FAST_IDF`.
 STRICT and BALANCED retain their existing graph and IDF behavior.
 
-### Phase 1 — baseline ladder
+### Phase 1: baseline ladder
 
 Implement each retrieval strategy behind an explicit strategy name. Do not replace the existing default query path yet.
 
@@ -168,19 +168,19 @@ Implement each retrieval strategy behind an explicit strategy name. Do not repla
 
 Every strategy must produce the same normalized result IDs and the same metric schema.
 
-### Phase 2 — evidence granularity
+### Phase 2: evidence granularity
 
 Add sentence/paragraph blocks with raw document ID, offsets, section, and block type. Keep document aggregation for current SciFact scoring. Add migration/reindex behavior only after update/delete and rollback tests exist.
 
-### Phase 3 — bounded query path
+### Phase 3: bounded query path
 
 Add stage timers around encoding, lexical retrieval, ANN, graph expansion, reranking, database I/O, events, and touches. Set explicit budgets. Make nonessential writes asynchronous or separately measurable. Preserve degraded-mode behavior.
 
-### Phase 4 — graph/evolution gating
+### Phase 4: graph/evolution gating
 
 Run paired graph-on/off tests. Keep graph as a bounded reranking signal until it demonstrates a quality win without latency or precision regression. Keep self-evolution disabled for release benchmarks unless its exact state is recorded.
 
-### Phase 5 — production qualification
+### Phase 5: production qualification
 
 Run concurrency, warm/cold, scale, failure, restart, update, delete, restore, auth, tenant, and security tests. Publish only clean artifacts with model hashes and complete provenance.
 

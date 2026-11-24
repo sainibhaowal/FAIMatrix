@@ -243,7 +243,7 @@ The following are deliberately not represented as required components because th
 - a mandatory external LLM or hosted reasoning provider; and
 - blue/green or multi-host failover.
 
-Adding any of these would require a new operational contract, security review, failure model, cost model, and deployment documentation. The current system should therefore be described as a containerized research platform with PostgreSQL-backed canonical state and optional acceleration—not as a highly available distributed platform.
+Adding any of these would require a new operational contract, security review, failure model, cost model, and deployment documentation. The current system should therefore be described as a containerized research platform with PostgreSQL-backed canonical state and optional acceleration, not as a highly available distributed platform.
 
 ## 11. Code paths to inspect
 

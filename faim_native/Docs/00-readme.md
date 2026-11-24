@@ -9,15 +9,13 @@ frontend routes, or a reproducible test/evidence artifact.
 
 FAIM-Native has completed full **5,183-doc / 300-query `BeIR/scifact`** clean-tree
 validation with **`Publication gate: READY`**:
-[`public-scifact-full-guarded-v18`](../../faim-benchmarks/results/public-scifact-full-guarded-v18/ret_scifact_20261122T001726Z_3a591ec9.md)
+[`scifact-v18-ready` (CPU)](../../faim-benchmarks/results/cpu/scifact-v18-ready/ret_scifact_20261122T001726Z_3a591ec9.md)
 (`Recall@5 = 0.7554`, `nDCG@10 = 0.6878`, `MRR = 0.6570`, `MAP = 0.6464`,
-`Query P50 = 231.07 ms` on CPU before the HMAC auth-cache optimization, beating
-`BM25-Baseline` across every retrieval metric). Subsequent 300-doc / 50-query
-verified runs with HMAC key caching, graph-versioned metadata caching, GPU
-256-dim native kernels, and Concept-Expanded MaxSim reduced HTTP Query P50 to
-**`49.78 ms`** (`P95 = 110.61 ms`, `Recall@5 = 0.9060`, `nDCG@10 = 0.8615`,
-[`smoke-concept-maxsim`](../../faim-benchmarks/results/smoke-concept-maxsim/ret_scifact_20261122T041738Z_e46000e4.md)).
-The earlier `v17` and `v9` artifacts are retained as historical baselines.
+`Query P50 = 231.07 ms`) and
+[`scifact-v19-ready` (GPU)](../../faim-benchmarks/results/gpu/scifact-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md)
+(`Query P50 = 104.52 ms`, `Query P95 = 159.15 ms`), beating `BM25-Baseline`
+across every retrieval metric. Full scenario and multi-dataset results are
+aggregated in [`RESULTS.md`](../../faim-benchmarks/results/RESULTS.md).
 
 ## Canonical documents
 

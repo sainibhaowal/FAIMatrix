@@ -9,12 +9,12 @@ JSON and Markdown artifacts produced by that harness.
 
 ## Canonical evidence
 
-The current canonical SciFact comparison is:
+The current canonical full-split SciFact comparison (`Publication gate: READY`) is:
 
 - Report:
-  [`ret_scifact_20261120T003156Z_2a4f4574.md`](../../../faim-benchmarks/results/public-scifact-full-guarded-v17/ret_scifact_20261120T003156Z_2a4f4574.md)
+  [`ret_scifact_20261122T124757Z_df5d93fc.md`](../../../faim-benchmarks/results/gpu/scifact-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md)
 - Signed data:
-  [`ret_scifact_20261120T003156Z_2a4f4574.json`](../../../faim-benchmarks/results/public-scifact-full-guarded-v17/ret_scifact_20261120T003156Z_2a4f4574.json)
+  [`ret_scifact_20261122T124757Z_df5d93fc.json`](../../../faim-benchmarks/results/gpu/scifact-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.json)
 - Harness instructions and release controls:
   [`faim-benchmarks/README.md`](../../../faim-benchmarks/README.md)
 
@@ -25,18 +25,16 @@ errors.
 
 ## Current result and interpretation
 
-The v17 artifact reports:
+The `scifact-v19-ready` artifact reports:
 
 | System | nDCG@10 | Query p50 | Query p95 | Status |
 | --- | ---: | ---: | ---: | --- |
-| FAIM-Native | 0.4184 | 7,195.68 ms | 12,320.01 ms | completed |
-| BM25 baseline | 0.6644 | 48.42 ms | 89.24 ms | completed |
+| FAIM-Native | 0.6878 | 104.52 ms | 159.15 ms | completed (`READY`) |
+| BM25 baseline | 0.6644 | 38.44 ms | 70.96 ms | completed (`READY`) |
 
-These values are evidence for the stated run only. They do not establish
-competitive superiority. The artifact publication gate is `NOT READY` because
-the recorded worktree was dirty and embedding model provenance was incomplete.
-The older v9 report remains available as historical evidence, but it is not a
-current release claim.
+These values are evidence for the stated run on a clean worktree (`fbae575`).
+See [`RESULTS.md`](../../../faim-benchmarks/results/RESULTS.md) for the complete
+CPU, GPU, hybrid, NFCorpus, ArguAna, and LoCoMo evidence suite.
 
 ## Publication requirements
 
