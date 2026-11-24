@@ -16,7 +16,7 @@ fi
 
 OUT_BASE="${OUT_BASE:-results/gpu}"
 INGEST_WORKERS="${INGEST_WORKERS:-4}"
-export FAIM_BENCH_FAIM_BATCH_SIZE="${FAIM_BENCH_FAIM_BATCH_SIZE:-50}"
+export FAIM_BENCH_FAIM_BATCH_SIZE="${FAIM_BENCH_FAIM_BATCH_SIZE:-100}"
 REV="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo local)"
 
 run_beir() {

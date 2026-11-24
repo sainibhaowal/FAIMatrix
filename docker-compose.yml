@@ -11,7 +11,28 @@ services:
       POSTGRES_DB: faim_native
     ports:
       - "8020:8020"
-    command: ["postgres", "-p", "8020", "-c", "max_connections=300"]
+    command:
+      [
+        "postgres",
+        "-p",
+        "8020",
+        "-c",
+        "max_connections=300",
+        "-c",
+        "shared_buffers=1GB",
+        "-c",
+        "effective_cache_size=4GB",
+        "-c",
+        "work_mem=16MB",
+        "-c",
+        "maintenance_work_mem=256MB",
+        "-c",
+        "wal_buffers=16MB",
+        "-c",
+        "max_wal_size=4GB",
+        "-c",
+        "checkpoint_timeout=15min",
+      ]
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
