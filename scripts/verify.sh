@@ -2,7 +2,7 @@
 # verify.sh - Run all FAIM-Native tests (Store, Perception, Encoding, Core)
 #
 # Usage:
-#   cd /home/sephi-asi/FAIM/faim/Faim_Native
+#   cd /path/to/FAIM
 #   ./scripts/verify.sh
 #
 # Exit codes:

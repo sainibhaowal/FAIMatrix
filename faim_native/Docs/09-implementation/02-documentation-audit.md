@@ -66,13 +66,7 @@ The following groups were not suitable as current implementation references:
   FAIM_Providers_User_Manual.md, FAIM_Storage_User_Manual.md, and
   PRODUCTION_HARDENING.md: retained only after the rewrites listed above.
 
-Archived source documents are recoverable at:
-
-/home/AverQel/Projects/Projects_Science/FAIM-doc-archive-20261118/source-docs
-
-The previous tracked faim_native/Docs history is separately preserved at:
-
-/home/AverQel/Projects/Projects_Science/FAIM-doc-archive-20261118/historical-faim-native-docs
+Historical source documents and superseded `faim_native/Docs` drafts were removed from the active tree and remain preserved in Git history outside the canonical documentation surface.
 
 ## Validation performed
 

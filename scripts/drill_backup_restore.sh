@@ -2,7 +2,7 @@
 # drill_backup_restore.sh - Prove recoverability of FAIM-Native data.
 #
 # Usage:
-#   cd /home/sephi-asi/FAIM/faim/Faim_Native
+#   cd /path/to/FAIM
 #   ./scripts/drill_backup_restore.sh
 #
 # Requirements:

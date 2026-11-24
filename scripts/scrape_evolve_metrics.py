@@ -21,7 +21,7 @@ Write a Prometheus textfile for node_exporter and page on criticals::
 
 Cron (every 5 minutes; exit 2 when critical alerts are active)::
 
-    1-59/5 * * * * /home/ravi/Projects/FAIM/scripts/scrape_evolve_metrics.py \\
+    1-59/5 * * * * /path/to/FAIM/scripts/scrape_evolve_metrics.py \\
         -t <tenant-id> -g <graph-id> -k <api-key> \\
         --out /var/lib/node_exporter/textfile_collector/evolve.prom \\
         >> /var/log/evolve_scrape.log 2>&1 || \\

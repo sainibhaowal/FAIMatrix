@@ -65,6 +65,7 @@ are implementation references, not release claims:
 - [SLO and on-call runbook](10-operations/05-slo-runbook.md)
 - [GPU passthrough, CPU fallback, and HMAC auth caching](10-operations/06-gpu-passthrough-and-auth-caching.md)
 - [GitHub branch-protection policy](10-operations/02-github-branch-protection.md)
+- [CI, semantic releases, and deployment](10-operations/07-ci-and-releases.md)
 
 ### Security
 
@@ -86,14 +87,9 @@ are implementation references, not release claims:
 
 ## Archived material
 
-Historical reports, proposals, design mock-ups, external papers, obsolete
-manuals, and documents that referenced missing routes were moved outside the
-repository to:
-
-`/home/AverQel/Projects/Projects_Science/FAIM-doc-archive-20261118`
-
-That archive is recoverable and is not part of the canonical documentation
-surface.
+Historical drafts, design mock-ups, and unmapped documents were removed from the
+canonical documentation tree during documentation cleanup; prior revisions
+remain inspectable in Git history.
 
 ## Updating this set
 

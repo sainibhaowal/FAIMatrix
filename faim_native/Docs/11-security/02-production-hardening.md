@@ -103,11 +103,11 @@ placeholders and never runs global Docker prune commands. The GitHub deploy
 workflow fails early when SSH/GHCR secrets are missing, then pulls the exact
 immutable image tag and runs the public health smoke checks.
 
-The VPS Compose override publishes no FAIM host ports. FAIM's internal Caddy
-only joins the dedicated FAIM network and the existing `aurelinx_default`
-gateway network. Deployment does not edit, reload, or restart the independent
-gateway at `/opt/gateway/Caddyfile`; the public gateway route is a separately
-reviewed operator change.
+The VPS Compose override publishes no FAIM host ports. FAIM's internal reverse
+proxy only joins the dedicated FAIM network and the configured external gateway
+network. Automated deployment does not edit, reload, or restart an external
+host gateway configuration; public routing is managed as a separate operator
+change.
 
 It additionally requires `TENANT_KEYS_JSON={}` for DB-only production auth.
 If an operator temporarily adds `FAIM_TENANT_KEY_BOOTSTRAP_JSON`, it runs the

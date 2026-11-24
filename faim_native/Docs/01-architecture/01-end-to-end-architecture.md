@@ -255,4 +255,4 @@ Adding any of these would require a new operational contract, security review, f
 - Compose services: [`docker-compose.yml`](../../../docker-compose.yml) and deployment overlays
 - Health/readiness routes: [`faim_native/api/routers/health.py`](../../api/routers/health.py)
 - Event stream: [`faim_native/api/routers/events.py`](../../api/routers/events.py)
-- Deployment runbooks: [`CI_CD.md`](../../../CI_CD.md) and environment-specific operator documentation
+- Deployment runbooks: [CI, semantic releases, and deployment](../10-operations/07-ci-and-releases.md) and environment-specific operator documentation

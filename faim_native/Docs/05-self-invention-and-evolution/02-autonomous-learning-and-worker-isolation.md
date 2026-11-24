@@ -1,6 +1,6 @@
 # Autonomous Learning, PPMI Bridges, Query Reinforcement, and Worker Isolation
 
-**Scope:** Technical specification of FAIM-Native's background learning loops — **Corpus-Learned PPMI & 2nd-Order Co-Occurrence Bridges** ([`cooccurrence_bridge.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/lexical/cooccurrence_bridge.py)), **Query-to-Evidence Reinforcement Learning** ([`query_reinforcement.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/orchestration/query_reinforcement.py)), and **Isolated Worker Pools** ([`worker.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/orchestration/jobs/worker.py), [`docker-compose.yml`](file:///home/AverQel/Projects/Projects_Science/FAIM/docker-compose.yml)).
+**Scope:** Technical specification of FAIM-Native's background learning loops: **Corpus-Learned PPMI & 2nd-Order Co-Occurrence Bridges** ([`cooccurrence_bridge.py`](../../lexical/cooccurrence_bridge.py)), **Query-to-Evidence Reinforcement Learning** ([`query_reinforcement.py`](../../orchestration/query_reinforcement.py)), and **Isolated Worker Pools** ([`worker.py`](../../orchestration/jobs/worker.py), [`docker-compose.yml`](../../../docker-compose.yml)).
 
 ---
 
@@ -20,7 +20,7 @@ flowchart LR
     PG -->|"Invalidates _QUERY_GRAPH_META_CACHE"| API
 ```
 
-### Worker Role Controls ([`faim_native/orchestration/jobs/worker.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/orchestration/jobs/worker.py))
+### Worker Role Controls ([`faim_native/orchestration/jobs/worker.py`](../../orchestration/jobs/worker.py))
 - `FAIM_WORKER_JOB_KINDS`: Comma-separated allowlist of job kinds claimed by that worker pool:
   - `worker-ingest` (`replicas: 2`): `storage_upload,ingest_secondary_index,crypto_rotation,storage_retention,raw_reencryption`
   - `worker-evolve` (`1` replica): `evolve,domain_autonomy`
@@ -31,8 +31,8 @@ flowchart LR
 
 ## 2. Corpus-Learned PPMI & 2nd-Order Co-Occurrence Bridge
 
-**Module:** [`faim_native/lexical/cooccurrence_bridge.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/lexical/cooccurrence_bridge.py)  
-**Triggers:** `run_evolve` ([`evolve_flow.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/orchestration/evolve_flow.py)) and `run_domain_autonomy_now` ([`domain_autonomy.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/orchestration/domain_autonomy.py)).
+**Module:** [`faim_native/lexical/cooccurrence_bridge.py`](../../lexical/cooccurrence_bridge.py)  
+**Triggers:** `run_evolve` ([`evolve_flow.py`](../../orchestration/evolve_flow.py)) and `run_domain_autonomy_now` ([`domain_autonomy.py`](../../orchestration/domain_autonomy.py)).
 
 ### Mathematical Formulation (Zero Hard-Coded Terms)
 1. **Concept Extraction (`extract_concept_terms`):** Extracts non-stopword content unigrams (`len >= 3`, non-numeric) and adjacent 2-gram phrases from `NodeRepresentationV2Model.normalized_text` (up to `max_vocab = 4096`).
@@ -52,7 +52,7 @@ flowchart LR
 
 ## 3. Query-to-Evidence Reinforcement Learning (QRL)
 
-**Module:** [`faim_native/orchestration/query_reinforcement.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/orchestration/query_reinforcement.py)
+**Module:** [`faim_native/orchestration/query_reinforcement.py`](../../orchestration/query_reinforcement.py)
 
 ```mermaid
 sequenceDiagram
@@ -79,5 +79,5 @@ sequenceDiagram
 
 ## 4. Evolution & Ingest Performance Guardrails
 
-- **Bounded Evolution Matrix ([`evolution_native.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/core/dynamics/evolution_native.py)):** Vectorized `float32` cosine matrix (`_vectorized_cosine_matrix`) bounded to `<= 2048` nodes per cycle so `worker-evolve` memory remains bounded.
-- **Deferred Representation Stats (`defer_repr_stats` in [`ingest_flow.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/orchestration/ingest_flow.py) & [`representation_repo.py`](file:///home/AverQel/Projects/Projects_Science/FAIM/faim_native/store/pg/repos/representation_repo.py)):** `FAST` ingest defers per-document `GraphRepresentationStatsModel` lock/JSON rewrites, eliminating the row-lock contention that previously stalled 5,183-doc ingest.
+- **Bounded Evolution Matrix ([`evolution_native.py`](../../core/dynamics/evolution_native.py)):** Vectorized `float32` cosine matrix (`_vectorized_cosine_matrix`) bounded to `<= 2048` nodes per cycle so `worker-evolve` memory remains bounded.
+- **Deferred Representation Stats (`defer_repr_stats` in [`ingest_flow.py`](../../orchestration/ingest_flow.py) & [`representation_repo.py`](../../store/pg/repos/representation_repo.py)):** `FAST` ingest defers per-document `GraphRepresentationStatsModel` lock/JSON rewrites, eliminating the row-lock contention that previously stalled 5,183-doc ingest.

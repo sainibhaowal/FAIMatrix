@@ -615,7 +615,7 @@ The acceptance suite covers the implemented tenant, ingest, graph, storage, evol
 
 The repository includes a hardened multi-service Compose stack and environment-specific deployment helpers. Use the operator runbook for the target environment, keep credentials and host-specific overrides outside source control, and validate `/health`, `/ready`, `/version`, logs, backups, and rollback procedures before exposing traffic.
 
-Read [`CI_CD.md`](CI_CD.md), the [Docker deployment guide](faim_native/Docs/10-operations/01-deployment.md), and the [operational runbook](faim_native/Docs/10-operations/03-runbook.md) before using a remote environment.
+Read the [CI, semantic releases, and deployment guide](faim_native/Docs/10-operations/07-ci-and-releases.md), the [Docker deployment guide](faim_native/Docs/10-operations/01-deployment.md), and the [operational runbook](faim_native/Docs/10-operations/03-runbook.md) before using a remote environment.
 
 ### Operational checks
 
@@ -631,7 +631,7 @@ Readiness is stronger than liveness: it checks database connectivity, required t
 ## Documentation index
 
 - [Research positioning](faim_native/Docs/14-research/04-research-positioning.md)
-- [CI, semantic releases, and deployment](CI_CD.md)
+- [CI, semantic releases, and deployment](faim_native/Docs/10-operations/07-ci-and-releases.md)
 - [Canonical documentation index](faim_native/Docs/00-readme.md)
 - [End-to-end architecture and runtime boundaries](faim_native/Docs/01-architecture/01-end-to-end-architecture.md)
 - [Security reporting policy](SECURITY.md)
