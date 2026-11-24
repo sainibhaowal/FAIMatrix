@@ -4,6 +4,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPO_ROOT="$(cd "$ROOT_DIR/.." && pwd)"
 cd "$ROOT_DIR"
 
 if [ -f .env ]; then
@@ -13,6 +14,12 @@ if [ -f .env ]; then
 fi
 
 OUT_BASE="${OUT_BASE:-results/cpu}"
+DEMAND="${DEMAND:-max}"
+AUTO_SCALE="${AUTO_SCALE:-true}"
+if [ "$AUTO_SCALE" = "true" ] && command -v python3 >/dev/null 2>&1; then
+  eval "$(PYTHONPATH="$REPO_ROOT" python3 -m faim_native.runtime.hardware_autoscaler --mode native --demand "$DEMAND" --max-workers "${FAIM_MAX_WORKERS:-18}" --format env)"
+  echo "=== [AutoScale:cpu demand=$DEMAND] API=$FAIM_API_WORKERS Ingest=$FAIM_INGEST_WORKERS BenchWorkers=$INGEST_WORKERS (limit=$FAIM_AUTOSCALE_LIMIT) ==="
+fi
 INGEST_WORKERS="${INGEST_WORKERS:-4}"
 export FAIM_BENCH_FAIM_BATCH_SIZE="${FAIM_BENCH_FAIM_BATCH_SIZE:-50}"
 export FAIM_EMBEDDING_PROVIDER_ID="${FAIM_EMBEDDING_PROVIDER_ID:-faim-native-cpu}"

@@ -15,11 +15,33 @@ if [ -f .env ]; then
 fi
 
 OUT_BASE="${OUT_BASE:-results/gpu}"
-INGEST_WORKERS="${INGEST_WORKERS:-8}"
+DEMAND="${DEMAND:-max}" # low | balanced | max
+AUTO_SCALE="${AUTO_SCALE:-true}"
 SYSTEMS="${SYSTEMS:-faim,bm25}"
 export FAIM_BENCH_FAIM_BATCH_SIZE="${FAIM_BENCH_FAIM_BATCH_SIZE:-100}"
 export FAIM_BENCH_FAIM_JOB_POLL_SECONDS="${FAIM_BENCH_FAIM_JOB_POLL_SECONDS:-0.25}"
 REV="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo local)"
+
+apply_autoscale() {
+  local mode="$1"
+  if [ "$AUTO_SCALE" = "true" ] && command -v python3 >/dev/null 2>&1; then
+    eval "$(PYTHONPATH="$REPO_ROOT" python3 -m faim_native.runtime.hardware_autoscaler \
+      --mode "$mode" \
+      --demand "$DEMAND" \
+      --vram-budget-mib "${FAIM_VRAM_BUDGET_MIB:-5632}" \
+      --max-workers "${FAIM_MAX_WORKERS:-18}" \
+      --format env)"
+    echo "=== [AutoScale:$mode demand=$DEMAND] API=$FAIM_API_WORKERS Ingest=$FAIM_INGEST_WORKERS BenchWorkers=$INGEST_WORKERS CUDABatch=$FAIM_EMBEDDING_BATCH_SIZE VRAMGuard=${FAIM_MIN_CUDA_FREE_MIB}MiB (limit=$FAIM_AUTOSCALE_LIMIT) ==="
+  else
+    FAIM_API_WORKERS="${FAIM_API_WORKERS:-6}"
+    FAIM_INGEST_WORKERS="${FAIM_INGEST_WORKERS:-8}"
+    INGEST_WORKERS="${INGEST_WORKERS:-8}"
+    FAIM_EMBEDDING_BATCH_SIZE="${FAIM_EMBEDDING_BATCH_SIZE:-256}"
+    FAIM_MIN_CUDA_FREE_MIB="${FAIM_MIN_CUDA_FREE_MIB:-512}"
+  fi
+}
+
+INGEST_WORKERS="${INGEST_WORKERS:-8}"
 
 run_beir() {
   local ds="$1" corpus_rev="$2" qrels_rev="$3" out_sub="$4" provider_id="$5" model_id="$6"
@@ -54,15 +76,18 @@ run_suite_set() {
 MODE="${1:-all}" # native | hybrid | all
 
 if [ "$MODE" = "native" ] || [ "$MODE" = "all" ]; then
-  echo "=== Starting Pure FAIM-Native GPU Stack (6 API / 8 Ingest) ==="
-  (cd "$REPO_ROOT" && FAIM_API_WORKERS=6 FAIM_INGEST_WORKERS=8 FAIM_FAST_ML_EMBEDDING=false FAIM_EMBEDDING_DEVICE=auto FAIM_MIN_CUDA_FREE_MIB=1024 FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
+  apply_autoscale "native"
+  echo "=== Starting Pure FAIM-Native GPU Stack ($FAIM_API_WORKERS API / $FAIM_INGEST_WORKERS Ingest) ==="
+  (cd "$REPO_ROOT" && FAIM_API_WORKERS="$FAIM_API_WORKERS" FAIM_INGEST_WORKERS="$FAIM_INGEST_WORKERS" FAIM_FAST_ML_EMBEDDING=false FAIM_EMBEDDING_DEVICE=auto FAIM_MIN_CUDA_FREE_MIB="$FAIM_MIN_CUDA_FREE_MIB" FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
   run_suite_set "native" "faim-native-gpu" "zero-ml-repr-v2-cuda-concept-maxsim"
 fi
 
 if [ "$MODE" = "hybrid" ] || [ "$MODE" = "all" ]; then
-  echo "=== Starting FAIM + Granite GPU Hybrid Stack (2 API / 4 Ingest, CUDA Batch 256, VRAM Guard 512 MiB) ==="
-  (cd "$REPO_ROOT" && FAIM_API_WORKERS="${FAIM_HYBRID_API_WORKERS:-2}" FAIM_INGEST_WORKERS="${FAIM_HYBRID_INGEST_WORKERS:-4}" FAIM_FAST_ML_EMBEDDING=true FAIM_EMBEDDING_DEVICE=auto FAIM_MIN_CUDA_FREE_MIB="${FAIM_MIN_CUDA_FREE_MIB:-512}" FAIM_EMBEDDING_BATCH_SIZE="${FAIM_EMBEDDING_BATCH_SIZE:-256}" FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
+  apply_autoscale "hybrid"
+  echo "=== Starting FAIM + Granite GPU Hybrid Stack ($FAIM_API_WORKERS API / $FAIM_INGEST_WORKERS Ingest, CUDA Batch $FAIM_EMBEDDING_BATCH_SIZE, VRAM Guard ${FAIM_MIN_CUDA_FREE_MIB} MiB) ==="
+  (cd "$REPO_ROOT" && FAIM_API_WORKERS="$FAIM_API_WORKERS" FAIM_INGEST_WORKERS="$FAIM_INGEST_WORKERS" FAIM_FAST_ML_EMBEDDING=true FAIM_EMBEDDING_DEVICE=auto FAIM_MIN_CUDA_FREE_MIB="$FAIM_MIN_CUDA_FREE_MIB" FAIM_EMBEDDING_BATCH_SIZE="$FAIM_EMBEDDING_BATCH_SIZE" FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
   run_suite_set "granite-hybrid" "local-gpu-hybrid" "ibm-granite/granite-embedding-97m-multilingual-r2"
   echo "=== Restoring Default Pure FAIM-Native Stack ==="
-  (cd "$REPO_ROOT" && FAIM_FAST_ML_EMBEDDING=false docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
+  apply_autoscale "native"
+  (cd "$REPO_ROOT" && FAIM_API_WORKERS="$FAIM_API_WORKERS" FAIM_INGEST_WORKERS="$FAIM_INGEST_WORKERS" FAIM_FAST_ML_EMBEDDING=false FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
 fi
