@@ -2,7 +2,7 @@
 
 FAIM-Native is a large-scope project spanning a memory data plane, graph engine, retrieval layer, evolution workflows, API, worker, frontend, security controls, and operations. The roadmap is intentionally capability- and evidence-based rather than date-based. Priorities may change as experiments expose new constraints.
 
-## Phase 0 — Current: document and stabilize the research prototype
+## Phase 0: Document and stabilize the research prototype (Completed)
 
 - keep the end-to-end local stack reproducible;
 - make architecture, data flow, safety boundaries, and known limitations explicit;
@@ -10,7 +10,7 @@ FAIM-Native is a large-scope project spanning a memory data plane, graph engine,
 - remove false confidence from historical stage reports and benchmark claims; and
 - preserve provenance, versioning, backups, and operational visibility as core concerns.
 
-## Phase 1 — Reproducible research release
+## Phase 1: Reproducible research release (Completed)
 
 - pin and document supported dependency and container versions;
 - provide reproducible datasets or safe synthetic fixtures with licenses;
@@ -18,7 +18,7 @@ FAIM-Native is a large-scope project spanning a memory data plane, graph engine,
 - define API, storage, event, and migration compatibility policies; and
 - publish configuration, hardware, latency, quality, and cost assumptions.
 
-## Phase 2 — Public alpha hardening
+## Phase 2: Public alpha hardening (In Progress)
 
 - strengthen migration, rollback, backup, restore, retention, and re-encryption workflows;
 - complete tenant-isolation, authentication, rate-limit, audit, and secret-management review;
@@ -26,7 +26,7 @@ FAIM-Native is a large-scope project spanning a memory data plane, graph engine,
 - improve frontend error states and operator workflows; and
 - establish release notes, deprecation notices, and upgrade guidance.
 
-## Phase 3 — External evaluation
+## Phase 3: External evaluation (Active)
 
 - compare against appropriate lexical, vector, RAG, graph, and hybrid baselines;
 - measure retrieval quality, provenance quality, explanation usefulness, latency, cost, and reliability;
