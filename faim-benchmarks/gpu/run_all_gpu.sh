@@ -15,13 +15,19 @@ if [ -f .env ]; then
 fi
 
 OUT_BASE="${OUT_BASE:-results/gpu}"
-INGEST_WORKERS="${INGEST_WORKERS:-4}"
+INGEST_WORKERS="${INGEST_WORKERS:-8}"
+SYSTEMS="${SYSTEMS:-faim,bm25}"
 export FAIM_BENCH_FAIM_BATCH_SIZE="${FAIM_BENCH_FAIM_BATCH_SIZE:-100}"
+export FAIM_BENCH_FAIM_JOB_POLL_SECONDS="${FAIM_BENCH_FAIM_JOB_POLL_SECONDS:-0.25}"
 REV="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo local)"
 
 run_beir() {
   local ds="$1" corpus_rev="$2" qrels_rev="$3" out_sub="$4" provider_id="$5" model_id="$6"
-  echo "=== [GPU BEIR] $ds ($out_sub | $model_id) ==="
+  local gate_args=()
+  if [[ ",$SYSTEMS," == *",bm25,"* ]]; then
+    gate_args+=(--require-faim-beats-bm25)
+  fi
+  echo "=== [GPU BEIR] $ds ($out_sub | $model_id | systems=$SYSTEMS | workers=$INGEST_WORKERS) ==="
   FAIM_SELF_EVOLVE_ENABLED=false \
   FAIM_EMBEDDING_PROVIDER_ID="$provider_id" \
   FAIM_EMBEDDING_MODEL_ID="$model_id" \
@@ -31,9 +37,9 @@ run_beir() {
   FAIM_BEIR_QRELS_REVISION="$qrels_rev" \
   faim-bench beir \
     --dataset "$ds" \
-    --systems faim,bm25 \
+    --systems "$SYSTEMS" \
     --ingest-workers "$INGEST_WORKERS" \
-    --require-faim-beats-bm25 \
+    "${gate_args[@]}" \
     --retain-query-traces \
     --out-dir "$OUT_BASE/$out_sub"
 }
