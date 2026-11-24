@@ -1,10 +1,10 @@
 # Contributing to FAIM-Native
 
-Thank you for improving FAIM-Native. The project is experimental and spans a memory graph engine, API, worker runtime, dashboard, security boundary, and operational tooling. Small, well-scoped changes are easier to review and safer to deploy.
+Thank you for contributing to FAIM-Native. The repository spans a native memory graph engine, FastAPI control plane, durable worker runtime, Next.js workspace, security boundary, and benchmark/operational tooling. Small, well-scoped changes are easier to review and safer to deploy.
 
 ## Before you contribute
 
-- Read the root [`README.md`](README.md) and the relevant architecture or security guide.
+- Read the root [`README.md`](README.md), [`GOVERNANCE.md`](GOVERNANCE.md), [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md), and the relevant architecture or security guide.
 - Do not include secrets, credentials, private raw data, generated runtime databases, or production environment files.
 - Make sure you have the right to submit every line, asset, dataset, and dependency change in your contribution.
 - Flag migrations, API contract changes, tenant-isolation effects, provenance changes, and cryptographic changes clearly in the pull request.

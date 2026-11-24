@@ -15,16 +15,14 @@
 
 <table align="center">
   <tr>
-    <td align="center"><strong>Release stage</strong><br />Preview · Alpha</td>
+    <td align="center"><strong>Latest tag</strong><br />v0.6.1</td>
     <td align="center"><strong>Runtime</strong><br />Docker Compose</td>
     <td align="center"><strong>Interfaces</strong><br />REST · MCP · SSE</td>
     <td align="center"><strong>Canonical data</strong><br />PostgreSQL</td>
   </tr>
 </table>
 
-> **Use this declaration:** FAIM-Native is a **Docker-backed Preview Alpha**. It is ready for controlled local evaluation, demos, and invited integration testing. It is **not yet a public beta, release candidate, or production release**.
-
-> **Safety boundary:** Do not use this checkout as the sole system of record for personal productivity, business-critical, production, safety-critical, regulated, or irreplaceable-data workloads. Use isolated infrastructure with synthetic, redacted, disposable, or safely backed-up data until the deployment-specific production gates are complete.
+> **Deployment posture:** FAIM-Native runs as a hardened multi-service Docker Compose stack (`v0.6.1`). Before serving live traffic, provision environment-specific secrets and TLS, run database migrations, and verify `/health`, `/ready`, `/version`, and backup/restore procedures on the target host.
 
 FAIM-Native turns documents, events, and multimodal evidence into a durable memory graph. It combines a FastAPI API, deterministic perception and encoding, graph-native operators, PostgreSQL persistence, optional Redis/Qdrant acceleration, durable background jobs, a Next.js workspace, MCP access, and a public black-box benchmark harness.
 
@@ -380,8 +378,8 @@ The latest complete runs cover two full official BEIR splits with pinned Hugging
 | **BM25 baseline (v19-ready)** | Same full SciFact split and scorer | 0.7193 | 0.6644 | 0.6366 | 0.6242 | 38.44 ms | Completed (`READY`) |
 | **FAIM-Native (v1-ready, GPU stack)** | NFCorpus, 3,633 docs / 323 queries | **0.1267** | **0.3258** | **0.5259** | **0.1327** | **97.20 ms** | Completed (`READY`) |
 | **BM25 baseline (v1-ready)** | Same full NFCorpus split and scorer | 0.1205 | 0.3110 | 0.5211 | 0.1294 | 5.20 ms | Completed (`READY`) |
-| **FAIM-Native (v17 historical)** | SciFact, 5,183 docs / 300 queries | 0.4831 | 0.4184 | — | — | 7,195.68 ms | Completed |
-| **FAIM-Native (v9 historical)** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | — | — | 17,373 ms | Completed |
+| **FAIM-Native (v17 historical)** | SciFact, 5,183 docs / 300 queries | 0.4831 | 0.4184 | - | - | 7,195.68 ms | Completed |
+| **FAIM-Native (v9 historical)** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | - | - | 17,373 ms | Completed |
 
 On both full BEIR splits (`BeIR/SciFact` and `BeIR/NFCorpus`), FAIM-Native beat `BM25-Baseline` across **every retrieval metric** (`Recall@5`, `nDCG@10`, `MRR`, `MAP`), while HMAC auth caching + `graph_version`-keyed RAM caching cut full `SciFact` Query p50 by **2.2×** (`231.07 ms` → `104.52 ms`, Query p95 `159.15 ms`).
 

@@ -1,10 +1,10 @@
 # CI, releases, and VPS deployment
 
-FAIM-Native uses GitHub Actions for review gates, manual releases, and manual production deployment. The workflows are intentionally conservative because this repository is still an experimental research system.
+FAIM-Native uses GitHub Actions for review gates, manual semantic releases, and manual production deployment. The workflows require automated checks before merge and explicit operator approval for release tagging and production promotion.
 
 ## Workflow behavior
 
-### `CI` — `.github/workflows/ci.yml`
+### `CI` (`.github/workflows/ci.yml`)
 
 - Runs automatically for pull requests targeting `main`.
 - Can be started manually with `workflow_dispatch`.
@@ -16,7 +16,7 @@ The frontend formatting check is not currently a required gate because the repos
 
 ## Semantic releases
 
-### `Semantic release` — `.github/workflows/release.yml`
+### `Semantic release` (`.github/workflows/release.yml`)
 
 This workflow is manual-only. Run a dry run first, review the calculated version and notes, then run it again with `dry_run=false`.
 
@@ -26,7 +26,7 @@ The earlier documentation commit was intentionally pushed without a tag. Future 
 
 ## Manual VPS deployment
 
-### `Deploy research VPS` — `.github/workflows/deploy-vps.yml`
+### `Deploy research VPS` (`.github/workflows/deploy-vps.yml`)
 
 This workflow is also manual-only and requires `confirm=true`. GitHub environment
 protection rules may add an approval gate when the repository plan supports it;
@@ -62,12 +62,12 @@ Create a `production` environment and, preferably, require a reviewer before the
 
 The workflow checks these values inside the approved deploy job (not the image-build job), so environment-scoped secrets are supported and missing credentials fail closed before any SSH or service change.
 
-- `VPS_HOST` — VPS hostname or address;
-- `VPS_USER` — restricted deployment user, preferably not root;
-- `VPS_PORT` — SSH port, optional if `22`;
-- `VPS_PATH` — application directory, optional if `/opt/faim/FAIM`;
-- `VPS_SSH_KEY` — private deploy key in OpenSSH format;
-- `VPS_KNOWN_HOSTS` — pinned `ssh-keyscan` output for the VPS host.
+- `VPS_HOST`: VPS hostname or address;
+- `VPS_USER`: restricted deployment user, preferably not root;
+- `VPS_PORT`: SSH port, optional if `22`;
+- `VPS_PATH`: application directory, optional if `/opt/faim/FAIM`;
+- `VPS_SSH_KEY`: private deploy key in OpenSSH format;
+- `VPS_KNOWN_HOSTS`: pinned `ssh-keyscan` output for the VPS host.
 
 The workflow uses its short-lived GitHub job token for GHCR login. It does not
 require or retain a long-lived GHCR personal-access token on the VPS.

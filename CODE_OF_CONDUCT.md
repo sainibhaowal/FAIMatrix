@@ -13,6 +13,6 @@ Harassment, discrimination, threats, deliberate disruption, doxxing, sexualized 
 
 ## Enforcement
 
-Report conduct concerns privately to the project maintainers through the repository's configured contact channel. Include links, dates, context, and any relevant evidence. Maintainers may remove content, restrict participation, or take other action appropriate to the situation.
+Report conduct concerns privately to the repository maintainers (`@sainibhaowal`) with links, dates, context, and relevant evidence. For issues involving exposed credentials or security impact, follow [`SECURITY.md`](SECURITY.md) or submit a private security report via [GitHub Security Advisories](https://github.com/sainibhaowal/FAIMatrix/security/advisories/new). For general repository policy questions, see [`SUPPORT.md`](SUPPORT.md).
 
-This is a concise project policy. If the project adopts a formal community organization, it should replace or extend this document with a reviewed code of conduct and named enforcement contacts.
+Maintainers review all reports, maintain confidentiality for reporters, and may remove content, close threads, or restrict repository participation as appropriate.

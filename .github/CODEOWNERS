@@ -1,6 +1,6 @@
-# Default ownership for the repository. Replace with real GitHub handles if needed.
-* @sephi-asi
+# Default review ownership for FAIMatrix.
+* @sainibhaowal
 
-/deploy/ @sephi-asi
-/faim_native/api/middleware/ @sephi-asi
-/faim_native/store/pg/migrations/ @sephi-asi
+/deploy/ @sainibhaowal
+/faim_native/api/middleware/ @sainibhaowal
+/faim_native/store/pg/migrations/ @sainibhaowal

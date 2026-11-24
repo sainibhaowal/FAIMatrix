@@ -18,4 +18,4 @@ Start with the [README](README.md), [API documentation](faim_native/Docs/02-api/
 - **Performance:** include dataset shape, profile, hardware, dependencies, baseline, and measurement method.
 - **Security:** follow [`SECURITY.md`](SECURITY.md); do not publish exploit details.
 
-FAIM-Native is experimental. Community support is best-effort, and a passing historical report does not guarantee that the current checkout or a different deployment has the same behavior.
+Community support is provided on a best-effort basis via [GitHub Issues](https://github.com/sainibhaowal/FAIMatrix/issues). When reporting behavior across environments, include exact release versions or commit SHAs, Compose profiles, and sanitized logs so results can be reproduced consistently. For additional architecture and operations guides, see the [canonical documentation index](faim_native/Docs/00-readme.md).

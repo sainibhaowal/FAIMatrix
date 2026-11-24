@@ -21,8 +21,8 @@ Technical decisions should favor:
 - Update documentation and tests with behavior changes.
 - Do not merge changes that introduce secrets, unreviewed data access, or unexplained tenant-boundary changes.
 
-The repository's [`CODEOWNERS`](.github/CODEOWNERS) file defines the current review ownership. Replace placeholder or personal handles there before opening the project to a larger organization.
+Review ownership across the repository and critical paths (`/deploy/`, `/faim_native/api/middleware/`, and `/faim_native/store/pg/migrations/`) is defined in [`.github/CODEOWNERS`](.github/CODEOWNERS), and pull requests should follow the checklist in [`.github/pull_request_template.md`](.github/pull_request_template.md).
 
-## Releases
+## Releases and security
 
-Release notes should identify API changes, migrations, security fixes, compatibility concerns, benchmark methodology, and rollback instructions. See [`CHANGELOG.md`](CHANGELOG.md) and [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Release notes identify API changes, database migrations, security fixes, compatibility boundaries, benchmark methodology, and rollback instructions. See [`CHANGELOG.md`](CHANGELOG.md), [`CONTRIBUTING.md`](CONTRIBUTING.md), and [`SECURITY.md`](SECURITY.md).
