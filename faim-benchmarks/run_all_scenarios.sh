@@ -14,9 +14,10 @@ if [ -f .env ]; then
 fi
 
 SCENARIOS="${1:-all}" # comma-separated or "all"
+DATASETS="${DATASETS:-scifact,nfcorpus,arguana,locomo}"
 SYSTEMS="${SYSTEMS:-faim}"
 DEMAND="${DEMAND:-max}"
-export FAIM_BENCH_FAIM_BATCH_SIZE="${FAIM_BENCH_FAIM_BATCH_SIZE:-100}"
+export FAIM_BENCH_FAIM_BATCH_SIZE="${FAIM_BENCH_FAIM_BATCH_SIZE:-50}"
 export FAIM_BENCH_FAIM_JOB_POLL_SECONDS="${FAIM_BENCH_FAIM_JOB_POLL_SECONDS:-0.25}"
 REV="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || echo local)"
 
@@ -31,6 +32,9 @@ run_beir_set() {
     "nfcorpus b5026a0e96e8a7ac4f95f482a596389289d46269 a451b3b26d3ae1358f259c1a3a4dd61fcea35a65" \
     "arguana 9bcf8fc0320c4e3860e25b8b85fa205fcdd7078f ae5468c6f1c198109a8af5f0d4dc58bd18b6fea7"; do
     read -r ds crev qrev <<< "$spec"
+    if [[ ",$DATASETS," != *",$ds,"* ]]; then
+      continue
+    fi
     echo "=== [$scenario] BEIR $ds (systems=$SYSTEMS, profile=$profile, workers=$workers) ==="
     FAIM_PROFILE="$profile" \
     FAIM_SELF_EVOLVE_ENABLED=false \
@@ -50,7 +54,7 @@ run_beir_set() {
   done
 
   local data_dir="${FAIM_BENCH_DATA_DIR:-$HOME/.faim/bench_datasets}"
-  if [ -f "$data_dir/locomo10.json" ]; then
+  if [[ ",$DATASETS," == *",locomo,"* ]] && [ -f "$data_dir/locomo10.json" ]; then
     echo "=== [$scenario] Memory locomo (workers=$workers) ==="
     FAIM_PROFILE="$profile" \
     FAIM_SELF_EVOLVE_ENABLED=true \

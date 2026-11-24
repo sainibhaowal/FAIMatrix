@@ -102,6 +102,24 @@ class FaimHttpAdapter:
         headers.pop("Content-Type", None)
         return headers
 
+    def _post_with_retry(self, url: str, **kwargs: Any) -> httpx.Response:
+        """POST with bounded retry on transient keep-alive/socket disconnects."""
+        last_exc: Optional[Exception] = None
+        for attempt in range(3):
+            try:
+                return self._client.post(url, **kwargs)
+            except (
+                httpx.RemoteProtocolError,
+                httpx.ConnectError,
+                httpx.ReadTimeout,
+            ) as exc:
+                last_exc = exc
+                if attempt == 2:
+                    raise
+                time.sleep(0.5 * (attempt + 1))
+        assert last_exc is not None
+        raise last_exc
+
     def prepare_namespace(self, namespace: str) -> None:
         self._raw_to_doc[namespace] = {}
         self._filename_to_doc[namespace] = {}
@@ -170,7 +188,7 @@ class FaimHttpAdapter:
             "benchmark_mode": self.benchmark_mode,
         }
         t0 = time.perf_counter()
-        resp = self._client.post(
+        resp = self._post_with_retry(
             "/api/v1/ingest", json=payload, headers=self._headers()
         )
         latency_ms = (time.perf_counter() - t0) * 1000.0
@@ -228,7 +246,7 @@ class FaimHttpAdapter:
             return empty_outcomes
 
         t0 = time.perf_counter()
-        resp = self._client.post(
+        resp = self._post_with_retry(
             "/api/v1/storage/uploads",
             data={
                 "graph_id": namespace,
@@ -364,7 +382,7 @@ class FaimHttpAdapter:
             "idempotency_key": f"{namespace}:{memory_id}",
         }
         t0 = time.perf_counter()
-        resp = self._client.post(
+        resp = self._post_with_retry(
             "/api/v1/memory/write", json=payload, headers=self._headers()
         )
         latency_ms = (time.perf_counter() - t0) * 1000.0
@@ -393,7 +411,9 @@ class FaimHttpAdapter:
             "return_explain": False,
         }
         t0 = time.perf_counter()
-        resp = self._client.post("/api/v1/query", json=payload, headers=self._headers())
+        resp = self._post_with_retry(
+            "/api/v1/query", json=payload, headers=self._headers()
+        )
         latency_ms = (time.perf_counter() - t0) * 1000.0
         resp.raise_for_status()
         data = resp.json()

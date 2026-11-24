@@ -172,7 +172,7 @@ def compute_worker_plan(
         ingest_workers = max(1, target_total - api_workers)
 
     total_workers = api_workers + ingest_workers
-    bench_ingest_workers = max(2, min(12, ingest_workers * 2 if mode == "native" else ingest_workers + 2))
+    bench_ingest_workers = max(2, min(6, ingest_workers))
 
     limiting = []
     if hard_cap == max_by_ram:
