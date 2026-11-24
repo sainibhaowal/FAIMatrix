@@ -119,12 +119,17 @@ def _encode_sentence_transformer_with_fallback(
 ) -> tuple[Any, Any, str]:
     """Encode texts on `device`, transparently falling back to CPU on CUDA errors."""
     try:
-        embeddings = model.encode(
-            texts,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-            convert_to_numpy=True,
+        gpu_batch_size = max(
+            1, int(os.getenv("FAIM_EMBEDDING_BATCH_SIZE", "128"))
         )
+        encode_kwargs: Dict[str, Any] = {
+            "normalize_embeddings": True,
+            "show_progress_bar": False,
+            "convert_to_numpy": True,
+        }
+        if str(device).lower().startswith("cuda"):
+            encode_kwargs["batch_size"] = gpu_batch_size
+        embeddings = model.encode(texts, **encode_kwargs)
         return embeddings, model, device
     except Exception as exc:
         if not str(device).lower().startswith("cuda"):

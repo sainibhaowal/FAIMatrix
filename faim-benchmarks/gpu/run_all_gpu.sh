@@ -61,7 +61,7 @@ fi
 
 if [ "$MODE" = "hybrid" ] || [ "$MODE" = "all" ]; then
   echo "=== Starting FAIM + Granite GPU Hybrid Stack (3 API / 3 Ingest, VRAM Guard 1024 MiB) ==="
-  (cd "$REPO_ROOT" && FAIM_API_WORKERS=3 FAIM_INGEST_WORKERS=3 FAIM_FAST_ML_EMBEDDING=true FAIM_EMBEDDING_DEVICE=auto FAIM_MIN_CUDA_FREE_MIB=1024 FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
+  (cd "$REPO_ROOT" && FAIM_API_WORKERS=2 FAIM_INGEST_WORKERS=3 FAIM_FAST_ML_EMBEDDING=true FAIM_EMBEDDING_DEVICE=auto FAIM_MIN_CUDA_FREE_MIB=1024 FAIM_EMBEDDING_BATCH_SIZE=128 FAIM_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS=600000 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
   run_suite_set "granite-hybrid" "local-gpu-hybrid" "ibm-granite/granite-embedding-97m-multilingual-r2"
   echo "=== Restoring Default Pure FAIM-Native Stack ==="
   (cd "$REPO_ROOT" && FAIM_FAST_ML_EMBEDDING=false docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d api worker-ingest worker-evolve)
