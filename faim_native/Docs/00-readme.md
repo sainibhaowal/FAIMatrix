@@ -79,6 +79,7 @@ are implementation references, not release claims:
 - [Retrieval improvement MoSCoW plan](14-research/01-retrieval-implementation-moscow-plan.md)
 - [Retrieval and latency research report](14-research/02-retrieval-latency-research-report-2026-11-18.md)
 - [Retrieval production-hardening record](14-research/03-retrieval-production-hardening-2026-11-18.md)
+- [Research positioning and evaluation discipline](14-research/04-research-positioning.md)
 - [Benchmark evidence and publication rules](13-benchmarks/01-benchmark-evidence.md)
 - [Production benchmark suite and latency breakdown (2026-11-22)](13-benchmarks/02-production-benchmark-suite-2026-11-22.md)
 - [Multi-scenario CPU/GPU/Granite benchmark results (2026-11-24)](13-benchmarks/03-multi-scenario-benchmark-results-2026-11-24.md)

@@ -32,9 +32,7 @@ FAIM-Native turns documents, events, and multimodal evidence into a durable memo
 
 The current local checkout has been exercised against the real Docker stack: API, worker, PostgreSQL, Redis, Qdrant, and frontend. Health/readiness, migrations, authenticated storage/providers/events/graph/evolution surfaces, MCP, live ingest/query, and the benchmark harness have been smoke-tested. The latest backend run recorded **1010 passed, 1 skipped**; the public harness recorded **4 passed**. Browser E2E was not claimed when the browser host was unavailable. Published competitor numbers below are external references from their own reports, not reproduced scores from the FAIM run.
 
-The project explores an alternative memory architecture in which raw evidence remains addressable, derived knowledge is represented as a versioned graph, retrieval includes graph context and explanations, and memory evolution is treated as a controlled lifecycle. This is a research direction and engineering hypothesis—not a claim of universal novelty, priority, or superiority over vector search, RAG, knowledge graphs, agent-memory systems, or any other approach. See [`RESEARCH_POSITIONING.md`](RESEARCH_POSITIONING.md) for the comparison and evaluation discipline.
-
-See [`PROJECT_STATUS.md`](PROJECT_STATUS.md) for maturity, verification, and known documentation caveats.
+The project explores an alternative memory architecture in which raw evidence remains addressable, derived knowledge is represented as a versioned graph, retrieval includes graph context and explanations, and memory evolution is treated as a controlled lifecycle. This is a research direction and engineering hypothesis, not a claim of universal novelty, priority, or superiority over vector search, RAG, knowledge graphs, agent-memory systems, or any other approach. See [Research positioning](faim_native/Docs/14-research/04-research-positioning.md) for the comparison and evaluation discipline.
 
 ## Why FAIM-Native
 
@@ -48,7 +46,7 @@ Most retrieval systems stop at “embed, search, return chunks.” FAIM-Native k
 - evolution can diagnose redundancy, invent macro nodes, learn from outcomes, and restore from backups;
 - the UI can observe the same graph, event stream, metrics, storage, provider, and evolution surfaces exposed by the API.
 
-The result is a memory substrate designed for systems that need continuity, auditability, tenant isolation, and controlled evolution—not only a similarity endpoint.
+The result is a memory substrate designed for systems that need continuity, auditability, tenant isolation, and controlled evolution, rather than only a similarity endpoint.
 
 ## End-to-end system
 
@@ -634,10 +632,7 @@ Readiness is stronger than liveness: it checks database connectivity, required t
 
 ## Documentation index
 
-- [Project status](PROJECT_STATUS.md)
-- [Experimental status and safe use](EXPERIMENTAL_STATUS.md)
-- [Research positioning](RESEARCH_POSITIONING.md)
-- [Roadmap and release gates](ROADMAP.md)
+- [Research positioning](faim_native/Docs/14-research/04-research-positioning.md)
 - [CI, semantic releases, and deployment](CI_CD.md)
 - [Canonical documentation index](faim_native/Docs/00-readme.md)
 - [End-to-end architecture and runtime boundaries](faim_native/Docs/01-architecture/01-end-to-end-architecture.md)

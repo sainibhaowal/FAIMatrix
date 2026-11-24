@@ -68,4 +68,4 @@ Results should be treated as evidence for or against specific hypotheses, not as
 
 ## Suggested reading order
 
-Start with [`README.md`](README.md), then review the [canonical documentation index](faim_native/Docs/00-readme.md), the [architecture guide](faim_native/Docs/01-architecture/01-end-to-end-architecture.md), the [benchmark evidence rules](faim_native/Docs/13-benchmarks/01-benchmark-evidence.md), [`EXPERIMENTAL_STATUS.md`](EXPERIMENTAL_STATUS.md), and [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Contributors should also read [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`GOVERNANCE.md`](GOVERNANCE.md).
+Start with [`README.md`](../../../README.md), then review the [canonical documentation index](../00-readme.md), the [architecture guide](../01-architecture/01-end-to-end-architecture.md), and the [benchmark evidence rules](../13-benchmarks/01-benchmark-evidence.md). Contributors should also read [`CONTRIBUTING.md`](../../../CONTRIBUTING.md) and [`GOVERNANCE.md`](../../../GOVERNANCE.md).
