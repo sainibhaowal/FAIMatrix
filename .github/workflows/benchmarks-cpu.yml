@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       suites:
-        description: "Comma-separated suites to run (all, or subset of: scifact,nfcorpus,arguana,fiqa,trec-covid,locomo,longmemeval)"
+        description: "Comma-separated suites to run (all = scifact,nfcorpus,arguana,locomo; disabled by default unless explicitly named: fiqa,trec-covid,longmemeval)"
         required: false
         default: "all"
       ingest_workers:
@@ -31,16 +31,18 @@ jobs:
         shell: python3 {0}
         run: |
           import json, os
-          raw = os.environ.get("INPUT_SUITES", "scifact,nfcorpus,arguana,locomo,longmemeval")
+          raw = os.environ.get("INPUT_SUITES", "scifact,nfcorpus,arguana,locomo")
           tokens = [t.strip().lower() for t in raw.split(",") if t.strip()]
-          all_beir = ["scifact", "nfcorpus", "arguana", "fiqa", "trec-covid"]
-          all_mem = ["locomo", "longmemeval"]
+          default_beir = ["scifact", "nfcorpus", "arguana"]
+          default_mem = ["locomo"]
+          valid_beir = {"scifact", "nfcorpus", "arguana", "fiqa", "trec-covid"}
+          valid_mem = {"locomo", "longmemeval"}
           if "all" in tokens:
-              beir = all_beir
-              mem = all_mem
+              beir = default_beir
+              mem = default_mem
           else:
-              beir = [t for t in tokens if t in all_beir]
-              mem = [t for t in tokens if t in all_mem]
+              beir = [t for t in tokens if t in valid_beir]
+              mem = [t for t in tokens if t in valid_mem]
           with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
               fh.write(f"beir_datasets={json.dumps(beir)}\n")
               fh.write(f"memory_suites={json.dumps(mem)}\n")

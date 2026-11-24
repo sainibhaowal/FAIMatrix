@@ -42,18 +42,22 @@ run_beir() {
     --out-dir "$OUT_BASE/$ds"
 }
 
+INCLUDE_LARGE="${INCLUDE_LARGE:-false}" # set true to include fiqa, trec-covid, longmemeval
+
 run_beir scifact   b3b5335604bf5ee3c4447671af975ea25143d4f5 2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029
 run_beir nfcorpus  b5026a0e96e8a7ac4f95f482a596389289d46269 a451b3b26d3ae1358f259c1a3a4dd61fcea35a65
 run_beir arguana   9bcf8fc0320c4e3860e25b8b85fa205fcdd7078f ae5468c6f1c198109a8af5f0d4dc58bd18b6fea7
-run_beir fiqa      979c07a7cb5ccc6ca009792241fa1250b98055dd 252958f2d646e22cab6d0c72dd3f0d5de6d0655a
-run_beir trec-covid 7e16fde3016c639c7f856e803f4bab92645562c4 532ac68ee6756ac22c9346eebf65bd3c6a042e10
+if [ "$INCLUDE_LARGE" = "true" ]; then
+  run_beir fiqa       979c07a7cb5ccc6ca009792241fa1250b98055dd 252958f2d646e22cab6d0c72dd3f0d5de6d0655a
+  run_beir trec-covid 7e16fde3016c639c7f856e803f4bab92645562c4 532ac68ee6756ac22c9346eebf65bd3c6a042e10
+fi
 
 DATA_DIR="${FAIM_BENCH_DATA_DIR:-$HOME/.faim/bench_datasets}"
 if [ -f "$DATA_DIR/locomo10.json" ]; then
   echo "=== [CPU MEMORY] locomo ==="
   FAIM_SELF_EVOLVE_ENABLED=true faim-bench memory --suite locomo --data-path "$DATA_DIR/locomo10.json" --systems faim,bm25 --ingest-workers "$INGEST_WORKERS" --out-dir "$OUT_BASE/locomo"
 fi
-if [ -f "$DATA_DIR/longmemeval_s_cleaned.json" ]; then
+if [ "$INCLUDE_LARGE" = "true" ] && [ -f "$DATA_DIR/longmemeval_s_cleaned.json" ]; then
   echo "=== [CPU MEMORY] longmemeval ==="
   FAIM_SELF_EVOLVE_ENABLED=true faim-bench memory --suite longmemeval --data-path "$DATA_DIR/longmemeval_s_cleaned.json" --systems faim,bm25 --ingest-workers "$INGEST_WORKERS" --out-dir "$OUT_BASE/longmemeval"
 fi
