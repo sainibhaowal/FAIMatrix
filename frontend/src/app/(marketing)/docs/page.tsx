@@ -2309,7 +2309,7 @@ function SectionDeployment() {
             {[
               "Copy .env.example to .env as the single environment source of truth.",
               "docker compose up -d starts PostgreSQL, Redis, Qdrant, API, workers, and frontend.",
-              "Set TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124 and FAIM_GPU_COUNT=1 in .env for CUDA GPU passthrough.",
+              "Set TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124, FAIM_CONTAINER_RUNTIME=nvidia, NVIDIA_VISIBLE_DEVICES=all in .env for CUDA GPU passthrough.",
               "npm run faim:ps and /ready verify service health across all containers.",
             ].map((item) => (
               <li key={item} className="flex gap-2">

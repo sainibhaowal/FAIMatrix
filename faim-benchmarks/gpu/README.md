@@ -1,6 +1,6 @@
 # GPU Benchmarks (`faim-benchmarks/gpu/`)
 
-CUDA GPU benchmarks (`docker-compose.yml` with `FAIM_GPU_COUNT=1` + `FAIM_EMBEDDING_DEVICE=auto` + `FAIM_MIN_CUDA_FREE_MIB=1024`):
+CUDA GPU benchmarks (`docker-compose.yml` with `FAIM_CONTAINER_RUNTIME=nvidia` + `NVIDIA_VISIBLE_DEVICES=all` + `FAIM_EMBEDDING_DEVICE=auto` + `FAIM_MIN_CUDA_FREE_MIB=1024`):
 
 1. **Pure FAIM-Native GPU (`native`, `FAIM_FAST_ML_EMBEDDING=false`):**
    - `FAIM_API_WORKERS=6`, `FAIM_INGEST_WORKERS=8`

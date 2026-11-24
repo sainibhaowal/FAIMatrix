@@ -14,8 +14,8 @@ def test_unified_compose_defines_vps_proxy_and_gpu_controls():
     assert "ports:" not in caddy_section
     assert "networks: [faim-net, gateway-net]" in caddy_section
     assert "gateway-net:" in content and "${FAIM_GATEWAY_NETWORK:-faim-gateway-net}" in content
-    assert "driver: nvidia" in content
-    assert "${FAIM_GPU_COUNT:-0}" in content
+    assert "FAIM_CONTAINER_RUNTIME" in content
+    assert "NVIDIA_VISIBLE_DEVICES" in content
     assert "FAIM_MIN_CUDA_FREE_MIB" in content
     assert "worker-ingest:" in content and "worker-evolve:" in content
     assert "API_HOST=faim-api:8000" in content

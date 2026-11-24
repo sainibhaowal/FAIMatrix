@@ -1,8 +1,3 @@
-x-gpu-devices: &gpu-devices
-  - driver: nvidia
-    count: ${FAIM_GPU_COUNT:-0}
-    capabilities: [gpu]
-
 services:
   # ---------------------------------------------------------------------------
   # PostgreSQL (Required - Canonical Source of Truth)
@@ -130,6 +125,7 @@ services:
   # ---------------------------------------------------------------------------
   api:
     image: ${FAIM_API_IMAGE:-faim-api:latest}
+    runtime: ${FAIM_CONTAINER_RUNTIME:-runc}
     build:
       context: .
       dockerfile: Dockerfile
@@ -185,6 +181,7 @@ services:
       FAIM_USE_GPU_BACKEND: ${FAIM_USE_GPU_BACKEND:-auto}
       FAIM_FAST_ML_EMBEDDING: ${FAIM_FAST_ML_EMBEDDING:-false}
       FAIM_MIN_CUDA_FREE_MIB: ${FAIM_MIN_CUDA_FREE_MIB:-1024}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-void}
       FAIM_EMBEDDING_PREWARM: ${FAIM_EMBEDDING_PREWARM:-true}
       FAIM_EMBEDDING_PREWARM_TIMEOUT_SECONDS: ${FAIM_EMBEDDING_PREWARM_TIMEOUT_SECONDS:-300}
       FAIM_EMBEDDING_PREWARM_REQUIRED: ${FAIM_EMBEDDING_PREWARM_REQUIRED:-true}
@@ -259,7 +256,6 @@ services:
         reservations:
           cpus: "0.5"
           memory: 512M
-          devices: *gpu-devices
     networks: [faim-net]
     restart: unless-stopped
 
@@ -268,6 +264,7 @@ services:
   # ---------------------------------------------------------------------------
   worker-ingest:
     image: ${FAIM_WORKER_IMAGE:-faim-worker:latest}
+    runtime: ${FAIM_CONTAINER_RUNTIME:-runc}
     build:
       context: .
       dockerfile: Dockerfile
@@ -277,9 +274,6 @@ services:
     restart: unless-stopped
     deploy:
       replicas: ${FAIM_INGEST_WORKERS:-8}
-      resources:
-        reservations:
-          devices: *gpu-devices
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
       REDIS_URL: ${REDIS_URL:-redis://:faim_pass@redis:8030/0}
@@ -308,6 +302,7 @@ services:
       FAIM_USE_GPU_BACKEND: ${FAIM_USE_GPU_BACKEND:-auto}
       FAIM_FAST_ML_EMBEDDING: ${FAIM_FAST_ML_EMBEDDING:-false}
       FAIM_MIN_CUDA_FREE_MIB: ${FAIM_MIN_CUDA_FREE_MIB:-1024}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-void}
       FAIM_CHUNKING_ENABLED: ${FAIM_CHUNKING_ENABLED:-false}
       FAIM_CHUNK_MAX_CHARS: ${FAIM_CHUNK_MAX_CHARS:-1200}
       FAIM_CHUNK_OVERLAP: ${FAIM_CHUNK_OVERLAP:-120}
@@ -360,6 +355,7 @@ services:
 
   worker-evolve:
     image: ${FAIM_WORKER_IMAGE:-faim-worker:latest}
+    runtime: ${FAIM_CONTAINER_RUNTIME:-runc}
     build:
       context: .
       dockerfile: Dockerfile
@@ -368,10 +364,6 @@ services:
     container_name: faim-worker-evolve
     command: ["python", "-m", "orchestration.jobs.worker"]
     restart: unless-stopped
-    deploy:
-      resources:
-        reservations:
-          devices: *gpu-devices
     environment:
       DATABASE_URL: postgresql://faim:${POSTGRES_PASSWORD}@postgres:8020/faim_native
       REDIS_URL: ${REDIS_URL:-redis://:faim_pass@redis:8030/0}
@@ -400,6 +392,7 @@ services:
       FAIM_USE_GPU_BACKEND: ${FAIM_USE_GPU_BACKEND:-auto}
       FAIM_FAST_ML_EMBEDDING: ${FAIM_FAST_ML_EMBEDDING:-false}
       FAIM_MIN_CUDA_FREE_MIB: ${FAIM_MIN_CUDA_FREE_MIB:-1024}
+      NVIDIA_VISIBLE_DEVICES: ${NVIDIA_VISIBLE_DEVICES:-void}
       FAIM_JOB_MAX_RETRIES: ${FAIM_JOB_MAX_RETRIES:-1}
       FAIM_DOMAIN_AUTONOMY_ENABLED: ${FAIM_DOMAIN_AUTONOMY_ENABLED:-true}
       FAIM_REPR_V2_ENABLED: ${FAIM_REPR_V2_ENABLED:-true}

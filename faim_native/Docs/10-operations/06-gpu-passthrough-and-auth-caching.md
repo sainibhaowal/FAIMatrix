@@ -50,9 +50,9 @@ Uses `TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu` in [`Dockerfile`](..
    sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
    sudo systemctl restart docker
    ```
-2. Enable CUDA wheels and GPU passthrough in `.env` (`TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124`, `FAIM_GPU_COUNT=1`) and start with [`docker-compose.yml`](../../../docker-compose.yml):
+2. Enable CUDA wheels and GPU passthrough in `.env` (`TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124`, `FAIM_CONTAINER_RUNTIME=nvidia`, `NVIDIA_VISIBLE_DEVICES=all`) and start with [`docker-compose.yml`](../../../docker-compose.yml):
    ```bash
-   TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124 FAIM_GPU_COUNT=1 docker compose up -d --build
+   TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124 FAIM_CONTAINER_RUNTIME=nvidia NVIDIA_VISIBLE_DEVICES=all docker compose up -d --build
    ```
    Verified inside `faim-api` and `faim-worker-ingest-1` on RTX 4060 Laptop GPU (`8188 MiB`):
    `torch 2.15.0+cu132`, `cuda: True`, `_resolve_embedding_device() == 'cuda'`.
