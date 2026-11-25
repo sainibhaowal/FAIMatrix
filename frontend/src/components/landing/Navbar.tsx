@@ -7,12 +7,12 @@ import { usePathname } from "next/navigation";
 import Logo from "@/components/brand/Logo";
 
 const navLinks = [
-  { href: "#core", label: "Core" },
-  { href: "#platform", label: "Platform" },
-  { href: "#proof", label: "Proof" },
+  { href: "/#core", label: "Core" },
+  { href: "/#platform", label: "Platform" },
+  { href: "/#proof", label: "Proof" },
   { href: "/benchmarks", label: "Benchmarks" },
-  { href: "#ops", label: "Ops" },
-  { href: "#scale", label: "Scale" },
+  { href: "/#ops", label: "Ops" },
+  { href: "/#scale", label: "Scale" },
   { href: "/docs", label: "Docs" },
 ];
 
@@ -41,7 +41,7 @@ export default function Navbar() {
         }`}
       >
         <div
-          className={`mx-auto max-w-7xl border px-4 py-3 backdrop-blur-xl shadow-lg transition-all duration-300 sm:px-6 ${
+          className={`mx-auto max-w-7xl rounded-2xl border px-4 py-3 backdrop-blur-xl shadow-lg transition-all duration-300 sm:px-6 ${
             isScrolled
               ? "bg-slate-900/90 border-slate-700/60 shadow-slate-950/40"
               : "bg-slate-900/80 border-slate-700/50 shadow-slate-950/30"
@@ -55,27 +55,16 @@ export default function Navbar() {
 
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center gap-7">
-              {navLinks.map((link) =>
-                link.href.startsWith("/") ? (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="text-sm text-slate-400 hover:text-white transition-colors relative group"
-                  >
-                    {link.label}
-                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 group-hover:w-full transition-all duration-300" />
-                  </Link>
-                ) : (
-                  <a
-                    key={link.href}
-                    href={link.href}
-                    className="text-sm text-slate-400 hover:text-white transition-colors relative group"
-                  >
-                    {link.label}
-                    <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 group-hover:w-full transition-all duration-300" />
-                  </a>
-                ),
-              )}
+              {navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm text-slate-400 hover:text-white transition-colors relative group"
+                >
+                  {link.label}
+                  <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500 group-hover:w-full transition-all duration-300" />
+                </Link>
+              ))}
             </div>
 
             {/* CTA Buttons */}
@@ -88,7 +77,7 @@ export default function Navbar() {
               </Link>
               <Link
                 href="/auth/signup"
-                className="border border-cyan-300/30 bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition-colors hover:bg-cyan-300"
+                className="rounded-xl border border-cyan-300/30 bg-cyan-400 px-5 py-2.5 text-sm font-semibold text-slate-950 shadow-lg shadow-cyan-500/20 transition-colors hover:bg-cyan-300"
               >
                 Get Started
               </Link>
@@ -97,7 +86,7 @@ export default function Navbar() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMobileOpen(!isMobileOpen)}
-              className="md:hidden p-2 text-slate-400 hover:text-white transition-colors"
+              className="md:hidden rounded-lg p-2 text-slate-400 hover:text-white transition-colors"
               aria-label="Toggle menu"
             >
               <svg
@@ -156,7 +145,7 @@ export default function Navbar() {
                 <Link
                   href="/auth/signup"
                   onClick={() => setIsMobileOpen(false)}
-                  className="block w-full border border-cyan-300/30 bg-cyan-400 py-4 text-center font-semibold text-slate-950"
+                  className="block w-full rounded-xl border border-cyan-300/30 bg-cyan-400 py-4 text-center font-semibold text-slate-950"
                 >
                   Get Started Free
                 </Link>
