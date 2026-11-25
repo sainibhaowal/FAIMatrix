@@ -17,6 +17,17 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import Logo from "@/components/brand/Logo";
+import {
+  DocsBookBanner,
+  VisualArchitectureFlow,
+  VisualBenchmarkChart,
+  VisualDomainDiagram,
+  VisualGraphTopology,
+  VisualHybridRouter,
+  VisualLexiconDistribution,
+  VisualScoreCalculator,
+  VisualVectorTierExplorer,
+} from "@/components/docs/DocsVisuals";
 import BenchmarkResultsBoard from "@/components/landing/BenchmarkResultsBoard";
 import { APP_VERSION } from "@/lib/appVersion";
 
@@ -28,7 +39,7 @@ const NAV_GROUPS = [
     group: "Overview",
     items: [
       { id: "what-is-faim", label: "What is FAIM?" },
-      { id: "current-state", label: "Platform Overview" },
+      { id: "current-state", label: "Research & Thesis" },
       { id: "quickstart", label: "Quick Start" },
       { id: "why-faim", label: "Why FAIM?" },
     ],
@@ -161,46 +172,51 @@ function SectionWhatIsFaim() {
         <h2 className="text-2xl font-bold text-white mb-2">What is FAIM?</h2>
         <p className="text-slate-400 leading-relaxed">
           FAIM (Fully Autonomous Intelligence Memory) is a deterministic,
-          self-hostable memory, retrieval, and answer engine. It is not an LLM.
-          It is not a vector database wrapper. It is a complete memory operating
-          system built on pure mathematics.
+          self-hostable memory, retrieval, and citation synthesis engine. It is
+          neither a generative LLM nor a standalone vector database. It fuses a
+          pure-math 256-dimensional native core with optional pre-bundled local
+          Granite 97M multilingual embeddings, a typed knowledge graph, and
+          immutable SHA-256 provenance.
         </p>
       </div>
 
+      <VisualArchitectureFlow />
+
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title="The Core Idea" color="cyan">
+        <Card title="Dual-Path Hybrid Intelligence" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
-            You upload documents. FAIM extracts every block of content, encodes
-            it into a 256-dimensional deterministic vector using pure math (no
-            neural network), connects blocks into a typed knowledge graph, and
-            stores everything with SHA-256 fingerprints. When you query, FAIM
-            retrieves the most relevant nodes, re-ranks them through 7 scoring
-            components, and gives you citation-first answers — no external ML
-            service required.
+            Every uploaded document is segmented into layout-anchored blocks,
+            encoded into a canonical 256-dimensional mathematical vector (240
+            SHA-256 character n-gram buckets plus 16 text-statistic features),
+            and optionally paired with a local 384-dimensional Granite 97M
+            Multilingual R2 dense vector. When querying, FAIM merges vector
+            shortlists, sparse Representation V2 sidecars, bounded multi-hop
+            graph diffusion, and 7-component Reranker V2 before returning
+            extractive spans with page and section provenance.
           </p>
         </Card>
-        <Card title="Key Properties" color="purple">
+        <Card title="Core Architectural Properties" color="purple">
           <ul className="space-y-2 text-sm text-slate-400">
             {[
               [
-                "Zero ML",
-                "No neural network in the core memory or retrieval path",
+                "Zero ML Fast Path",
+                "FAIM-Pure executes English FAST retrieval on pure CPU math with zero neural inference.",
+              ],
+              [
+                "Local Hybrid Option",
+                "Bundled IBM Granite 97M R2 (97M params, 384-dim, 32K context) activates without external cloud APIs.",
               ],
               [
                 "Deterministic",
-                "Same input always produces the same output, forever",
+                "Identical graph state and query parameters produce reproducible rankings and SHA-256 audit hashes.",
               ],
               [
-                "Self-hostable",
-                "Runs entirely on your infrastructure, no cloud dependency",
+                "Graph-Native",
+                "Inheritance, antisymmetric opposition, causal, and PMI semantic edges resolve conflicts structurally.",
               ],
               [
-                "Auditable",
-                "Every node has a SHA-256 fingerprint + full provenance chain",
-              ],
-              [
-                "Graph-native",
-                "Opposition, inheritance, and semantic edges built-in from day one",
+                "Self-Hostable",
+                "Runs completely inside your Docker/VPS/GPU environment via one unified docker-compose.yml.",
               ],
             ].map(([k, v]) => (
               <li key={k as string} className="flex gap-2">
@@ -214,25 +230,25 @@ function SectionWhatIsFaim() {
         </Card>
       </div>
 
-      <Card title="What FAIM Is Not" color="amber">
-        <div className="grid md:grid-cols-3 gap-3 text-sm">
+      <Card title="System Boundaries (What FAIM Is Not)" color="amber">
+        <div className="grid md:grid-cols-3 gap-4 text-sm">
           {[
             [
-              "Not an LLM",
-              "FAIM does not generate text. It retrieves, ranks, and grounds answers in your own documents.",
+              "Not a Generative LLM",
+              "FAIM never hallucinates free-form prose. It extracts, ranks, and verifies grounded sentence spans directly from indexed source blocks.",
             ],
             [
-              "Not a vector DB",
-              "A vector DB stores embeddings. FAIM also builds a knowledge graph, applies memory tiers, and re-ranks with 7 scoring components.",
+              "Not a Flat Vector Store",
+              "Vector stores only compute approximate nearest neighbors. FAIM enforces SHA-256 deduplication, memory decay tiers, opposition edges, and multi-hop provenance.",
             ],
             [
-              "Not a RAG wrapper",
-              "RAG wraps an LLM with retrieval. FAIM replaces the LLM dependency entirely — it can work without any language model.",
+              "Not a Cloud Wrapper",
+              "There are zero external embedding API keys required. Both the 256-dim native math engine and Granite 97M weights execute locally under your control.",
             ],
           ].map(([t, d]) => (
             <div key={t as string}>
               <p className="text-amber-400 font-mono text-xs mb-1">{t}</p>
-              <p className="text-slate-500 text-xs leading-relaxed">{d}</p>
+              <p className="text-slate-400 text-xs leading-relaxed">{d}</p>
             </div>
           ))}
         </div>
@@ -242,45 +258,67 @@ function SectionWhatIsFaim() {
 }
 
 function SectionCurrentState() {
+  const researchQuestions = [
+    {
+      q: "Q1: Can deterministic native math match or beat neural retrieval on CPU?",
+      a: "Yes. On the full 5,183-doc / 300-query BeIR SciFact evaluation, pure zero-ML FAIM-Pure achieved 0.6871 nDCG@10 (Recall@5 0.7554) at 86.31 ms CPU CI latency, outperforming both standard BM25 (0.6644 nDCG@10) and standalone Granite 97M dense (0.6806 nDCG@10).",
+      tag: "Verified: +0.0227 vs BM25",
+      color: "cyan",
+    },
+    {
+      q: "Q2: What happens when deterministic structure fuses with compact local ML?",
+      a: "Pairing FAIM's graph, lexical Representation V2, and Concept-MaxSim signals with local Granite 97M R2 elevates BeIR SciFact to 0.6900 nDCG@10 (Recall@5 0.7704), NFCorpus to 0.3314 nDCG@10 (+6.6% over BM25), and ArguAna to 0.7266 Recall@10 at 1.86x lower median latency than BM25.",
+      tag: "Verified: 0.6900 SciFact",
+      color: "emerald",
+    },
+    {
+      q: "Q3: How does dynamic routing avoid paying GPU latency on simple English queries?",
+      a: "With FAIM_FAST_ML_EMBEDDING=auto, English FAST queries route directly through FAIM-Pure on CPU without invoking neural inference, while non-English queries and BALANCED/STRICT modes invoke bundled Granite 97M embeddings automatically.",
+      tag: "Adaptive: auto Policy",
+      color: "purple",
+    },
+    {
+      q: "Q4: How do contradictory updates avoid corrupting long-lived agent memory?",
+      a: "Every ingested block carries a SHA-256 content+anchor fingerprint (vector_hash) for idempotency and forms antisymmetric opposition and inheritance edges. Superseded claims are penalized pairwise or excluded while retaining auditable provenance.",
+      tag: "Invariant: SHA-256 + TCE",
+      color: "amber",
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/25 text-cyan-300">
-            Release {APP_VERSION}
-          </span>
-        </div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Platform Overview
+          Research &amp; Core Thesis
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM is a deterministic memory and provenance retrieval
-          infrastructure. The runtime combines exact lexical & structural
-          routing, bounded multi-hop graph reasoning, dynamic CPU/GPU hybrid
-          routing, interactive 3D graph inspection (FIG View), multi-tier tenant
-          billing, and explicit graph autonomy controls that stay disabled until
-          opted in.
+          FAIM is engineered around a foundational research question: can a
+          retrieval and memory system stay mathematically deterministic,
+          cryptographically traceable, and conflict-aware while beating dense
+          black-box vector pipelines?
         </p>
       </div>
 
+      <VisualBenchmarkChart />
+
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Latest Upgrades" color="cyan">
-          <ul className="space-y-2 text-sm text-slate-400">
+        {researchQuestions.map((item) => (
+          <Card key={item.q} title={item.tag} color={item.color}>
+            <p className="text-sm font-semibold text-white mb-2">{item.q}</p>
+            <p className="text-xs text-slate-400 leading-relaxed">{item.a}</p>
+          </Card>
+        ))}
+      </div>
+
+      <VisualLexiconDistribution />
+
+      <Card title="Universal Architectural Guarantees" color="cyan">
+        <div className="grid md:grid-cols-2 gap-4 text-xs text-slate-400">
+          <ul className="space-y-2">
             {[
-              "Remote MCP + OAuth 2.1 / PKCE: connect Cursor, Claude, and VS Code directly to /mcp, or run offline with the faim-mcp CLI, thin Python SDK, and one-time scoped API keys.",
-              "Semantic Registry Runtime: FAIM now carries a real 2.31M+ shipped semantic registry term base built from ConceptNet and multilingual lexicon surfaces, then grows it further through graph-local canonical, multilingual, and domain-memory lexicons.",
-              "Built-in Multilingual Embeddings: local semantic embeddings complement deterministic native vectors and ConceptNet lexical broadening.",
-              "Semantic Signature V1: additive semantic phrase, concept, alias, transliteration, morphology, relation, value, and temporal channels now enrich retrieval without changing the canonical native vector contract.",
-              "Weighted Expansion Engine: query-time expansion now merges ConceptNet, graph-local canonical semantics, multilingual mappings, and graph-learned domain terms into a capped, weighted, source-tagged retrieval surface.",
-              "Native Late Interaction: FAIM now adds a fine-grained symbolic interaction scorer across query/document tokens, phrases, concepts, aliases, morphology, values, and temporal cues before final ranking.",
-              "Cross-Lingual Power: multilingual canonicalization and rebuild now span EN, DE, ES, FR, IT, PT, and NL across a broader deterministic concept-bridge surface for cross-language retrieval.",
-              "Multilingual Enterprise Pack: FAIM now ships a larger compressed multilingual lexicon pack with tens of thousands of surface forms across EN, DE, ES, FR, IT, PT, and NL, still loaded as a deterministic runtime asset rather than an online translation service.",
-              "GPU Hardened FIG View: Static asset registry eliminates rendering-induced crashes.",
-              "Pulse-v2 Reason Ledger: backend graph/query events drive FIG node glow, path motion, inspector proof, relation traces, and semantic-layer legends.",
-              "Idempotent Memory Writes & Session Revocation: direct REST/MCP writes with tenant isolation and 1-click OAuth grant disconnect in Dashboard → MCP.",
-              "Tenant crypto rotation: guarded execute/job path rewraps tenant DEKs under the current master key without re-encrypting payload blobs.",
-              "Historical raw-reencryption: guarded execute/job path migrates legacy plaintext blobs into encrypted storage.",
-              "Subscription Plans: 4 workspace tiers from Explorer through Enterprise.",
+              "256-dim Native Core remains canonical and invariant across all graph states.",
+              "Semantic Registry (2,319,589 shipped terms) adds explainable lexical broadening without replacing native math.",
+              "SHA-256 node and packet hashes enforce idempotent writes and end-to-end lineage.",
             ].map((item) => (
               <li key={item} className="flex gap-2">
                 <span className="text-cyan-400 shrink-0">→</span>
@@ -288,24 +326,20 @@ function SectionCurrentState() {
               </li>
             ))}
           </ul>
-        </Card>
-        <Card title="Core Stability" color="purple">
-          <ul className="space-y-2 text-sm text-slate-400">
+          <ul className="space-y-2">
             {[
-              "256-dim Native Core remains deterministic and mathematically invariant.",
-              "Semantic enrichment stays additive around the native core instead of replacing it with a stochastic embedding stack.",
-              "SHA-256 node fingerprinting ensures 100% auditable provenance.",
-              "Elastic physics engine tuned for stable high-density graph interaction.",
-              "Hot/Warm/Cold memory tiers automated for cost-efficient intelligence.",
+              "Graph autonomy (self-evolve and self-invent) stays off by default until explicitly enabled per workspace.",
+              "Hot, Warm, and Cold memory tiers manage retention automatically without manual index rewrites.",
+              "Tenant DEK envelope encryption and row-level isolation enforce strict workspace boundaries.",
             ].map((item) => (
               <li key={item} className="flex gap-2">
-                <span className="text-purple-400 shrink-0">→</span>
+                <span className="text-emerald-400 shrink-0">→</span>
                 <span>{item}</span>
               </li>
             ))}
           </ul>
-        </Card>
-      </div>
+        </div>
+      </Card>
     </div>
   );
 }
@@ -316,17 +350,29 @@ function SectionQuickStart() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Quick Start</h2>
         <p className="text-slate-400 leading-relaxed">
-          Get FAIM running and answer your first query in under 5 minutes.
+          Launch the full self-hosted FAIM stack, ingest structured documents,
+          and execute provenance-backed queries in minutes.
         </p>
       </div>
 
-      <Card title="Step 1 — Create an Account" color="cyan">
+      <Card title="Local Stack Bootstrap (Docker Compose)" color="indigo">
+        <Code>{`# 1. Configure shared environment variables
+cp .env.example .env
+
+# 2. Launch API, Workers, PostgreSQL, Redis, Qdrant, and Frontend
+docker compose up -d
+
+# 3. Verify health & readiness endpoints
+curl -fsS http://localhost:8000/health && curl -fsS http://localhost:8000/ready`}</Code>
+      </Card>
+
+      <Card title="Step 1: Create a Workspace Account" color="cyan">
         <ol className="space-y-3">
           {[
-            "Sign up at the Get Started page",
-            "A knowledge graph is automatically created for your account",
-            "You land on the Dashboard — this is your control centre",
-            "Open Evolution to enable self-evolve or self-invent only if you want graph autonomy on that graph",
+            "Register at the Get Started page to initialize your isolated tenant scope",
+            "A dedicated knowledge graph is provisioned automatically for your workspace",
+            "Manage ingestion, evolution opt-in settings, and keys from the Dashboard control center",
+            "Keep autonomous graph evolution off for static corpora or opt in when continuous adaptation is desired",
           ].map((s, i) => (
             <li key={i} className="flex gap-3 text-sm text-slate-400">
               <span className="w-5 h-5 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs shrink-0 font-mono">
@@ -338,14 +384,13 @@ function SectionQuickStart() {
         </ol>
       </Card>
 
-      <Card title="Step 2 — Upload Your First Document" color="purple">
+      <Card title="Step 2: Ingest Documents" color="purple">
         <ol className="space-y-3">
           {[
-            "Go to Dashboard → Storage tab",
-            "Click Upload and select a PDF, DOCX, PPTX, XLSX, image, or code file",
-            "FAIM extracts every block, builds the 256-dim vector, adds lexical-semantic sidecars including Semantic Signature V1, and adds nodes to your graph",
-            "Status shows: processing → ready",
-            "You can also Rebuild Memory Index after upload to refresh Representation V2 sidecars",
+            "Open Dashboard → Storage and upload PDF, DOCX, PPTX, XLSX, images, or text/code files",
+            "FAIM segments every block with structural anchors, computes its 256-dim native vector, and attaches Representation V2 sidecars",
+            "Status transitions cleanly from processing to ready with zero duplicate node inserts",
+            "Trigger Rebuild Memory Index from Storage maintenance routes whenever refreshing sidecars",
           ].map((s, i) => (
             <li key={i} className="flex gap-3 text-sm text-slate-400">
               <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs shrink-0 font-mono">
@@ -357,15 +402,13 @@ function SectionQuickStart() {
         </ol>
       </Card>
 
-      <Card title="Step 3 — Connect via MCP or API" color="emerald">
+      <Card title="Step 3: Connect Agents via MCP or REST" color="emerald">
         <ol className="space-y-3">
           {[
-            "Go to Dashboard → MCP to copy your /mcp endpoint for Cursor, Claude, or VS Code (OAuth 2.1 + PKCE)",
-            "Or go to Dashboard → API Keys to create a one-time secret key for REST, Python SDK, or offline faim-mcp",
-            "Query /api/v1/query or /api/v1/memory/search with graph_max_hops (1–24, default 2)",
-            "Every result returns provenance (document, page, section) and confidence scores",
-            "Inspect connected MCP sessions and revoke any client in one click from Dashboard → MCP",
-            "If graph autonomy is enabled, use Evolution to see the live effective state and worker status",
+            "Open Dashboard → MCP to copy your /mcp endpoint for Cursor, Claude, or VS Code (OAuth 2.1 + PKCE)",
+            "Or create a one-time X-API-Key secret in Dashboard → API Keys for REST, Python SDK, or stdio faim-mcp",
+            "Call POST /api/v1/query or POST /api/v1/memory/search with graph_max_hops (1 to 24, default 2)",
+            "Receive ranked extractive evidence alongside page/section anchors and confidence scores",
           ].map((s, i) => (
             <li key={i} className="flex gap-3 text-sm text-slate-400">
               <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs shrink-0 font-mono">
@@ -377,14 +420,12 @@ function SectionQuickStart() {
         </ol>
       </Card>
 
-      <Card title="Step 4 — Explore the Graph" color="amber">
+      <Card title="Step 4: Inspect Provenance in 3D FIG View" color="amber">
         <ol className="space-y-3">
           {[
-            "Go to Dashboard → FIG View tab",
-            "Every node from your documents is visible as a graph",
-            "Click any node to inspect its block_type, page, section, temperature (🔥/◆/❄), and connections",
-            "Use the layout controls: Surface (all nodes), Neighborhood (K-hop), Timeline, Path",
-            "Filter by node kind or edge kind using the legend panel on the right",
+            "Open Dashboard → FIG View to explore indexed atoms, macro parent nodes, and typed edges",
+            "Click any node to inspect block_type, page, section, temperature (Hot/Warm/Cold), and SHA-256 fingerprint",
+            "Switch modes across Surface, Neighborhood (K-hop), Timeline, Path (pulse-v2), and Analyze",
           ].map((s, i) => (
             <li key={i} className="flex gap-3 text-sm text-slate-400">
               <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs shrink-0 font-mono">
@@ -405,32 +446,40 @@ function SectionWhyFaim() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Why FAIM?</h2>
         <p className="text-slate-400 leading-relaxed">
-          Most knowledge systems are either raw vector databases (no graph, no
-          structure) or LLM wrappers (hallucination-prone, non-auditable). FAIM
-          occupies a fundamentally different category.
+          Conventional knowledge stacks force a tradeoff between opaque flat
+          vector databases and hallucination-prone LLM wrappers. FAIM unifies
+          deterministic mathematics, typed graph structure, and local hybrid
+          acceleration into one auditable substrate.
         </p>
       </div>
 
+      <VisualBenchmarkChart />
+
       <div className="rounded-2xl border border-slate-800 bg-slate-900/30 overflow-hidden">
         <div className="grid grid-cols-4 gap-0 px-4 py-3 border-b border-slate-800 bg-slate-900/60 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-          <span>Feature</span>
+          <span>Capability</span>
           <span>FAIM</span>
           <span>Vector DB</span>
           <span>LLM RAG</span>
         </div>
         {[
-          ["Deterministic retrieval", "✅", "❌", "❌"],
-          ["Zero ML core", "✅", "❌", "❌"],
-          ["Graph edges (opposition, inheritance)", "✅", "❌", "❌"],
-          ["SHA-256 node fingerprints", "✅", "❌", "❌"],
-          ["Hot / warm / cold memory tiers", "✅", "❌", "❌"],
-          ["Contradiction detection + suppression", "✅", "❌", "❌"],
-          ["Self-hostable, no cloud required", "✅", "Partial", "❌"],
-          ["Citation-first, page-grounded answers", "✅", "❌", "Partial"],
-          ["Multi-column PDF, table, scanned OCR", "✅", "❌", "Partial"],
-          ["Tenant isolation built-in", "✅", "Partial", "❌"],
-          ["Idempotent ingestion (no duplicates)", "✅", "❌", "❌"],
-          ["Graph scorecard: density, entropy, λ", "✅", "❌", "❌"],
+          ["Deterministic core ranking", "Yes", "No", "No"],
+          ["Zero ML CPU fast path (FAIM-Pure)", "Yes", "No", "No"],
+          [
+            "Bundled local Granite 97M hybrid option",
+            "Yes",
+            "External API",
+            "External API",
+          ],
+          ["Typed edges (opposition, inheritance, causal)", "Yes", "No", "No"],
+          ["SHA-256 node & file fingerprints", "Yes", "No", "No"],
+          ["Hot / Warm / Cold memory lifecycle", "Yes", "No", "No"],
+          ["Contradiction detection + pairwise suppression", "Yes", "No", "No"],
+          ["Self-hostable zero-cloud operation", "Yes", "Partial", "No"],
+          ["Citation-first extractive span answers", "Yes", "No", "Partial"],
+          ["Multi-column PDF, table & OCR layout", "Yes", "No", "Partial"],
+          ["2.32M shipped deterministic semantic registry", "Yes", "No", "No"],
+          ["Topological scorecard (D, H, lambda)", "Yes", "No", "No"],
         ].map(([f, a, b, c]) => (
           <div
             key={f as string}
@@ -444,34 +493,34 @@ function SectionWhyFaim() {
         ))}
       </div>
 
-      <Card title="Who FAIM Is For" color="cyan">
+      <Card title="Ideal Engineering & Compliance Use Cases" color="cyan">
         <div className="grid md:grid-cols-2 gap-4 text-sm text-slate-400">
           <ul className="space-y-2">
             <li className="flex gap-2">
-              <span className="text-cyan-400">→</span>Teams that need
-              deterministic, auditable retrieval
+              <span className="text-cyan-400">→</span>Regulated enterprises
+              (legal, healthcare, finance) needing strict source lineage
             </li>
             <li className="flex gap-2">
-              <span className="text-cyan-400">→</span>Organizations that cannot
-              send data to cloud AI services
+              <span className="text-cyan-400">→</span>Air-gapped or VPC
+              deployments prohibiting external LLM/embedding calls
             </li>
             <li className="flex gap-2">
-              <span className="text-cyan-400">→</span>Regulated industries
-              (legal, healthcare, finance) requiring traceable answers
+              <span className="text-cyan-400">→</span>Long-horizon agent memory
+              requiring conflict &amp; temporal resolution
             </li>
           </ul>
           <ul className="space-y-2">
             <li className="flex gap-2">
-              <span className="text-cyan-400">→</span>Research teams building
-              explainable knowledge systems
+              <span className="text-cyan-400">→</span>Teams scaling across both
+              CPU-only VPS nodes and CUDA GPU hosts
             </li>
             <li className="flex gap-2">
-              <span className="text-cyan-400">→</span>Any use case where "I need
-              to verify that answer" matters
+              <span className="text-cyan-400">→</span>Workflows where
+              reproducible scoring and explainable paths are mandatory
             </li>
             <li className="flex gap-2">
-              <span className="text-cyan-400">→</span>Teams who want a memory
-              system that doesn't drift over time
+              <span className="text-cyan-400">→</span>Research groups evaluating
+              hybrid symbolic + neural retrieval tradeoffs
             </li>
           </ul>
         </div>
@@ -517,17 +566,21 @@ function SectionArchitecture() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Architecture</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          System Architecture
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM is a layered stack. Each layer is independently verifiable and
-          deterministic. No layer depends on a neural network or external ML
-          service.
+          FAIM is a layered runtime combining deterministic native vectors,
+          additive sparse sidecars, optional local Granite 97M embeddings, and
+          relational graph storage without external cloud dependencies.
         </p>
       </div>
 
+      <VisualArchitectureFlow />
+
       <div className="rounded-2xl border border-slate-800 bg-slate-900/30 p-5">
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-4">
-          System Stack — Top to Bottom
+          System Stack (Top to Bottom)
         </p>
         <div className="space-y-1.5">
           {layers.map((l, i) => (
@@ -560,19 +613,19 @@ function SectionArchitecture() {
         <Card title="Storage Layer (L0)" color="red">
           <ul className="space-y-1.5 text-[11px] text-slate-400">
             <li className="flex gap-2">
-              <span className="text-slate-600">·</span>PostgreSQL — nodes,
-              edges, repr_v2 sidecars
+              <span className="text-slate-600">·</span>PostgreSQL: nodes, edges,
+              repr_v2 sidecars
             </li>
             <li className="flex gap-2">
-              <span className="text-slate-600">·</span>Deterministic ANN —
+              <span className="text-slate-600">·</span>Deterministic ANN -
               graph-versioned dense shortlist cache
             </li>
             <li className="flex gap-2">
-              <span className="text-slate-600">·</span>Redis — query result
-              cache + hot node hints
+              <span className="text-slate-600">·</span>Redis: query result cache
+              + hot node hints
             </li>
             <li className="flex gap-2">
-              <span className="text-slate-600">·</span>Raw blob store — original
+              <span className="text-slate-600">·</span>Raw blob store: original
               uploaded files by SHA-256
             </li>
           </ul>
@@ -592,7 +645,7 @@ function SectionArchitecture() {
               automatic tiering
             </li>
             <li className="flex gap-2">
-              <span className="text-slate-600">·</span>Idempotent upsert — no
+              <span className="text-slate-600">·</span>Idempotent upsert: no
               duplicate nodes
             </li>
             <li className="flex gap-2">
@@ -608,7 +661,7 @@ function SectionArchitecture() {
               scoring
             </li>
             <li className="flex gap-2">
-              <span className="text-slate-600">·</span>RerankerV2 —
+              <span className="text-slate-600">·</span>RerankerV2 -
               proposition-aware reranking
             </li>
             <li className="flex gap-2">
@@ -616,7 +669,7 @@ function SectionArchitecture() {
               diffusion
             </li>
             <li className="flex gap-2">
-              <span className="text-slate-600">·</span>Answer synthesis —
+              <span className="text-slate-600">·</span>Answer synthesis -
               extractive, citation-first
             </li>
             <li className="flex gap-2">
@@ -634,45 +687,49 @@ function SectionMemory() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Memory System</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Memory System &amp; Tiers
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM's core memory is built on 256-dimensional deterministic vectors
-          with SHA-256 fingerprinting, automatic memory temperature
-          classification, and cold pruning support.
+          FAIM's canonical memory layer pairs 256-dimensional pure-math native
+          vectors with SHA-256 deduplication fingerprints, automated
+          Hot/Warm/Cold temperature tiers, and deterministic topic clustering.
         </p>
       </div>
 
+      <VisualVectorTierExplorer />
+
       <Card title="256-Dimensional Native Vector" color="cyan">
         <p className="text-sm text-slate-400 mb-3 leading-relaxed">
-          Every text block is encoded into a 256-dim vector using pure math — no
-          neural network, no GPU, no model to download. Encoding has two
-          components:
+          Every text block is encoded into a 256-dim vector using deterministic
+          mathematics (zero ML required in the fast native core). Encoding has
+          two fixed components:
         </p>
         <div className="grid md:grid-cols-2 gap-3">
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
             <p className="text-xs font-mono text-cyan-400 mb-1.5">
-              dims 0–239 — Character n-grams
+              dims 0 to 239: Character n-grams
             </p>
             <p className="text-[11px] text-slate-500 leading-relaxed">
               SHA-256 hash of character 2-grams and 3-grams, bucketed into 240
-              dimensions. Captures morphological and lexical patterns without
-              any vocabulary table.
+              dimensions (NGRAM_BUCKETS = 240). Captures morphological and
+              lexical patterns with zero vocabulary table.
             </p>
           </div>
           <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
             <p className="text-xs font-mono text-cyan-400 mb-1.5">
-              dims 240–255 — Text statistics
+              dims 240 to 255: Text statistics
             </p>
             <p className="text-[11px] text-slate-500 leading-relaxed">
               Word count, sentence length, punctuation density, capitalization
-              ratio, digit ratio, and other structural features. These 16 dims
-              encode the shape and style of the block.
+              ratio, digit ratio, and structural features encoded into 16
+              normalized dimensions.
             </p>
           </div>
         </div>
       </Card>
 
-      <Card title="SHA-256 Fingerprinting — Idempotency" color="emerald">
+      <Card title="SHA-256 Fingerprinting & Idempotency" color="emerald">
         <p className="text-sm text-slate-400 leading-relaxed mb-3">
           Every block is hashed with SHA-256 before storage. If you upload the
           same document twice, FAIM detects the matching{" "}
@@ -704,19 +761,19 @@ On ingest:
               tier: "🔥 HOT",
               rule: "last_access within 7 days",
               effect:
-                "Highest retrieval priority — most recently used knowledge",
+                "Highest retrieval priority: most recently used knowledge",
               color: "#f97316",
             },
             {
               tier: "◆ WARM",
               rule: "last_access within 30 days  OR  touch_count ≥ 5",
-              effect: "Active working memory — still in regular use",
+              effect: "Active working memory: still in regular use",
               color: "#fbbf24",
             },
             {
               tier: "❄ COLD",
               rule: "last_access > 90 days  OR  never accessed + age > 7 days",
-              effect: "Candidate for pruning — forgotten knowledge",
+              effect: "Candidate for pruning: forgotten knowledge",
               color: "#64748b",
             },
           ].map((t) => (
@@ -786,7 +843,7 @@ On ingest:
           <code className="text-emerald-400 font-mono text-xs">
             long_term = true
           </code>{" "}
-          to protect it from cold pruning permanently — regardless of age,
+          to protect it from cold pruning permanently: regardless of age,
           touch_count, or last_access. Use this for nodes that represent
           foundational facts you never want deleted.
         </p>
@@ -817,12 +874,12 @@ On ingest:
         </div>
       </Card>
 
-      <Card title="Topic Clustering — K-means on v_native" color="purple">
+      <Card title="Topic Clustering: K-means on v_native" color="purple">
         <p className="text-sm text-slate-400 leading-relaxed mb-3">
           FAIM can group all nodes into topic clusters using deterministic
           k-means++ on v_native vectors. Once clusters are computed, every query
           automatically scopes recall to the top-2 matching clusters before
-          doing a full cosine scan — improving speed and precision as the graph
+          doing a full cosine scan: improving speed and precision as the graph
           grows.
         </p>
         <div className="space-y-2">
@@ -837,7 +894,7 @@ On ingest:
             ],
             [
               "Determinism",
-              "RNG seeded from SHA-256 of graph_id — same graph always produces same clusters",
+              "RNG seeded from SHA-256 of graph_id: same graph always produces same clusters",
             ],
             ["Convergence", "Max 50 iterations or until centroids stop moving"],
             [
@@ -871,19 +928,21 @@ function SectionGraph() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Knowledge Graph</h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM's graph is the intelligence layer. Nodes hold atomic facts. Edges
-          define relationships. The graph grows with every document ingested and
-          every query answered.
+          FAIM's graph is the relational intelligence layer. Atom and macro
+          nodes hold anchored facts while typed edges encode hierarchy,
+          contradiction, causation, and PMI co-occurrence.
         </p>
       </div>
 
+      <VisualGraphTopology />
+
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Node Structure" color="cyan">
-          <Code>{`node_id      UUID — unique identifier
-graph_id     String — tenant graph scope
+          <Code>{`node_id      UUID (unique identifier)
+graph_id     String (tenant graph scope)
 vector_hash  SHA-256 content fingerprint
-raw_id       UUID — source file reference
-block_id     String — block within source
+raw_id       UUID (source file reference)
+block_id     String (block within source)
 anchor_json  {page, section, block_type,
               column, row_start, doc_type}
 level        0 = atom, 1+ = macro/parent
@@ -899,7 +958,7 @@ created_at   ISO datetime of first ingest`}</Code>
                 atom (level = 0)
               </p>
               <p>
-                Leaf node. Represents one extracted block of content — a
+                Leaf node. Represents one extracted block of content: a
                 paragraph, table, code snippet, or image caption. This is what
                 FAIM retrieves.
               </p>
@@ -971,23 +1030,23 @@ created_at   ISO datetime of first ingest`}</Code>
         </div>
       </Card>
 
-      <Card title="Graph Scorecard — Computed from Topology" color="default">
+      <Card title="Graph Scorecard: Computed from Topology" color="default">
         <div className="grid md:grid-cols-3 gap-3">
           {[
             {
-              metric: "D — Density",
+              metric: "D: Density",
               formula: "Edges ÷ (Nodes × (Nodes−1))",
               range: "0 = no connections · 1 = complete graph",
               color: "#22d3ee",
             },
             {
-              metric: "H — Entropy",
+              metric: "H: Entropy",
               formula: "Shannon entropy of edge kinds (bits)",
               range: "0 = all same · log₂(kinds) = maximum",
               color: "#a78bfa",
             },
             {
-              metric: "λ — Spectral Radius",
+              metric: "λ: Spectral Radius",
               formula: "Largest eigenvalue (power iteration)",
               range: "Higher = tighter clustering · Lower = sparse",
               color: "#34d399",
@@ -1019,16 +1078,16 @@ function SectionRetrieval() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Retrieval Engine</h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM runs a multi-stage retrieval pipeline. Every query hits all data
-          stores, first passes through a weighted deterministic expansion
-          engine, semantic registry broadening, broader multilingual concept
-          bridges, then fuses dense and lexical-semantic channels, applies a
-          native late-interaction scorer, scores through deterministic
-          components, and re-ranks before synthesizing a grounded answer.
+          FAIM runs a multi-stage deterministic retrieval pipeline fusing
+          256-dim native math, optional local Granite 97M embeddings, sparse
+          Representation V2 sidecars, Semantic Registry broadening (2,319,589
+          terms), native late interaction, and 7-component Reranker V2.
         </p>
       </div>
 
-      <Card title="Retrieval Pipeline — Step by Step" color="cyan">
+      <VisualScoreCalculator mode="scoring" />
+
+      <Card title="Retrieval Pipeline Step by Step" color="cyan">
         <div className="space-y-2 mt-1">
           {[
             {
@@ -1132,28 +1191,31 @@ function SectionRetrieval() {
             A result is publishable only when the dataset and commit are pinned,
             the run uses API-key authentication, health checks pass, errors are
             zero, and the report includes configuration and variance evidence.
-            In pure zero-ML CPU-first mode (collision-free BM25+,{" "}
-            <code className="text-cyan-300">GraphIndexArtifacts</code> RAM
-            caching, vectorized <code className="text-cyan-300">float32</code>{" "}
-            BLAS scoring, cached{" "}
+            In zero-ML CPU fast mode (
+            <code className="text-cyan-300">FAIM-Pure</code> with collision-free
+            BM25+, <code className="text-cyan-300">GraphIndexArtifacts</code>{" "}
+            RAM caching, vectorized{" "}
+            <code className="text-cyan-300">float32</code> BLAS scoring, cached{" "}
             <code className="text-cyan-300">_maxsim_units</code> &amp;
             propositions, and <code className="text-cyan-300">RerankerV2</code>{" "}
-            soft-suppression), FAIM-Native achieved{" "}
-            <code className="text-emerald-300">nDCG@10 = 0.6878</code>,{" "}
-            <code className="text-emerald-300">Recall@5 = 0.7554</code>,{" "}
-            <code className="text-emerald-300">MRR = 0.6570</code>, and{" "}
-            <code className="text-emerald-300">231.07 ms</code> HTTP P50 ({" "}
-            <code className="text-emerald-300">284.02 ms</code> P95) on the full
-            5,183-doc / 300-query SciFact split ({" "}
+            soft-suppression), FAIM achieved{" "}
+            <code className="text-emerald-300">nDCG@10 = 0.6871</code>,{" "}
+            <code className="text-emerald-300">Recall@5 = 0.7554</code>, and{" "}
+            <code className="text-emerald-300">86.31 ms</code> CPU CI P50 on the
+            full 5,183-doc / 300-query SciFact split ({" "}
             <code className="text-emerald-300">Publication gate: READY</code>)
-            vs. <code className="text-slate-300">BM25-Baseline</code> (
+            vs <code className="text-slate-300">BM25-Baseline</code> (
             <code className="text-slate-300">0.6644</code> nDCG@10 /{" "}
-            <code className="text-slate-300">0.7193</code> Recall@5).
+            <code className="text-slate-300">0.7193</code> Recall@5). Pairing
+            Granite 97M Multilingual R2 raises SciFact to{" "}
+            <code className="text-cyan-300">0.6900 nDCG@10</code> and{" "}
+            <code className="text-cyan-300">0.7704 Recall@5</code> (140.17 ms
+            P50).
           </p>
         </div>
       </Card>
 
-      <Card title="Representation V2 — Sparse Sidecars" color="purple">
+      <Card title="Representation V2: Sparse Sidecars" color="purple">
         <p className="text-sm text-slate-400 mb-3">
           Alongside the 256-dim dense vector, every node has a set of sparse
           channels computed by Representation V2. These enable lexically-rich
@@ -1169,15 +1231,15 @@ function SectionRetrieval() {
           {[
             [
               "word_counts",
-              "Porter-stemmed token buckets — handles morphological variants",
+              "Porter-stemmed token buckets: handles morphological variants",
             ],
             [
               "phrase_counts",
-              "2-gram phrase frequency buckets — matches multi-word expressions",
+              "2-gram phrase frequency buckets: matches multi-word expressions",
             ],
             [
               "skip_counts",
-              "Skip-gram patterns — long-range co-occurrence capture",
+              "Skip-gram patterns: long-range co-occurrence capture",
             ],
             [
               "semantic_phrase_counts",
@@ -1254,7 +1316,7 @@ function SectionRetrieval() {
               <li>Capped globally to avoid runaway broadening</li>
               <li>Weighted and stable across repeated runs</li>
               <li>Source-tagged for explainability</li>
-              <li>Additive only — no change to native vector identity</li>
+              <li>Additive only: no change to native vector identity</li>
             </ul>
           </div>
         </div>
@@ -1291,7 +1353,7 @@ function SectionRetrieval() {
               Safety rules
             </p>
             <ul className="space-y-1.5 text-[11px] text-slate-500 leading-relaxed">
-              <li>Additive only — base scorer still stands on its own</li>
+              <li>Additive only: base scorer still stands on its own</li>
               <li>Deterministic and explainable per channel</li>
               <li>Bounded contribution into the final score</li>
               <li>No change to the canonical native vector contract</li>
@@ -1345,7 +1407,7 @@ function SectionRetrieval() {
         </div>
       </Card>
 
-      <Card title="IWQE — Inheritance-Weighted Query Expansion" color="indigo">
+      <Card title="IWQE: Inheritance-Weighted Query Expansion" color="indigo">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
           Dynamic query reformulation mechanism that runs on retrieval and
           rewrites the query vector in 256-dimensional space, blending taxonomic
@@ -1387,7 +1449,7 @@ function SectionRetrieval() {
         </div>
       </Card>
 
-      <Card title="TCT — Transitive Contradiction Traversal" color="red">
+      <Card title="TCT: Transitive Contradiction Traversal" color="red">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
           Real-world facts change. TCT resolves conflicts transitivity: if node
           C inherits from B, and B is in opposition with A, the system detects
@@ -1414,8 +1476,8 @@ function SectionRetrieval() {
               Hard Suppression (include_historical = false)
             </p>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              Older, superseded nodes are filtered out entirely from final
-              output, ensuring the RAG pipeline operates on a mathematically
+              Older, superseded nodes are filtered out completely from final
+              output, ensuring the retrieval engine operates on a mathematically
               clean, current state.
             </p>
           </div>
@@ -1438,6 +1500,8 @@ function SectionCortex() {
           API keys.
         </p>
       </div>
+
+      <VisualDomainDiagram kind="mcp" />
 
       <Card title="Remote MCP + OAuth 2.1 / PKCE" color="cyan">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
@@ -1521,11 +1585,13 @@ function SectionCortexRuntime() {
         </h2>
         <p className="text-slate-400 leading-relaxed">
           The deterministic retrieval loop over your knowledge graph. Callers
-          and MCP agents control traversal depth via graph_max_hops (1–24,
+          and MCP agents control traversal depth via graph_max_hops (1 to 24,
           defaulting to 2) while hybrid vector, lexical, and graph signals rank
           evidence with provenance.
         </p>
       </div>
+
+      <VisualGraphTopology />
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Runtime Phases" color="cyan">
@@ -1747,7 +1813,7 @@ function SectionCortexRuntime() {
             },
             {
               phase: "Stage 3: Causal Traceback Proof",
-              desc: "Identifies semantic junctions (e.g., hop 18) where recent changes or properties BLOCKS or ENABLES target states, establishing a verifiable proof of the causal event chain.",
+              desc: "Identifies semantic junctions along the bounded traversal frontier where recent changes or properties BLOCKS or ENABLES target states, establishing a verifiable causal proof chain.",
             },
             {
               phase: "Stage 4: Output & Multi-Signal Badges",
@@ -1785,10 +1851,12 @@ function SectionFigView() {
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">FIG View</h2>
         <p className="text-slate-400 leading-relaxed">
-          Professional-grade 3D visualization for exploring complex cognitive
-          landscapes.
+          Interactive 3D visualization for exploring nodes, pulse-v2 reasoning
+          paths, memory temperatures, and structural provenance.
         </p>
       </div>
+
+      <VisualDomainDiagram kind="fig" />
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Pulse-v2 Reason Ledger" color="purple">
@@ -1824,7 +1892,7 @@ function SectionFigView() {
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <Card title="Canvas — Visualization Modes" color="cyan">
+        <Card title="Canvas: Visualization Modes" color="cyan">
           <div className="space-y-3 text-sm text-slate-400">
             {[
               {
@@ -1853,7 +1921,7 @@ function SectionFigView() {
           </div>
         </Card>
 
-        <Card title="Canvas — 6 Cognitive Overlays" color="purple">
+        <Card title="Canvas: 6 Cognitive Overlays" color="purple">
           <div className="space-y-3 text-sm text-slate-400">
             {[
               { mode: "None", desc: "Standard physical 3D graph structure." },
@@ -1898,34 +1966,36 @@ function SectionBilling() {
           Subscription Plans
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM is tiered by cognitive capacity (Nodes and Hops) rather than
-          token counts.
+          Workspaces scale cleanly by knowledge graph nodes, reasoning depth,
+          and dedicated isolation without token metering.
         </p>
       </div>
+
+      <VisualDomainDiagram kind="billing" />
 
       <div className="grid md:grid-cols-2 gap-4">
         {[
           {
-            name: "Explorer",
-            desc: "1,000 Nodes, 1-Hop reasoning. Free forever.",
+            name: "Explorer ($0 / forever)",
+            desc: "1,000 cognitive nodes, 1-hop reasoning, 3D FIG View, and basic semantic search.",
           },
           {
-            name: "Architect",
-            desc: "10,000 Nodes, 4-Hop reasoning. Includes Snapshots.",
+            name: "Architect ($29 / month)",
+            desc: "10,000 nodes, 4-hop reasoning, full Semantic Alias Engine, Graph Snapshots, and REST API access.",
           },
           {
-            name: "Neural",
-            desc: "100,000 Nodes, bounded multi-hop reasoning. Cross-graph synthesis.",
+            name: "Neural ($99 / month)",
+            desc: "100,000 nodes, bounded multi-hop reasoning (up to 24 hops), cross-graph synthesis, and priority workers.",
           },
           {
-            name: "Matrix",
-            desc: "Unlimited. Private memory shards and dedicated workers.",
+            name: "Matrix (Custom)",
+            desc: "Unlimited nodes and hops, private memory shards, dedicated GPU workers, SSO, and on-premise deployment.",
           },
         ].map((tier) => (
           <Card
             key={tier.name}
             title={tier.name}
-            color={tier.name === "Neural" ? "purple" : "default"}
+            color={tier.name.startsWith("Neural") ? "purple" : "default"}
           >
             <p className="text-xs text-slate-400">{tier.desc}</p>
           </Card>
@@ -1943,13 +2013,15 @@ function SectionDocIntel() {
           Document Intelligence
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM Native extractor handles all major document formats with zero ML
-          dependencies. Every tool used is a deterministic library — PyMuPDF,
-          python-docx, openpyxl, python-pptx, Tesseract.
+          FAIM Native extractor handles structured and scanned document formats
+          deterministically using PyMuPDF, python-docx, openpyxl, python-pptx,
+          and 300 DPI Tesseract OCR.
         </p>
       </div>
 
-      <Card title="PDF — Multi-column, Tables, and Scanned" color="red">
+      <VisualDomainDiagram kind="extraction" />
+
+      <Card title="PDF: Multi-column, Tables, and Scanned" color="red">
         <div className="grid md:grid-cols-2 gap-5 text-sm text-slate-400">
           <div>
             <p className="text-red-400 font-mono text-xs mb-2">Text PDF</p>
@@ -1977,10 +2049,10 @@ function SectionDocIntel() {
             <ul className="space-y-1.5">
               {[
                 "Auto-detect pure image pages (no extractable text)",
-                "Render at 300 DPI (up from 180 — better OCR accuracy)",
+                "Render at 300 DPI (up from 180: better OCR accuracy)",
                 "Minimum 2000px width upscale before OCR",
                 "Autocontrast + sharpen preprocessing",
-                "Tesseract PSM 3 — automatic layout detection",
+                "Tesseract PSM 3: automatic layout detection",
                 "Paragraph break preservation in output",
               ].map((f) => (
                 <li key={f} className="flex gap-2">
@@ -2003,7 +2075,7 @@ function SectionDocIntel() {
               "Table header row detection",
               "Paragraph and table block separation",
               "Section anchor stored per block",
-              "python-docx — zero ML",
+              "python-docx: zero ML",
             ].map((f) => (
               <li key={f} className="flex gap-2">
                 <span className="text-emerald-400 shrink-0">✓</span>
@@ -2019,7 +2091,7 @@ function SectionDocIntel() {
               "Text boxes and table shapes extracted",
               "Speaker notes extracted as separate block",
               "Slide number anchoring per block",
-              "python-pptx — zero ML",
+              "python-pptx: zero ML",
             ].map((f) => (
               <li key={f} className="flex gap-2">
                 <span className="text-emerald-400 shrink-0">✓</span>
@@ -2031,11 +2103,11 @@ function SectionDocIntel() {
         <Card title="XLSX Support" color="emerald">
           <ul className="space-y-1.5 text-[11px] text-slate-400">
             {[
-              "data_only=True — computed cell values",
+              "data_only=True: computed cell values",
               "Header row heuristic detection",
               "Sheet name anchoring per block",
               "Row start/end range stored in anchor",
-              "openpyxl — zero ML",
+              "openpyxl: zero ML",
             ].map((f) => (
               <li key={f} className="flex gap-2">
                 <span className="text-emerald-400 shrink-0">✓</span>
@@ -2046,10 +2118,7 @@ function SectionDocIntel() {
         </Card>
       </div>
 
-      <Card
-        title="Block Anchor — What Gets Stored Per Extracted Block"
-        color="default"
-      >
+      <Card title="Block Anchor: Per-Block Structural Metadata" color="default">
         <p className="text-sm text-slate-400 mb-3">
           Every extracted block carries a full structural anchor in the graph
           node. This anchor is used in retrieval, display, and FIG View
@@ -2082,11 +2151,12 @@ function SectionIngestion() {
           Ingestion Pipeline
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          Every document goes through the same deterministic pipeline. Nothing
-          is lost between upload and retrieval. Every block preserves full
-          structural metadata.
+          Every document traverses the same deterministic pipeline so no
+          structural metadata is lost between upload and graph retrieval.
         </p>
       </div>
+
+      <VisualArchitectureFlow />
 
       <Card title="Pipeline Stages" color="purple">
         <div className="space-y-2 mt-1">
@@ -2198,13 +2268,17 @@ function SectionSecurity() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Security</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Security &amp; Isolation
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM is designed for regulated, auditable, and air-gapped
-          environments. Every design decision prioritizes data integrity, tenant
-          isolation, and zero-trust storage.
+          FAIM is engineered for regulated and air-gapped environments,
+          prioritizing cryptographic provenance, envelope key rotation, and
+          strict tenant scoping.
         </p>
       </div>
+
+      <VisualDomainDiagram kind="security" />
 
       <Card title="Cryptographic Integrity" color="emerald">
         <div className="space-y-2 text-sm text-slate-400">
@@ -2223,7 +2297,7 @@ function SectionSecurity() {
             ],
             [
               "Idempotent writes",
-              "Duplicate data never enters the graph — SHA-256 collision detection before every insert.",
+              "Duplicate data never enters the graph: SHA-256 collision detection before every insert.",
             ],
             [
               "Inheritance + boundedness checks",
@@ -2253,11 +2327,11 @@ function SectionSecurity() {
             ],
             [
               "JWT-based auth",
-              "Every API request carries a JWT. graph_id is derived from the verified token — never from user input.",
+              "Every API request carries a JWT. graph_id is derived from the verified token: never from user input.",
             ],
             [
               "Storage API enforcement",
-              "graph_id is validated on every storage operation — read, write, prune, and rebuild.",
+              "graph_id is validated on every storage operation: read, write, prune, and rebuild.",
             ],
           ].map(([k, v]) => (
             <div key={k as string} className="flex gap-3">
@@ -2274,12 +2348,12 @@ function SectionSecurity() {
         <Card title="Operational Security" color="purple">
           <ul className="space-y-2 text-[11px] text-slate-400">
             {[
-              "Zero external cloud dependency — local computation on CPU or GPU",
+              "Zero external cloud dependency: local computation on CPU or GPU",
               "Pre-bundled local Granite 97M (no runtime downloads required) plus zero-ML FAIM-Pure",
-              "All secrets via environment variables — no hardcoded keys",
-              "Entrypoint gating — refuses to start with a stale database schema",
-              "Non-root container user — principle of least privilege",
-              "Zero heavy document-ML daemon — pure deterministic layout parsing",
+              "All secrets via environment variables: no hardcoded keys",
+              "Entrypoint gating: refuses to start with a stale database schema",
+              "Non-root container user: principle of least privilege",
+              "Zero heavy document-ML daemon: pure deterministic layout parsing",
             ].map((f) => (
               <li key={f} className="flex gap-2">
                 <span className="text-purple-400 shrink-0">·</span>
@@ -2298,7 +2372,7 @@ function SectionSecurity() {
               "Tenant crypto rotation rewraps tenant DEKs under the active master key; encrypted payloads stay untouched",
               "Provenance: every node traces back to original file + page",
               "Download original: retrieve raw blob by raw_id at any time",
-              "graph_version bump on every prune — audit trail preserved",
+              "graph_version bump on every prune: audit trail preserved",
             ].map((f) => (
               <li key={f} className="flex gap-2">
                 <span className="text-amber-400 shrink-0">·</span>
@@ -2316,13 +2390,17 @@ function SectionDeployment() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Deployment</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Deployment &amp; Configuration
+        </h2>
         <p className="text-slate-400 leading-relaxed">
           Deployment uses a single root <code>docker-compose.yml</code> and root{" "}
-          <code>.env</code> configuration across local CPU/GPU and remote VPS
-          targets.
+          <code>.env</code> configuration across local CPU/GPU hosts and
+          production VPS instances.
         </p>
       </div>
+
+      <VisualDomainDiagram kind="deployment" />
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Local Stack (CPU & GPU)" color="cyan">
@@ -2419,7 +2497,7 @@ function SectionCapabilities() {
         ],
         [
           "Native 256-dim vectors",
-          "240 n-gram dims + 16 text-stat dims — zero ML",
+          "240 n-gram dims + 16 text-stat dims (pure deterministic math)",
           "done",
         ],
         [
@@ -2503,7 +2581,7 @@ function SectionCapabilities() {
         ],
         [
           "Redis cache layer",
-          "Query results cached — sub-millisecond repeat hits",
+          "Cached repeat query hits bypass full graph rescoring",
           "done",
         ],
       ],
@@ -2519,7 +2597,7 @@ function SectionCapabilities() {
         ],
         [
           "Table extraction",
-          "PyMuPDF find_tables() — no double-extraction",
+          "PyMuPDF find_tables(): no double-extraction",
           "done",
         ],
         [
@@ -2562,7 +2640,7 @@ function SectionCapabilities() {
         ],
         [
           "Conversational bypass",
-          "Greetings skip FAIM retrieval — no false document retrievals",
+          "Greetings skip FAIM retrieval: no false document retrievals",
           "done",
         ],
         [
@@ -2608,7 +2686,7 @@ function SectionCapabilities() {
         ],
         [
           "Cluster badge",
-          "Violet cluster X badge in node header — populated after running Topic Clustering",
+          "Violet cluster X badge in node header: populated after running Topic Clustering",
           "done",
         ],
         [
@@ -2618,7 +2696,7 @@ function SectionCapabilities() {
         ],
         [
           "Long-term toggle",
-          "Per-node ♾ long-term protection toggle in inspector — immediate API write",
+          "Per-node ♾ long-term protection toggle in inspector: immediate API write",
           "done",
         ],
       ],
@@ -2677,250 +2755,52 @@ function SectionBenchmarks() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Engine &amp; Retrieval Benchmarks
+          Benchmarks &amp; Evaluation
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          Signed 2026-11-24 BeIR &amp; LoCoMo retrieval results across CPU-only
-          Pure FAIM and Granite 97M hybrid profiles, paired with live BM-1–BM-9
-          operator telemetry.
+          Reproducible full-split BeIR (SciFact, NFCorpus, ArguAna) and LoCoMo
+          evaluations across zero-ML FAIM-Pure CPU and Granite 97M hybrid
+          profiles, paired with runtime graph scorecards and StressRunner load
+          probes.
         </p>
       </div>
 
+      <VisualBenchmarkChart />
+
       <BenchmarkResultsBoard compact showFullPageLink />
 
-      <Card title="Live Operator Suite (BM-1–BM-9)" color="cyan">
-        <div className="space-y-4 text-sm text-slate-400">
-          <p>
-            Inside the authenticated Dashboard, FAIM also runs real-time
-            benchmarks measured live from your graph, infrastructure, and stress
-            tests:
+      <Card title="Runtime Evaluation & Stress Testing Surface" color="cyan">
+        <div className="space-y-3 text-xs text-slate-400">
+          <p className="leading-relaxed">
+            Every reported figure comes from executed evaluation runs or live
+            telemetry endpoints rather than synthetic approximations:
           </p>
-          <div className="space-y-3">
-            {[
-              {
-                num: "1–3",
-                label: "Baseline Suite",
-                desc: "BM-1 through BM-9 tests: ingest latency, retrieval latency, graph evolution speed, cluster stability.",
-              },
-              {
-                num: "4",
-                label: "Golden Signals",
-                desc: "Google SRE's Four Golden Signals: Latency (p50/p95/p99), Traffic (req/sec), Errors (error_rate), Saturation (CPU/memory/DB).",
-              },
-              {
-                num: "5",
-                label: "Series Tracking",
-                desc: "Historical benchmark runs stored in PostgreSQL. Track performance trends over time as your graph grows.",
-              },
-              {
-                num: "6",
-                label: "Stress Testing",
-                desc: "Progressive load testing: concurrency [1, 2, 5, 10], measure throughput and latency at each level, detect saturation point.",
-              },
-              {
-                num: "7",
-                label: "Series Trending",
-                desc: "Compare current run against historical baseline. Detect performance regressions before they impact production.",
-              },
-              {
-                num: "8",
-                label: "Anomaly Detection",
-                desc: "Rule-based alerts: 9 conditions (latency spikes, memory pressure, error rates, invariant violations) with severity levels.",
-              },
-              {
-                num: "9",
-                label: "Exportable Reports",
-                desc: "Download complete benchmark snapshots as JSON with SHA-256 integrity hash for audit trails and compliance.",
-              },
-            ].map(({ num, label, desc }) => (
-              <div
-                key={label}
-                className="flex gap-3 p-3 rounded-lg border border-slate-800 bg-slate-950/40"
-              >
-                <span className="text-cyan-400 font-mono text-xs shrink-0 w-12 pt-0.5 font-bold">
-                  {num}
-                </span>
-                <div className="flex-1">
-                  <p className="text-slate-200 font-semibold text-xs">
-                    {label}
-                  </p>
-                  <p className="text-slate-500 text-[11px] mt-1">{desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Card>
-
-      <Card title="Live Metrics — Real Infrastructure Data" color="purple">
-        <p className="text-sm text-slate-400 mb-3">
-          Every metric is measured directly from your running system, not
-          estimated or cached:
-        </p>
-        <div className="grid md:grid-cols-2 gap-3 text-[11px]">
           {[
             [
-              "CPU utilization",
-              "From Docker cgroup limits — actual % of container CPU used",
+              "BeIR Retrieval Harness",
+              "Evaluates SciFact (5,183 docs / 300 queries), NFCorpus (323 queries), and ArguAna against BM25 and standalone dense baselines under identical corpus splits.",
             ],
             [
-              "Memory usage",
-              "From container memory — actual % of allocated memory",
+              "Graph Topology Scorecard",
+              "Exposed at GET /api/v1/metrics/scorecard, computing live Density D, Shannon Edge Entropy H, and Spectral Radius lambda directly from the persisted graph.",
             ],
             [
-              "Database connections",
-              "From pg_stat_activity — active connections vs max_connections",
+              "StressRunner Load Probes",
+              "Executes progressive concurrency streams [1, 2, 5, 10] measuring ingest throughput, P50/P95/P99 latency, and plateau saturation detection while checking graph invariants.",
             ],
             [
-              "Database size",
-              "pg_total_relation_size() — actual storage footprint",
-            ],
-            [
-              "Redis memory",
-              "INFO memory — hit rate, evicted keys, command latency",
-            ],
-            ["Ingest throughput", "Documents per second during stress test"],
-            [
-              "Query latency",
-              "p50/p95/p99 milliseconds from live query sampling",
-            ],
-            [
-              "Graph invariants",
-              "Inheritance sum check, boundedness check, opposition validation",
-            ],
-          ].map(([metric, desc]) => (
-            <div
-              key={metric}
-              className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2"
-            >
-              <p className="font-mono text-purple-400 text-[10px] mb-0.5">
-                {metric}
-              </p>
-              <p className="text-slate-600 text-[10px]">{desc}</p>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card title="Stress Testing — Progressive Load" color="emerald">
-        <p className="text-sm text-slate-400 mb-3">
-          Measure how your graph handles increasing concurrency. FAIM runs at 1,
-          2, 5, and 10 concurrent ingest streams:
-        </p>
-        <div className="space-y-2 text-[11px]">
-          {[
-            [
-              "Concurrency",
-              "Progressive load levels: [1, 2, 5, 10] concurrent document streams",
-            ],
-            [
-              "Throughput",
-              "Documents ingested per second at each concurrency level",
-            ],
-            [
-              "Latency percentiles",
-              "p50, p95, p99 ingest latency in milliseconds per concurrency",
-            ],
-            [
-              "Saturation detection",
-              "Identifies where throughput plateaus (<10% improvement) — your saturation point",
-            ],
-            [
-              "Invariant stability",
-              "Verifies that graph invariants remain valid under load — no corruption",
+              "Signed & Reproducible Reports",
+              "Every benchmark run records active engine mode (FAIM_FAST_ML_EMBEDDING), hardware profile, and SHA-256 verification artifacts.",
             ],
           ].map(([k, v]) => (
             <div
               key={k}
-              className="flex gap-3 py-1 border-b border-slate-800/40 last:border-0"
+              className="rounded-xl border border-slate-800 bg-slate-950/50 p-3"
             >
-              <span className="text-slate-500 text-[11px] shrink-0 w-28 font-mono">
-                {k}
-              </span>
-              <span className="text-slate-300">{v}</span>
+              <p className="font-mono text-cyan-300 font-semibold mb-1">{k}</p>
+              <p className="text-slate-400 leading-relaxed">{v}</p>
             </div>
           ))}
-        </div>
-      </Card>
-
-      <Card title="Anomaly Alerts — 9 Rule-Based Conditions" color="amber">
-        <p className="text-sm text-slate-400 mb-3">
-          Deterministic rule-based detection (no ML) across 9 alert categories:
-        </p>
-        <div className="space-y-2">
-          {[
-            {
-              rule: "Latency spike (CRITICAL)",
-              cond: "Ingest latency > 2× SpeedBudget target",
-            },
-            {
-              rule: "Latency warning (WARNING)",
-              cond: "Ingest latency > 1.5× SpeedBudget target",
-            },
-            {
-              rule: "Cache hit rate low (WARNING)",
-              cond: "Redis hit rate < 50%",
-            },
-            {
-              rule: "Energy approaching bound (CRITICAL)",
-              cond: "E > 1.8 (out of 2.0 max)",
-            },
-            {
-              rule: "High redundancy (WARNING)",
-              cond: "Graph redundancy > 50%",
-            },
-            {
-              rule: "Database disconnected (CRITICAL)",
-              cond: "PostgreSQL unavailable",
-            },
-            {
-              rule: "Memory pressure (WARNING)",
-              cond: "Container memory usage > 85%",
-            },
-            { rule: "CPU throttle (INFO)", cond: "Container CPU usage > 80%" },
-            {
-              rule: "Invariant violation (CRITICAL)",
-              cond: "Inheritance sum ≠ 1.0 or boundedness violated",
-            },
-          ].map(({ rule, cond }) => (
-            <div
-              key={rule}
-              className="flex gap-3 p-2 rounded-lg border border-slate-800/50 bg-slate-950/20"
-            >
-              <span className="text-amber-400 font-mono text-[10px] shrink-0">
-                {rule}
-              </span>
-              <span className="text-slate-500 text-[10px]">{cond}</span>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <Card title="Accessing Benchmarks" color="default">
-        <p className="text-sm text-slate-400 mb-3">
-          All benchmarks are available from the Dashboard:
-        </p>
-        <div className="space-y-2 text-sm text-slate-400">
-          <div className="flex gap-2">
-            <span className="text-slate-500">1.</span>Go to Dashboard →
-            Benchmarks tab
-          </div>
-          <div className="flex gap-2">
-            <span className="text-slate-500">2.</span>Click "Run Benchmark" to
-            execute the full BM-1 to BM-9 suite (takes ~10s)
-          </div>
-          <div className="flex gap-2">
-            <span className="text-slate-500">3.</span>Click "Stress Test" to run
-            progressive load testing (5–10min depending on graph size)
-          </div>
-          <div className="flex gap-2">
-            <span className="text-slate-500">4.</span>View Golden Signals,
-            Alerts, and historical trends in the tabs
-          </div>
-          <div className="flex gap-2">
-            <span className="text-slate-500">5.</span>Click "Export" to download
-            a complete JSON report with SHA-256 integrity hash
-          </div>
         </div>
       </Card>
     </div>
@@ -2947,7 +2827,7 @@ function SectionRoadmap() {
             label: "Deterministic Memory + Knowledge Graph",
             status: "done",
             detail:
-              "Opposition, inheritance, temporal, semantic edges, IDF weighting, Porter stemming, entity expansion, stop-word removal, graph diffusion, and deterministic core scoring — all complete and tested.",
+              "Opposition, inheritance, temporal, semantic edges, IDF weighting, Porter stemming, entity expansion, stop-word removal, graph diffusion, and deterministic core scoring: all complete and tested.",
           },
           {
             phase: "Storage",
@@ -3084,10 +2964,13 @@ function SectionCanonicalSemantics() {
           Canonical Semantics Pipeline
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM matches concepts using deterministic lemmatization and broadeners
-          instead of relying on stochastic learned semantics models.
+          FAIM matches concepts using deterministic lemmatization, alias
+          canonicalization, and the 2,319,589-term Semantic Registry instead of
+          relying on stochastic query rewriting.
         </p>
       </div>
+
+      <VisualLexiconDistribution />
 
       <div className="grid md:grid-cols-3 gap-4">
         <Card title="Porter Stemmer & Lemmatization" color="cyan">
@@ -3206,6 +3089,8 @@ function SectionGraphDiffusion() {
         </p>
       </div>
 
+      <VisualGraphTopology />
+
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Decaying Path Score" color="indigo">
           <p className="text-sm text-slate-400 leading-relaxed">
@@ -3250,9 +3135,11 @@ function SectionRerankerV2() {
         </h2>
         <p className="text-slate-400 leading-relaxed">
           Fuses sparse, dense, and graph components into a single multi-signal
-          score to achieve extreme precision without learned cross-encoders.
+          score for high precision without learned cross-encoders.
         </p>
       </div>
+
+      <VisualScoreCalculator mode="scoring" />
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Multi-Signal Score Blend" color="cyan">
@@ -3287,14 +3174,16 @@ function SectionScaleANN() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Indexing, WAND & ANN
+          Indexing, WAND &amp; ANN
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM scales retrieval to millions of nodes using graph-versioned
-          cached artifacts, WAND pruning, and a deterministic VP-tree dense
+          FAIM scales retrieval using graph-versioned cached artifacts,
+          Block-Max WAND sparse pruning, and a deterministic VP-tree dense
           shortlist.
         </p>
       </div>
+
+      <VisualBenchmarkChart />
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Block-Max WAND Pruning" color="cyan">
@@ -3353,9 +3242,12 @@ function SectionMultilingual() {
         <p className="text-slate-400 leading-relaxed">
           Bridges English, German, Spanish, French, Italian, Portuguese, and
           Dutch terms directly onto language-agnostic conceptual nodes using
-          deterministic lexicons.
+          146,598 static multilingual lexicon entries alongside 2,172,991
+          ConceptNet keys.
         </p>
       </div>
+
+      <VisualLexiconDistribution />
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="German Transliteration" color="cyan">
@@ -3399,6 +3291,8 @@ function SectionMultimodalNoML() {
         </p>
       </div>
 
+      <VisualDomainDiagram kind="extraction" />
+
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Table Linearization" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
@@ -3439,6 +3333,8 @@ function SectionDomainAdaptation() {
         </p>
       </div>
 
+      <VisualLexiconDistribution />
+
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Deterministic Entity Linking" color="cyan">
           <p className="text-sm text-slate-400 leading-relaxed">
@@ -3476,10 +3372,12 @@ function SectionAnswerSynthesis() {
           Extractive Answer Synthesis
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          Composes 100% auditable, citation-first extractive prose and exact
+          Composes auditable, citation-first extractive prose and calibrated
           confidence intervals without generative LLM drift.
         </p>
       </div>
+
+      <VisualScoreCalculator mode="confidence" />
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card title="Extractive Span Selector" color="cyan">
@@ -3514,31 +3412,31 @@ function SectionHybridRouting() {
       "FAST + English",
       "FAIM_FAST_ML_EMBEDDING=auto",
       "FAIM-Pure (256-dim native)",
-      "fast_pure_english — skips neural inference for deterministic ~2ms speed",
+      "fast_pure_english: skips neural inference in favor of deterministic CPU math",
     ],
     [
       "FAST + Non-English",
       "FAIM_FAST_ML_EMBEDDING=auto",
       "Granite 97M Multilingual Dense",
-      "fast_multilingual_embedding — auto-enables cross-lingual dense recall",
+      "fast_multilingual_embedding: auto-enables cross-lingual dense recall",
     ],
     [
       "STRICT / BALANCED / RELAXED",
       "FAIM_FAST_ML_EMBEDDING=auto",
       "Active ML Embedding + Native Core",
-      "regular_embedding — blends semantic vectors with canonical graph recall",
+      "regular_embedding: blends semantic vectors with canonical graph recall",
     ],
     [
       "CPU-Only VPS Override",
       "FAIM_FAST_ML_EMBEDDING=false",
       "FAIM-Pure in FAST mode",
-      "fast_pure_forced — guarantees zero GPU requirement for fast paths",
+      "fast_pure_forced: guarantees zero GPU requirement for fast paths",
     ],
     [
       "Always Neural Fast Path",
       "FAIM_FAST_ML_EMBEDDING=true",
       "Active ML Embedding in FAST mode",
-      "ml_embedding_forced — prioritizes neural vectors even on English FAST queries",
+      "ml_embedding_forced: prioritizes neural vectors even on English FAST queries",
     ],
   ];
 
@@ -3584,6 +3482,8 @@ function SectionHybridRouting() {
           based on query profile, language, and available compute hardware.
         </p>
       </div>
+
+      <VisualHybridRouter />
 
       <div className="grid md:grid-cols-3 gap-4">
         <Card title="Zero-GPU VPS Ready" color="cyan">
@@ -3820,6 +3720,8 @@ function SectionApiReference() {
         </p>
       </div>
 
+      <VisualDomainDiagram kind="api" />
+
       <Card title="Quick Curl Example" color="indigo">
         <Code>{`# Check health & execute a hybrid bounded query
 curl -fsS http://localhost:8000/health && curl -fsS http://localhost:8000/ready
@@ -3972,6 +3874,11 @@ export default function DocsPage() {
     }
     return { group: "Overview", label: "What is FAIM?" };
   }, [active]);
+
+  const activeIndex = Math.max(
+    0,
+    allItems.findIndex((i) => i.id === active),
+  );
 
   const Content = SECTION_COMPONENTS[active] ?? SectionWhatIsFaim;
 
@@ -4153,15 +4060,15 @@ export default function DocsPage() {
             </div>
           </aside>
 
-          {/* Content panel — only active section shown */}
+          {/* Content panel */}
           <div className="flex-1 min-w-0 max-w-4xl">
-            <div className="mb-5 flex items-center gap-2 text-xs font-mono text-slate-500">
-              <span>Docs</span>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-700" />
-              <span className="text-slate-400">{activeMeta.group}</span>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-700" />
-              <span className="text-cyan-300">{activeMeta.label}</span>
-            </div>
+            <DocsBookBanner
+              chapterNumber={activeIndex + 1}
+              totalChapters={allItems.length}
+              groupTitle={activeMeta.group}
+              sectionTitle={activeMeta.label}
+              version={APP_VERSION}
+            />
 
             <AnimatePresence mode="wait">
               <motion.div
