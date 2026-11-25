@@ -77,6 +77,14 @@ def __getattr__(name: str):
         from encoding.embedding_providers import should_use_ml_embedding
 
         return should_use_ml_embedding
+    if name == "encode_with_fallback":
+        from encoding.embedding_providers import encode_with_fallback
+
+        return encode_with_fallback
+    if name == "encode_single_with_fallback":
+        from encoding.embedding_providers import encode_single_with_fallback
+
+        return encode_single_with_fallback
     raise AttributeError(f"module 'encoding' has no attribute '{name}'")
 
 
@@ -99,4 +107,6 @@ __all__ = [
     "EmbeddingResult",
     "is_english_text",
     "should_use_ml_embedding",
+    "encode_with_fallback",
+    "encode_single_with_fallback",
 ]

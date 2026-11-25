@@ -964,3 +964,80 @@ def encode_single(text: str) -> List[float]:
     if provider is None:
         raise RuntimeError("No embedding provider available")
     return provider.encode_single(text)
+
+
+def _iter_fallback_providers(
+    primary_provider: Optional[EmbeddingProvider] = None,
+) -> List[Tuple[str, EmbeddingProvider]]:
+    """Return candidate providers starting with primary, then other local/ready providers."""
+    candidates: List[Tuple[str, EmbeddingProvider]] = []
+    seen_ids: set[int] = set()
+    if primary_provider is not None:
+        candidates.append(("primary", primary_provider))
+        seen_ids.add(id(primary_provider))
+
+    registry = get_embedding_registry()
+    active_id = registry.get_active_id()
+    ordered_ids = ([active_id] if active_id else []) + [
+        pid for pid in registry._providers if pid != active_id
+    ]
+    for pid in ordered_ids:
+        provider = registry._providers.get(pid)
+        if provider is None or id(provider) in seen_ids:
+            continue
+        # Skip implicit un-downloaded bge-m3 hub slot during fallback so offline hosts don't stall.
+        if (
+            isinstance(provider, BgeM3LocalProvider)
+            and provider.model_info.model_path is None
+        ):
+            continue
+        candidates.append((pid, provider))
+        seen_ids.add(id(provider))
+    return candidates
+
+
+def encode_with_fallback(
+    texts: Sequence[str],
+    *,
+    primary_provider: Optional[EmbeddingProvider] = None,
+) -> Tuple[Optional[EmbeddingResult], Optional[str]]:
+    """Try primary then backup embedding providers; return (None, last_error) if all fail."""
+    text_list = list(texts)
+    if not text_list:
+        return None, None
+    last_error: Optional[str] = None
+    for pid, provider in _iter_fallback_providers(primary_provider):
+        try:
+            if not provider.is_available():
+                last_error = f"{pid}: unavailable"
+                continue
+            result = provider.encode(text_list)
+            if result and result.vectors:
+                return result, None
+            last_error = f"{pid}: empty embedding vectors"
+        except Exception as exc:
+            last_error = f"{pid}: {exc}"
+            logger.warning("Embedding provider '%s' failed; trying next fallback: %s", pid, exc)
+    return None, last_error
+
+
+def encode_single_with_fallback(
+    text: str,
+    *,
+    primary_provider: Optional[EmbeddingProvider] = None,
+) -> Tuple[Optional[List[float]], Optional[str]]:
+    """Try primary then backup providers for a single query; return (None, last_error) if all fail."""
+    last_error: Optional[str] = None
+    for pid, provider in _iter_fallback_providers(primary_provider):
+        try:
+            if not provider.is_available():
+                last_error = f"{pid}: unavailable"
+                continue
+            vec = provider.encode_single(text)
+            if vec:
+                return vec, None
+            last_error = f"{pid}: empty embedding vector"
+        except Exception as exc:
+            last_error = f"{pid}: {exc}"
+            logger.warning("Embedding provider '%s' failed; trying next fallback: %s", pid, exc)
+    return None, last_error

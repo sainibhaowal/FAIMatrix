@@ -606,7 +606,11 @@ def run_ingest(
         vectors = vectorize_blocks(blocks)
         from encoding.representation_v2 import build_representation_v2_for_block
 
-        from encoding import get_active_embedding_provider, should_use_ml_embedding
+        from encoding import (
+            encode_with_fallback,
+            get_active_embedding_provider,
+            should_use_ml_embedding,
+        )
 
         texts = [block.content for block in blocks if hasattr(block, "content")]
         use_ml_emb, emb_route = should_use_ml_embedding(
@@ -620,8 +624,10 @@ def run_ingest(
         else:
             try:
                 provider = get_active_embedding_provider()
-                if provider and provider.is_available() and texts:
-                    emb_result = provider.encode(texts)
+                emb_result, emb_err = encode_with_fallback(
+                    texts, primary_provider=provider
+                )
+                if emb_result is not None and texts:
                     # Align embeddings with blocks (some blocks may not have content)
                     emb_idx = 0
                     for block in blocks:
@@ -639,6 +645,11 @@ def run_ingest(
                         emb_route,
                     )
                 else:
+                    if emb_err:
+                        logger.warning(
+                            "[Ingest] No embedding provider succeeded (%s); falling back to FAIM-Pure.",
+                            emb_err,
+                        )
                     embedding_vectors = [None] * len(blocks)
             except Exception as e:
                 logger.warning(f"[Ingest] Embedding generation skipped: {e}")

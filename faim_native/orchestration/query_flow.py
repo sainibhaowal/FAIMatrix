@@ -1340,7 +1340,11 @@ def run_query(
     # - Regular profiles (STRICT/BALANCED/RELAXED): always use active ML embedding model
     # - FAST + English: use FAIM-Pure (skip ML embedding)
     # - FAST + non-English: dynamically use active ML embedding model
-    from encoding import get_active_embedding_provider, should_use_ml_embedding
+    from encoding import (
+        encode_single_with_fallback,
+        get_active_embedding_provider,
+        should_use_ml_embedding,
+    )
 
     embedding_started = _stage_start()
     query_embedding: Optional[List[float]] = None
@@ -1350,10 +1354,12 @@ def run_query(
     if use_ml_emb:
         try:
             emb_provider = get_active_embedding_provider()
-            if emb_provider and emb_provider.is_available():
-                query_embedding = emb_provider.encode_single(
-                    expanded_query_text or query_text
-                )
+            query_embedding, emb_err = encode_single_with_fallback(
+                expanded_query_text or query_text,
+                primary_provider=emb_provider,
+            )
+            if query_embedding is None and emb_err:
+                _degraded("semantic_embedding_encode", RuntimeError(emb_err))
         except Exception as exc:
             _degraded("semantic_embedding_encode", exc)
             query_embedding = None

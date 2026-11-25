@@ -10,6 +10,8 @@ from sqlalchemy.orm import sessionmaker
 
 from encoding.embedding_providers import (
     EmbeddingResult,
+    encode_single_with_fallback,
+    encode_with_fallback,
     is_english_text,
     should_use_ml_embedding,
 )
@@ -242,5 +244,121 @@ def test_run_ingest_routes_english_fast_to_pure_and_regular_or_multilingual_to_e
         assert by_raw["raw_en_fast"].v_embedding is None
         assert by_raw["raw_de_fast"].v_embedding == [0.25] * 8
         assert by_raw["raw_en_strict"].v_embedding == [0.25] * 8
+    finally:
+        session.close()
+
+
+def test_embedding_provider_cascades_and_falls_back_to_faim_pure_without_damage(
+    monkeypatch,
+):
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
+
+    class _BrokenProvider:
+        def is_available(self) -> bool:
+            return True
+
+        def encode(self, texts):
+            raise RuntimeError("primary offline")
+
+        def encode_single(self, text):
+            raise RuntimeError("primary offline")
+
+    class _BackupProvider:
+        def is_available(self) -> bool:
+            return True
+
+        def encode(self, texts):
+            return EmbeddingResult(
+                vectors=[[0.5] * 4 for _ in texts],
+                dimension=4,
+                model_name="backup",
+                token_count=len(texts),
+            )
+
+        def encode_single(self, text):
+            return [0.5] * 4
+
+    fake_registry = SimpleNamespace(
+        get_active_id=lambda: "broken",
+        _providers={"broken": _BrokenProvider(), "backup": _BackupProvider()},
+    )
+    with patch("encoding.embedding_providers.get_embedding_registry", return_value=fake_registry):
+        res, err = encode_with_fallback(["hello"], primary_provider=_BrokenProvider())
+        assert err is None and res is not None and res.vectors == [[0.5] * 4]
+        vec, s_err = encode_single_with_fallback("hello", primary_provider=_BrokenProvider())
+        assert s_err is None and vec == [0.5] * 4
+
+    # When ALL embedding providers fail or are unavailable, ingest and query must still
+    # succeed safely using FAIM-Pure without crashing.
+    empty_registry = SimpleNamespace(
+        get_active_id=lambda: "broken",
+        _providers={"broken": _BrokenProvider()},
+    )
+    monkeypatch.setenv("FAIM_FAST_ML_EMBEDDING", "auto")
+    monkeypatch.setenv("FAIM_PROFILE_PERSIST_COMPAT_MODE", "false")
+    monkeypatch.setenv("FAIM_ENABLE_JOBS", "false")
+    monkeypatch.setenv("FAIM_ENABLE_INDEX", "false")
+
+    repo_kwargs = {
+        "node_repo": NodeRepo(session=session, tenant_id="t1"),
+        "edge_repo": EdgeRepo(session=session, tenant_id="t1"),
+        "event_repo": EventRepo(session=session, tenant_id="t1"),
+        "gv_repo": GraphVersionRepo(tenant_id="t1"),
+    }
+
+    try:
+        with (
+            patch(
+                "encoding.embedding_providers.get_embedding_registry",
+                return_value=empty_registry,
+            ),
+            patch(
+                "encoding.get_active_embedding_provider",
+                return_value=_BrokenProvider(),
+            ),
+        ):
+            ing = run_ingest(
+                graph_id="g_safe",
+                raw_id="raw_safe",
+                filename="safe.txt",
+                file_bytes=b"FAIM Pure keeps running cleanly when embeddings fail.",
+                tenant_id="t1",
+                session=session,
+                profile=FAIMProfile.STRICT,
+                **repo_kwargs,
+            )
+            assert ing.status == "completed"
+            node = session.query(NodeModel).filter_by(raw_id="raw_safe").first()
+            assert node is not None and node.v_embedding is None
+
+            qres = run_query(
+                session=session,
+                tenant_id="t1",
+                graph_id="g_safe",
+                query_text="FAIM Pure keeps running",
+                profile=FAIMProfile.STRICT,
+            )
+            assert qres.metrics["ml_embedding_used"] == 0.0
+            assert "semantic_embedding_encode" in qres.degraded_features
+            assert len(qres.results) >= 1
+
+            # Also verify Phase 5 hybrid recall failure degrades safely without crash
+            monkeypatch.setenv("FAIM_PHASE5_ENABLED", "true")
+            monkeypatch.setenv("FAIM_REPR_V2_ENABLED", "true")
+            with patch(
+                "orchestration.perf.index_rebuild.get_graph_index_artifacts",
+                side_effect=RuntimeError("phase5 unavailable"),
+            ):
+                qres_p5 = run_query(
+                    session=session,
+                    tenant_id="t1",
+                    graph_id="g_safe",
+                    query_text="FAIM Pure keeps running",
+                    profile=FAIMProfile.STRICT,
+                )
+                assert "phase5_hybrid_recall" in qres_p5.degraded_features
+                assert len(qres_p5.results) >= 1
     finally:
         session.close()

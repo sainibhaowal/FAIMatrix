@@ -320,7 +320,10 @@ def create_app() -> FastAPI:
         }:
             import asyncio
 
-            from encoding import get_active_embedding_provider
+            from encoding import (
+                encode_single_with_fallback,
+                get_active_embedding_provider,
+            )
 
             timeout_raw = os.getenv("FAIM_EMBEDDING_PREWARM_TIMEOUT_SECONDS", "300")
             try:
@@ -331,10 +334,15 @@ def create_app() -> FastAPI:
 
                 def _prewarm_embedding() -> str:
                     provider = get_active_embedding_provider()
-                    if provider is None:
-                        raise RuntimeError("No active embedding provider is configured")
-                    provider.encode_single("FAIM embedding startup prewarm")
-                    return provider.model_info.name
+                    vec, err = encode_single_with_fallback(
+                        "FAIM embedding startup prewarm",
+                        primary_provider=provider,
+                    )
+                    if not vec:
+                        raise RuntimeError(
+                            err or "No working embedding provider available"
+                        )
+                    return provider.model_info.name if provider else "fallback"
 
                 provider_name = await asyncio.wait_for(
                     asyncio.to_thread(_prewarm_embedding),
@@ -342,9 +350,12 @@ def create_app() -> FastAPI:
                 )
                 logger.info("Embedding provider prewarmed: %s", provider_name)
             except Exception as exc:
-                logger.critical("Embedding prewarm failed: %s", exc)
+                logger.warning(
+                    "Embedding prewarm unavailable (%s); continuing with FAIM-Pure fallback.",
+                    exc,
+                )
                 if os.getenv(
-                    "FAIM_EMBEDDING_PREWARM_REQUIRED", "true"
+                    "FAIM_EMBEDDING_PREWARM_REQUIRED", "false"
                 ).strip().lower() in {"1", "true", "yes", "on"}:
                     raise RuntimeError("Required embedding prewarm failed") from exc
 
