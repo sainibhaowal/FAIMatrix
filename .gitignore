@@ -26,6 +26,7 @@ venv/
 ENV/
 
 # Node / Next.js
+!frontend/src/lib/
 node_modules/
 **/node_modules/
 .next/
