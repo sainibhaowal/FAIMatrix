@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { useState } from "react";
 import Logo from "@/components/brand/Logo";
+import BenchmarkResultsBoard from "@/components/landing/BenchmarkResultsBoard";
 
 // ---------------------------------------------------------------------------
 // Nav structure
@@ -1116,16 +1117,16 @@ function SectionRetrieval() {
             In pure zero-ML CPU-first mode (collision-free BM25+,{" "}
             <code className="text-cyan-300">GraphIndexArtifacts</code> RAM
             caching, vectorized <code className="text-cyan-300">float32</code>{" "}
-            BLAS scoring, cached <code className="text-cyan-300">_maxsim_units</code>{" "}
-            &amp; propositions, and{" "}
-            <code className="text-cyan-300">RerankerV2</code>{" "}
+            BLAS scoring, cached{" "}
+            <code className="text-cyan-300">_maxsim_units</code> &amp;
+            propositions, and <code className="text-cyan-300">RerankerV2</code>{" "}
             soft-suppression), FAIM-Native achieved{" "}
             <code className="text-emerald-300">nDCG@10 = 0.6878</code>,{" "}
             <code className="text-emerald-300">Recall@5 = 0.7554</code>,{" "}
             <code className="text-emerald-300">MRR = 0.6570</code>, and{" "}
             <code className="text-emerald-300">231.07 ms</code> HTTP P50 ({" "}
-            <code className="text-emerald-300">284.02 ms</code> P95) on the
-            full 5,183-doc / 300-query SciFact split ({" "}
+            <code className="text-emerald-300">284.02 ms</code> P95) on the full
+            5,183-doc / 300-query SciFact split ({" "}
             <code className="text-emerald-300">Publication gate: READY</code>)
             vs. <code className="text-slate-300">BM25-Baseline</code> (
             <code className="text-slate-300">0.6644</code> nDCG@10 /{" "}
@@ -2254,8 +2255,8 @@ function SectionSecurity() {
         <Card title="Operational Security" color="purple">
           <ul className="space-y-2 text-[11px] text-slate-400">
             {[
-              "No cloud dependency — all computation is local",
-              "No ML model downloads at runtime",
+              "Zero external cloud dependency — local computation on CPU or GPU",
+              "Pre-bundled local Granite 97M (no runtime downloads required) plus zero-ML FAIM-Pure",
               "All secrets via environment variables — no hardcoded keys",
               "Entrypoint gating — refuses to start with a stale database schema",
               "Non-root container user — principle of least privilege",
@@ -2299,7 +2300,8 @@ function SectionDeployment() {
         <h2 className="text-2xl font-bold text-white mb-2">Deployment</h2>
         <p className="text-slate-400 leading-relaxed">
           Deployment uses a single root <code>docker-compose.yml</code> and root{" "}
-          <code>.env</code> configuration across local CPU/GPU and remote VPS targets.
+          <code>.env</code> configuration across local CPU/GPU and remote VPS
+          targets.
         </p>
       </div>
 
@@ -2655,21 +2657,23 @@ function SectionBenchmarks() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Engine Benchmarks
+          Engine &amp; Retrieval Benchmarks
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          Real-time performance monitoring, stress testing, and state-of-the-art
-          benchmarking with deterministic, reproducible measurement of
-          FAIM-Native's speed, efficiency, and system health.
+          Signed 2026-11-24 BeIR &amp; LoCoMo retrieval results across CPU-only
+          Pure FAIM and Granite 97M hybrid profiles, paired with live BM-1–BM-9
+          operator telemetry.
         </p>
       </div>
 
-      <Card title="8-Phase Benchmark System" color="cyan">
+      <BenchmarkResultsBoard compact showFullPageLink />
+
+      <Card title="Live Operator Suite (BM-1–BM-9)" color="cyan">
         <div className="space-y-4 text-sm text-slate-400">
           <p>
-            FAIM's benchmarks measure real performance across multiple
-            dimensions — no synthetics, no hardcoded metrics. Every data point
-            is measured live from your graph, infrastructure, and stress tests.
+            Inside the authenticated Dashboard, FAIM also runs real-time
+            benchmarks measured live from your graph, infrastructure, and stress
+            tests:
           </p>
           <div className="space-y-3">
             {[
@@ -2704,7 +2708,7 @@ function SectionBenchmarks() {
                 desc: "Rule-based alerts: 9 conditions (latency spikes, memory pressure, error rates, invariant violations) with severity levels.",
               },
               {
-                num: "8",
+                num: "9",
                 label: "Exportable Reports",
                 desc: "Download complete benchmark snapshots as JSON with SHA-256 integrity hash for audit trails and compliance.",
               },

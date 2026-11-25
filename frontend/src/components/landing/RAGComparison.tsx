@@ -676,24 +676,24 @@ export default function RAGComparison() {
             </div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Benchmark responsibly
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
+              Verified Empirical Results · 2026-11-24
             </p>
             <h3 className="mt-3 text-xl font-semibold text-white">
-              The next honest comparison is empirical
+              Signed BeIR &amp; LoCoMo Benchmarks Published
             </h3>
             <p className="mt-3 text-sm leading-6 text-slate-400">
-              To publish recall, latency, cost, or answer-quality claims, run
-              the same corpus and question set through each system, pin model
-              and index settings, record hardware and version, and publish the
-              raw harness and failures. Until that exists, this page stays
-              descriptive.
+              Across full un-sampled splits, FAIM + Granite 97M achieves 0.6900
+              nDCG@10 on BeIR/SciFact (vs 0.6644 BM25) and 0.3314 on
+              BeIR/NFCorpus (vs 0.3110 BM25), while Pure FAIM Zero-ML CPU hits
+              0.6871 at 86.31 ms P50. Full results and LoCoMo trade-offs are
+              published alongside the signed artifacts.
             </p>
             <a
               href="/benchmarks"
               className="mt-5 inline-flex items-center gap-2 text-xs font-semibold text-cyan-300 transition-colors hover:text-cyan-200"
             >
-              See the FAIM benchmark surface{" "}
+              Inspect verified BeIR &amp; LoCoMo report{" "}
               <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
             </a>
           </div>

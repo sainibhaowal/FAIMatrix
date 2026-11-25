@@ -36,6 +36,7 @@ export { default as CTA } from "./landing/CTA";
 export { default as MaximumIntelligence } from "./landing/MaximumIntelligence";
 export { default as AdvancedADIPipeline } from "./landing/AdvancedADIPipeline";
 export { default as LandingSectionDeck } from "./landing/LandingSectionDeck";
+export { default as BenchmarkResultsBoard } from "./landing/BenchmarkResultsBoard";
 export { default as Footer } from "./landing/Footer";
 export { default as FaimLogo } from "./landing/FaimLogo";
 export { default as FeaturePageLayout } from "./landing/FeaturePageLayout";

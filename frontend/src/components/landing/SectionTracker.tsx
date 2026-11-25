@@ -165,7 +165,7 @@ const SUBNAV: Record<string, SubItem[]> = {
     {
       key: "benchmarks",
       label: "Benchmarks",
-      summary: "What the engine measures.",
+      summary: "Signed BeIR, LoCoMo, and engine benchmarks.",
     },
   ],
   ops: [

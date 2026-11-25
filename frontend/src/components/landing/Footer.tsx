@@ -8,6 +8,7 @@ const footerLinks = {
   product: [
     { label: "Core", href: "#core" },
     { label: "Proof", href: "#proof" },
+    { label: "Benchmarks", href: "/benchmarks" },
     { label: "Documentation", href: "/docs" },
   ],
   company: [

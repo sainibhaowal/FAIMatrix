@@ -10,6 +10,7 @@ const navLinks = [
   { href: "#core", label: "Core" },
   { href: "#platform", label: "Platform" },
   { href: "#proof", label: "Proof" },
+  { href: "/benchmarks", label: "Benchmarks" },
   { href: "#ops", label: "Ops" },
   { href: "#scale", label: "Scale" },
   { href: "/docs", label: "Docs" },

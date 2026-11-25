@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Architecture,
   AdvancedADIPipeline,
+  BenchmarkResultsBoard,
   DeveloperAPI,
   DocsOperations,
   EnterprisePillars,
@@ -66,14 +67,22 @@ function BenchmarksShowcase() {
     <section className="py-20 px-4 bg-gradient-to-b from-slate-950 to-slate-900/50">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
+          <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-200 mb-4">
+            Signed BeIR &amp; LoCoMo Benchmarks · 2026-11-24
+          </div>
           <h2 className="text-4xl font-bold text-white mb-4">
-            Engine Benchmarks - Prove Your Performance
+            Empirical &amp; Engine Benchmarks
           </h2>
-          <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-            FAIM includes a state-of-the-art, real-time benchmarking system. No
-            synthetic metrics. No hardcoded numbers. Every measurement is live
-            from your graph, infrastructure, and actual stress tests.
+          <p className="text-lg text-slate-400 max-w-3xl mx-auto">
+            Reproducible retrieval and conversational memory measurements across
+            Pure FAIM Zero-ML (CPU &amp; CUDA), FAIM + Granite 97M Multilingual,
+            and BM25-Baseline — paired with live BM-1–BM-9 SRE telemetry inside
+            every deployment.
           </p>
+        </div>
+
+        <div className="mb-12">
+          <BenchmarkResultsBoard compact={false} showFullPageLink />
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">

@@ -13,10 +13,10 @@ import {
 } from "lucide-react";
 
 const HERO_STATS = [
-  { value: "Seeded", unit: "", label: "Semantic routing" },
-  { value: "256", unit: "dim", label: "Deterministic vectors" },
-  { value: "Hybrid", unit: "", label: "Retrieval stack" },
-  { value: "SHA-256", unit: "", label: "Cryptographic lineage" },
+  { value: "0.6900", unit: "nDCG@10", label: "BeIR/SciFact · Granite 97M" },
+  { value: "0.6871", unit: "nDCG@10", label: "BeIR/SciFact · Pure FAIM CPU" },
+  { value: "86.31", unit: "ms", label: "CPU CI P50 latency (SciFact)" },
+  { value: "Dynamic", unit: "CPU/GPU", label: "FAIM-Pure + Granite fallback" },
 ];
 
 const SPINE = [
@@ -205,9 +205,16 @@ export default function Hero() {
               Deterministic semantic router
             </p>
             <p className="mt-1">
-              Seeded alias and pattern classification with no LLM required for
-              this path. Latency depends on deployment and is reported in the
-              benchmark surface.
+              Seeded alias routing plus dynamic FAIM-Pure (English FAST) and
+              Granite 97M CPU/GPU hybrid recall. Measured BeIR &amp; LoCoMo runs
+              are published in{" "}
+              <Link
+                href="/benchmarks"
+                className="text-cyan-300 underline decoration-cyan-400/40 underline-offset-4 hover:text-cyan-200"
+              >
+                Verified Benchmarks
+              </Link>
+              .
             </p>
           </div>
           <div className="rounded-xl border border-indigo-300/10 bg-indigo-300/[0.025] px-4 py-3">
