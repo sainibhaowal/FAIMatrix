@@ -1336,13 +1336,19 @@ def run_query(
             graph_paths = {}
     _stage_end("graph_expansion_ms", graph_started)
 
-    # Optional dense semantic embedding (skipped in pure-native FAST unless FAIM_FAST_ML_EMBEDDING=true)
+    # Dynamic semantic embedding routing:
+    # - Regular profiles (STRICT/BALANCED/RELAXED): always use active ML embedding model
+    # - FAST + English: use FAIM-Pure (skip ML embedding)
+    # - FAST + non-English: dynamically use active ML embedding model
+    from encoding import get_active_embedding_provider, should_use_ml_embedding
+
     embedding_started = _stage_start()
     query_embedding: Optional[List[float]] = None
-    if not fast_relevance_first or _env_bool("FAIM_FAST_ML_EMBEDDING", False):
+    use_ml_emb, _emb_route = should_use_ml_embedding(
+        query_text, is_fast_mode=fast_relevance_first
+    )
+    if use_ml_emb:
         try:
-            from encoding import get_active_embedding_provider
-
             emb_provider = get_active_embedding_provider()
             if emb_provider and emb_provider.is_available():
                 query_embedding = emb_provider.encode_single(
@@ -1535,6 +1541,7 @@ def run_query(
     metrics["fast_relevance_first"] = 1.0 if fast_relevance_first else 0.0
     metrics["fast_graph_expansion"] = 1.0 if fast_graph_expansion else 0.0
     metrics["fast_idf"] = 1.0 if fast_idf else 0.0
+    metrics["ml_embedding_used"] = 1.0 if query_embedding is not None else 0.0
     metrics["degraded_feature_count"] = float(len(degraded_features))
     metrics["phaseb_expansion_terms"] = float(len(phaseb_expansions))
     metrics["phaseb_expansion_sources"] = float(

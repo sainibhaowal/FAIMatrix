@@ -69,6 +69,14 @@ def __getattr__(name: str):
         from encoding.embedding_providers import EmbeddingResult
 
         return EmbeddingResult
+    if name == "is_english_text":
+        from encoding.embedding_providers import is_english_text
+
+        return is_english_text
+    if name == "should_use_ml_embedding":
+        from encoding.embedding_providers import should_use_ml_embedding
+
+        return should_use_ml_embedding
     raise AttributeError(f"module 'encoding' has no attribute '{name}'")
 
 
@@ -89,4 +97,6 @@ __all__ = [
     "EmbeddingProviderRegistry",
     "EmbeddingModelInfo",
     "EmbeddingResult",
+    "is_english_text",
+    "should_use_ml_embedding",
 ]

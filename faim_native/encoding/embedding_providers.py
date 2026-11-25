@@ -13,7 +13,7 @@ import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 _user_site = site.getusersitepackages()
 if _user_site and _user_site not in sys.path and Path(_user_site).exists():
@@ -75,6 +75,22 @@ def _resolve_embedding_device(device: Optional[str] = None) -> str:
     return raw
 
 
+def _configure_cpu_threads() -> None:
+    """Cap PyTorch CPU threads when FAIM_CPU_THREADS is configured to avoid worker contention."""
+    raw = os.environ.get("FAIM_CPU_THREADS", "").strip()
+    if not raw:
+        return
+    try:
+        threads = int(raw)
+        if threads <= 0:
+            return
+        import torch
+
+        torch.set_num_threads(threads)
+    except Exception:
+        pass
+
+
 def _load_sentence_transformer_on_device(
     model_name_or_path: str, device: str
 ) -> tuple[Any, str]:
@@ -84,6 +100,7 @@ def _load_sentence_transformer_on_device(
     def _build(target_device: str) -> Any:
         kwargs: Dict[str, Any] = {"device": target_device}
         if str(target_device).lower() == "cpu":
+            _configure_cpu_threads()
             try:
                 import torch
 
@@ -122,13 +139,19 @@ def _encode_sentence_transformer_with_fallback(
         gpu_batch_size = max(
             1, int(os.getenv("FAIM_EMBEDDING_BATCH_SIZE", "128"))
         )
+        cpu_batch_size = max(
+            1, int(os.getenv("FAIM_EMBEDDING_CPU_BATCH_SIZE", "32"))
+        )
         encode_kwargs: Dict[str, Any] = {
             "normalize_embeddings": True,
             "show_progress_bar": False,
             "convert_to_numpy": True,
+            "batch_size": (
+                gpu_batch_size
+                if str(device).lower().startswith("cuda")
+                else cpu_batch_size
+            ),
         }
-        if str(device).lower().startswith("cuda"):
-            encode_kwargs["batch_size"] = gpu_batch_size
         embeddings = model.encode(texts, **encode_kwargs)
         return embeddings, model, device
     except Exception as exc:
@@ -155,6 +178,63 @@ def _encode_sentence_transformer_with_fallback(
             convert_to_numpy=True,
         )
         return embeddings, cpu_model, cpu_device
+
+
+def is_english_text(text: str) -> bool:
+    """Return True when text uses Latin-1 script and resolves to English.
+
+    Non-Latin scripts and Latin-Extended alphabets (> U+00FF) immediately route
+    as non-English so multilingual ML embeddings remain active even in scripts
+    outside the curated TSV lexicons.
+    """
+    sample = (text or "").strip()
+    if not sample:
+        return True
+    if any(ch.isalpha() and ord(ch) > 0x00FF for ch in sample):
+        return False
+    try:
+        from lexical.multilingual_canonicalizer import detect_language
+
+        return detect_language(sample) == "en"
+    except Exception:
+        return True
+
+
+def should_use_ml_embedding(
+    texts: Union[str, Sequence[str]],
+    *,
+    is_fast_mode: bool,
+    mode: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """Decide dynamically whether to run an external ML embedding model or FAIM-Pure.
+
+    Policy when ``FAIM_FAST_ML_EMBEDDING`` is ``auto`` (default):
+    - Regular profiles (STRICT, BALANCED, RELAXED): always use the active ML embedding model.
+    - FAST profile with English text: use FAIM-Pure (skip ML embedding inference).
+    - FAST profile with non-English text: use the active ML embedding model.
+    """
+    raw_mode = (
+        mode if mode is not None else os.getenv("FAIM_FAST_ML_EMBEDDING", "auto")
+    ).strip().lower() or "auto"
+
+    if raw_mode in {"false", "0", "no", "off", "pure"}:
+        if is_fast_mode:
+            return False, "fast_pure_forced"
+        return True, "regular_embedding"
+
+    if raw_mode in {"true", "1", "yes", "on", "always"}:
+        return True, ("ml_embedding_forced" if is_fast_mode else "regular_embedding")
+
+    if not is_fast_mode:
+        return True, "regular_embedding"
+
+    items = [texts] if isinstance(texts, str) else list(texts)
+    non_empty = [str(item) for item in items if str(item).strip()]
+    if not non_empty:
+        return False, "fast_pure_english"
+    if all(is_english_text(item) for item in non_empty):
+        return False, "fast_pure_english"
+    return True, "fast_multilingual_embedding"
 
 
 @dataclass(frozen=True)

@@ -606,41 +606,38 @@ def run_ingest(
         vectors = vectorize_blocks(blocks)
         from encoding.representation_v2 import build_representation_v2_for_block
 
-        # Generate embedding vectors only when not in pure-native FAST mode
-        # (unless FAIM_FAST_ML_EMBEDDING=true is explicitly requested).
-        _fast_ml_emb = os.getenv("FAIM_FAST_ML_EMBEDDING", "").strip().lower() in {
-            "1",
-            "true",
-            "yes",
-            "on",
-        }
+        from encoding import get_active_embedding_provider, should_use_ml_embedding
+
+        texts = [block.content for block in blocks if hasattr(block, "content")]
+        use_ml_emb, emb_route = should_use_ml_embedding(
+            texts,
+            is_fast_mode=(effective_profile == FAIMProfile.FAST),
+        )
         embedding_vectors: List[Optional[List[float]]] = []
-        if effective_profile == FAIMProfile.FAST and not _fast_ml_emb:
+        if not use_ml_emb:
             embedding_vectors = [None] * len(blocks)
+            logger.info("[Ingest] Using FAIM-Pure encoding (%s)", emb_route)
         else:
             try:
-                from encoding import get_active_embedding_provider
-
                 provider = get_active_embedding_provider()
-                if provider and provider.is_available():
-                    texts = [block.content for block in blocks if hasattr(block, "content")]
-                    if texts:
-                        emb_result = provider.encode(texts)
-                        # Align embeddings with blocks (some blocks may not have content)
-                        emb_idx = 0
-                        for block in blocks:
-                            if hasattr(block, "content") and emb_idx < len(
-                                emb_result.vectors
-                            ):
-                                embedding_vectors.append(emb_result.vectors[emb_idx])
-                                emb_idx += 1
-                            else:
-                                embedding_vectors.append(None)
-                        logger.info(
-                            f"[Ingest] Generated {len([v for v in embedding_vectors if v])} embedding vectors ({emb_result.dimension} dim)"
-                        )
-                    else:
-                        embedding_vectors = [None] * len(blocks)
+                if provider and provider.is_available() and texts:
+                    emb_result = provider.encode(texts)
+                    # Align embeddings with blocks (some blocks may not have content)
+                    emb_idx = 0
+                    for block in blocks:
+                        if hasattr(block, "content") and emb_idx < len(
+                            emb_result.vectors
+                        ):
+                            embedding_vectors.append(emb_result.vectors[emb_idx])
+                            emb_idx += 1
+                        else:
+                            embedding_vectors.append(None)
+                    logger.info(
+                        "[Ingest] Generated %s embedding vectors (%s dim, route=%s)",
+                        len([v for v in embedding_vectors if v]),
+                        emb_result.dimension,
+                        emb_route,
+                    )
                 else:
                     embedding_vectors = [None] * len(blocks)
             except Exception as e:

@@ -147,6 +147,7 @@ class QueryMetrics(BaseModel):
     fast_relevance_first: float = 0.0
     fast_graph_expansion: float = 0.0
     fast_idf: float = 0.0
+    ml_embedding_used: float = 0.0
     # Additive, non-sensitive stage timings for benchmark and SLO diagnostics.
     stage_timings_ms: Dict[str, float] = Field(default_factory=dict)
 
