@@ -15,14 +15,14 @@
 
 <table align="center">
   <tr>
-    <td align="center"><strong>Latest tag</strong><br />v0.6.1</td>
-    <td align="center"><strong>Runtime</strong><br />Docker Compose</td>
+    <td align="center"><strong>Latest version</strong><br />v0.10.0</td>
+    <td align="center"><strong>Runtime</strong><br />Docker Compose (CPU / GPU)</td>
     <td align="center"><strong>Interfaces</strong><br />REST · MCP · SSE</td>
     <td align="center"><strong>Canonical data</strong><br />PostgreSQL</td>
   </tr>
 </table>
 
-> **Deployment posture:** FAIM-Native runs as a hardened multi-service Docker Compose stack (`v0.6.1`). Before serving live traffic, provision environment-specific secrets and TLS, run database migrations, and verify `/health`, `/ready`, `/version`, and backup/restore procedures on the target host.
+> **Deployment posture:** FAIM-Native runs as a single hardened Docker Compose stack (`v0.10.0`) with unified `.env` configuration supporting both CPU-only VPS and CUDA GPU hosts. Before serving live traffic, provision environment-specific secrets and TLS, run database migrations, and verify `/health`, `/ready`, `/version`, and backup/restore procedures on the target host.
 
 FAIM-Native turns documents, events, and multimodal evidence into a durable memory graph. It combines a FastAPI API, deterministic perception and encoding, graph-native operators, PostgreSQL persistence, optional Redis/Qdrant acceleration, durable background jobs, a Next.js workspace, MCP access, and a public black-box benchmark harness.
 
@@ -364,30 +364,37 @@ adapter is recorded as `skipped`, never as a fabricated score. Do not publish a
 report until the JSON integrity hash, dataset identity, seed, and completed-system
 statuses have been reviewed.
 
-### Latest complete external runs (`Publication gate: READY`)
+### Latest complete external runs (`2026-11-24`, `Publication gate: READY`)
 
-The latest complete runs cover two full official BEIR splits with pinned Hugging Face revisions, isolated `worker-ingest` / `worker-evolve` pools, GPU passthrough (`faim-native-gpu`), HMAC verified-key caching, and `graph_version`-cached metadata:
+The latest verified runs evaluate full un-sampled splits across three official BeIR benchmarks plus conversational memory (`LoCoMo`) with pinned Hugging Face revisions, isolated `worker-ingest` / `worker-evolve` pools, HMAC verified-key caching, and `graph_version`-cached metadata:
 
 1. **BeIR/SciFact** (**5,183 corpus documents / 300 test queries**, corpus/queries `b3b5335604bf5ee3c4447671af975ea25143d4f5`, qrels `2938d17dc3b09882fdb8c12bbbe2e2dc0e75a029`).
 2. **BeIR/NFCorpus** (**3,633 corpus documents / 323 test queries**, corpus/queries `b5026a0e96e8a7ac4f95f482a596389289d46269`, qrels `a451b3b26d3ae1358f259c1a3a4dd61fcea35a65`).
+3. **BeIR/ArguAna** (**8,674 corpus documents / 1,406 test queries**).
+4. **LoCoMo** (long-horizon conversational memory QA).
 
-| System | Dataset / protocol | Recall@5 | nDCG@10 | MRR | MAP | Query p50 | Status |
+| Runtime Profile / System | Dataset / protocol | Recall@5 | nDCG@10 | MRR | MAP | Query p50 | Status |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| **FAIM-Native (v19-ready, GPU stack)** | SciFact, 5,183 docs / 300 queries | **0.7554** | **0.6878** | **0.6570** | **0.6464** | **104.52 ms** | Completed (`READY`) |
-| **FAIM-Native (v18, zero-ML CPU-first)** | SciFact, 5,183 docs / 300 queries | **0.7554** | **0.6878** | **0.6570** | **0.6464** | 231.07 ms | Completed (`READY`) |
-| **BM25 baseline (v19-ready)** | Same full SciFact split and scorer | 0.7193 | 0.6644 | 0.6366 | 0.6242 | 38.44 ms | Completed (`READY`) |
-| **FAIM-Native (v1-ready, GPU stack)** | NFCorpus, 3,633 docs / 323 queries | **0.1267** | **0.3258** | **0.5259** | **0.1327** | **97.20 ms** | Completed (`READY`) |
-| **BM25 baseline (v1-ready)** | Same full NFCorpus split and scorer | 0.1205 | 0.3110 | 0.5211 | 0.1294 | 5.20 ms | Completed (`READY`) |
-| **FAIM-Native (v17 historical)** | SciFact, 5,183 docs / 300 queries | 0.4831 | 0.4184 | - | - | 7,195.68 ms | Completed |
-| **FAIM-Native (v9 historical)** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | - | - | 17,373 ms | Completed |
+| **FAIM Hybrid (Granite 97M, GPU)** | SciFact, 5,183 docs / 300 queries | **0.7704** | **0.6900** | **0.6590** | **0.6483** | 140.17 ms | Completed (`READY`) |
+| **FAIM-Pure (Zero-ML, CPU)** | SciFact, 5,183 docs / 300 queries | 0.7554 | 0.6871 | 0.6564 | 0.6459 | **86.31 ms** (CI) / 100.22 ms | Completed (`READY`) |
+| **Granite 97M R2 alone (GPU)** | SciFact standalone baseline | 0.7522 | 0.6806 | 0.6493 | 0.6403 | 9.81 ms (in-proc) | Baseline reference |
+| **BM25 baseline** | Same full SciFact split and scorer | 0.7193 | 0.6644 | 0.6366 | 0.6242 | 45.76 ms (in-proc) | Completed (`READY`) |
+| **FAIM Hybrid (Granite 97M, GPU)** | NFCorpus, 3,633 docs / 323 queries | **0.1297** | **0.3314** | **0.5290** | **0.1367** | 101.62 ms | Completed (`READY`) |
+| **FAIM-Pure (Zero-ML, CPU)** | NFCorpus, 3,633 docs / 323 queries | 0.1289 | 0.3267 | 0.5259 | 0.1340 | **49.91 ms** (CI) / 66.48 ms | Completed (`READY`) |
+| **BM25 baseline** | Same full NFCorpus split and scorer | 0.1205 | 0.3110 | 0.5211 | 0.1294 | 3.32 ms (in-proc) | Completed (`READY`) |
+| **FAIM Hybrid (Granite 97M, GPU)** | ArguAna, 8,674 docs / 1,406 queries | 0.5096 | 0.3387 (`R@10 0.7266`) | 0.2279 | 0.2279 | **304.55 ms** | Completed (`READY`) |
+| **BM25 baseline** | Same full ArguAna split and scorer | 0.5275 | 0.3451 (`R@10 0.7216`) | 0.2349 | 0.2349 | 567.83 ms (in-proc) | Completed (`READY`) |
+| **FAIM Hybrid (Granite 97M, GPU)** | LoCoMo conversational memory | `0.0710 Fact Recall` | `0.0582 Token F1` | - | - | 234.56 ms | Completed (`READY`) |
+| **FAIM-Native (v17 historical CPU)** | SciFact, 5,183 docs / 300 queries | 0.4831 | 0.4184 | 0.3908 | 0.3798 | 7,195.68 ms | Superseded |
+| **FAIM-Native (v9 historical CPU)** | SciFact, 5,183 docs / 300 queries | 0.0539 | 0.0517 | - | - | 17,373.00 ms | Superseded |
 
-On both full BEIR splits (`BeIR/SciFact` and `BeIR/NFCorpus`), FAIM-Native beat `BM25-Baseline` across **every retrieval metric** (`Recall@5`, `nDCG@10`, `MRR`, `MAP`), while HMAC auth caching + `graph_version`-keyed RAM caching cut full `SciFact` Query p50 by **2.2×** (`231.07 ms` → `104.52 ms`, Query p95 `159.15 ms`).
+See [**BENCHMARKS.md**](BENCHMARKS.md) for the complete cross-engine comparison, `FAST` vs `BALANCED` ablation, LoCoMo per-category breakdown, historical progression (`v9` to `v0.10.0`), and all signed artifact hashes.
 
 Evidence artifacts:
 
-- [`ret_scifact_20261122T124757Z_df5d93fc.md`](faim-benchmarks/results/gpu/scifact-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md) (`READY`, `SHA-256: 175a5a1dfb0ac393aaf4316e7a37eaf84742a71f2b27497478d05bc0d53d7333`)
-- [`ret_nfcorpus_20261122T132435Z_6141a4e3.md`](faim-benchmarks/results/gpu/nfcorpus-v1-ready/ret_nfcorpus_20261122T132435Z_6141a4e3.md) (`READY`, `SHA-256: 1f79515b6484b6afeebec2e9d0c03561da94d5dcc13d6ddf06b4c81278b4eea6`)
-- [`ret_scifact_20261122T001726Z_3a591ec9.md`](faim-benchmarks/results/cpu/scifact-v18-ready/ret_scifact_20261122T001726Z_3a591ec9.md) (`READY`)
+- [`BENCHMARKS.md`](BENCHMARKS.md) (root benchmark overview and progression summary)
+- [`03-multi-scenario-benchmark-results-2026-11-24.md`](faim_native/Docs/13-benchmarks/03-multi-scenario-benchmark-results-2026-11-24.md) (`2026-11-24` evaluation report)
+- [`COMPARISON.md`](faim-benchmarks/results/COMPARISON.md) · [`RESULTS.md`](faim-benchmarks/results/RESULTS.md) (signed JSON/Markdown artifact index)
 
 ### Public competitor references (not directly comparable)
 
@@ -566,7 +573,7 @@ Important controls include:
 - `FAIM_SELF_INVENT_ENABLED` and invention thresholds for macro-node synthesis;
 - `FAIM_ENCRYPTION_AT_REST`, `FAIM_ENCRYPTION_FAIL_CLOSED`, `FAIM_STORAGE_CONTRACT_STRICT`, and auth fallback switches for security posture;
 - `FAIM_RATE_LIMITS_JSON`, payload limits, CORS, public origin, and CSP settings for edge behavior;
-- `FAIM_API_WORKERS`, `FAIM_INGEST_WORKERS`, `FAIM_EMBEDDING_DEVICE=auto`, `FAIM_MIN_CUDA_FREE_MIB`, and `FAIM_FAST_ML_EMBEDDING` for worker scaling and GPU/CPU hybrid sizing (see [GPU passthrough, fallback & worker sizing](faim_native/Docs/10-operations/06-gpu-passthrough-and-auth-caching.md)).
+- `FAIM_API_WORKERS`, `FAIM_INGEST_WORKERS`, `FAIM_CONTAINER_RUNTIME` (`runc` on CPU VPS, `nvidia` on CUDA GPU), `FAIM_EMBEDDING_DEVICE` (`cpu` / `auto`), `FAIM_CPU_THREADS`, `FAIM_MIN_CUDA_FREE_MIB`, `FAIM_FAST_ML_EMBEDDING=auto` (English `FAST` via FAIM-Pure, non-English and `STRICT`/`BALANCED`/`RELAXED` via Granite 97M), and fail-open `FAIM_EMBEDDING_PREWARM_REQUIRED=false` (see [GPU passthrough, fallback & worker sizing](faim_native/Docs/10-operations/06-gpu-passthrough-and-auth-caching.md)).
 
 Production deployments should begin with the restrictive values in [`.env.example`](.env.example), then make every relaxation deliberate and documented.
 
@@ -647,10 +654,10 @@ Readiness is stronger than liveness: it checks database connectivity, required t
 - [Operations and deployment](faim_native/Docs/10-operations/01-deployment.md)
 - [GPU passthrough, fallback & worker sizing](faim_native/Docs/10-operations/06-gpu-passthrough-and-auth-caching.md)
 - [Zero-ML retrieval, concept graph & Concept-MaxSim](faim_native/Docs/01-architecture/03-zero-ml-retrieval-and-concept-expansion.md)
-- [Production benchmark suite](faim_native/Docs/13-benchmarks/02-production-benchmark-suite-2026-11-22.md)
-- [Benchmark evidence (SciFact v19-ready GPU)](faim-benchmarks/results/gpu/scifact-v19-ready/ret_scifact_20261122T124757Z_df5d93fc.md)
-- [Benchmark evidence (NFCorpus v1-ready GPU)](faim-benchmarks/results/gpu/nfcorpus-v1-ready/ret_nfcorpus_20261122T132435Z_6141a4e3.md)
-- [Benchmark evidence (SciFact v18-ready CPU)](faim-benchmarks/results/cpu/scifact-v18-ready/ret_scifact_20261122T001726Z_3a591ec9.md)
+- [Empirical Benchmarks Overview](BENCHMARKS.md)
+- [Multi-scenario benchmark results (2026-11-24)](faim_native/Docs/13-benchmarks/03-multi-scenario-benchmark-results-2026-11-24.md)
+- [Production benchmark suite (2026-11-22)](faim_native/Docs/13-benchmarks/02-production-benchmark-suite-2026-11-22.md)
+- [Signed benchmark artifact ledger](faim-benchmarks/results/RESULTS.md)
 
 ## Contributing
 

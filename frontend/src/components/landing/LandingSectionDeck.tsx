@@ -64,7 +64,10 @@ type DeckGroup = {
 
 function BenchmarksShowcase() {
   return (
-    <section className="py-20 px-4 bg-gradient-to-b from-slate-950 to-slate-900/50">
+    <section
+      id="benchmarks"
+      className="py-20 px-4 bg-gradient-to-b from-slate-950 to-slate-900/50"
+    >
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.2em] text-cyan-200 mb-4">
@@ -259,6 +262,12 @@ const GROUPS: DeckGroup[] = [
       "The fastest read on what FAIM is, how it thinks, and why the memory stack is different.",
     tabs: [
       {
+        key: "benchmarks",
+        label: "Benchmarks",
+        summary: "Verified BeIR, LoCoMo, and historical progression.",
+        node: <BenchmarksShowcase />,
+      },
+      {
         key: "stack",
         label: "Tech Stack",
         summary: "What FAIM is built on.",
@@ -396,12 +405,6 @@ const GROUPS: DeckGroup[] = [
         label: "Manifesto",
         summary: "Platform principles.",
         node: <Manifesto />,
-      },
-      {
-        key: "benchmarks",
-        label: "Benchmarks",
-        summary: "What the engine measures.",
-        node: <BenchmarksShowcase />,
       },
     ],
   },

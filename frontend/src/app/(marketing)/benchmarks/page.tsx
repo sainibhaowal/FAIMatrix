@@ -60,8 +60,7 @@ export default function BenchmarksPage() {
               </li>
               <li>
                 <strong className="text-white">
-                  Granite 97M Flagship (`3-gpu-granite`) lifts every BeIR
-                  metric:
+                  FAIM Hybrid + Granite 97M lifts every BeIR metric:
                 </strong>{" "}
                 reaches <code className="text-cyan-300">0.6900</code> nDCG@10 on
                 SciFact, <code className="text-cyan-300">0.3314</code> on
@@ -70,10 +69,13 @@ export default function BenchmarksPage() {
               </li>
               <li>
                 <strong className="text-white">
-                  `FAST` beats `BALANCED` by ~18× latency &amp; +0.034 nDCG@10:
+                  Over 200× latency reduction since v9 baseline:
                 </strong>{" "}
-                relevance-first fusion avoids saturating workers while
-                preserving accuracy.
+                progressed from <code className="text-slate-300">0.0517</code>{" "}
+                (`17,373 ms` P50) in v9 to{" "}
+                <code className="text-emerald-300">0.6871</code> (`86.31 ms` CPU
+                CI) in FAIM-Pure and{" "}
+                <code className="text-cyan-300">0.6900</code> with Granite 97M.
               </li>
             </ul>
           </div>
@@ -89,17 +91,13 @@ export default function BenchmarksPage() {
                 <code className="text-slate-200">
                   faim-benchmarks/results/RESULTS.md
                 </code>{" "}
-                and{" "}
-                <code className="text-slate-200">
-                  faim-benchmarks/results/COMPARISON.md
-                </code>
-                .
+                and root <code className="text-slate-200">BENCHMARKS.md</code>.
               </li>
               <li>
-                Failures and trade-offs are published alongside wins, including
-                the early 18-worker LoCoMo RAM SIGKILL (resolved via the
-                hardware autoscaler) and extractive vs. long-context LoCoMo
-                scores (`11.9` vs `92.3` tokens).
+                Baseline comparisons include full-split standalone Granite 97M
+                R2 (`0.6806` SciFact nDCG@10), BM25-Baseline (`0.6644` SciFact),
+                and extractive LoCoMo (`11.9` avg context tokens vs `92.3` for
+                BM25).
               </li>
               <li>
                 Live operator benchmarks (`BM-1`–`BM-9`, SRE Golden Signals, and

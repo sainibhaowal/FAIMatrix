@@ -86,6 +86,11 @@ const LOCAL_ITEMS = RAIL_ITEMS.filter((item) => !item.href);
 
 const SUBNAV: Record<string, SubItem[]> = {
   core: [
+    {
+      key: "benchmarks",
+      label: "Benchmarks",
+      summary: "Verified BeIR, LoCoMo, and progression metrics.",
+    },
     { key: "stack", label: "Tech stack", summary: "What FAIM is built on." },
     {
       key: "highlights",
@@ -162,11 +167,6 @@ const SUBNAV: Record<string, SubItem[]> = {
       summary: "3D proof and pulse visualization.",
     },
     { key: "manifesto", label: "Manifesto", summary: "Platform principles." },
-    {
-      key: "benchmarks",
-      label: "Benchmarks",
-      summary: "Signed BeIR, LoCoMo, and engine benchmarks.",
-    },
   ],
   ops: [
     {
