@@ -324,8 +324,8 @@ const GROUPS: DeckGroup[] = [
       },
       {
         key: "adi",
-        label: "ADI Pipeline",
-        summary: "Deterministic end-to-end pipeline.",
+        label: "Retrieval Pipeline",
+        summary: "Deterministic 4-stage retrieval pipeline.",
         node: <AdvancedADIPipeline />,
       },
       {

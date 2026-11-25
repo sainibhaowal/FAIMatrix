@@ -123,8 +123,8 @@ const SUBNAV: Record<string, SubItem[]> = {
     },
     {
       key: "adi",
-      label: "ADI pipeline",
-      summary: "Deterministic end-to-end pipeline.",
+      label: "Retrieval pipeline",
+      summary: "Deterministic 4-stage retrieval pipeline.",
     },
     {
       key: "pillars",

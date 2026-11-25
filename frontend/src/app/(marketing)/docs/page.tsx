@@ -1,10 +1,24 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Cpu,
+  FileText,
+  Layers,
+  Menu,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  X,
+} from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Logo from "@/components/brand/Logo";
 import BenchmarkResultsBoard from "@/components/landing/BenchmarkResultsBoard";
+import { APP_VERSION } from "@/lib/appVersion";
 
 // ---------------------------------------------------------------------------
 // Nav structure
@@ -14,7 +28,7 @@ const NAV_GROUPS = [
     group: "Overview",
     items: [
       { id: "what-is-faim", label: "What is FAIM?" },
-      { id: "current-state", label: "Current State" },
+      { id: "current-state", label: "Platform Overview" },
       { id: "quickstart", label: "Quick Start" },
       { id: "why-faim", label: "Why FAIM?" },
     ],
@@ -22,49 +36,47 @@ const NAV_GROUPS = [
   {
     group: "Core System",
     items: [
-      { id: "architecture", label: "Architecture" },
-      { id: "memory", label: "Memory System" },
+      { id: "architecture", label: "System Architecture" },
+      { id: "memory", label: "Memory System & Tiers" },
       { id: "graph", label: "Knowledge Graph" },
       { id: "retrieval", label: "Retrieval Engine" },
+      { id: "hybrid-routing", label: "Dynamic CPU/GPU Routing" },
       { id: "cortex", label: "MCP & Agent Access" },
       { id: "cortex-runtime", label: "Query & Hop Runtime" },
     ],
   },
   {
-    group: "Advanced ADI Layers",
+    group: "Retrieval & Semantics",
     items: [
-      { id: "canonical-semantics", label: "Canonical Semantics (P2)" },
-      { id: "graph-diffusion", label: "Graph Diffusion (P3)" },
-      { id: "reranker-v2", label: "Deterministic Reranker V2 (P4)" },
-      { id: "scale-ann", label: "Scale & ANN (P5)" },
-      { id: "multilingual", label: "Multilingual Bridges (P6)" },
-      { id: "multimodal-no-ml", label: "Multimodal without ML (P7)" },
-      { id: "domain-adaptation", label: "Domain Adaptation (P8)" },
-      { id: "answer-synthesis", label: "Extractive Synthesis (P9)" },
+      { id: "canonical-semantics", label: "Canonical Semantics" },
+      { id: "graph-diffusion", label: "Graph Diffusion" },
+      { id: "reranker-v2", label: "Deterministic Reranker V2" },
+      { id: "scale-ann", label: "Indexing, WAND & ANN" },
+      { id: "multilingual", label: "Cross-Lingual Bridges" },
+      { id: "multimodal-no-ml", label: "Structural & Visual Indexing" },
+      { id: "domain-adaptation", label: "Domain Adaptation" },
+      { id: "answer-synthesis", label: "Extractive Synthesis" },
     ],
   },
   {
-    group: "Document & Extraction",
+    group: "Documents & Extraction",
     items: [
       { id: "document-intel", label: "Document Intelligence" },
       { id: "ingestion", label: "Ingestion Pipeline" },
     ],
   },
   {
-    group: "Platform",
+    group: "Platform & Operations",
     items: [
-      { id: "fig-view", label: "FIG View" },
-      { id: "billing", label: "Matrix Billing" },
-      { id: "security", label: "Security" },
-      { id: "benchmarks", label: "Engine Benchmarks" },
-      { id: "deployment", label: "Deployment" },
-      { id: "capabilities", label: "Full Capabilities" },
-      { id: "roadmap", label: "Roadmap" },
+      { id: "fig-view", label: "FIG View (3D Explorer)" },
+      { id: "api-reference", label: "REST API Reference" },
+      { id: "security", label: "Security & Isolation" },
+      { id: "benchmarks", label: "Benchmarks & Evaluation" },
+      { id: "deployment", label: "Deployment & Configuration" },
+      { id: "billing", label: "Subscription Plans" },
+      { id: "capabilities", label: "Capabilities Matrix" },
+      { id: "roadmap", label: "Architecture Milestones" },
     ],
-  },
-  {
-    group: "Landing Coverage",
-    items: [{ id: "landing-coverage", label: "Landing Page Coverage" }],
   },
 ];
 
@@ -233,15 +245,21 @@ function SectionCurrentState() {
   return (
     <div className="space-y-6">
       <div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/25 text-cyan-300">
+            Release {APP_VERSION}
+          </span>
+        </div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Current State (July 2026)
+          Platform Overview
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          FAIM has evolved into a production-grade cognitive infrastructure. The
-          current runtime combines deterministic semantic routing, bounded
-          multi-hop reasoning, GPU-hardened 3D visualization, a multi-tier
-          Matrix subscription ecosystem, and explicit graph autonomy controls
-          that stay default-off until enabled.
+          FAIM is a deterministic memory and provenance retrieval
+          infrastructure. The runtime combines exact lexical & structural
+          routing, bounded multi-hop graph reasoning, dynamic CPU/GPU hybrid
+          routing, interactive 3D graph inspection (FIG View), multi-tier tenant
+          billing, and explicit graph autonomy controls that stay disabled until
+          opted in.
         </p>
       </div>
 
@@ -262,7 +280,7 @@ function SectionCurrentState() {
               "Idempotent Memory Writes & Session Revocation: direct REST/MCP writes with tenant isolation and 1-click OAuth grant disconnect in Dashboard → MCP.",
               "Tenant crypto rotation: guarded execute/job path rewraps tenant DEKs under the current master key without re-encrypting payload blobs.",
               "Historical raw-reencryption: guarded execute/job path migrates legacy plaintext blobs into encrypted storage.",
-              "FAIM Matrix Tiers: 4 professional subscription levels (Explorer to Matrix).",
+              "Subscription Plans: 4 workspace tiers from Explorer through Enterprise.",
             ].map((item) => (
               <li key={item} className="flex gap-2">
                 <span className="text-cyan-400 shrink-0">→</span>
@@ -1141,12 +1159,11 @@ function SectionRetrieval() {
           channels computed by Representation V2. These enable lexically-rich
           matching on top of vector similarity. Semantic Signature V1 extends
           this same additive sidecar path rather than replacing the core vector.
-          Phase B then adds a weighted deterministic expansion layer ahead of
+          The Weighted Expansion Layer then strengthens the query ahead of
           retrieval so alias, phrase, multilingual, and domain-memory matches
-          can strengthen the query before dense and sparse scoring. Phase C then
-          adds a native late-interaction layer so these same channels can
-          participate in fine-grained query/document matching before final
-          ranking.
+          enrich dense and sparse scoring. A Native Late-Interaction pass then
+          allows these same channels to participate in fine-grained
+          query/document matching before final ranking.
         </p>
         <div className="grid md:grid-cols-2 gap-2">
           {[
@@ -1210,7 +1227,7 @@ function SectionRetrieval() {
         </div>
       </Card>
 
-      <Card title="Phase B — Weighted Expansion Engine" color="amber">
+      <Card title="Weighted Expansion Engine" color="amber">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
           Before dense recall and reranking, FAIM now runs a weighted
           deterministic expansion layer over the query itself. This is not a
@@ -1248,7 +1265,7 @@ function SectionRetrieval() {
         </p>
       </Card>
 
-      <Card title="Phase C — Native Late Interaction" color="purple">
+      <Card title="Native Late Interaction" color="purple">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
           After expansion and shortlist generation, FAIM now applies a
           fine-grained symbolic interaction layer inspired by the efficiency
@@ -1282,13 +1299,13 @@ function SectionRetrieval() {
           </div>
         </div>
         <p className="text-[11px] text-slate-500 leading-relaxed">
-          In explain mode, FAIM can surface a Phase C breakdown so you can see
+          In explain mode, FAIM surfaces a per-channel breakdown so you can see
           whether a match was helped by phrase overlap, alias bridging, concept
           alignment, value cues, or time cues.
         </p>
       </Card>
 
-      <Card title="Phase D — Cross-Lingual Power" color="emerald">
+      <Card title="Cross-Lingual Bridges" color="emerald">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
           FAIM’s multilingual layer now spans EN, DE, ES, FR, IT, PT, and NL
           instead of being limited to the older narrow bridge. The deterministic
@@ -1714,30 +1731,30 @@ function SectionCortexRuntime() {
 
       <Card title="Query Life-Cycle & End-to-End Proof" color="amber">
         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-          FAIM processes every query through a 5-Phase End-to-End Life-Cycle,
-          moving from deterministic query preparation to pulse-v2 explain
-          ledgers and provenance-backed evidence delivery.
+          FAIM processes every query through a 5-stage deterministic life-cycle,
+          moving from canonical query preparation to pulse-v2 explain ledgers
+          and provenance-backed evidence delivery.
         </p>
         <div className="space-y-4">
           {[
             {
-              phase: "Phase 1: Input & Auto-Classification",
+              phase: "Stage 1: Input & Auto-Classification",
               desc: "Query text (e.g., 'Why is the database failing?') is processed by the deterministic semantic router, resolving intents (e.g., FAIL, DATABASE) and dynamically selecting the best cognitive task mode.",
             },
             {
-              phase: "Phase 2: Bounded Memory Discovery",
+              phase: "Stage 2: Bounded Memory Discovery",
               desc: "FAIM executes bounded multi-hop traversal through relevant document, config, and relational nodes up to graph_max_hops. The 3D FIG View renders the pulse-v2 path and query evidence events attached to the current explain payload.",
             },
             {
-              phase: "Phase 3: Causal Traceback Proof",
+              phase: "Stage 3: Causal Traceback Proof",
               desc: "Identifies semantic junctions (e.g., hop 18) where recent changes or properties BLOCKS or ENABLES target states, establishing a verifiable proof of the causal event chain.",
             },
             {
-              phase: "Phase 4: Output & Multi-Signal Badges",
+              phase: "Stage 4: Output & Multi-Signal Badges",
               desc: "Streams citation-first extracted sentences annotated with [INVESTIGATE], [CONTRADICTION], or [PROVENANCE] badges, highlighting specific graph pathways in the FIG overlay.",
             },
             {
-              phase: "Phase 5: Provenance & Idempotent Memory Updates",
+              phase: "Stage 5: Provenance & Idempotent Memory Updates",
               desc: "Returns ranked evidence with provenance and traversal receipts, while any new agent memory writes execute deterministically through idempotent REST or MCP endpoints.",
             },
           ].map((p, idx) => (
@@ -1877,7 +1894,9 @@ function SectionBilling() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Matrix Billing</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Subscription Plans
+        </h2>
         <p className="text-slate-400 leading-relaxed">
           FAIM is tiered by cognitive capacity (Nodes and Hops) rather than
           token counts.
@@ -2260,7 +2279,7 @@ function SectionSecurity() {
               "All secrets via environment variables — no hardcoded keys",
               "Entrypoint gating — refuses to start with a stale database schema",
               "Non-root container user — principle of least privilege",
-              "Docling removed — zero heavy ML pipeline dependency",
+              "Zero heavy document-ML daemon — pure deterministic layout parsing",
             ].map((f) => (
               <li key={f} className="flex gap-2">
                 <span className="text-purple-400 shrink-0">·</span>
@@ -2365,7 +2384,8 @@ function SectionDeployment() {
               {[
                 "docker compose config before up",
                 "docker compose ps after rebuild",
-                "curl /api/v1/health/live and /api/v1/health/ready after deploy",
+                "curl -fsS http://localhost:8000/health && curl -fsS http://localhost:8000/ready && curl -fsS http://localhost:8000/version",
+                "Check FAIM_CONTAINER_RUNTIME / FAIM_FAST_ML_EMBEDDING / FAIM_EMBEDDING_DEVICE for CPU vs GPU profile",
                 "logs for api, worker, frontend, and caddy if anything fails",
               ].map((item) => (
                 <li key={item} className="flex gap-2">
@@ -2911,97 +2931,114 @@ function SectionRoadmap() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-white mb-2">Roadmap</h2>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          Architecture Milestones
+        </h2>
         <p className="text-slate-400 leading-relaxed">
-          What is built, what is partially built, and what comes next.
+          Shipped capabilities across the memory core, retrieval engine,
+          security hardening, and upcoming scale enhancements.
         </p>
       </div>
 
       <div className="space-y-3">
         {[
           {
-            phase: "Phase 1–8",
-            label: "Core Memory + Graph",
+            phase: "Core Engine",
+            label: "Deterministic Memory + Knowledge Graph",
             status: "done",
             detail:
               "Opposition, inheritance, temporal, semantic edges, IDF weighting, Porter stemming, entity expansion, stop-word removal, graph diffusion, and deterministic core scoring — all complete and tested.",
           },
           {
-            phase: "Phase 9",
+            phase: "Storage",
             label: "Hot/Warm/Cold Tiers + Cold Pruning",
             status: "done",
             detail:
               "Automatic 3-tier memory temperature classification by last_access and touch_count. Dry-run + live pruning from Storage maintenance routes. FIG View shows temperature badge per node.",
           },
           {
-            phase: "Phase 9",
+            phase: "Structure",
             label: "Rich Block Anchors + FIG Structure Panel",
             status: "done",
             detail:
               "block_type, page, section, column, row ranges exposed per node in FIG View Inspector as a dedicated Structure section.",
           },
           {
-            phase: "Phase 9",
+            phase: "Context",
             label: "LLM Memory Inventory Context",
             status: "done",
             detail:
-              "LLM system prompt includes document inventory (file names, types, node counts, ingestion dates) so it can answer meta-questions about what it knows.",
+              "System prompt includes document inventory (file names, types, node counts, ingestion dates) so agents can answer meta-questions about indexed knowledge.",
           },
           {
-            phase: "Phase 9",
+            phase: "Explorer UI",
             label: "FIG Memory Signal Cards + Prev/Next Navigation",
             status: "done",
             detail:
               "Novelty, redundancy, recency signal cards with color coding per node. Deterministic Prev/Next navigation through relevant nodes.",
           },
           {
-            phase: "Phase 10",
-            label: "Topic Clustering",
+            phase: "Clustering",
+            label: "Deterministic Topic Clustering",
             status: "done",
             detail:
-              "Deterministic k-means++ on v_native vectors. Auto-selects K = sqrt(N/2), seeded from graph_id for reproducibility. cluster_id stored on every node. Query engine scopes recall to top-2 clusters before full scan. FIG View shows cluster badge per node. Triggered through the storage maintenance routes.",
+              "Deterministic k-means++ on v_native vectors. Auto-selects K = sqrt(N/2), seeded from graph_id for reproducibility. cluster_id stored on every node. Query engine scopes recall to top-2 clusters before full scan.",
           },
           {
-            phase: "Phase 10",
+            phase: "Retention",
             label: "Long-term Memory Preservation",
             status: "done",
             detail:
-              "long_term flag (BOOLEAN) on every node. Nodes marked long-term are never deleted by cold pruning regardless of age or access count. Toggle per-node from FIG View Inspector. Cold prune endpoint enforces the flag automatically.",
+              "long_term flag (BOOLEAN) on every node. Nodes marked long-term are never deleted by cold pruning regardless of age or access count. Toggle per-node from FIG View Inspector.",
           },
           {
-            phase: "Phase 10",
+            phase: "Security",
             label: "Historical Raw Re-encryption",
             status: "done",
             detail:
               "Guarded raw-reencryption execute/job routes migrate legacy plaintext raw blobs into encrypted storage, update references in place, and record maintenance history.",
           },
           {
-            phase: "Phase 10",
+            phase: "Multimodal",
             label: "Figure / Diagram Nodes",
             status: "done",
             detail:
-              "PyMuPDF type=1 image blocks detected as inline figures on text pages. block_type=figure nodes created with spatial bbox anchor (x0/y0/x1/y1, area fraction, page). Excluded from text extraction to prevent overlap. New PDFs automatically produce figure nodes.",
+              "PyMuPDF image blocks detected as inline figures on text pages. block_type=figure nodes created with spatial bbox anchor (x0/y0/x1/y1, area fraction, page), excluded from duplicate text extraction.",
           },
           {
-            phase: "Benchmark",
-            label: "8-Phase Benchmark System",
+            phase: "Hybrid Mode",
+            label: "Dynamic CPU/GPU Embedding Routing + Fail-Open Fallbacks",
             status: "done",
             detail:
-              "Golden Signals (latency/traffic/errors/saturation), stress testing with saturation point detection, anomaly alerts (9 rule-based conditions), exportable SHA256-hashed reports. All real measured data, no synthetics.",
+              "FAIM_FAST_ML_EMBEDDING=auto seamlessly toggles CPU zero-ML FAIM-Pure vs GPU Granite 97M Dense at zero downtime, while preserving cached graph lookup and fail-open embedding fallbacks.",
           },
           {
-            phase: "Future",
+            phase: "Evaluation",
+            label: "Multi-Harness Benchmark Suite",
+            status: "done",
+            detail:
+              "Golden Signals (latency/traffic/errors/saturation), stress testing with saturation point detection, anomaly alerts, BEIR SciFact & NFCorpus, MuSiQue multi-hop, and exportable SHA-256 hashed reports.",
+          },
+          {
+            phase: "Scale",
+            label: "Block-Max WAND & Deterministic VP-Tree ANN",
+            status: "done",
+            detail:
+              "Sparse Block-Max WAND shortlist combined with a graph-versioned deterministic VP-tree dense index for scalable retrieval.",
+          },
+          {
+            phase: "Planned",
             label: "Self-organizing Cluster Entropy",
             status: "planned",
             detail:
-              "When graph entropy exceeds a configured threshold, automatically trigger re-clustering of cold zones. Graph organizes itself over time.",
+              "When graph entropy exceeds a configured threshold, automatically trigger re-clustering of cold zones so graphs self-organize over time.",
           },
           {
-            phase: "Future",
-            label: "Inverted Index Scale Path",
+            phase: "Planned",
+            label: "Distributed Sharded Index Federation",
             status: "planned",
             detail:
-              "WAND shortlist algorithm for large-scale sparse retrieval across millions of nodes. Enables production-scale knowledge bases.",
+              "Cross-shard WAND + federated graph diffusion across horizontally partitioned tenant clusters for multi-million-node deployments.",
           },
         ].map((item) => (
           <div
@@ -3044,7 +3081,7 @@ function SectionCanonicalSemantics() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Canonical Semantics Pipeline (P2)
+          Canonical Semantics Pipeline
         </h2>
         <p className="text-slate-400 leading-relaxed">
           FAIM matches concepts using deterministic lemmatization and broadeners
@@ -3160,7 +3197,7 @@ function SectionGraphDiffusion() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Graph Semantics and Diffusion (P3)
+          Graph Semantics and Diffusion
         </h2>
         <p className="text-slate-400 leading-relaxed">
           FAIM traverses active query paths using bounded multi-hop walks and
@@ -3209,7 +3246,7 @@ function SectionRerankerV2() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Deterministic Reranker V2 (P4)
+          Deterministic Reranker V2
         </h2>
         <p className="text-slate-400 leading-relaxed">
           Fuses sparse, dense, and graph components into a single multi-signal
@@ -3250,7 +3287,7 @@ function SectionScaleANN() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Scale and ANN (P5)
+          Indexing, WAND & ANN
         </h2>
         <p className="text-slate-400 leading-relaxed">
           FAIM scales retrieval to millions of nodes using graph-versioned
@@ -3311,7 +3348,7 @@ function SectionMultilingual() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Multilingual & Cross-Lingual Semantics (P6)
+          Cross-Lingual Bridges
         </h2>
         <p className="text-slate-400 leading-relaxed">
           Bridges English, German, Spanish, French, Italian, Portuguese, and
@@ -3354,7 +3391,7 @@ function SectionMultimodalNoML() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Multimodal Without ML (P7)
+          Structural & Visual Indexing
         </h2>
         <p className="text-slate-400 leading-relaxed">
           Deterministic support for spreadsheet tables, page layout coordinates,
@@ -3394,7 +3431,7 @@ function SectionDomainAdaptation() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Long-Tail Knowledge & Domain Adaptation (P8)
+          Domain Adaptation
         </h2>
         <p className="text-slate-400 leading-relaxed">
           Solves specialized domain jargon by ingesting curated corporate KB
@@ -3436,7 +3473,7 @@ function SectionAnswerSynthesis() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Extractive Answer Synthesis (P9)
+          Extractive Answer Synthesis
         </h2>
         <p className="text-slate-400 leading-relaxed">
           Composes 100% auditable, citation-first extractive prose and exact
@@ -3461,8 +3498,8 @@ function SectionAnswerSynthesis() {
 
       <Card title="Evidence Confidence Interval Equation" color="purple">
         <p className="text-sm text-slate-400 leading-relaxed mb-4">
-          Computes a mathematically sound confidence index $[0, 1]$ based on
-          evidence breadth, active span ratio, and contradiction penalties:
+          Computes a bounded confidence score in [0, 1] based on evidence
+          breadth, active span ratio, and contradiction penalties:
         </p>
         <Code>{`S_confidence = clamp( 0.45 * S_avg_span + 0.30 * S_breadth + 0.25 * S_active - S_penalty )
 S_breadth = min( 1.0, unique_docs / 3.0 ), S_penalty = min( 0.5, 0.15 * conflicts )`}</Code>
@@ -3471,316 +3508,138 @@ S_breadth = min( 1.0, unique_docs / 3.0 ), S_penalty = min( 0.5, 0.15 * conflict
   );
 }
 
-function SectionLandingCoverage() {
-  const moduleGroups = [
-    {
-      name: "Core story",
-      modules: [
-        [
-          "Tech Stack",
-          "Architecture, memory, native vectors, graph storage",
-          "architecture / memory",
-        ],
-        [
-          "Highlights",
-          "Shipped capabilities and product outcomes",
-          "current-state / capabilities",
-        ],
-        [
-          "Maximum Intelligence",
-          "Multi-hop traversal, semantic enrichment, domain memory, and explainability",
-          "cortex-runtime / domain-adaptation",
-        ],
-        [
-          "Outcomes",
-          "Search, inspectability, domain adaptation, and operational use",
-          "why-faim / capabilities",
-        ],
-      ],
-    },
-    {
-      name: "Platform shape",
-      modules: [
-        [
-          "Architecture",
-          "Layered application, query, graph, vector, and storage runtime",
-          "architecture",
-        ],
-        [
-          "Hybrid Recall",
-          "Dense native recall, sparse sidecars, graph diffusion, and reranking",
-          "retrieval / graph-diffusion",
-        ],
-        [
-          "RAG Comparison",
-          "FAIM-native retrieval versus a generic fetch-and-summarize wrapper",
-          "why-faim / retrieval",
-        ],
-        [
-          "ADI Pipeline",
-          "Sparse shortlist, dense shortlist, graph diffusion, rerank, and evidence delivery",
-          "retrieval / cortex-runtime",
-        ],
-        [
-          "Enterprise Pillars",
-          "Determinism, explainability, security, tenant isolation, and self-hosting",
-          "capabilities / security / deployment",
-        ],
-        [
-          "Seven Powers",
-          "Native memory, semantic enrichment, graph traversal, evolution, and proof surfaces",
-          "capabilities / cortex",
-        ],
-      ],
-    },
-    {
-      name: "Proof layer",
-      modules: [
-        [
-          "Graph Demo",
-          "Interactive graph concepts and typed relationships",
-          "graph",
-        ],
-        [
-          "Integration",
-          "How uploads, graph state, retrieval, Remote MCP, and FIG View connect",
-          "architecture / ingestion / fig-view",
-        ],
-        [
-          "Ingestion",
-          "Extract, packetize, encode, verify invariants, and write to graph",
-          "ingestion / document-intel",
-        ],
-        [
-          "Quick Start",
-          "Local production stack, health checks, and MCP / API key setup",
-          "quickstart / deployment",
-        ],
-        [
-          "Math Proof",
-          "Native-vector math, graph invariants, fingerprints, and deterministic checks",
-          "memory / capabilities",
-        ],
-        [
-          "Query Explain",
-          "Score stack, provenance, pulse-v2, and retrieval evidence",
-          "retrieval / cortex / fig-view",
-        ],
-        [
-          "Evolution",
-          "Explicit graph-scoped self-evolve and self-invent controls",
-          "cortex-runtime / roadmap",
-        ],
-        [
-          "FIG View",
-          "3D graph inspection, pulse-v2 ledger, event timeline, and lineage",
-          "fig-view",
-        ],
-        [
-          "Manifesto",
-          "FAIM design principles and non-goals",
-          "what-is-faim / why-faim",
-        ],
-        [
-          "Benchmarks",
-          "Live engine, infrastructure, stress, and regression measurements",
-          "benchmarks",
-        ],
-      ],
-    },
-    {
-      name: "Operations and scale",
-      modules: [
-        [
-          "How It Works",
-          "Upload-to-answer lifecycle",
-          "architecture / ingestion / retrieval",
-        ],
-        [
-          "Docs and Operations",
-          "Runbooks, deployment, maintenance, and operational contracts",
-          "deployment / current-state",
-        ],
-        [
-          "Developer API",
-          "Tenant-scoped REST and API-key integration surface",
-          "security / deployment",
-        ],
-        [
-          "Security",
-          "Authentication, scopes, encryption, provenance, and tenant boundaries",
-          "security",
-        ],
-        [
-          "Use Cases",
-          "Knowledge teams, regulated companies, platform teams, and research",
-          "why-faim / capabilities",
-        ],
-        [
-          "Roadmap and Future Scale",
-          "Implemented runtime versus bounded future GPU/scale work",
-          "roadmap / scale-ann",
-        ],
-        [
-          "FAQ and CTA",
-          "Public product questions and conversion paths",
-          "what-is-faim / quickstart",
-        ],
-      ],
-    },
+function SectionHybridRouting() {
+  const routingMatrix = [
+    [
+      "FAST + English",
+      "FAIM_FAST_ML_EMBEDDING=auto",
+      "FAIM-Pure (256-dim native)",
+      "fast_pure_english — skips neural inference for deterministic ~2ms speed",
+    ],
+    [
+      "FAST + Non-English",
+      "FAIM_FAST_ML_EMBEDDING=auto",
+      "Granite 97M Multilingual Dense",
+      "fast_multilingual_embedding — auto-enables cross-lingual dense recall",
+    ],
+    [
+      "STRICT / BALANCED / RELAXED",
+      "FAIM_FAST_ML_EMBEDDING=auto",
+      "Active ML Embedding + Native Core",
+      "regular_embedding — blends semantic vectors with canonical graph recall",
+    ],
+    [
+      "CPU-Only VPS Override",
+      "FAIM_FAST_ML_EMBEDDING=false",
+      "FAIM-Pure in FAST mode",
+      "fast_pure_forced — guarantees zero GPU requirement for fast paths",
+    ],
+    [
+      "Always Neural Fast Path",
+      "FAIM_FAST_ML_EMBEDDING=true",
+      "Active ML Embedding in FAST mode",
+      "ml_embedding_forced — prioritizes neural vectors even on English FAST queries",
+    ],
   ];
 
-  const claimRegister = [
+  const envVars = [
     [
-      "Deterministic native core",
-      "Implemented",
-      "256-dimensional native vectors, SHA-256 lineage, graph writes, and invariant validation are documented under Architecture and Memory System.",
+      "FAIM_FAST_ML_EMBEDDING",
+      "auto (default)",
+      "Controls dynamic CPU FAIM-Pure vs ML embedding selection per query language and profile.",
     ],
     [
-      "Hybrid retrieval",
-      "Implemented",
-      "Native vector recall remains canonical; sparse Representation V2, Semantic Signature V1, weighted expansion, late interaction, graph diffusion, and deterministic reranking are documented under Retrieval Engine and P2–P6.",
+      "FAIM_EMBEDDING_DEVICE",
+      "cpu | auto",
+      "Selects CPU inference on standard VPS instances or CUDA GPU execution when NVIDIA runtime is available.",
     ],
     [
-      "Adaptive bounded traversal",
-      "Implemented",
-      "Callers and MCP agents control bounded traversal via graph_max_hops (1–24, defaulting to 2) on /api/v1/query and /api/v1/memory/search.",
+      "FAIM_CONTAINER_RUNTIME",
+      "runc | nvidia",
+      "Single compose knob switching containers between standard CPU (runc) and GPU passthrough (nvidia).",
     ],
     [
-      "Semantic registry and lexical broadening",
-      "Implemented with bounded runtime claims",
-      "ConceptNet-derived resources, multilingual lexicons, graph-local semantics, and domain memory strengthen retrieval. Registry size and shipped archive counts must remain tied to measured assets, not marketing labels.",
-    ],
-    [
-      "Autonomous domain memory",
-      "Implemented",
-      "Uploaded material can form graph-local terms, aliases, entities, relations, facts, values, temporal cues, and domain bundles used by later retrieval.",
-    ],
-    [
-      "Pulse-v2 and FIG proof",
-      "Implemented for supported query/path explain contracts",
-      "Backend pulse events and reason-source ledgers drive node glow, path motion, inspector proof, relation traces, and semantic-layer explanations.",
-    ],
-    [
-      "Remote MCP & idempotent writes",
-      "Implemented",
-      "Remote MCP (/mcp with OAuth 2.1 + PKCE), offline faim-mcp CLI, and one-time API keys provide direct idempotent memory writes and tenant-isolated graph access.",
-    ],
-    [
-      "OCR and multimodal extraction",
-      "Implemented in supported pipeline",
-      "Document intelligence covers supported files, OCR fail-closed behavior, tables, layout, image features, and additive sidecars. Availability follows the runtime supported-types surface.",
-    ],
-    [
-      "Security and operations",
-      "Implemented",
-      "Authenticated tenant-scoped sessions, API-key scopes, encrypted raw storage, key maintenance, rate limits, health checks, and operational routes are documented under Security and Deployment.",
-    ],
-    [
-      "GPU massive-scale claims",
-      "Roadmap / deployment-dependent",
-      "GPU acceleration, 100M+ node throughput, and sub-millisecond targets are future or benchmark-dependent architecture targets, not universal current guarantees.",
+      "FAIM_EMBEDDING_PREWARM_REQUIRED",
+      "false (default)",
+      "Allows API & worker pods to start cleanly even if optional embedding prewarm times out.",
     ],
   ];
 
   return (
     <div className="space-y-6">
       <div>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/25 text-emerald-300">
+            CPU VPS & GPU Cloud
+          </span>
+        </div>
         <h2 className="text-2xl font-bold text-white mb-2">
-          Landing Page Coverage
+          Dynamic CPU/GPU Hybrid Routing
         </h2>
         <p className="text-slate-400 leading-relaxed">
-          This section is the source map between the public landing page and the
-          technical documentation. The landing page is organized as 30 modules
-          across 5 product layers. Every module below points to the
-          documentation section that explains its runtime behavior, or states
-          clearly when the surface is a future/roadmap presentation rather than
-          a current guarantee.
+          FAIM automatically routes queries between ultra-fast zero-ML native
+          vectors (<span className="text-white font-medium">FAIM-Pure</span>)
+          and local multilingual neural embeddings (
+          <span className="text-white font-medium">Granite 97M Dense</span>)
+          based on query profile, language, and available compute hardware.
         </p>
       </div>
 
-      <Card title="Public Surface Map" color="cyan">
-        <div className="space-y-5">
-          {moduleGroups.map((group) => (
-            <div key={group.name}>
-              <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-cyan-300">
-                {group.name}
-              </p>
-              <div className="overflow-x-auto rounded-xl border border-slate-800">
-                <table className="w-full min-w-[680px] text-left text-[11px]">
-                  <thead className="bg-slate-950/70 text-slate-500">
-                    <tr>
-                      <th className="px-3 py-2 font-mono uppercase tracking-wider">
-                        Landing module
-                      </th>
-                      <th className="px-3 py-2 font-mono uppercase tracking-wider">
-                        Information exposed
-                      </th>
-                      <th className="px-3 py-2 font-mono uppercase tracking-wider">
-                        Docs cross-reference
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {group.modules.map(([module, info, reference]) => (
-                      <tr
-                        key={module}
-                        className="border-t border-slate-800/80 align-top"
-                      >
-                        <td className="px-3 py-2.5 font-medium text-white">
-                          {module}
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-400">{info}</td>
-                        <td className="px-3 py-2.5 font-mono text-cyan-300/80">
-                          {reference}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+      <div className="grid md:grid-cols-3 gap-4">
+        <Card title="Zero-GPU VPS Ready" color="cyan">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Runs out of the box on commodity CPU servers using{" "}
+            <code className="text-cyan-300">runc</code> and deterministic
+            256-dim native vectors without GPU hardware requirements.
+          </p>
+        </Card>
+        <Card title="Automatic GPU Acceleration" color="purple">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Flip{" "}
+            <code className="text-purple-300">
+              FAIM_CONTAINER_RUNTIME=nvidia
+            </code>{" "}
+            and{" "}
+            <code className="text-purple-300">FAIM_EMBEDDING_DEVICE=auto</code>{" "}
+            in one shared compose file to unlock CUDA inference.
+          </p>
+        </Card>
+        <Card title="Fail-Open Resilience" color="emerald">
+          <p className="text-sm text-slate-400 leading-relaxed">
+            If an external or local embedding worker is unavailable or cold,
+            FAIM falls back cleanly to cached dense vectors and FAIM-Pure
+            without dropping requests.
+          </p>
+        </Card>
+      </div>
 
-      <Card title="Landing Claim Register" color="purple">
-        <p className="mb-4 text-sm leading-relaxed text-slate-400">
-          This register prevents the public page from implying more than the
-          runtime proves. “Implemented” means the current application has a
-          shipped code path and technical documentation. “Roadmap / deployment-
-          dependent” means it must not be read as a universal present-day SLA.
+      <Card title="Routing Policy Matrix" color="cyan">
+        <p className="text-sm text-slate-400 leading-relaxed mb-4">
+          Runtime selection executed inside{" "}
+          <code className="text-cyan-300">resolve_fast_ml_embedding_mode</code>{" "}
+          on every query and ingestion request:
         </p>
         <div className="overflow-x-auto rounded-xl border border-slate-800">
-          <table className="w-full min-w-[760px] text-left text-[11px]">
-            <thead className="bg-slate-950/70 text-slate-500">
+          <table className="w-full min-w-[680px] text-left text-xs">
+            <thead className="bg-slate-950/70 text-slate-400 font-mono">
               <tr>
-                <th className="px-3 py-2 font-mono uppercase tracking-wider">
-                  Claim area
-                </th>
-                <th className="px-3 py-2 font-mono uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-3 py-2 font-mono uppercase tracking-wider">
-                  Documentation truth
-                </th>
+                <th className="px-3 py-2.5">Query Profile & Language</th>
+                <th className="px-3 py-2.5">Policy Setting</th>
+                <th className="px-3 py-2.5">Active Engine</th>
+                <th className="px-3 py-2.5">Routing Reason</th>
               </tr>
             </thead>
-            <tbody>
-              {claimRegister.map(([area, status, truth]) => (
-                <tr
-                  key={area}
-                  className="border-t border-slate-800/80 align-top"
-                >
-                  <td className="px-3 py-2.5 font-medium text-white">{area}</td>
-                  <td
-                    className={`px-3 py-2.5 font-mono ${status.startsWith("Roadmap") ? "text-amber-300" : "text-emerald-300"}`}
-                  >
-                    {status}
+            <tbody className="divide-y divide-slate-800/60">
+              {routingMatrix.map(([profile, setting, engine, reason]) => (
+                <tr key={profile} className="align-top">
+                  <td className="px-3 py-2.5 font-medium text-white">
+                    {profile}
                   </td>
-                  <td className="px-3 py-2.5 leading-relaxed text-slate-400">
-                    {truth}
+                  <td className="px-3 py-2.5 font-mono text-cyan-300">
+                    {setting}
                   </td>
+                  <td className="px-3 py-2.5 text-emerald-300">{engine}</td>
+                  <td className="px-3 py-2.5 text-slate-400">{reason}</td>
                 </tr>
               ))}
             </tbody>
@@ -3788,38 +3647,228 @@ function SectionLandingCoverage() {
         </div>
       </Card>
 
-      <Card title="Maintenance Rule" color="amber">
-        <ul className="space-y-2 text-sm leading-relaxed text-slate-400">
-          <li className="flex gap-2">
-            <span className="text-amber-300">→</span>
-            <span>
-              When a landing module changes, update its linked technical docs
-              and this coverage map in the same change.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className="text-amber-300">→</span>
-            <span>
-              Keep current runtime behavior separate from future GPU, ANN-scale,
-              or benchmark targets.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className="text-amber-300">→</span>
-            <span>
-              Use the application’s measured benchmark and health surfaces
-              before adding performance numbers to public copy.
-            </span>
-          </li>
-          <li className="flex gap-2">
-            <span className="text-amber-300">→</span>
-            <span>
-              Do not describe showcase visualizations as live backend telemetry
-              unless the corresponding explain/event contract exists.
-            </span>
-          </li>
-        </ul>
+      <Card title="Runtime Environment Switches" color="amber">
+        <div className="space-y-2.5">
+          {envVars.map(([name, def, desc]) => (
+            <div
+              key={name}
+              className="rounded-lg border border-slate-800/80 bg-slate-950/60 p-3 flex flex-col sm:flex-row sm:items-center gap-2 justify-between"
+            >
+              <div>
+                <p className="font-mono text-xs text-amber-300">{name}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{desc}</p>
+              </div>
+              <span className="shrink-0 text-[11px] font-mono px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-slate-300">
+                {def}
+              </span>
+            </div>
+          ))}
+        </div>
       </Card>
+    </div>
+  );
+}
+
+function SectionApiReference() {
+  const endpointGroups = [
+    {
+      title: "Health & Service Metadata",
+      color: "emerald",
+      routes: [
+        [
+          "GET",
+          "/health",
+          "Public",
+          "Liveness probe returning service health status.",
+        ],
+        [
+          "GET",
+          "/ready",
+          "Public",
+          "Readiness check validating database, vector index, and queue readiness.",
+        ],
+        [
+          "GET",
+          "/version",
+          "Public",
+          "Returns active FAIM runtime build and schema compatibility version.",
+        ],
+        [
+          "GET",
+          "/pipeline/stats",
+          "Auth",
+          "Live ingestion & retrieval stage counters (also mounted under /api/v1).",
+        ],
+      ],
+    },
+    {
+      title: "Retrieval, Query & Direct Memory",
+      color: "cyan",
+      routes: [
+        [
+          "POST",
+          "/api/v1/query",
+          "Bearer / Key",
+          "Hybrid query execution with profile, graph_max_hops (1-24), and explain payload.",
+        ],
+        [
+          "POST",
+          "/api/v1/memory/search",
+          "Bearer / Key",
+          "Bounded memory node search across canonical, semantic, and graph channels.",
+        ],
+        [
+          "POST",
+          "/api/v1/memory/write",
+          "Bearer / Key",
+          "Idempotent memory node creation with SHA-256 content lineage.",
+        ],
+        [
+          "GET",
+          "/api/v1/memory/{node_id}/provenance",
+          "Bearer / Key",
+          "Returns immutable byte-offset source span and document lineage.",
+        ],
+      ],
+    },
+    {
+      title: "Knowledge Graph, Ingestion & Evolution",
+      color: "purple",
+      routes: [
+        [
+          "POST",
+          "/api/v1/ingest",
+          "Bearer / Key",
+          "Ingests raw text/structured payloads into deterministic nodes and edges.",
+        ],
+        [
+          "POST",
+          "/api/v1/ingest/upload",
+          "Bearer / Key",
+          "Multipart document ingestion for PDF, DOCX, PPTX, XLSX, HTML, MD, and code.",
+        ],
+        [
+          "GET",
+          "/api/v1/graph/surface",
+          "Bearer / Key",
+          "Retrieves typed nodes, edges, clusters, and coordinates for FIG View.",
+        ],
+        [
+          "POST",
+          "/api/v1/graph/paths/explain",
+          "Bearer / Key",
+          "Returns pulse-v2 reasoning chains and edge weights for explainability UI.",
+        ],
+        [
+          "POST",
+          "/api/v1/evolve",
+          "Bearer / Key",
+          "Explicitly triggers opt-in graph structural learning and hypothesis checks.",
+        ],
+        [
+          "GET",
+          "/api/v1/events/stream",
+          "Bearer / Key",
+          "Server-Sent Events stream of live ingestion, query, and maintenance events.",
+        ],
+      ],
+    },
+    {
+      title: "Storage Maintenance, API Keys & Remote MCP",
+      color: "amber",
+      routes: [
+        [
+          "POST",
+          "/api/v1/storage/uploads",
+          "Bearer",
+          "Tracked batch file upload & background ingestion queue.",
+        ],
+        [
+          "GET",
+          "/api/v1/storage/supported-types",
+          "Public / Auth",
+          "Lists active parser & OCR capabilities enabled on this runtime.",
+        ],
+        [
+          "POST",
+          "/api/v1/api-keys",
+          "Bearer",
+          "Issues scoped tenant API keys (shown once at creation time).",
+        ],
+        [
+          "POST / SSE",
+          "/mcp",
+          "OAuth 2.1 / Key",
+          "Remote MCP Streamable HTTP endpoint with PKCE for IDE & agent clients.",
+        ],
+      ],
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-white mb-2">
+          REST API Reference
+        </h2>
+        <p className="text-slate-400 leading-relaxed">
+          All operational endpoints are tenant-isolated by workspace scope and
+          accept either session JWTs (
+          <code className="text-cyan-300">Authorization: Bearer</code>) or
+          scoped machine keys (<code className="text-cyan-300">X-API-Key</code>
+          ).
+        </p>
+      </div>
+
+      <Card title="Quick Curl Example" color="indigo">
+        <Code>{`# Check health & execute a hybrid bounded query
+curl -fsS http://localhost:8000/health && curl -fsS http://localhost:8000/ready
+
+curl -X POST http://localhost:8000/api/v1/query \\
+  -H "Content-Type: application/json" \\
+  -H "X-API-Key: $FAIM_API_KEY" \\
+  -d '{
+    "query": "What blocked database failover in Q3?",
+    "profile": "BALANCED",
+    "graph_max_hops": 4,
+    "explain": true
+  }'`}</Code>
+      </Card>
+
+      {endpointGroups.map((group) => (
+        <Card key={group.title} title={group.title} color={group.color}>
+          <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <table className="w-full min-w-[660px] text-left text-xs">
+              <thead className="bg-slate-950/70 text-slate-400 font-mono">
+                <tr>
+                  <th className="px-3 py-2 w-24">Method</th>
+                  <th className="px-3 py-2 w-64">Endpoint</th>
+                  <th className="px-3 py-2 w-28">Auth</th>
+                  <th className="px-3 py-2">Behavior</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {group.routes.map(([method, path, auth, desc]) => (
+                  <tr key={path} className="align-top">
+                    <td className="px-3 py-2.5 font-mono text-emerald-300">
+                      {method}
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-cyan-300">
+                      {path}
+                    </td>
+                    <td className="px-3 py-2.5 font-mono text-slate-400">
+                      {auth}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-300 leading-relaxed">
+                      {desc}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      ))}
     </div>
   );
 }
@@ -3827,6 +3876,17 @@ function SectionLandingCoverage() {
 // ---------------------------------------------------------------------------
 // Section renderer
 // ---------------------------------------------------------------------------
+const GROUP_ICONS: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
+  Overview: BookOpen,
+  "Core System": Cpu,
+  "Retrieval & Semantics": Layers,
+  "Documents & Extraction": FileText,
+  "Platform & Operations": ShieldCheck,
+};
+
 const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   "what-is-faim": SectionWhatIsFaim,
   "current-state": SectionCurrentState,
@@ -3836,6 +3896,7 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   memory: SectionMemory,
   graph: SectionGraph,
   retrieval: SectionRetrieval,
+  "hybrid-routing": SectionHybridRouting,
   cortex: SectionCortex,
   "cortex-runtime": SectionCortexRuntime,
   "canonical-semantics": SectionCanonicalSemantics,
@@ -3849,13 +3910,13 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
   "document-intel": SectionDocIntel,
   ingestion: SectionIngestion,
   "fig-view": SectionFigView,
+  "api-reference": SectionApiReference,
   billing: SectionBilling,
   security: SectionSecurity,
   benchmarks: SectionBenchmarks,
   deployment: SectionDeployment,
   capabilities: SectionCapabilities,
   roadmap: SectionRoadmap,
-  "landing-coverage": SectionLandingCoverage,
 };
 
 // ---------------------------------------------------------------------------
@@ -3863,7 +3924,104 @@ const SECTION_COMPONENTS: Record<string, React.ComponentType> = {
 // ---------------------------------------------------------------------------
 export default function DocsPage() {
   const [active, setActive] = useState("what-is-faim");
+  const [query, setQuery] = useState("");
+  const [mobileTocOpen, setMobileTocOpen] = useState(false);
+
+  const allItems = useMemo(() => NAV_GROUPS.flatMap((g) => g.items), []);
+
+  // Sync URL hash (#section-id) on mount and hashchange
+  useEffect(() => {
+    const applyHash = () => {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (hash && SECTION_COMPONENTS[hash]) {
+        setActive(hash);
+      }
+    };
+    applyHash();
+    window.addEventListener("hashchange", applyHash);
+    return () => window.removeEventListener("hashchange", applyHash);
+  }, []);
+
+  const selectSection = (id: string) => {
+    setActive(id);
+    setMobileTocOpen(false);
+    if (typeof window !== "undefined") {
+      if (window.location.hash !== `#${id}`) {
+        window.history.replaceState(null, "", `#${id}`);
+      }
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const filteredGroups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return NAV_GROUPS;
+    return NAV_GROUPS.map((g) => {
+      const groupMatches = g.group.toLowerCase().includes(q);
+      const items = groupMatches
+        ? g.items
+        : g.items.filter((item) => item.label.toLowerCase().includes(q));
+      return { ...g, items };
+    }).filter((g) => g.items.length > 0);
+  }, [query]);
+
+  const activeMeta = useMemo(() => {
+    for (const g of NAV_GROUPS) {
+      const found = g.items.find((i) => i.id === active);
+      if (found) return { group: g.group, label: found.label };
+    }
+    return { group: "Overview", label: "What is FAIM?" };
+  }, [active]);
+
   const Content = SECTION_COMPONENTS[active] ?? SectionWhatIsFaim;
+
+  const renderNavContent = () => (
+    <div className="space-y-4">
+      {filteredGroups.length === 0 ? (
+        <div className="px-3 py-6 text-center text-xs text-slate-500">
+          No matching topics for &ldquo;{query}&rdquo;
+        </div>
+      ) : (
+        filteredGroups.map((group) => {
+          const GroupIcon = GROUP_ICONS[group.group] ?? Sparkles;
+          return (
+            <div key={group.group} className="space-y-1">
+              <div className="flex items-center justify-between px-2.5 pt-1 pb-1">
+                <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  <GroupIcon className="w-3.5 h-3.5 text-cyan-400/80" />
+                  {group.group}
+                </span>
+                <span className="text-[10px] font-mono text-slate-600">
+                  {group.items.length}
+                </span>
+              </div>
+              <div className="space-y-0.5 pl-1 border-l border-slate-800/80 ml-2.5">
+                {group.items.map((item) => {
+                  const isActive = active === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => selectSection(item.id)}
+                      className={`group w-full flex items-center justify-between text-left px-3 py-1.5 rounded-lg text-[13px] transition-all ${
+                        isActive
+                          ? "bg-gradient-to-r from-cyan-500/15 to-cyan-500/5 text-cyan-200 font-medium border-l-2 border-cyan-400 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.18)]"
+                          : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 border-l-2 border-transparent"
+                      }`}
+                    >
+                      <span className="truncate">{item.label}</span>
+                      {isActive && (
+                        <ChevronRight className="w-3.5 h-3.5 shrink-0 text-cyan-400" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
 
   return (
     <main className="min-h-screen bg-slate-950">
@@ -3893,40 +4051,118 @@ export default function DocsPage() {
       </nav>
 
       <div className="pt-28 pb-20 px-4">
-        <div className="max-w-7xl mx-auto flex gap-8">
-          {/* Sidebar */}
-          <aside className="hidden lg:block w-52 shrink-0">
-            <div className="sticky top-28 space-y-5">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 px-3">
-                FAIM Docs
-              </p>
-              {NAV_GROUPS.map((group) => (
-                <div key={group.group}>
-                  <p className="text-[9px] font-semibold uppercase tracking-widest text-slate-600 px-3 mb-1">
-                    {group.group}
+        <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8">
+          {/* Mobile / Tablet Table of Contents Drawer */}
+          <div className="lg:hidden">
+            <button
+              type="button"
+              onClick={() => setMobileTocOpen((v) => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-slate-900/70 border border-slate-800 text-left"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Menu className="w-4 h-4 text-cyan-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                    {activeMeta.group}
                   </p>
-                  <div className="space-y-0.5">
-                    {group.items.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => setActive(item.id)}
-                        className={`w-full text-left px-3 py-1.5 rounded-lg text-sm transition-all ${
-                          active === item.id
-                            ? "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20"
-                            : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 border border-transparent"
-                        }`}
-                      >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
+                  <p className="text-sm font-medium text-white truncate">
+                    {activeMeta.label}
+                  </p>
                 </div>
-              ))}
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-400 transition-transform ${
+                  mobileTocOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {mobileTocOpen && (
+              <div className="mt-2 rounded-2xl bg-slate-900/90 backdrop-blur-xl border border-slate-800 p-4 space-y-3">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Filter documentation topics..."
+                    className="w-full pl-8 pr-8 py-1.5 rounded-lg bg-slate-950/80 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50"
+                  />
+                  {query && (
+                    <button
+                      type="button"
+                      onClick={() => setQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                      aria-label="Clear filter"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-96 overflow-y-auto pr-1">
+                  {renderNavContent()}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop Sidebar Table of Contents */}
+          <aside className="hidden lg:block w-72 shrink-0">
+            <div className="sticky top-24 rounded-2xl bg-slate-900/50 backdrop-blur-md border border-slate-800/80 p-4 flex flex-col max-h-[calc(100vh-7rem)] shadow-xl shadow-slate-950/40">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/80">
+                <div>
+                  <p className="text-xs font-semibold text-white tracking-tight">
+                    Documentation
+                  </p>
+                  <p className="text-[11px] font-mono text-slate-500">
+                    {allItems.length} technical guides
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-cyan-500/10 border border-cyan-500/25 text-cyan-300">
+                  {APP_VERSION}
+                </span>
+              </div>
+
+              {/* Filter Input */}
+              <div className="relative mb-3">
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Filter topics..."
+                  className="w-full pl-8 pr-8 py-1.5 rounded-lg bg-slate-950/80 border border-slate-800 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                    aria-label="Clear filter"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Scrollable Navigation Groups */}
+              <div className="overflow-y-auto pr-1 flex-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                {renderNavContent()}
+              </div>
             </div>
           </aside>
 
           {/* Content panel — only active section shown */}
           <div className="flex-1 min-w-0 max-w-4xl">
+            <div className="mb-5 flex items-center gap-2 text-xs font-mono text-slate-500">
+              <span>Docs</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-700" />
+              <span className="text-slate-400">{activeMeta.group}</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-700" />
+              <span className="text-cyan-300">{activeMeta.label}</span>
+            </div>
+
             <AnimatePresence mode="wait">
               <motion.div
                 key={active}
@@ -3939,10 +4175,9 @@ export default function DocsPage() {
               </motion.div>
             </AnimatePresence>
 
-            {/* Bottom nav */}
-            <div className="mt-12 pt-6 border-t border-slate-800/60 flex items-center justify-between">
+            {/* Bottom prev/next pagination */}
+            <div className="mt-12 pt-6 border-t border-slate-800/60 flex items-center justify-between gap-4">
               {(() => {
-                const allItems = NAV_GROUPS.flatMap((g) => g.items);
                 const idx = allItems.findIndex((i) => i.id === active);
                 const prev = allItems[idx - 1];
                 const next = allItems[idx + 1];
@@ -3950,20 +4185,30 @@ export default function DocsPage() {
                   <>
                     {prev ? (
                       <button
-                        onClick={() => setActive(prev.id)}
-                        className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+                        onClick={() => selectSection(prev.id)}
+                        className="group flex flex-col items-start text-left px-4 py-2.5 rounded-xl border border-slate-800/80 bg-slate-900/30 hover:border-slate-700 hover:bg-slate-900/70 transition-all"
                       >
-                        <span>←</span> {prev.label}
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                          ← Previous
+                        </span>
+                        <span className="text-sm text-slate-300 group-hover:text-white mt-0.5">
+                          {prev.label}
+                        </span>
                       </button>
                     ) : (
                       <span />
                     )}
                     {next ? (
                       <button
-                        onClick={() => setActive(next.id)}
-                        className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+                        onClick={() => selectSection(next.id)}
+                        className="group flex flex-col items-end text-right px-4 py-2.5 rounded-xl border border-slate-800/80 bg-slate-900/30 hover:border-cyan-500/40 hover:bg-slate-900/70 transition-all"
                       >
-                        {next.label} <span>→</span>
+                        <span className="text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                          Next →
+                        </span>
+                        <span className="text-sm text-slate-300 group-hover:text-cyan-300 mt-0.5">
+                          {next.label}
+                        </span>
                       </button>
                     ) : (
                       <span />

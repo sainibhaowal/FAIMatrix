@@ -90,10 +90,10 @@ export default function AdvancedADIPipeline() {
       <div className="max-w-6xl mx-auto relative z-10">
         <div className="text-center mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-purple-500/30 bg-purple-500/5 text-purple-300 text-xs font-semibold uppercase tracking-wider mb-4">
-            Advanced ADI Architecture
+            Progressive Retrieval Architecture
           </div>
           <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight mb-6 bg-gradient-to-r from-white via-cyan-100 to-indigo-300 bg-clip-text text-transparent">
-            The 4-Stage Progressive ADI Retrieval Pipeline
+            The 4-Stage Progressive Retrieval Pipeline
           </h2>
           <p className="text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed">
             The pipeline composes relational algebra, sparse pruning, native
