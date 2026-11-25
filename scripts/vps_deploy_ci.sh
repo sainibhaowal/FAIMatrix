@@ -119,6 +119,14 @@ if [[ "${1:-}" == "--preflight-only" ]]; then
   exit 0
 fi
 
+gateway_network="$(env_value FAIM_GATEWAY_NETWORK)"
+gateway_network="${gateway_network:-faim-gateway-net}"
+if ! docker network inspect "$gateway_network" >/dev/null 2>&1; then
+  echo "Missing external Docker gateway network: $gateway_network" >&2
+  echo "Create it once on the VPS or set FAIM_GATEWAY_NETWORK in $ENV_FILE before deploying." >&2
+  exit 1
+fi
+
 echo "Starting infrastructure without stopping existing services..."
 "${COMPOSE[@]}" up -d --wait postgres redis qdrant
 
@@ -147,7 +155,8 @@ echo "Ensuring the reverse proxy is running..."
 "${COMPOSE[@]}" up -d --wait --no-deps caddy
 
 echo "Running public smoke checks..."
-"$SCRIPT_DIR/vps_smoke.sh" https://faimatrix.com
+public_origin="$(env_value FAIM_PUBLIC_ORIGIN)"
+"$SCRIPT_DIR/vps_smoke.sh" "${public_origin:-https://faimatrix.com}"
 
 # Do not run global Docker prune commands here.  A deployment must not remove
 # unrelated containers, images, or build caches owned by other services on the

@@ -17,6 +17,8 @@
   }
 
   handle {
-    reverse_proxy faim-frontend:8010
+    reverse_proxy faim-frontend:8010 {
+      flush_interval -1
+    }
   }
 }

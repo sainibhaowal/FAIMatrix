@@ -21,7 +21,7 @@ COPY . .
 ARG NEXTAUTH_SECRET
 ARG NEXTAUTH_URL=http://localhost:8010
 ARG API_HOST=api:8000
-ARG NEXT_PUBLIC_APP_VERSION=0.6.1
+ARG NEXT_PUBLIC_APP_VERSION=0.10.0
 
 # Configure API base URL for frontend
 # Browser cannot use Docker hostname, so convert faim-api:8000 → http://localhost:8000

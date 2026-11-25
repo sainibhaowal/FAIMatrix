@@ -30,6 +30,18 @@ def test_vps_caddy_routes_backend_health_and_frontend():
     assert "Strict-Transport-Security" in content
 
 
+def test_env_example_keys_are_wired_into_unified_compose():
+    compose_content = (ROOT / "docker-compose.yml").read_text()
+    example_lines = (ROOT / ".env.example").read_text().splitlines()
+    keys = [
+        line.split("=", 1)[0].strip()
+        for line in example_lines
+        if line.strip() and not line.strip().startswith("#") and "=" in line
+    ]
+    missing = [key for key in keys if key not in compose_content]
+    assert not missing, f".env.example keys missing from docker-compose.yml: {missing}"
+
+
 def test_vps_scripts_are_present():
     for rel in [
         "scripts/vps_sync.sh",

@@ -116,7 +116,7 @@ jobs:
           push: true
           build-args: |
             NEXTAUTH_SECRET=${{ steps.frontend-build-secret.outputs.nextauth_secret }}
-            NEXTAUTH_URL=https://faimatrix.com
+            NEXTAUTH_URL=${{ vars.FAIM_PUBLIC_ORIGIN || 'https://faimatrix.com' }}
             API_HOST=faim-api:8000
             NEXT_PUBLIC_APP_VERSION=${{ steps.app-version.outputs.version }}
           tags: |
@@ -135,7 +135,7 @@ jobs:
     timeout-minutes: 20
     environment:
       name: production
-      url: https://faimatrix.com
+      url: ${{ vars.FAIM_PUBLIC_ORIGIN || 'https://faimatrix.com' }}
     env:
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
